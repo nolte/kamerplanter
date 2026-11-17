@@ -343,6 +343,27 @@ class DataExportEngine:
             label="Care log entries you redacted",
             fields=["site_key", "location_key", "category", "performed_at", "redacted_at", "redaction_reason"],
         ),
+        # #2976 (REQ-017): the rooting protocols the subject last saved, in any tenant they belong to. The
+        # erasure removes the reference (ErasureEngine), so the protocol is disclosed by it (R2 of
+        # scripts/check_privacy_inventory.py); the account key itself is not a field of the disclosure.
+        DataSourceDefinition(
+            collection="rooting_protocols",
+            tenant_scoped=True,
+            filter_field="author_user_key",
+            label="Rooting protocols you saved",
+            fields=[
+                "name",
+                "method",
+                "medium",
+                "is_template",
+                "hormone_type",
+                "hormone_concentration_ppm",
+                "expected_root_days",
+                "instructions",
+                "created_at",
+                "updated_at",
+            ],
+        ),
         DataSourceDefinition(
             collection="plant_diary_entries",
             tenant_scoped=True,

@@ -48,6 +48,7 @@ from app.domain.models.privacy import (
     ErasureStep,
     ProcessingRestriction,
 )
+from app.domain.models.propagation import RootingProtocol
 from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site, Slot
@@ -82,6 +83,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "inspections": Inspection,
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
+    "rooting_protocols": RootingProtocol,
     "identification_requests": IdentificationRequest,
     # #1700 — categories the erasure inventory reaches since #1700, disclosed too.
     "ai_conversations": AiConversation,

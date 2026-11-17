@@ -416,6 +416,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "propagation.PropagationEvent.protocol_key": _V,  # #1872 C2
     "propagation.PropagationEvent.batch_key": _V,  # #1872 C2
     "propagation.RootingProtocol.recommended_species_keys": _V,  # #1872 C12
+    "propagation.RootingProtocol.author_user_key": _A,  # #2976: server-set from ctx.user_key, no request carries it
     "season_state.SeasonState.site_key": _I,
     "season_state.SeasonState.trigger_reason_i18n_key": _I,
     "site.Location.site_key": _V,

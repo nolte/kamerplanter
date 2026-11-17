@@ -1,7 +1,8 @@
 # SPEC-08 — Änderungen an API und Datenmodell
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97);
+Nachtrag #2976 (2026-11-16, develop 9809d3952): `rooting_protocols.author` → `author_user_key` (§3.4)
 Anforderungs-IDs: PRIV-600 … PRIV-649
 Hängt ab von: 01 §3 (Komponenten), 03–07 (Verhalten); Style Guides BACKEND.md / FRONTEND.md;
 NFR-016 (Migrationen), NFR-006 (Fehlerformat)
@@ -239,7 +240,7 @@ Der geschlossene Zustand wird abgeleitet (`is_active=false` ∧ Löschanfrage ex
 |--------|-----------|------|
 | `watering_events.performed_by`, `watering_logs.performed_by`, `tank_fill_events.performed_by`, `maintenance_logs.performed_by` | Freitext, von der Löschung ausgenommen | `performed_by_user_key: str \| None` (serverseitig gestempelt, nicht im Request-Schema) + `performed_by_label: str \| None` (≤ 80, nur Dritte); das alte Feld wird bei der Migration zum Label; UI-Dialog ersetzt durch „Ich war es / jemand anderes (Label)" |
 | `nutrient_plans.author` | Freitext, unbegrenzt | `author_user_key` + `author_label` (≤ 80); Druckvorlage rendert über `PersonRef` |
-| `rooting_protocols.author` (v1.1: „`propagation.*.author`“) | **kein Freitext [v]**: roher Kontoschlüssel der zuletzt ändernden Person (`author = ctx.user_key`), in der Antwort ausgegeben, von keiner Löschregel erreicht | eigene Datenschutzkorrektur (nicht v0111, `09` §5 Stand): Schlüssel nach `author_user_key`, Marker bei Löschung, Antwort über `PersonRef` |
+| `rooting_protocols.author` (v1.1: „`propagation.*.author`“) | **kein Freitext [v]**: roher Kontoschlüssel der zuletzt ändernden Person (`author = ctx.user_key`), in der Antwort ausgegeben, von keiner Löschregel erreicht | **umgesetzt (#2976, v0114, `09` §5a):** `author_user_key` (serverseitig gestempelt, kein Request-Schema), Marker bei Löschung; `RootingProtocolResponse.author` = Anzeigename oder `anonymisiert`, nie der Schlüssel; kein Label-Feld (kein Dritter tippt hier einen Namen) |
 | `inspections.inspector` über MCP `"mcp:<key>"` | Pseudo-Schlüssel im Freitext; `inspected_by_key` existiert seit #1669 | `inspected_by_key = service account key` (nur wenn `null` und Service-Konto mit Mitgliedschaft im Mandanten); `inspector = ""` |
 | `workflow_templates.created_by` | Freitext (≤ 200) | `created_by_user_key` + Prüffeld |
 

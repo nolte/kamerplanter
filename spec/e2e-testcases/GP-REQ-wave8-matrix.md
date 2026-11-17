@@ -42,7 +42,7 @@ Honest gaps are listed in `GP-REQ-wave8-gaps.json` with a reason and an issue: *
 | GP-NFR-063 | SHOULD | consistency job reports run time and hits, warns above 100 (WP 8.2) | unit | `src/backend/tests/unit/domain/services/test_care_event_consistency_service.py` |
 | GP-NFR-071 | SHOULD | INP measurement profile (WP 8.29) | e2e | `tests/e2e/test_req053_inp_profile.py` |
 | GP-NFR-072 | SHOULD | import migrates the last two schema versions (WP 8.28) | guards, unit | `src/backend/tests/unit/guards/test_plan_import_keeps_two_schema_versions.py`<br>`src/backend/tests/unit/domain/engines/test_plan_schema_migration.py`<br>`src/backend/tests/unit/domain/services/test_garden_plan_import_service.py` |
-| GP-API-034 | API | wave-8 part: format=csv on the care-event list (WP 8.4) | api | `src/backend/tests/api/test_care_events_api.py` |
+| GP-API-034 | API | wave-8 part: format=csv on the care-event list (WP 8.4) | api, unit | `src/backend/tests/api/test_care_events_api.py`<br>`src/backend/tests/unit/domain/services/test_propagation_service.py` |
 | GP-API-040 | API | accept / dismiss a suggested task (WP 8.17) | api, e2e, frontend, integration, unit | `src/backend/tests/api/test_task_suggestions_api.py`<br>`tests/e2e/test_req053_wave8_part_a.py`<br>`src/frontend/src/features/gardenPlanner/care/BedCareTab.test.tsx`<br>`src/backend/tests/integration/test_garden_plan_tenant_isolation.py`<br>`src/backend/tests/integration/test_task_suggestions.py`<br>`src/backend/tests/unit/test_route_consumers_check.py` |
 | GP-API-063 | API | rotation matrix of a site (WP 8.12) | api | `src/backend/tests/api/test_bed_rotation_api.py` |
 | GP-API-064 | API | follow-up crop recommendation of a bed (WP 8.14) | api | `src/backend/tests/api/test_bed_rotation_api.py` |

@@ -167,6 +167,8 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     ("site.py", "Slot", "position"): _MigratedBy("0093"),
     # #2171 — the clear iCal token became its SHA-256 digest ``token_hash``; v0090 hashes and unsets it.
     ("calendar.py", "CalendarFeed", "token"): _MigratedBy("0090"),
+    # #2976 — the raw account key moved to ``author_user_key`` (R6 shape); v0114 moves it and unsets ``author``.
+    ("propagation.py", "RootingProtocol", "author"): _MigratedBy("0114"),
     ("calendar.py", "CalendarEventsQuery", "site_key"): _NoStoredDocuments(
         "A query object built per request and handed to the aggregation engine; never written to "
         "any collection. Removed in the #2226 review (SEC-003) that followed 31329837d, together with the "

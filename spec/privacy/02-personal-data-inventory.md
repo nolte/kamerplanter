@@ -1,7 +1,8 @@
 # SPEC-02 — Inventar personenbezogener Daten
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
+Paket: spec/privacy · Version 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97);
+Nachtrag #2976 (2026-11-16, develop 9809d3952): `rooting_protocols.author_user_key` (Marker-Regel, v0114)
 Anforderungs-IDs: PRIV-030 … PRIV-049 (Inventarregeln)
 Änderung v1.1: `erasure_mirror` statt Raw-Key-Ledger, `migration_reports`, Ableitungswege jenseits der statischen
 Prüfung (§5a); Rechtsgrundlagen-Spalten verweisen auf `06` §2 (PA-nn) und `13` (L-nn).
@@ -132,7 +133,7 @@ konstruktionsbedingt keinen personenbezogenen Freitext. Geometrie (`garden_objec
 | ⟂ | `inspections.{inspected_by_key, inspector, notes}` | wie oben | ja | Überwachung nach PflSchG | R-18 | | ≥ 3 J | wie Behandlung | | MCP schreibt `inspector = "mcp:<key>"` [v] → PRIV-310 |
 | | `watering_events.{performed_by (Freitext), notes}`, `watering_logs.{performed_by, notes}`, `tank_fill_events.{performed_by, notes}`, `maintenance_logs.{performed_by, notes}` | TXT (eingetippter Name) | ja (Name) | Betrieb | 6(1)(b) | Mitglieder; in der UI editierbar [v] | **keine [v] → R-46** | **ausgeschlossen [v] (Freitext)** → **auf Schlüsselfeld + Label migrieren** (`08` §3.4) | nach Migration: Marker | → `care_events(watering/feeding)` ohne Ausführende/n [v] |
 | | `feeding_events.{notes, material}` | TXT | kann | Betrieb | 6(1)(b) | Mitglieder | keine → R-46 | behalten | — | → `care_events(feeding)` |
-| | `nutrient_plans.author` (Freitext, **kein Maximum [v]**); `rooting_protocols.author` ist **kein** Freitext, sondern der rohe Kontoschlüssel der zuletzt ändernden Person [v] (`09` §5 Stand, eigene Korrektur) | TXT (eingetippter Name) | ja | Urheberschaft | 6(1)(b) | Mitglieder; **auf dem Nährstoffplan-PDF gedruckt [v]** | Lebensdauer | **in keiner Regel [v]** → Schlüsselfeld + Label (`08` §3.4) | Marker | Druckvorlage |
+| | `nutrient_plans.author` (Freitext, **kein Maximum [v]**); `rooting_protocols.author` war **kein** Freitext, sondern der rohe Kontoschlüssel der zuletzt ändernden Person [v]; seit #2976 `rooting_protocols.author_user_key` (ACC, Marker-Regel, Art.-15-Quelle, Antwort zeigt Anzeigenamen; Bestand v0114, `09` §5a) | TXT (eingetippter Name) | ja | Urheberschaft | 6(1)(b) | Mitglieder; **auf dem Nährstoffplan-PDF gedruckt [v]** | Lebensdauer | **in keiner Regel [v]** → Schlüsselfeld + Label (`08` §3.4) | Marker | Druckvorlage |
 | ⟂ | `plant_diary_entries.{created_by, analysis_requested_by, analysis_claimed_by}` | ATTR | ja | Pflanzenprotokoll | 6(1)(b)/(f) | C (t); alle Mitglieder lesen Einträge [v] | Lebensdauer | Marker [v] | Marker | — |
 | ⟂ | `plant_diary_entries.{title (≤200), text (≤5000), tags, analysis.summary, analysis.findings}` | TXT | kann | Pflanzenprotokoll | 6(1)(b) | alle Mitglieder; `GET /diary?q=` Teilstringsuche [v] | Lebensdauer | behalten [v]; **Prüfung** | Schwärzung | KI-Analyse aus Text abgeleitet (Einwilligung `diary_ai_analysis`) |
 | | `plant_diary_entries.photo_refs` | MED | kann | Protokoll | 6(1)(b) | Mitglieder | Lebensdauer | Speicherbereich `user_diary_attachments` (Bytes behalten, `created_by` Marker, EXIF erneut entfernt) | — | `attachments` |

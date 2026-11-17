@@ -559,3 +559,47 @@ def test_graft_same_plant_is_422() -> None:
     service = PropagationService(propagation_repo=repo, lineage_engine=MagicMock(spec=LineageEngine))
     with pytest.raises(ValidationError):
         service.check_graft_compatibility("plant-1", "plant-1", "tenant-a")
+
+
+# ── protocol author (#2976) ────────────────────────────────────────────────────
+
+
+def test_protocol_author_names_shows_a_display_name_or_anonymisiert_never_a_key() -> None:
+    """The author is shown like the performer of a care event (GP-API-034): never the account key."""
+    repo = _prop_repo()
+    repo.account_display_names.return_value = {"u_live": "Lisa"}
+    service = PropagationService(propagation_repo=repo)
+    protocols = [
+        RootingProtocol(key="p1", tenant_key="tenant-a", name="A", method="cutting", author_user_key="u_live"),
+        RootingProtocol(key="p2", tenant_key="tenant-a", name="B", method="cutting", author_user_key="u_gone"),
+        RootingProtocol(key="p3", tenant_key="tenant-a", name="C", method="cutting", author_user_key="_anonymized"),
+        RootingProtocol(key="p4", tenant_key="", name="G", method="cutting"),
+    ]
+
+    names = service.protocol_author_names(protocols)
+
+    assert names == {"u_live": "Lisa", "u_gone": "anonymisiert", "_anonymized": "anonymisiert"}
+    # The marker is no account and is never looked up.
+    assert sorted(repo.account_display_names.call_args.args[0]) == ["u_gone", "u_live"]
+
+
+def test_protocol_author_names_reads_nothing_without_an_author() -> None:
+    repo = _prop_repo()
+    service = PropagationService(propagation_repo=repo)
+
+    assert service.protocol_author_names([RootingProtocol(key="g", tenant_key="", name="G", method="cutting")]) == {}
+    repo.account_display_names.assert_not_called()
+
+
+def test_the_protocol_response_carries_the_name_and_not_the_key() -> None:
+    from app.api.v1.propagation.schemas import RootingProtocolResponse
+    from app.api.v1.propagation.tenant_router import _protocol_response
+
+    protocol = RootingProtocol(key="p1", tenant_key="tenant-a", name="A", method="cutting", author_user_key="u_live")
+
+    response = _protocol_response(protocol, {"u_live": "Lisa"})
+    body = response.model_dump(by_alias=True)
+
+    assert response.author == "Lisa"
+    assert "u_live" not in body.values()
+    assert "author_user_key" not in RootingProtocolResponse.model_fields

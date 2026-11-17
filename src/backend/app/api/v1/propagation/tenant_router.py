@@ -69,9 +69,16 @@ def _batch_response(batch: PropagationBatch) -> PropagationBatchResponse:
     return PropagationBatchResponse(**batch.model_dump(by_alias=True))
 
 
-def _protocol_response(protocol: RootingProtocol) -> RootingProtocolResponse:
-    data = protocol.model_dump(by_alias=True)
-    return RootingProtocolResponse(**data, is_global=(protocol.tenant_key == ""))
+def _protocol_response(protocol: RootingProtocol, author_names: dict[str, str]) -> RootingProtocolResponse:
+    """The response never carries the author's account key, only what ``protocol_author_names`` shows (#2976)."""
+    data = protocol.model_dump(by_alias=True, exclude={"author_user_key"})
+    author = author_names.get(protocol.author_user_key) if protocol.author_user_key else None
+    return RootingProtocolResponse(**data, is_global=(protocol.tenant_key == ""), author=author)
+
+
+def _protocol_responses(protocols: list[RootingProtocol], service: PropagationService) -> list[RootingProtocolResponse]:
+    names = service.protocol_author_names(protocols)
+    return [_protocol_response(p, names) for p in protocols]
 
 
 def _phenotype_response(note: PhenotypeNote) -> PhenotypeNoteResponse:
@@ -244,8 +251,8 @@ def create_protocol(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Create a rooting protocol for the tenant."""
-    protocol = RootingProtocol(**body.model_dump(), tenant_key=ctx.tenant_key, author=ctx.user_key)
-    return _protocol_response(service.create_protocol(protocol))
+    protocol = RootingProtocol(**body.model_dump(), tenant_key=ctx.tenant_key, author_user_key=ctx.user_key)
+    return _protocol_responses([service.create_protocol(protocol)], service)[0]
 
 
 @router.get("/propagation/protocols", response_model=list[RootingProtocolResponse])
@@ -264,7 +271,7 @@ def list_protocols(
         offset=pagination.offset,
         limit=pagination.limit,
     )
-    return [_protocol_response(p) for p in items]
+    return _protocol_responses(items, service)
 
 
 @router.get("/propagation/protocols/{protocol_key}", response_model=RootingProtocolResponse)
@@ -274,7 +281,7 @@ def get_protocol(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Return a single rooting protocol by key."""
-    return _protocol_response(service.get_protocol(protocol_key, ctx.tenant_key))
+    return _protocol_responses([service.get_protocol(protocol_key, ctx.tenant_key)], service)[0]
 
 
 @router.get("/propagation/protocols/{protocol_key}/stats", response_model=ProtocolStatsResponse)
@@ -295,8 +302,8 @@ def update_protocol(
     service: PropagationService = Depends(get_propagation_service),
 ):
     """Update a rooting protocol."""
-    protocol = RootingProtocol(**body.model_dump(), tenant_key=ctx.tenant_key, author=ctx.user_key)
-    return _protocol_response(service.update_protocol(protocol_key, ctx.tenant_key, protocol))
+    protocol = RootingProtocol(**body.model_dump(), tenant_key=ctx.tenant_key, author_user_key=ctx.user_key)
+    return _protocol_responses([service.update_protocol(protocol_key, ctx.tenant_key, protocol)], service)[0]
 
 
 @router.delete("/propagation/protocols/{protocol_key}", status_code=204)
