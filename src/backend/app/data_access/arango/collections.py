@@ -1840,6 +1840,9 @@ GRAPH_EDGE_DEFINITIONS = [
 LOCATION_BED_STATUS_INDEX_FIELDS = ["site_key", "bed_status"]
 #: A site's garden objects by type (§20.4).
 GARDEN_OBJECT_TYPE_INDEX_FIELDS = ["site_key", "object_type"]
+#: The beds placed from a bed template; a template delete unsets them (``_unset_template_key``, #2562). Sparse: most
+#: locations were not placed from a template, and a system-template delete would otherwise scan every tenant's.
+LOCATION_TEMPLATE_INDEX_FIELDS = ["template_key"]
 #: ``garden_plan_audit (site_key, revision)`` — the per-site change log, bootstrap-created (WP 1.8).
 GARDEN_PLAN_AUDIT_SITE_INDEX_FIELDS = ["site_key", "revision"]
 #: A location's slots by role (position / row / zone, §20.5).
@@ -2213,6 +2216,17 @@ PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
 #: The occupancy reads select a slot's plants by ``slot_key`` (#2774).
 PLANT_INSTANCE_SLOT_INDEX_FIELDS = ["slot_key"]
 
+#: The plant ownership fields the site delete and the bed readers select by (#2562): the delete's active-plant
+#: refusal reads ``site_key OR location_key IN … OR slot_key IN …`` — one indexed branch each, else the whole
+#: ``OR`` falls back to a full scan inside the delete transaction — and the bed readers select by ``location_key``.
+#: Sparse: a plant written before v0100 carries no ``site_key``, an unplaced one no ``location_key``; every reader
+#: compares against a bound key, never against ``null``.
+PLANT_INSTANCE_SITE_INDEX_FIELDS = ["site_key"]
+PLANT_INSTANCE_LOCATION_INDEX_FIELDS = ["location_key"]
+#: The substrate delete counts the plants still naming it inside its transaction (D2, #2560); sparse — most plants
+#: name no substrate.
+PLANT_INSTANCE_SUBSTRATE_INDEX_FIELDS = ["substrate_key"]
+
 #: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
 LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
 
@@ -2423,6 +2437,13 @@ def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
     # The plants standing in a slot are selected by their own ``slot_key`` (#2774); non-unique, so creating it on a
     # volume that predates it needs no migration. One of the fields #2562 lists.
     plants_col.add_persistent_index(fields=PLANT_INSTANCE_SLOT_INDEX_FIELDS, unique=False)
+    # #2562: the rest of the plant's placement and its substrate; non-unique, so bootstrap-only (no migration).
+    for plant_index_fields in (
+        PLANT_INSTANCE_SITE_INDEX_FIELDS,
+        PLANT_INSTANCE_LOCATION_INDEX_FIELDS,
+        PLANT_INSTANCE_SUBSTRATE_INDEX_FIELDS,
+    ):
+        plants_col.add_persistent_index(fields=plant_index_fields, unique=False, sparse=True, in_background=True)
 
     # MT-035 (#2131): the keyset/offset window of each tenant's list reads `limit` entries.
     for keyset_collection in KEYSET_PAGED_COLLECTIONS:
@@ -2933,6 +2954,9 @@ def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
     )
     db.collection(GARDEN_OBJECTS).add_persistent_index(
         fields=GARDEN_OBJECT_TYPE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(LOCATIONS).add_persistent_index(
+        fields=LOCATION_TEMPLATE_INDEX_FIELDS, unique=False, sparse=True, in_background=True
     )
     db.collection(SLOTS).add_persistent_index(fields=SLOT_ROLE_INDEX_FIELDS, unique=False, in_background=True)
     # REQ-053 WP 1.8 (SR-011): the plan change log is read per site, newest revision first
