@@ -223,6 +223,37 @@ spec/analysis/agrobiology-soil-hazards-research-2888.md. Unabhängig vom REQ-054
 gebaut, der die Daten später liest. E-10: nur 3/3-belegte Werte steuern die Warndauer;
 Nachrecherche als eigenes Issue. -->
 
+### R-21 — Mehrere Dashboards mit Ansichten und handlungsfähige Pflege-Widgets
+
+```yaml
+id: R-21
+title: Mehrere Dashboards mit Ansichten und handlungsfähige Pflege-Widgets
+detail: fine
+outcomes: [O-1, O-2]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Heute hat jeder Nutzer genau ein Dashboard, für alle Gärten gleich, und die
+meisten Pflege-Widgets zeigen nur Zahlen. Künftig legt jeder Nutzer pro
+Garten (Mandant) bis zu zehn Dashboards mit je bis zu zehn Ansichten an —
+etwa „Wohnzimmer“, „Gewächshaus“, „Balkon“ — wechselt per Auswahl und Tabs
+und fügt Widgets direkt auf dem Dashboard hinzu, auch mehrfach mit eigenem
+Filter. Aufgaben, Pflege-Erinnerungen und die Pflanzenübersicht zeigen
+Pflanze, Fälligkeit und Dringlichkeit und lassen sich direkt abhaken. Das
+bisherige Layout wird übernommen.
+
+- [ ] F-22 — Dashboard-Modell v3 pro Nutzer und Mandant (`dashboard-model-v3`) — zuerst
+- [ ] F-23 — Dashboards und Ansichten verwalten (`dashboard-and-view-management`)
+- [ ] F-24 — Handlungsfähige Pflege-Widgets (`actionable-care-widgets`)
+
+<!-- Herkunft: Epic #2502 (issue-backlog-partition 2026-11-16 → requirements-elicit →
+roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt: project/requirements/multi-dashboard.md
+(U_gate 0.8 = τ_high, Sättigung). Erstes Release = Kern A (Dashboards/Ansichten) + B
+(Pflege-Widgets); Vorlagen in R-22, Teilen/Tenant-Default (REQ-045 Phase 2) und
+Sensor-/HA-Widgets später. -->
+
 ## Phase 3 — Erweiterung & Intelligenz
 
 ### R-1 — Pflanzenfoto-Galerie
@@ -276,3 +307,19 @@ Welle: #2515, #2516, #2569 (GitHub-Milestone „REQ-053 Welle 8").
 Anforderungs-Gate: Operator-Override 2026-11-01 — Grundlage ist die Spec REQ-053 v1.9
 (kein project/requirements-Artefakt). Outcome O-4 gewählt, weil keines der Outcomes den
 Gartenplan exakt trifft. -->
+
+### R-22 — Thematische Dashboard-Vorlagen
+
+```yaml
+id: R-22
+title: Thematische Dashboard-Vorlagen
+detail: backlog
+outcomes: [O-1]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Editierbare Startvorlagen für Zimmerpflanzen, Balkon, Gemüsegarten, Gewächshaus und Hydrokultur auf Basis von R-21, nur mit funktionierenden Widgets und echten Daten.
+
+<!-- Herkunft: Epic #2502 Workstream 6, aus dem ersten Release ausgegliedert (Betreiberentscheid 2026-11-17). -->
