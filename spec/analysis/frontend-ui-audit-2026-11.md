@@ -428,7 +428,7 @@ Grundlage sind die 29 Befunde aus beiden April-Reports. Die zitierten UI-NFR-Reg
 
 ## Im Branch behobene Mini-Fixes
 
-Commits `a5dd5230d` (80 Dateien) und `afd06381c` auf diesem Branch. Alle Fixes sind verhaltensneutral. Bestehende `data-testid` sind unverändert, neue sind nur hinzugekommen (UI-NFR-022 R-021). Geprüft wurde mit `tsc` (0 Fehler), ESLint auf allen geänderten Dateien (0 Fehler) und 41 betroffenen Vitest-Dateien (alle grün). Vier Test-Assertions wurden minimal angepasst, weil sie die alte, falsche Ausgabe geprüft hatten: Breadcrumbs, LanguageSelector, ThemeToggle und BotanicalFamilyCreateDialog.
+Umgesetzt in PR #3026 (81 Dateien). Alle Fixes sind verhaltensneutral. Bestehende `data-testid` sind unverändert, neue sind nur hinzugekommen (UI-NFR-022 R-021). Geprüft wurde mit `tsc` (0 Fehler), ESLint auf allen geänderten Dateien (0 Fehler) und 41 betroffenen Vitest-Dateien (alle grün). Vier Test-Assertions wurden minimal angepasst, weil sie die alte, falsche Ausgabe geprüft hatten: Breadcrumbs, LanguageSelector, ThemeToggle und BotanicalFamilyCreateDialog.
 
 | Befund | Fix |
 |---|---|
@@ -447,7 +447,7 @@ Commits `a5dd5230d` (80 Dateien) und `afd06381c` auf diesem Branch. Alle Fixes s
 | D-004 | Der Auf/Zu-Button in `CareConfirmDialog` hat jetzt `aria-label` und `aria-expanded`. |
 | N-33 | 10 Lösch-Buttons im Seitenkopf haben jetzt `variant="outlined"`. |
 | N-15, W-06 (Teil) | 10 Auth-Seiten setzen `document.title` über `useDocumentTitle`. |
-| W-01/L-06 (Teil) | Commit `afd06381c`: DataTable-Zeilen und -Karten reagieren auf Enter und Space, aber nur, wenn die Zeile selbst das Ziel ist, und ohne Key-Repeat. Enter auf einer Zeilenaktion löst die Zeile nicht mehr zusätzlich aus. Abgesichert durch zwei neue Tests und eine Gegenprobe. Rolle und Name der Zeile bleiben offen (#3017). |
+| W-01/L-06 (Teil) | DataTable-Zeilen und -Karten reagieren auf Enter und Space, aber nur, wenn die Zeile selbst das Ziel ist, und ohne Key-Repeat. Enter auf einer Zeilenaktion löst die Zeile nicht mehr zusätzlich aus. Abgesichert durch zwei neue Tests und eine Gegenprobe. Rolle und Name der Zeile bleiben offen (#3017). |
 | L-15, W-33 (Teil) | Der Manifest-Shortcut „Aussaatkalender" zeigt auf `/kalender` statt auf die nicht existierende Route `/kalender/aussaat`. |
 
 **Nicht als Mini-Fix umgesetzt:**
