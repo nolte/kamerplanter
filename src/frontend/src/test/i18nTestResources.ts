@@ -28,6 +28,10 @@ export function loadFeatureNamespacesForTests(): void {
     }
     markFeatureLocaleLoaded(locale);
   }
+  // `resolvedLanguage` was settled at init, before the English core existed, and
+  // stays on the fallback until the language is resolved again — the same step
+  // `initI18n` takes after its dynamic import (#3023).
+  void i18n.changeLanguage(i18n.language);
 }
 
 /** Fully merged translation objects (core + features) for DE/EN parity tests. */
