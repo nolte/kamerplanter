@@ -72,6 +72,8 @@ const ERROR_CODE_KEYS: Readonly<Record<string, string>> = {
   'task.missing': 'errors.taskMissing',
   'client_event.payload_mismatch': 'errors.clientEventMismatch',
   'client_event.deleted': 'errors.clientEventDeleted',
+  'phase.run_owned': 'errors.phaseRunOwned',
+  'recurrence.rrule_required': 'errors.recurrenceRruleRequired',
   // Transport codes of axios — they reach a slice as `action.error.code`.
   ERR_NETWORK: 'errors.network',
   ECONNABORTED: 'errors.networkTimeout',
@@ -101,7 +103,9 @@ function keyForStatus(status: number | undefined): string | null {
   if (status === 403) return 'errors.forbidden';
   if (status === 404) return 'errors.notFound';
   if (status === 409) return 'errors.conflict';
+  if (status === 400) return 'errors.validation';
   if (status === 413) return 'errors.tooLarge';
+  if (status === 415) return 'errors.UNSUPPORTED_MEDIA_TYPE';
   if (status === 422) return 'errors.validation';
   if (status === 429) return 'errors.rateLimited';
   if (status >= 500) return 'errors.server';

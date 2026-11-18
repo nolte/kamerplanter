@@ -103,8 +103,8 @@ describe('error contract (#3013)', () => {
   it('useApiError toasts the translated text for an unknown code, not the message', async () => {
     const wrapper = ({ children }: { children: ReactNode }) => <SnackbarProvider>{children}</SnackbarProvider>;
     const { result } = renderHook(() => useApiError(), { wrapper });
-    act(() => result.current.handleError(envelope('X', 400)));
-    // No status mapping for 400 and no code translation: the generic fallback.
+    act(() => result.current.handleError(envelope('X', 418)));
+    // No status mapping for 418 and no code translation: the generic fallback.
     expect(await screen.findByText(i18n.t('errors.unknown'))).toBeTruthy();
     expect(screen.queryByText(ENGLISH)).toBeNull();
   });

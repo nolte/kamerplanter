@@ -262,7 +262,7 @@ describe('OverwinteringOverrideDialog', () => {
 
     expect(
       await screen.findByText(
-        i18n.t('errors.validationWithDetail', { detail: 'invalid' }),
+        i18n.t('errors.validation'),
       ),
     ).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();

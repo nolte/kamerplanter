@@ -30,6 +30,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as api from '@/api/endpoints/activities';
+import { errorKey } from '@/api/errors';
 import type { Activity } from '@/api/types';
 
 const schema = z.object({
@@ -133,7 +134,7 @@ export default function ActivityDetailPage() {
           sort_order: data.sort_order,
         });
       })
-      .catch((err) => setError(err.message))
+      .catch((err) => setError(errorKey(err, 'errors.loadFailed')))
       .finally(() => setLoading(false));
   }, [key, reset]);
 

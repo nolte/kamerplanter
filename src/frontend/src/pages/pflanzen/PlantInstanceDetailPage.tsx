@@ -399,14 +399,18 @@ export default function PlantInstanceDetailPage() {
         if (isCancelled()) return;
         setCurrentPhase(cp);
       } catch {
-        // Phase control may not be configured
+        // Phase control may not be configured; never keep the previous plant's phase.
+        if (isCancelled()) return;
+        setCurrentPhase(null);
       }
       try {
         const h = await phasesApi.getPhaseHistory(key);
         if (isCancelled()) return;
         setHistory(h);
       } catch {
-        // History may be empty
+        // History may be empty; never keep the previous plant's history.
+        if (isCancelled()) return;
+        setHistory([]);
       }
       // Load last watering confirmation
       try {
@@ -433,7 +437,9 @@ export default function PlantInstanceDetailPage() {
         if (isCancelled()) return;
         setWateringLogs(wl);
       } catch {
-        // May not have any watering logs
+        // May not have any watering logs; never keep the previous plant's log.
+        if (isCancelled()) return;
+        setWateringLogs([]);
       }
       // Load lifecycle growth phases for projected timeline
       try {

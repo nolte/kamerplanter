@@ -22,6 +22,12 @@ import ts from 'typescript';
  * fallback the caller renders) is not swallowing and is out of scope — whether
  * it renders the failure is the three-state contract's business, not this guard's.
  *
+ * **Known gap.** That out-of-scope case is also the most common "empty on error"
+ * shape: `.catch(() => [])`, `.catch(() => null)` or `catch { setX([]) }` turn a
+ * failure into an empty list without this guard noticing, and `.catch(noop)` with
+ * an identifier is not inspected at all. Those are tracked as the follow-up of
+ * #3013, not covered here.
+ *
  * **The allowlist** names the files that still swallow, with a count and one
  * reason each. It may only shrink: a file whose count rises fails, and a file
  * whose count falls below its entry fails too, so the entry is lowered with the
@@ -311,9 +317,9 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
       'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
   },
   '/src/pages/pflanzen/PlantInstanceDetailPage.tsx': {
-    count: 5,
+    count: 2,
     reason:
-      'open #3013 follow-up: secondary sections (site, phase control, history, watering, plan) read as empty on a failed load',
+      'open #3013 follow-up: secondary sections (site, plan) read as empty on a failed load',
   },
   '/src/pages/stammdaten/BotanicalFamilyDetailPage.tsx': {
     count: 1,
