@@ -1343,6 +1343,12 @@
     "siteFlag": {
       "root_competition": "Root competition",
       "allelopathy_risk": "Allelopathy risk"
+    },
+    "wateringVolumeSource": {
+      "fallback_default": "default value",
+      "phase_requirement_profile": "phase profile",
+      "species_watering_guide": "species watering guide",
+      "container_substrate_calculation": "container and substrate"
     }
   }
 }
