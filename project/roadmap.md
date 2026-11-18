@@ -410,3 +410,34 @@ status: proposed
 Profil-Sync, Statistiken, Atom-Feed, weitere Fediverse-Server, Sensor-Ereignisse, KI-Texte und Ausbau gemäß REQ-055 §37 Wellen 3b–6.
 
 <!-- Herkunft: REQ-055 §37 Wellen 3b–6. -->
+
+### R-27 — Gemessener Regen und Bodenwasser-Bilanz im Gießbedarf
+
+```yaml
+id: R-27
+title: Gemessener Regen und Bodenwasser-Bilanz im Gießbedarf
+detail: fine
+outcomes: [O-1, O-6]
+target_sprint: null
+mvp: false
+status: proposed
+```
+
+Hat es geregnet, obwohl die Prognose trocken war, soll Kamerplanter nicht mehr
+zum Gießen raten. Ein Regenmesser (z. B. Netatmo über Home Assistant), heute schon als
+Wetterquelle bindbar, liefert die gemessene Tagessumme künftig neben der Prognose. Der Gießbedarf wird zu
+einer mehrtägigen Bodenwasser-Bilanz nach FAO-56, die gemessenen Regen der
+Vortage berücksichtigt; ohne frischen Messwert gilt die Prognose. Deckt der
+Regen den Bedarf, verschiebt Kamerplanter die Gießerinnerung mit Vermerk, und
+der Nutzer kann sie zurückholen.
+
+- [ ] F-28 — Gemessener Regen neben der Prognose (`site-rain-sensor`)
+- [ ] F-29 — Bodenwasser-Bilanz im Gießbedarf (`soil-water-balance`) — Modell vorab agrarbiologisch prüfen
+- [ ] F-31 — Wasserbilanz-Widget mit gemessenem Regen (`water-balance-widget`)
+- [ ] F-30 — Gießerinnerung nach gemessenem Regen verschieben (`rain-deferred-watering-reminder`) — nach F-28, F-29 und F-31
+
+<!-- Herkunft: Issue #3002 (issue-backlog-partition 2026-11-17 → requirements-elicit →
+roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
+project/requirements/measured-rain-soil-water-balance.md (U_gate 0.8 = τ_high, Sättigung).
+Outcomes: O-1 (Pflege passend zur tatsächlichen Witterung), O-6 (Smart-Home-Sensor
+fließt in die Empfehlung). Abgespalten aus #2934 (R-18). -->
