@@ -131,6 +131,7 @@ export default function PhaseSequenceEntryDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="phase-sequence-entry-dialog-title"
+      data-testid="phase-sequence-entry-dialog"
     >
       <DialogTitle id="phase-sequence-entry-dialog-title">
         {isEdit

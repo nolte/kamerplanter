@@ -78,13 +78,15 @@ export default function ErrorPage({ statusCode = 500, onRetry, landmark = true }
 
       <Typography
         variant="h1"
+        component="p"
         sx={{
           fontSize: { xs: '3.5rem', md: '5rem' },
           fontWeight: 700,
           color: 'text.secondary',
           mb: 1,
         }}
-        aria-label={title}
+        // Decorative: the PageTitle h1 above already names the error.
+        aria-hidden="true"
       >
         {statusCode}
       </Typography>

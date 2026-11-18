@@ -377,7 +377,17 @@
         "species": "Die Artenliste",
         "substrates": "Die Substratliste"
       }
-    }
+    },
+    "confirmDelete": "Löschen bestätigen",
+    "created": "Erstellt",
+    "deleted": "Gelöscht",
+    "error": "Ein Fehler ist aufgetreten.",
+    "noSearchResults": "Keine Ergebnisse für deine Suche gefunden",
+    "notes": "Notizen",
+    "switchToDarkTheme": "Zum dunklen Design wechseln",
+    "switchToLightTheme": "Zum hellen Design wechseln",
+    "changeLanguage": "Sprache ändern",
+    "breadcrumb": "Brotkrumen-Navigation"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -487,7 +497,8 @@
       "photoQuotaExceeded": "Diese Pflanze hat die Höchstzahl an Fotos erreicht. Lösche ältere Fotos, bevor du neue hochlädst."
     },
     "slotOccupied": "Auf diesem Pflanzplatz steht schon eine Pflanze. Wähle einen anderen Platz oder entferne die Pflanze zuerst.",
-    "slotAlreadyPlanned": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen Platz."
+    "slotAlreadyPlanned": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen Platz.",
+    "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
   },
   "validation": {
     "required": "Pflichtfeld.",
@@ -505,7 +516,8 @@
     "url": "Bitte eine gültige URL eingeben.",
     "invalidFormat": "Ungültiges Format.",
     "invalidOption": "Bitte eine gültige Option wählen.",
-    "invalid": "Ungültige Eingabe."
+    "invalid": "Ungültige Eingabe.",
+    "botanicalFamilySuffix": "Muss auf „-aceae“ enden."
   },
   "entities": {
     "botanicalFamily": "Botanische Familie",

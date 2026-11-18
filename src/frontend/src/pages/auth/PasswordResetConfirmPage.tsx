@@ -12,9 +12,11 @@ import { useSnackbar } from 'notistack';
 import { confirmPasswordReset } from '@/api/endpoints/auth';
 import { parseApiError } from '@/api/errors';
 import Form from '@/components/form/Form';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function PasswordResetConfirmPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.newPassword'));
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -51,7 +53,7 @@ export default function PasswordResetConfirmPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="password-reset-confirm-page">
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h5" gutterBottom align="center">

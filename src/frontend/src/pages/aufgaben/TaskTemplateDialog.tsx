@@ -155,7 +155,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title">
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title" data-testid="task-template-dialog">
       <DialogTitle id="task-template-dialog-title">{isEdit ? t('pages.tasks.editTaskTemplate') : t('pages.tasks.addTaskTemplate')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>

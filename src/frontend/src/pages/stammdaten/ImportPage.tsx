@@ -91,7 +91,7 @@ export default function ImportPage() {
   }, [entityType]);
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3 }} data-testid="import-page">
       <Typography variant="h4" component="h1" gutterBottom>
         {t('pages.import.title')}
       </Typography>

@@ -74,15 +74,15 @@ function HistoryRow({ item, bedLabel, locale, testIdPrefix }: { item: HistoryIte
       </Typography>
       {details.length > 0 && (
         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          {details.join(' \u00B7 ')}
+          {details.join(' · ')}
         </Typography>
       )}
       <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
         <time dateTime={item.at}>{dateOnly ? dayOf(item.at, locale) : timeOf(item.at, locale)}</time>
-        {who ? ` \u00B7 ${t('pages.bed.history.by', { name: who })}` : ''}
+        {who ? ` · ${t('pages.bed.history.by', { name: who })}` : ''}
         {bedLabel && (
           <>
-            {' \u00B7 '}
+            {' · '}
             <span>{bedLabel}</span>
           </>
         )}

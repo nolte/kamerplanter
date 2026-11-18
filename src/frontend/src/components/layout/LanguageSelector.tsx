@@ -12,7 +12,7 @@ const languages = [
 ];
 
 export default function LanguageSelector() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   // #612 — feature namespaces are code-split. Preload every locale's bundles the
@@ -27,7 +27,7 @@ export default function LanguageSelector() {
 
   return (
     <>
-      <IconButton color="inherit" onClick={handleOpen} aria-label="change language">
+      <IconButton color="inherit" onClick={handleOpen} aria-label={t('common.changeLanguage')}>
         <TranslateIcon />
       </IconButton>
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>

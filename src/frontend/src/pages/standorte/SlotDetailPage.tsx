@@ -106,7 +106,7 @@ export default function SlotDetailPage() {
         title={slot?.slot_id ?? t('entities.slot')}
         action={
           canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="slot-delete-button">
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="slot-delete-button">
               {t('common.delete')}
             </Button>
           ) : undefined

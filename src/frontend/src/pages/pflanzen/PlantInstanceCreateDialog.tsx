@@ -237,7 +237,9 @@ export default function PlantInstanceCreateDialog({
         instance_id: generateInstanceId(''),
         species_key: effectiveSpeciesKey,
         cultivar_key: duplicateFrom?.cultivar_key ?? null,
-        plant_name: duplicateFrom?.plant_name ? `${duplicateFrom.plant_name} (Kopie)` : null,
+        plant_name: duplicateFrom?.plant_name
+          ? i18n.t('pages.plantInstances.copyName', { name: duplicateFrom.plant_name })
+          : null,
         planted_on: new Date().toISOString().split('T')[0],
         current_phase_key: duplicateFrom?.current_phase_key ?? null,
         cultivation_cycle_type: '',
@@ -263,7 +265,7 @@ export default function PlantInstanceCreateDialog({
         }).catch(() => {});
       }
     }
-  }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom]);
+  }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom, i18n]);
 
   // The instance-id prefix for a preselected species used to be derived inside
   // the species request's `.then`. It is not derived here at all now: the effect

@@ -212,8 +212,8 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.environmentControl.createActuator')}</DialogTitle>
+    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="actuator-dialog" aria-labelledby="actuator-dialog-title">
+      <DialogTitle id="actuator-dialog-title">{t('pages.environmentControl.createActuator')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>

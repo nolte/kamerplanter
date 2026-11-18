@@ -142,8 +142,8 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>
+    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="equipment-dialog" aria-labelledby="equipment-dialog-title">
+      <DialogTitle id="equipment-dialog-title">
         {equipment
           ? t('pages.inventree.editEquipment')
           : t('pages.inventree.createEquipment')}

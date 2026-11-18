@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppDispatch } from '@/store/hooks';
 import { setAccessToken, fetchProfile, refreshAccessToken } from '@/store/slices/authSlice';
 import { postLoginPath } from '@/utils/pendingInvitation';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 /**
  * AP-7 (FE-S1/S3): allowed OAuth error codes redirected by the backend, mapped
@@ -44,6 +45,7 @@ export default function OAuthCallbackPage() {
   const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  useDocumentTitle(t(errorKey ? 'pages.auth.oauthErrorTitle' : 'pages.auth.oauthProcessing'));
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -76,6 +78,7 @@ export default function OAuthCallbackPage() {
   if (errorKey) {
     return (
       <Box
+        data-testid="oauth-callback-page"
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -106,6 +109,7 @@ export default function OAuthCallbackPage() {
 
   return (
     <Box
+      data-testid="oauth-callback-page"
       role="status"
       aria-live="polite"
       sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}

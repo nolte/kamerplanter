@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { type KeyboardEvent, type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Table from '@mui/material/Table';
@@ -109,6 +109,19 @@ function defaultComparator<T>(a: T, b: T, col: Column<T>): number {
   const bNum = Number(bVal);
   if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
   return aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
+}
+
+/**
+ * Keyboard activation for a clickable row/card (WCAG 2.1.1): Enter and Space
+ * activate it, but only when the row itself has focus — a key pressed on a
+ * nested control (row action button, link) must not also trigger the row.
+ */
+function activateRowOnKey(e: KeyboardEvent<HTMLElement>, activate: () => void): void {
+  if (e.target !== e.currentTarget || e.repeat) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    activate();
+  }
 }
 
 export default function DataTable<T>({
@@ -339,6 +352,7 @@ export default function DataTable<T>({
                   </InputAdornment>
                 ),
               },
+              htmlInput: { 'aria-label': t('table.searchPlaceholder') },
             }}
             sx={{ minWidth: 200, maxWidth: 300 }}
             data-testid="table-search-input"
@@ -388,9 +402,7 @@ export default function DataTable<T>({
               key={getRowKey(row)}
               onClick={() => onRowClick?.(row)}
               onKeyDown={
-                onRowClick
-                  ? (e) => { if (e.key === 'Enter') onRowClick(row); }
-                  : undefined
+                onRowClick ? (e) => activateRowOnKey(e, () => onRowClick(row)) : undefined
               }
               tabIndex={onRowClick ? 0 : undefined}
               sx={{
@@ -404,6 +416,7 @@ export default function DataTable<T>({
                 }),
               }}
               data-testid="data-table-row"
+              data-row-key={getRowKey(row)}
             >
               {mobileCardRenderer(row)}
             </Box>
@@ -479,11 +492,7 @@ export default function DataTable<T>({
                     hover
                     onClick={() => onRowClick?.(row)}
                     onKeyDown={
-                      onRowClick
-                        ? (e) => {
-                            if (e.key === 'Enter') onRowClick(row);
-                          }
-                        : undefined
+                      onRowClick ? (e) => activateRowOnKey(e, () => onRowClick(row)) : undefined
                     }
                     tabIndex={onRowClick ? 0 : undefined}
                     sx={{
@@ -497,6 +506,7 @@ export default function DataTable<T>({
                       }),
                     }}
                     data-testid="data-table-row"
+                    data-row-key={getRowKey(row)}
                   >
                     {columns.map((col) => {
                       const responsiveSx = col.hideBelowBreakpoint

@@ -17,12 +17,16 @@ export default function Breadcrumbs() {
   if (crumbs.length === 0) return null;
 
   return (
-    <MuiBreadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
+    <MuiBreadcrumbs aria-label={t('common.breadcrumb')} sx={{ mb: 2 }}>
       {crumbs.map((crumb, index) => {
         const isLast = index === crumbs.length - 1;
         if (isLast || !crumb.path) {
           return (
-            <Typography key={index} color="text.primary">
+            <Typography
+              key={index}
+              color="text.primary"
+              aria-current={isLast ? 'page' : undefined}
+            >
               {t(crumb.label, { defaultValue: crumb.label })}
             </Typography>
           );

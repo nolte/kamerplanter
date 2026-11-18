@@ -226,7 +226,7 @@ export default function ActivityDetailPage() {
         meta={<OriginChip isSystem={activity.is_system} />}
         action={
           !activity.is_system && canEdit ? (
-            <Button color="error" onClick={() => setDeleteOpen(true)}>
+            <Button variant="outlined" color="error" onClick={() => setDeleteOpen(true)}>
               {t('common.delete')}
             </Button>
           ) : undefined

@@ -343,7 +343,7 @@ export default function PestDetailPage() {
               {hasTempRange && (
                 <DetailRow
                   label={t('pages.pestDetail.tempRange')}
-                  value={`${pest.optimal_temp_min}\u2013${pest.optimal_temp_max} \u00b0C`}
+                  value={`${pest.optimal_temp_min}–${pest.optimal_temp_max} °C`}
                 />
               )}
               {hasHumidityRange && (

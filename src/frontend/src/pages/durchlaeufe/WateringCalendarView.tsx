@@ -316,13 +316,13 @@ export default function WateringCalendarView({
       {/* Header: nav + month/year */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton size="small" onClick={goPrev} aria-label={t('common.back')}>
+          <IconButton size="small" onClick={goPrev} aria-label={t('pages.calendar.previousMonth')}>
             <ChevronLeftIcon />
           </IconButton>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, minWidth: 160, textAlign: 'center' }}>
             {formatMonthYear}
           </Typography>
-          <IconButton size="small" onClick={goNext} aria-label={t('common.next')}>
+          <IconButton size="small" onClick={goNext} aria-label={t('pages.calendar.nextMonth')}>
             <ChevronRightIcon />
           </IconButton>
         </Box>

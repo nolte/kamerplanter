@@ -57,7 +57,7 @@ describe('MainLayout (full mode)', () => {
     expect(screen.getByText('Zum Inhalt springen')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seitenleiste umschalten' })).toBeInTheDocument();
     // Breadcrumbs render for a mapped route.
-    expect(screen.getByLabelText('breadcrumb')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Brotkrumen-Navigation' })).toBeInTheDocument();
   });
 
   it('toggles the sidebar state when the menu icon is clicked', async () => {

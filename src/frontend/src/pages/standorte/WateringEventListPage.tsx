@@ -102,8 +102,8 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
   const plants = getPlantsForEvent(event);
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.wateringEvents.detail')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="watering-event-detail-dialog" aria-labelledby="watering-event-detail-dialog-title">
+      <DialogTitle id="watering-event-detail-dialog-title">{t('pages.wateringEvents.detail')}</DialogTitle>
       <DialogContent dividers>
         {/* Plants linked via slots */}
         {plants.length > 0 && (

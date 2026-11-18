@@ -343,7 +343,7 @@ export default function NutrientCalculationsPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="nutrient-calculations-page">
       <PageTitle title={t('pages.nutrientCalc.title')} />
 
       <Grid container spacing={3}>
@@ -1179,6 +1179,6 @@ export default function NutrientCalculationsPage() {
           </Card>
         </Grid>
       </Grid>
-    </>
+    </Box>
   );
 }

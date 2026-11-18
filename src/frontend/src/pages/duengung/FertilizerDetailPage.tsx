@@ -1255,8 +1255,10 @@ export default function FertilizerDetailPage() {
         onClose={() => { setStockDialogOpen(false); stockForm.reset(); }}
         maxWidth="sm"
         fullWidth
+        data-testid="add-stock-dialog"
+        aria-labelledby="add-stock-dialog-title"
       >
-        <DialogTitle>{t('pages.fertilizers.addStock')}</DialogTitle>
+        <DialogTitle id="add-stock-dialog-title">{t('pages.fertilizers.addStock')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
             {t('pages.fertilizers.addStockIntro')}

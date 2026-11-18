@@ -210,7 +210,7 @@ export default function AdminOidcProvidersPage() {
   );
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }} data-testid="admin-oidc-providers-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <IconButton
           onClick={() => navigate('/settings#platform')}

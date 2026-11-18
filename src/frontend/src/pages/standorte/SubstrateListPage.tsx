@@ -90,7 +90,7 @@ export default function SubstrateListPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="substrate-list-page">
       <PageTitle
         title={t('pages.substrates.title')}
         action={
@@ -180,6 +180,6 @@ export default function SubstrateListPage() {
         onClose={() => setMixOpen(false)}
         onCreated={() => { setMixOpen(false); dispatch(fetchSubstrates({})); }}
       />
-    </>
+    </Box>
   );
 }

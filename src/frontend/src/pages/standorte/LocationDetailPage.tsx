@@ -952,7 +952,7 @@ export default function LocationDetailPage() {
         title={location?.name ?? t('entities.location')}
         action={
           canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
               {t('common.delete')}
             </Button>
           ) : undefined

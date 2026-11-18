@@ -304,7 +304,7 @@ export default function AdminEditUserPage() {
   if (!user) return <Alert severity="error">{t('pages.admin.userNotFound')}</Alert>;
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }} data-testid="admin-edit-user-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate('/settings#platform')} data-testid="back-btn">
           <ArrowBackIcon />
@@ -342,7 +342,7 @@ export default function AdminEditUserPage() {
                 data-testid="edit-user-email"
               />
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField label="Key" value={user.key} disabled sx={{ flex: 1 }} />
+                <TextField label={t('pages.auth.adminUserKey')} value={user.key} disabled sx={{ flex: 1 }} />
                 <TextField
                   label={t('pages.auth.adminUserLastLogin')}
                   value={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '—'}
@@ -449,8 +449,8 @@ export default function AdminEditUserPage() {
                   sx={{ flex: 1, minWidth: 220 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel>{t('pages.auth.adminMemberRole')}</InputLabel>
-                  <Select value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
+                  <InputLabel id="admin-user-member-role-label">{t('pages.auth.adminMemberRole')}</InputLabel>
+                  <Select labelId="admin-user-member-role-label" value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
                     <MenuItem value="lead">{t('enums.tenantRole.lead')}</MenuItem>
                     <MenuItem value="grower">{t('enums.tenantRole.grower')}</MenuItem>
                     <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>

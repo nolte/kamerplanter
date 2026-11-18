@@ -471,8 +471,10 @@ export default function WorkflowTemplateListPage() {
         onClose={() => setDuplicateKey(null)}
         maxWidth="sm"
         fullWidth
+        data-testid="duplicate-workflow-dialog"
+        aria-labelledby="duplicate-workflow-dialog-title"
       >
-        <DialogTitle>{t('pages.tasks.duplicateWorkflow')}</DialogTitle>
+        <DialogTitle id="duplicate-workflow-dialog-title">{t('pages.tasks.duplicateWorkflow')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.tasks.duplicateWorkflowDescription', {

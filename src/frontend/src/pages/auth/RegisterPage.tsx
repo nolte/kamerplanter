@@ -15,9 +15,11 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerLocal, clearError, REGISTRATION_NOT_ALLOWED } from '@/store/slices/authSlice';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function RegisterPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.register'));
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [params] = useSearchParams();

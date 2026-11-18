@@ -125,8 +125,8 @@ export default function AquaponicSystemDialog({ open, onClose, onCreated }: Prop
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.aquaponik.createSystem')}</DialogTitle>
+    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="aquaponic-system-dialog" aria-labelledby="aquaponic-system-dialog-title">
+      <DialogTitle id="aquaponic-system-dialog-title">{t('pages.aquaponik.createSystem')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>

@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import i18next from 'i18next';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -43,7 +44,8 @@ const schema = z.object({
     .string()
     .min(1)
     .refine((v) => v.endsWith('aceae'), {
-      message: "Muss auf '-aceae' enden",
+      // Resolved at validation time so the message follows the active language.
+      error: () => i18next.t('validation.botanicalFamilySuffix'),
     }),
   common_name_de: z.string(),
   common_name_en: z.string(),

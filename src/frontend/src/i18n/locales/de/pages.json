@@ -1145,7 +1145,9 @@
       "adminAddMemberStepUpConfirm": "Mitglied hinzufügen",
       "providerUnlinked": "Anmeldeweg entfernt",
       "pendingInvitation": "Du hast eine Einladung geöffnet. Melde dich mit der eingeladenen E-Mail-Adresse an – oder registriere dich mit ihr –, danach wird die Einladung angenommen.",
-      "returnAfterLogin": "Melde dich an – danach geht es direkt zur aufgerufenen Seite weiter."
+      "returnAfterLogin": "Melde dich an – danach geht es direkt zur aufgerufenen Seite weiter.",
+      "platformChip": "Plattform",
+      "adminUserKey": "Schlüssel"
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -2407,7 +2409,8 @@
         "chartAria": "Balkendiagramm der Verlustverteilung",
         "dimensionToggleAria": "Verlust-Dimension umschalten",
         "definitionNote": "„Überlebt“ umfasst abgeschlossene Pflanzen (geerntet, seneszent, abgebrochen, ohne Angabe entfernt), die nicht eingegangen sind; noch wachsende Pflanzen zählen als „Noch in Kultur“. Die Überlebensrate bezieht sich nur auf abgeschlossene Pflanzen."
-      }
+      },
+      "copyName": "{{name}} (Kopie)"
     },
     "phases": {
       "title": "Phasensteuerung",
@@ -3158,7 +3161,8 @@
         "deliveryChannel": "Ausbringkanal",
         "dosageSourceReference": "Referenz",
         "dosageSourceScaled": "Skaliert",
-        "dosageSourceAutoCalmag": "Auto-CalMag"
+        "dosageSourceAutoCalmag": "Auto-CalMag",
+        "targetEc": "Ziel-EC"
       },
       "ppmHelper": "Parts per million",
       "mlPerLiterHelper": "Dosierung in Milliliter pro Liter Wasser",
@@ -3738,7 +3742,10 @@
       "cannotDeleteReopened": "Diese Aufgabe war abgeschlossen und wurde wiedereröffnet. Sie trägt die Fotos und den Nachweis dieses Abschlusses und lässt sich deshalb nicht löschen — überspringe sie, um sie aus der Liste zu nehmen.",
       "activityCatalogueEmpty": "Der Tätigkeitskatalog ist leer. Lege zuerst eine Tätigkeit an.",
       "activityCatalogueEmptyCta": "Tätigkeiten verwalten",
-      "activityCatalogueLoading": "Tätigkeiten werden geladen …"
+      "activityCatalogueLoading": "Tätigkeiten werden geladen …",
+      "duplicateWorkflow": "Workflow duplizieren",
+      "duplicateWorkflowDescription": "Erstellt eine Kopie von „{{name}}“. Gib der Kopie einen neuen Namen.",
+      "workflowDuplicated": "Workflow dupliziert."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phasendefinitionen",
@@ -4233,7 +4240,9 @@
       "today": "heute",
       "yesterday": "gestern",
       "tomorrow": "morgen",
-      "snoozeTooltip": "Um 1 Tag verschieben"
+      "snoozeTooltip": "Um 1 Tag verschieben",
+      "expandFeedingDetails": "Gießprotokoll einblenden",
+      "collapseFeedingDetails": "Gießprotokoll ausblenden"
     },
     "onboarding": {
       "title": "Willkommen bei Kamerplanter",
@@ -4682,7 +4691,9 @@
         "harvestLabel": "Ernte",
         "bloomLabel": "Blüte",
         "tasks": "Aufgaben"
-      }
+      },
+      "previousMonth": "Vorheriger Monat",
+      "nextMonth": "Nächster Monat"
     },
     "pestDetail": {
       "back": "Zurück zur Liste",
@@ -8588,6 +8599,10 @@
       },
       "purged_one": "{{count}} nicht übertragener Eintrag war älter als ein Jahr und wurde von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an.",
       "purged_other": "{{count}} nicht übertragene Einträge waren älter als ein Jahr und wurden von diesem Gerät gelöscht – der Server nimmt so alte Einträge nicht mehr an."
+    },
+    "runs": {
+      "plantCount": "Pflanzen",
+      "standalonePlants": "Einzelpflanzen (ohne Durchlauf)"
     }
   }
 }

@@ -1145,7 +1145,9 @@
       "adminAddMemberStepUpConfirm": "Add member",
       "providerUnlinked": "Sign-in method removed",
       "pendingInvitation": "You opened an invitation. Sign in with the invited email address – or register with it – and the invitation is accepted afterwards.",
-      "returnAfterLogin": "Sign in – you then continue straight to the page you opened."
+      "returnAfterLogin": "Sign in – you then continue straight to the page you opened.",
+      "platformChip": "Platform",
+      "adminUserKey": "Key"
     },
     "tenants": {
       "selectTenant": "Select Garden",
@@ -2407,7 +2409,8 @@
         "chartAria": "Bar chart of the loss distribution",
         "dimensionToggleAria": "Toggle loss dimension",
         "definitionNote": "\"Survived\" covers concluded plants (harvested, senesced, cancelled, plain-removed) that did not die; still-growing plants count as \"Still growing\". The survival rate refers only to concluded plants."
-      }
+      },
+      "copyName": "{{name}} (copy)"
     },
     "phases": {
       "title": "Phase Control",
@@ -3158,7 +3161,8 @@
         "deliveryChannel": "Delivery Channel",
         "dosageSourceReference": "Reference",
         "dosageSourceScaled": "Scaled",
-        "dosageSourceAutoCalmag": "Auto CalMag"
+        "dosageSourceAutoCalmag": "Auto CalMag",
+        "targetEc": "Target EC"
       },
       "ppmHelper": "Parts per million",
       "mlPerLiterHelper": "Dosage in milliliters per liter of water",
@@ -3738,7 +3742,10 @@
       "cannotDeleteReopened": "This task was completed and reopened. It still carries the photos and record of that completion and therefore cannot be deleted — skip it to take it out of the queue.",
       "activityCatalogueEmpty": "The activity catalogue is empty. Create an activity first.",
       "activityCatalogueEmptyCta": "Manage activities",
-      "activityCatalogueLoading": "Loading activities …"
+      "activityCatalogueLoading": "Loading activities …",
+      "duplicateWorkflow": "Duplicate workflow",
+      "duplicateWorkflowDescription": "Creates a copy of “{{name}}”. Give the copy a new name.",
+      "workflowDuplicated": "Workflow duplicated."
     },
     "phaseSequences": {
       "phaseDefinitions": "Phase Definitions",
@@ -3861,7 +3868,8 @@
       "duplicateTooltip": "Create an editable copy of this system sequence",
       "duplicateHelper": "Creates an editable, tenant-owned copy of this sequence with all its phases. The original sequence stays unchanged.",
       "copySuffix": "copy",
-      "sequenceCloned": "Phase sequence duplicated."
+      "sequenceCloned": "Phase sequence duplicated.",
+      "searchSequences": "Search sequences..."
     },
     "ipm": {
       "title": "Plant Protection",
@@ -4232,7 +4240,9 @@
       "today": "today",
       "yesterday": "yesterday",
       "tomorrow": "tomorrow",
-      "snoozeTooltip": "Postpone by 1 day"
+      "snoozeTooltip": "Postpone by 1 day",
+      "expandFeedingDetails": "Show feeding log",
+      "collapseFeedingDetails": "Hide feeding log"
     },
     "onboarding": {
       "title": "Welcome to Kamerplanter",
@@ -4681,7 +4691,9 @@
         "harvestLabel": "Harvest",
         "bloomLabel": "Bloom",
         "tasks": "Tasks"
-      }
+      },
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month"
     },
     "pestDetail": {
       "back": "Back to list",
@@ -8587,6 +8599,10 @@
       },
       "purged_one": "{{count}} unsent entry was older than a year and has been deleted from this device — the server no longer accepts entries that old.",
       "purged_other": "{{count}} unsent entries were older than a year and have been deleted from this device — the server no longer accepts entries that old."
+    },
+    "runs": {
+      "plantCount": "Plants",
+      "standalonePlants": "Standalone plants (no run)"
     }
   }
 }

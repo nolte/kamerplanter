@@ -279,7 +279,7 @@ export default function CultivarDetailPage() {
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             {/* UI-NFR-018 R-012: hide delete button for system data */}
             {!isDeletionProtected && canDeleteCatalogue && (
-              <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="cultivar-delete-button">
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="cultivar-delete-button">
                 {t('common.delete')}
               </Button>
             )}

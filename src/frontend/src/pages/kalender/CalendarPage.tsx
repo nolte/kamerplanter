@@ -1484,8 +1484,9 @@ export default function CalendarPage() {
         maxWidth="sm"
         fullWidth
         data-testid="create-feed-dialog"
+        aria-labelledby="create-feed-dialog-title"
       >
-        <DialogTitle>{t('pages.calendar.createFeed')}</DialogTitle>
+        <DialogTitle id="create-feed-dialog-title">{t('pages.calendar.createFeed')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus

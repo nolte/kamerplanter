@@ -9,9 +9,11 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { verifyEmail } from '@/api/endpoints/auth';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function EmailVerificationPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.emailVerification'));
   const { token } = useParams<{ token: string }>();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() => token ? 'loading' : 'error');
   const [error, setError] = useState(() => token ? '' : t('pages.auth.invalidToken'));
@@ -28,7 +30,7 @@ export default function EmailVerificationPage() {
   }, [token, t]);
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="email-verification-page">
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h5" gutterBottom>

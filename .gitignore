@@ -99,3 +99,5 @@ src/backend/openapi.json
 # `reach:*` Taskfile targets. Throw-away; the probe set lives in
 # project/reach-probes/ and the report in .audits/capability-reach/.
 /.reach/
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

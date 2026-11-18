@@ -282,8 +282,10 @@ export default function SpeciesCropRotationTab({
             onClose={() => setRotationDialogOpen(false)}
             maxWidth="sm"
             fullWidth
+            data-testid="species-crop-rotation-dialog"
+            aria-labelledby="species-crop-rotation-dialog-title"
           >
-            <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
+            <DialogTitle id="species-crop-rotation-dialog-title">{t('pages.cropRotation.addSuccessor')}</DialogTitle>
             <DialogContent>
               <DialogContentText sx={{ mb: 2 }}>
                 {t('pages.cropRotation.addSuccessorHint')}

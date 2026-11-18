@@ -1170,8 +1170,10 @@ export default function WorkflowDetailPage() {
         onClose={() => setAddDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        data-testid="workflow-add-activity-dialog"
+        aria-labelledby="workflow-add-activity-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="workflow-add-activity-dialog-title">
           {t('pages.tasks.addActivityToPhase', { phase: addTargetPhaseDisplay })}
         </DialogTitle>
         <DialogContent>
@@ -1434,8 +1436,9 @@ export default function WorkflowDetailPage() {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth sx={{ mb: 2 }}>
-                      <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                      <InputLabel id="workflow-detail-target-entity-types-label">{t('pages.tasks.targetEntityTypes')}</InputLabel>
                       <Select
+                        labelId="workflow-detail-target-entity-types-label"
                         {...field}
                         multiple
                         label={t('pages.tasks.targetEntityTypes')}
