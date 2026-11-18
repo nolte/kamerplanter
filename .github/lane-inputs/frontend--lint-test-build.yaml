@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
-replay_seconds: 1360
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+replay_seconds: 1735
 job_spec_sha256: dea3dab0150382768ac981b6323314c4afa6539cccfc3e9de83790f6f8695587
 invocations:
 - command: task typecheck
@@ -26,13 +26,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1337
-- command: task test:frontend
+  untracked_reads_dropped: 1354
+- command: task coverage:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 14592
+  untracked_reads_dropped: 14609
 - command: task build:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z

@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
-replay_seconds: 3072
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+replay_seconds: 3484
 job_spec_sha256: d927c43675bbd773245a7712674e3b86ac7659d74f39bafbfb5dfa5d7662ef0a
 invocations:
 - command: task test:backend:integration
@@ -28,7 +28,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 5474
+  untracked_reads_dropped: 5479
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -1486,6 +1486,7 @@ reads:
 - src/backend/app/migrations/versions/v0111_keyed_performers.py
 - src/backend/app/migrations/versions/v0112_placed_in_backfill.py
 - src/backend/app/migrations/versions/v0113_photoperiod_unspecified.py
+- src/backend/app/migrations/versions/v0114_rooting_protocol_author_key.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -1649,6 +1650,7 @@ reads:
 - src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_orphaned_underlay_query.py
+- src/backend/tests/integration/test_ownership_reads_use_an_index.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
 - src/backend/tests/integration/test_pest_prototype_orphan_sweep_arango.py
@@ -1694,6 +1696,7 @@ reads:
 - src/backend/tests/integration/test_single_plant_on_a_taken_position.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_site_delete_cascade.py
+- src/backend/tests/integration/test_site_location_ownership.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
 - src/backend/tests/integration/test_slot_thinning_flow.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
@@ -1701,6 +1704,7 @@ reads:
 - src/backend/tests/integration/test_species_display_names_aql.py
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_storage_release_retry_repository.py
+- src/backend/tests/integration/test_substrate_delete.py
 - src/backend/tests/integration/test_succession_slot_reservation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
@@ -1770,6 +1774,7 @@ reads:
 - src/backend/tests/integration/test_v0111_keyed_performers.py
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
+- src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -1895,6 +1900,7 @@ test_modules:
 - src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_orphaned_underlay_query.py
+- src/backend/tests/integration/test_ownership_reads_use_an_index.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
 - src/backend/tests/integration/test_pest_prototype_orphan_sweep_arango.py
@@ -1940,6 +1946,7 @@ test_modules:
 - src/backend/tests/integration/test_single_plant_on_a_taken_position.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_site_delete_cascade.py
+- src/backend/tests/integration/test_site_location_ownership.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
 - src/backend/tests/integration/test_slot_thinning_flow.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
@@ -1947,6 +1954,7 @@ test_modules:
 - src/backend/tests/integration/test_species_display_names_aql.py
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_storage_release_retry_repository.py
+- src/backend/tests/integration/test_substrate_delete.py
 - src/backend/tests/integration/test_succession_slot_reservation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
@@ -2016,6 +2024,7 @@ test_modules:
 - src/backend/tests/integration/test_v0111_keyed_performers.py
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
+- src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 readers: {}

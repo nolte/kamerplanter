@@ -9,9 +9,9 @@ job: lint-test
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
-replay_seconds: 2910
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+replay_seconds: 3481
 job_spec_sha256: d2498dbdd03e78951269f789630330a4791b58c1a1067b93ce3648b55f5cf470
 invocations:
 - command: task lint:backend
@@ -49,7 +49,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 8544
+  untracked_reads_dropped: 8552
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -137,6 +137,13 @@ accepted_gaps:
     this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
   covered_by: backend-guards.yml/guards
 - pattern: .mcp.json
+  reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
+    which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
+    workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
+    guard holds every read under this pattern against the guards lane''s manifest — a read the guards lane stops making turns
+    this gap red. Reads of this suite that the guards lane does NOT make are in the filter instead (backend.yml, #1683).'
+  covered_by: backend-guards.yml/guards
+- pattern: .pins/**
   reason: 'Read by the tree guards under tests/unit/guards and tests/unit/api, which this job runs inside tests/unit/ and
     which backend-guards.yml/guards runs unfiltered on every pull request, so a change here is judged there even when this
     workflow''s filter skips it. Measured, not assumed: both read sets are CI recordings (lane-inputs.yml, #1683) and the
@@ -536,7 +543,6 @@ reads:
 - .github/lane-inputs/e2e-smoke--changes.yaml
 - .github/lane-inputs/e2e-smoke--report.yaml
 - .github/lane-inputs/e2e-smoke--smoke.yaml
-- .github/lane-inputs/frontend--bundle-budget.yaml
 - .github/lane-inputs/frontend--changes.yaml
 - .github/lane-inputs/frontend--deadcode.yaml
 - .github/lane-inputs/frontend--dependency-gates.yaml
@@ -595,6 +601,8 @@ reads:
 - .github/workflows/skaffold-verify.yml
 - .gitignore
 - .mcp.json
+- .pins/
+- .pins/images.yaml
 - .pre-commit-config.yaml
 - .spectral.yaml
 - .taskfiles/
@@ -1037,16 +1045,37 @@ reads:
 - mkdocs.yml
 - project/
 - project/features/
+- project/features/actionable-care-widgets.md
 - project/features/atomic-completion-transition.md
+- project/features/bed-soil-hazards.md
+- project/features/dashboard-and-view-management.md
+- project/features/dashboard-model-v3.md
+- project/features/failure-cause-class.md
 - project/features/freeze-recurrence-propagation-boundaries.md
+- project/features/plant-event-backfill.md
+- project/features/plant-event-recorder.md
 - project/features/plant-photo-gallery.md
 - project/features/plant-photo-upload.md
+- project/features/plant-timeline-tab.md
+- project/features/platform-settings-in-admin.md
+- project/features/rain-deferred-watering-reminder.md
 - project/features/recurrence-propagation-inventory-baseline.md
+- project/features/settings-grouped-navigation.md
+- project/features/site-rain-sensor.md
+- project/features/soil-aware-replant-hint.md
+- project/features/soil-hazard-knowledge.md
+- project/features/soil-water-balance.md
 - project/features/species-tenant-aware-read.md
 - project/features/species-tenant-key-and-cutover.md
+- project/features/tenant-archive-size-limits.md
+- project/features/tenant-import-preflight.md
+- project/features/tenant-readings-import.md
 - project/features/tenant-scope-union-predicate.md
 - project/features/unify-notification-propagation.md
 - project/features/unify-recurrence-engine.md
+- project/features/water-balance-widget.md
+- project/features/weather-fetch-scheduling.md
+- project/features/weather-fetch-settings-ui.md
 - project/goals.md
 - project/maturity/
 - project/maturity/kamerplanter-remediation.md
@@ -1094,22 +1123,29 @@ reads:
 - project/requirements/indoor-photoperiod-trigger.md
 - project/requirements/issue-303-propagation-configs.md
 - project/requirements/issue-367-code-discrepancies.md
+- project/requirements/measured-rain-soil-water-balance.md
 - project/requirements/migration-lock-hardening.md
+- project/requirements/multi-dashboard.md
 - project/requirements/overwintering-requirements.md
 - project/requirements/phase-definition-detail-lists.md
 - project/requirements/plant-grid-card-rework.md
 - project/requirements/renovate-config-rework.md
 - project/requirements/req003-lifecycle-engine.md
 - project/requirements/seed-profile-backfill.md
+- project/requirements/settings-page-grouping.md
+- project/requirements/soil-hazards-replant.md
 - project/requirements/species-origin-filter.md
 - project/requirements/species-scientific-name-normalization.md
 - project/requirements/species-tenant-ownership.md
 - project/requirements/task-completion-tab-ux.md
+- project/requirements/tenant-export-import-remainder.md
 - project/requirements/test-concept-navigation.md
+- project/requirements/weather-fetch-interval.md
 - project/roadmap.md
 - project/sprints/
 - project/sprints/0001-pflanzenfoto-galerie.md
 - project/sprints/0002-species-catalogue-tenant-isolation.md
+- project/sprints/0003-einstellungen-gruppiert-wetterabruf.md
 - renovate.json5
 - scripts/
 - scripts/arango_repository_bindings.py
@@ -3398,6 +3434,7 @@ reads:
 - src/backend/app/migrations/versions/v0111_keyed_performers.py
 - src/backend/app/migrations/versions/v0112_placed_in_backfill.py
 - src/backend/app/migrations/versions/v0113_photoperiod_unspecified.py
+- src/backend/app/migrations/versions/v0114_rooting_protocol_author_key.py
 - src/backend/app/migrations/yaml_loader.py
 - src/backend/app/observability/
 - src/backend/app/observability/__init__.py
@@ -3803,6 +3840,7 @@ reads:
 - src/backend/tests/integration/test_orphaned_location_photo_query.py
 - src/backend/tests/integration/test_orphaned_task_photo_query.py
 - src/backend/tests/integration/test_orphaned_underlay_query.py
+- src/backend/tests/integration/test_ownership_reads_use_an_index.py
 - src/backend/tests/integration/test_perennial_cycle_loop.py
 - src/backend/tests/integration/test_personal_tenant_erasure_reach.py
 - src/backend/tests/integration/test_pest_prototype_orphan_sweep_arango.py
@@ -3848,6 +3886,7 @@ reads:
 - src/backend/tests/integration/test_single_plant_on_a_taken_position.py
 - src/backend/tests/integration/test_singleton_first_write_concurrency.py
 - src/backend/tests/integration/test_site_delete_cascade.py
+- src/backend/tests/integration/test_site_location_ownership.py
 - src/backend/tests/integration/test_slot_edge_cleanup.py
 - src/backend/tests/integration/test_slot_thinning_flow.py
 - src/backend/tests/integration/test_slot_update_moves_has_slot_edge.py
@@ -3855,6 +3894,7 @@ reads:
 - src/backend/tests/integration/test_species_display_names_aql.py
 - src/backend/tests/integration/test_storage_reconciliation.py
 - src/backend/tests/integration/test_storage_release_retry_repository.py
+- src/backend/tests/integration/test_substrate_delete.py
 - src/backend/tests/integration/test_succession_slot_reservation.py
 - src/backend/tests/integration/test_tank_active_plans_tenant_scope.py
 - src/backend/tests/integration/test_tank_name_tenant_scope.py
@@ -3924,6 +3964,7 @@ reads:
 - src/backend/tests/integration/test_v0111_keyed_performers.py
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
+- src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -4816,6 +4857,7 @@ reads:
 - src/backend/tests/unit/guards/test_beat_task_reads_are_paged.py
 - src/backend/tests/unit/guards/test_beats_read_per_tenant.py
 - src/backend/tests/unit/guards/test_beats_skip_inactive_tenants.py
+- src/backend/tests/unit/guards/test_caller_account_stamps_use_a_reference_shaped_name.py
 - src/backend/tests/unit/guards/test_care_confirmation_names_its_performer.py
 - src/backend/tests/unit/guards/test_care_profile_bootstrap_coverage.py
 - src/backend/tests/unit/guards/test_care_profile_family_argument.py
@@ -4833,6 +4875,7 @@ reads:
 - src/backend/tests/unit/guards/test_consent_purposes_are_read.py
 - src/backend/tests/unit/guards/test_credential_changes_go_through_the_step_up.py
 - src/backend/tests/unit/guards/test_database_connections_come_from_the_provider.py
+- src/backend/tests/unit/guards/test_deletes_reach_their_derived_edges.py
 - src/backend/tests/unit/guards/test_dependency_providers_declare_their_return_type.py
 - src/backend/tests/unit/guards/test_docker_build_cache_scopes.py
 - src/backend/tests/unit/guards/test_docker_lint_build_coverage.py
@@ -4894,11 +4937,13 @@ reads:
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nfr011_task_table_matches_the_beat.py
 - src/backend/tests/unit/guards/test_nginx_access_log_is_redacted.py
+- src/backend/tests/unit/guards/test_nginx_security_headers_parity.py
 - src/backend/tests/unit/guards/test_nginx_service_worker_no_store.py
 - src/backend/tests/unit/guards/test_no_bare_module_level_executor.py
 - src/backend/tests/unit/guards/test_no_committed_credential_shapes.py
 - src/backend/tests/unit/guards/test_no_committed_fernet_key.py
 - src/backend/tests/unit/guards/test_no_dead_unscoped_repository_reads.py
+- src/backend/tests/unit/guards/test_no_renovate_pin_in_taskfiles.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_one_permission_source.py
 - src/backend/tests/unit/guards/test_openapi_refs_resolve.py
@@ -5149,6 +5194,7 @@ reads:
 - src/backend/tests/unit/migrations/versions/test_v0111_keyed_performers.py
 - src/backend/tests/unit/migrations/versions/test_v0112_placed_in_backfill.py
 - src/backend/tests/unit/migrations/versions/test_v0113_photoperiod_unspecified.py
+- src/backend/tests/unit/migrations/versions/test_v0114_rooting_protocol_author_key.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
@@ -7395,6 +7441,7 @@ reads:
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
 - src/inference-service/tests/test_error_tracking_redacts_texts.py
+- src/inference-service/tests/test_export_hub_pin.py
 - src/inference-service/tests/test_pest_api.py
 - src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_pest_contribution_keys.py
@@ -8778,6 +8825,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_beat_task_reads_are_paged.py
 - src/backend/tests/unit/guards/test_beats_read_per_tenant.py
 - src/backend/tests/unit/guards/test_beats_skip_inactive_tenants.py
+- src/backend/tests/unit/guards/test_caller_account_stamps_use_a_reference_shaped_name.py
 - src/backend/tests/unit/guards/test_care_confirmation_names_its_performer.py
 - src/backend/tests/unit/guards/test_care_profile_bootstrap_coverage.py
 - src/backend/tests/unit/guards/test_care_profile_family_argument.py
@@ -8795,6 +8843,7 @@ test_modules:
 - src/backend/tests/unit/guards/test_consent_purposes_are_read.py
 - src/backend/tests/unit/guards/test_credential_changes_go_through_the_step_up.py
 - src/backend/tests/unit/guards/test_database_connections_come_from_the_provider.py
+- src/backend/tests/unit/guards/test_deletes_reach_their_derived_edges.py
 - src/backend/tests/unit/guards/test_dependency_providers_declare_their_return_type.py
 - src/backend/tests/unit/guards/test_docker_build_cache_scopes.py
 - src/backend/tests/unit/guards/test_docker_lint_build_coverage.py
@@ -8855,11 +8904,13 @@ test_modules:
 - src/backend/tests/unit/guards/test_model_images_prove_readiness.py
 - src/backend/tests/unit/guards/test_nfr011_task_table_matches_the_beat.py
 - src/backend/tests/unit/guards/test_nginx_access_log_is_redacted.py
+- src/backend/tests/unit/guards/test_nginx_security_headers_parity.py
 - src/backend/tests/unit/guards/test_nginx_service_worker_no_store.py
 - src/backend/tests/unit/guards/test_no_bare_module_level_executor.py
 - src/backend/tests/unit/guards/test_no_committed_credential_shapes.py
 - src/backend/tests/unit/guards/test_no_committed_fernet_key.py
 - src/backend/tests/unit/guards/test_no_dead_unscoped_repository_reads.py
+- src/backend/tests/unit/guards/test_no_renovate_pin_in_taskfiles.py
 - src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py
 - src/backend/tests/unit/guards/test_one_permission_source.py
 - src/backend/tests/unit/guards/test_openapi_refs_resolve.py
@@ -9099,6 +9150,7 @@ test_modules:
 - src/backend/tests/unit/migrations/versions/test_v0111_keyed_performers.py
 - src/backend/tests/unit/migrations/versions/test_v0112_placed_in_backfill.py
 - src/backend/tests/unit/migrations/versions/test_v0113_photoperiod_unspecified.py
+- src/backend/tests/unit/migrations/versions/test_v0114_rooting_protocol_author_key.py
 - src/backend/tests/unit/migrations/versions/test_versions_smoke.py
 - src/backend/tests/unit/models/test_overwintering_profile_template.py
 - src/backend/tests/unit/observability/test_error_events_carry_pseudonyms.py
@@ -9273,6 +9325,12 @@ readers:
   src/backend/tests/unit/guards/test_chart_backend_startup_budget.py:
   - docs/de/deployment/kubernetes.md
   - docs/en/deployment/kubernetes.md
+  src/backend/tests/unit/guards/test_docker_build_cache_scopes.py:
+  - docker/knowledge/Dockerfile
+  - docker/vectordb/Dockerfile
+  - src/frontend/Dockerfile
+  - src/inference-service/Dockerfile
+  - src/knowledge-service/Dockerfile
   src/backend/tests/unit/guards/test_docs_requirements_hash_verification.py:
   - docs/requirements.txt
   src/backend/tests/unit/guards/test_docs_requirements_source_bounds.py:
@@ -9329,6 +9387,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -9663,6 +9722,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -10021,6 +10081,8 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
+  - .pins/images.yaml
   - .pre-commit-config.yaml
   - .spectral.yaml
   - .vscode/
@@ -10409,6 +10471,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -10741,6 +10804,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -11031,6 +11095,9 @@ readers:
   - spec/nfr/NFR-011_Vorratsdatenspeicherung-Aufbewahrungsfristen.md
   src/backend/tests/unit/guards/test_nginx_access_log_is_redacted.py:
   - src/frontend/nginx.conf
+  src/backend/tests/unit/guards/test_nginx_security_headers_parity.py:
+  - src/frontend/nginx-security-headers.inc
+  - src/frontend/nginx.conf
   src/backend/tests/unit/guards/test_nginx_service_worker_no_store.py:
   - src/frontend/nginx-security-headers.inc
   - src/frontend/nginx.conf
@@ -11139,6 +11206,7 @@ readers:
   - .github/stale.yml
   - .github/styles/config/vocabularies/kamerplanter/accept.txt
   - .mcp.json
+  - .pins/images.yaml
   - .pre-commit-config.yaml
   - .spectral.yaml
   - .vale.ini
@@ -11491,16 +11559,37 @@ readers:
   - docs/wichtige-prompts.md
   - kind-config.yaml
   - mkdocs.yml
+  - project/features/actionable-care-widgets.md
   - project/features/atomic-completion-transition.md
+  - project/features/bed-soil-hazards.md
+  - project/features/dashboard-and-view-management.md
+  - project/features/dashboard-model-v3.md
+  - project/features/failure-cause-class.md
   - project/features/freeze-recurrence-propagation-boundaries.md
+  - project/features/plant-event-backfill.md
+  - project/features/plant-event-recorder.md
   - project/features/plant-photo-gallery.md
   - project/features/plant-photo-upload.md
+  - project/features/plant-timeline-tab.md
+  - project/features/platform-settings-in-admin.md
+  - project/features/rain-deferred-watering-reminder.md
   - project/features/recurrence-propagation-inventory-baseline.md
+  - project/features/settings-grouped-navigation.md
+  - project/features/site-rain-sensor.md
+  - project/features/soil-aware-replant-hint.md
+  - project/features/soil-hazard-knowledge.md
+  - project/features/soil-water-balance.md
   - project/features/species-tenant-aware-read.md
   - project/features/species-tenant-key-and-cutover.md
+  - project/features/tenant-archive-size-limits.md
+  - project/features/tenant-import-preflight.md
+  - project/features/tenant-readings-import.md
   - project/features/tenant-scope-union-predicate.md
   - project/features/unify-notification-propagation.md
   - project/features/unify-recurrence-engine.md
+  - project/features/water-balance-widget.md
+  - project/features/weather-fetch-scheduling.md
+  - project/features/weather-fetch-settings-ui.md
   - project/goals.md
   - project/maturity/kamerplanter-remediation.md
   - project/maturity/kamerplanter.md
@@ -11545,21 +11634,28 @@ readers:
   - project/requirements/indoor-photoperiod-trigger.md
   - project/requirements/issue-303-propagation-configs.md
   - project/requirements/issue-367-code-discrepancies.md
+  - project/requirements/measured-rain-soil-water-balance.md
   - project/requirements/migration-lock-hardening.md
+  - project/requirements/multi-dashboard.md
   - project/requirements/overwintering-requirements.md
   - project/requirements/phase-definition-detail-lists.md
   - project/requirements/plant-grid-card-rework.md
   - project/requirements/renovate-config-rework.md
   - project/requirements/req003-lifecycle-engine.md
   - project/requirements/seed-profile-backfill.md
+  - project/requirements/settings-page-grouping.md
+  - project/requirements/soil-hazards-replant.md
   - project/requirements/species-origin-filter.md
   - project/requirements/species-scientific-name-normalization.md
   - project/requirements/species-tenant-ownership.md
   - project/requirements/task-completion-tab-ux.md
+  - project/requirements/tenant-export-import-remainder.md
   - project/requirements/test-concept-navigation.md
+  - project/requirements/weather-fetch-interval.md
   - project/roadmap.md
   - project/sprints/0001-pflanzenfoto-galerie.md
   - project/sprints/0002-species-catalogue-tenant-isolation.md
+  - project/sprints/0003-einstellungen-gruppiert-wetterabruf.md
   - renovate.json5
   - scripts/docs/gen_catalog.py
   - scripts/docs/gen_fact_tables.py
@@ -13856,6 +13952,7 @@ readers:
   - src/inference-service/tests/test_disease_classifier.py
   - src/inference-service/tests/test_embedder.py
   - src/inference-service/tests/test_error_tracking_redacts_texts.py
+  - src/inference-service/tests/test_export_hub_pin.py
   - src/inference-service/tests/test_pest_api.py
   - src/inference-service/tests/test_pest_contribution_erasure.py
   - src/inference-service/tests/test_pest_contribution_keys.py
@@ -14270,6 +14367,7 @@ readers:
   - .github/stale.yml
   - .github/styles/config/vocabularies/kamerplanter/accept.txt
   - .mcp.json
+  - .pins/images.yaml
   - .pre-commit-config.yaml
   - .spectral.yaml
   - .vale.ini
@@ -14622,16 +14720,37 @@ readers:
   - docs/wichtige-prompts.md
   - kind-config.yaml
   - mkdocs.yml
+  - project/features/actionable-care-widgets.md
   - project/features/atomic-completion-transition.md
+  - project/features/bed-soil-hazards.md
+  - project/features/dashboard-and-view-management.md
+  - project/features/dashboard-model-v3.md
+  - project/features/failure-cause-class.md
   - project/features/freeze-recurrence-propagation-boundaries.md
+  - project/features/plant-event-backfill.md
+  - project/features/plant-event-recorder.md
   - project/features/plant-photo-gallery.md
   - project/features/plant-photo-upload.md
+  - project/features/plant-timeline-tab.md
+  - project/features/platform-settings-in-admin.md
+  - project/features/rain-deferred-watering-reminder.md
   - project/features/recurrence-propagation-inventory-baseline.md
+  - project/features/settings-grouped-navigation.md
+  - project/features/site-rain-sensor.md
+  - project/features/soil-aware-replant-hint.md
+  - project/features/soil-hazard-knowledge.md
+  - project/features/soil-water-balance.md
   - project/features/species-tenant-aware-read.md
   - project/features/species-tenant-key-and-cutover.md
+  - project/features/tenant-archive-size-limits.md
+  - project/features/tenant-import-preflight.md
+  - project/features/tenant-readings-import.md
   - project/features/tenant-scope-union-predicate.md
   - project/features/unify-notification-propagation.md
   - project/features/unify-recurrence-engine.md
+  - project/features/water-balance-widget.md
+  - project/features/weather-fetch-scheduling.md
+  - project/features/weather-fetch-settings-ui.md
   - project/goals.md
   - project/maturity/kamerplanter-remediation.md
   - project/maturity/kamerplanter.md
@@ -14676,21 +14795,28 @@ readers:
   - project/requirements/indoor-photoperiod-trigger.md
   - project/requirements/issue-303-propagation-configs.md
   - project/requirements/issue-367-code-discrepancies.md
+  - project/requirements/measured-rain-soil-water-balance.md
   - project/requirements/migration-lock-hardening.md
+  - project/requirements/multi-dashboard.md
   - project/requirements/overwintering-requirements.md
   - project/requirements/phase-definition-detail-lists.md
   - project/requirements/plant-grid-card-rework.md
   - project/requirements/renovate-config-rework.md
   - project/requirements/req003-lifecycle-engine.md
   - project/requirements/seed-profile-backfill.md
+  - project/requirements/settings-page-grouping.md
+  - project/requirements/soil-hazards-replant.md
   - project/requirements/species-origin-filter.md
   - project/requirements/species-scientific-name-normalization.md
   - project/requirements/species-tenant-ownership.md
   - project/requirements/task-completion-tab-ux.md
+  - project/requirements/tenant-export-import-remainder.md
   - project/requirements/test-concept-navigation.md
+  - project/requirements/weather-fetch-interval.md
   - project/roadmap.md
   - project/sprints/0001-pflanzenfoto-galerie.md
   - project/sprints/0002-species-catalogue-tenant-isolation.md
+  - project/sprints/0003-einstellungen-gruppiert-wetterabruf.md
   - renovate.json5
   - scripts/docs/gen_catalog.py
   - scripts/docs/gen_fact_tables.py
@@ -16987,6 +17113,7 @@ readers:
   - src/inference-service/tests/test_disease_classifier.py
   - src/inference-service/tests/test_embedder.py
   - src/inference-service/tests/test_error_tracking_redacts_texts.py
+  - src/inference-service/tests/test_export_hub_pin.py
   - src/inference-service/tests/test_pest_api.py
   - src/inference-service/tests/test_pest_contribution_erasure.py
   - src/inference-service/tests/test_pest_contribution_keys.py
@@ -17296,6 +17423,9 @@ readers:
   - tools/rag-eval/eval_rag.py
   - tools/rag-eval/rag_eval.ipynb
   - tools/rag-eval/requirements.txt
+  src/backend/tests/unit/guards/test_no_renovate_pin_in_taskfiles.py:
+  - .pins/images.yaml
+  - renovate.json5
   src/backend/tests/unit/guards/test_nuclei_templates_digest_pin.py:
   - .github/renovate-pins.yaml
   - renovate.json5
@@ -17360,6 +17490,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -17740,6 +17871,7 @@ readers:
   - .github/stale.yml
   - .github/styles/config/vocabularies/kamerplanter/accept.txt
   - .mcp.json
+  - .pins/images.yaml
   - .pre-commit-config.yaml
   - .spectral.yaml
   - .vale.ini
@@ -18037,16 +18169,37 @@ readers:
   - docs/wichtige-prompts.md
   - kind-config.yaml
   - mkdocs.yml
+  - project/features/actionable-care-widgets.md
   - project/features/atomic-completion-transition.md
+  - project/features/bed-soil-hazards.md
+  - project/features/dashboard-and-view-management.md
+  - project/features/dashboard-model-v3.md
+  - project/features/failure-cause-class.md
   - project/features/freeze-recurrence-propagation-boundaries.md
+  - project/features/plant-event-backfill.md
+  - project/features/plant-event-recorder.md
   - project/features/plant-photo-gallery.md
   - project/features/plant-photo-upload.md
+  - project/features/plant-timeline-tab.md
+  - project/features/platform-settings-in-admin.md
+  - project/features/rain-deferred-watering-reminder.md
   - project/features/recurrence-propagation-inventory-baseline.md
+  - project/features/settings-grouped-navigation.md
+  - project/features/site-rain-sensor.md
+  - project/features/soil-aware-replant-hint.md
+  - project/features/soil-hazard-knowledge.md
+  - project/features/soil-water-balance.md
   - project/features/species-tenant-aware-read.md
   - project/features/species-tenant-key-and-cutover.md
+  - project/features/tenant-archive-size-limits.md
+  - project/features/tenant-import-preflight.md
+  - project/features/tenant-readings-import.md
   - project/features/tenant-scope-union-predicate.md
   - project/features/unify-notification-propagation.md
   - project/features/unify-recurrence-engine.md
+  - project/features/water-balance-widget.md
+  - project/features/weather-fetch-scheduling.md
+  - project/features/weather-fetch-settings-ui.md
   - project/goals.md
   - project/maturity/kamerplanter-remediation.md
   - project/maturity/kamerplanter.md
@@ -18091,21 +18244,28 @@ readers:
   - project/requirements/indoor-photoperiod-trigger.md
   - project/requirements/issue-303-propagation-configs.md
   - project/requirements/issue-367-code-discrepancies.md
+  - project/requirements/measured-rain-soil-water-balance.md
   - project/requirements/migration-lock-hardening.md
+  - project/requirements/multi-dashboard.md
   - project/requirements/overwintering-requirements.md
   - project/requirements/phase-definition-detail-lists.md
   - project/requirements/plant-grid-card-rework.md
   - project/requirements/renovate-config-rework.md
   - project/requirements/req003-lifecycle-engine.md
   - project/requirements/seed-profile-backfill.md
+  - project/requirements/settings-page-grouping.md
+  - project/requirements/soil-hazards-replant.md
   - project/requirements/species-origin-filter.md
   - project/requirements/species-scientific-name-normalization.md
   - project/requirements/species-tenant-ownership.md
   - project/requirements/task-completion-tab-ux.md
+  - project/requirements/tenant-export-import-remainder.md
   - project/requirements/test-concept-navigation.md
+  - project/requirements/weather-fetch-interval.md
   - project/roadmap.md
   - project/sprints/0001-pflanzenfoto-galerie.md
   - project/sprints/0002-species-catalogue-tenant-isolation.md
+  - project/sprints/0003-einstellungen-gruppiert-wetterabruf.md
   - scripts/docs/gen_catalog.py
   - scripts/docs/gen_fact_tables.py
   - scripts/kami/README.md
@@ -18605,6 +18765,7 @@ readers:
   - src/inference-service/tests/test_disease_classifier.py
   - src/inference-service/tests/test_embedder.py
   - src/inference-service/tests/test_error_tracking_redacts_texts.py
+  - src/inference-service/tests/test_export_hub_pin.py
   - src/inference-service/tests/test_pest_api.py
   - src/inference-service/tests/test_pest_contribution_erasure.py
   - src/inference-service/tests/test_pest_contribution_keys.py
@@ -18954,6 +19115,8 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
+  - .pins/images.yaml
   - .vscode/
   - brand/
   - docker/
@@ -20410,6 +20573,7 @@ readers:
   - .github/styles/config/
   - .github/styles/config/vocabularies/
   - .github/styles/config/vocabularies/kamerplanter/
+  - .pins/
   - .vscode/
   - brand/
   - docker/
@@ -21817,4 +21981,4 @@ readers:
   - src/frontend/src/validation/
   - src/frontend/src/validation/zodErrorMap.ts
   - src/frontend/src/vite-env.d.ts
-readers_scope_sha256: 03ffcf2d3cf04c0fbb613d4083a73831441f95ee11d234d6062c05023e49d44d
+readers_scope_sha256: dd2e2d4468d785456bc79fb44e474d4242469047d637c44e5cf7845cf924ee96

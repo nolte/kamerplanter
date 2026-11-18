@@ -9,9 +9,9 @@ job: inference-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
-replay_seconds: 13
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+replay_seconds: 11
 job_spec_sha256: 389cb2b83565365d6d683550d65978eff6b112470a929266e47fad572c3ad28b
 invocations:
 - command: task deps:sync:inference-service
@@ -25,10 +25,11 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2252
+  untracked_reads_dropped: 2254
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
 - python3.14
 - task
 - uv
@@ -71,6 +72,7 @@ reads:
 - src/inference-service/app/vectordb/repository.py
 - src/inference-service/app/vectordb/schema.py
 - src/inference-service/pyproject.toml
+- src/inference-service/scripts/export_dinov2_onnx.py
 - src/inference-service/tests/
 - src/inference-service/tests/__init__.py
 - src/inference-service/tests/conftest.py
@@ -82,6 +84,7 @@ reads:
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
 - src/inference-service/tests/test_error_tracking_redacts_texts.py
+- src/inference-service/tests/test_export_hub_pin.py
 - src/inference-service/tests/test_pest_api.py
 - src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_pest_contribution_keys.py
@@ -101,6 +104,7 @@ test_modules:
 - src/inference-service/tests/test_disease_classifier.py
 - src/inference-service/tests/test_embedder.py
 - src/inference-service/tests/test_error_tracking_redacts_texts.py
+- src/inference-service/tests/test_export_hub_pin.py
 - src/inference-service/tests/test_pest_api.py
 - src/inference-service/tests/test_pest_contribution_erasure.py
 - src/inference-service/tests/test_pest_contribution_keys.py
