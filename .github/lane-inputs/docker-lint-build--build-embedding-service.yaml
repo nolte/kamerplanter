@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: embedding-service
 status: derived
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
 replay_seconds: 1
 job_spec_sha256: 225c4803fb3d7fca46a6ca53ba29cc3decda9b07991f917e032b0cf58d85d2f8
 invocations:

@@ -9,8 +9,8 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-16'
-measured_at_commit: a5203ae053d79cc0287e6e77f60e0eaa8f9d77c8
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
 replay_seconds: 11
 job_spec_sha256: 8cd90671015f475d8f284c100fd8073f694af04d5c6ef00f3699b5caac75949f
 invocations:
@@ -29,6 +29,7 @@ invocations:
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
 - task
 - uv
 accepted_gaps: []
