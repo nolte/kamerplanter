@@ -368,8 +368,7 @@
       "photoTip2": "Scharfes Foto mit gutem Licht",
       "photoTip3": "Objekt füllt mindestens die Hälfte des Bildes aus",
       "notAPlantRetry": "Neues Foto aufnehmen",
-      "webcamHint": "Verwende die Webcam nur für Desktop/Kiosk. Für Smartphones ist die direkte Kamera besser.",
-      "consentDeclineAria": "Ablehnen und Dialog schließen"
+      "webcamHint": "Verwende die Webcam nur für Desktop/Kiosk. Für Smartphones ist die direkte Kamera besser."
     },
     "admin": {
       "title": "Administration",
@@ -4499,7 +4498,12 @@
       "automatic": "Automatisch",
       "manual": "Manuell",
       "vegetativeDetail": "Vegetative Phase (Detail)",
-      "floweringDetail": "Blüte & Ernte (Detail)"
+      "floweringDetail": "Blüte & Ernte (Detail)",
+      "weekNumber": "Woche {{week}}",
+      "editCell": "{{field}}: {{value}} – bearbeiten",
+      "moveFertilizerUp": "{{name}} nach oben verschieben",
+      "moveFertilizerDown": "{{name}} nach unten verschieben",
+      "removeFertilizer": "{{name}} entfernen"
     },
     "fertilizerGantt": {
       "title": "Dünger-Zeitplan",
@@ -4662,7 +4666,8 @@
       "runGroup": "{{name}} ({{count}} Pflanzen)",
       "plantFilter": {
         "title": "Pflanzen & Durchläufe",
-        "showAll": "Alle anzeigen"
+        "showAll": "Alle anzeigen",
+        "showPlantsOf": "Pflanzen von {{run}} anzeigen"
       },
       "phaseTimeline": {
         "title": "Phasen-Timeline",
@@ -4705,7 +4710,9 @@
         "tasks": "Aufgaben"
       },
       "previousMonth": "Vorheriger Monat",
-      "nextMonth": "Nächster Monat"
+      "nextMonth": "Nächster Monat",
+      "dayEntryCount": "{{count}} Eintrag",
+      "dayEntryCount_other": "{{count}} Einträge"
     },
     "pestDetail": {
       "back": "Zurück zur Liste",

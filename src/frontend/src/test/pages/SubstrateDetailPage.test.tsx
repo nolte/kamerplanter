@@ -319,13 +319,11 @@ describe('SubstrateDetailPage', () => {
 
   it('navigates to a batch detail page on row click', async () => {
     useSubstrate();
-    const user = userEvent.setup();
     renderWithProviders(<SubstrateDetailPage />);
 
     await screen.findByTestId('substrate-detail-page');
     const batchRow = screen.getAllByText('B-001')[0].closest('tr')!;
-    await user.click(within(batchRow).getByText('B-001'));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/substrates/batches/batch-1');
+    expect(within(batchRow).getByText('B-001').closest('a')).toHaveAttribute('href', '/standorte/substrates/batches/batch-1');
   });
 
   it('renders the batch list as mobile cards on a small screen', async () => {

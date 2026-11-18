@@ -318,4 +318,94 @@ describe('PhaseDetailGantt', () => {
     );
     expect(screen.getByText('Detail')).toBeInTheDocument();
   });
+
+  // #3017 (A-07) — the inline editors were `Box onClick` only: no role, no tab stop, no key handler.
+  describe('keyboard operation of the inline editors (#3017)', () => {
+    const ecCellName = () =>
+      i18n.t('pages.gantt.editCell', {
+        field: `${i18n.t('pages.gantt.ecTarget')}, ${i18n.t('pages.gantt.weekNumber', { week: 1 })}`,
+        value: 1.5,
+      });
+
+    it('offers each editable cell as a named button in the tab order', () => {
+      renderWithProviders(
+        <PhaseDetailGantt entries={[fullEntry()]} fertilizers={ferts} title="Detail" onEntriesChange={vi.fn()} />,
+      );
+      const cell = screen.getByRole('button', { name: ecCellName() });
+      expect(cell).toHaveAttribute('tabindex', '0');
+    });
+
+    it('opens the editor with Enter, commits with Enter and hands focus back to the cell', async () => {
+      const user = userEvent.setup();
+      const onEntriesChange = vi.fn();
+      renderWithProviders(
+        <PhaseDetailGantt entries={[fullEntry()]} fertilizers={ferts} title="Detail" onEntriesChange={onEntriesChange} />,
+      );
+      const cell = screen.getByRole('button', { name: ecCellName() });
+      cell.focus();
+      await user.keyboard('{Enter}');
+
+      const input = screen.getByRole('spinbutton', {
+        name: `${i18n.t('pages.gantt.ecTarget')}, ${i18n.t('pages.gantt.weekNumber', { week: 1 })}`,
+      });
+      expect(input).toHaveFocus();
+      await user.keyboard('{Control>}a{/Control}2.4{Enter}');
+
+      const updated = onEntriesChange.mock.lastCall![0] as NutrientPlanPhaseEntry[];
+      expect(updated[0].delivery_channels[0].target_ec_ms).toBe(2.4);
+      expect(screen.queryByRole('spinbutton')).toBeNull();
+      // Focus returns to the cell it came from, not to <body>.
+      expect(document.activeElement).toBe(screen.getAllByTestId('gantt-cell-ec')[0]);
+    });
+
+    it('opens with Space, cancels with Escape and hands focus back without a change', async () => {
+      const user = userEvent.setup();
+      const onEntriesChange = vi.fn();
+      renderWithProviders(
+        <PhaseDetailGantt entries={[fullEntry()]} fertilizers={ferts} title="Detail" onEntriesChange={onEntriesChange} />,
+      );
+      const cell = screen.getByRole('button', { name: ecCellName() });
+      cell.focus();
+      await user.keyboard(' ');
+      expect(screen.getByRole('spinbutton')).toHaveFocus();
+      await user.keyboard('9{Escape}');
+
+      expect(onEntriesChange).not.toHaveBeenCalled();
+      expect(screen.queryByRole('spinbutton')).toBeNull();
+      expect(document.activeElement).toBe(screen.getAllByTestId('gantt-cell-ec')[0]);
+    });
+
+    it('keeps read-only cells out of the tab order', () => {
+      renderWithProviders(<PhaseDetailGantt entries={[fullEntry()]} fertilizers={ferts} title="Detail" />);
+      expect(screen.queryByRole('button', { name: ecCellName() })).toBeNull();
+    });
+
+    it('names the fertilizer reorder and remove controls', () => {
+      const entry = makeEntry({
+        delivery_channels: [
+          makeChannel({
+            fertilizer_dosages: [
+              makeDosage({ fertilizer_key: 'f1', ml_per_liter: 4, mixing_order: 0 }),
+              makeDosage({ fertilizer_key: 'f2', ml_per_liter: 5, mixing_order: 1 }),
+            ],
+          }),
+        ],
+      });
+      renderWithProviders(
+        <PhaseDetailGantt
+          entries={[entry]}
+          fertilizers={[makeFert({ key: 'f1', product_name: 'BioGrow' }), makeFert({ key: 'f2', product_name: 'BioBloom' })]}
+          title="Detail"
+          onEntriesChange={vi.fn()}
+          onRemoveFertilizer={vi.fn()}
+        />,
+      );
+      expect(
+        screen.getByRole('button', { name: i18n.t('pages.gantt.moveFertilizerDown', { name: 'BioGrow' }) }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: i18n.t('pages.gantt.removeFertilizer', { name: 'BioBloom' }) }),
+      ).toBeInTheDocument();
+    });
+  });
 });

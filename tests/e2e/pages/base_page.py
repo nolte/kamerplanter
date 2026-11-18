@@ -2712,8 +2712,13 @@ class BasePage:
     #: the row, but a link/button inside a cell handles the click first and
     #: (in every current caller) calls ``stopPropagation``, so the row handler
     #: never runs. A cell containing one of these is not a usable click target.
+    #:
+    #: Exempt: the row's own link (``data-row-link="true"``, #3017). `DataTable`
+    #: puts a real ``<a href>`` to the row's detail URL into the first visible
+    #: cell of a linked row; clicking it lands exactly where the row click would.
     ROW_CLICK_SWALLOWERS = (
-        "a[href], button, [role='button'], [role='link'], "
+        "a[href]:not([data-row-link='true']), button, [role='button'], "
+        "[role='link']:not([data-row-link='true']), "
         "input, select, textarea, .MuiChip-clickable"
     )
 

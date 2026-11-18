@@ -60,6 +60,14 @@ describe('IdentificationConsentGate', () => {
     expect(onDecline).toHaveBeenCalledTimes(1);
   });
 
+  it('names the decline button by its visible text (#3017, WCAG 2.5.3 label in name)', () => {
+    setup();
+    const decline = screen.getByTestId('consent-decline');
+    // A voice-control user says what they see; an aria-label replacing it matched nothing.
+    expect(decline).not.toHaveAttribute('aria-label');
+    expect(decline).toHaveAccessibleName(decline.textContent ?? '');
+  });
+
   it('disables the accept button and shows a spinner while granting', () => {
     setup({ granting: true });
     expect(screen.getByTestId('consent-accept')).toBeDisabled();

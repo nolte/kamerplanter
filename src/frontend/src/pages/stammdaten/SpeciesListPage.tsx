@@ -583,7 +583,7 @@ export default function SpeciesListPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/stammdaten/species/${r.key}`)}
+        getRowHref={(r) => `/stammdaten/species/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={canCreate ? t('pages.species.create') : undefined}
         onEmptyAction={canCreate ? () => setCreateOpen(true) : undefined}

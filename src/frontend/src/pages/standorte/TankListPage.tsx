@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -19,7 +18,6 @@ import { kamiTanks } from '@/assets/brand/illustrations';
 export default function TankListPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { tanks, loading } = useAppSelector((s) => s.tanks);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
@@ -73,7 +71,7 @@ export default function TankListPage() {
         columns={columns}
         rows={tanks}
         loading={loading}
-        onRowClick={(r) => navigate(`/standorte/tanks/${r.key}`)}
+        getRowHref={(r) => `/standorte/tanks/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.tanks.create')}
         onEmptyAction={() => setCreateOpen(true)}

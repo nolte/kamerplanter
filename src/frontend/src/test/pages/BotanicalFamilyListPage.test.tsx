@@ -282,16 +282,17 @@ describe('BotanicalFamilyListPage', () => {
         expect(screen.queryByTestId('family-detail-page')).toBeNull();
       });
 
-      it('keeps the name cell inert so the row click still reaches the detail page', async () => {
-        // The name column must not render a link: the row click already goes to
-        // the family detail, and an interactive cell stops propagation, which
-        // swallows that row click. The E2E interaction guard rejects such a
-        // cell as a row-click target, so a link here breaks the suite.
+      it('makes the name cell the link to the family detail, the same target as the row', async () => {
+        // #3017: a linked row carries a real link in its first cell — the row's tab stop, with
+        // new-tab support. It must lead where the row leads; the species-count link above is the
+        // only cell link that goes somewhere else.
+        const user = userEvent.setup();
         renderWithTargetRoutes();
 
-        await screen.findByText('Brassicaceae');
-
-        expect(screen.queryAllByRole('link', { name: 'Brassicaceae' })).toHaveLength(0);
+        const link = await screen.findByRole('link', { name: 'Brassicaceae' });
+        expect(link.getAttribute('href')).toBe('/stammdaten/botanical-families/fam-with');
+        await user.click(link);
+        expect(await screen.findByTestId('family-detail-page')).toBeTruthy();
       });
     });
 

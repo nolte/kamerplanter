@@ -11,6 +11,7 @@ import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
 import CalendarPage from '@/pages/kalender/CalendarPage';
 import { renderWithProviders, tenantState, type TestStore } from '../helpers';
+import { expectNoA11yViolations } from '../a11y/expectNoA11yViolations';
 import { server } from '../mocks/server';
 import type { CalendarEvent, CalendarFeed, CalendarFeedIssued } from '@/api/types';
 
@@ -200,8 +201,8 @@ describe('CalendarPage — month view & events', () => {
 
     await screen.findByTestId('calendar-page');
     expect(await screen.findByTestId('calendar-event-dot-ev-task')).toHaveTextContent('Prune tomato');
-    // The run instance is collapsed into a single labelled entry.
-    expect(screen.getByLabelText('Batch A')).toBeInTheDocument();
+    // The run instance is collapsed into a single entry (opened through its day, #3017).
+    expect(screen.getByTestId('calendar-run-entry-run-1')).toHaveTextContent('Batch A');
     // Day 20 has four entries but only three are shown -> "+1 more".
     expect(screen.getByText(`+1 ${i18n.t('common.more')}`)).toBeInTheDocument();
   });
@@ -301,6 +302,97 @@ describe('CalendarPage — month view & events', () => {
 
     fireEvent.keyDown(screen.getByTestId('calendar-day-20'), { key: 'Enter' });
     expect(await screen.findByTestId('day-popover')).toBeInTheDocument();
+  });
+});
+
+// #3017 (L-10) — the month view was `role="table"` with `role="button"` children directly under it (axe
+// critical: aria-required-children) and one tab stop per day that had events.
+describe('CalendarPage — month grid semantics and keyboard (#3017)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('exposes the month as a grid of rows and gridcells with no critical or serious axe violation', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const { container } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const grid = screen.getByRole('grid');
+    // Header row + at least four week rows, each a direct row of the grid.
+    const gridRows = within(grid).getAllByRole('row');
+    expect(gridRows.length).toBeGreaterThanOrEqual(5);
+    expect(within(gridRows[0]).getAllByRole('columnheader')).toHaveLength(7);
+    for (const row of gridRows.slice(1)) {
+      expect(within(row).getAllByRole('gridcell')).toHaveLength(7);
+    }
+    await expectNoA11yViolations(container, { minImpact: 'serious', minElements: 200 });
+  });
+
+  it('is a single tab stop that the arrow, Home and End keys move through', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const days = screen
+      .getAllByRole('gridcell')
+      .filter((c) => c.hasAttribute('data-day'));
+    // Exactly one day is tabbable: today, since the page opens on the current month.
+    const tabbable = days.filter((c) => c.getAttribute('tabindex') === '0');
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute('data-day', String(NOW.getDate()));
+    // Entries inside a day are not extra tab stops.
+    expect(screen.getByTestId('calendar-event-dot-ev-task')).toHaveAttribute('tabindex', '-1');
+
+    // Start on the 10th and walk the grid.
+    screen.getByTestId('calendar-day-10').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('calendar-day-11')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByTestId('calendar-day-18')).toHaveFocus();
+    await user.keyboard('{ArrowUp}{ArrowLeft}');
+    expect(screen.getByTestId('calendar-day-10')).toHaveFocus();
+    // The roving tab stop followed the focus.
+    expect(screen.getByTestId('calendar-day-10')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId(`calendar-day-${NOW.getDate() === 10 ? 11 : NOW.getDate()}`)).toHaveAttribute(
+      'tabindex',
+      '-1',
+    );
+
+    // Home/End stay within the week of the focused day.
+    const firstWeekday = (new Date(Y, M, 1).getDay() + 6) % 7; // Monday-based column of the 1st
+    const column = (firstWeekday + 10 - 1) % 7;
+    await user.keyboard('{Home}');
+    expect(screen.getByTestId(`calendar-day-${Math.max(1, 10 - column)}`)).toHaveFocus();
+    screen.getByTestId('calendar-day-10').focus();
+    await user.keyboard('{End}');
+    expect(screen.getByTestId(`calendar-day-${10 + (6 - column)}`)).toHaveFocus();
+
+    // Never past the month's edges.
+    screen.getByTestId('calendar-day-1').focus();
+    await user.keyboard('{ArrowLeft}{ArrowUp}');
+    expect(screen.getByTestId('calendar-day-1')).toHaveFocus();
+  });
+
+  it('opens the day popover with Enter on the focused day and returns focus on Escape', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const day = screen.getByTestId('calendar-day-12');
+    day.focus();
+    await user.keyboard('{Enter}');
+    const popover = await screen.findByTestId('day-popover');
+    expect(within(popover).getByText('Water basil')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
+    expect(day).toHaveFocus();
   });
 });
 

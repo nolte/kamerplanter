@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -27,7 +26,6 @@ interface Props {
 
 export default function CultivarListSection({ speciesKey }: Props) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
   // `SpeciesService.delete_cultivar` is lead-only for an own row and platform-admin for a
@@ -157,7 +155,7 @@ export default function CultivarListSection({ speciesKey }: Props) {
         rows={cultivars}
         loading={loading}
         getRowKey={(r) => r.key}
-        onRowClick={(r) => navigate(`/stammdaten/species/${speciesKey}/cultivars/${r.key}`)}
+        getRowHref={(r) => `/stammdaten/species/${speciesKey}/cultivars/${r.key}`}
         tableState={tableState}
         ariaLabel={t('pages.cultivars.title')}
         // With the create button gone, the empty state is the only place left to

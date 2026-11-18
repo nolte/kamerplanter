@@ -511,6 +511,73 @@ describe('WorkflowDetailPage', () => {
     ).toBeInTheDocument();
   });
 
+  // #3017 (A-07) — the activity cards were `Box onClick` only: no role, no tab stop, no key handler.
+  it('selects a catalog activity from the keyboard and adds it', async () => {
+    let created = false;
+    useWorkflow({ phases: [makePhase()] });
+    server.use(
+      http.get('/api/v1/activities', () =>
+        HttpResponse.json([
+          {
+            key: 'act-1',
+            tenant_key: 't',
+            name: 'Pruning',
+            name_de: 'Beschneiden',
+            description: 'Prune it',
+            description_de: 'Schneiden',
+            category: 'pruning',
+            stress_level: 'medium',
+            skill_level: 'beginner',
+            recovery_days_default: 2,
+            recovery_days_by_species: {},
+            forbidden_phases: [],
+            restricted_sub_phases: [],
+            tools_required: [],
+            estimated_duration_minutes: 10,
+            requires_photo: false,
+            species_compatible: [],
+            is_system: false,
+            sort_order: 1,
+            tags: [],
+            created_at: null,
+            updated_at: null,
+          },
+        ]),
+      ),
+      http.post(TEMPLATE_CREATE_URL, () => {
+        created = true;
+        return HttpResponse.json(makeTemplate({ key: 'tt-new', activity_key: 'act-1' }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+
+    await screen.findByTestId('workflow-detail-page');
+    await user.click(screen.getByRole('tab', { name: i18n.t('pages.tasks.taskTemplates') }));
+    await user.click(
+      (await screen.findAllByRole('button', { name: i18n.t('pages.tasks.addActivityFromCatalog') }))[0],
+    );
+
+    const toggle = await screen.findByTestId('activity-select-act-1');
+    expect(toggle).toHaveAttribute('role', 'button');
+    expect(toggle).toHaveAttribute('tabindex', '0');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    toggle.focus();
+    await user.keyboard(' ');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await user.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+    const dialog = screen.getAllByRole('dialog').slice(-1)[0];
+    await user.click(
+      within(dialog).getByRole('button', { name: i18n.t('pages.tasks.addActivityFromCatalog') }),
+    );
+    await waitFor(() => expect(created).toBe(true));
+  });
+
   it('resolves a species breadcrumb when the workflow has a species key', async () => {
     useWorkflow({ workflow: makeWorkflow({ species_key: 'sp-1', species_name: 'Tomato' }) });
     renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });

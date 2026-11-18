@@ -25,6 +25,8 @@ import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '
 import { forgetLoginReturn, rememberLoginReturn, returnToFromSearch } from '@/utils/loginReturn';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
+const LOGIN_ERROR_ID = 'login-error';
+
 export default function LoginPage() {
   const { t } = useTranslation();
   useDocumentTitle(t('pages.auth.login'));
@@ -72,6 +74,10 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate, search]);
 
+  // The refusal names no single field (it must not say which of the two was wrong), so it is bound to
+  // both: each is marked invalid and points at the message via aria-describedby (UI-NFR-002 R-014).
+  const credentialsRefused = Boolean(error) && !unverifiedEmail;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setUnverifiedEmail(null);
@@ -86,10 +92,16 @@ export default function LoginPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="login-page">
+    // `main` + `h1` (#3017, W-06): the page renders outside MainLayout, so it brings its own landmark
+    // and top-level heading.
+    <Box
+      component="main"
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}
+      data-testid="login-page"
+    >
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" gutterBottom align="center">
+          <Typography variant="h5" component="h1" gutterBottom align="center">
             {t('pages.auth.login')}
           </Typography>
 
@@ -106,7 +118,11 @@ export default function LoginPage() {
               <ResendVerificationAction email={unverifiedEmail} />
             </Box>
           ) : (
-            error && <Alert severity="error" sx={{ mb: 2 }}>{t(error)}</Alert>
+            error && (
+              <Alert severity="error" sx={{ mb: 2 }} id={LOGIN_ERROR_ID} data-testid="login-error">
+                {t(error)}
+              </Alert>
+            )
           )}
 
           {invitationToken && (
@@ -140,6 +156,8 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               sx={{ mb: 2 }}
               autoComplete="email"
+              error={credentialsRefused}
+              slotProps={{ htmlInput: { 'aria-describedby': credentialsRefused ? LOGIN_ERROR_ID : undefined } }}
             />
             <TextField
               label={t('pages.auth.password')}
@@ -150,6 +168,8 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               sx={{ mb: 1 }}
               autoComplete="current-password"
+              error={credentialsRefused}
+              slotProps={{ htmlInput: { 'aria-describedby': credentialsRefused ? LOGIN_ERROR_ID : undefined } }}
             />
             {/* `top`, not `right`: measured on the 393px mobile profile, the
                 right-placed popper started at x=208 and is ~316px wide, so it

@@ -207,6 +207,7 @@ export default function PlantFilterTree({
           indeterminate={isFiltering}
           onChange={handleToggleAll}
           data-testid="plant-filter-select-all"
+          slotProps={{ input: { 'aria-label': t('common.all') } }}
         />
         <Typography
           variant="body2"
@@ -234,6 +235,8 @@ export default function PlantFilterTree({
                 onClick={() => handleToggleExpand(run.runKey)}
                 sx={{ p: 0.25 }}
                 data-testid={`plant-filter-expand-${run.runKey}`}
+                aria-label={t('pages.calendar.plantFilter.showPlantsOf', { run: run.runName })}
+                aria-expanded={isExpanded}
               >
                 {isExpanded ? (
                   <ExpandMoreIcon sx={{ fontSize: '1.1rem' }} />
@@ -247,6 +250,7 @@ export default function PlantFilterTree({
                 indeterminate={someRunChecked}
                 onChange={() => handleToggleRun(run)}
                 data-testid={`plant-filter-run-${run.runKey}`}
+                slotProps={{ input: { 'aria-label': run.runName } }}
               />
               {/* Unchecked is de-emphasised with `text.secondary`, never
                   `text.disabled` — this label is click-to-toggle and stays fully
@@ -281,6 +285,7 @@ export default function PlantFilterTree({
                     checked={checkedPlantKeys.has(plant.plantKey)}
                     onChange={() => handleTogglePlant(plant.plantKey)}
                     data-testid={`plant-filter-plant-${plant.plantKey}`}
+                    slotProps={{ input: { 'aria-label': plant.plantName } }}
                   />
                   <Typography
                     variant="body2"

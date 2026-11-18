@@ -16,6 +16,7 @@ import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormTimeField from '@/components/form/FormTimeField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
@@ -315,35 +316,12 @@ export default function PlanEditTab({
                 />
               )}
 
-              {/* Preferred Time */}
-              <Controller
+              {/* Preferred Time — the shared field: a bound label, the error tied to the input
+                  via aria-describedby, and theme colours that follow dark mode (#3017, A-08). */}
+              <FormTimeField
                 name="preferred_time"
                 control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      {t('pages.wateringSchedule.preferredTime')}
-                    </Typography>
-                    <input
-                      type="time"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        fontSize: '1rem',
-                        border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
-                        borderRadius: '4px',
-                      }}
-                    />
-                    {error?.message && (
-                      <Typography variant="caption" color="error">
-                        {error.message}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
+                label={t('pages.wateringSchedule.preferredTime')}
               />
 
               {/* Application Method */}

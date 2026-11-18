@@ -431,22 +431,18 @@ describe('LocationDetailPage', () => {
 
   it('navigates from the run, plant, sub-location and slot rows', async () => {
     useFullLocation();
-    const user = userEvent.setup();
     renderPage();
 
     await screen.findByTestId('location-detail-page');
 
-    await user.click(await screen.findByText('Run Alpha'));
-    expect(mockNavigate).toHaveBeenCalledWith('/durchlaeufe/planting-runs/run-1');
+    // #3017: each row's first cell is a real link to the detail page (new-tab capable).
+    expect((await screen.findByText('Run Alpha')).closest('a')).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
 
-    await user.click(screen.getByText('TOM-002'));
-    expect(mockNavigate).toHaveBeenCalledWith('/pflanzen/plant-instances/plant-solo');
+    expect(screen.getByText('TOM-002').closest('a')).toHaveAttribute('href', '/pflanzen/plant-instances/plant-solo');
 
-    await user.click(screen.getByText('Bed 1'));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/locations/loc-child');
+    expect(screen.getByText('Bed 1').closest('a')).toHaveAttribute('href', '/standorte/locations/loc-child');
 
-    await user.click(screen.getByText('A1'));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/slots/slot-1');
+    expect(screen.getByText('A1').closest('a')).toHaveAttribute('href', '/standorte/slots/slot-1');
   });
 
   it('opens the create dialogs from their add buttons', async () => {

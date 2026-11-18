@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -22,7 +22,6 @@ import { kamiMasterdata } from '@/assets/brand/illustrations';
 export default function BotanicalFamilyListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.botanicalFamilies);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
@@ -180,7 +179,7 @@ export default function BotanicalFamilyListPage() {
         columns={columns}
         rows={items}
         loading={loading}
-        onRowClick={(r) => navigate(`/stammdaten/botanical-families/${r.key}`)}
+        getRowHref={(r) => `/stammdaten/botanical-families/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={canEditCatalogue ? t('pages.botanicalFamilies.create') : undefined}
         onEmptyAction={canEditCatalogue ? () => setCreateOpen(true) : undefined}

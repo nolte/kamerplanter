@@ -150,11 +150,9 @@ describe('PhaseDefinitionListPage', () => {
 
   it('navigates to the definition detail on row click', async () => {
     useDefinitions([makeDefinition()]);
-    const user = userEvent.setup();
     renderAsAdmin(<PhaseDefinitionListPage />);
 
-    await user.click(await screen.findByText('Vegetativ'));
-    expect(mockNavigate).toHaveBeenCalledWith('/phasen/definitionen/def-1');
+    expect((await screen.findByText('Vegetativ')).closest('a')).toHaveAttribute('href', '/phasen/definitionen/def-1');
   });
 
   it('opens the create dialog from the header action', async () => {

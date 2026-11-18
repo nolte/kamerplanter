@@ -418,7 +418,7 @@ export default function SubstrateDetailPage() {
           columns={batchColumns}
           rows={batches}
           getRowKey={(r) => r.key}
-          onRowClick={(r) => navigate(`/standorte/substrates/batches/${r.key}`)}
+          getRowHref={(r) => `/standorte/substrates/batches/${r.key}`}
           tableState={batchTableState}
           ariaLabel={t('pages.batches.title')}
           mobileCardRenderer={(r) => (

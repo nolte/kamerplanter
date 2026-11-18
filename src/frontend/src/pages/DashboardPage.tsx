@@ -328,7 +328,7 @@ export default function DashboardPage() {
             aria-hidden="true"
             sx={{ maxHeight: 180, maxWidth: '100%', objectFit: 'contain', mb: 2, opacity: 0.85 }}
           />
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" component="h2" gutterBottom>
             {t('dashboard.empty.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

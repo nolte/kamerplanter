@@ -2259,7 +2259,7 @@ export default function PlantInstanceDetailPage() {
             ]}
             rows={wateringLogs}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/giessprotokoll/${r.key}`)}
+            getRowHref={(r) => `/giessprotokoll/${r.key}`}
             tableState={wateringLogTableState}
             ariaLabel={t('entities.wateringLog')}
             mobileCardRenderer={(r) => (
@@ -2591,7 +2591,7 @@ export default function PlantInstanceDetailPage() {
                     ]}
                     rows={activeTasks}
                     getRowKey={(row) => row.key}
-                    onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
+                    getRowHref={(row) => `/aufgaben/tasks/${row.key}`}
                     tableState={taskTableState}
                     ariaLabel={t('pages.plantInstances.taskTabActiveSection')}
                     sectionTestId="plant-tasks-active"
@@ -2690,7 +2690,7 @@ export default function PlantInstanceDetailPage() {
                     ]}
                     rows={archivedTasks}
                     getRowKey={(row) => row.key}
-                    onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
+                    getRowHref={(row) => `/aufgaben/tasks/${row.key}`}
                     ariaLabel={t('pages.plantInstances.taskTabDoneSection')}
                     sectionTestId="plant-tasks-done"
                     searchable

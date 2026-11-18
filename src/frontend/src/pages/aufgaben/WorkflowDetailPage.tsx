@@ -1291,7 +1291,34 @@ export default function WorkflowDetailPage() {
                       }}
                       onClick={() => setSelectedActivity(isSelected ? null : act)}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {/*
+                        The keyboard handle of the card (#3017, A-07): a toggle button
+                        that is pressed while this activity is the selected one. The
+                        card itself cannot be the button — it holds the separate
+                        "show description" button, and a button's content is flat.
+                        A click here bubbles to the card's own handler above.
+                      */}
+                      <Box
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
+                        data-testid={`activity-select-${act.key}`}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget || e.repeat) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedActivity(isSelected ? null : act);
+                          }
+                        }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                          borderRadius: 0.5,
+                          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                        }}
+                      >
                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                           {actName}
                         </Typography>
