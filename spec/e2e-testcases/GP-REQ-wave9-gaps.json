@@ -1,7 +1,7 @@
 {
   "GP-FR-025": {
     "partial": true,
-    "reason": "`Ctrl/Cmd+D`, the menu entry and multi-duplicate are tested (frontend, E2E TC-053-096). Two parts stay open for the operator (#2759): (a) a duplicated bed starts without slots, because the closed batch operation list has no `create_slot` (§32.4 item 8; the sentence \"bei Beeten werden Slots mitkopiert\" stays unmet, `GP-REQ-wave7-gaps.json`); (b) the copy lands one grid step beside the original and overlaps it, so saving it unmoved is refused with 422 `bed.overlap` (V-05) and the live validation does not warn - question 14 of #2759 (offset by the bed's own width, or a client-side V-05 hint)",
+    "reason": "`Ctrl/Cmd+D`, the menu entry and multi-duplicate are tested (frontend, E2E TC-053-096). One part stays open for the operator (#2759): (a) a duplicated bed starts without slots, because the closed batch operation list has no `create_slot` (§32.4 item 8; the sentence \"bei Beeten werden Slots mitkopiert\" stays unmet, `GP-REQ-wave7-gaps.json`). The former part (b) - the copy overlapping its original (V-05) - is closed: since #2965 the copy lands on the first free position (TC-053-096)",
     "issue": 2759
   },
   "UI-NFR-012 R-009": {
