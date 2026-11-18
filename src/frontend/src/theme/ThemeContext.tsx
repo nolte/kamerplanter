@@ -15,18 +15,46 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'kamerplanter-theme';
 
-function getInitialMode(): ThemeMode {
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+/** The mode the user picked by hand, or `null` while the OS preference decides (UI-NFR-006 R-004, #3021). */
+function readStoredMode(): ThemeMode | null {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return stored === 'light' || stored === 'dark' ? stored : null;
+  } catch {
+    return null;
+  }
+}
+
+function readSystemMode(): ThemeMode {
+  try {
+    return window.matchMedia(DARK_QUERY).matches ? 'dark' : 'light';
   } catch {
     return 'light';
   }
 }
 
 export function ThemeContextProvider({ children }: { children: ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>(getInitialMode);
+  // Only a manual pick is persisted. Until there is one, the OS preference decides and keeps deciding: a later
+  // OS switch (e.g. automatic dark mode at sunset) is followed instead of being frozen at the first visit.
+  const [storedMode, setStoredMode] = useState<ThemeMode | null>(readStoredMode);
+  const [systemMode, setSystemMode] = useState<ThemeMode>(readSystemMode);
+  const mode: ThemeMode = storedMode ?? systemMode;
+
+  useEffect(() => {
+    if (storedMode !== null) return undefined;
+    let query: MediaQueryList;
+    try {
+      query = window.matchMedia(DARK_QUERY);
+    } catch {
+      return undefined;
+    }
+    if (typeof query?.addEventListener !== 'function') return undefined;
+    const onChange = (event: MediaQueryListEvent) => setSystemMode(event.matches ? 'dark' : 'light');
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, [storedMode]);
 
   // UI-NFR-019 — the kiosk context is optional so components rendered without a
   // KioskProvider (e.g. isolated tests) fall back to the standard light/dark
@@ -37,17 +65,19 @@ export function ThemeContextProvider({ children }: { children: ReactNode }) {
   const highContrast = kiosk?.highContrast ?? false;
 
   useEffect(() => {
+    if (storedMode === null) return;
     try {
-      localStorage.setItem(STORAGE_KEY, mode);
+      localStorage.setItem(STORAGE_KEY, storedMode);
     } catch {
       // localStorage unavailable in tests
     }
-  }, [mode]);
+  }, [storedMode]);
 
   const value = useMemo(
     () => ({
       mode,
-      toggleTheme: () => setMode((prev) => (prev === 'light' ? 'dark' : 'light')),
+      // The toggle is the manual pick: from then on the chosen mode is kept and the OS preference no longer applies.
+      toggleTheme: () => setStoredMode(mode === 'light' ? 'dark' : 'light'),
     }),
     [mode],
   );
@@ -60,7 +90,7 @@ export function ThemeContextProvider({ children }: { children: ReactNode }) {
   return (
     <ThemeContext.Provider value={value}>
       <MuiThemeProvider theme={theme}>
-        <CssBaseline />
+        <CssBaseline enableColorScheme />
         {children}
       </MuiThemeProvider>
     </ThemeContext.Provider>

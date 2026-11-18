@@ -16,6 +16,7 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { ChannelCalendarEntry, PhaseTimelineEntry } from '@/api/types';
+import { getPhaseColor } from '@/theme/domainColors';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -33,25 +34,6 @@ function formatDateISO(year: number, month: number, day: number): string {
   const d = String(day).padStart(2, '0');
   return `${year}-${m}-${d}`;
 }
-
-// ── Phase colors ────────────────────────────────────────────────────
-
-const PHASE_COLORS: Record<string, string> = {
-  germination: '#a5d6a7',
-  seedling: '#81c784',
-  vegetative: '#4caf50',
-  flowering: '#f48fb1',
-  ripening: '#ffcc80',
-  harvest: '#ffb74d',
-  drying: '#bcaaa4',
-  curing: '#a1887f',
-  flushing: '#90caf9',
-  juvenile: '#c5e1a5',
-  climbing: '#aed581',
-  mature: '#66bb6a',
-  dormancy: '#b0bec5',
-  senescence: '#ef9a9a',
-};
 
 // ── Channel color palette ────────────────────────────────────────────
 
@@ -202,14 +184,14 @@ export default function WateringCalendarView({
           map.set(day, {
             name: p.phase_name,
             displayName: p.display_name || p.phase_name,
-            color: PHASE_COLORS[p.phase_name.toLowerCase()] ?? '#e0e0e0',
+            color: getPhaseColor(theme, p.phase_name),
           });
           break;
         }
       }
     }
     return map;
-  }, [phases, currentYear, currentMonth]);
+  }, [phases, currentYear, currentMonth, theme]);
 
   // Group entries by day number for the current month
   const entriesByDay = useMemo(() => {

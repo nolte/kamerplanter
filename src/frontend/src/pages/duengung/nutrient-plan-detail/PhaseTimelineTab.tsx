@@ -24,7 +24,8 @@ import HelpTooltip from '@/components/common/HelpTooltip';
 import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import DeliveryChannelChips from '../DeliveryChannelChips';
 import DeliveryChannelAccordion from '../DeliveryChannelAccordion';
-import PhaseGanttChart, { PHASE_COLORS } from '../PhaseGanttChart';
+import PhaseGanttChart from '../PhaseGanttChart';
+import { getPhaseColor } from '@/theme/domainColors';
 import PhaseDetailGantt from '../PhaseDetailGantt';
 import type {
   NutrientPlan,
@@ -129,7 +130,7 @@ export default function PhaseTimelineTab({
     : 0;
 
   const renderEntryCard = (entry: NutrientPlanPhaseEntry) => {
-    const phaseColor = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+    const phaseColor = getPhaseColor(theme, entry.phase_name);
     const isSelected = selectedPhaseKey === entry.key;
     const duration = entry.week_end - entry.week_start + 1;
 

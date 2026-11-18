@@ -28,6 +28,7 @@ import FilterVintageIcon from '@mui/icons-material/FilterVintage';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EmptyState from '@/components/common/EmptyState';
+import { getPhaseColor, phaseColorKey } from '@/theme/domainColors';
 import type { SowingCalendarEntry, FrostConfig, SowingPhase } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
 
@@ -53,19 +54,6 @@ const CATEGORY_DISPLAY_ORDER: PlantCategoryKey[] = [
   'balcony_plant', 'indoor_houseplant', 'tropical_foliage',
   'succulent_cactus', 'orchid',
 ];
-
-const PHASE_COLORS: Record<SowingPhase, string> = {
-  indoor_sowing: '#FDD835',
-  outdoor_planting: '#66BB6A',
-  harvest: '#FFA726',
-  flowering: '#EC407A',
-  growth: '#42A5F5',
-  germination: '#FDD835',
-  seedling: '#66BB6A',
-  vegetative: '#42A5F5',
-  flushing: '#AB47BC',
-  ripening: '#FFA726',
-};
 
 const PHASE_I18N: Record<SowingPhase, string> = {
   indoor_sowing: 'pages.calendar.sowingCalendar.indoorSowing',
@@ -325,7 +313,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
                       width: 16,
                       height: 12,
                       borderRadius: 0.5,
-                      bgcolor: PHASE_COLORS[phase],
+                      bgcolor: getPhaseColor(theme, phase),
                     }}
                   />
                   <Typography variant="caption">{t(PHASE_I18N[phase])}</Typography>
@@ -472,7 +460,12 @@ function SowingRow({
 
         const isEisheiligen = eisheiligenWeek === weekNum;
         const isToday = todayWeek === weekNum;
-        const barColor = matchingBar ? (matchingBar.color || PHASE_COLORS[matchingBar.phase as SowingPhase] || theme.palette.grey[400]) : undefined;
+        // The theme token wins over the colour the server ships with the bar, so bar and legend agree in both modes.
+        const barColor = matchingBar
+          ? phaseColorKey(matchingBar.phase)
+            ? getPhaseColor(theme, matchingBar.phase)
+            : matchingBar.color || theme.palette.grey[400]
+          : undefined;
 
         // Determine rounded corners
         let borderRadius = '0';

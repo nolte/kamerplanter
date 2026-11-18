@@ -6,6 +6,7 @@ import Skeleton from '@mui/material/Skeleton';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
 import {
   ResponsiveContainer,
   LineChart,
@@ -19,6 +20,7 @@ import {
 } from 'recharts';
 import dayjs from 'dayjs';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { getMetricColor } from '@/theme/domainColors';
 import * as observationsApi from '@/api/endpoints/observations';
 import type {
   SensorReadingResponse,
@@ -46,21 +48,6 @@ const RANGE_CONFIG: Record<TimeRange, { hours: number; resolution: 'raw' | 'hour
   '7d': { hours: 168, resolution: 'hourly' },
   '30d': { hours: 720, resolution: 'daily' },
   '90d': { hours: 2160, resolution: 'daily' },
-};
-
-const METRIC_COLORS: Record<string, string> = {
-  ph: '#4caf50',
-  ec_ms: '#ff9800',
-  water_temp_celsius: '#2196f3',
-  temperature_celsius: '#f44336',
-  humidity_percent: '#9c27b0',
-  fill_level_percent: '#00bcd4',
-  co2_ppm: '#795548',
-  vpd_kpa: '#607d8b',
-  ppfd: '#ffc107',
-  tds_ppm: '#ff5722',
-  dissolved_oxygen_mgl: '#03a9f4',
-  orp_mv: '#8bc34a',
 };
 
 function isAggregated(item: SensorReadingResponse | AggregatedReadingResponse): item is AggregatedReadingResponse {
@@ -108,7 +95,8 @@ export default function SensorHistoryChart({ sensorKey, sensorName, metricType, 
   const [error, setError] = useState<string | null>(null);
   const [aggregated, setAggregated] = useState(false);
 
-  const color = METRIC_COLORS[metricType] ?? '#1976d2';
+  const theme = useTheme();
+  const color = getMetricColor(theme, metricType);
 
   const fetchData = useCallback(async (r: TimeRange) => {
     setLoading(true);

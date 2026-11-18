@@ -7,42 +7,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { getGrowthPhase } from '@/api/endpoints/phases';
 import { ApiError } from '@/api/errors';
+import { planPhaseColor } from '@/theme/domainColors';
 
-const PHASE_COLORS: Readonly<Record<string, string>> = {
-  germination: '#81C784',
-  seedling: '#66BB6A',
-  vegetative: '#43A047',
-  flowering: '#AB47BC',
-  harvest: '#EF5350',
-  drying: '#FF7043',
-  curing: '#FFA726',
-  flushing: '#42A5F5',
-  ripening: '#FF8A65',
-  cloning: '#26A69A',
-};
-
-const FALLBACK_PALETTE = [
-  '#7E57C2',
-  '#5C6BC0',
-  '#29B6F6',
-  '#26C6DA',
-  '#66BB6A',
-  '#D4E157',
-  '#FFCA28',
-  '#FFA726',
-  '#EC407A',
-  '#78909C',
-] as const;
-
+/**
+ * The marker colour of a growth-phase name. The palette and the resolution rule live in the theme layer
+ * (`@/theme/domainColors`, #3021); the plan uses the mode-independent paint it shares with the server-rendered
+ * SVG/PDF (`phase_color` vectors).
+ */
 export function phaseColor(phaseName: string): string {
-  const key = phaseName.toLowerCase().replace(/[^a-z]/g, '');
-  const known = PHASE_COLORS[key];
-  if (known) return known;
-  let hash = 0;
-  for (let index = 0; index < phaseName.length; index += 1) {
-    hash = (hash * 31 + phaseName.charCodeAt(index)) | 0;
-  }
-  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
+  return planPhaseColor(phaseName);
 }
 
 /**

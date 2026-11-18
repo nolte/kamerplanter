@@ -73,6 +73,7 @@ import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
+import { getEventCategoryColor, readableTextOn } from '@/theme/domainColors';
 import { kamiCalendar } from '@/assets/brand/illustrations';
 import PlantFilterTree from './PlantFilterTree';
 
@@ -91,20 +92,6 @@ const ALL_CATEGORIES: CalendarEventCategory[] = [
   'watering_forecast',
   'custom',
 ];
-
-const CATEGORY_COLORS: Record<CalendarEventCategory, string> = {
-  training: '#4CAF50',
-  pruning: '#8BC34A',
-  transplanting: '#795548',
-  feeding: '#2196F3',
-  ipm: '#FF9800',
-  harvest: '#F44336',
-  maintenance: '#9E9E9E',
-  phase_transition: '#9C27B0',
-  tank_maintenance: '#00BCD4',
-  watering_forecast: '#42A5F5',
-  custom: '#607D8B',
-};
 
 const CATEGORY_I18N_KEYS: Record<CalendarEventCategory, string> = {
   training: 'pages.calendar.training',
@@ -339,13 +326,13 @@ export default function CalendarPage() {
           runKey,
           runName: meta?.run_name ?? runKey,
           events: runEvents,
-          color: runEvents[0].color || CATEGORY_COLORS[runEvents[0].category as CalendarEventCategory] || '#9E9E9E',
+          color: runEvents[0].color || getEventCategoryColor(theme, runEvents[0].category),
         });
       }
       map.set(day, entries);
     }
     return map;
-  }, [eventsByDay]);
+  }, [eventsByDay, theme]);
 
   // Sort events for list view
   const sortedEvents = useMemo(
@@ -716,7 +703,7 @@ export default function CalendarPage() {
                     );
                   }
                   const ev = entry.event;
-                  const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
+                  const evColor = ev.color || getEventCategoryColor(theme, ev.category);
                   return (
                     <Box
                       key={ev.id}
@@ -830,14 +817,14 @@ export default function CalendarPage() {
           size="small"
           label={t(CATEGORY_I18N_KEYS[event.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
           sx={{
-            bgcolor: event.color || CATEGORY_COLORS[event.category as CalendarEventCategory] || 'grey.500',
-            color: 'common.white',
+            bgcolor: event.color || getEventCategoryColor(theme, event.category),
+            color: readableTextOn(event.color || getEventCategoryColor(theme, event.category)),
             fontWeight: 500,
           }}
         />
       ),
     },
-  ], [t, formatEventDate, formatEventTime]);
+  ], [t, formatEventDate, formatEventTime, theme]);
 
   const handleListRowClick = useCallback((event: CalendarEvent) => {
     const link = getEventLink(event);
@@ -1014,11 +1001,13 @@ export default function CalendarPage() {
                   onClick={() => toggleCategory(cat)}
                   data-testid={`category-filter-${cat}`}
                   sx={{
-                    bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
-                    color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
-                    borderColor: CATEGORY_COLORS[cat],
+                    bgcolor: selectedCategories.has(cat) ? getEventCategoryColor(theme, cat) : 'transparent',
+                    color: selectedCategories.has(cat)
+                      ? readableTextOn(getEventCategoryColor(theme, cat))
+                      : 'text.primary',
+                    borderColor: getEventCategoryColor(theme, cat),
                     '&:hover': {
-                      bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
+                      bgcolor: selectedCategories.has(cat) ? getEventCategoryColor(theme, cat) : `${getEventCategoryColor(theme, cat)}22`,
                     },
                   }}
                 />
@@ -1132,8 +1121,7 @@ export default function CalendarPage() {
                   borderRadius: '50%',
                   bgcolor:
                     popoverEvent.color ||
-                    CATEGORY_COLORS[popoverEvent.category as CalendarEventCategory] ||
-                    'grey.500',
+                    getEventCategoryColor(theme, popoverEvent.category),
                   flexShrink: 0,
                 }}
               />
@@ -1149,9 +1137,8 @@ export default function CalendarPage() {
               sx={{
                 bgcolor:
                   popoverEvent.color ||
-                  CATEGORY_COLORS[popoverEvent.category as CalendarEventCategory] ||
-                  'grey.500',
-                color: 'common.white',
+                  getEventCategoryColor(theme, popoverEvent.category),
+                color: readableTextOn(popoverEvent.color || getEventCategoryColor(theme, popoverEvent.category)),
                 mb: 1,
               }}
             />
@@ -1303,7 +1290,7 @@ export default function CalendarPage() {
                 )}
                 {group.events.map((ev) => {
                   const link = getEventLink(ev);
-                  const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
+                  const evColor = ev.color || getEventCategoryColor(theme, ev.category);
                   return (
                     <Box
                       key={ev.id}
@@ -1348,7 +1335,7 @@ export default function CalendarPage() {
             {/* Other (non-phase) events */}
             {dayPopoverGrouped.otherEvents.map((ev) => {
               const link = getEventLink(ev);
-              const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
+              const evColor = ev.color || getEventCategoryColor(theme, ev.category);
               return (
                 <Box
                   key={ev.id}
@@ -1402,7 +1389,7 @@ export default function CalendarPage() {
                     label={t(CATEGORY_I18N_KEYS[ev.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
                     sx={{
                       bgcolor: evColor,
-                      color: 'common.white',
+                      color: readableTextOn(evColor),
                       height: 18,
                       fontSize: '0.6rem',
                       flexShrink: 0,
