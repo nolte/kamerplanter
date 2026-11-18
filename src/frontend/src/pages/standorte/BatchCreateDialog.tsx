@@ -18,6 +18,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
 import type { Batch } from '@/api/types';
 import { generateBatchId } from '@/utils/idGenerator';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const schema = z.object({
   batch_id: z.string().min(1),
@@ -47,7 +48,7 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
     defaultValues: {
       batch_id: '',
       volume_liters: 0,
-      mixed_on: new Date().toISOString().split('T')[0],
+      mixed_on: toLocalIsoDate(),
     },
   });
 
@@ -56,7 +57,7 @@ export default function BatchCreateDialog({ substrateKey, open, onClose, onCreat
       reset({
         batch_id: generateBatchId(substrateKey),
         volume_liters: 0,
-        mixed_on: new Date().toISOString().split('T')[0],
+        mixed_on: toLocalIsoDate(),
       });
     }
   }, [open, substrateKey, reset]);

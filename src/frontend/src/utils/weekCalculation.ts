@@ -1,28 +1,41 @@
-export const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+import { utcCalendarDaysBetween } from '@/utils/calendarDay';
 
-/** Calculate the current plan week relative to the epoch date. */
-export function computeCurrentWeek(epoch: string): number | undefined {
-  const start = new Date(epoch);
-  if (isNaN(start.getTime())) return undefined;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-  const diffMs = now.getTime() - start.getTime();
-  if (diffMs < 0) return undefined;
-  return Math.floor(diffMs / MS_PER_WEEK) + 1;
+export const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Calculate the current plan week (1-based) relative to the epoch date, counted in UTC calendar days —
+ * the clock the server uses for the same value (`calendar_aggregation_engine._resolve_dosage_metadata`,
+ * BACKEND.md §12a). `undefined` for an unreadable or future epoch.
+ */
+export function computeCurrentWeek(epoch: string, now: Date = new Date()): number | undefined {
+  const days = utcCalendarDaysBetween(epoch, now);
+  if (days === undefined || days < 0) return undefined;
+  return Math.floor(days / 7) + 1;
 }
 
-/** Calculate the current day (1-based) relative to the epoch date. */
-export function computeCurrentDay(epoch: string): number | undefined {
-  const start = new Date(epoch);
-  if (isNaN(start.getTime())) return undefined;
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  start.setHours(0, 0, 0, 0);
-  const diffMs = now.getTime() - start.getTime();
-  if (diffMs < 0) return undefined;
-  return Math.floor(diffMs / MS_PER_DAY) + 1;
+/** Calculate the current day (1-based) relative to the epoch date, counted in UTC calendar days. */
+export function computeCurrentDay(epoch: string, now: Date = new Date()): number | undefined {
+  const days = utcCalendarDaysBetween(epoch, now);
+  if (days === undefined || days < 0) return undefined;
+  return days + 1;
+}
+
+/**
+ * The nutrient-plan week of a planting run, by the server's rule (#3016).
+ *
+ * Mirrors `GET /planting-runs/{key}/active-channels` without `current_week`
+ * (`api/v1/planting_runs/tenant_router.py`, `get_active_channels`): whole UTC calendar days since the
+ * UTC day of `started_at`, `max(1, days // 7 + 1)`; a run that has not started is in week 1. The server
+ * picks the run's dosages for exactly this week, so the week the page shows must be this one.
+ */
+export function computeRunElapsedWeek(
+  startedAt: string | null | undefined,
+  now: Date = new Date(),
+): number | undefined {
+  if (!startedAt) return 1;
+  const days = utcCalendarDaysBetween(startedAt, now);
+  if (days === undefined) return undefined;
+  return Math.max(1, Math.floor(days / 7) + 1);
 }
 
 /** Approximate mapping of ISO calendar weeks to months (sums to 52). */

@@ -763,19 +763,13 @@ export default function PlantInstanceDetailPage() {
   const currentWeek = useMemo(() => {
     // Phase-based calculation: weeks since phase transition + plan entry's week_start
     if (actualPhase?.startedAt && planEntries.length > 0) {
-      const phaseStart = new Date(actualPhase.startedAt);
-      if (!isNaN(phaseStart.getTime())) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        phaseStart.setHours(0, 0, 0, 0);
-        const diffMs = now.getTime() - phaseStart.getTime();
-        if (diffMs >= 0) {
-          const weeksInPhase = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-          const sorted = [...planEntries].sort((a, b) => a.sequence_order - b.sequence_order);
-          const phaseEntry = sorted.find((e) => e.phase_name === actualPhase.name);
-          if (phaseEntry) {
-            return phaseEntry.week_start + weeksInPhase - 1;
-          }
+      // UTC calendar days — the server's clock for every week it derives (#3016, BACKEND.md §12a).
+      const weeksInPhase = computeCurrentWeek(actualPhase.startedAt);
+      if (weeksInPhase !== undefined) {
+        const sorted = [...planEntries].sort((a, b) => a.sequence_order - b.sequence_order);
+        const phaseEntry = sorted.find((e) => e.phase_name === actualPhase.name);
+        if (phaseEntry) {
+          return phaseEntry.week_start + weeksInPhase - 1;
         }
       }
     }

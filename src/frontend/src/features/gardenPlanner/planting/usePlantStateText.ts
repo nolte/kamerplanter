@@ -5,6 +5,7 @@ import { formatBedDate } from '../bed/bedFormat';
 import type { PlantMarkerState } from '../renderer/types';
 import { phaseLabel } from './phaseLabel';
 import type { PlantStateView } from './usePlantStates';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 const PREFIX = 'pages.gardenPlan.plantState';
 
@@ -147,7 +148,7 @@ export function usePlantStateText(): PlantStateText {
           const due = day(view.next_task.due);
           lines.push({
             key: 'task',
-            alert: view.next_task.due != null && view.next_task.due.slice(0, 10) < new Date().toISOString().slice(0, 10),
+            alert: view.next_task.due != null && view.next_task.due.slice(0, 10) < toUtcIsoDate(),
             text: due
               ? t(`${PREFIX}.info.nextTask`, { name: view.next_task.name, date: due })
               : t(`${PREFIX}.info.nextTaskUndated`, { name: view.next_task.name }),

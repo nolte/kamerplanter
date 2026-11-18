@@ -34,6 +34,7 @@ import type {
   SuccessionPlan,
 } from '@/api/types';
 import { captureHandledError } from '@/observability/errorTracking';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -76,7 +77,7 @@ function estimateBatches(
 }
 
 function defaultsFor(plan?: SuccessionPlan | null): FormData {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalIsoDate();
   return {
     name: plan?.name ?? '',
     species_key: plan?.species_key ?? '',

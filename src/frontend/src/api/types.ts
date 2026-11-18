@@ -2504,6 +2504,34 @@ export interface DeliveryChannel {
   method_params: MethodParams | null;
 }
 
+/** One fertilizer of an active channel, ordered by the fertilizer's `mixing_priority` (server-sorted). */
+export interface ActiveChannelDosage {
+  fertilizer_key: string;
+  product_name: string;
+  ml_per_liter: number;
+  optional: boolean;
+  mixing_priority: number;
+}
+
+/**
+ * A delivery channel the server resolved as active for a run or plant (`ActiveChannelResponse`): the
+ * enabled channels of the plan entry the server applies this week, with that entry's phase and week range.
+ */
+export interface ActiveChannel {
+  channel_id: string;
+  label: string;
+  application_method: ApplicationMethod;
+  target_ec_ms: number | null;
+  target_ph: number | null;
+  plan_key: string;
+  plan_name: string;
+  entry_key: string | null;
+  phase_name: PhaseName;
+  week_start: number;
+  week_end: number;
+  dosages: ActiveChannelDosage[];
+}
+
 export interface DeliveryChannelCreate {
   channel_id: string;
   label?: string;

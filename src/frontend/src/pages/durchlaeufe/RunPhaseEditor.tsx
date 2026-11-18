@@ -21,6 +21,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import type { SpeciesPhaseTimeline, PhaseTimelineEntry } from '@/api/types';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 interface Props {
   runKey: string;
@@ -30,9 +31,10 @@ interface Props {
 
 function toDateInputValue(iso: string | null): string {
   if (!iso) return '';
+  // The local day: the save path writes `<day>T00:00:00` local time back, so reading the UTC day
+  // showed the day before for every zone east of UTC.
   const d = new Date(iso);
-  // Format as YYYY-MM-DD for date input
-  return d.toISOString().slice(0, 10);
+  return Number.isNaN(d.getTime()) ? '' : toLocalIsoDate(d);
 }
 
 function formatDate(iso: string | null): string {

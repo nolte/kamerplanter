@@ -6,6 +6,7 @@
  * `domain/calculators/overdue_calculator.py`; both run against the operation `overdue` of
  * `garden-plan-vectors.json`. The bed list column, the care tab, the badge text and field mode all call this.
  */
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 /** The UTC calendar day (`YYYY-MM-DD`) of an ISO value; a value without a zone is read as UTC. `null` when absent or unreadable. */
 export function utcDayOfValue(value: string | null | undefined): string | null {
@@ -13,7 +14,7 @@ export function utcDayOfValue(value: string | null | undefined): string | null {
   const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) || !/T/.test(value) ? value : `${value}Z`;
   const time = Date.parse(zoned);
   if (Number.isNaN(time)) return null;
-  return new Date(time).toISOString().slice(0, 10);
+  return toUtcIsoDate(new Date(time));
 }
 
 /** Whether a task due at `due` is overdue at `now` (due UTC day < today's UTC day). */
@@ -21,5 +22,5 @@ export function isOverdue(due: string | null | undefined, now: Date | string = n
   const day = utcDayOfValue(due);
   if (day === null) return false;
   const instant = typeof now === 'string' ? new Date(now) : now;
-  return day < instant.toISOString().slice(0, 10);
+  return day < toUtcIsoDate(instant);
 }
