@@ -197,11 +197,45 @@ describe('ActivityPlanTab — plan generation fallback', () => {
       ).toBe(true),
     );
 
-    // Remove a template.
+    // Remove a template — only after the confirmation (#3019).
     await user.click(
       within(vegRow).getByRole('button', { name: i18n.t('pages.activityPlan.removeActivity') }),
     );
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
     await waitFor(() => expect(activityPlanApi.deleteTaskTemplate).toHaveBeenCalledWith('tt-veg'));
+  });
+
+  it('asks before removing a template and keeps it when the question is cancelled (#3019)', async () => {
+    activityPlanApi.generatePlan.mockResolvedValue(plan());
+    activityPlanApi.deleteTaskTemplate.mockResolvedValue(undefined);
+
+    const user = userEvent.setup();
+    renderWithProviders(<ActivityPlanTab speciesKey="sp-1" runKey="run-1" />);
+
+    await user.click(await screen.findByTestId('generate-activity-plan-button'));
+    const vegRow = (await screen.findByText('Entspitzen')).closest('tr') as HTMLElement;
+    const removeButton = within(vegRow).getByRole('button', {
+      name: i18n.t('pages.activityPlan.removeActivity'),
+    });
+
+    // The click alone deletes nothing; it opens a question that names the activity.
+    await user.click(removeButton);
+    const dialog = await screen.findByTestId('confirm-dialog');
+    expect(within(dialog).getByText(i18n.t('pages.activityPlan.removeActivityTitle'))).toBeInTheDocument();
+    expect(within(dialog).getByText(/Entspitzen/)).toBeInTheDocument();
+    expect(activityPlanApi.deleteTaskTemplate).not.toHaveBeenCalled();
+
+    // Cancel keeps the template.
+    await user.click(within(dialog).getByTestId('confirm-dialog-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument());
+    expect(activityPlanApi.deleteTaskTemplate).not.toHaveBeenCalled();
+    expect(screen.getByText('Entspitzen')).toBeInTheDocument();
+
+    // Confirming removes it.
+    await user.click(removeButton);
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
+    await waitFor(() => expect(activityPlanApi.deleteTaskTemplate).toHaveBeenCalledWith('tt-veg'));
+    await waitFor(() => expect(screen.queryByText('Entspitzen')).not.toBeInTheDocument());
   });
 
   it('applies the plan and shows the success notification', async () => {
@@ -319,6 +353,7 @@ describe('ActivityPlanTab — a plan that is still the shared template', () => {
     await user.click(
       within(vegRow).getByRole('button', { name: i18n.t('pages.activityPlan.removeActivity') }),
     );
+    await user.click(await screen.findByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => expect(activityPlanApi.deleteTaskTemplate).toHaveBeenCalledWith('tt-veg'));
     await waitFor(() => expect(activityPlanApi.generatePlan).toHaveBeenCalledTimes(2));

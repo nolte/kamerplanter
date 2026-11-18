@@ -4450,6 +4450,8 @@
       "addActivityToPhase": "Add Activity to Phase \"{{phase}}\"",
       "selectActivity": "Select Activity",
       "removeActivity": "Remove",
+      "removeActivityTitle": "Remove activity?",
+      "removeActivityConfirm": "Do you really want to remove \"{{name}}\" from the activity plan? This cannot be undone.",
       "duplicateActivity": "Duplicate (schedule again)",
       "recovery": "recovery",
       "stressTolerance": "Stress tolerance: {{level}}",

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -16,7 +16,9 @@ import ListItemText from '@mui/material/ListItemText';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -103,7 +105,7 @@ export default function TaskCreateDialog({
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -122,6 +124,7 @@ export default function TaskCreateDialog({
       checklist: [],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const [checklistInput, setChecklistInput] = useState('');
 
@@ -171,14 +174,14 @@ export default function TaskCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
       <DialogTitle id="task-create-dialog-title">
         {hideEntitySelect && presetEntityLabel
           ? t('pages.tasks.createTaskForPlant', { plant: presetEntityLabel })
@@ -437,6 +440,6 @@ export default function TaskCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

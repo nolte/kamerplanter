@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -52,7 +53,7 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       maintenance_type: 'water_change',
@@ -62,6 +63,7 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -85,14 +87,14 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-log-dialog-title" data-testid="maintenance-log-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-log-dialog-title" data-testid="maintenance-log-dialog">
       <DialogTitle id="maintenance-log-dialog-title">{t('pages.tanks.logMaintenance')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -141,6 +143,6 @@ export default function MaintenanceLogDialog({ open, onClose, tankKey, onCreated
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

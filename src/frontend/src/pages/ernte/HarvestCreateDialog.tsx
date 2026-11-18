@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -67,7 +67,7 @@ export default function HarvestCreateDialog({
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
 
-  const { control, handleSubmit, reset, setError } = useForm<FormData>({
+  const { control, handleSubmit, reset, setError } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       plant_key: plantKey ?? '',
@@ -137,7 +137,7 @@ export default function HarvestCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="harvest-create-dialog-title" data-testid="harvest-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="harvest-create-dialog-title" data-testid="harvest-create-dialog">
       <DialogTitle id="harvest-create-dialog-title">{t('pages.harvest.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -222,6 +222,6 @@ export default function HarvestCreateDialog({
           />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

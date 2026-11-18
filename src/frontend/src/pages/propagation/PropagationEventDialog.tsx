@@ -1,7 +1,7 @@
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
@@ -9,7 +9,9 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -89,7 +91,8 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
     handleSubmit,
     reset,
     formState: { isDirty, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  } = useDialogForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const method = useWatch({ control, name: 'method' });
   const isGraft = method === 'graft';
@@ -109,10 +112,9 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
       reset(defaults);
       onCreated();
     } catch (error) {
-      // No coded field violation to render here; the generic toast is the floor.
-      // The widened useApiError contract (#1015) keeps the English `reason` off
-      // the German form — a future code is wired via `useFieldViolations`.
-      handleError(error);
+      // A 422 violation on a rendered field lands on that field (#3019); the
+      // English `reason` never reaches the form, the toast stays the floor.
+      handleError(error, applyFieldViolation);
     }
   };
 
@@ -122,7 +124,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="propagation-event-dialog" aria-labelledby="propagation-event-dialog-title">
+    <FormDialog control={control} open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="propagation-event-dialog" aria-labelledby="propagation-event-dialog-title">
       <DialogTitle id="propagation-event-dialog-title">{t('pages.propagation.createEvent')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
@@ -235,6 +237,6 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

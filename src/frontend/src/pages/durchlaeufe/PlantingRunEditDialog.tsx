@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -62,10 +64,11 @@ export default function PlantingRunEditDialog({
     handleSubmit,
     reset,
     setValue,
-  } = useForm<EditFormData>({
+  } = useDialogForm<EditFormData>({
     resolver: zodResolver(editSchema),
     defaultValues: { name: '', site_key: null, location_key: null, notes: null, planned_start_date: null },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const editSiteKey = useWatch({ control, name: 'site_key' });
 
@@ -107,14 +110,14 @@ export default function PlantingRunEditDialog({
       notification.success(t('common.saved'));
       onSaved(updated);
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open}
+    <FormDialog control={control} fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="md"
       fullWidth
@@ -180,6 +183,6 @@ export default function PlantingRunEditDialog({
           <FormActions onCancel={onClose} loading={saving} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

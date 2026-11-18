@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -95,7 +96,8 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
     handleSubmit,
     reset,
     formState: { isDirty, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  } = useDialogForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open) {
@@ -131,7 +133,7 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
       // useApiError contract (#1015) keeps the backend's English `reason` off the
       // German form; a coded violation, should one arise, is wired via
       // `useFieldViolations` with a `code → i18n key` map.
-      handleError(error);
+      handleError(error, applyFieldViolation);
       notification.error(t('errors.generic'));
     }
   };
@@ -142,7 +144,7 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="equipment-dialog" aria-labelledby="equipment-dialog-title">
+    <FormDialog control={control} open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="equipment-dialog" aria-labelledby="equipment-dialog-title">
       <DialogTitle id="equipment-dialog-title">
         {equipment
           ? t('pages.inventree.editEquipment')
@@ -225,6 +227,6 @@ export default function EquipmentDialog({ open, equipment, onClose, onSaved }: P
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

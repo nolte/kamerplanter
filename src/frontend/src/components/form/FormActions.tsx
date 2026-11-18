@@ -5,6 +5,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import { useStickyBarScrollPadding } from '@/hooks/useStickyBarScrollPadding';
+import { useFormDialogClose } from './formDialogContext';
 
 interface FormActionsProps {
   onCancel: () => void;
@@ -21,6 +22,10 @@ export default function FormActions({
 }: FormActionsProps) {
   const { t } = useTranslation();
   const theme = useTheme();
+  // Inside a FormDialog the cancel button goes through its dirty guard (#3019):
+  // a dirty form asks before the input is discarded, a clean one closes at once.
+  const formDialog = useFormDialogClose();
+  const handleCancel = formDialog ? () => formDialog.requestClose(onCancel) : onCancel;
   // Below `sm` every dialog in this app renders `fullScreen`, and this row is
   // the last child of a scrolling `DialogContent` — on a long form (the task
   // create dialog, the plant instance dialog) the primary action then sits
@@ -57,7 +62,7 @@ export default function FormActions({
           : {}),
       }}
     >
-      <Button variant="outlined" onClick={onCancel} disabled={loading} data-testid="form-cancel-button">
+      <Button variant="outlined" onClick={handleCancel} disabled={loading} data-testid="form-cancel-button">
         {t('common.cancel')}
       </Button>
       <Button

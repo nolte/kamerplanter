@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -188,7 +188,7 @@ export default function OverwinteringOverrideDialog({
     setValue,
     setError,
     formState: { isDirty },
-  } = useForm<FormData>({
+  } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: profileToForm(profile),
   });
@@ -265,7 +265,8 @@ export default function OverwinteringOverrideDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -440,6 +441,6 @@ export default function OverwinteringOverrideDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

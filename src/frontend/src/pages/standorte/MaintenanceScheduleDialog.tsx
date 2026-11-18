@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Box from '@mui/material/Box';
@@ -57,7 +58,7 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
   const [saving, setSaving] = useState(false);
   const isEdit = !!schedule;
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       maintenance_type: 'water_change',
@@ -69,6 +70,7 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
       instructions: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open && schedule) {
@@ -106,14 +108,14 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-schedule-dialog-title" data-testid="maintenance-schedule-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="maintenance-schedule-dialog-title" data-testid="maintenance-schedule-dialog">
       <DialogTitle id="maintenance-schedule-dialog-title">
         {isEdit ? t('pages.tanks.editSchedule') : t('pages.tanks.createSchedule')}
       </DialogTitle>
@@ -189,6 +191,6 @@ export default function MaintenanceScheduleDialog({ open, onClose, tankKey, sche
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

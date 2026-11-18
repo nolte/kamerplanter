@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -67,7 +69,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
   const [saving, setSaving] = useState(false);
   const [locationTypes, setLocationTypes] = useState<LocationType[]>([]);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -81,6 +83,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
       frost_exposure: 'inherit',
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const lightType = useWatch({ control, name: 'light_type' });
   const isArtificial = lightType === 'led' || lightType === 'hps' || lightType === 'cmh';
@@ -119,7 +122,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
@@ -130,7 +133,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
     : t('pages.locations.create');
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="location-create-dialog-title" data-testid="location-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="location-create-dialog-title" data-testid="location-create-dialog">
       <DialogTitle id="location-create-dialog-title">{dialogTitle}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -206,6 +209,6 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
