@@ -57,6 +57,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import type { Species, Cultivar, Site, PlantInstance } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -258,7 +259,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       site_key: null,
       location_key: null,
       substrate_batch_key: null,
-      planned_start_date: new Date().toISOString().split('T')[0],
+      planned_start_date: toLocalIsoDate(),
       source_plant_key: null,
       notes: null,
       entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
@@ -277,7 +278,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         site_key: null,
         location_key: null,
         substrate_batch_key: null,
-        planned_start_date: new Date().toISOString().split('T')[0],
+        planned_start_date: toLocalIsoDate(),
         source_plant_key: null,
         notes: null,
         entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],

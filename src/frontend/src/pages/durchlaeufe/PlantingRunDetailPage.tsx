@@ -62,6 +62,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import * as harvestApi from '@/api/endpoints/harvest';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
+  ActiveChannel,
   NutrientPlanPhaseEntry,
   Fertilizer,
   SpeciesPhaseTimeline,
@@ -167,6 +168,8 @@ export default function PlantingRunDetailPage() {
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [resolvedTank, setResolvedTank] = useState<{ key: string; name: string; volumeLiters: number } | null>(null);
   const [phaseTimelines, setPhaseTimelines] = useState<SpeciesPhaseTimeline[]>([]);
+  // The channels and dosages the server applies this week (#3016) — never recomputed client-side.
+  const [activeChannels, setActiveChannels] = useState<ActiveChannel[] | null>(null);
 
   // Site list for edit dialog
   const [sitesList, setSitesList] = useState<Site[]>([]);
@@ -179,7 +182,7 @@ export default function PlantingRunDetailPage() {
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
 
   // Derived nutrient data via custom hook
-  const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at);
+  const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at, activeChannels);
 
   // Track dirty state for UnsavedChangesGuard (edit dialog has own form)
   const isDirty = false;
@@ -323,19 +326,22 @@ export default function PlantingRunDetailPage() {
       if (planResult.plan) {
         const planKey = (planResult.plan as { key?: string }).key ?? '';
         if (planKey) {
-          const [fetchedEntries, ferts] = await Promise.all([
+          const [fetchedEntries, ferts, channels] = await Promise.all([
             planApi.fetchPhaseEntries(planKey),
             // The complete catalogue (#1560); one leg of an imperative sequence
             // whose surrounding loading and error state already covers it.
             fertApi.fetchAllFertilizers(),
+            runApi.getActiveChannels(key),
           ]);
           if (stale()) return;
           setPlanEntries(fetchedEntries);
           setFertilizers(ferts);
+          setActiveChannels(channels);
         }
       } else {
         setPlanEntries([]);
         setFertilizers([]);
+        setActiveChannels(null);
       }
     } catch (err) {
       if (!stale()) handleError(err);

@@ -16,6 +16,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useApiError } from '@/hooks/useApiError';
 import { sowSlot } from './plantingApi';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 /** How far back a sowing day may lie (`MAX_SOWING_AGE_DAYS` of the server). */
 const MAX_SOWING_AGE_DAYS = 365;
@@ -29,7 +30,7 @@ interface SowingDialogProps {
 }
 
 function utcDay(offsetDays = 0): string {
-  return new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+  return toUtcIsoDate(new Date(Date.now() + offsetDays * 86_400_000));
 }
 
 export default function SowingDialog({ slotKey, slotLabel, speciesName, onClose, onSown }: SowingDialogProps) {

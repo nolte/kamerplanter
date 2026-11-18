@@ -15,6 +15,7 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import * as calcApi from '@/api/endpoints/calculations';
 import type { Site, SunTimesResponse } from '@/api/types';
 import { DEFAULT_TIMEZONE, getTimezoneOptions } from './timezones';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const SITE_NONE = '';
 
@@ -33,7 +34,7 @@ export default function SunTimesCalculatorCard() {
   const [siteKey, setSiteKey] = useState<string>(SITE_NONE);
   const [lat, setLat] = useState(52.52);
   const [lon, setLon] = useState(13.405);
-  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => toLocalIsoDate());
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [result, setResult] = useState<SunTimesResponse | null>(null);
 

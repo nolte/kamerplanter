@@ -60,7 +60,7 @@ export default function PlantingRunNutrientWateringTab({
   onOpenConfirmDialog,
 }: PlantingRunNutrientWateringTabProps) {
   const { t } = useTranslation();
-  const { currentDosages, currentWeek, adaptedEntries } = nutrientData;
+  const { currentDosages, currentWeek, ganttWeek, adaptedEntries } = nutrientData;
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   // Fetch recommended RO% for each phase entry when plan + site are available
@@ -176,7 +176,7 @@ export default function PlantingRunNutrientWateringTab({
                 entries={adaptedEntries}
                 fertilizers={fertilizers}
                 title=""
-                currentWeek={currentWeek}
+                currentWeek={ganttWeek}
               />
               {(() => {
                 const sorted = [...adaptedEntries].sort((a, b) => a.sequence_order - b.sequence_order);
@@ -191,7 +191,7 @@ export default function PlantingRunNutrientWateringTab({
                         entries={vegEntries}
                         fertilizers={fertilizers}
                         title={t('pages.gantt.vegetativeDetail')}
-                        currentWeek={currentWeek}
+                        currentWeek={ganttWeek}
                         recommendedRoMap={recommendedRoMap}
                       />
                     )}
@@ -200,7 +200,7 @@ export default function PlantingRunNutrientWateringTab({
                         entries={flowerEntries}
                         fertilizers={fertilizers}
                         title={t('pages.gantt.floweringDetail')}
-                        currentWeek={currentWeek}
+                        currentWeek={ganttWeek}
                         recommendedRoMap={recommendedRoMap}
                       />
                     )}

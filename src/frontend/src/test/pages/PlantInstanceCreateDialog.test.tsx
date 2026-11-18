@@ -80,6 +80,28 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  /**
+   * #3016: `planted_on` defaulted to the UTC day (`toISOString()` cut to the date), so between 00:00 and
+   * 02:00 CEST a plant created "today" was planted yesterday. The default is the user's local date.
+   */
+  it('defaults planted_on to the local date at 00:30 CET, not the UTC day', async () => {
+    const zone = process.env.TZ;
+    process.env.TZ = 'Europe/Berlin';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-17T23:30:00Z')); // 2026-11-18 00:30 CET
+    try {
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      const field = await screen.findByTestId('form-field-planted_on');
+      expect((field.querySelector('input') as HTMLInputElement).value).toBe('2026-11-18');
+    } finally {
+      vi.useRealTimers();
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
+
   it('frames the current-phase field as actual-state capture via helper text', async () => {
     renderWithProviders(
       <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,

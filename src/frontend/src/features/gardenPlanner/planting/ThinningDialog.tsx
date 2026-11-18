@@ -46,6 +46,7 @@ import {
   thinningFormula,
   thinningLimit,
 } from './thinningLogic';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 interface ThinningDialogProps {
   slotKey: string;
@@ -70,7 +71,7 @@ const FORMULA_KEYS = {
 
 /** The UTC calendar day: the server refuses a day after its own today (UTC). */
 function todayUtcText(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toUtcIsoDate();
 }
 
 export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClose, onThinned }: ThinningDialogProps) {

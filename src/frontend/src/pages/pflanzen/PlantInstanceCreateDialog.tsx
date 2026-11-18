@@ -46,6 +46,7 @@ import * as sitesApi from '@/api/endpoints/sites';
 import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
 import { captureHandledError } from '@/observability/errorTracking';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 /** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
 const REFERENCE_CONSENT_PURPOSE = 'reference_contribution';
@@ -201,7 +202,7 @@ export default function PlantInstanceCreateDialog({
       species_key: '',
       cultivar_key: null,
       plant_name: null,
-      planted_on: new Date().toISOString().split('T')[0],
+      planted_on: toLocalIsoDate(),
       current_phase_key: null,
       cultivation_cycle_type: '',
       substrate_key: null,
@@ -241,7 +242,7 @@ export default function PlantInstanceCreateDialog({
         plant_name: duplicateFrom?.plant_name
           ? i18n.t('pages.plantInstances.copyName', { name: duplicateFrom.plant_name })
           : null,
-        planted_on: new Date().toISOString().split('T')[0],
+        planted_on: toLocalIsoDate(),
         current_phase_key: duplicateFrom?.current_phase_key ?? null,
         cultivation_cycle_type: '',
         substrate_key: substrateVal,

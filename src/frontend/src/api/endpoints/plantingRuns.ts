@@ -1,5 +1,6 @@
 import { tenantClient as client } from '../client';
 import type {
+  ActiveChannel,
   AdoptPlantsResponse,
   BatchCreatePlantsResponse,
   BatchRemoveRequest,
@@ -208,6 +209,15 @@ export async function removeRunNutrientPlan(
   runKey: string,
 ): Promise<void> {
   await client.delete(`${BASE}/${runKey}/nutrient-plan`);
+}
+
+/**
+ * The channels the server applies to this run today (#3016). Without `current_week` the server picks the
+ * week itself — whole UTC days since `started_at` — so this is the single source of the run's dosages.
+ */
+export async function getActiveChannels(runKey: string): Promise<ActiveChannel[]> {
+  const { data } = await client.get<ActiveChannel[]>(`${BASE}/${runKey}/active-channels`);
+  return data;
 }
 
 // ── Phase timeline ──────────────────────────────────────────────────

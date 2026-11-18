@@ -9,6 +9,7 @@
 import type { BedListItem } from '../bed/types';
 import type { CareTask } from '../care/careTypes';
 import { utcDayOfValue } from '../model/overdue';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 /** The UTC calendar day (`YYYY-MM-DD`) of an ISO value, or `null` when it is absent or unreadable. */
 export function utcDayOf(value: string | null | undefined): string | null {
@@ -17,7 +18,7 @@ export function utcDayOf(value: string | null | undefined): string | null {
 
 /** Today as a UTC calendar day. */
 export function todayUtc(now: Date = new Date()): string {
-  return now.toISOString().slice(0, 10);
+  return toUtcIsoDate(now);
 }
 
 /** Overdue: the due day lies before `today` (both UTC calendar days). */

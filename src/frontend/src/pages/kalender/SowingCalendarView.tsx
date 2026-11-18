@@ -31,6 +31,7 @@ import EmptyState from '@/components/common/EmptyState';
 import { getPhaseColor, phaseColorKey } from '@/theme/domainColors';
 import type { SowingCalendarEntry, FrostConfig, SowingPhase } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 type PlantCategoryKey =
   | 'indoor_houseplant' | 'outdoor_ornamental' | 'outdoor_vegetable'
@@ -123,7 +124,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
   const todayWeek = useMemo(() => {
     const now = new Date();
     if (now.getFullYear() !== year) return null;
-    const iso = now.toISOString().slice(0, 10);
+    const iso = toLocalIsoDate(now);
     return dateToWeek(iso);
   }, [year]);
 

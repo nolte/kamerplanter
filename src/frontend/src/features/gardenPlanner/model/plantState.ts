@@ -10,6 +10,7 @@
  * Pure: no I/O, no React, no clock — `now` is an argument. Days are `YYYY-MM-DD` strings (UTC calendar days),
  * which compare correctly as text.
  */
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 export type Lifecycle = 'planned' | 'sown' | 'active' | 'harvesting' | 'failed' | 'historic';
 export type AttentionCode = 'problem' | 'frost' | 'overdue' | 'water' | 'harvest';
@@ -95,7 +96,7 @@ let lastDay = '';
  */
 export function utcDay(instant: string): string {
   if (instant !== lastInstant) {
-    lastDay = new Date(instant).toISOString().slice(0, 10);
+    lastDay = toUtcIsoDate(new Date(instant));
     lastInstant = instant;
   }
   return lastDay;
@@ -106,7 +107,7 @@ function dayNumber(day: string): number {
 }
 
 function addDays(day: string, days: number): string {
-  return new Date(Date.parse(`${day}T00:00:00Z`) + days * MS_PER_DAY).toISOString().slice(0, 10);
+  return toUtcIsoDate(new Date(Date.parse(`${day}T00:00:00Z`) + days * MS_PER_DAY));
 }
 
 function lifecycleOf(plant: PlantFacts, harvestBatches: number): Lifecycle {

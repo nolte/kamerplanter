@@ -17,6 +17,7 @@ import { aiApi } from '@/api';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
 import { captureHandledError } from '@/observability/errorTracking';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 
@@ -24,7 +25,8 @@ const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 const TOUCH_TARGET_SX = { minWidth: { xs: 48, sm: 32 }, minHeight: { xs: 48, sm: 32 } } as const;
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  // The user's day: a dismissed tip comes back after the user's midnight, not UTC's.
+  return toLocalIsoDate();
 }
 
 /** Safe localStorage access — never throws when storage is unavailable. */

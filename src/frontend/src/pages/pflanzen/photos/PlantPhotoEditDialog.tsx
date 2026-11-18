@@ -16,6 +16,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import { updatePhotoMetadata, type PlantPhoto } from '@/api/endpoints/plantPhotos';
 import { isApiError } from '@/api/errors';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 /** Mirrors the backend caption bound (REQ-034 §2.1 v1.2). */
 const CAPTION_MAX_LENGTH = 500;
@@ -29,9 +30,9 @@ interface PlantPhotoEditDialogProps {
   onSaved: (updated: PlantPhoto) => void;
 }
 
-/** Today's date as `YYYY-MM-DD` for the native date input's `max` (no future). */
+/** Today's date as `YYYY-MM-DD` for the native date input's `max` — the server's (UTC) today, which it enforces. */
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toUtcIsoDate();
 }
 
 /**

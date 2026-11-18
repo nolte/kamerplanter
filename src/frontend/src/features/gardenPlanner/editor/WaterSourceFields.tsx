@@ -15,6 +15,7 @@ import type { PlanOperation, WaterSourceKind, WaterSourceProps } from '../model/
 import { formatDecimal } from '../model/units';
 import { parseDecimal } from './tools/panelFields';
 import type { ActionLabel } from './tools/machineTypes';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 
 const PREFIX = 'pages.gardenPlan.editor.panel.waterSource';
 
@@ -45,11 +46,11 @@ interface WaterSourceFieldsProps {
 function dayOf(instant: string | null | undefined): string {
   if (!instant) return '';
   const parsed = new Date(instant);
-  return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+  return Number.isNaN(parsed.getTime()) ? '' : toUtcIsoDate(parsed);
 }
 
 /** Today on the UTC calendar: the latest day a source can have been refilled (the server refuses a later one). */
-const todayUtc = (): string => new Date().toISOString().slice(0, 10);
+const todayUtc = (): string => toUtcIsoDate();
 
 export function WaterSourceFields({ objectKey, props, disabled, onCommit }: WaterSourceFieldsProps) {
   const { t, i18n } = useTranslation();

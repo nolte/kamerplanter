@@ -63,6 +63,7 @@ import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
 import { errorKey } from '@/api/errors';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -274,7 +275,7 @@ export default function FertilizerDetailPage() {
     resolver: zodResolver(stockSchema),
     defaultValues: {
       current_volume_ml: 1000,
-      purchase_date: new Date().toISOString().split('T')[0],
+      purchase_date: toLocalIsoDate(),
       expiry_date: null,
       batch_number: '',
       cost_per_liter: null,
