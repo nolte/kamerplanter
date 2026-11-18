@@ -6,14 +6,15 @@
  * and removing it before the posts succeed would drop the difference with no
  * trace. The tests therefore assert when the key survives, not only when it goes.
  */
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { createElement, type ReactNode } from 'react';
+import { StrictMode, createElement, type ReactNode } from 'react';
 import { Provider } from 'react-redux';
 
 import * as favoritesApi from '@/api/endpoints/favorites';
 import { carryOverLegacyFavorites, useServerFavorites } from '@/hooks/useServerFavorites';
+import { clearAuth } from '@/store/slices/authSlice';
 import { authState, createTestStore } from '@/test/helpers';
 
 vi.mock('@/api/endpoints/favorites');
@@ -200,5 +201,58 @@ describe('another account on the same browser (#2117)', () => {
 
     expect(favoritesApi.addFavorite).not.toHaveBeenCalled();
     expect(storageMap.has(OWNER_KEY)).toBe(false);
+  });
+});
+
+describe('side-effect-free toggles and per-user state (#3022)', () => {
+  it('sends exactly one request per click under StrictMode', async () => {
+    const store = createTestStore({
+      auth: { ...(authState().auth as object), user: { key: OWNER } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(StrictMode, null, createElement(Provider, { store, children }));
+    const { result } = renderHook(() => useServerFavorites('species'), { wrapper });
+    await waitFor(() => expect(favoritesApi.listFavorites).toHaveBeenCalled());
+
+    act(() => result.current.toggleFavorite('s1'));
+    await waitFor(() => expect(result.current.isFavorite('s1')).toBe(true));
+    act(() => result.current.toggleFavorite('s1'));
+    await waitFor(() => expect(result.current.isFavorite('s1')).toBe(false));
+
+    expect(favoritesApi.addFavorite).toHaveBeenCalledTimes(1);
+    expect(favoritesApi.removeFavorite).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops the previous user's favourites when another account signs in", async () => {
+    vi.mocked(favoritesApi.listFavorites).mockResolvedValueOnce([
+      { target_key: 'mine' } as never,
+    ]);
+    const store = createTestStore({
+      auth: { ...(authState().auth as object), user: { key: OWNER } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => createElement(Provider, { store, children });
+    const { result } = renderHook(() => useServerFavorites('species'), { wrapper });
+    await waitFor(() => expect(result.current.isFavorite('mine')).toBe(true));
+
+    vi.mocked(favoritesApi.listFavorites).mockResolvedValueOnce([
+      { target_key: 'theirs' } as never,
+    ]);
+    act(() => {
+      store.dispatch(clearAuth());
+    });
+
+    await waitFor(() => expect(result.current.isFavorite('theirs')).toBe(true));
+    expect(result.current.isFavorite('mine')).toBe(false);
+    expect(favoritesApi.listFavorites).toHaveBeenCalledTimes(2);
+  });
+
+  it('rolls an optimistic add back when the server refuses it', async () => {
+    vi.mocked(favoritesApi.addFavorite).mockRejectedValueOnce(new Error('409'));
+    const { result } = renderHook(() => useServerFavorites('species'), { wrapper: signedInAs(OWNER) });
+    await waitFor(() => expect(favoritesApi.listFavorites).toHaveBeenCalled());
+
+    act(() => result.current.toggleFavorite('s1'));
+
+    await waitFor(() => expect(result.current.isFavorite('s1')).toBe(false));
   });
 });

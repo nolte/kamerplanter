@@ -36,5 +36,6 @@ export function useTabUrl(tabs: readonly string[]): [number, (index: number) => 
     [stableTabs, navigate],
   );
 
-  return [currentIndex, setTab];
+  // A fresh tuple every render would change the identity callers put in effect deps (FRONTEND §6.1).
+  return useMemo(() => [currentIndex, setTab], [currentIndex, setTab]);
 }
