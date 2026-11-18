@@ -11,7 +11,8 @@ import IconButton from '@mui/material/IconButton';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import EditIcon from '@mui/icons-material/Edit';
-import type { NutrientPlanPhaseEntry, Fertilizer, PhaseName } from '@/api/types';
+import type { NutrientPlanPhaseEntry, Fertilizer } from '@/api/types';
+import { getPhaseColor } from '@/theme/domainColors';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
 import type { Translate } from '@/i18n/translate';
 
@@ -20,16 +21,6 @@ const weekToMonth = new Map<number, number>();
 for (const ms of MONTH_WEEK_SPANS) {
   for (let w = ms.weekStart; w <= ms.weekEnd; w++) weekToMonth.set(w, ms.month);
 }
-
-export const PHASE_COLORS: Record<PhaseName, string> = {
-  germination: '#8D6E63',
-  seedling: '#66BB6A',
-  vegetative: '#2E7D32',
-  flowering: '#AB47BC',
-  flushing: '#26C6DA',
-  dormancy: '#78909C',
-  harvest: '#FF8F00',
-};
 
 interface PhaseGanttChartProps {
   entries: NutrientPlanPhaseEntry[];
@@ -352,7 +343,7 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
                       }
                       return absWeek >= e.week_start && absWeek <= e.week_end;
                     });
-                    const color = entry ? (PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600]) : '';
+                    const color = entry ? getPhaseColor(theme, entry.phase_name) : '';
                     const label = entry ? t(`enums.phaseName.${entry.phase_name}`) : '';
                     const prev = runs[runs.length - 1];
                     const mb = useMonthSnap && prev && weekToMonth.get(absWeek) !== weekToMonth.get(absWeek - 1);
@@ -393,7 +384,7 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
 
                 {/* Compact: channel sub-rows directly (no phase label rows) */}
                 {sorted.map((entry) => {
-                  const color = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+                  const color = getPhaseColor(theme, entry.phase_name);
                   return entry.delivery_channels.map((ch) => (
                     <ChannelSubRow
                       key={`${entry.key}-${ch.channel_id}`}
@@ -414,7 +405,7 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
             ) : (
               /* Normal: expandable phase rows */
               sorted.map((entry) => {
-                const color = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+                const color = getPhaseColor(theme, entry.phase_name);
                 const autoExpand = autoExpandSingleChannel && entry.delivery_channels.length === 1;
                 const isExpanded = autoExpand || expandedPhases.has(entry.key);
                 const hasChannels = entry.delivery_channels.length > 0;

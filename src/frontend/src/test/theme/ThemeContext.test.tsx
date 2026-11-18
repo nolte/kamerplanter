@@ -88,6 +88,68 @@ describe('ThemeContext', () => {
     expect(result.current.mode).toBe('light');
   });
 
+  describe('OS preference changes (#3021, UI-NFR-006 R-004)', () => {
+    function stubSwitchablePrefersDark(initial: boolean) {
+      const listeners = new Set<(event: MediaQueryListEvent) => void>();
+      const query = {
+        matches: initial,
+        addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => listeners.add(listener),
+        removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+          listeners.delete(listener),
+      };
+      vi.stubGlobal('matchMedia', vi.fn().mockReturnValue(query));
+      return {
+        listeners,
+        switchTo(dark: boolean) {
+          query.matches = dark;
+          for (const listener of [...listeners]) listener({ matches: dark } as MediaQueryListEvent);
+        },
+      };
+    }
+
+    it('follows a later OS switch while the user has not picked a theme', () => {
+      stubLocalStorage();
+      const os = stubSwitchablePrefersDark(false);
+      const { result } = renderHook(() => useThemeMode(), { wrapper });
+      expect(result.current.mode).toBe('light');
+
+      act(() => os.switchTo(true));
+      expect(result.current.mode).toBe('dark');
+
+      act(() => os.switchTo(false));
+      expect(result.current.mode).toBe('light');
+    });
+
+    it('does not freeze the OS preference into storage on first load', () => {
+      const store = stubLocalStorage();
+      stubSwitchablePrefersDark(true);
+      renderHook(() => useThemeMode(), { wrapper });
+      expect(store.has(STORAGE_KEY)).toBe(false);
+    });
+
+    it('keeps the manual pick and stops listening once the user toggles', () => {
+      const store = stubLocalStorage();
+      const os = stubSwitchablePrefersDark(false);
+      const { result } = renderHook(() => useThemeMode(), { wrapper });
+
+      act(() => result.current.toggleTheme());
+      expect(result.current.mode).toBe('dark');
+      expect(store.get(STORAGE_KEY)).toBe('dark');
+      expect(os.listeners.size).toBe(0);
+
+      act(() => os.switchTo(false));
+      expect(result.current.mode).toBe('dark');
+    });
+
+    it('ignores the OS when a manual pick is already stored', () => {
+      stubLocalStorage({ [STORAGE_KEY]: 'light' });
+      const os = stubSwitchablePrefersDark(true);
+      const { result } = renderHook(() => useThemeMode(), { wrapper });
+      expect(result.current.mode).toBe('light');
+      expect(os.listeners.size).toBe(0);
+    });
+  });
+
   it('throws when useThemeMode is used outside a provider', () => {
     expect(() => renderHook(() => useThemeMode())).toThrow(
       /must be used within ThemeContextProvider/,

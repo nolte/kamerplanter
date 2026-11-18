@@ -15,7 +15,7 @@ import Button from '@mui/material/Button';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { NutrientPlanPhaseEntry, Fertilizer, ApplicationMethod } from '@/api/types';
-import { PHASE_COLORS } from './PhaseGanttChart';
+import { getPhaseColor } from '@/theme/domainColors';
 
 const AUTO_METHODS = new Set<ApplicationMethod>(['fertigation']);
 const WATER_COLOR = '#0288d1'; // light-blue 700
@@ -353,7 +353,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   const weekPhaseMap = useMemo(() => {
     const map = new Map<number, { phase: string; color: string }>();
     for (const entry of sorted) {
-      const c = PHASE_COLORS[entry.phase_name] ?? theme.palette.grey[600];
+      const c = getPhaseColor(theme, entry.phase_name);
       for (let w = entry.week_start; w <= entry.week_end; w++) {
         map.set(w, { phase: entry.phase_name, color: c });
       }
@@ -369,7 +369,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   const weeks = Array.from({ length: totalWeeks }, (_, i) => globalStart + i);
   const labelWidth = isMobile ? 90 : 150;
 
-  const phaseColor = PHASE_COLORS[sorted[0].phase_name] ?? theme.palette.grey[600];
+  const phaseColor = getPhaseColor(theme, sorted[0].phase_name);
 
   const isEditing = (w: number, groupKey: string, type: string, fertKey?: string) =>
     editing?.week === w && editing.groupKey === groupKey && editing.type === type && editing.fertKey === fertKey;
