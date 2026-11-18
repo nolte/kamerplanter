@@ -8,8 +8,12 @@ What each case does, in this order (zoom first: a drag selects a bed, and on a p
 cover the canvas the wheel needs):
 
 1. open the plan at its fit view and count what the renderer drew (``rendered_census``) - the arrangement check:
-   every bed is drawn, and the synthetic case on the desktop really shows >= 3 000 objects (on the phone it
-   cannot: the fit there is below the marker LOD, the count is recorded as it is);
+   every bed is drawn, and the synthetic case on the desktop really shows >= 3 000 objects. Where the desktop fit
+   lies just below the marker LOD (``renderer/lod.ts``: spacing x px/m >= 10; the workspace frame of #2867 shrank
+   the canvas to ~32 px/m against the 33.4 px/m the 0.3 m spacing needs), the case zooms in by one wheel notch
+   just past the LOD, counts there - the 20 % culling margin keeps the slightly overflowing plan drawn - and zooms
+   back to the fit, so every gesture still starts from the fit view (on the phone it cannot: the fit there is far
+   below the marker LOD, the count is recorded as it is);
 2. throttle the CPU (mobile) and sample the idle frame cadence (the refresh interval the gaps come in);
 3. Ctrl + wheel, 10 notches in (crossing the marker LOD threshold), count again, 10 notches out - frame time of
    each half; the zoom level must have changed both ways;
@@ -31,6 +35,7 @@ measurement saves nothing, so the profiles of a case share the site.
 from __future__ import annotations
 
 import json
+import math
 import os
 import uuid
 import warnings
@@ -93,6 +98,14 @@ DRAG_STEP_MS = 16
 ZOOM_NOTCHES = 10
 WHEEL_DELTA = 120
 WHEEL_INTERVAL_MS = 40
+#: ``editor/usePendingZoom.ts``: a Ctrl + wheel of ``deltaY`` px zooms by ``exp(-deltaY * WHEEL_ZOOM_PER_PX)``.
+WHEEL_ZOOM_PER_PX = 0.0015
+#: ``renderer/lod.ts`` ``MARKER_MIN_SPACING_PX``: plant markers are drawn from this on-screen spacing, below it a
+#: bed shows one cluster.
+MARKER_MIN_SPACING_PX = 10
+#: How far past the marker LOD the count is taken: clear of float noise and of the wheel's rounding, close enough
+#: that the plan still lies within the culling margin around the canvas.
+LOD_COUNT_SLACK = 1.05
 
 
 @dataclass(frozen=True)
@@ -162,6 +175,52 @@ def _wait_for_all_beds(plan: GardenPlanPage, beds: int) -> dict[str, int]:
             f"the fit view should draw all {beds} beds, it draws {plan.rendered_census()}"
         ) from exc
     return plan.rendered_census()
+
+
+def _min_slot_spacing_m(measured: MeasuredPlan) -> float:
+    """The smallest distance between two planting positions of one bed: what the marker LOD is decided on."""
+    slots = measured.spec.slots
+    return min(math.dist(a, b) for index, a in enumerate(slots) for b in slots[index + 1 :])
+
+
+def _count_at_marker_lod(
+    plan: GardenPlanPage, measured: MeasuredPlan, px_fit: float
+) -> tuple[dict[str, int], float]:
+    """The census at a zoom where every plant marker of *measured* is drawn; the view is back at the fit after.
+
+    At or above the LOD already: the fit census is that count. Below it: one Ctrl + wheel notch just past the LOD
+    about the canvas centre, the count once the markers are drawn, and the exact inverse notch back - a zoom about
+    a fixed anchor is undone by its inverse, so the measured gestures start from the fit as before.
+    """
+    target = MARKER_MIN_SPACING_PX / _min_slot_spacing_m(measured) * LOD_COUNT_SLACK
+    if px_fit >= target:
+        return plan.rendered_census(), px_fit
+    delta = math.ceil(math.log(target / px_fit) / WHEEL_ZOOM_PER_PX)
+    at = plan.canvas_centre()
+    plan.wheel_zoom(at, [-delta], interval_ms=WHEEL_INTERVAL_MS)
+    try:
+        plan.poll().until(
+            lambda _d: (
+                plan.px_per_m() >= target / LOD_COUNT_SLACK
+                and plan.rendered_census()["visible_objects"] >= D01_VISIBLE_OBJECTS
+            )
+        )
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"TC-053-083: zoomed past the marker LOD ({px_fit:.1f} -> {plan.px_per_m():.1f} px/m, target "
+            f"{target:.1f}), the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects, the renderer drew "
+            f"{plan.rendered_census()} - the case would not measure D-01's load"
+        ) from exc
+    census, px_lod = plan.rendered_census(), plan.px_per_m()
+    plan.wheel_zoom(at, [delta], interval_ms=WHEEL_INTERVAL_MS)
+    try:
+        plan.poll().until(lambda _d: abs(plan.px_per_m() - px_fit) <= px_fit * 0.01)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"renderer profile: the view did not return to the fit after counting ({px_fit:.1f} -> "
+            f"{plan.px_per_m():.1f} px/m)"
+        ) from exc
+    return census, px_lod
 
 
 def _zoom_half(
@@ -243,9 +302,9 @@ def _publish(
         _report_dir(screenshot_dir)
         / f"{RECORD_FILE_PREFIX}{record['case']}-{record['profile']}.json"
     ).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
-    record_property(
-        f"renderer_{label}_visible_objects", str(record["census_fit"]["visible_objects"])
-    )
+    # The synthetic desktop case counts its load at the marker LOD; every other case at the fit.
+    counted = record.get("census_lod") or record["census_fit"]
+    record_property(f"renderer_{label}_visible_objects", str(counted["visible_objects"]))
     for item in results:
         if item.frame_p95_ms is not None:
             record_property(
@@ -307,10 +366,15 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
     census_fit = _wait_for_all_beds(plan, measured.stored_beds)
     px_fit = plan.px_per_m()
     canvas_px = list(plan.svg_size_px())
+    census_lod: dict[str, int] | None = None
+    px_lod: float | None = None
     if case == SYNTHETIC_3000.name and not setup.phone:
-        assert census_fit["visible_objects"] >= D01_VISIBLE_OBJECTS, (
-            f"TC-053-083: the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects at the desktop fit "
-            f"({px_fit:.1f} px/m), the renderer drew {census_fit} - the case would not measure D-01's load"
+        # Counted where every marker is drawn (just past the LOD if the fit lies below it), asserted in there.
+        census_lod, px_lod = _count_at_marker_lod(plan, measured, px_fit)
+        assert census_lod["visible_objects"] >= D01_VISIBLE_OBJECTS, (
+            f"TC-053-083: the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects at the marker LOD "
+            f"({px_lod:.1f} px/m, fit {px_fit:.1f}), the renderer drew {census_lod} - the case would not measure "
+            "D-01's load"
         )
     plan.take_screenshot(f"053_083_{case}_{profile}_01_fit", screenshot_dir)
 
@@ -370,6 +434,9 @@ def test_gp_nfr_033_034_renderer_frame_time_for_d01(
             "plan": measured.as_dict(),
             "census_fit": census_fit,
             "census_zoomed": census_zoomed,
+            # Synthetic case on the desktop only: the count at the marker LOD (= the fit when the fit reaches it).
+            "census_lod": census_lod,
+            "px_per_m_lod": round(px_lod, 2) if px_lod is not None else None,
             "px_per_m_fit": round(px_fit, 2),
             "px_per_m_zoomed": round(px_zoomed, 2),
             "gestures": [item.as_dict() for item in results],

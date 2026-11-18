@@ -688,10 +688,13 @@ def test_tc_053_027_clearing_the_bed_ends_every_plant_and_run_in_one_step(
 
     bed_view.open(bed, "planting")
     planting = bed_view.open_planting_dialog()
-    planting.choose_species(TOMATO)
+    # Not tomato again: a Solanaceae after the cleared Solanaceae is a crop-rotation finding (pause / high shared
+    # pest risk) whose override would block the submit - the step checks V-06 (archived positions), not rotation.
+    # Brassicaceae shares no high pest risk with Solanaceae (seed ``family_pest_risk``), so the run goes through.
+    planting.choose_species(CAULIFLOWER)
     planting.choose_layout("zone")
     planting.set_count(4)
-    planting.set_spacing(40)
+    planting.set_spacing(50)
     planting.wait_for_server_preview(4, "TC-053-027: a zone run in the cleared bed")
     planting.submit_and_wait_closed("TC-053-027: planting a zone run after clearing")
     new_runs = [r for r in runs_of_bed(base_url, e2e_seed_data, bed) if r["key"] not in statuses]

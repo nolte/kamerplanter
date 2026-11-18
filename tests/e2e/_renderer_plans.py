@@ -130,6 +130,8 @@ LARGE = GridPlan(
 #: (22.3 x 16.8 m) is as dense as the marker LOD allows: the desktop fit (~40 px/m on a 1080 px high window) draws
 #: every plant on its own from a canvas width of ~830 px on (markers need >= 10 px, i.e. >= 33.4 px/m).
 #: Planted, not empty: the first run (2026-11-08) showed that an empty bed below that zoom draws nothing at all.
+#: Since the workspace frame (#2867) the desktop fit is ~32.4 px/m - just below the LOD; the measurement then counts
+#: one wheel notch past it and returns to the fit (``test_req053_renderer_profile._count_at_marker_lod``, #3032).
 SYNTHETIC_3000 = GridPlan(
     name="synthetic_3000",
     columns=6,

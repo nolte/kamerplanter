@@ -853,7 +853,11 @@ def test_tc_053_076_reach_hint_by_width_and_access_sides_is_never_an_error(
         return bed_view.reach_hint()
 
     expected = {
-        "Breit": "1,3 m breit – die Zugangsseiten sind nicht erfasst, deshalb gilt der Wert für einseitigen Zugang (0,6 m).",
+        # ``reachDetail_unknown`` (#2849): no access side recorded and no path beside the bed.
+        "Breit": (
+            "1,3 m breit – die Zugangsseiten sind nicht erfasst und kein Weg liegt am Beet, deshalb gilt der Wert "
+            "für einseitigen Zugang (0,6 m)."
+        ),
         # 1,3 m with both opposite sides still exceeds the two-side value 1,2 m: the hint stays, now with the
         # two-side detail (the TC's "no hint" contradicts its own thresholds, see the docstring).
         "Breit mit Weg": "1,3 m breit – von zwei gegenüberliegenden Seiten erreichst du bis 1,2 m.",
@@ -950,7 +954,8 @@ def test_tc_053_077_empty_photo_tab_offers_the_upload_and_refuses_a_text_file(
     photos.open_upload()
     photos.choose_file(str(note))
     error = photos.wait_for_capture_error("TC-053-077: notiz.txt")
-    assert error == "Nicht unterstütztes Bildformat. Erlaubt sind JPEG und PNG.", (
+    # ``pages.plantIdentification.unsupportedFormat`` names WebP since #2848.
+    assert error == "Nicht unterstütztes Bildformat. Erlaubt sind JPEG, PNG und WebP.", (
         f"TC-053-077: the text file is refused naming the allowed types: {error!r}"
     )
     # The dialog keeps its "Hochladen" button at all times (``PlantPhotoUploadDialog``: ``disabled={!file || uploading}``);

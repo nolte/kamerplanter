@@ -28,6 +28,7 @@ from __future__ import annotations
 import math
 
 import pytest
+from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -696,6 +697,33 @@ def test_tc_053_009_list_view_reaches_every_object_and_passes_axe(
 #: 3 x 3 positions of the 1,2 x 1,2 m tent, bed frame.
 _TENT_SLOTS = tuple((x, y) for y in (0.2, 0.6, 1.0) for x in (0.2, 0.6, 1.0))
 
+#: Panel hooks that follow the *data* of the selected bed, not its kind - a tent and an outdoor bed may differ in
+#: them without a tent special path (#3032):
+#: - ``garden-plan-panel-bed-axis`` (#2930): the long axis of an oblong bed; a square tent has none.
+#: - ``garden-plan-panel-window-suggest*`` (#2877): the sun suggestion from windows drawn on the plan; shown only
+#:   where the plan holds windows and once the lazy section has loaded.
+_DATA_DEPENDENT_PANEL_HOOKS = ("garden-plan-panel-bed-axis", "garden-plan-panel-window-suggest")
+
+
+#: Sections of the bed panel that load lazily (``Suspense``): read only once they are there, or the hook set
+#: depends on how fast the chunk arrived.
+_LAZY_PANEL_HOOKS = ("sun-tile-selector", "garden-plan-panel-sun-profile")
+
+
+def _structural_hooks(hooks: set[str]) -> set[str]:
+    """The panel's hook set without the data-dependent hints: sections, fields and tools of the kind."""
+    return {hook for hook in hooks if not hook.startswith(_DATA_DEPENDENT_PANEL_HOOKS)}
+
+
+def _settled_panel_hooks(plan: GardenPlanPage) -> set[str]:
+    """The properties panel's hook set once its lazily loaded sections have rendered."""
+    plan.open_side_panel_tab("properties")
+    for hook in _LAZY_PANEL_HOOKS:
+        plan.wait_for_element(
+            (By.CSS_SELECTOR, f"[data-testid='garden-plan-panel'] [data-testid='{hook}']")
+        )
+    return plan.panel_testids()
+
 
 def test_tc_053_014_tent_is_drawn_like_an_outdoor_bed_with_its_9_positions(
     plan: GardenPlanPage, base_url: str, e2e_seed_data: dict, screenshot
@@ -745,21 +773,24 @@ def test_tc_053_014_tent_is_drawn_like_an_outdoor_bed_with_its_9_positions(
     )
     tent_kind = plan.object_kind(tent)
     plan.select_with_keyboard(tent)
-    tent_hooks = plan.panel_testids()
+    tent_hooks = _settled_panel_hooks(plan)
     screenshot("053_014_01_tent_selected", "Zelt 1,2 x 1,2 m mit 9 Positionen, ausgewählt")
 
     plan.open(outdoor_site.site_key)
     bed_kind = plan.object_kind(outdoor_bed)
     plan.select_with_keyboard(outdoor_bed)
-    bed_hooks = plan.panel_testids()
+    bed_hooks = _settled_panel_hooks(plan)
     screenshot("053_014_02_outdoor_bed_selected", "Outdoor-Beet zum Vergleich, ausgewählt")
 
     assert tent_kind == bed_kind == "location", (
         f"TC-053-014: tent and bed must be the same plan object kind ({tent_kind!r} vs "
         f"{bed_kind!r})"
     )
-    assert tent_hooks == bed_hooks, (
+    # The TC compares tabs, tools and history - what the kind of object offers -, not the hints that follow its
+    # proportions or the plan's windows (``_DATA_DEPENDENT_PANEL_HOOKS``).
+    tent_structure, bed_structure = _structural_hooks(tent_hooks), _structural_hooks(bed_hooks)
+    assert tent_structure == bed_structure, (
         "TC-053-014: tent and outdoor bed must show the same properties panel (same "
-        f"data-testid set); only tent: {sorted(tent_hooks - bed_hooks)}, only bed: "
-        f"{sorted(bed_hooks - tent_hooks)}"
+        f"data-testid set without data-dependent hints); only tent: "
+        f"{sorted(tent_structure - bed_structure)}, only bed: {sorted(bed_structure - tent_structure)}"
     )

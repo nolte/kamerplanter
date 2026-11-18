@@ -251,6 +251,49 @@ describe('PlantInstanceListPage', () => {
     });
   });
 
+  describe('with more plants than one API page (#3032)', () => {
+    /** 200 old plants fill the first page; the newest plant sits on page 2. */
+    function plantAt(index: number, overrides: Record<string, unknown> = {}) {
+      return {
+        ...richPlant,
+        key: `plant-${String(index).padStart(4, '0')}`,
+        instance_id: `OLD-${index}`,
+        plant_name: `Old Plant ${index}`,
+        slot_key: null,
+        location_key: null,
+        cultivar_key: null,
+        planted_on: '2024-01-01',
+        removed_on: null,
+        current_phase: 'vegetative',
+        ...overrides,
+      };
+    }
+    const allPlants = [
+      ...Array.from({ length: 200 }, (_v, i) => plantAt(i)),
+      plantAt(200, { instance_id: 'NEW-201', plant_name: 'Newest Plant', planted_on: '2026-11-01' }),
+    ];
+
+    function pagedResponse(request: Request) {
+      // Mirrors the backend window: `_key` ascending, sliced by offset/limit.
+      const url = new URL(request.url);
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const limit = Number(url.searchParams.get('limit') ?? 50);
+      return HttpResponse.json(allPlants.slice(offset, offset + limit));
+    }
+
+    beforeEach(() => {
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', ({ request }) => pagedResponse(request)),
+        http.get('/api/v1/plant-instances', ({ request }) => pagedResponse(request)),
+      );
+    });
+
+    it('lists a plant that only the second page returns', async () => {
+      renderWithProviders(<PlantInstanceListPage />);
+      expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+    });
+  });
+
   describe('mobile viewport', () => {
     afterEach(() => {
       vi.unstubAllGlobals();

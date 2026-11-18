@@ -12,7 +12,9 @@ a gone row, the snackbar's own appear/disappear stamps).
 
 from __future__ import annotations
 
-from selenium.common.exceptions import TimeoutException
+import os
+
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -487,16 +489,55 @@ class FieldModePage(BasePage):
             ) from exc
 
 
-def set_phone_viewport(driver: WebDriver, width: int = 390, height: int = 844) -> tuple[int, int]:
-    """Resize the browser so the page's *inner* viewport is exactly ``width`` x ``height`` CSS px.
+def _device_emulation_active() -> bool:
+    """Whether ``conftest`` pinned the viewport via CDP ``Emulation.setDeviceMetricsOverride``.
 
-    A window size is the outer size; the difference to ``window.innerWidth`` / ``innerHeight`` (scrollbars, any
-    browser chrome) is measured and added, then the result is read back. Raises when the browser would not
-    take the size - a "390 px" test that ran at another width would certify nothing.
+    ``start_browser_session`` applies that override for every device profile except ``desktop`` and exports the
+    profile name as ``E2E_DEVICE``. While the override is active ``window.innerWidth`` follows the emulated
+    metrics, not the window: resizing the window then leaves the viewport unchanged (mobile stays 393x852) or
+    drives the correction below into a negative width (tablet: ``width out of range``) - #3032.
     """
-    driver.set_window_size(width, height)
-    inner = driver.execute_script("return [window.innerWidth, window.innerHeight];")
-    driver.set_window_size(width + (width - int(inner[0])), height + (height - int(inner[1])))
+    return os.environ.get("E2E_DEVICE", "desktop") != "desktop"
+
+
+def _set_viewport_via_cdp(driver: WebDriver, width: int, height: int) -> bool:
+    """Re-issue the device-metrics override at ``width`` x ``height``; False when CDP is unavailable.
+
+    Keeps the active ``deviceScaleFactor`` (``window.devicePixelRatio`` reflects the override) so the profile's
+    pixel density survives; falls back to 1 when it cannot be read.
+    """
+    execute_cdp_cmd = getattr(driver, "execute_cdp_cmd", None)
+    if execute_cdp_cmd is None:
+        return False
+    ratio = driver.execute_script("return window.devicePixelRatio;")
+    scale = float(ratio) if isinstance(ratio, (int, float)) and ratio > 0 else 1.0
+    try:
+        execute_cdp_cmd(
+            "Emulation.setDeviceMetricsOverride",
+            {"width": width, "height": height, "deviceScaleFactor": scale, "mobile": True},
+        )
+    except WebDriverException:
+        return False
+    return True
+
+
+def set_phone_viewport(driver: WebDriver, width: int = 390, height: int = 844) -> tuple[int, int]:
+    """Make the page's *inner* viewport exactly ``width`` x ``height`` CSS px, then read it back.
+
+    Under a device profile (Chrome with CDP device emulation, see :func:`_device_emulation_active`) the size is
+    set through ``Emulation.setDeviceMetricsOverride``, because the override - not the window - decides
+    ``innerWidth``. Otherwise (desktop profile, or a browser without CDP) the window is resized: a window size is
+    the outer size, so the difference to ``window.innerWidth`` / ``innerHeight`` (scrollbars, any browser chrome)
+    is measured and added. The ``browser`` fixture is function-scoped, so the override dies with the session and
+    needs no reset.
+
+    Raises when the browser would not take the size - a "390 px" test that ran at another width would certify
+    nothing.
+    """
+    if not (_device_emulation_active() and _set_viewport_via_cdp(driver, width, height)):
+        driver.set_window_size(width, height)
+        inner = driver.execute_script("return [window.innerWidth, window.innerHeight];")
+        driver.set_window_size(width + (width - int(inner[0])), height + (height - int(inner[1])))
     inner = driver.execute_script("return [window.innerWidth, window.innerHeight];")
     actual = (int(inner[0]), int(inner[1]))
     if actual != (width, height):

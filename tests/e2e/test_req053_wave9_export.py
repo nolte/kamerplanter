@@ -15,8 +15,8 @@ TC-053-047 in section 7, TC file v1.12); each docstring names the requirement it
                   without geometry has none (never "0 m")                                                         WP 9.12)
   TC-053-047  ->  watering round "Regen — übersprungen": one rainfall line without an amount per bed, no         (GP-FR-117,
                   watering, the open watering task stays open                                                      WP 9.13)
-  TC-053-096  ->  Ctrl+D duplicates the selected bed one grid step down-right as "<Name> (Kopie)", one unsaved    (GP-FR-025/026,
-                  change, the copy selected; moved clear (V-05) it is saved as a copy of the bed                  V-05, WP 9.14)
+  TC-053-096  ->  Ctrl+D duplicates the selected bed to the first free position as "<Name> (Kopie)", one         (GP-FR-025/026,
+                  unsaved change, the copy selected beside its original (V-05) and saved as a copy of the bed     V-05, WP 9.14)
   TC-053-097  ->  renderer switch: a plan of 3 000 objects is drawn by Konva (canvas), one of 2 970 by SVG         (GP-NFR-033,
                                                                                                                   D-01, WP 9.7)
 
@@ -615,17 +615,17 @@ def test_tc_053_047_rain_skipped_logs_rain_without_amount_and_keeps_tasks_open(
 def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
     plan: Wave9PlanPage, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
-    """TC-053-096 — Ctrl+D duplicates the selected bed one grid step down-right as "<Name> (Kopie)" (GP-FR-025/026).
+    """TC-053-096 — Ctrl+D duplicates the selected bed to the first free position as "<Name> (Kopie)" (GP-FR-025/026).
 
     Source: REQ-053 GP-FR-025, GP-FR-026, V-05; WP 9.14. Precondition (API): a 10 x 10 m garden (grid 10 cm) with
     "Beet K" 2 x 1 m at (2, 4), without planting positions (slot copy: see the module docstring). The bed is
     selected with the keyboard and Ctrl+D is pressed on the plan: one unsaved change, two beds drawn, the copy
-    selected and drawn one grid step down-right at (2.1, 3.9). A copy one grid step away still overlaps its original,
-    and two beds of one parent may not overlap (V-05, ``bed.overlap``) - so, as a gardener does, the copy is moved
-    clear with Shift+Arrow-Down (10 grid steps) before "Speichern". Saved, the server holds "Beet K (Kopie)" at
-    (2.1, 2.9) with the same size and type beside the unchanged original, and the tab "Beete" shows both
-    without a reload (#2813). Breaks if Ctrl+D does nothing, opens the
-    browser's bookmark dialog instead, duplicates twice, does not select the copy, or the copy differs.
+    selected. Since #2965 the copy lands on the first free position - shifted by its own extent plus one grid step,
+    right first (``duplicate.ts``): at (4.1, 4.0) beside the original, clear of it (V-05), so it is saved as it
+    lands. Saved, the server holds "Beet K (Kopie)" at (4.1, 4.0) with the same size and type beside the unchanged
+    original, and the tab "Beete" shows both without a reload (#2813). Breaks if Ctrl+D does nothing, opens the
+    browser's bookmark dialog instead, duplicates twice, does not select the copy, lands on its original, or the
+    copy differs.
     """
     garden = provision_garden(
         base_url,
@@ -642,11 +642,13 @@ def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
     assert len(drawn) == 2, f"TC-053-096: the bed and its copy are drawn: {drawn}"
     (copy_key,) = [key for key in drawn if key != source]
     plan.wait_for_selected(copy_key, True, "TC-053-096: the copy is selected after Ctrl+D")
-    plan.wait_for_shape_origin(copy_key, (2.1, 3.9), "TC-053-096: one grid step down-right")
-    screenshot("053_096_01_duplicated", "Strg+D: Kopie von Beet K, ein Rasterschritt versetzt")
+    plan.wait_for_shape_origin(
+        copy_key,
+        (4.1, 4.0),
+        "TC-053-096: the first free position, its width plus one grid step to the right",
+    )
+    screenshot("053_096_01_duplicated", "Strg+D: Kopie von Beet K an der ersten freien Position")
 
-    plan.press(Keys.SHIFT, Keys.ARROW_DOWN)
-    plan.wait_for_shape_origin(copy_key, (2.1, 2.9), "TC-053-096: the copy moved clear of Beet K")
     plan.save_with_button()
 
     stored = read_plan(base_url, e2e_seed_data, garden.site_key)
@@ -656,8 +658,8 @@ def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
     assert original["key"] == source and tuple(original["geometry"]["origin"]) == (2.0, 4.0), (
         original
     )
-    assert tuple(copy["geometry"]["origin"]) == (2.1, 2.9), (
-        f"TC-053-096: the copy where it was moved to: {copy['geometry']}"
+    assert tuple(copy["geometry"]["origin"]) == (4.1, 4.0), (
+        f"TC-053-096: the copy where it landed: {copy['geometry']}"
     )
     assert (copy["geometry"]["width_m"], copy["geometry"]["length_m"]) == (2.0, 1.0), copy[
         "geometry"
@@ -667,7 +669,7 @@ def test_tc_053_096_ctrl_d_duplicates_the_selected_bed(
     plan.wait_for_bed_list_names(
         {"Beet K", "Beet K (Kopie)"}, "TC-053-096: the bed list after saving"
     )
-    screenshot("053_096_02_saved", "Kopie verschoben und gespeichert, Beetliste zeigt beide Beete")
+    screenshot("053_096_02_saved", "Kopie gespeichert, Beetliste zeigt beide Beete")
 
 
 # ── TC-053-097 ──────────────────────────────────────────────────────────────
