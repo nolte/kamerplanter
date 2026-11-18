@@ -27,7 +27,7 @@ invocations:
   exit_code: 0
   env: []
   untracked_reads_dropped: 1354
-- command: task test:frontend
+- command: task coverage:frontend
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0

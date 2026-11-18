@@ -54,6 +54,7 @@ on:
       - ".audits/**"
       - ".claude/**"
       - ".github/**"
+      - ".pins/**"
       - ".taskfiles/**"
       - ".vscode/**"
       - "brand/**"

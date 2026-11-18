@@ -46,6 +46,8 @@ on:
       # Read by the vitest run through src/frontend/src/test/gardenPlanVectors.ts
       # (measured, lane-inputs run 41237292582).
       - 'spec/e2e-testcases/fixtures/garden-plan-vectors.json'
+      - 'src/backend/app/common/cache_control.py'
+      - 'helm/kamerplanter/values.yaml'
   pull_request:
     branches: [develop]
   schedule:
@@ -101,6 +103,11 @@ jobs:
               # lint-test-build reads them (measured, lane-inputs run 41237292582).
               # Without this a vector-only change skipped the required lint-test-build context.
               - 'spec/e2e-testcases/fixtures/garden-plan-vectors.json'
+              # The PWA tests hold the service worker against the backend's cache headers and the
+              # chart's values: src/test/guards/swCacheAllowlist.test.ts and src/test/pwa/killSwitch.test.ts
+              # read both (measured, lane-inputs run 44206055804).
+              - 'src/backend/app/common/cache_control.py'
+              - 'helm/kamerplanter/values.yaml'
 
   # REQUIRED check. The job itself always runs; only its *steps* are conditional.
   #
