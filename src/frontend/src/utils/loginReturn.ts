@@ -13,6 +13,8 @@
  * absolute URL, a scheme or a control character is dropped, and so are the sign-in pages themselves (no loop).
  */
 
+import { toSameOriginAppPath } from '@/utils/sameOriginPath';
+
 const STORAGE_KEY = 'kamerplanter.loginReturnTo';
 
 /** The query parameter of the login page that names the page to return to (UI-NFR-014 R-009). */
@@ -54,20 +56,9 @@ function excluded(pathname: string): boolean {
  * so whatever a browser would read as another host (`//evil.example`, `/\evil.example`) fails the origin comparison.
  */
 export function safeReturnTo(raw: string | null | undefined): string | null {
-  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null;
-  // eslint-disable-next-line no-control-regex -- refusing control characters is the point of this check
-  if (/[\u0000-\u001f\u007f\\]/.test(raw)) return null;
-  let url: URL;
-  try {
-    url = new URL(raw, window.location.origin);
-  } catch {
-    return null;
-  }
-  if (url.origin !== window.location.origin || excluded(url.pathname)) return null;
-  // Dot segments resolve during parsing (`/.//evil.example`, `/%2e%2e//evil.example` -> `//evil.example`): check the
-  // path that is returned, not only the raw input, so the result is never protocol-relative.
-  if (url.pathname.startsWith('//') || url.pathname.includes('\\')) return null;
-  return `${url.pathname}${url.search}${url.hash}`;
+  const path = toSameOriginAppPath(raw);
+  if (path === null || excluded(new URL(path, window.location.origin).pathname)) return null;
+  return path;
 }
 
 /** The login page for a visitor sent away from *location*: `/login?returnTo=…`, or `/login` where nothing returns. */

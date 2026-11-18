@@ -18,6 +18,7 @@ import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { aiApi } from '@/api';
 import type { AiTipCard } from '@/api/types';
+import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 
 /**
  * Whether a tip's `action_url` may be rendered into an `href` (review SCR-012).
@@ -31,10 +32,10 @@ import type { AiTipCard } from '@/api/types';
  *
  * `//evil.example` is rejected with the rest — it starts with `/` and is an
  * absolute, protocol-relative URL, which is exactly what a "starts with /" check
- * lets through.
+ * lets through, and so is `/\evil.example`, which browsers read as `//evil.example` (#3012).
  */
 export function isSiteRelative(url: string | null | undefined): url is string {
-  return typeof url === 'string' && url.startsWith('/') && !url.startsWith('//');
+  return toSameOriginAppPath(url) !== null;
 }
 
 export interface TipCardsPanelProps {
