@@ -180,6 +180,21 @@ describe('NotificationDrawer', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
+  it('does not follow an action url that leaves the app (#3012)', async () => {
+    useList([
+      makeNotif({ key: 'n1', title: 'Fremder Link', read_at: '2024-01-01T00:00:00Z', action_url: '/\\evil.com' }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    await user.click(await screen.findByTestId('notification-action-n1'));
+    // `/\evil.com` is `//evil.com` to a browser: no navigation, the drawer stays open.
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('does not close when a read notification without action url is clicked', async () => {
     useList([
       makeNotif({ key: 'n1', title: 'Ohne Link', read_at: '2024-01-01T00:00:00Z' }),

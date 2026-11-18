@@ -351,6 +351,13 @@ def test_action_url_accepts_a_site_relative_path() -> None:
         # Protocol-relative: it starts with "/" and is an ABSOLUTE link, which is
         # precisely what a naive "must start with /" check waves through.
         "//evil.example/phish",
+        # #3012: browsers read a backslash as "/" and strip tabs/newlines, so each of these
+        # is the protocol-relative "//evil.com" by the time it is followed.
+        "/\\evil.com",
+        "/\t/evil.com",
+        "/%5Cevil.com",
+        "/%5cevil.com",
+        "/.//evil.com",
     ],
 )
 def test_action_url_refuses_anything_that_leaves_the_app(value: str) -> None:

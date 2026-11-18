@@ -26,6 +26,7 @@ import {
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { isCareConfirmAction } from '@/utils/careConfirmActions';
+import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
 /**
@@ -238,7 +239,8 @@ export default function NotificationDrawer({
 
   const handleNotificationClick = (notification: NotificationResponse) => {
     void handleMarkRead(notification);
-    const actionUrl = notification.data?.action_url as string | undefined;
+    // Only a same-origin app path is followed: the URL is server data that may derive from user content (#3012).
+    const actionUrl = toSameOriginAppPath(notification.data?.action_url as string | undefined);
     if (actionUrl) {
       navigate(actionUrl);
       onClose();
