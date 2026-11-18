@@ -19,7 +19,8 @@ import enGlossary from '@/i18n/locales/en/glossary.json';
 export function loadFeatureNamespacesForTests(): void {
   const bundles: Record<SupportedLocale, ReadonlyArray<Record<string, unknown>>> = {
     de: [dePages, deEnums, deGlossary],
-    en: [enPages, enEnums, enGlossary],
+    // #3023 — the English core is code-split like the feature namespaces, so it is registered here too.
+    en: [enCore, enPages, enEnums, enGlossary],
   };
   for (const locale of ['de', 'en'] as const) {
     for (const bundle of bundles[locale]) {

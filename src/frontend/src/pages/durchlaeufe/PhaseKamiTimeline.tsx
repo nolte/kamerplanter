@@ -204,6 +204,7 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
                     src={kamiImg}
                     alt=""
                     aria-hidden="true"
+                    loading="lazy"
                     sx={{
                       width: { xs: 56, sm: 72, md: 88 },
                       height: { xs: 56, sm: 72, md: 88 },

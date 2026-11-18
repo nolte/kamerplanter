@@ -401,6 +401,7 @@ export default function WorkflowTemplateListPage() {
             component="img"
             src={kamiTasks}
             alt=""
+            loading="lazy"
             sx={{ width: 200, height: 200, mb: 3, opacity: 0.7 }}
           />
           <Typography variant="h6" color="text.secondary" align="center">

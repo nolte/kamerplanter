@@ -400,6 +400,7 @@ function ProviderCard({ provider, testing, onEdit, onDelete, onTest }: ProviderC
               src={provider.icon_url}
               alt=""
               referrerPolicy="no-referrer"
+              loading="lazy"
               sx={{ width: 24, height: 24, objectFit: 'contain' }}
             />
           )}

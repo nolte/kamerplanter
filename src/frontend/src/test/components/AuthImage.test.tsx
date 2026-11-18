@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { act, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 import { renderWithProviders } from '@/test/helpers';
@@ -70,5 +70,72 @@ describe('AuthImage (REQ-034 — authenticated attachment rendering)', () => {
     // reports through a later tick); asserting synchronously raced under CI load
     // (PR #1470, run 35222180723) while the file was untouched.
     await waitFor(() => expect(onError).toHaveBeenCalled());
+  });
+});
+
+/**
+ * #3023 (N-23) — a gallery must not fetch every photo up front. jsdom has no
+ * IntersectionObserver, so these cases install a controllable stand-in: nothing
+ * is requested until the observer reports the placeholder as intersecting.
+ */
+describe('AuthImage — fetches only once near the viewport (#3023)', () => {
+  type ObserverCallback = (entries: Array<{ isIntersecting: boolean }>) => void;
+  let observers: Array<{ callback: ObserverCallback; observed: Element[]; disconnected: boolean }>;
+
+  beforeEach(() => {
+    observers = [];
+    class FakeIntersectionObserver {
+      private readonly record: { callback: ObserverCallback; observed: Element[]; disconnected: boolean };
+      constructor(callback: ObserverCallback) {
+        this.record = { callback, observed: [], disconnected: false };
+        observers.push(this.record);
+      }
+      observe(element: Element) {
+        this.record.observed.push(element);
+      }
+      disconnect() {
+        this.record.disconnected = true;
+      }
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('requests nothing while off-screen and loads the blob once the placeholder intersects', async () => {
+    let requests = 0;
+    server.use(
+      http.get(URI, () => {
+        requests += 1;
+        return blobResponse();
+      }),
+    );
+
+    renderWithProviders(<AuthImage uri={URI} alt="Plant photo" data-testid="auth-image" />);
+
+    const placeholder = screen.getByTestId('auth-image-loading');
+    await waitFor(() => expect(observers).toHaveLength(1));
+    expect(observers[0].observed).toEqual([placeholder]);
+    // Give a would-be eager fetch every chance to land before asserting it did not happen.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(requests).toBe(0);
+
+    // A non-intersecting notification (e.g. the initial callback) still loads nothing.
+    act(() => observers[0].callback([{ isIntersecting: false }]));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(requests).toBe(0);
+
+    act(() => observers[0].callback([{ isIntersecting: true }]));
+
+    const img = (await screen.findByTestId('auth-image')) as HTMLImageElement;
+    expect(img.src).toMatch(/^blob:/);
+    expect(requests).toBe(1);
+    expect(observers[0].disconnected).toBe(true);
   });
 });

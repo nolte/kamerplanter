@@ -28,7 +28,6 @@ import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import LightModeTakeoverDialog from '@/components/tenants/LightModeTakeoverDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
@@ -39,6 +38,9 @@ import { useUnsyncedWritesGuard } from '@/hooks/useUnsyncedWritesGuard';
 
 // REQ-053 WP 9.4 — the offline write buffer's sync, progress and conflict dialog; its own chunk.
 const OfflineSyncHost = lazy(() => import('@/features/gardenPlanner/offline/OfflineSyncHost'));
+// #3023 (W-30) — the light-mode take-over and its step-up dialog (TextField, Select, Dialog) are their own
+// chunk: the dialog opens for at most one account once after a mode switch, never on the first paint.
+const LightModeTakeoverDialog = lazy(() => import('@/components/tenants/LightModeTakeoverDialog'));
 
 function isPrivateNetwork(): boolean {
   const { hostname } = window.location;
@@ -292,7 +294,11 @@ export default function MainLayout() {
           <Outlet />
         </ModuleGuard>
         {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
-        {!isLightMode && <LightModeTakeoverDialog />}
+        {!isLightMode && (
+          <Suspense fallback={null}>
+            <LightModeTakeoverDialog />
+          </Suspense>
+        )}
         {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
         <UpdateBanner />
         {unsyncedGuard.dialog}
