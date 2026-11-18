@@ -606,7 +606,9 @@ Jeder Testfall hält ausdrücklich fest, wie der Zustand herzustellen ist: über
 - Das Zelt zeigt 9 Positionen in einem 3 × 3-Raster und einen Rahmen 1,2 × 1,2 m
 - Die mittlere Position steht nach dem Ziehen 10 cm weiter rechts
 - Ansicht, Tabs (Pflanzung · Pflege · Boden · Historie), Werkzeuge und Historie sind mit
-  der Beetansicht des Outdoor-Beets identisch (derselbe `data-testid`-Satz, kein Zelt-Sonderpfad)
+  der Beetansicht des Outdoor-Beets identisch (derselbe `data-testid`-Satz, kein Zelt-Sonderpfad).
+  Ausgenommen sind Hinweise, die den Daten des Beets folgen statt seiner Art: die Längsachse eines
+  länglichen Beets (ein quadratisches Zelt hat keine) und der Sonnenvorschlag aus eingezeichneten Fenstern
 
 **Nachbedingungen**:
 - Pflanzposition im Zelt verschoben
@@ -3053,7 +3055,7 @@ laufen auf dem Desktop (PNG und CSV bietet der Export-Dialog nur abseits des Sma
 
 ---
 
-### TC-053-096: Strg+D dupliziert das gewählte Beet um einen Rasterschritt nach rechts unten
+### TC-053-096: Strg+D dupliziert das gewählte Beet an die erste freie Position
 
 **Requirement**: REQ-053 GP-FR-025, GP-FR-026, V-05; WP 9.14 (abgeleitet)
 **Gerät**: Desktop
@@ -3064,13 +3066,12 @@ laufen auf dem Desktop (PNG und CSV bietet der Export-Dialog nur abseits des Sma
 
 **Testschritte**:
 1. Nutzer wählt „Beet K“ mit der Tastatur und drückt Strg+D
-2. Nutzer schiebt die Kopie mit Umschalt+Pfeil-unten zehn Rasterschritte nach unten
-3. Nutzer speichert
+2. Nutzer speichert
 
 **Erwartete Ergebnisse**:
-- Nach Schritt 1: eine ungespeicherte Änderung, zwei Beete gezeichnet, die Kopie ist gewählt und liegt bei (2,1 | 3,9) — ein Rasterschritt nach rechts unten; der Browser öffnet keinen Lesezeichen-Dialog
-- Die Kopie überlappt ihr Original noch; zwei Beete derselben Fläche dürfen sich nicht überlappen (V-05), daher Schritt 2
-- Nach Schritt 3 liegt „Beet K (Kopie)“ bei (2,1 | 2,9) mit gleicher Größe und gleichem Typ neben dem unveränderten Original
+- Nach Schritt 1: eine ungespeicherte Änderung, zwei Beete gezeichnet, die Kopie ist gewählt; der Browser öffnet keinen Lesezeichen-Dialog
+- Die Kopie liegt an der ersten freien Position: um die eigene Ausdehnung plus einen Rasterschritt verschoben, zuerst nach rechts — bei (4,1 | 4) neben dem Original, ohne es zu überlappen (V-05); ein Verschieben vor dem Speichern ist nicht nötig (#2965, Betreiberentscheidung vom 14.11.2026 zu #2759)
+- Nach Schritt 2 liegt „Beet K (Kopie)“ bei (4,1 | 4) mit gleicher Größe und gleichem Typ neben dem unveränderten Original; die Liste „Beete“ zeigt beide ohne Neuladen
 
 **Nachbedingungen**:
 - Zwei Beete gespeichert

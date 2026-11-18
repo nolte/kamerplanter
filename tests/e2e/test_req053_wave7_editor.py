@@ -379,8 +379,9 @@ def test_tc_053_050_standard_size_fills_add_with_dimensions(
         plan.add_field("height"),
         plan.add_bed_type(),
     )
-    assert filled == ("2", "1", "0.8", "raised_bed"), (
-        f"TC-053-050: the standard size should fill 2 / 1 / 0.8 / raised_bed, it filled {filled}"
+    # The fields show decimals with the separator of the UI language (German: "0,8", #2921).
+    assert filled == ("2", "1", "0,8", "raised_bed"), (
+        f"TC-053-050: the standard size should fill 2 / 1 / 0,8 / raised_bed, it filled {filled}"
     )
     plan.set_add_field("name", name)
     plan.set_add_field("x", "3")

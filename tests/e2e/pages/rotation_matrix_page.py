@@ -11,11 +11,16 @@ guessed. State-changing helpers read their effect back and fail loudly when it n
 
 from __future__ import annotations
 
+import re
+
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 
 from .base_page import BasePage
+
+
+_LEADING_YEAR = re.compile(r"^(\d{4})(?!\d)")
 
 
 def _tid(testid: str) -> tuple[str, str]:
@@ -44,11 +49,20 @@ class RotationMatrixPage(BasePage):
         return self
 
     def column_years(self) -> list[int]:
-        """The year columns of the head row, left to right (the first head cell is "Beet")."""
+        """The year columns of the head row, left to right (the first head cell is "Beet").
+
+        A future-year head carries a "Planung" marker after the year (#2967), and ``textContent`` joins the two
+        without a space ("2027Planung"), so the year is the cell's leading four digits, not the whole text.
+        """
         heads = self.driver.find_elements(
             By.CSS_SELECTOR, "[data-testid='rotation-matrix-table'] thead th"
         )
-        return [int(_text(head)) for head in heads[1:] if _text(head).isdigit()]
+        years: list[int] = []
+        for head in heads[1:]:
+            match = _LEADING_YEAR.match(_text(head))
+            if match:
+                years.append(int(match.group(1)))
+        return years
 
     def _cell(self, bed_key: str, year: int) -> WebElement:
         try:

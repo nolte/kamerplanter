@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   PlantInstance,
   PlantInstanceCreate,
@@ -29,18 +30,9 @@ export async function listPlantInstances(
  * instead of ``listPlantInstances()`` whenever the full set is required.
  */
 export async function listAllPlantInstances(
-  pageSize = 200,
+  pageSize = CATALOGUE_PAGE_SIZE,
 ): Promise<PlantInstance[]> {
-  const all: PlantInstance[] = [];
-  let offset = 0;
-  // Guard against an unbounded loop if the backend ever ignores the offset.
-  for (let page = 0; page < 1000; page += 1) {
-    const batch = await listPlantInstances(offset, pageSize);
-    all.push(...batch);
-    if (batch.length < pageSize) break;
-    offset += pageSize;
-  }
-  return all;
+  return fetchAllPages(listPlantInstances, pageSize);
 }
 
 export async function getPlantInstance(key: string): Promise<PlantInstance> {

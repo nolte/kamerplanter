@@ -64,7 +64,7 @@ export default function PlantInstanceListPage() {
   const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(items.length);
 
   useEffect(() => {
-    dispatch(fetchPlantInstances({}));
+    dispatch(fetchPlantInstances({ all: true }));
     // Load sites + all locations
     listSites(0, 200).then((sites) => {
       const sm = new Map<string, Site>();
@@ -474,7 +474,7 @@ export default function PlantInstanceListPage() {
       <PlantInstanceCreateDialog
         open={createOpen}
         onClose={() => { setCreateOpen(false); setDuplicateData(undefined); }}
-        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({})); }}
+        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({ all: true })); }}
         duplicateFrom={duplicateData}
       />
       <PlantLabelDialog
