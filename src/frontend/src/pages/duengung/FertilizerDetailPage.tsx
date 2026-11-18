@@ -56,6 +56,7 @@ import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -279,8 +280,13 @@ export default function FertilizerDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const [f, st, pu, inc] = await Promise.all([
@@ -289,6 +295,7 @@ export default function FertilizerDetailPage() {
         fertApi.fetchNutrientPlanUsage(key),
         fertApi.fetchIncompatibilities(key),
       ]);
+      if (stale()) return;
       setFertilizer(f);
       reset({
         product_name: f.product_name,
@@ -320,11 +327,12 @@ export default function FertilizerDetailPage() {
       setIncompatibilities(inc);
       setError(null);
     } catch (err) {
+      if (stale()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, reset]);
+  }, [key, reset, beginLoad]);
 
   useEffect(() => {
     load();

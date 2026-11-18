@@ -80,6 +80,7 @@ import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -293,11 +294,15 @@ export default function PlantInstanceDetailPage() {
   const editSiteKey = useWatch({ control, name: 'site_key' });
   const editLocationKey = useWatch({ control, name: 'location_key' });
 
-  // `isCancelled` lets the [key]-effect abandon an in-flight load when the user
-  // navigates to a sibling before it settles. Imperative refreshes (post-mutation)
-  // pass the default no-op guard since they always target the current key.
-  const load = async (isCancelled: () => boolean = () => false) => {
+  // Latest-wins (#3014): every run — the [key]-effect and post-mutation
+  // refreshes alike — supersedes the one before, so a late answer for a sibling
+  // the user navigated away from (or an older refresh) never lands. Every state
+  // write below, including the fire-and-forget ones, checks `isCancelled` first.
+  const beginLoad = useAbortableLoad();
+  const load = async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const isCancelled = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const p = await plantApi.getPlantInstance(key);
@@ -323,11 +328,15 @@ export default function PlantInstanceDetailPage() {
       if (p.species_key) {
         try {
           loadedSpecies = await speciesApi.getSpecies(p.species_key);
+          if (isCancelled()) return;
           setSpecies(loadedSpecies);
         } catch {
+          if (isCancelled()) return;
           setSpecies(null);
         }
-        speciesApi.listCultivars(p.species_key).then(setCultivarList).catch(() => setCultivarList([]));
+        speciesApi.listCultivars(p.species_key)
+          .then((c) => { if (!isCancelled()) setCultivarList(c); })
+          .catch(() => { if (!isCancelled()) setCultivarList([]); });
       }
       // Resolve site_key: prefer stored value, fall back to location → site derivation
       let resolvedSiteKey: string | null = p.site_key ?? null;
@@ -338,23 +347,30 @@ export default function PlantInstanceDetailPage() {
           const slot = await sitesApi.getSlot(p.slot_key);
           resolvedLocationKey = slot.location_key;
         } catch { /* ignore */ }
+        if (isCancelled()) return;
       }
       // Resolve location → site + display (also backfill site_key if not stored)
       if (resolvedLocationKey) {
         try {
           const loc = await sitesApi.getLocation(resolvedLocationKey);
+          if (isCancelled()) return;
           setAssignedLocation(loc);
           if (!resolvedSiteKey) resolvedSiteKey = loc.site_key;
         } catch {
+          if (isCancelled()) return;
           setAssignedLocation(null);
         }
-        sitesApi.listSlots(resolvedLocationKey).then(setSlotsList).catch(() => setSlotsList([]));
+        sitesApi.listSlots(resolvedLocationKey)
+          .then((sl) => { if (!isCancelled()) setSlotsList(sl); })
+          .catch(() => { if (!isCancelled()) setSlotsList([]); });
       } else {
         setAssignedLocation(null);
       }
       // Resolve slot display
       if (p.slot_key) {
-        sitesApi.getSlot(p.slot_key).then(setAssignedSlot).catch(() => setAssignedSlot(null));
+        sitesApi.getSlot(p.slot_key)
+          .then((sl) => { if (!isCancelled()) setAssignedSlot(sl); })
+          .catch(() => { if (!isCancelled()) setAssignedSlot(null); });
       } else {
         setAssignedSlot(null);
       }
@@ -371,15 +387,19 @@ export default function PlantInstanceDetailPage() {
         container_volume_liters: p.container_volume_liters,
       });
       // Load planting runs for this plant
-      plantApi.getPlantRuns(key).then(setPlantRuns).catch(() => setPlantRuns([]));
+      plantApi.getPlantRuns(key)
+        .then((r) => { if (!isCancelled()) setPlantRuns(r); })
+        .catch(() => { if (!isCancelled()) setPlantRuns([]); });
       try {
         const cp = await phasesApi.getCurrentPhase(key);
+        if (isCancelled()) return;
         setCurrentPhase(cp);
       } catch {
         // Phase control may not be configured
       }
       try {
         const h = await phasesApi.getPhaseHistory(key);
+        if (isCancelled()) return;
         setHistory(h);
       } catch {
         // History may be empty
@@ -387,21 +407,26 @@ export default function PlantInstanceDetailPage() {
       // Load last watering confirmation
       try {
         const hist = await careApi.getHistory(key, 'watering');
+        if (isCancelled()) return;
         setLastWatering(hist.length > 0 ? hist[0] : null);
       } catch {
+        if (isCancelled()) return;
         setLastWatering(null);
       }
       // Load next pending watering task
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
+        if (isCancelled()) return;
         const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wateringTask ?? null);
       } catch {
+        if (isCancelled()) return;
         setNextWateringTask(null);
       }
       // Load watering log history
       try {
         const wl = await wateringLogApi.getPlantWateringHistory(key);
+        if (isCancelled()) return;
         setWateringLogs(wl);
       } catch {
         // May not have any watering logs
@@ -409,10 +434,13 @@ export default function PlantInstanceDetailPage() {
       // Load lifecycle growth phases for projected timeline
       try {
         const lc = await phasesApi.getLifecycleConfig(p.species_key);
+        if (isCancelled()) return;
         setLifecycleKey(lc.key);
         const gp = await phasesApi.listGrowthPhases(lc.key);
+        if (isCancelled()) return;
         setGrowthPhases(gp.sort((a, b) => a.sequence_order - b.sequence_order));
       } catch {
+        if (isCancelled()) return;
         setGrowthPhases([]);
       }
       // Load assigned nutrient plan + Gantt data
@@ -425,6 +453,7 @@ export default function PlantInstanceDetailPage() {
           // Species default plan may have been deleted
         }
       }
+      if (isCancelled()) return;
       setAssignedPlan(ap);
       if (ap) {
         const [pe, f] = await Promise.all([
@@ -434,6 +463,7 @@ export default function PlantInstanceDetailPage() {
           // sequence that already owns the surrounding loading and error state.
           fertApi.fetchAllFertilizers(),
         ]);
+        if (isCancelled()) return;
         setPlanEntries(pe);
         setFertilizers(f);
       } else {
@@ -441,16 +471,16 @@ export default function PlantInstanceDetailPage() {
         setFertilizers([]);
       }
     } catch (err) {
+      if (isCancelled()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
     }
   };
 
+  // The hook aborts the run on unmount; a key change starts a run that supersedes it.
   useEffect(() => {
-    let ignore = false;
-    load(() => ignore);
-    return () => { ignore = true; };
+    load();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load care profile when switching to Care tab

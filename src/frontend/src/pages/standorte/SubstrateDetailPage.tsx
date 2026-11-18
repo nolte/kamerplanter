@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -39,6 +39,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as api from '@/api/endpoints/substrates';
 import Chip from '@mui/material/Chip';
 import type { Substrate, Batch, ReusabilityResponse } from '@/api/types';
@@ -120,11 +121,17 @@ export default function SubstrateDetailPage() {
     },
   });
 
-  const load = async () => {
+  // Latest-wins: a late answer for a previously selected substrate must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
+  const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const s = await api.getSubstrate(key);
+      if (stale()) return;
       setSubstrate(s);
       reset({
         type: s.type,
@@ -139,17 +146,20 @@ export default function SubstrateDetailPage() {
         reusable: s.reusable,
         max_reuse_cycles: s.max_reuse_cycles,
       });
-      setBatches(await api.listBatches(key));
+      const loadedBatches = await api.listBatches(key);
+      if (stale()) return;
+      setBatches(loadedBatches);
       // The mix components used to trigger a bounded substrate fetch here; the
       // shared reader does it now, gated on the same condition (#1560).
     } catch (err) {
+      if (stale()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  };
+  }, [key, reset, beginLoad]);
 
-  useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;

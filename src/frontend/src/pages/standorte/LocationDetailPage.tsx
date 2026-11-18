@@ -41,6 +41,7 @@ import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useAppDispatch } from '@/store/hooks';
@@ -182,28 +183,39 @@ export default function LocationDetailPage() {
   const isNaturalOrMixed = lightType === 'natural' || lightType === 'mixed';
 
   // The summary makes a location a bed (`is_bed`); a failed request leaves the plain location page.
-  const loadBedSummary = useCallback(async () => {
+  // `isCurrent` lets a superseded page load drop its summary answer (#3014).
+  const readBedSummary = useCallback(async (isCurrent: () => boolean) => {
     if (!key) return;
     try {
       const read = await readThrough(cacheScope ? bedSummaryEntry(cacheScope, key) : null, () => getBedSummary(key));
+      if (!isCurrent()) return;
       setLoadedSummary(read.data);
       setSummaryRead({ key, cachedAt: read.cachedAt, offlineMiss: false });
     } catch (err) {
+      if (!isCurrent()) return;
       setLoadedSummary(null);
       setSummaryRead({ key, cachedAt: null, offlineMiss: isOfflineCacheMiss(err) });
     }
   }, [key, cacheScope]);
+  const loadBedSummary = useCallback(() => readBedSummary(() => true), [readBedSummary]);
+
+  // A child-location link reuses this page instance: a late answer for the previous key must not land (#3014).
+  const beginLoad = useAbortableLoad();
 
   const load = async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     setError(null);
     // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
-    const summaryLoaded = loadBedSummary();
+    const summaryLoaded = readBedSummary(ticket.isCurrent);
     try {
       const loc = await api.getLocation(key);
+      if (stale()) return;
       setLocation(loc);
       await summaryLoaded;
+      if (stale()) return;
       // Build ancestor breadcrumb chain
       const ancestors: { key: string; name: string }[] = [];
       let current = loc;
@@ -216,14 +228,17 @@ export default function LocationDetailPage() {
           break;
         }
       }
+      if (stale()) return;
       setAncestorChain(ancestors);
       // Fetch site name for breadcrumb
+      let fetchedSiteName = '';
       try {
-        const site = await api.getSite(loc.site_key);
-        setSiteName(site.name);
+        fetchedSiteName = (await api.getSite(loc.site_key)).name;
       } catch {
-        setSiteName('');
+        fetchedSiteName = '';
       }
+      if (stale()) return;
+      setSiteName(fetchedSiteName);
       reset({
         name: loc.name,
         site_key: loc.site_key,
@@ -239,6 +254,7 @@ export default function LocationDetailPage() {
         api.listSlots(key),
         api.listLocationChildren(key),
       ]);
+      if (stale()) return;
       setSlots(s);
       setChildLocations(children);
       // Load assigned tank:
@@ -247,16 +263,20 @@ export default function LocationDetailPage() {
       if (loc.tank_key) {
         try {
           const t = await tankApi.getTank(loc.tank_key);
+          if (stale()) return;
           setAssignedTank(t);
         } catch {
+          if (stale()) return;
           setAssignedTank(null);
         }
       } else {
         try {
           const allTanks = await tankApi.listTanks(0, 200);
           const match = allTanks.find((t) => t.location_key === key);
+          if (stale()) return;
           setAssignedTank(match ?? null);
         } catch {
+          if (stale()) return;
           setAssignedTank(null);
         }
       }
@@ -266,6 +286,7 @@ export default function LocationDetailPage() {
           wateringApi.getLocationWateringEvents(key),
           wateringApi.getLocationWateringStats(key),
         ]);
+        if (stale()) return;
         setWateringEvents(we);
         setWateringStats(ws);
       } catch {
@@ -274,6 +295,7 @@ export default function LocationDetailPage() {
       // Load sensors
       try {
         const locationSensors = await api.getLocationSensors(key);
+        if (stale()) return;
         setSensors(locationSensors);
       } catch {
         // Sensors may not be available
@@ -281,6 +303,7 @@ export default function LocationDetailPage() {
       // Load assigned planting runs + plant instances for this location
       try {
         const runs = await runApi.listPlantingRuns(0, 200, undefined, undefined, key);
+        if (stale()) return;
         setAssignedRuns(runs);
         // Load plant counts per run
         const counts = new Map<string, number>();
@@ -296,24 +319,29 @@ export default function LocationDetailPage() {
             }
           }),
         );
+        if (stale()) return;
         setRunPlantCounts(counts);
         // Load all plant instances at this location and find standalone ones
         try {
           const allInstances = await listAllPlantInstances();
+          if (stale()) return;
           const locationInstances = allInstances.filter((i) => i.location_key === key);
           setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
         } catch {
+          if (stale()) return;
           setStandaloneInstances([]);
         }
       } catch {
+        if (stale()) return;
         setAssignedRuns([]);
       }
     } catch (err) {
       // Offline the cached summary may still carry the bed view (WP 9.2): it decides before the error shows.
       await summaryLoaded;
+      if (stale()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   };
 

@@ -57,6 +57,7 @@ import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as taskApi from '@/api/endpoints/tasks';
 import { attachmentUri } from '@/api/endpoints/attachments';
 import * as plantApi from '@/api/endpoints/plantInstances';
@@ -329,17 +330,24 @@ export default function TaskDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const fetched = await taskApi.getTask(key);
+      if (stale()) return;
       setTask(fetched);
       setPhotoRefs(fetched.photo_refs ?? []);
       setPersistedPhotoRefs(fetched.photo_refs ?? []);
       if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
         plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
+            if (stale()) return;
             setNamedPlant(p);
             try {
               const sp = await speciesApi.getSpecies(p.species_key);
@@ -349,12 +357,13 @@ export default function TaskDetailPage() {
                 const cv = cvList.find((c) => c.key === p.cultivar_key);
                 if (cv) cultivarName = cv.name;
               }
+              if (stale()) return;
               setPlantInfo({ plant: p, species: sp, cultivarName });
             } catch {
-              setPlantInfo(null);
+              if (!stale()) setPlantInfo(null);
             }
           })
-          .catch(() => setNamedPlant(null));
+          .catch(() => { if (!stale()) setNamedPlant(null); });
       }
       resetEdit({
         name: fetched.name,
@@ -376,11 +385,12 @@ export default function TaskDetailPage() {
       });
       setError(null);
     } catch (err) {
+      if (stale()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, resetEdit, resetCompletion]);
+  }, [key, resetEdit, resetCompletion, beginLoad]);
 
   const loadComments = useCallback(async () => {
     if (!key) return;

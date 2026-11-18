@@ -34,6 +34,7 @@ import FormRow from '@/components/form/FormRow';
 import FormChipInput from '@/components/form/FormChipInput';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as harvestApi from '@/api/endpoints/harvest';
 import * as plantInstancesApi from '@/api/endpoints/plantInstances';
 import type {
@@ -146,11 +147,17 @@ export default function HarvestBatchDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const b = await harvestApi.getBatch(key);
+      if (stale()) return;
       setBatch(b);
       resetEdit({
         harvest_type: b.harvest_type,
@@ -166,6 +173,7 @@ export default function HarvestBatchDetailPage() {
         harvestApi.getQuality(key),
         harvestApi.getYield(key),
       ]);
+      if (stale()) return;
       setQuality(q);
       setYieldMetric(y);
       setError(null);
@@ -177,16 +185,18 @@ export default function HarvestBatchDetailPage() {
       // is idempotent regardless.
       try {
         const plant = await plantInstancesApi.getPlantInstance(b.plant_key);
+        if (stale()) return;
         setHarvestCompleted(plant.removed_on != null);
       } catch {
-        setHarvestCompleted(false);
+        if (!stale()) setHarvestCompleted(false);
       }
     } catch (err) {
+      if (stale()) return;
       setError(String(err));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, resetEdit]);
+  }, [key, resetEdit, beginLoad]);
 
   useEffect(() => {
     load();

@@ -127,6 +127,9 @@ const sitesSlice = createSlice({
         state.currentSite = action.payload;
       })
       .addCase(fetchSite.rejected, (state, action) => {
+        // A superseded fetch is aborted by the detail page (#3014); its rejection
+        // must not clear the loading flag or flag an error for the current site.
+        if (action.meta?.aborted) return;
         state.loading = false;
         state.error = action.error.message ?? 'errors.loadFailed';
       })

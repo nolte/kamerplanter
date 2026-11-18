@@ -130,21 +130,27 @@ export default function CropRotationPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedKey) return;
+    if (!selectedKey) return undefined;
+    // A superseded family's answer is dropped (#3014): landing after the current
+    // one it would show the wrong successors and set `loadedKey` to the old
+    // family, keeping `successorsPending` true and the skeleton up for good.
+    let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading before async fetch
     setSuccessorsLoading(true);
     rotationApi
       .getSuccessors(selectedKey)
-      .then(setSuccessors)
-      .catch((err) => handleError(err))
+      .then((s) => { if (!cancelled) setSuccessors(s); })
+      .catch((err) => { if (!cancelled) handleError(err); })
       .finally(() => {
+        if (cancelled) return;
         // Also on the error path: `loadedKey` records which family the rendered
         // successors belong to, so leaving it behind would keep
         // `successorsPending` true forever and pin the page to a skeleton.
         setLoadedKey(selectedKey);
         setSuccessorsLoading(false);
       });
-  }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
+  }, [selectedKey, handleError]);
 
   const successorCountOf = useCallback(
     (familyKey: string): number => rotationCounts[familyKey] ?? 0,
