@@ -114,13 +114,14 @@ describe('HarvestReadinessSection — plant-detail wiring (REQ-007 §3)', () => 
 
   it('surfaces a load failure with a working retry', async () => {
     const user = userEvent.setup();
-    mocked.assessReadiness.mockRejectedValueOnce(new Error('errors.server'));
+    mocked.assessReadiness.mockRejectedValueOnce(new Error('Readiness backend exploded'));
 
     renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
 
     expect(await screen.findByTestId('harvest-readiness-error')).toBeInTheDocument();
-    // The slice stores an `errors.*` key; ErrorDisplay resolves it to the locale.
-    expect(screen.getByTestId('error-message')).toHaveTextContent(i18n.t('errors.server'));
+    // #3013: the slice stores an `errors.*` key (never the exception message); ErrorDisplay resolves it.
+    expect(screen.getByTestId('error-message')).toHaveTextContent(i18n.t('errors.loadFailed'));
+    expect(screen.queryByText('Readiness backend exploded')).toBeNull();
     expect(screen.queryByTestId('harvest-readiness-card')).toBeNull();
 
     mocked.assessReadiness.mockResolvedValueOnce(makeReadiness());

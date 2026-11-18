@@ -5,6 +5,8 @@
  * in the person filter (E-16, SR-020).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -28,20 +30,11 @@ export default function CareHistoryPage() {
   const { t } = useTranslation();
   const people = usePersonOptions();
   const [filters, setFilters] = useState<HistoryFilters>(DEFAULTS);
-  const [beds, setBeds] = useState<FilterOption[]>([]);
   const [plantsOf, setPlantsOf] = useState<{ bed: string; options: FilterOption[] } | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    listAllBedOptions()
-      .then((options) => {
-        if (!cancelled) setBeds(options);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // #3013 (B-01): a failed bed list shows an error with retry instead of a filter whose beds vanished.
+  const bedOptions = useAsyncOptions(listAllBedOptions);
+  const beds = bedOptions.options;
 
   // The plant filter belongs to one bed: it appears once a bed is chosen and its plants have arrived.
   const { locationKey } = filters;
@@ -81,6 +74,13 @@ export default function CareHistoryPage() {
       <Typography variant="body2" color="text.secondary">
         {t('pages.bed.history.page.description')}
       </Typography>
+      {bedOptions.error && (
+        <OptionsLoadError
+          onRetry={bedOptions.reload}
+          messageKey="pages.bed.history.page.bedsLoadFailed"
+          data-testid="care-history-beds-load-error"
+        />
+      )}
       <HistoryFilterBar
         filters={filters}
         defaults={DEFAULTS}

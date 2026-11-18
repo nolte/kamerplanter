@@ -51,9 +51,17 @@ export default function InvitationAcceptPage() {
         setStatus('error');
         setNeedsNewInvitation(!full);
         // A full tenant is not a broken link: the invitation stays open, so the
-        // invitee is told why and that it can work later (#2133). Every other
-        // refusal keeps the backend's own message.
-        setError(full ? t('pages.tenants.memberLimitReached') : parseApiError(err));
+        // invitee is told why and that it can work later (#2133). A 403 is an
+        // invitation for another (or an unconfirmed) address; every other refusal
+        // is translated from its code — never the backend's English text (#3013).
+        const forOtherAddress = isApiError(err) && err.statusCode === 403;
+        setError(
+          full
+            ? t('pages.tenants.memberLimitReached')
+            : forOtherAddress
+              ? t('pages.tenants.invitationNotForThisAccount')
+              : parseApiError(err, t),
+        );
       });
   };
 

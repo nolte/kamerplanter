@@ -4,7 +4,7 @@
  * caller names `years`. A new `version` fetches again (a year was filled in or a planting changed elsewhere).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getRotationTimeline } from './historyApi';
 import type { RotationTimeline } from './historyTypes';
 
@@ -24,7 +24,7 @@ export function useRotationTimeline(bedKey: string, years?: number, version = 0)
         if (!cancelled) setState({ status: 'ready', timeline });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

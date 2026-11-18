@@ -8,6 +8,7 @@ import type {
   TreatmentApplication,
 } from '@/api/types';
 import * as api from '@/api/endpoints/ipm';
+import { errorKey } from '@/api/errors';
 
 interface IpmState {
   pests: Pest[];
@@ -156,7 +157,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchPests.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchPest.fulfilled, (state, action) => {
         state.currentPest = action.payload;
@@ -172,7 +173,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchDiseases.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchDisease.fulfilled, (state, action) => {
         state.currentDisease = action.payload;
@@ -188,7 +189,7 @@ const ipmSlice = createSlice({
       })
       .addCase(fetchTreatments.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchTreatment.fulfilled, (state, action) => {
         state.currentTreatment = action.payload;

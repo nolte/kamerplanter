@@ -187,7 +187,7 @@ describe('AdminEditTenantPage — deactivation and member removal step-up (#2009
     await userEvent.click(within(dialog).getByTestId('update-tenant-confirm'));
 
     expect(await within(dialog).findByTestId('update-tenant-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
     expect(passwordInput(dialog, 'update-tenant')).toHaveValue('');
   });
@@ -235,7 +235,7 @@ describe('AdminEditTenantPage — deactivation and member removal step-up (#2009
     await userEvent.type(passwordInput(dialog, 'remove-member'), 'wrong');
     await userEvent.click(within(dialog).getByTestId('remove-member-confirm'));
 
-    expect(await within(dialog).findByTestId('remove-member-error')).toHaveTextContent('Password confirmation failed.');
+    expect(await within(dialog).findByTestId('remove-member-error')).toHaveTextContent(i18n.t('pages.auth.stepUpRejected'));
     expect(screen.getByTestId('remove-member-u-lead')).toBeInTheDocument();
   });
 

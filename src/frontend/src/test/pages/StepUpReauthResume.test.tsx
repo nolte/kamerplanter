@@ -155,7 +155,9 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     await user.click(screen.getByTestId('change-password-btn'));
 
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(await screen.findByText('Backend English message.')).toBeInTheDocument();
+    // #3013: the refusal is translated from its code; the backend's English message never shows.
+    expect(await screen.findByText(i18n.t('errors.validation'))).toBeInTheDocument();
+    expect(screen.queryByText('Backend English message.')).toBeNull();
     expect(sessionStorage.getItem(STEP_UP_REAUTH_TOKEN_KEY)).not.toBeNull();
     expect(screen.getByTestId('change-password-reauth-done')).toBeInTheDocument();
 

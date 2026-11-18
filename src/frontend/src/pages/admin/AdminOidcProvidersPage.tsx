@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -73,7 +73,7 @@ type PendingWrite =
 export default function AdminOidcProvidersPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
 
   const [providers, setProviders] = useState<OidcProvider[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,9 +138,9 @@ export default function AdminOidcProvidersPage() {
       const updated = await updateOidcProvider(provider.key, submission.fields);
       setProviders((prev) => prev.map((p) => (p.key === updated.key ? updated : p)));
       closeForm();
-      enqueueSnackbar(t('pages.admin.oidc.snack.saved'), { variant: 'success' });
+      notification.success(t('pages.admin.oidc.snack.saved'));
     } catch (err) {
-      setFormError(parseApiError(err));
+      setFormError(parseApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -155,13 +155,13 @@ export default function AdminOidcProvidersPage() {
       const created = await createOidcProvider({ ...pendingWrite.fields, ...stepUp });
       setProviders((prev) => [...prev, created]);
       closeForm();
-      enqueueSnackbar(t('pages.admin.oidc.snack.created'), { variant: 'success' });
+      notification.success(t('pages.admin.oidc.snack.created'));
       return;
     }
     const updated = await updateOidcProvider(pendingWrite.provider.key, { ...pendingWrite.fields, ...stepUp });
     setProviders((prev) => prev.map((p) => (p.key === updated.key ? updated : p)));
     closeForm();
-    enqueueSnackbar(t('pages.admin.oidc.snack.saved'), { variant: 'success' });
+    notification.success(t('pages.admin.oidc.snack.saved'));
   };
 
   const handleConfirmDelete = async (credentials: StepUpConfirmation) => {
@@ -170,7 +170,7 @@ export default function AdminOidcProvidersPage() {
     await deleteOidcProvider(removed.key, toCredentialStepUpBody(credentials));
     setProviders((prev) => prev.filter((p) => p.key !== removed.key));
     setToDelete(null);
-    enqueueSnackbar(t('pages.admin.oidc.snack.deleted'), { variant: 'success' });
+    notification.success(t('pages.admin.oidc.snack.deleted'));
   };
 
   const handleTest = async (provider: OidcProvider) => {
@@ -182,7 +182,7 @@ export default function AdminOidcProvidersPage() {
       // A successful test stores the fetched discovery document: reflect the timestamp.
       setReloadToken((n) => n + 1);
     } catch (err) {
-      setTestError({ provider, message: parseApiError(err) });
+      setTestError({ provider, message: parseApiError(err, t) });
     } finally {
       setTesting(null);
     }

@@ -23,7 +23,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import LockIcon from '@mui/icons-material/Lock';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import { visuallyHidden } from '@mui/utils';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 
 import { useAppDispatch } from '@/store/hooks';
 import { saveModuleVisibility } from '@/store/slices/userPreferencesSlice';
@@ -61,7 +61,7 @@ function resolveChipColor(
 export default function ModulesSettingsTab() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const { isModuleVisible, overrides, isSmartHomeEnabled } = useModuleVisibility();
   const coreSectionId = useId();
 
@@ -73,9 +73,9 @@ export default function ModulesSettingsTab() {
   const persist = useCallback(
     (next: Record<string, ModuleVisibilityState>) => {
       dispatch(saveModuleVisibility(next));
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     },
-    [dispatch, enqueueSnackbar, t],
+    [dispatch, notification, t],
   );
 
   const handleToggle = useCallback(

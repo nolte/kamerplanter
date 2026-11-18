@@ -79,12 +79,12 @@ describe('importSlice', () => {
     expect(state.error).toBe('translated message');
   });
 
-  it('uploadFile.rejected falls back to the error message without a payload', () => {
+  it('uploadFile.rejected falls back to a key derived from the error without a payload (#3013)', () => {
     const state = reducer(baseState, {
       type: uploadFile.rejected.type,
       error: { message: 'raw failure' },
     });
-    expect(state.error).toBe('raw failure');
+    expect(state.error).toBe('errors.generic');
   });
 
   it('fetchImportJob.fulfilled stores the current job', () => {
@@ -159,11 +159,12 @@ describe('importSlice thunks', () => {
     expect(store.getState().import.error).toBeTruthy();
   });
 
-  it('uploadFile falls back to the message for an unmapped error code', async () => {
+  it('uploadFile maps an unmapped error code to a translated key (#3013)', async () => {
     mocked.uploadImportFile.mockRejectedValue(apiError('WEIRD', 'raw detail', 400));
     const store = makeStore();
     await store.dispatch(uploadFile({ file: new File([''], 'x.csv'), entityType: 'species', duplicateStrategy: 'skip' }));
-    expect(store.getState().import.error).toBe('raw detail');
+    // #3013: an unmapped code at 400 reads as a validation refusal.
+    expect(store.getState().import.error).toBe('errors.validation');
   });
 
   it('uploadFile translates an axios 422 with a detail body', async () => {

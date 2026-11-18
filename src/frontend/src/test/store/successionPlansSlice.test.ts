@@ -59,7 +59,7 @@ describe('successionPlansSlice', () => {
       type: fetchSuccessionPlans.rejected.type,
       error: { message: 'fail' },
     });
-    expect(state.error).toBe('fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchSuccessionPlans.rejected falls back to a default message', () => {
@@ -99,7 +99,7 @@ describe('successionPlansSlice thunks', () => {
     mocked.listSuccessionPlans.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchSuccessionPlans({}));
-    expect(store.getState().successionPlans.error).toBe('load failed');
+    expect(store.getState().successionPlans.error).toBe('errors.loadFailed');
   });
 
   it('fetchSuccessionPlan calls getSuccessionPlan and stores the selection', async () => {

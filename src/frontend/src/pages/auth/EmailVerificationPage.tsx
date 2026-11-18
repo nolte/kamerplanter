@@ -9,6 +9,7 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { verifyEmail } from '@/api/endpoints/auth';
+import { errorKey } from '@/api/errors';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function EmailVerificationPage() {
@@ -25,7 +26,8 @@ export default function EmailVerificationPage() {
       .then(() => setStatus('success'))
       .catch((err) => {
         setStatus('error');
-        setError(err?.message || t('pages.auth.verificationFailed'));
+        // The server's English message never reaches the UI (#3013); the code picks the text.
+        setError(t(errorKey(err, 'pages.auth.verificationFailed')));
       });
   }, [token, t]);
 

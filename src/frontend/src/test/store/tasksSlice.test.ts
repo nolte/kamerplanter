@@ -366,7 +366,7 @@ describe('tasksSlice thunks', () => {
     mocked.listWorkflows.mockRejectedValue(new Error('load failed'));
     const store = makeTasksStore();
     await store.dispatch(fetchWorkflows({}));
-    expect(store.getState().tasks.error).toBe('load failed');
+    expect(store.getState().tasks.error).toBe('errors.loadFailed');
   });
 
   it('fetchWorkflow calls getWorkflow', async () => {

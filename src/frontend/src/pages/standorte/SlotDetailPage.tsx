@@ -22,6 +22,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 import type { Slot } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const schema = z.object({
   slot_id: z
@@ -64,7 +65,7 @@ export default function SlotDetailPage() {
         setSlot(s);
         reset({ slot_id: s.slot_id, location_key: s.location_key, capacity_plants: s.capacity_plants });
       })
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(errorKey(e, 'errors.loadFailed')))
       .finally(() => setLoading(false));
   }, [key, reset]);
 

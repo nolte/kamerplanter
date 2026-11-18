@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import CircularProgress from '@mui/material/CircularProgress';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { registerLocal, clearError, REGISTRATION_NOT_ALLOWED } from '@/store/slices/authSlice';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
@@ -24,7 +24,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const location = useLocation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const { isLoading, error } = useAppSelector((s) => s.auth);
   // #2132 — which registration the instance offers. Only a hint: the backend
   // enforces the mode whatever this page shows.
@@ -75,7 +75,7 @@ export default function RegisterPage() {
           ...(token ? { invitation_token: token } : {}),
         }),
       ).unwrap();
-      enqueueSnackbar(t('pages.auth.registrationSuccess'), { variant: 'success' });
+      notification.success(t('pages.auth.registrationSuccess'));
       navigate('/login');
     } catch (rejection) {
       // Every other refusal is shown from the store's `error`, as before.
@@ -126,7 +126,7 @@ export default function RegisterPage() {
                 </Alert>
               ) : (
                 (error || localError) && (
-                  <Alert severity="error" sx={{ mb: 2 }}>{localError || error}</Alert>
+                  <Alert severity="error" sx={{ mb: 2 }}>{localError || t(error ?? 'errors.generic')}</Alert>
                 )
               )}
 

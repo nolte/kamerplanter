@@ -42,6 +42,7 @@ import type {
 } from '@/api/types';
 import { getAlternativeCommonNames, getLocalizedCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /**
  * Combined dropdown label "common name · scientific name" (e.g. "Lauch · Allium
@@ -129,7 +130,10 @@ export default function CompanionPlantingPage() {
     companionApi
       .getCompanionCounts()
       .then((c) => { if (!cancelled) setCompanionCounts(c); })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        // Badge enrichment only: the options show no companion count.
+        captureHandledError(err, { source: 'CompanionPlantingPage.counts' });
+      })
       .finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
   }, []);

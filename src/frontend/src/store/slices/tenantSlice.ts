@@ -3,7 +3,7 @@ import * as tenantApi from '@/api/endpoints/tenants';
 import type { TenantWithRole, TenantCreate } from '@/api/types';
 import { isLightMode } from '@/config/mode';
 import { setActiveTenantSlug } from '@/api/client';
-import { isApiError, parseApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 
 interface TenantState {
   activeTenant: TenantWithRole | null;
@@ -35,8 +35,9 @@ export const loadMyTenants = createAsyncThunk('tenants/loadMyTenants', async () 
   return tenants;
 });
 
-/** Why founding an organisation was refused: the message and the backend's stable `error_code`. */
+/** Why founding an organisation was refused: an i18n key and the backend's stable `error_code`. */
 export interface CreateOrganizationRejection {
+  /** i18n key of the refusal (#3013) — never the backend's English text. */
   message: string;
   errorCode: string | null;
 }
@@ -55,7 +56,7 @@ export const createOrganization = createAsyncThunk<
     await tenantApi.createOrganization(data);
   } catch (err) {
     return rejectWithValue({
-      message: parseApiError(err),
+      message: errorKey(err),
       errorCode: isApiError(err) ? err.errorCode : null,
     });
   }
@@ -143,7 +144,7 @@ const tenantSlice = createSlice({
       })
       .addCase(loadMyTenants.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message ?? 'errors.tenantsLoadFailed';
+        state.error = errorKey(action.error, 'errors.tenantsLoadFailed');
       })
       .addCase(createOrganization.fulfilled, (state, action) => {
         state.myTenants = action.payload;

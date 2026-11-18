@@ -124,7 +124,11 @@ export function markFeatureLocaleLoaded(locale: SupportedLocale): void {
 // LanguageSelector preloads on menu open, so the switch itself stays instant.
 i18n.on('languageChanged', (lng) => {
   syncDocumentLang(lng);
-  void loadFeatureNamespaces(toSupportedLocale(lng)).catch(() => undefined);
+  void loadFeatureNamespaces(toSupportedLocale(lng)).catch((err: unknown) => {
+    // The core strings are loaded; a missing feature chunk falls back until the next load.
+    // console, not captureHandledError: this module loads before error tracking and must not import it.
+    console.warn('[i18n] feature namespaces failed to load', err);
+  });
 });
 
 /**

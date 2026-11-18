@@ -3,7 +3,7 @@ import axios from 'axios';
 import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
-import { isApiError, parseApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { forgetPendingInvitation } from '@/utils/pendingInvitation';
 import { forgetLoginReturn } from '@/utils/loginReturn';
@@ -181,7 +181,9 @@ const authSlice = createSlice({
     });
     builder.addCase(loginLocal.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = parseApiError(action.error);
+      // An i18n key (#3013): at the login form a 401 means wrong credentials, not an expired session.
+      state.error =
+        action.error.code === 'UNAUTHORIZED' ? 'errors.invalidCredentials' : errorKey(action.error);
     });
 
     // Register
@@ -194,7 +196,7 @@ const authSlice = createSlice({
     });
     builder.addCase(registerLocal.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = parseApiError(action.error);
+      state.error = errorKey(action.error);
     });
 
     // Fetch profile

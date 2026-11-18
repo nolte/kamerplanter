@@ -44,6 +44,7 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 /** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
 const DTM_REFERENCES = ['direct_seed', 'transplant', 'from_flip'] as const;
@@ -168,7 +169,7 @@ export default function CultivarDetailPage() {
       }
       setPhaseOverrides(overrides);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -266,7 +267,7 @@ export default function CultivarDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="cultivar-detail-page">

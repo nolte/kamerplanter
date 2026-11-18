@@ -25,6 +25,7 @@ import type {
   PlanValidationResult,
   Fertilizer,
 } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 /**
  * Read/entity-side controller for the nutrient-plan detail page (AP-20). Owns the
@@ -147,7 +148,7 @@ export function useNutrientPlanData() {
       });
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!silent) setLoading(false);
     }

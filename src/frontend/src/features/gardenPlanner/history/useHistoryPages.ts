@@ -5,7 +5,7 @@
  * never replaces the list of the current one.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { HISTORY_PAGE_SIZE } from './historyApi';
 
 export type HistoryPagesState<T> =
@@ -65,8 +65,8 @@ export function useHistoryPages<T>(
         // A reload that fails keeps the rows the user is reading and says so; only a first load is an error state.
         setState((latest) =>
           latest.status === 'ready'
-            ? { ...latest, loadingMore: false, moreError: parseApiError(error) }
-            : { status: 'error', message: parseApiError(error) },
+            ? { ...latest, loadingMore: false, moreError: errorKey(error) }
+            : { status: 'error', message: errorKey(error) },
         );
       });
     return () => {
@@ -99,7 +99,7 @@ export function useHistoryPages<T>(
       .catch((error: unknown) => {
         if (generation.current !== mine) return;
         setState((latest) =>
-          latest.status === 'ready' ? { ...latest, loadingMore: false, moreError: parseApiError(error) } : latest,
+          latest.status === 'ready' ? { ...latest, loadingMore: false, moreError: errorKey(error) } : latest,
         );
       });
   }, []);

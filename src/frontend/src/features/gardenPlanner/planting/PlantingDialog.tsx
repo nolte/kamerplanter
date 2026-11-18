@@ -59,6 +59,7 @@ import type { RotationSeverity } from './plantingTypes';
 import { useBedHints, useMixedCompatibility } from './useBedHints';
 import { useBedTrellises } from './useBedTrellises';
 import { useEntryPreviews, type EntryPreview, type PreviewRequest } from './useEntryPreviews';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export interface PlantedResult {
   runKeys: string[];
@@ -236,7 +237,10 @@ export default function PlantingDialog({
           ),
         );
       })
-      .catch(() => undefined); // the grey dots are context only
+      .catch((error: unknown) => {
+        // The grey dots of existing slots are context only; reported, not rendered.
+        captureHandledError(error, { source: 'PlantingDialog.existingSlots' });
+      });
     return () => {
       cancelled = true;
     };

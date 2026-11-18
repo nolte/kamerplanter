@@ -9,6 +9,7 @@ import type {
   SowingCalendarEntry,
 } from '@/api/types';
 import * as api from '@/api/endpoints/calendar';
+import { errorKey } from '@/api/errors';
 
 /**
  * The feed without its one-time token and URL (#2171): the store keeps what every
@@ -137,7 +138,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchCalendarEvents.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Feeds
       .addCase(fetchCalendarFeeds.pending, (state) => {
@@ -149,7 +150,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchCalendarFeeds.rejected, (state, action) => {
         state.feedsLoading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Create feed
       .addCase(createCalendarFeed.fulfilled, (state, action) => {
@@ -179,7 +180,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchSowingCalendar.rejected, (state, action) => {
         state.sowingLoading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Season overview
       .addCase(fetchSeasonOverview.pending, (state) => {
@@ -192,7 +193,7 @@ const calendarSlice = createSlice({
       })
       .addCase(fetchSeasonOverview.rejected, (state, action) => {
         state.seasonLoading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       });
   },
 });

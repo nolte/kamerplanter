@@ -46,6 +46,7 @@ import {
   type FormErrors,
 } from './careForm';
 import type { CareUnit } from './careTypes';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const NOTE_MAX = 2000;
 const TEXT_MAX = 200;
@@ -85,7 +86,10 @@ function useFertilizerOptions(enabled: boolean): FertilizerOption[] {
           );
         }
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        // The product field stays a free-text field without the catalogue; reported, not rendered.
+        captureHandledError(error, { source: 'CareFormFields.fertilizers' });
+      });
     return () => {
       cancelled = true;
     };

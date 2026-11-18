@@ -177,7 +177,7 @@ describe('TenantExportCard (REQ-056 §8, #2138)', () => {
     await confirmWithPassword(dialog, 'wrong');
 
     expect(await within(dialog).findByTestId('request-tenant-export-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
     expect(screen.queryByTestId('tenant-export-notice')).toBeNull();
     expect(listExports).toHaveBeenCalledTimes(1);
@@ -321,7 +321,8 @@ describe('TenantExportCard (REQ-056 §8, #2138)', () => {
     await userEvent.click(await screen.findByTestId('download-tenant-export-exp-done'));
 
     expect(await screen.findByTestId('tenant-export-notice')).toHaveTextContent(
-      'Das Archiv konnte nicht heruntergeladen werden: Storage unavailable.',
+      // #3013: the reason is the translated status, never the backend's English message.
+      i18n.t('pages.tenants.export.downloadFailed', { reason: i18n.t('errors.server') }),
     );
   });
 

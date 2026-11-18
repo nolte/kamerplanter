@@ -39,7 +39,10 @@ export function useCountdownTimer(totalSeconds: number): CountdownState {
   // The audio context holds a system audio stream until it is closed.
   useEffect(
     () => () => {
-      void audioRef.current?.close().catch(() => undefined);
+      void audioRef.current?.close().catch((err: unknown) => {
+        // Closing an already closed context rejects; the stream is released either way.
+        console.debug('[countdown] closing the audio context failed', err);
+      });
       audioRef.current = null;
     },
     [],
@@ -79,7 +82,10 @@ function beep(audioRef: { current: AudioContext | null }): void {
     gain.gain.value = 0.3;
     osc.onended = () => {
       if (audioRef.current === ctx) audioRef.current = null;
-      void ctx.close().catch(() => undefined);
+      void ctx.close().catch((err: unknown) => {
+        // Same as the unmount cleanup: a failed close leaves nothing to undo.
+        console.debug('[countdown] closing the audio context failed', err);
+      });
     };
     osc.start();
     osc.stop(ctx.currentTime + 0.3);

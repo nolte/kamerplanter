@@ -282,7 +282,9 @@ describe('LoginPage', () => {
       renderWithProviders(<LoginPage />, { store: idleAuthStore() });
       await signIn(user);
 
-      expect(await screen.findByText('Invalid email or password.')).toBeTruthy();
+      // #3013: translated from the code, never the backend's English message.
+      expect(await screen.findByText(i18n.t('errors.invalidCredentials'))).toBeTruthy();
+      expect(screen.queryByText('Invalid email or password.')).toBeNull();
       expect(screen.queryByTestId('login-email-not-verified')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Neue Bestätigungs-E-Mail senden' })).toBeNull();
     });

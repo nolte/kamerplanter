@@ -13,7 +13,7 @@ import DiaryEntryCard from '@/components/diary/DiaryEntryCard';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import {
   DIARY_PAGE_SIZE,
   cancelDiaryEntryAnalysis,
@@ -92,7 +92,7 @@ export default function PlantDiaryTab({
       setEntries(page);
       setHasMore(page.length === DIARY_PAGE_SIZE);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }

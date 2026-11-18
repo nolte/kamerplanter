@@ -48,6 +48,7 @@ import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -81,6 +82,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import { errorKey } from '@/api/errors';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -182,22 +184,31 @@ export default function PlantingRunDetailPage() {
   // Track dirty state for UnsavedChangesGuard (edit dialog has own form)
   const isDirty = false;
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const r = await runApi.getPlantingRun(key);
+      if (stale()) return;
       setRun(r);
       if (r.location_key) {
         try {
           const loc = await siteApi.getLocation(r.location_key);
+          if (stale()) return;
           setSiteKeyFromLocation(loc.site_key);
           setLocationName(loc.name);
           if (loc.tank_key) {
             const tk = await tankApi.getTank(loc.tank_key);
+            if (stale()) return;
             setResolvedTank({ key: tk.key, name: tk.name, volumeLiters: tk.volume_liters });
           } else {
             const allTanks = await tankApi.listTanks(0, 200);
+            if (stale()) return;
             const match = allTanks.find((tk) => tk.location_key === r.location_key);
             if (match) {
               setResolvedTank({ key: match.key, name: match.name, volumeLiters: match.volume_liters });
@@ -206,6 +217,7 @@ export default function PlantingRunDetailPage() {
             }
           }
         } catch {
+          if (stale()) return;
           setResolvedTank(null);
           setLocationName('');
         }
@@ -215,6 +227,7 @@ export default function PlantingRunDetailPage() {
         setSiteKeyFromLocation(null);
       }
       const e = await runApi.listEntries(key);
+      if (stale()) return;
       setEntries(e);
       const uniqueSpeciesKeys = [...new Set(e.map((entry) => entry.species_key))];
       const nameMap = new Map<string, string>();
@@ -243,6 +256,7 @@ export default function PlantingRunDetailPage() {
           } catch { /* ok */ }
         }),
       );
+      if (stale()) return;
       setCultivarNames(nameMap);
       setLoadedSpecies(speciesByKey);
       setSpeciesDataForTab(firstSpecies);
@@ -252,23 +266,25 @@ export default function PlantingRunDetailPage() {
       if (primarySpeciesKey) {
         phaseSequenceApi
           .getSpeciesPhaseSequence(primarySpeciesKey)
-          .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
-          .catch(() => setPhaseSequenceKey(null));
+          .then((seq) => { if (!stale()) setPhaseSequenceKey(seq?.key ?? null); })
+          .catch(() => { if (!stale()) setPhaseSequenceKey(null); });
       } else {
         setPhaseSequenceKey(null);
       }
       try {
         const p = await runApi.listRunPlants(key, true);
+        if (stale()) return;
         setPlants(p);
       } catch {
         // Plants may not exist yet
       }
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key]);
+  }, [key, beginLoad]);
 
   useEffect(() => {
     load();
@@ -288,8 +304,11 @@ export default function PlantingRunDetailPage() {
   // Clear dynamic breadcrumbs on unmount
   useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
+  const beginWateringLoad = useAbortableLoad();
   const loadWateringData = useCallback(async () => {
     if (!key) return;
+    const ticket = beginWateringLoad();
+    const stale = () => !ticket.isCurrent();
     setWateringLoading(true);
     try {
       const [planResult, calendar, timelines] = await Promise.all([
@@ -297,6 +316,7 @@ export default function PlantingRunDetailPage() {
         runApi.getWateringSchedule(key, 90).catch(() => null),
         runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
       ]);
+      if (stale()) return;
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
       setPhaseTimelines(timelines);
@@ -309,6 +329,7 @@ export default function PlantingRunDetailPage() {
             // whose surrounding loading and error state already covers it.
             fertApi.fetchAllFertilizers(),
           ]);
+          if (stale()) return;
           setPlanEntries(fetchedEntries);
           setFertilizers(ferts);
         }
@@ -317,11 +338,11 @@ export default function PlantingRunDetailPage() {
         setFertilizers([]);
       }
     } catch (err) {
-      handleError(err);
+      if (!stale()) handleError(err);
     } finally {
-      setWateringLoading(false);
+      if (!stale()) setWateringLoading(false);
     }
-  }, [key, handleError]);
+  }, [key, handleError, beginWateringLoad]);
 
   // Load watering data for details tab (tab 0), phases tab (tab 2), and nutrient+watering tab (tab 3)
   useEffect(() => {
@@ -524,7 +545,7 @@ export default function PlantingRunDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="planting-run-detail-page">

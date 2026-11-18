@@ -165,9 +165,19 @@ describe('BatchDetailPage', () => {
     const user = userEvent.setup();
     renderWithProviders(<BatchDetailPage />);
 
-    expect(await screen.findByTestId('error-display')).toBeInTheDocument();
+    expect(await screen.findByTestId('error-display')).toHaveTextContent(i18n.t('errors.notFound'));
+    expect(screen.queryByText('not found')).toBeNull();
+    // #3013: "retry" loads again instead of navigating away.
+    let reloaded = false;
+    server.use(
+      http.get('/api/v1/substrates/batches/:key', () => {
+        reloaded = true;
+        return HttpResponse.json({}, { status: 500 });
+      }),
+    );
     await user.click(screen.getByTestId('error-retry-button'));
-    expect(mockNavigate).toHaveBeenCalledWith(-1);
+    await waitFor(() => expect(reloaded).toBe(true));
+    expect(mockNavigate).not.toHaveBeenCalledWith(-1);
   });
 
   it('saves the batch and reloads it on submit success', async () => {

@@ -16,6 +16,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { aiApi } from '@/api';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 
@@ -106,7 +107,10 @@ export default function DailyTipCard() {
   const handleDismiss = useCallback(() => {
     setDismissed(true);
     persistDismissed(dismissStorageKey);
-    void aiApi.dismissDailyTip().catch(() => undefined);
+    void aiApi.dismissDailyTip().catch((err: unknown) => {
+      // Dismissal is best effort: the tip is already hidden locally.
+      captureHandledError(err, { source: 'DailyTipCard.dismiss' });
+    });
   }, [dismissStorageKey]);
 
   const handleGenerate = useCallback(() => {

@@ -30,9 +30,10 @@ describe('ErrorDisplay', () => {
     expect(screen.queryByText('errors.loadFailed')).toBeNull();
   });
 
-  it('maps a raw "not found" backend message via the pattern fallback', () => {
-    renderComponent({ error: 'Species not found' });
-    expect(screen.getByText(i18n.t('errors.notFound'))).toBeTruthy();
+  it('falls back to the generic text for a key the bundle does not know (#3013)', () => {
+    renderComponent({ error: 'errors.NO_SUCH_CODE' });
+    expect(screen.getByText(i18n.t('errors.generic'))).toBeTruthy();
+    expect(screen.queryByText('errors.NO_SUCH_CODE')).toBeNull();
   });
 
   it('renders an unknown raw message unchanged', () => {

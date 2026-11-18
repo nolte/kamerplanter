@@ -45,6 +45,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import type { WateringLog, WateringLogUpdate, RunoffResponse } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 const waterSources = ['tank', 'tap', 'osmose', 'rainwater', 'distilled', 'well'] as const;
@@ -117,7 +118,7 @@ export default function WateringLogDetailPage() {
         notes: e.notes,
       });
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -166,7 +167,7 @@ export default function WateringLogDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error || !log) return <ErrorDisplay error={error ?? 'Not found'} onRetry={load} />;
+  if (error || !log) return <ErrorDisplay error={error ?? 'errors.notFound'} onRetry={load} />;
 
   const plants = log.resolved_plants ?? [];
   const loggedAtFormatted = log.logged_at

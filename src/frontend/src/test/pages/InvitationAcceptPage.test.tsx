@@ -74,13 +74,13 @@ describe('InvitationAcceptPage', () => {
     expect(screen.queryByTestId('invitation-error-next-step')).toBeNull();
   });
 
-  it('keeps the backend message for every other refusal and says what to do next', async () => {
+  it('explains a refusal in German instead of the backend message and says what to do next (#3013)', async () => {
     refuse('FORBIDDEN', 'This invitation was issued for another address.', 403);
 
     await openAndAccept();
 
     const detail = await screen.findByTestId('invitation-error-detail');
-    expect(detail.textContent).toBe('This invitation was issued for another address.');
+    expect(detail.textContent).toBe(i18n.t('pages.tenants.invitationNotForThisAccount'));
     expect(screen.getByTestId('invitation-error-next-step')).toHaveTextContent('neue Einladung');
     expect(screen.getByRole('button', { name: 'Dashboard' })).toBeInTheDocument();
   });

@@ -66,7 +66,8 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
-import { useSnackbar } from 'notistack';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNavigate } from 'react-router-dom';
 import { fetchProfile } from '@/store/slices/authSlice';
@@ -178,7 +179,7 @@ export default function AccountSettingsPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const user = useAppSelector((s) => s.auth.user);
   const preferences = useAppSelector((s) => s.userPreferences.preferences);
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
@@ -268,7 +269,6 @@ export default function AccountSettingsPage() {
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
   const [passwordStepUpCode, setPasswordStepUpCode] = useState('');
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(true);
   const [apiKeysError, setApiKeysError] = useState(false);
@@ -381,9 +381,12 @@ export default function AccountSettingsPage() {
       });
   }, []);
 
-  const loadSessions = useCallback(() => {
-    listSessions().then(setSessions).catch(() => {});
-  }, []);
+  // #3013 (A-01): the sessions list is how a foreign session is spotted and revoked, so a failed
+  // load renders an error with retry rather than an empty table. Light mode has no sessions endpoint.
+  const fetchSessions = useCallback((): Promise<SessionInfo[]> => listSessions(), []);
+  const sessionsLoad = useAsyncOptions(fetchSessions, { enabled: !isLightMode });
+  const sessions = sessionsLoad.options;
+  const loadSessions = sessionsLoad.reload;
 
   const loadApiKeys = useCallback(() => {
     setApiKeysLoading(true);
@@ -405,8 +408,7 @@ export default function AccountSettingsPage() {
     // not exist in light mode, so asking for them would only produce 404s.
     if (isLightMode) return;
     loadProviders();
-    loadSessions();
-  }, [isLightMode, loadProviders, loadSessions, loadApiKeys]);
+  }, [isLightMode, loadProviders, loadApiKeys]);
 
   const loadAdminData = useCallback(async () => {
     if (isLightMode || !isPlatformAdminUser) return;
@@ -588,9 +590,9 @@ export default function AccountSettingsPage() {
     try {
       await updateProfile({ display_name: displayName, locale, timezone });
       dispatch(fetchProfile());
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      setError(parseApiError(err));
+      setError(parseApiError(err, t));
     }
   };
 
@@ -616,7 +618,7 @@ export default function AccountSettingsPage() {
       setNewPassword('');
       setPasswordStepUpCode('');
       passwordFactors.reset();
-      enqueueSnackbar(t('pages.auth.passwordChanged'), { variant: 'success' });
+      notification.success(t('pages.auth.passwordChanged'));
       loadProviders();
     } catch (err) {
       // A throttled step-up (429 STEP_UP_LOCKED, #1816) reads as the translated
@@ -637,7 +639,7 @@ export default function AccountSettingsPage() {
     if (!unlinkTarget) return;
     await unlinkProvider(unlinkTarget.key, toCredentialStepUpBody(credentials));
     setUnlinkTarget(null);
-    enqueueSnackbar(t('pages.auth.providerUnlinked'), { variant: 'success' });
+    notification.success(t('pages.auth.providerUnlinked'));
     loadProviders();
   };
 
@@ -646,7 +648,7 @@ export default function AccountSettingsPage() {
       await revokeSession(key);
       loadSessions();
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -672,7 +674,7 @@ export default function AccountSettingsPage() {
       const result = await createApiKey({ label: newKeyLabel.trim() });
       finishApiKeyCreation(result.raw_key);
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -686,9 +688,9 @@ export default function AccountSettingsPage() {
     try {
       await revokeApiKey(keyId);
       loadApiKeys();
-      enqueueSnackbar(t('pages.auth.apiKeyRevoked'), { variant: 'success' });
+      notification.success(t('pages.auth.apiKeyRevoked'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -704,9 +706,9 @@ export default function AccountSettingsPage() {
       // user (and E2E waits) navigate away while the PATCH is still in flight,
       // silently losing the level change on full reload.
       await dispatch(updateUserPreferences({ updates: { experience_level: newLevel } })).unwrap();
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -999,6 +1001,11 @@ export default function AccountSettingsPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.auth.devicePairing.sessionsHint')}
               </Typography>
+              {sessionsLoad.error ? (
+                <ErrorDisplay error="pages.auth.sessionsLoadFailed" onRetry={sessionsLoad.reload} />
+              ) : sessionsLoad.loading && sessions.length === 0 ? (
+                <LoadingSkeleton variant="table" rows={3} />
+              ) : (
               <TableContainer>
                 <Table size="small">
                   <TableHead>
@@ -1078,6 +1085,7 @@ export default function AccountSettingsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
             </CardContent>
           </Card>
           {/* Mounted inside the sessions tab, not next to the page's other
@@ -1130,7 +1138,7 @@ export default function AccountSettingsPage() {
                       aria-label={t('pages.auth.copyApiKey')}
                       onClick={() => {
                         navigator.clipboard.writeText(createdKeyRaw);
-                        enqueueSnackbar(t('pages.auth.apiKeyCopied'), { variant: 'success' });
+                        notification.success(t('pages.auth.apiKeyCopied'));
                       }}
                     >
                       <ContentCopyIcon fontSize="small" />
@@ -1283,7 +1291,7 @@ export default function AccountSettingsPage() {
                   const val = parseFloat(e.target.value);
                   if (!isNaN(val) && val > 0) {
                     dispatch(updateUserPreferences({ updates: { watering_can_liters: val } }));
-                    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+                    notification.success(t('common.saved'));
                   }
                 }}
                 slotProps={{

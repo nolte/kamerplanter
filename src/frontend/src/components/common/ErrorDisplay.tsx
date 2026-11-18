@@ -2,35 +2,30 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import { useTranslation } from 'react-i18next';
+import type { Translate } from '@/i18n/translate';
 
-/** Patterns that match raw backend error messages and map them to i18n keys. */
-const ERROR_PATTERNS: Array<{ pattern: RegExp; key: string }> = [
-  { pattern: /not found\.?$/i, key: 'errors.notFound' },
-  { pattern: /already exists\.?$/i, key: 'errors.duplicate' },
-  { pattern: /permission|forbidden|not allowed/i, key: 'errors.forbidden' },
-  { pattern: /network\s*error/i, key: 'errors.network' },
-  { pattern: /timed?\s*out/i, key: 'errors.networkTimeout' },
-  { pattern: /input data is invalid/i, key: 'errors.validation' },
-  { pattern: /internal error/i, key: 'errors.server' },
-];
+/** An i18n key such as `errors.loadFailed` or `pages.bed.photos.loadError`. */
+const I18N_KEY_PATTERN = /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/;
 
-/** Matches an i18n key from the `errors.*` namespace (e.g. `errors.loadFailed`). */
-const ERROR_KEY_PATTERN = /^errors\.[a-zA-Z0-9.]+$/;
-
-function translateError(error: string, t: (key: string) => string): string {
-  // Slices store i18n keys (FE-L5) — resolve them to the active locale directly.
-  if (ERROR_KEY_PATTERN.test(error)) {
-    return t(error);
-  }
-  for (const { pattern, key } of ERROR_PATTERNS) {
-    if (pattern.test(error)) {
-      return t(key);
-    }
+/**
+ * Resolve the `error` prop (FRONTEND.md §10.3, #3013).
+ *
+ * Slices and `errorKey` hand over an i18n **key**, which is translated here.
+ * A caller that already translated (`t('errors.notFound')`, `parseApiError(err, t)`)
+ * passes a sentence, which is shown as given. There is no English
+ * pattern table any more: the producers no longer emit backend text, and a key
+ * the bundle does not know falls back to the generic message instead of being
+ * shown raw.
+ */
+function translateError(error: string, t: Translate): string {
+  if (I18N_KEY_PATTERN.test(error)) {
+    return t(error, { defaultValue: t('errors.generic') });
   }
   return error;
 }
 
 interface ErrorDisplayProps {
+  /** An i18n key (preferred — e.g. a slice's `error`) or an already translated message. */
   error: string;
   onRetry?: () => void;
 }

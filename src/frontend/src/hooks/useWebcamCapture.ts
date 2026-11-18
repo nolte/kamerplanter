@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /**
  * REQ-029-A §0.1.1 point 4 — webcam capture via getUserMedia.
@@ -116,7 +117,10 @@ export function useWebcamCapture(
     const stream = streamRef.current;
     if (isActive && video && stream && video.srcObject !== stream) {
       video.srcObject = stream;
-      void video.play().catch(() => undefined);
+      void video.play().catch((err: unknown) => {
+        // Autoplay may be refused by the browser; the user starts the preview by hand.
+        captureHandledError(err, { source: 'useWebcamCapture.play' });
+      });
     }
   }, [isActive, videoRef]);
 

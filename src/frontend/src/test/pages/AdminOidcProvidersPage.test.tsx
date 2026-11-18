@@ -249,7 +249,7 @@ describe('AdminOidcProvidersPage (#1906)', () => {
 
     it('shows a refusal (taken slug, wrong password) inside the step-up dialog and stays open', async () => {
       fn(api.createOidcProvider).mockRejectedValue(
-        apiError(409, { error_code: 'DUPLICATE', message: 'Provider slug already exists.' }),
+        apiError(409, { error_code: 'DUPLICATE_ENTRY', message: 'Provider slug already exists.' }),
       );
       await renderPage([]);
       await fillCreateForm();
@@ -259,7 +259,8 @@ describe('AdminOidcProvidersPage (#1906)', () => {
       await userEvent.click(within(dialog).getByTestId('oidc-provider-create-confirm'));
 
       expect(await within(dialog).findByTestId('oidc-provider-create-error')).toHaveTextContent(
-        'Provider slug already exists.',
+        // #3013: translated from the code, not the backend's English message.
+        i18n.t('errors.duplicate'),
       );
       expect(screen.getByTestId('oidc-form-dialog')).toBeInTheDocument();
     });
@@ -532,7 +533,7 @@ describe('AdminOidcProvidersPage (#1906)', () => {
       fn(api.testOidcProvider).mockRejectedValue(apiError(404, { message: 'Provider not found.' }));
       await renderPage();
       await userEvent.click(screen.getByTestId('oidc-test-p-kc'));
-      expect(await screen.findByTestId('oidc-test-error')).toHaveTextContent('Provider not found.');
+      expect(await screen.findByTestId('oidc-test-error')).toHaveTextContent(i18n.t('errors.notFound'));
     });
   });
 

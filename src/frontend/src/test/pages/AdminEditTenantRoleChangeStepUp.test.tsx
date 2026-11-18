@@ -168,7 +168,7 @@ describe('AdminEditTenantPage — role change step-up (#2032)', () => {
     await userEvent.click(within(dialog).getByTestId('change-member-role-confirm'));
 
     expect(await within(dialog).findByTestId('change-member-role-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
     expect(screen.getByTestId('role-select-u-lead')).toHaveTextContent('Leitung');
   });

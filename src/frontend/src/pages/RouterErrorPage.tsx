@@ -27,7 +27,16 @@ const illustrationMap: Record<number, string> = {
   503: error503,
 };
 
-export default function RouterErrorPage() {
+interface RouterErrorPageProps {
+  /**
+   * Rendered inside the main layout's outlet (#3014): the shell already owns the
+   * `main` landmark and the viewport, so the page neither repeats the landmark
+   * nor stretches to full height.
+   */
+  embedded?: boolean;
+}
+
+export default function RouterErrorPage({ embedded = false }: RouterErrorPageProps) {
   const error = useRouteError();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -49,14 +58,14 @@ export default function RouterErrorPage() {
         textAlign: 'center',
         py: { xs: 4, md: 8 },
         px: 2,
-        minHeight: '100vh',
+        minHeight: embedded ? undefined : '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
       }}
       data-testid="router-error-page"
-      role="main"
+      role={embedded ? undefined : 'main'}
     >
       <Box
         component="img"

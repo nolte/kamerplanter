@@ -289,772 +289,777 @@ export const router = createBrowserRouter(
         </Route>
 
         <Route element={<MainLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route
-            path="dashboard"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <DashboardPage />
-              </Suspense>
-            }
-          />
-
-          {/* Account Settings */}
-          <Route
-            path="settings"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <AccountSettingsPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-025 Datenschutz & Betroffenenrechte (DSGVO) — full mode only
-              (per-registered-user self-service; light mode is anonymous) */}
-          {!isLightMode && (
+          {/* #3014 B-15 — a render error in a page lands here, inside the layout's
+              Outlet, so the sidebar and app bar stay usable; the root errorElement
+              only catches what fails outside the shell. */}
+          <Route errorElement={<RouterErrorPage embedded />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route
-              path="privacy"
+              path="dashboard"
               element={
-                <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                  <PrivacySettingsPage />
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <DashboardPage />
                 </Suspense>
               }
             />
-          )}
 
-          {/* Admin: Edit tenant/user, OIDC providers — full mode only.
-              REQ-049 §2.4 / #1336: the platform-admin axis, guarded by its own
-              wrapper. Every request these pages make is `require_platform_admin`,
-              the reads included, so refusal replaces the page instead of
-              restricting it — the decision and its measurement are in
-              PLATFORM_ADMIN_ROUTES. */}
-          {!isLightMode && (
-            <>
-              <Route
-                path="admin/tenants/:key"
-                element={
-                  <RequirePlatformAdmin>
-                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                      <AdminEditTenantPage />
-                    </Suspense>
-                  </RequirePlatformAdmin>
-                }
-              />
-              <Route
-                path="admin/users/:key"
-                element={
-                  <RequirePlatformAdmin>
-                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                      <AdminEditUserPage />
-                    </Suspense>
-                  </RequirePlatformAdmin>
-                }
-              />
-              <Route
-                path="admin/oidc-providers"
-                element={
-                  <RequirePlatformAdmin>
-                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                      <AdminOidcProvidersPage />
-                    </Suspense>
-                  </RequirePlatformAdmin>
-                }
-              />
-              {/* REQ-056 §7.6 / §15 (AK-45): the plan catalogue. */}
-              <Route
-                path="admin/plans"
-                element={
-                  <RequirePlatformAdmin>
-                    <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                      <AdminPlansPage />
-                    </Suspense>
-                  </RequirePlatformAdmin>
-                }
-              />
-              {/* REQ-056 §8.4 / §15 (#2138): import a tenant archive as a new tenant. */}
-              <Route
-                path="admin/tenant-imports"
-                element={
-                  <RequirePlatformAdmin>
-                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                      <AdminTenantImportsPage />
-                    </Suspense>
-                  </RequirePlatformAdmin>
-                }
-              />
-            </>
-          )}
+            {/* Account Settings */}
+            <Route
+              path="settings"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <AccountSettingsPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-024 Tenants — full mode only */}
-          {!isLightMode && (
-            <>
+            {/* REQ-025 Datenschutz & Betroffenenrechte (DSGVO) — full mode only
+                (per-registered-user self-service; light mode is anonymous) */}
+            {!isLightMode && (
               <Route
-                path="tenants/create"
+                path="privacy"
                 element={
                   <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                    <TenantCreatePage />
+                    <PrivacySettingsPage />
                   </Suspense>
                 }
               />
-              <Route
-                path="tenants/settings"
-                element={
-                  <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                    <TenantSettingsPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="invitations/accept"
-                element={
+            )}
+
+            {/* Admin: Edit tenant/user, OIDC providers — full mode only.
+                REQ-049 §2.4 / #1336: the platform-admin axis, guarded by its own
+                wrapper. Every request these pages make is `require_platform_admin`,
+                the reads included, so refusal replaces the page instead of
+                restricting it — the decision and its measurement are in
+                PLATFORM_ADMIN_ROUTES. */}
+            {!isLightMode && (
+              <>
+                <Route
+                  path="admin/tenants/:key"
+                  element={
+                    <RequirePlatformAdmin>
+                      <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                        <AdminEditTenantPage />
+                      </Suspense>
+                    </RequirePlatformAdmin>
+                  }
+                />
+                <Route
+                  path="admin/users/:key"
+                  element={
+                    <RequirePlatformAdmin>
+                      <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                        <AdminEditUserPage />
+                      </Suspense>
+                    </RequirePlatformAdmin>
+                  }
+                />
+                <Route
+                  path="admin/oidc-providers"
+                  element={
+                    <RequirePlatformAdmin>
+                      <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                        <AdminOidcProvidersPage />
+                      </Suspense>
+                    </RequirePlatformAdmin>
+                  }
+                />
+                {/* REQ-056 §7.6 / §15 (AK-45): the plan catalogue. */}
+                <Route
+                  path="admin/plans"
+                  element={
+                    <RequirePlatformAdmin>
+                      <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                        <AdminPlansPage />
+                      </Suspense>
+                    </RequirePlatformAdmin>
+                  }
+                />
+                {/* REQ-056 §8.4 / §15 (#2138): import a tenant archive as a new tenant. */}
+                <Route
+                  path="admin/tenant-imports"
+                  element={
+                    <RequirePlatformAdmin>
+                      <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                        <AdminTenantImportsPage />
+                      </Suspense>
+                    </RequirePlatformAdmin>
+                  }
+                />
+              </>
+            )}
+
+            {/* REQ-024 Tenants — full mode only */}
+            {!isLightMode && (
+              <>
+                <Route
+                  path="tenants/create"
+                  element={
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <TenantCreatePage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="tenants/settings"
+                  element={
+                    <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                      <TenantSettingsPage />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="invitations/accept"
+                  element={
+                    <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                      <InvitationAcceptPage />
+                    </Suspense>
+                  }
+                />
+              </>
+            )}
+
+            {/* REQ-022 Pflege — merged into aufgaben/queue */}
+            <Route path="pflege" element={<Navigate to="/aufgaben/queue" replace />} />
+
+            {/* REQ-022 Überwinterung */}
+            <Route
+              path="ueberwinterung/profile"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <OverwinteringListPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-015 Kalender */}
+            <Route
+              path="kalender"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <CalendarPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-020 Onboarding */}
+            <Route
+              path="onboarding"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <OnboardingWizard />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-001 Stammdaten */}
+            <Route
+              path="stammdaten/botanical-families"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <BotanicalFamilyListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/botanical-families/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <BotanicalFamilyDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/species"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <SpeciesListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/species/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <SpeciesDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/species/:speciesKey/cultivars/:cultivarKey"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <CultivarDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/companion-planting"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <CompanionPlantingPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/crop-rotation"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <CropRotationPage />
+                </Suspense>
+              }
+            />
+            {/* Activities */}
+            <Route
+              path="stammdaten/activities"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <ActivityListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="stammdaten/activities/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <ActivityDetailPage />
+                </Suspense>
+              }
+            />
+            {/* REQ-012 Import */}
+            <Route
+              path="stammdaten/import"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <ImportPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-002 Standorte */}
+            <Route
+              path="standorte/sites"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <SiteListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/sites/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <SiteDetailPage />
+                </Suspense>
+              }
+            />
+            {/* REQ-053 WP 2.3 — grafischer Gartenplan (Unterpunkt der Site, Modul `garden_planner`).
+                Liegt im Pfadraum des Kernmoduls `locations`, daher Modul-Key explizit (REQ-042 §4.3). */}
+            <Route
+              path="standorte/sites/:key/plan"
+              element={
+                <ModuleGuard moduleKey="garden_planner">
                   <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                    <InvitationAcceptPage />
+                    <GardenPlanRoute />
                   </Suspense>
-                }
-              />
-            </>
-          )}
+                </ModuleGuard>
+              }
+            />
+            {/* REQ-053 WP 8.13 — Fruchtfolge-Matrix der Site (GP-FR-135): Lesen steht jedem Mitglied offen, das Nachtragen
+                eines Jahres ist ab Gärtner (Schreibrecht des Backfill). Modul-Key explizit wie beim Plan. */}
+            <Route
+              path="standorte/sites/:key/rotation-matrix"
+              element={
+                <ModuleGuard moduleKey="garden_planner">
+                  <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                    <RotationMatrixPage />
+                  </Suspense>
+                </ModuleGuard>
+              }
+            />
+            {/* REQ-053 WP 4.5 — Pflegehistorie des Mandanten (GP-FR-107): Lesen steht jedem Mitglied offen. */}
+            <Route
+              path="standorte/historie"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <CareHistoryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/locations/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <LocationDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/substrates"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <SubstrateListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/substrates/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <SubstrateDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/substrates/batches/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <BatchDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="standorte/slots/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <SlotDetailPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-022 Pflege — merged into aufgaben/queue */}
-          <Route path="pflege" element={<Navigate to="/aufgaben/queue" replace />} />
+            {/* REQ-014 Watering Events */}
+            <Route
+              path="standorte/watering-events"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <WateringEventListPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-022 Überwinterung */}
-          <Route
-            path="ueberwinterung/profile"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <OverwinteringListPage />
-              </Suspense>
-            }
-          />
+            {/* REQ-026 Aquaponik — creating a system needs grower (#1261) */}
+            <Route
+              path="aquaponik"
+              element={
+                <RequireRole min="grower">
+                  <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                    <AquaponikPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
 
-          {/* REQ-015 Kalender */}
-          <Route
-            path="kalender"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <CalendarPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-020 Onboarding */}
-          <Route
-            path="onboarding"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <OnboardingWizard />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-001 Stammdaten */}
-          <Route
-            path="stammdaten/botanical-families"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <BotanicalFamilyListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/botanical-families/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <BotanicalFamilyDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/species"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <SpeciesListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/species/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <SpeciesDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/species/:speciesKey/cultivars/:cultivarKey"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <CultivarDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/companion-planting"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <CompanionPlantingPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/crop-rotation"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <CropRotationPage />
-              </Suspense>
-            }
-          />
-          {/* Activities */}
-          <Route
-            path="stammdaten/activities"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <ActivityListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="stammdaten/activities/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <ActivityDetailPage />
-              </Suspense>
-            }
-          />
-          {/* REQ-012 Import */}
-          <Route
-            path="stammdaten/import"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <ImportPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-002 Standorte */}
-          <Route
-            path="standorte/sites"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <SiteListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/sites/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <SiteDetailPage />
-              </Suspense>
-            }
-          />
-          {/* REQ-053 WP 2.3 — grafischer Gartenplan (Unterpunkt der Site, Modul `garden_planner`).
-              Liegt im Pfadraum des Kernmoduls `locations`, daher Modul-Key explizit (REQ-042 §4.3). */}
-          <Route
-            path="standorte/sites/:key/plan"
-            element={
-              <ModuleGuard moduleKey="garden_planner">
+            {/* REQ-018 Umgebungssteuerung / Aktorik */}
+            <Route
+              path="umgebungssteuerung"
+              element={
                 <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                  <GardenPlanRoute />
+                  <EnvironmentControlPage />
                 </Suspense>
-              </ModuleGuard>
-            }
-          />
-          {/* REQ-053 WP 8.13 — Fruchtfolge-Matrix der Site (GP-FR-135): Lesen steht jedem Mitglied offen, das Nachtragen
-              eines Jahres ist ab Gärtner (Schreibrecht des Backfill). Modul-Key explizit wie beim Plan. */}
-          <Route
-            path="standorte/sites/:key/rotation-matrix"
-            element={
-              <ModuleGuard moduleKey="garden_planner">
+              }
+            />
+
+            {/* REQ-016 InvenTree integration — creating equipment needs grower (#1261) */}
+            <Route
+              path="inventree"
+              element={
+                <RequireRole min="grower">
+                  <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                    <InventreePage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+
+            {/* REQ-017 Vermehrung / Lineage — recording an event needs grower (#1261) */}
+            <Route
+              path="vermehrung"
+              element={
+                <RequireRole min="grower">
+                  <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                    <PropagationPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+
+            {/* REQ-014 Tanks */}
+            <Route
+              path="standorte/tanks"
+              element={
                 <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                  <RotationMatrixPage />
+                  <TankListPage />
                 </Suspense>
-              </ModuleGuard>
-            }
-          />
-          {/* REQ-053 WP 4.5 — Pflegehistorie des Mandanten (GP-FR-107): Lesen steht jedem Mitglied offen. */}
-          <Route
-            path="standorte/historie"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <CareHistoryPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/locations/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <LocationDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/substrates"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <SubstrateListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/substrates/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <SubstrateDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/substrates/batches/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <BatchDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/slots/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <SlotDetailPage />
-              </Suspense>
-            }
-          />
+              }
+            />
+            <Route
+              path="standorte/tanks/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <TankDetailPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-014 Watering Events */}
-          <Route
-            path="standorte/watering-events"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <WateringEventListPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-026 Aquaponik — creating a system needs grower (#1261) */}
-          <Route
-            path="aquaponik"
-            element={
-              <RequireRole min="grower">
+            {/* REQ-003 Pflanzen */}
+            <Route
+              path="pflanzen/plant-instances"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PlantInstanceListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzen/plant-instances/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <PlantInstanceDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzen/calculations"
+              element={
                 <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                  <AquaponikPage />
+                  <CalculationsPage />
                 </Suspense>
-              </RequireRole>
-            }
-          />
-
-          {/* REQ-018 Umgebungssteuerung / Aktorik */}
-          <Route
-            path="umgebungssteuerung"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <EnvironmentControlPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-016 InvenTree integration — creating equipment needs grower (#1261) */}
-          <Route
-            path="inventree"
-            element={
-              <RequireRole min="grower">
-                <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                  <InventreePage />
-                </Suspense>
-              </RequireRole>
-            }
-          />
-
-          {/* REQ-017 Vermehrung / Lineage — recording an event needs grower (#1261) */}
-          <Route
-            path="vermehrung"
-            element={
-              <RequireRole min="grower">
-                <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                  <PropagationPage />
-                </Suspense>
-              </RequireRole>
-            }
-          />
-
-          {/* REQ-014 Tanks */}
-          <Route
-            path="standorte/tanks"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <TankListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="standorte/tanks/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <TankDetailPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-003 Pflanzen */}
-          <Route
-            path="pflanzen/plant-instances"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PlantInstanceListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzen/plant-instances/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <PlantInstanceDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzen/calculations"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <CalculationsPage />
-              </Suspense>
-            }
-          />
-          {/* REQ-029 / REQ-029-A KI-Pflanzenerkennung — identifying needs grower
-              (#1256/#1260 gated the write, #1261 stops offering it to a viewer);
-              the history below it stays readable for every member */}
-          <Route
-            path="pflanzen/identifikation"
-            element={
-              <RequireRole min="grower">
+              }
+            />
+            {/* REQ-029 / REQ-029-A KI-Pflanzenerkennung — identifying needs grower
+                (#1256/#1260 gated the write, #1261 stops offering it to a viewer);
+                the history below it stays readable for every member */}
+            <Route
+              path="pflanzen/identifikation"
+              element={
+                <RequireRole min="grower">
+                  <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                    <PlantIdentificationPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+            {/* REQ-031 KI-Assistent & Wissensvermittlung */}
+            <Route
+              path="ki-assistent"
+              element={
                 <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                  <PlantIdentificationPage />
+                  <KIAssistentPage />
                 </Suspense>
-              </RequireRole>
-            }
-          />
-          {/* REQ-031 KI-Assistent & Wissensvermittlung */}
-          <Route
-            path="ki-assistent"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <KIAssistentPage />
-              </Suspense>
-            }
-          />
-          {/* REQ-035 KI-Fachbegriff-Glossar — light-mode-fähig (kein Consent, §6) */}
-          <Route
-            path="glossar"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <GlossaryPage />
-              </Suspense>
-            }
-          />
-          {/* REQ-036 KI-Diagnose-Assistent (strukturiert, symptombasiert) */}
-          <Route
-            path="diagnose"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <DiagnosePage />
-              </Suspense>
-            }
-          />
+              }
+            />
+            {/* REQ-035 KI-Fachbegriff-Glossar — light-mode-fähig (kein Consent, §6) */}
+            <Route
+              path="glossar"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <GlossaryPage />
+                </Suspense>
+              }
+            />
+            {/* REQ-036 KI-Diagnose-Assistent (strukturiert, symptombasiert) */}
+            <Route
+              path="diagnose"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <DiagnosePage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-004 Düngung */}
-          <Route
-            path="duengung/fertilizers"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <FertilizerListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="duengung/fertilizers/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <FertilizerDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="duengung/plans"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <NutrientPlanListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="duengung/plans/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <NutrientPlanDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="duengung/calculations"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <NutrientCalculationsPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-004 Feeding Events */}
-          <Route
-            path="duengung/feeding-events"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <FeedingEventListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="duengung/feeding-events/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <FeedingEventDetailPage />
-              </Suspense>
-            }
-          />
-
-          {/* Watering Log (unified) */}
-          <Route
-            path="giessprotokoll"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <WateringLogListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="giessprotokoll/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <WateringLogDetailPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-051 §6.2 — mandantenweite Tagebuch-Übersicht. Kein eigener
-              Guard: alle Routen unter MainLayout laufen durch ModuleGuard, der
-              den Pfad über das Modul `diary` auflöst (AK-31). */}
-          <Route
-            path="tagebuch"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <DiaryOverviewPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-044 Schädlingserkennung (global, plant-agnostic) */}
-          <Route
-            path="pflanzenschutz/erkennung"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <PestIdentificationPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-010 Pflanzenschutz */}
-          <Route
-            path="pflanzenschutz/pests"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PestListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzenschutz/pests/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <PestDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzenschutz/diseases"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <DiseaseListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzenschutz/treatments"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <TreatmentListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="pflanzenschutz/treatments/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <TreatmentDetailPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-007 Ernte */}
-          <Route
-            path="ernte/batches"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <HarvestBatchListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="ernte/batches/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <HarvestBatchDetailPage />
-              </Suspense>
-            }
-          />
-
-          {/* REQ-008 Nacherntebehandlung — starting a drying run needs grower (#1261) */}
-          <Route
-            path="ernte/nachernte"
-            element={
-              <RequireRole min="grower">
+            {/* REQ-004 Düngung */}
+            <Route
+              path="duengung/fertilizers"
+              element={
                 <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                  <PostHarvestPage />
+                  <FertilizerListPage />
                 </Suspense>
-              </RequireRole>
-            }
-          />
+              }
+            />
+            <Route
+              path="duengung/fertilizers/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <FertilizerDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="duengung/plans"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <NutrientPlanListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="duengung/plans/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <NutrientPlanDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="duengung/calculations"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <NutrientCalculationsPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-006 Aufgaben */}
-          <Route
-            path="aufgaben/queue"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <TaskQueuePage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="aufgaben/tasks/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <TaskDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="aufgaben/workflows/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <WorkflowDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="aufgaben/workflows"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <WorkflowTemplateListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="aufgaben/activity-plans"
-            element={<Navigate to="/stammdaten/species" replace />}
-          />
-          <Route
-            path="aufgaben/activity-plans/:speciesKey"
-            element={<Navigate to="/aufgaben/workflows" replace />}
-          />
+            {/* REQ-004 Feeding Events */}
+            <Route
+              path="duengung/feeding-events"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <FeedingEventListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="duengung/feeding-events/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <FeedingEventDetailPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-003 Phase Definitions & Sequences */}
-          <Route
-            path="phasen/definitionen"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PhaseDefinitionListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="phasen/definitionen/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <PhaseDefinitionDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="phasen/ablaeufe"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PhaseSequenceListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="phasen/ablaeufe/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <PhaseSequenceDetailPage />
-              </Suspense>
-            }
-          />
+            {/* Watering Log (unified) */}
+            <Route
+              path="giessprotokoll"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <WateringLogListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="giessprotokoll/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <WateringLogDetailPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-013 Durchläufe */}
-          <Route
-            path="durchlaeufe/planting-runs"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <PlantingRunListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="durchlaeufe/planting-runs/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="form" />}>
-                <PlantingRunDetailPage />
-              </Suspense>
-            }
-          />
+            {/* REQ-051 §6.2 — mandantenweite Tagebuch-Übersicht. Kein eigener
+                Guard: alle Routen unter MainLayout laufen durch ModuleGuard, der
+                den Pfad über das Modul `diary` auflöst (AK-31). */}
+            <Route
+              path="tagebuch"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <DiaryOverviewPage />
+                </Suspense>
+              }
+            />
 
-          {/* REQ-013 §2 Staffelanbau / Succession plans */}
-          <Route
-            path="durchlaeufe/succession-plans"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <SuccessionPlanListPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="durchlaeufe/succession-plans/:key"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="table" />}>
-                <SuccessionPlanListPage />
-              </Suspense>
-            }
-          />
+            {/* REQ-044 Schädlingserkennung (global, plant-agnostic) */}
+            <Route
+              path="pflanzenschutz/erkennung"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <PestIdentificationPage />
+                </Suspense>
+              }
+            />
 
-          <Route
-            path="*"
-            element={
-              <Suspense fallback={<LoadingSkeleton variant="card" />}>
-                <NotFoundPage />
-              </Suspense>
-            }
-          />
+            {/* REQ-010 Pflanzenschutz */}
+            <Route
+              path="pflanzenschutz/pests"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PestListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzenschutz/pests/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <PestDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzenschutz/diseases"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <DiseaseListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzenschutz/treatments"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <TreatmentListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="pflanzenschutz/treatments/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <TreatmentDetailPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-007 Ernte */}
+            <Route
+              path="ernte/batches"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <HarvestBatchListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="ernte/batches/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <HarvestBatchDetailPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-008 Nacherntebehandlung — starting a drying run needs grower (#1261) */}
+            <Route
+              path="ernte/nachernte"
+              element={
+                <RequireRole min="grower">
+                  <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                    <PostHarvestPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+
+            {/* REQ-006 Aufgaben */}
+            <Route
+              path="aufgaben/queue"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <TaskQueuePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="aufgaben/tasks/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <TaskDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="aufgaben/workflows/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <WorkflowDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="aufgaben/workflows"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <WorkflowTemplateListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="aufgaben/activity-plans"
+              element={<Navigate to="/stammdaten/species" replace />}
+            />
+            <Route
+              path="aufgaben/activity-plans/:speciesKey"
+              element={<Navigate to="/aufgaben/workflows" replace />}
+            />
+
+            {/* REQ-003 Phase Definitions & Sequences */}
+            <Route
+              path="phasen/definitionen"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PhaseDefinitionListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="phasen/definitionen/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <PhaseDefinitionDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="phasen/ablaeufe"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PhaseSequenceListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="phasen/ablaeufe/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <PhaseSequenceDetailPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-013 Durchläufe */}
+            <Route
+              path="durchlaeufe/planting-runs"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <PlantingRunListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="durchlaeufe/planting-runs/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="form" />}>
+                  <PlantingRunDetailPage />
+                </Suspense>
+              }
+            />
+
+            {/* REQ-013 §2 Staffelanbau / Succession plans */}
+            <Route
+              path="durchlaeufe/succession-plans"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <SuccessionPlanListPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="durchlaeufe/succession-plans/:key"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="table" />}>
+                  <SuccessionPlanListPage />
+                </Suspense>
+              }
+            />
+
+            <Route
+              path="*"
+              element={
+                <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                  <NotFoundPage />
+                </Suspense>
+              }
+            />
+          </Route>
         </Route>
       </Route>
     </Route>,

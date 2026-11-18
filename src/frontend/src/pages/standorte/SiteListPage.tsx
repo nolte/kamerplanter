@@ -42,6 +42,7 @@ import type { Site, LocationTreeNode, LocationType } from '@/api/types';
 import SiteCreateDialog from './SiteCreateDialog';
 import LocationCreateDialog from './LocationCreateDialog';
 import { kamiLocations } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const ICON_MAP: Record<string, React.ReactElement> = {
   AccountTree: <AccountTreeIcon fontSize="small" />,
@@ -397,7 +398,10 @@ export default function SiteListPage() {
         for (const lt of types) map[lt.key] = lt;
         setLocationTypes(map);
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        // Display enrichment only: location types show their key instead of their name.
+        captureHandledError(err, { source: 'SiteListPage.locationTypes' });
+      });
   }, [dispatch]);
 
   return (

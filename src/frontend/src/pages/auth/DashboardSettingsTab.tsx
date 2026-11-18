@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Accordion from '@mui/material/Accordion';
@@ -57,7 +57,7 @@ type Breakpoint = 'lg' | 'md' | 'sm';
  */
 export default function DashboardSettingsTab() {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const dispatch = useAppDispatch();
   const { layout, catalogByKey, catalogLoaded, isWidgetRenderable, persist, reset } = useDashboardLayout();
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
@@ -88,7 +88,7 @@ export default function DashboardSettingsTab() {
   const save = (next: DashboardLayout, announce?: string) => {
     persist(next);
     if (announce) setAnnouncement(announce);
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    notification.success(t('common.saved'));
   };
 
   const handleToggle = (widgetKey: WidgetKey) => {
@@ -132,7 +132,7 @@ export default function DashboardSettingsTab() {
           startIcon={<RestartAltIcon />}
           onClick={() => {
             reset();
-            enqueueSnackbar(t('common.saved'), { variant: 'success' });
+            notification.success(t('common.saved'));
           }}
           sx={{ minHeight: 48 }}
           data-testid="dashboard-reset"

@@ -26,7 +26,7 @@ import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getSpecies } from '@/api/endpoints/species';
 import type { Species } from '@/api/types';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
@@ -138,7 +138,7 @@ export default function BedPlantingTab({ bed, onChanged, gridStepM, editsLocked 
         if (!cancelled) setState({ status: 'ready', items });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

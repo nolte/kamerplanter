@@ -80,7 +80,7 @@ describe('postHarvestSlice', () => {
       type: fetchPostHarvestBatches.rejected.type,
       error: { message: 'nope' },
     });
-    expect(state.error).toBe('nope');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchPostHarvestBatch.fulfilled stores detail', () => {

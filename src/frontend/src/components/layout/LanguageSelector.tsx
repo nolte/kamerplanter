@@ -5,6 +5,7 @@ import MenuItem from '@mui/material/MenuItem';
 import TranslateIcon from '@mui/icons-material/Translate';
 import { useState } from 'react';
 import { loadFeatureNamespaces, SUPPORTED_LOCALES, type SupportedLocale } from '@/i18n';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const languages = [
   { code: 'de', label: 'Deutsch' },
@@ -21,7 +22,10 @@ export default function LanguageSelector() {
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
     for (const locale of SUPPORTED_LOCALES) {
-      void loadFeatureNamespaces(locale as SupportedLocale).catch(() => undefined);
+      void loadFeatureNamespaces(locale as SupportedLocale).catch((err: unknown) => {
+        // The core strings are loaded; a missing feature chunk falls back to German keys until the next load.
+        captureHandledError(err, { source: 'LanguageSelector.featureNamespaces' });
+      });
     }
   };
 

@@ -56,11 +56,13 @@ import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -279,8 +281,13 @@ export default function FertilizerDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const [f, st, pu, inc] = await Promise.all([
@@ -289,6 +296,7 @@ export default function FertilizerDetailPage() {
         fertApi.fetchNutrientPlanUsage(key),
         fertApi.fetchIncompatibilities(key),
       ]);
+      if (stale()) return;
       setFertilizer(f);
       reset({
         product_name: f.product_name,
@@ -320,11 +328,12 @@ export default function FertilizerDetailPage() {
       setIncompatibilities(inc);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, reset]);
+  }, [key, reset, beginLoad]);
 
   useEffect(() => {
     load();
@@ -496,7 +505,7 @@ export default function FertilizerDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!fertilizer) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const [npkN, npkP, npkK] = fertilizer.npk_ratio;

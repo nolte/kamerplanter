@@ -8,6 +8,7 @@ import type {
 } from '@/api/types';
 import { MACHINE_TASK_ORIGINS, PLANT_INSTANCE_ENTITY_TYPE } from '@/api/types';
 import * as api from '@/api/endpoints/tasks';
+import { errorKey } from '@/api/errors';
 
 /**
  * REQ-006: which tasks the user asked to see, by provenance. `machine` is a
@@ -343,7 +344,7 @@ const tasksSlice = createSlice({
       })
       .addCase(fetchWorkflows.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(deleteWorkflowThunk.fulfilled, (state, action) => {
         state.workflows = state.workflows.filter((w) => w.key !== action.payload);
@@ -363,7 +364,7 @@ const tasksSlice = createSlice({
       })
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Single task
       .addCase(fetchTask.fulfilled, (state, action) => {

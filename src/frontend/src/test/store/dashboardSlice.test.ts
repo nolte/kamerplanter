@@ -68,7 +68,7 @@ describe('dashboardSlice', () => {
       apiMock.getWidgetCatalog.mockRejectedValue(new Error('boom'));
       const store = createStore();
       await store.dispatch(fetchWidgetCatalog());
-      expect(store.getState().dashboard.error).toBe('boom');
+      expect(store.getState().dashboard.error).toBe('errors.dashboardCatalogLoadFailed');
       expect(store.getState().dashboard.loading).toBe(false);
     });
 

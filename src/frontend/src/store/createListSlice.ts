@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { ActionReducerMapBuilder, Reducer } from '@reduxjs/toolkit';
+import { errorKey as resolveErrorKey } from '@/api/errors';
 
 /** Standard paginated envelope returned by list endpoints. */
 export interface PaginatedResult<T> {
@@ -192,7 +193,7 @@ export function createListSlice<
         })
         .addCase(fetchList.rejected, (state, action) => {
           state.loading = false;
-          state.error = action.error.message ?? errorKey;
+          state.error = resolveErrorKey(action.error, errorKey);
         });
 
       if (fetchOne) {
@@ -208,7 +209,7 @@ export function createListSlice<
             })
             .addCase(fetchOne.rejected, (state, action) => {
               state.loading = false;
-              state.error = action.error.message ?? errorKey;
+              state.error = resolveErrorKey(action.error, errorKey);
             });
         } else {
           builder.addCase(fetchOne.fulfilled, (state, action) => {

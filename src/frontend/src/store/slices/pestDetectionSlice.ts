@@ -3,9 +3,8 @@ import type {
   PestDetectionResult,
   PestDetectionStatus,
 } from '@/api/types';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import * as api from '@/api/endpoints/pestDetection';
-import i18n from '@/i18n/i18n';
 
 /**
  * REQ-044 — image-based pest detection state.
@@ -43,26 +42,28 @@ interface RejectValue {
   code: string | null;
 }
 
+/**
+ * Map a caught error to an i18n key + machine-readable code (#3013).
+ *
+ * The slice stores the **key**; the component translates it. The backend's
+ * English `message` is never kept.
+ */
 function toRejectValue(error: unknown): RejectValue {
-  const t = i18n.t.bind(i18n);
   if (isApiError(error)) {
     switch (error.errorCode) {
       case 'CONSENT_REQUIRED':
-        return { message: t('pages.pests.consentRequired'), code: error.errorCode };
+        return { message: 'pages.pests.consentRequired', code: error.errorCode };
       case 'FEATURE_NOT_CONFIGURED':
-        return { message: t('pages.pests.notConfigured'), code: error.errorCode };
+        return { message: 'pages.pests.notConfigured', code: error.errorCode };
       case 'PAYLOAD_TOO_LARGE':
-        return { message: t('pages.pests.imageTooLarge'), code: error.errorCode };
+        return { message: 'pages.pests.imageTooLarge', code: error.errorCode };
       case 'UNSUPPORTED_MEDIA_TYPE':
-        return { message: t('pages.pests.unsupportedFormat'), code: error.errorCode };
+        return { message: 'pages.pests.unsupportedFormat', code: error.errorCode };
       default:
-        return { message: error.message || t('errors.server'), code: error.errorCode };
+        return { message: errorKey(error, 'errors.server'), code: error.errorCode };
     }
   }
-  if (error instanceof Error) {
-    return { message: error.message || t('errors.unknown'), code: null };
-  }
-  return { message: t('errors.unknown'), code: null };
+  return { message: errorKey(error, 'errors.unknown'), code: null };
 }
 
 export const fetchPestDetectionStatus = createAsyncThunk<PestDetectionStatus>(
@@ -184,7 +185,7 @@ const pestDetectionSlice = createSlice({
       })
       .addCase(detectPests.rejected, (state, action) => {
         state.detecting = false;
-        state.error = action.payload?.message ?? action.error.message ?? 'Detection failed';
+        state.error = action.payload?.message ?? errorKey(action.error);
         state.errorCode = action.payload?.code ?? null;
       })
       // ── global detect (plant-agnostic) — shares the in-flight result state ──
@@ -200,7 +201,7 @@ const pestDetectionSlice = createSlice({
       })
       .addCase(detectPestsGlobal.rejected, (state, action) => {
         state.detecting = false;
-        state.error = action.payload?.message ?? action.error.message ?? 'Detection failed';
+        state.error = action.payload?.message ?? errorKey(action.error);
         state.errorCode = action.payload?.code ?? null;
       })
       .addCase(fetchPestDetectionHistory.pending, (state) => {

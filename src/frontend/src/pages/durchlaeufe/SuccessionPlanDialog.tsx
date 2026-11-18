@@ -33,6 +33,7 @@ import type {
   Site,
   SuccessionPlan,
 } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -150,7 +151,10 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             skipLocationReset.current = true;
             setValue('site_key', loc.site_key);
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            // Edit pre-fill only: the stored location stays; only its site is not pre-selected.
+            captureHandledError(err, { source: 'SuccessionPlanDialog.planLocation' });
+          });
       }
     }
   }, [open, plan, reset, setValue]);

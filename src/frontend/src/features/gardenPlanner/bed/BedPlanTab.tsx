@@ -18,7 +18,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import Alert from '@mui/material/Alert';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { getGardenPlan } from '../api/gardenPlan';
@@ -119,7 +119,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setState({ status: 'error', message: parseApiError(error), offlineMiss: isOfflineCacheMiss(error) });
+          setState({ status: 'error', message: errorKey(error), offlineMiss: isOfflineCacheMiss(error) });
         }
       });
     return () => {

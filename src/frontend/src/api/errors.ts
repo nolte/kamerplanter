@@ -1,9 +1,17 @@
+import axios from 'axios';
+import i18n from 'i18next';
 import type { Translate } from '@/i18n/translate';
 import type { ApiErrorResponse, ApiErrorDetail } from './types';
 
 export class ApiError extends Error {
   readonly errorId: string;
   readonly errorCode: string;
+  /**
+   * Same value as {@link errorCode}. Redux Toolkit's `miniSerializeError` copies
+   * only `name`, `message`, `stack` and `code`, so this is how a slice's
+   * `action.error` keeps the stable code instead of only the English message.
+   */
+  readonly code: string;
   readonly statusCode: number;
   readonly details: ApiErrorDetail[];
   readonly path: string;
@@ -14,6 +22,7 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.errorId = response.error_id;
     this.errorCode = response.error_code;
+    this.code = response.error_code;
     this.statusCode = statusCode;
     // Defaulted, not trusted: `ApiErrorResponse` promises `details`, but the
     // interceptor builds this from whatever body came back — a proxy's error page
@@ -29,19 +38,124 @@ export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
 
-export function parseApiError(error: unknown): string {
+/**
+ * Known backend `error_code`s (and transport codes) → i18n key (FRONTEND.md §10.3, #3013).
+ *
+ * A code that has a translation of its own under `errors.<code>` needs no entry here;
+ * this table covers the codes whose key predates that convention (`ENTITY_NOT_FOUND`
+ * → `errors.notFound`) and the dotted codes (`slot.occupied`), which would otherwise
+ * read as a nested key path.
+ */
+export const QUOTA_ERROR_KEYS: Readonly<Record<string, string>> = {
+  ORGANIZATION_LIMIT_REACHED: 'errors.quota.organizationLimitReached',
+  MEMBER_LIMIT_REACHED: 'errors.quota.memberLimitReached',
+  SERVICE_ACCOUNT_LIMIT_REACHED: 'errors.quota.serviceAccountLimitReached',
+  STORAGE_QUOTA_EXCEEDED: 'errors.quota.storageQuotaExceeded',
+  PHOTO_QUOTA_EXCEEDED: 'errors.quota.photoQuotaExceeded',
+};
+
+const ERROR_CODE_KEYS: Readonly<Record<string, string>> = {
+  ...QUOTA_ERROR_KEYS,
+  ENTITY_NOT_FOUND: 'errors.notFound',
+  DUPLICATE_ENTRY: 'errors.duplicate',
+  VALIDATION_ERROR: 'errors.validation',
+  INTERNAL_ERROR: 'errors.server',
+  FORBIDDEN: 'errors.forbidden',
+  UNAUTHORIZED: 'errors.unauthorized',
+  WRITE_CONFLICT: 'errors.conflict',
+  PAYLOAD_TOO_LARGE: 'errors.tooLarge',
+  RATE_LIMIT_EXCEEDED: 'errors.rateLimited',
+  'soil_profile.stale': 'errors.soilProfileStale',
+  'slot.occupied': 'errors.slotOccupied',
+  'slot.already_planned': 'errors.slotAlreadyPlanned',
+  'task.already_closed': 'errors.taskAlreadyClosed',
+  'task.missing': 'errors.taskMissing',
+  'client_event.payload_mismatch': 'errors.clientEventMismatch',
+  'client_event.deleted': 'errors.clientEventDeleted',
+  'phase.run_owned': 'errors.phaseRunOwned',
+  'recurrence.rrule_required': 'errors.recurrenceRruleRequired',
+  // Transport codes of axios — they reach a slice as `action.error.code`.
+  ERR_NETWORK: 'errors.network',
+  ECONNABORTED: 'errors.networkTimeout',
+  ETIMEDOUT: 'errors.networkTimeout',
+  ERR_CANCELED: 'errors.networkTimeout',
+  ERR_BAD_RESPONSE: 'errors.server',
+};
+
+/** Matches a key of the `errors.*` namespace, e.g. `errors.loadFailed`. */
+const ERROR_KEY_PATTERN = /^errors\.[A-Za-z0-9_.]+$/;
+
+/** Whether `key` resolves to a translated **string** (not a nested object such as `errors.quota`). */
+function hasTranslation(key: string): boolean {
+  return i18n.exists(key) && typeof i18n.t(key, { returnObjects: true }) === 'string';
+}
+
+/** The i18n key a backend `error_code` maps to, or `null` when the code has none (#3013). */
+export function errorKeyForCode(code: string): string | null {
+  const own = `errors.${code}`;
+  if (/^[A-Za-z0-9_]+$/.test(code) && hasTranslation(own)) return own;
+  return Object.prototype.hasOwnProperty.call(ERROR_CODE_KEYS, code) ? ERROR_CODE_KEYS[code] : null;
+}
+
+function keyForStatus(status: number | undefined): string | null {
+  if (status === undefined) return null;
+  if (status === 401) return 'errors.unauthorized';
+  if (status === 403) return 'errors.forbidden';
+  if (status === 404) return 'errors.notFound';
+  if (status === 409) return 'errors.conflict';
+  if (status === 400) return 'errors.validation';
+  if (status === 413) return 'errors.tooLarge';
+  if (status === 415) return 'errors.UNSUPPORTED_MEDIA_TYPE';
+  if (status === 422) return 'errors.validation';
+  if (status === 429) return 'errors.rateLimited';
+  if (status >= 500) return 'errors.server';
+  return null;
+}
+
+/**
+ * The i18n key for a failure — the error contract of FRONTEND.md §10.3 (#3013).
+ *
+ * The backend envelope's `error_code` is the contract; its `message` is English
+ * (NFR-003) and is **never** returned. Accepts an {@link ApiError}, an axios
+ * error, a Redux Toolkit `SerializedError` (whose `code` carries the
+ * `error_code`, see {@link ApiError.code}) or a string that already is an
+ * `errors.*` key. Everything else — an unknown code, a programming error, a
+ * plain string — becomes `fallbackKey`, a translated generic text, so a
+ * failure degrades visibly instead of in English.
+ *
+ * Slices store the result (a key, not text); `ErrorDisplay` translates it.
+ */
+export function errorKey(error: unknown, fallbackKey: string = 'errors.generic'): string {
+  if (typeof error === 'string') {
+    return ERROR_KEY_PATTERN.test(error) ? error : fallbackKey;
+  }
   if (isApiError(error)) {
-    return error.message;
+    return errorKeyForCode(error.errorCode) ?? keyForStatus(error.statusCode) ?? fallbackKey;
   }
-  if (error instanceof Error) {
-    return error.message;
+  if (axios.isAxiosError(error)) {
+    if (error.response) return keyForStatus(error.response.status) ?? fallbackKey;
+    return (error.code ? errorKeyForCode(error.code) : null) ?? 'errors.network';
   }
-  // Handle Redux Toolkit serialized errors (plain objects with message)
+  if (error instanceof Error && error.message === 'Network Error') return 'errors.network';
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const code = (error as { code: unknown }).code;
+    if (typeof code === 'string' && code.length > 0) return errorKeyForCode(code) ?? fallbackKey;
+  }
   if (typeof error === 'object' && error !== null && 'message' in error) {
-    const msg = (error as { message: unknown }).message;
-    if (typeof msg === 'string' && msg.length > 0) return msg;
+    // A serialized `Network Error` (axios without a response) keeps only its message.
+    if ((error as { message: unknown }).message === 'Network Error') return 'errors.network';
   }
-  return 'An unknown error occurred.';
+  return fallbackKey;
+}
+
+/**
+ * The translated message for a failure (FRONTEND.md §10.3).
+ *
+ * Resolves the stable `error_code` through {@link errorKey}; the backend's
+ * English `message` never reaches the UI.
+ */
+export function parseApiError(error: unknown, t: Translate, fallbackKey?: string): string {
+  return t(errorKey(error, fallbackKey));
 }
 
 export function getFieldErrors(error: unknown): Record<string, string> {
@@ -222,7 +336,11 @@ export function getStepUpErrorMessage(error: unknown, t: Translate): string {
     return t('pages.auth.stepUpCodeUndeliverable');
   }
   const minutes = getStepUpLockedMinutes(error);
-  if (minutes === null) return parseApiError(error);
+  // A plain 401 at a step-up is a wrong password or code, not an expired sign-in (#3013).
+  if (minutes === null && isApiError(error) && error.errorCode === 'UNAUTHORIZED') {
+    return t('pages.auth.stepUpRejected');
+  }
+  if (minutes === null) return parseApiError(error, t);
   return minutes
     ? t('pages.auth.stepUpLocked', { minutes })
     : t('pages.auth.stepUpLockedNoMinutes');

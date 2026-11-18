@@ -31,6 +31,7 @@ import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { kamiTanks } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 // ── Plant resolution cache ─────────────────────────────────────────
 
@@ -54,7 +55,10 @@ function usePlantResolver(events: WateringEvent[]) {
       setKeyPlantMap(byKey);
     }
 
-    resolve().catch(() => {});
+    resolve().catch((err: unknown) => {
+      // Display enrichment only: rows show the plant key instead of its name.
+      captureHandledError(err, { source: 'WateringEventListPage.plantNames' });
+    });
     return () => { cancelled = true; };
   }, [hasEvents]);
 

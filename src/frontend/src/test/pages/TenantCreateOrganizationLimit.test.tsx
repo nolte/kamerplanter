@@ -58,6 +58,9 @@ describe('TenantCreatePage — organisation limit (REQ-056 §6.2)', () => {
     renderWithProviders(<TenantCreatePage />);
     await userEvent.type(screen.getByRole('textbox', { name: /Name/ }), 'Kleingartenverein');
     await userEvent.click(screen.getByRole('button', { name: /Erstellen|Anlegen/ }));
-    expect(await screen.findByTestId('tenant-create-error')).toHaveTextContent('Name is taken');
+    // #3013: translated from the code, never the backend's English message.
+    const error = await screen.findByTestId('tenant-create-error');
+    expect(error).toHaveTextContent(i18n.t('errors.validation'));
+    expect(error).not.toHaveTextContent('Name is taken');
   });
 });

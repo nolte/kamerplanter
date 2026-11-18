@@ -132,6 +132,8 @@ export async function listAllBedOptions(): Promise<FilterOption[]> {
     sites.push(...batch);
     if (batch.length < SITE_PAGE) break;
   }
-  const perSite = await Promise.all(sites.map((site) => listBeds(site.key).catch(() => [])));
+  // #3013 (B-01): a site whose beds fail to load rejects the whole list — the caller shows an error with retry
+  // instead of a bed filter in which that site's beds silently vanished.
+  const perSite = await Promise.all(sites.map((site) => listBeds(site.key)));
   return perSite.flat().map((bed) => ({ key: bed.key, label: bed.name }));
 }

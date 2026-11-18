@@ -220,6 +220,6 @@ describe('calendarSlice thunks', () => {
     mocked.getCalendarEvents.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchCalendarEvents({ start: '2026-01-01', end: '2026-01-31' }));
-    expect(store.getState().calendar.error).toBe('load failed');
+    expect(store.getState().calendar.error).toBe('errors.loadFailed');
   });
 });

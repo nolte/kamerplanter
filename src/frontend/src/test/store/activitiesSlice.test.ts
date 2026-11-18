@@ -47,7 +47,7 @@ describe('activitiesSlice', () => {
 
   it('fetchActivities.rejected stores the error', () => {
     const state = reducer(undefined, { type: fetchActivities.rejected.type, error: { message: 'fail' } });
-    expect(state.error).toBe('fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchActivities.rejected falls back to a default message', () => {
@@ -88,7 +88,7 @@ describe('activitiesSlice thunks', () => {
     mocked.listAllActivities.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchActivities());
-    expect(store.getState().activities.error).toBe('load failed');
+    expect(store.getState().activities.error).toBe('errors.loadFailed');
   });
 
   it('fetchActivity calls getActivity and stores the selection', async () => {

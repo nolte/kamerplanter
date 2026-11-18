@@ -109,7 +109,7 @@ export default function ImportPage() {
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} data-testid="import-error">
-          {error}
+          {t(error)}
         </Alert>
       )}
 

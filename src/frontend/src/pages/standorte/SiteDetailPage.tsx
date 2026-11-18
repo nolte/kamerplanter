@@ -44,6 +44,7 @@ import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -119,22 +120,30 @@ export default function SiteDetailPage() {
   const watchedType = useWatch({ control, name: 'type' });
   const weatherEnabledForType = isWeatherRelevantSiteType(watchedType);
 
+  // Latest-wins for the sensor list: a late answer for the previous site must not land (#3014).
+  const beginSensorLoad = useAbortableLoad();
   const loadSensors = useCallback(async () => {
     if (!key) return;
+    const ticket = beginSensorLoad();
     try {
       const s = await api.getSiteSensors(key);
+      if (!ticket.isCurrent()) return;
       setSensors(s);
     } catch {
       // Sensors may not be available
     }
-  }, [key]);
+  }, [key, beginSensorLoad]);
 
   useEffect(() => {
-    if (key) {
-      dispatch(fetchSite(key));
-      loadSensors();
-    }
-    return () => { dispatch(clearCurrent()); };
+    if (!key) return () => { dispatch(clearCurrent()); };
+    // Aborting the superseded fetch keeps its late answer out of `currentSite` (#3014);
+    // the slice ignores the abort's own `rejected` action.
+    const siteRequest = dispatch(fetchSite(key));
+    loadSensors();
+    return () => {
+      siteRequest.abort();
+      dispatch(clearCurrent());
+    };
   }, [key, dispatch, loadSensors]);
 
   useEffect(() => {

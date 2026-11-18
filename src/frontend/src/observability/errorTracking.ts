@@ -320,9 +320,11 @@ export function stopErrorTracking(): void {
     // trail this module lets the SDK keep (the user block is scrubbed).
     active.getCurrentScope().clearBreadcrumbs();
   } catch (error) {
+    // The tracker cannot report its own shutdown; the console is the only place left to say so.
     console.warn('[error-tracking] disabling the client failed', error);
   }
   active.close(CLOSE_TIMEOUT_MS).catch((error: unknown) => {
+    // Same as above: closing is best effort and must never throw into consent handling.
     console.warn('[error-tracking] closing the client failed', error);
   });
 }

@@ -97,7 +97,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
   const previousYear = usePreviousYear(summary.key, year - 1, plantingVersion + historyVersion);
   // The site's sun-class and reach thresholds (GP-FR-164/166, WP 8.24); the defaults until it is read. Its type hides
   // weather, frost and wind on an indoor site (GP-FR-182, WP 10.8).
-  const { thresholds, siteType, gridStepM } = useSiteFacts(summary.site_key);
+  const { thresholds, siteType, gridStepM, siteLoadFailed, reloadSite } = useSiteFacts(summary.site_key);
 
   const targets = useMemo(
     () => (canEdit ? allowedBedTransitions(summary.bed_status, canDelete) : []),
@@ -196,6 +196,19 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
       {mayEdit && editsLocked && (
         <Alert severity="info" role="status" data-testid="bed-view-edits-locked">
           {t('pages.gardenPlan.offline.bedEditsLocked')}
+        </Alert>
+      )}
+      {siteLoadFailed && (
+        <Alert
+          severity="warning"
+          data-testid="bed-view-site-load-failed"
+          action={
+            <Button color="inherit" size="small" onClick={reloadSite} sx={{ minHeight: 48 }}>
+              {t('common.retry')}
+            </Button>
+          }
+        >
+          {t('pages.bed.siteLoadFailed')}
         </Alert>
       )}
       <BedHeader

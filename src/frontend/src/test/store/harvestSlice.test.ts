@@ -78,7 +78,7 @@ describe('harvestSlice', () => {
       type: fetchIndicators.rejected.type,
       error: { message: 'Indicator fail' },
     });
-    expect(state.error).toBe('Indicator fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchIndicators.rejected falls back to a default message', () => {
@@ -157,7 +157,7 @@ describe('harvestSlice', () => {
       { ...baseState, readinessPlantKey: 'pl1', readinessLoading: true },
       { type: fetchReadiness.rejected.type, error: { message: 'Readiness fail' }, meta: { arg: 'pl1' } },
     );
-    expect(state.readinessError).toBe('Readiness fail');
+    expect(state.readinessError).toBe('errors.loadFailed');
     expect(state.readinessLoading).toBe(false);
     // The shared list error must stay untouched.
     expect(state.error).toBeNull();
@@ -207,7 +207,7 @@ describe('harvestSlice thunks', () => {
     mocked.getBatches.mockRejectedValue(new Error('load failed'));
     const store = makeHarvestStore();
     await store.dispatch(fetchBatches({}));
-    expect(store.getState().harvest.error).toBe('load failed');
+    expect(store.getState().harvest.error).toBe('errors.loadFailed');
   });
 
   it('fetchBatch stores the current batch', async () => {
@@ -256,7 +256,7 @@ describe('harvestSlice thunks', () => {
     mocked.assessReadiness.mockRejectedValue(new Error('readiness down'));
     const store = makeHarvestStore();
     await store.dispatch(fetchReadiness('pl1'));
-    expect(store.getState().harvest.readinessError).toBe('readiness down');
+    expect(store.getState().harvest.readinessError).toBe('errors.loadFailed');
     expect(store.getState().harvest.readiness).toBeNull();
   });
 });

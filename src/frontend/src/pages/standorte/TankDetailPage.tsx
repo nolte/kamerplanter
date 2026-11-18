@@ -44,6 +44,7 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -71,6 +72,7 @@ import MaintenanceLogDialog from './MaintenanceLogDialog';
 import MaintenanceScheduleDialog from './MaintenanceScheduleDialog';
 import TankFillCreateDialog from './TankFillCreateDialog';
 import SensorCreateDialog from './SensorCreateDialog';
+import { errorKey } from '@/api/errors';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -233,14 +235,20 @@ export default function TankDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected tank must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const [tankData, allSites] = await Promise.all([
         tankApi.getTank(key),
         sitesApi.listSites(0, 200),
       ]);
+      if (stale()) return;
       setTank(tankData);
       setSites(allSites);
       reset({
@@ -263,11 +271,13 @@ export default function TankDetailPage() {
       if (tankData.location_key) {
         try {
           const loc = await sitesApi.getLocation(tankData.location_key);
+          if (stale()) return;
           setLocationName(loc.path || loc.name);
           const site = allSites.find((s) => s.key === loc.site_key);
           setSiteName(site?.name ?? '');
           setSelectedSiteKey(loc.site_key);
         } catch {
+          if (stale()) return;
           setLocationName('');
           setSiteName('');
           setSelectedSiteKey('');
@@ -288,6 +298,7 @@ export default function TankDetailPage() {
         tankApi.getFillEvents(key),
         tankApi.getSensors(key),
       ]);
+      if (stale()) return;
       setLatestState(ls);
       setAlerts(al);
       setStates(st);
@@ -298,11 +309,12 @@ export default function TankDetailPage() {
       setSensors(sn);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, reset]);
+  }, [key, reset, beginLoad]);
 
   useEffect(() => {
     load();
@@ -491,7 +503,7 @@ export default function TankDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!tank) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const overdueDueCount = dueMaintenances.filter((d) => d.status === 'overdue' || d.status === 'due_soon').length;

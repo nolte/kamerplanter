@@ -9,6 +9,7 @@ import { useSnackbar, type SnackbarKey } from 'notistack';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import { useApiError } from '@/hooks/useApiError';
+import SnackbarCloseButton from '@/components/common/SnackbarCloseButton';
 
 /** How long the undo stays on offer (plan WP 5.1, field mode). */
 export const UNDO_SNACKBAR_MS = 8000;
@@ -32,6 +33,7 @@ export function useUndoSnackbar() {
         variant: 'success',
         autoHideDuration: UNDO_SNACKBAR_MS,
         action: (id): ReactNode => (
+          <>
           <Button
             color="inherit"
             size="small"
@@ -44,6 +46,8 @@ export function useUndoSnackbar() {
           >
             {t('pages.bed.care.undo.action')}
           </Button>
+          <SnackbarCloseButton snackbarKey={id} />
+          </>
         ),
       }),
     [closeSnackbar, enqueueSnackbar, handleError, t],

@@ -59,7 +59,7 @@ describe('botanicalFamiliesSlice', () => {
       error: { message: 'Network Error' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Network Error');
+    expect(state.error).toBe('errors.network');
   });
 
   it('fetches families via thunk with MSW', async () => {
@@ -95,7 +95,7 @@ describe('botanicalFamiliesSlice', () => {
       error: { message: 'Detail fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Detail fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetches a single family via thunk with MSW', async () => {

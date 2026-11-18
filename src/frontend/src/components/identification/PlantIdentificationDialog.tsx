@@ -183,12 +183,12 @@ export default function PlantIdentificationDialog({
       const record = consents.find((c) => c.purpose === CONSENT_PURPOSE);
       setConsentGranted(!!record?.granted);
     } catch (err) {
-      setConsentError(parseApiError(err));
+      setConsentError(parseApiError(err, t));
       setConsentGranted(false);
     } finally {
       setConsentLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // On open: fetch feature status + consent state, reset local flow. The
   // consent load synchronizes React state with the backend (external system),
@@ -219,11 +219,11 @@ export default function PlantIdentificationDialog({
       await grantConsent(CONSENT_PURPOSE);
       setConsentGranted(true);
     } catch (err) {
-      setConsentError(parseApiError(err));
+      setConsentError(parseApiError(err, t));
     } finally {
       setConsentGranting(false);
     }
-  }, []);
+  }, [t]);
 
   const handleImageReady = useCallback(
     (file: File, previewUrl: string) => {
@@ -509,7 +509,7 @@ export default function PlantIdentificationDialog({
             {/* Error states (415/413/429/CONSENT) */}
             {error && errorCode !== 'CONSENT_REQUIRED' && (
               <Alert severity="error" sx={{ mt: 2 }} data-testid="identify-error">
-                {error}
+                {t(error)}
               </Alert>
             )}
 

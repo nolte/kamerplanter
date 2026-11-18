@@ -70,7 +70,7 @@ describe('overwinteringProfilesSlice', () => {
       type: fetchHardinessOverview.rejected.type,
       error: { message: 'nope' },
     });
-    expect(state.overviewError).toBe('nope');
+    expect(state.overviewError).toBe('errors.loadFailed');
   });
 });
 

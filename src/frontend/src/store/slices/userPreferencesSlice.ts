@@ -19,6 +19,7 @@ import {
 } from '@/lib/dashboardLayoutStorage';
 import type { RootState } from '@/store/store';
 import { mayAdoptLocalData } from '@/lib/localDataOwner';
+import { errorKey } from '@/api/errors';
 
 interface UserPreferencesState {
   preferences: UserPreference | null;
@@ -164,7 +165,7 @@ const userPreferencesSlice = createSlice({
       })
       .addCase(fetchPreferences.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.preferencesLoadFailed';
+        state.error = errorKey(action.error, 'errors.preferencesLoadFailed');
       })
       // Update
       .addCase(updateUserPreferences.fulfilled, (state, action) => {

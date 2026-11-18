@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -16,6 +16,9 @@ import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
 import type { GrowthPhase, PlantInstance } from '@/api/types';
 
@@ -41,7 +44,6 @@ export default function PhaseTransitionDialog({
   const { t } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
-  const [phases, setPhases] = useState<GrowthPhase[]>([]);
   const [targetPhaseKey, setTargetPhaseKey] = useState('');
   const [reason, setReason] = useState('manual');
   const [force, setForce] = useState(false);
@@ -52,26 +54,29 @@ export default function PhaseTransitionDialog({
     setTargetPhaseKey('');
     setReason('manual');
     setForce(false);
+  }, [open]);
 
-    // Try PhaseSequence first, fall back to legacy GrowthPhases
+  // #3013 (A-02): the target phases are the only input of this dialog. A failed load used to
+  // leave the select empty without a word, so a phase change was silently impossible; it now
+  // renders an error with retry.
+  const loadPhases = useCallback(async (): Promise<GrowthPhase[]> => {
+    // Try the species' PhaseSequence first, fall back to the lifecycle's legacy GrowthPhases.
     if (speciesKey) {
-      phaseSequenceApi
-        .getSpeciesPhaseSequence(speciesKey)
-        .catch(() => null)
-        .then((sequence) => {
-          if (sequence && sequence.entries.length > 0) {
-            setPhases(sequence.entries.map(growthPhaseFromEntry));
-            return;
-          }
-          // Fallback to legacy
-          if (lifecycleKey) {
-            phasesApi.listGrowthPhases(lifecycleKey).then(setPhases).catch(() => {});
-          }
-        });
-    } else if (lifecycleKey) {
-      phasesApi.listGrowthPhases(lifecycleKey).then(setPhases).catch(() => {});
+      let sequenceError: unknown = null;
+      try {
+        const sequence = await phaseSequenceApi.getSpeciesPhaseSequence(speciesKey);
+        if (sequence && sequence.entries.length > 0) return sequence.entries.map(growthPhaseFromEntry);
+      } catch (err) {
+        // Not fatal while the legacy phases can stand in; reported so it is not invisible.
+        captureHandledError(err, { source: 'PhaseTransitionDialog.phaseSequence' });
+        sequenceError = err;
+      }
+      if (!lifecycleKey && sequenceError !== null) throw sequenceError;
     }
-  }, [open, speciesKey, lifecycleKey]);
+    return lifecycleKey ? phasesApi.listGrowthPhases(lifecycleKey) : [];
+  }, [speciesKey, lifecycleKey]);
+  const phasesLoad = useAsyncOptions(loadPhases, { enabled: open });
+  const phases = phasesLoad.options;
 
   const handleTransition = async () => {
     if (!targetPhaseKey) return;
@@ -95,9 +100,22 @@ export default function PhaseTransitionDialog({
     <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-transition-dialog-title" data-testid="phase-transition-dialog">
       <DialogTitle id="phase-transition-dialog-title">{t('pages.phases.transition')}</DialogTitle>
       <DialogContent>
+        {phasesLoad.error && (
+          <OptionsLoadError
+            onRetry={phasesLoad.reload}
+            messageKey="pages.phases.targetPhasesLoadFailed"
+            data-testid="target-phases-load-error"
+          />
+        )}
+        {!phasesLoad.error && !phasesLoad.loading && open && phases.length === 0 && (
+          <Alert severity="info" sx={{ mt: 1 }} data-testid="target-phases-empty">
+            {t('pages.phases.noTargetPhases')}
+          </Alert>
+        )}
         <TextField
           select
           fullWidth
+          disabled={phasesLoad.loading || phasesLoad.error}
           label={t('pages.phases.targetPhase')}
           value={targetPhaseKey}
           onChange={(e) => setTargetPhaseKey(e.target.value)}

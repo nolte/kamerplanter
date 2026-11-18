@@ -132,7 +132,7 @@ describe('TenantSettingsPage — member removal step-up (#2032)', () => {
     await userEvent.click(within(dialog).getByTestId('remove-tenant-member-confirm'));
 
     expect(await within(dialog).findByTestId('remove-tenant-member-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
   });
 

@@ -29,6 +29,7 @@ describe('useNotification', () => {
       variant: 'success',
       autoHideDuration: 5000,
       preventDuplicate: true,
+      action: expect.any(Function),
     });
   });
 
@@ -39,6 +40,7 @@ describe('useNotification', () => {
       variant: 'error',
       autoHideDuration: 8000,
       preventDuplicate: true,
+      action: expect.any(Function),
     });
   });
 
@@ -49,6 +51,7 @@ describe('useNotification', () => {
       variant: 'warning',
       autoHideDuration: 8000,
       preventDuplicate: true,
+      action: expect.any(Function),
     });
   });
 });

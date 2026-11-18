@@ -61,7 +61,7 @@ describe('userPreferencesSlice', () => {
       error: { message: 'Network down' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Network down');
+    expect(state.error).toBe('errors.preferencesLoadFailed');
   });
 
   it('fetchPreferences.rejected falls back to a default message when none is given', () => {

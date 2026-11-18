@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
@@ -41,6 +42,7 @@ import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useAppDispatch } from '@/store/hooks';
@@ -61,6 +63,8 @@ import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss'
 import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
 import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
 import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
+import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 
 // The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
 const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
@@ -149,6 +153,8 @@ export default function LocationDetailPage() {
   const summaryCachedAt = summaryRead !== null && summaryRead.key === key ? summaryRead.cachedAt : null;
   const summaryOfflineMiss = summaryRead !== null && summaryRead.key === key && summaryRead.offlineMiss;
   const [sensors, setSensors] = useState<Sensor[]>([]);
+  // #3013 (A-02): sections whose secondary load failed render an error with retry, not their empty text.
+  const [failedSections, setFailedSections] = useState<ReadonlySet<LocationSection>>(() => new Set());
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
@@ -182,28 +188,45 @@ export default function LocationDetailPage() {
   const isNaturalOrMixed = lightType === 'natural' || lightType === 'mixed';
 
   // The summary makes a location a bed (`is_bed`); a failed request leaves the plain location page.
-  const loadBedSummary = useCallback(async () => {
+  // `isCurrent` lets a superseded page load drop its summary answer (#3014).
+  const readBedSummary = useCallback(async (isCurrent: () => boolean) => {
     if (!key) return;
     try {
       const read = await readThrough(cacheScope ? bedSummaryEntry(cacheScope, key) : null, () => getBedSummary(key));
+      if (!isCurrent()) return;
       setLoadedSummary(read.data);
       setSummaryRead({ key, cachedAt: read.cachedAt, offlineMiss: false });
     } catch (err) {
+      if (!isCurrent()) return;
       setLoadedSummary(null);
       setSummaryRead({ key, cachedAt: null, offlineMiss: isOfflineCacheMiss(err) });
     }
   }, [key, cacheScope]);
+  const loadBedSummary = useCallback(() => readBedSummary(() => true), [readBedSummary]);
+
+  // A child-location link reuses this page instance: a late answer for the previous key must not land (#3014).
+  const beginLoad = useAbortableLoad();
 
   const load = async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     setError(null);
+    setFailedSections(new Set());
+    const failed = new Set<LocationSection>();
+    const sectionFailed = (section: LocationSection, err: unknown) => {
+      captureHandledError(err, { source: `LocationDetailPage.${section}` });
+      failed.add(section);
+    };
     // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
-    const summaryLoaded = loadBedSummary();
+    const summaryLoaded = readBedSummary(ticket.isCurrent);
     try {
       const loc = await api.getLocation(key);
+      if (stale()) return;
       setLocation(loc);
       await summaryLoaded;
+      if (stale()) return;
       // Build ancestor breadcrumb chain
       const ancestors: { key: string; name: string }[] = [];
       let current = loc;
@@ -212,18 +235,25 @@ export default function LocationDetailPage() {
           const parent = await api.getLocation(current.parent_location_key);
           ancestors.unshift({ key: parent.key, name: parent.name });
           current = parent;
-        } catch {
+        } catch (err) {
+          // Breadcrumb only: the chain stops at the ancestor that failed to load.
+          captureHandledError(err, { source: 'LocationDetailPage.ancestors' });
           break;
         }
       }
+      if (stale()) return;
       setAncestorChain(ancestors);
       // Fetch site name for breadcrumb
+      let fetchedSiteName = '';
       try {
-        const site = await api.getSite(loc.site_key);
-        setSiteName(site.name);
-      } catch {
-        setSiteName('');
+        fetchedSiteName = (await api.getSite(loc.site_key)).name;
+      } catch (err) {
+        // Breadcrumb only: the site name stays blank.
+        captureHandledError(err, { source: 'LocationDetailPage.siteName' });
+        fetchedSiteName = '';
       }
+      if (stale()) return;
+      setSiteName(fetchedSiteName);
       reset({
         name: loc.name,
         site_key: loc.site_key,
@@ -239,6 +269,7 @@ export default function LocationDetailPage() {
         api.listSlots(key),
         api.listLocationChildren(key),
       ]);
+      if (stale()) return;
       setSlots(s);
       setChildLocations(children);
       // Load assigned tank:
@@ -247,16 +278,22 @@ export default function LocationDetailPage() {
       if (loc.tank_key) {
         try {
           const t = await tankApi.getTank(loc.tank_key);
+          if (stale()) return;
           setAssignedTank(t);
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('tank', err);
           setAssignedTank(null);
         }
       } else {
         try {
           const allTanks = await tankApi.listTanks(0, 200);
           const match = allTanks.find((t) => t.location_key === key);
+          if (stale()) return;
           setAssignedTank(match ?? null);
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('tank', err);
           setAssignedTank(null);
         }
       }
@@ -266,21 +303,24 @@ export default function LocationDetailPage() {
           wateringApi.getLocationWateringEvents(key),
           wateringApi.getLocationWateringStats(key),
         ]);
+        if (stale()) return;
         setWateringEvents(we);
         setWateringStats(ws);
-      } catch {
-        // Watering data may not be available
+      } catch (err) {
+        sectionFailed('watering', err);
       }
       // Load sensors
       try {
         const locationSensors = await api.getLocationSensors(key);
+        if (stale()) return;
         setSensors(locationSensors);
-      } catch {
-        // Sensors may not be available
+      } catch (err) {
+        sectionFailed('sensors', err);
       }
       // Load assigned planting runs + plant instances for this location
       try {
         const runs = await runApi.listPlantingRuns(0, 200, undefined, undefined, key);
+        if (stale()) return;
         setAssignedRuns(runs);
         // Load plant counts per run
         const counts = new Map<string, number>();
@@ -291,29 +331,40 @@ export default function LocationDetailPage() {
               const plants = await runApi.listRunPlants(r.key);
               counts.set(r.key, plants.length);
               for (const p of plants) runInstanceKeys.add(p.key);
-            } catch {
+            } catch (err) {
+              // Display enrichment only: the run's own planned quantity stands in for the count.
+              captureHandledError(err, { source: 'LocationDetailPage.runPlantCount' });
               counts.set(r.key, r.actual_quantity);
             }
           }),
         );
+        if (stale()) return;
         setRunPlantCounts(counts);
         // Load all plant instances at this location and find standalone ones
         try {
           const allInstances = await listAllPlantInstances();
+          if (stale()) return;
           const locationInstances = allInstances.filter((i) => i.location_key === key);
           setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('plants', err);
           setStandaloneInstances([]);
         }
-      } catch {
+      } catch (err) {
+        if (stale()) return;
+        sectionFailed('plants', err);
         setAssignedRuns([]);
       }
+      if (stale()) return;
+      setFailedSections(failed);
     } catch (err) {
       // Offline the cached summary may still carry the bed view (WP 9.2): it decides before the error shows.
       await summaryLoaded;
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   };
 
@@ -426,7 +477,7 @@ export default function LocationDetailPage() {
     if (summaryOfflineMiss) {
       return <OfflineCacheMiss subject="bed" testId="location-offline-miss" onRetry={() => void load()} />;
     }
-    return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+    return <ErrorDisplay error={error} onRetry={() => void load()} />;
   }
 
   const PANEL_GAP = 4;
@@ -541,7 +592,9 @@ export default function LocationDetailPage() {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {t('pages.locations.assignedTank')}
             </Typography>
-            {assignedTank ? (
+            {failedSections.has('tank') ? (
+              <SectionLoadError onRetry={() => void load()} testId="location-tank-load-error" />
+            ) : assignedTank ? (
               <Chip
                 label={`${assignedTank.name} (${assignedTank.volume_liters} L)`}
                 size="small"
@@ -572,7 +625,9 @@ export default function LocationDetailPage() {
           <GrassIcon />
           {t('pages.locations.plantsAndRuns')}
         </Typography>
-        {assignedRuns.length === 0 && standaloneInstances.length === 0 ? (
+        {failedSections.has('plants') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-plants-load-error" />
+        ) : assignedRuns.length === 0 && standaloneInstances.length === 0 ? (
           <EmptyState message={t('pages.locations.noPlantsOrRuns')} />
         ) : (
           <>
@@ -805,6 +860,9 @@ export default function LocationDetailPage() {
           </Box>
         )}
 
+        {failedSections.has('watering') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-watering-load-error" />
+        ) : (
         <DataTable<WateringEvent>
           columns={[
             {
@@ -859,6 +917,7 @@ export default function LocationDetailPage() {
             />
           )}
         />
+        )}
 
         <WateringEventCreateDialog
           open={wateringCreateOpen}
@@ -882,7 +941,9 @@ export default function LocationDetailPage() {
             {t('pages.sensors.add')}
           </Button>
         </Box>
-        {sensors.length === 0 ? (
+        {failedSections.has('sensors') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-sensors-load-error" />
+        ) : sensors.length === 0 ? (
           <EmptyState
             message={t('pages.sensors.noSensors')}
             actionLabel={t('pages.sensors.add')}
@@ -1017,5 +1078,26 @@ export default function LocationDetailPage() {
         loading={deleting}
       />
     </Box>
+  );
+}
+
+/** A secondary section of the location page that loads after the location itself (#3013). */
+type LocationSection = 'tank' | 'watering' | 'sensors' | 'plants';
+
+/** In-place error for a section whose load failed — instead of its "nothing here yet" text. */
+function SectionLoadError({ onRetry, testId }: { onRetry: () => void; testId: string }) {
+  const { t } = useTranslation();
+  return (
+    <Alert
+      severity="error"
+      data-testid={testId}
+      action={
+        <Button color="inherit" size="small" onClick={onRetry} sx={{ minHeight: 48 }}>
+          {t('common.retry')}
+        </Button>
+      }
+    >
+      {t('pages.locations.sectionLoadFailed')}
+    </Alert>
   );
 }

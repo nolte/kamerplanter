@@ -196,7 +196,8 @@ describe('NotificationSettingsTab — test send', () => {
 
     await user.click(await screen.findByTestId('test-send-email'));
     await waitFor(() =>
-      expect(screen.getByText(/network boom/)).toBeInTheDocument(),
+      // #3013: the translated generic text, never the exception's own message.
+      expect(screen.getByText(i18n.t('errors.generic'))).toBeInTheDocument(),
     );
   });
 });
@@ -209,7 +210,7 @@ describe('NotificationSettingsTab — save failure', () => {
 
     await user.click(await screen.findByTestId('notification-settings-save'));
     await waitFor(() =>
-      expect(screen.getByText(/save failed/)).toBeInTheDocument(),
+      expect(screen.getByText(i18n.t('errors.generic'))).toBeInTheDocument(),
     );
   });
 

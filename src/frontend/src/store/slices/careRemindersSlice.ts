@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { CareDashboardEntry, CareProfile, ReminderType } from '@/api/types';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import * as api from '@/api/endpoints/careReminders';
+import { errorKey } from '@/api/errors';
 
 interface CareRemindersState {
   dashboard: CareDashboardEntry[];
@@ -98,7 +99,7 @@ const careRemindersSlice = createSlice({
       .addCase(fetchDashboard.rejected, (state, action) => {
         state.loading = false;
         state.dashboardLoaded = true;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Profile
       .addCase(fetchProfile.fulfilled, (state, action) => {

@@ -8,7 +8,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import { confirmPasswordReset } from '@/api/endpoints/auth';
 import { parseApiError } from '@/api/errors';
 import Form from '@/components/form/Form';
@@ -19,7 +19,7 @@ export default function PasswordResetConfirmPage() {
   useDocumentTitle(t('pages.auth.newPassword'));
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,10 +43,10 @@ export default function PasswordResetConfirmPage() {
     setLoading(true);
     try {
       await confirmPasswordReset(token, password);
-      enqueueSnackbar(t('pages.auth.passwordResetSuccess'), { variant: 'success' });
+      notification.success(t('pages.auth.passwordResetSuccess'));
       navigate('/login');
     } catch (err) {
-      setError(parseApiError(err));
+      setError(parseApiError(err, t));
     } finally {
       setLoading(false);
     }

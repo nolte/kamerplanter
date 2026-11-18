@@ -30,7 +30,12 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
-import { useSnackbar } from 'notistack';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
+import { useNotification } from '@/hooks/useNotification';
 import {
   fetchAdminTenants,
   fetchAdminUsers,
@@ -71,7 +76,7 @@ export default function AdminEditTenantPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
 
   const [tenant, setTenant] = useState<AdminTenant | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,7 +116,7 @@ export default function AdminEditTenantPage() {
   // Members
   const [members, setMembers] = useState<AdminTenantMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [membersError, setMembersError] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<TenantRole>('viewer');
@@ -173,23 +178,30 @@ export default function AdminEditTenantPage() {
   }, [key, reloadToken]);
 
   // Load members
+  // #3013 (A-01): a failed member load renders an error with retry, never "no memberships" —
+  // otherwise a member nobody expects is neither visible nor removable.
+  const beginMembersLoad = useAbortableLoad();
   const loadMembers = useCallback(async () => {
     if (!key) return;
+    const ticket = beginMembersLoad();
     setMembersLoading(true);
+    setMembersError(false);
     try {
-      setMembers(await fetchTenantMembers(key));
-    } catch { /* ignore */ }
-    finally { setMembersLoading(false); }
-  }, [key]);
+      const loaded = await fetchTenantMembers(key);
+      if (ticket.isCurrent()) setMembers(loaded);
+    } catch (err) {
+      captureHandledError(err, { source: 'AdminEditTenantPage.members' });
+      if (ticket.isCurrent()) setMembersError(true);
+    } finally {
+      if (ticket.isCurrent()) setMembersLoading(false);
+    }
+  }, [key, beginMembersLoad]);
 
   useEffect(() => { loadMembers(); }, [loadMembers]);
 
-  // Lazy-load all users when add-member opens
-  useEffect(() => {
-    if (showAddMember && allUsers.length === 0) {
-      fetchAdminUsers().then(setAllUsers).catch(() => {});
-    }
-  }, [showAddMember, allUsers.length]);
+  // Lazy-load all users when add-member opens; a failure shows a retry next to the picker.
+  const usersLoad = useAsyncOptions(fetchAdminUsers, { enabled: showAddMember });
+  const allUsers: AdminUser[] = usersLoad.options;
 
   const owner = members.find((m) => m.user_key === tenant?.owner_user_key);
   const ownerLabel = owner
@@ -220,9 +232,9 @@ export default function AdminEditTenantPage() {
     try {
       const updated = await updateAdminTenant(tenant.key, buildUpdate(tenant));
       setTenant(updated);
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -238,7 +250,7 @@ export default function AdminEditTenantPage() {
     });
     setTenant(updated);
     setConfirmActiveChange(false);
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    notification.success(t('common.saved'));
   };
 
   // #1791 — the deletion carries its step-up (slug echo + current password);
@@ -254,7 +266,7 @@ export default function AdminEditTenantPage() {
             date: new Date(accepted.scheduled_for).toLocaleDateString(),
           })
         : t('pages.auth.adminTenantDeletionAccepted');
-    enqueueSnackbar(message, { variant: 'success' });
+    notification.success(message);
     navigate('/settings#platform');
   };
 
@@ -265,7 +277,7 @@ export default function AdminEditTenantPage() {
     setTenant(restored);
     setIsActive(restored.is_active);
     setConfirmCancelErasure(false);
-    enqueueSnackbar(t('pages.auth.adminTenantDeletionCancelled'), { variant: 'success' });
+    notification.success(t('pages.auth.adminTenantDeletionCancelled'));
   };
 
   // Adding a member only opens the confirmation (#2106): nothing is written until the admin's OWN
@@ -287,7 +299,7 @@ export default function AdminEditTenantPage() {
     setSelectedRole('viewer');
     setShowAddMember(false);
     setConfirmAdd(false);
-    enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
+    notification.success(t('pages.auth.adminMemberAdded'));
   };
 
   // Removing a member passes the admin's OWN step-up (#2009); the dialog shows a
@@ -298,7 +310,7 @@ export default function AdminEditTenantPage() {
     await removeTenantMember(key, removed.membership_key, toCredentialStepUpBody(credentials));
     setMembers((prev) => prev.filter((x) => x.membership_key !== removed.membership_key));
     setMemberToRemove(null);
-    enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
+    notification.success(t('pages.auth.adminMemberRemoved'));
   };
 
   // Choosing another role only opens the confirmation (#2032): the select keeps showing the
@@ -320,7 +332,7 @@ export default function AdminEditTenantPage() {
     );
     setMembers((prev) => prev.map((x) => (x.membership_key === member.membership_key ? updated : x)));
     setRoleChange(null);
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    notification.success(t('common.saved'));
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -526,7 +538,9 @@ export default function AdminEditTenantPage() {
                   onChange={(_, v) => setSelectedUser(v)}
                   renderInput={(params) => <TextField {...params} label={t('pages.auth.adminSelectUser')} data-testid="add-member-user-input" />}
                   sx={{ flex: 1, minWidth: 220 }}
+                  loading={usersLoad.loading}
                 />
+                {usersLoad.error && <OptionsLoadError onRetry={usersLoad.reload} data-testid="add-member-users-load-error" />}
                 <FormControl size="small" sx={{ minWidth: 140 }}>
                   <InputLabel id="admin-tenant-member-role-label">{t('pages.auth.adminMemberRole')}</InputLabel>
                   <Select labelId="admin-tenant-member-role-label" value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
@@ -546,7 +560,9 @@ export default function AdminEditTenantPage() {
             )}
 
             {/* Members table */}
-            {membersLoading ? (
+            {membersError ? (
+              <ErrorDisplay error="pages.auth.adminTenantMembersLoadFailed" onRetry={() => void loadMembers()} />
+            ) : membersLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress /></Box>
             ) : (
               <TableContainer>
