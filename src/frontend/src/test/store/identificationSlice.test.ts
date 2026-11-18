@@ -188,7 +188,8 @@ describe('identificationSlice — identify thunk + error mapping', () => {
       identifyPlant({ image: new File([], 'p.jpg'), organ: 'auto' }),
     );
     const state = store.getState().identification;
-    expect(state.error).toBe('errors.server');
+    // #3013: an unmapped code at 400 reads as a validation refusal.
+    expect(state.error).toBe('errors.validation');
     expect(state.errorCode).toBe('SOMETHING_ELSE');
   });
 

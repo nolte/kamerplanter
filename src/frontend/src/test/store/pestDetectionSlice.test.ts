@@ -249,7 +249,8 @@ describe('pestDetectionSlice — detectPests (plant-scoped) + error mapping', ()
     const store = makeStore();
     await store.dispatch(detectPests({ plantKey: 'plant-1', image: jpg() }));
     const state = store.getState().pestDetection;
-    expect(state.error).toBe('errors.server');
+    // #3013: an unmapped code at 400 reads as a validation refusal.
+    expect(state.error).toBe('errors.validation');
     expect(state.errorCode).toBe('SOMETHING_ELSE');
   });
 

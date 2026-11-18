@@ -38,7 +38,7 @@ describe('wateringLogsSlice', () => {
 
   it('fetchWateringLogs.rejected stores the error', () => {
     const state = reducer(undefined, { type: fetchWateringLogs.rejected.type, error: { message: 'fail' } });
-    expect(state.error).toBe('fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchWateringLogs.rejected falls back to a default message', () => {

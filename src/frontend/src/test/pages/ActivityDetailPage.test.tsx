@@ -113,7 +113,9 @@ describe('ActivityDetailPage', () => {
     getActivity.mockRejectedValue(new Error('boom'));
     renderAsAdmin(<ActivityDetailPage />);
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
-    expect(screen.getByText('boom')).toBeInTheDocument();
+    // #3013: the translated load failure, never the exception's own text.
+    expect(screen.getByText(i18n.t('errors.loadFailed'))).toBeInTheDocument();
+    expect(screen.queryByText('boom')).toBeNull();
   });
 
   it('falls back to the English name when the German name is empty', async () => {

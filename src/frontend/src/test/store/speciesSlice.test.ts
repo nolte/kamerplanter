@@ -61,7 +61,7 @@ describe('speciesSlice', () => {
       error: { message: 'Fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetches species list via thunk with MSW', async () => {
@@ -97,7 +97,7 @@ describe('speciesSlice', () => {
       error: { message: 'Detail fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Detail fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetches a single species via thunk with MSW', async () => {

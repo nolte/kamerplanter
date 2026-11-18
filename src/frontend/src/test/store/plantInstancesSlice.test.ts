@@ -64,7 +64,7 @@ describe('plantInstancesSlice', () => {
       type: fetchPlantInstances.rejected.type,
       error: { message: 'Fail' },
     });
-    expect(state.error).toBe('Fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchPlantInstance.fulfilled sets current', () => {
