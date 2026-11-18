@@ -19,7 +19,8 @@ import enGlossary from '@/i18n/locales/en/glossary.json';
 export function loadFeatureNamespacesForTests(): void {
   const bundles: Record<SupportedLocale, ReadonlyArray<Record<string, unknown>>> = {
     de: [dePages, deEnums, deGlossary],
-    en: [enPages, enEnums, enGlossary],
+    // #3023 — the English core is code-split like the feature namespaces, so it is registered here too.
+    en: [enCore, enPages, enEnums, enGlossary],
   };
   for (const locale of ['de', 'en'] as const) {
     for (const bundle of bundles[locale]) {
@@ -27,6 +28,10 @@ export function loadFeatureNamespacesForTests(): void {
     }
     markFeatureLocaleLoaded(locale);
   }
+  // `resolvedLanguage` was settled at init, before the English core existed, and
+  // stays on the fallback until the language is resolved again — the same step
+  // `initI18n` takes after its dynamic import (#3023).
+  void i18n.changeLanguage(i18n.language);
 }
 
 /** Fully merged translation objects (core + features) for DE/EN parity tests. */

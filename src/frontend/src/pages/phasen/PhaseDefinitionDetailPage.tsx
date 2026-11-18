@@ -409,6 +409,7 @@ export default function PhaseDefinitionDetailPage() {
                 component="img"
                 src={illustrationUrl ?? ''}
                 alt={displayName}
+                loading="lazy"
                 sx={{ maxHeight: 120, maxWidth: '100%', objectFit: 'contain' }}
                 onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                   (e.target as HTMLImageElement).style.display = 'none';

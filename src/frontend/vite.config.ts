@@ -35,8 +35,13 @@ function manualChunks(id: string): string | undefined {
   ) {
     return 'vendor-react';
   }
+  // Only MUI's styling foundation (theme, system, emotion) is grouped. The `@mui/material`
+  // *components* are deliberately left to automatic splitting (#3023): a blanket
+  // `@mui/material` group pulled every component any lazy page uses (Autocomplete, Slider,
+  // Stepper, Tabs, TablePagination, ...) into the eager vendor chunk, ~60 KB gzip the shell
+  // never renders. Shell components land in the entry; route-only ones stay with their routes.
   if (
-    /[\\/]node_modules[\\/](@mui[\\/](material|system|base|utils|private-theming|styled-engine|core-downloads-tracker)|@emotion)[\\/]/.test(
+    /[\\/]node_modules[\\/](@mui[\\/](material[\\/]styles|system|utils|private-theming|styled-engine)|@emotion)[\\/]/.test(
       id,
     )
   ) {

@@ -51,7 +51,8 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
   it('shows the banner on a first visit when error tracking is configured', async () => {
     window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
     await renderBanner();
-    expect(screen.getByTestId('consent-banner')).toBeInTheDocument();
+    // #3023 — the banner is a lazy chunk, so it appears once that chunk has loaded.
+    expect(await screen.findByTestId('consent-banner')).toBeInTheDocument();
   });
 
   it('shows no banner in Light mode (REQ-027 household exemption, CB-001)', async () => {

@@ -6,6 +6,7 @@ import Skeleton from '@mui/material/Skeleton';
 import BrokenImageIcon from '@mui/icons-material/BrokenImage';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { useAuthImage } from '@/hooks/useAuthImage';
+import { useInViewport } from '@/hooks/useInViewport';
 
 interface AuthImageProps {
   /**
@@ -50,6 +51,11 @@ interface AuthImageProps {
  * Renders a {@link Skeleton} while loading and a neutral broken-image icon on
  * failure — never a browser's broken-image glyph.
  *
+ * #3023 (N-23) — the blob is fetched only once the placeholder comes near the
+ * viewport ({@link useInViewport}): a gallery of fifty photos loads the visible
+ * ones, not all fifty. The authenticated fetch cannot use the native
+ * `loading="lazy"`, so this is its equivalent.
+ *
  * S3 backend (known follow-up, NFR-013 §2.4): with the `s3` storage backend a
  * `GET /attachments/{id}` returns a 307 redirect to a presigned URL. axios
  * follows redirects, but the Bearer header is then also sent to the presign host;
@@ -71,7 +77,8 @@ export default function AuthImage({
   onLoad,
 }: AuthImageProps) {
   const { t } = useTranslation();
-  const { objectUrl, status } = useAuthImage(uri);
+  const [placeholderRef, inViewport] = useInViewport<HTMLDivElement>();
+  const { objectUrl, status } = useAuthImage(inViewport ? uri : null);
 
   useEffect(() => {
     if (status === 'error') onError?.();
@@ -98,6 +105,7 @@ export default function AuthImage({
   if (status === 'loading') {
     return (
       <Box
+        ref={placeholderRef}
         role="img"
         aria-label={alt || t('pages.plantPhotos.imageLoading')}
         sx={sizingSx}

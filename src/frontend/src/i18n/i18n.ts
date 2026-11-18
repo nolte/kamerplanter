@@ -2,7 +2,6 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import deCore from './locales/de/core.json';
-import enCore from './locales/en/core.json';
 import { configureZodErrorMap } from '@/validation/zodErrorMap';
 
 /**
@@ -11,9 +10,11 @@ import { configureZodErrorMap } from '@/validation/zodErrorMap';
  * The translation payload is the dominant cost of the initial JS bundle. To keep
  * it out of the entry chunk we split each locale into:
  *   - `core`    — shell/nav/common/errors and other small namespaces that the
- *                 app shell needs immediately. Statically imported for both
- *                 locales (tiny, ~8 KB gzip each) so they ship in the initial
- *                 bundle and are always synchronously available.
+ *                 app shell needs immediately. Only the German core (the
+ *                 fallback locale) is statically imported and ships in the
+ *                 initial bundle, so a key always resolves synchronously. The
+ *                 core of every other locale (~15 KB gzip) is loaded with that
+ *                 locale's feature bundles (#3023) — awaited before mount, like them.
  *   - features  — `pages`, `enums`, `glossary` — the bulk of the payload. These
  *                 are dynamically imported per locale (separate chunks, excluded
  *                 from the initial JS budget) and awaited before the app mounts
@@ -33,7 +34,6 @@ void i18n
   .init({
     resources: {
       de: { translation: deCore },
-      en: { translation: enCore },
     },
     fallbackLng: 'de',
     supportedLngs: [...SUPPORTED_LOCALES],
@@ -75,6 +75,8 @@ const featureLoaders: Record<SupportedLocale, Array<() => Promise<FeatureBundle>
     () => import('./locales/de/glossary.json'),
   ],
   en: [
+    // #3023 — the English core is not in the initial bundle; it arrives with the feature namespaces.
+    () => import('./locales/en/core.json'),
     () => import('./locales/en/pages.json'),
     () => import('./locales/en/enums.json'),
     () => import('./locales/en/glossary.json'),
@@ -107,6 +109,12 @@ export async function loadFeatureNamespaces(locale: SupportedLocale): Promise<vo
   } catch (error) {
     loadedFeatureLocales.delete(locale);
     throw error;
+  }
+  // i18next resolves the active language against the resources present: while the active locale's
+  // core was still loading, `resolvedLanguage` fell back to German (it drives the API's
+  // Accept-Language). Re-resolve now that the locale has strings of its own.
+  if (toSupportedLocale(i18n.language) === locale && i18n.resolvedLanguage !== locale) {
+    await i18n.changeLanguage(i18n.language);
   }
 }
 
@@ -141,9 +149,10 @@ function syncDocumentLang(lng: string | undefined): void {
   document.documentElement.lang = toSupportedLocale(lng);
 }
 
-// The instance initialises synchronously (`initAsync: false`), so the resolved
-// language is already known here — set the initial `<html lang>` once.
-syncDocumentLang(i18n.resolvedLanguage ?? i18n.language);
+// The instance initialises synchronously (`initAsync: false`), so the detected
+// language is already known here — set the initial `<html lang>` once. `language`,
+// not `resolvedLanguage`: the latter is German until a non-German core is loaded.
+syncDocumentLang(i18n.language);
 
 /**
  * Load every feature namespace required for the first paint: the active locale
@@ -152,7 +161,8 @@ syncDocumentLang(i18n.resolvedLanguage ?? i18n.language);
  * prevents a flash of untranslated content.
  */
 export async function initI18n(): Promise<typeof i18n> {
-  const active = toSupportedLocale(i18n.resolvedLanguage ?? i18n.language);
+  // The detected language, not `resolvedLanguage` — that one reads German until the active core is loaded (#3023).
+  const active = toSupportedLocale(i18n.language);
   await loadFeatureNamespaces(active);
   if (active !== 'de') {
     // German is the fallback locale — load it too so any key missing from the
@@ -163,14 +173,10 @@ export async function initI18n(): Promise<typeof i18n> {
 }
 
 if (import.meta.hot) {
-  // Live-reload the split translation files during development.
-  import.meta.hot.accept(
-    ['./locales/de/core.json', './locales/en/core.json'],
-    ([deModule, enModule]) => {
-      if (deModule) i18n.addResourceBundle('de', 'translation', deModule.default, true, true);
-      if (enModule) i18n.addResourceBundle('en', 'translation', enModule.default, true, true);
-    },
-  );
+  // Live-reload the statically imported German core; the other locales are dynamic imports.
+  import.meta.hot.accept('./locales/de/core.json', (deModule) => {
+    if (deModule) i18n.addResourceBundle('de', 'translation', deModule.default, true, true);
+  });
 }
 
 export default i18n;
