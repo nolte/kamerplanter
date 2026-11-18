@@ -68,7 +68,7 @@ describe('sitesSlice', () => {
       type: fetchSites.rejected.type,
       error: { message: 'Fail' },
     });
-    expect(state.error).toBe('Fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchSite.fulfilled sets currentSite', () => {
@@ -113,7 +113,7 @@ describe('sitesSlice', () => {
       error: { message: 'Site fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Site fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchLocation.pending sets loading and clears prior error', () => {
@@ -132,7 +132,7 @@ describe('sitesSlice', () => {
       error: { message: 'Location fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Location fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetches sites via thunk with MSW', async () => {

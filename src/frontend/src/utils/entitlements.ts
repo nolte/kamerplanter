@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import { isApiError } from '@/api/errors';
+import { isApiError, QUOTA_ERROR_KEYS } from '@/api/errors';
 import type { EntitlementDimension, EntitlementUsage } from '@/api/types';
 import { formatNumber } from '@/utils/formatting';
 
@@ -122,15 +122,8 @@ export function formatUsage(row: EntitlementUsage, t: TFunction): string {
  *
  * Every dimension keeps its own code and status (REQ-056 E-06); `AI_BUDGET_EXCEEDED` is not
  * here because the AI surfaces explain it in more detail themselves (`resolveAiErrorMessage`).
+ * The table lives in `api/errors.ts` so `errorKey` resolves the same codes.
  */
-const QUOTA_ERROR_KEYS: Readonly<Record<string, string>> = {
-  ORGANIZATION_LIMIT_REACHED: 'errors.quota.organizationLimitReached',
-  MEMBER_LIMIT_REACHED: 'errors.quota.memberLimitReached',
-  SERVICE_ACCOUNT_LIMIT_REACHED: 'errors.quota.serviceAccountLimitReached',
-  STORAGE_QUOTA_EXCEEDED: 'errors.quota.storageQuotaExceeded',
-  PHOTO_QUOTA_EXCEEDED: 'errors.quota.photoQuotaExceeded',
-};
-
 export function quotaErrorKeyForCode(errorCode: string | null | undefined): string | null {
   if (!errorCode) return null;
   return QUOTA_ERROR_KEYS[errorCode] ?? null;

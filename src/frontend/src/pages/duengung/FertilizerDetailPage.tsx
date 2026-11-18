@@ -62,6 +62,7 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -328,7 +329,7 @@ export default function FertilizerDetailPage() {
       setError(null);
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -504,7 +505,7 @@ export default function FertilizerDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!fertilizer) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const [npkN, npkP, npkK] = fertilizer.npk_ratio;

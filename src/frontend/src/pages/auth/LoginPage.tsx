@@ -106,7 +106,7 @@ export default function LoginPage() {
               <ResendVerificationAction email={unverifiedEmail} />
             </Box>
           ) : (
-            error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            error && <Alert severity="error" sx={{ mb: 2 }}>{t(error)}</Alert>
           )}
 
           {invitationToken && (

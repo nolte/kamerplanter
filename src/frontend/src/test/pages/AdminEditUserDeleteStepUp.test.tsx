@@ -140,7 +140,7 @@ describe('AdminEditUserPage — user deletion step-up (#1814)', () => {
     await userEvent.type(within(dialog).getByLabelText(/passwort/i), 'wrong');
     await userEvent.click(within(dialog).getByTestId('confirm-delete-user-btn'));
 
-    expect(await within(dialog).findByTestId('delete-user-error')).toHaveTextContent('Password confirmation failed.');
+    expect(await within(dialog).findByTestId('delete-user-error')).toHaveTextContent(i18n.t('pages.auth.stepUpRejected'));
     expect(screen.getByTestId('delete-user-dialog')).toBeInTheDocument();
     // The rejected password is cleared so it is not resent by accident.
     expect(within(dialog).getByLabelText(/passwort/i)).toHaveValue('');

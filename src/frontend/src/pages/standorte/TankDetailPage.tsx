@@ -72,6 +72,7 @@ import MaintenanceLogDialog from './MaintenanceLogDialog';
 import MaintenanceScheduleDialog from './MaintenanceScheduleDialog';
 import TankFillCreateDialog from './TankFillCreateDialog';
 import SensorCreateDialog from './SensorCreateDialog';
+import { errorKey } from '@/api/errors';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -309,7 +310,7 @@ export default function TankDetailPage() {
       setError(null);
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -502,7 +503,7 @@ export default function TankDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!tank) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const overdueDueCount = dueMaintenances.filter((d) => d.status === 'overdue' || d.status === 'due_soon').length;

@@ -17,6 +17,7 @@ import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import HarvestCreateDialog from './HarvestCreateDialog';
 import { kamiHarvest } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -56,7 +57,10 @@ export default function HarvestBatchListPage() {
       setPlantMap(map);
     }
 
-    resolve().catch(() => {});
+    resolve().catch((err: unknown) => {
+      // Display enrichment only: rows show the plant key instead of its name.
+      captureHandledError(err, { source: 'HarvestBatchListPage.plantNames' });
+    });
     return () => { cancelled = true; };
   }, []);
 

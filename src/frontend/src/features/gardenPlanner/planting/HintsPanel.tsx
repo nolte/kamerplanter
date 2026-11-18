@@ -171,7 +171,7 @@ export default function HintsPanel({
     if (state.status === 'error') {
       return (
         <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
-          {t('pages.bed.planting.hints.unavailable', { name, message: state.message })}
+          {t('pages.bed.planting.hints.unavailable', { name, message: t(state.message) })}
         </Alert>
       );
     }

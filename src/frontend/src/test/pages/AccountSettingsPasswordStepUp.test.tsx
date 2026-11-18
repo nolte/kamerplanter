@@ -112,7 +112,9 @@ describe('AccountSettingsPage — password form step-up (#1842)', () => {
     await user.type(input('new-password-field'), NEW_PASSWORD);
     await user.click(screen.getByTestId('change-password-btn'));
 
-    expect(await screen.findByText('Backend English message.')).toBeInTheDocument();
+    // #3013: a wrong current password reads as such — never the backend's English message.
+    expect(await screen.findByText(i18n.t('pages.auth.stepUpRejected'))).toBeInTheDocument();
+    expect(screen.queryByText('Backend English message.')).toBeNull();
     expect(screen.getByTestId('current-password-field')).toBeInTheDocument();
     // The rejected password is cleared so it is not resent by accident.
     expect(input('current-password-field').value).toBe('');

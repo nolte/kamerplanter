@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as tenantApi from '@/api/endpoints/tenants';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useAppSelector } from '@/store/hooks';
+import { captureHandledError } from '@/observability/errorTracking';
 import type { FilterOption } from './historyTypes';
 
 export function usePersonOptions(): FilterOption[] {
@@ -25,7 +26,10 @@ export function usePersonOptions(): FilterOption[] {
       .then((list) => {
         if (!cancelled) setMembers(list.map((member) => ({ key: member.user_key, label: member.display_name })));
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        // Filter enrichment only: the own person stays selectable; reported, not rendered.
+        captureHandledError(error, { source: 'usePersonOptions' });
+      });
     return () => {
       cancelled = true;
     };

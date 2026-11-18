@@ -24,6 +24,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/substrates';
 import type { Batch } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const schema = z.object({
   batch_id: z.string().min(1),
@@ -75,7 +76,7 @@ export default function BatchDetailPage() {
         mixed_on: b.mixed_on,
       });
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -113,7 +114,7 @@ export default function BatchDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="substrate-batch-detail-page">

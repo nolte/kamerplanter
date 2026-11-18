@@ -97,7 +97,7 @@ describe('careRemindersSlice thunks', () => {
     mocked.getDashboard.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchDashboard());
-    expect(store.getState().careReminders.error).toBe('load failed');
+    expect(store.getState().careReminders.error).toBe('errors.loadFailed');
   });
 
   it('fetchProfile forwards its args and stores the profile', async () => {

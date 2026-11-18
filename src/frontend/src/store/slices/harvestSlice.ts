@@ -8,6 +8,7 @@ import type {
   YieldMetric,
 } from '@/api/types';
 import * as api from '@/api/endpoints/harvest';
+import { errorKey } from '@/api/errors';
 
 interface HarvestState {
   indicators: HarvestIndicator[];
@@ -138,7 +139,7 @@ const harvestSlice = createSlice({
       })
       .addCase(fetchIndicators.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Batches
       .addCase(fetchBatches.pending, (state) => {
@@ -151,7 +152,7 @@ const harvestSlice = createSlice({
       })
       .addCase(fetchBatches.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       // Single batch
       .addCase(fetchBatch.fulfilled, (state, action) => {
@@ -187,7 +188,7 @@ const harvestSlice = createSlice({
       .addCase(fetchReadiness.rejected, (state, action) => {
         if (action.meta.arg !== state.readinessPlantKey) return;
         state.readinessLoading = false;
-        state.readinessError = action.error.message ?? 'errors.loadFailed';
+        state.readinessError = errorKey(action.error, 'errors.loadFailed');
       });
   },
 });

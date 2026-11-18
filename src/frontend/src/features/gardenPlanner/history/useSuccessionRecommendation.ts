@@ -4,7 +4,7 @@
  * `version` is bumped by the caller when the history changed (a year was filled in or taken back).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { getSuccessionRecommendation } from './historyApi';
 import type { SuccessionRecommendation } from './historyTypes';
@@ -27,7 +27,7 @@ export function useSuccessionRecommendation(bedKey: string, version: number) {
         if (!cancelled) setState({ status: 'ready', recommendation });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

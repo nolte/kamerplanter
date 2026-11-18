@@ -148,7 +148,9 @@ describe('FertilizerDetailPage', () => {
 
     fetchFertilizer.mockRejectedValueOnce(new Error('nope'));
     renderWithProviders(<FertilizerDetailPage />);
-    expect(await screen.findByText(/nope|Error/)).toBeInTheDocument();
+    // #3013: the translated load failure, never the exception's own text.
+    expect(await screen.findByText(i18n.t('errors.loadFailed'))).toBeInTheDocument();
+    expect(screen.queryByText(/nope/)).toBeNull();
   });
 
   it('renders the rich details tab: incompatibilities, storage, area dosing, notes and plan usage', async () => {

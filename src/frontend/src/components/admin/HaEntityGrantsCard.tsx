@@ -17,7 +17,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import InputAdornment from '@mui/material/InputAdornment';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { parseApiError } from '@/api/errors';
 import {
@@ -50,7 +50,7 @@ function toTestIdSuffix(entityId: string): string {
  */
 export default function HaEntityGrantsCard({ tenantKey, tenantName }: Props) {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const [inventory, setInventory] = useState<HaEntityInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -134,14 +134,14 @@ export default function HaEntityGrantsCard({ tenantKey, tenantName }: Props) {
       if (item.granted) {
         await revokeHaEntityGrant(tenantKey, item.entity_id);
         setGranted(item.entity_id, false);
-        enqueueSnackbar(t('pages.admin.haGrants.revoked', { entity: item.entity_id }), { variant: 'success' });
+        notification.success(t('pages.admin.haGrants.revoked', { entity: item.entity_id }));
       } else {
         await grantHaEntities(tenantKey, [item.entity_id]);
         setGranted(item.entity_id, true);
-        enqueueSnackbar(t('pages.admin.haGrants.granted', { entity: item.entity_id }), { variant: 'success' });
+        notification.success(t('pages.admin.haGrants.granted', { entity: item.entity_id }));
       }
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setBusy(null);
     }
@@ -157,9 +157,9 @@ export default function HaEntityGrantsCard({ tenantKey, tenantName }: Props) {
       await grantHaEntities(tenantKey, [entityId]);
       setGranted(entityId, true);
       setManualId('');
-      enqueueSnackbar(t('pages.admin.haGrants.granted', { entity: entityId }), { variant: 'success' });
+      notification.success(t('pages.admin.haGrants.granted', { entity: entityId }));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setBusy(null);
     }

@@ -23,6 +23,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { errorKey } from '@/api/errors';
 import type { IrrigationSystem, Species } from '@/api/types';
 import { TRIANGULAR_ROW_FACTOR, type RowDirection } from '../model/layout';
 import { MARKER_SHAPES } from './LayoutCanvas';
@@ -480,7 +481,9 @@ function PreviewSummary({ preview, testId }: { preview: EntryPreview; testId: st
     const key = preview.error.code ? preview.error.code.replace(/\./g, '_') : null;
     return (
       <Alert severity="error" data-testid={testId}>
-        {key ? t(`pages.bed.planting.layoutErrors.${key}`, { defaultValue: preview.error.message }) : preview.error.message}
+        {key
+          ? t(`pages.bed.planting.layoutErrors.${key}`, { defaultValue: t('errors.generic') })
+          : t(errorKey(preview.error.message))}
       </Alert>
     );
   }

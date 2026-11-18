@@ -251,7 +251,11 @@ function recoverFromStaleActiveTenant(error: unknown): void {
   }
   void Promise.resolve()
     .then(handler)
-    .catch(() => undefined)
+    .catch((err: unknown) => {
+      // A failed recovery leaves the active tenant cleared; this chain only has to release the in-flight flag.
+      // console, not captureHandledError: this module loads before error tracking and must not import it.
+      console.warn('[api] active-tenant recovery failed', err);
+    })
     .finally(() => {
       _activeTenantRecoveryInFlight = false;
     });

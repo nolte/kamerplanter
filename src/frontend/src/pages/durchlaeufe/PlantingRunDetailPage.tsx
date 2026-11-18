@@ -82,6 +82,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import { errorKey } from '@/api/errors';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -279,7 +280,7 @@ export default function PlantingRunDetailPage() {
       }
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -544,7 +545,7 @@ export default function PlantingRunDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="planting-run-detail-page">

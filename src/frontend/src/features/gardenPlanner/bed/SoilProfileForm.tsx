@@ -5,6 +5,8 @@
  * agronomic value is invented. A viewer sees the values read-only.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +62,6 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
   const { handleError } = useApiError();
   const notification = useNotification();
   const [saving, setSaving] = useState(false);
-  const [substrates, setSubstrates] = useState<Substrate[]>([]);
 
   const initial = useMemo(() => soilToForm(profile), [profile]);
   const resolver = useMemo(() => zodResolver(buildSoilFormSchema(t)), [t]);
@@ -87,19 +88,10 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
   const substrateKey = useWatch({ control, name: 'substrate_key' });
   const showSubstrate = SUBSTRATE_MEDIA.includes(medium as GrowingMediumKind);
 
-  // The catalogue is only needed once a substrate-filled bed asks for it.
-  useEffect(() => {
-    if (!showSubstrate || substrates.length > 0) return undefined;
-    let cancelled = false;
-    listAllSubstrates()
-      .then((all) => {
-        if (!cancelled) setSubstrates(all);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [showSubstrate, substrates.length]);
+  // The catalogue is only needed once a substrate-filled bed asks for it. A failed load shows an error with
+  // retry next to the picker (#3013, B-01) instead of an empty substrate list.
+  const substrateCatalogue = useAsyncOptions(listAllSubstrates, { enabled: showSubstrate });
+  const substrates: Substrate[] = substrateCatalogue.options;
 
   const substrateOptions = useMemo(
     () => [
@@ -167,6 +159,9 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             />
           )}
         </FormRow>
+        {showSubstrate && substrateCatalogue.error && (
+          <OptionsLoadError onRetry={substrateCatalogue.reload} data-testid="bed-soil-substrates-load-error" />
+        )}
 
         <FormSelectField
           name="soil_texture"

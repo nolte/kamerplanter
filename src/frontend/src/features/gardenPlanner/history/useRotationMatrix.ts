@@ -6,7 +6,7 @@
  * a newer refresh) is dropped.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getRotationMatrix } from './historyApi';
 import type { RotationMatrix } from './historyTypes';
 import { type FamilyMark, familyMarks, hasMoreBeds, mergeMatrixPage } from './rotationMatrix';
@@ -57,7 +57,7 @@ export function useRotationMatrix(siteKey: string) {
         if (generation.current === mine) ready(matrix);
       })
       .catch((error: unknown) => {
-        if (generation.current === mine) setState({ status: 'error', message: parseApiError(error) });
+        if (generation.current === mine) setState({ status: 'error', message: errorKey(error) });
       });
   }, [siteKey, ready]);
 

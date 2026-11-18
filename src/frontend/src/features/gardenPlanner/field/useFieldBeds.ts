@@ -10,7 +10,7 @@
  * the online read it was stored by, `offlineMiss` says the cache had nothing for this site.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { listBeds } from '../bed/bedApi';
 import type { BedListItem } from '../bed/types';
 import { bedListEntry, isOfflineCacheMiss, readThrough, type CacheScope } from '../offline/planCache';
@@ -56,7 +56,7 @@ export function useFieldBeds(siteKey: string, scope: CacheScope | null): FieldBe
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        const message = parseApiError(error);
+        const message = errorKey(error);
         const offlineMiss = isOfflineCacheMiss(error);
         setLoaded((previous) =>
           previous && previous.siteKey === siteKey && previous.state.status === 'ready'

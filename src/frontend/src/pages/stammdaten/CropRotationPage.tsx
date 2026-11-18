@@ -38,6 +38,7 @@ import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import type { BotanicalFamily, RotationCountsMap, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 type NutrientDemandFilter = '' | 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 
@@ -124,7 +125,10 @@ export default function CropRotationPage() {
       rotationApi
         .getRotationCounts()
         .then((c) => { if (!cancelled) setRotationCounts(c); })
-        .catch(() => {}),
+        .catch((err: unknown) => {
+          // Badge enrichment only: the options show no successor count.
+          captureHandledError(err, { source: 'CropRotationPage.counts' });
+        }),
     ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
   }, []);

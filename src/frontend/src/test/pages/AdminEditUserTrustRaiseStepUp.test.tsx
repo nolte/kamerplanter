@@ -212,7 +212,7 @@ describe('AdminEditUserPage — trust-raise step-up (#1857)', () => {
     await userEvent.click(within(dialog).getByTestId('update-user-confirm'));
 
     expect(await within(dialog).findByTestId('update-user-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
     expect(screen.getByTestId('update-user-dialog')).toBeInTheDocument();
     expect(passwordInput(dialog)).toHaveValue('');

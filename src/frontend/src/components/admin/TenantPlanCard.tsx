@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -42,7 +42,7 @@ type DetailState =
  */
 export default function TenantPlanCard({ tenantKey, isPlatform, status, onAssigned }: TenantPlanCardProps) {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const { handleError } = useApiError();
   const canAssign = !isPlatform && status !== 'deleted';
   const catalogue = usePlanCatalogue(canAssign);
@@ -81,7 +81,7 @@ export default function TenantPlanCard({ tenantKey, isPlatform, status, onAssign
     try {
       const updated = await updateAdminTenant(tenantKey, { plan_key: selected });
       const planName = catalogue.plans.find((p) => p.key === selected)?.name ?? selected;
-      enqueueSnackbar(t('pages.plans.tenant.assigned', { name: planName }), { variant: 'success' });
+      notification.success(t('pages.plans.tenant.assigned', { name: planName }));
       onAssigned?.(updated);
       // Re-read the detail: the effective limits follow the new plan from its next check.
       setReloadToken((n) => n + 1);

@@ -31,7 +31,7 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { useApiError } from '@/hooks/useApiError';
 import { getThinningPlan, thinSlot } from './plantingApi';
 import type { ThinningPlan, ThinningResult } from './plantingTypes';
@@ -97,7 +97,7 @@ export default function ThinningDialog({ slotKey, slotLabel, speciesName, onClos
         setRowSpacing(plan.row_spacing_cm != null ? String(plan.row_spacing_cm) : '');
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

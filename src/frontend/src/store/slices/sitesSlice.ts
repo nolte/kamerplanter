@@ -8,6 +8,7 @@ import {
   siteListEntry,
   type ScopeState,
 } from '@/features/gardenPlanner/offline/planCache';
+import { errorKey } from '@/api/errors';
 
 interface SitesState {
   sites: Site[];
@@ -116,7 +117,7 @@ const sitesSlice = createSlice({
         // No stale "as of" banner next to a miss or an error (#2789 review C8).
         state.sitesCachedAt = null;
         state.sitesOfflineMiss = action.meta?.offlineMiss ?? false;
-        state.error = state.sitesOfflineMiss ? null : (action.error.message ?? 'errors.loadFailed');
+        state.error = state.sitesOfflineMiss ? null : (errorKey(action.error, 'errors.loadFailed'));
       })
       .addCase(fetchSite.pending, (state) => {
         state.loading = true;
@@ -131,7 +132,7 @@ const sitesSlice = createSlice({
         // must not clear the loading flag or flag an error for the current site.
         if (action.meta?.aborted) return;
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchLocations.fulfilled, (state, action) => {
         state.locations = action.payload;
@@ -146,7 +147,7 @@ const sitesSlice = createSlice({
       })
       .addCase(fetchLocation.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchSlots.fulfilled, (state, action) => {
         state.slots = action.payload;

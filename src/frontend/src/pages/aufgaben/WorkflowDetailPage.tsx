@@ -88,6 +88,7 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import * as favApi from '@/api/endpoints/favorites';
 import { getAlternativeCommonNames, getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { errorKey } from '@/api/errors';
 
 const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
@@ -238,7 +239,7 @@ export default function WorkflowDetailPage() {
       setCrumbSpecies(sp);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -631,7 +632,7 @@ export default function WorkflowDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!workflow) return <ErrorDisplay error={t('errors.notFound')} />;
 
   return (

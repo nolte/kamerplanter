@@ -133,7 +133,9 @@ describe('FeedingEventDetailPage', () => {
   it('shows the error state when the load fails', async () => {
     getFeedingEvent.mockRejectedValueOnce(new Error('load boom'));
     renderWithProviders(<FeedingEventDetailPage />);
-    expect(await screen.findByText(/load boom|Error/)).toBeInTheDocument();
+    // #3013: the translated load failure, never the exception's own text.
+    expect(await screen.findByText(i18n.t('errors.loadFailed'))).toBeInTheDocument();
+    expect(screen.queryByText(/load boom/)).toBeNull();
   });
 
   it('renders measurement values, supplemental chip, fertilizers table and notes', async () => {

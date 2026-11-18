@@ -138,7 +138,7 @@ describe('ipmSlice thunks', () => {
     mocked.listAllPests.mockRejectedValue(new Error('load failed'));
     const store = makeIpmStore();
     await store.dispatch(fetchPests());
-    expect(store.getState().ipm.error).toBe('load failed');
+    expect(store.getState().ipm.error).toBe('errors.loadFailed');
   });
 
   it('fetchPest stores the current pest', async () => {

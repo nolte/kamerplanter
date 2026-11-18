@@ -5,13 +5,15 @@
  * (superseded entries, `position_corrected`) are hidden until "Show corrections" is switched on.
  * "What stood here in {year}?" fills in a year the app never saw.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useApiError } from '@/hooks/useApiError';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedSummary } from '../bed/types';
@@ -25,7 +27,7 @@ import PlantingTimeline from './PlantingTimeline';
 import SuccessionRecommendationPanel from './SuccessionRecommendationPanel';
 import { cancelBackfill, getBedHistory, listBedPlantOptions } from './historyApi';
 import { activeFilterCount, emptyFilters, toQuery, isRangeInverted, type HistoryFilters } from './historyFilters';
-import type { BackfillResult, FilterOption } from './historyTypes';
+import type { BackfillResult } from './historyTypes';
 import { useHistoryPages } from './useHistoryPages';
 
 const historyItemId = (item: { id: string }) => item.id;
@@ -52,7 +54,6 @@ export default function BedHistoryTab({ bed, onChanged }: BedHistoryTabProps) {
   const { offerUndo } = useUndoSnackbar();
   const people = usePersonOptions();
   const [filters, setFilters] = useState<HistoryFilters>(DEFAULTS);
-  const [plants, setPlants] = useState<FilterOption[]>([]);
   const [backfillYearChoice, setBackfillYearChoice] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState<{ key: string; year: number } | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
@@ -63,17 +64,10 @@ export default function BedHistoryTab({ bed, onChanged }: BedHistoryTabProps) {
   const [historyVersion, setHistoryVersion] = useState(0);
   const succession = useSuccessionRecommendation(bed.key, historyVersion);
 
-  useEffect(() => {
-    let cancelled = false;
-    listBedPlantOptions(bed.key)
-      .then((options) => {
-        if (!cancelled) setPlants(options);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [bed.key]);
+  // #3013 (B-01): a failed plant list shows an error with retry instead of an empty plant filter.
+  const loadPlantOptions = useCallback(() => listBedPlantOptions(bed.key), [bed.key]);
+  const plantOptions = useAsyncOptions(loadPlantOptions);
+  const plants = plantOptions.options;
 
   const inverted = isRangeInverted(filters);
   // The query is read at the instant the filters change, not on every render: "30 days" would otherwise
@@ -151,6 +145,12 @@ export default function BedHistoryTab({ bed, onChanged }: BedHistoryTabProps) {
             </Link>
           </Box>
         </Box>
+        {plantOptions.error && (
+          <OptionsLoadError
+            onRetry={plantOptions.reload}
+            data-testid="history-plants-load-error"
+          />
+        )}
         <HistoryFilterBar
           filters={filters}
           defaults={DEFAULTS}

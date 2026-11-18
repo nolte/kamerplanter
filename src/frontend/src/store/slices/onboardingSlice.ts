@@ -6,6 +6,7 @@ import * as starterKitsApi from '@/api/endpoints/starterKits';
 import * as speciesApi from '@/api/endpoints/species';
 import * as sitesApi from '@/api/endpoints/sites';
 import * as favoritesApi from '@/api/endpoints/favorites';
+import { errorKey } from '@/api/errors';
 
 interface OnboardingSliceState {
   state: OnboardingState | null;
@@ -197,7 +198,7 @@ const onboardingSlice = createSlice({
       })
       .addCase(fetchOnboardingState.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.onboardingStateLoadFailed';
+        state.error = errorKey(action.error, 'errors.onboardingStateLoadFailed');
       })
       // Fetch kits
       .addCase(fetchStarterKits.pending, (state) => {
@@ -210,7 +211,7 @@ const onboardingSlice = createSlice({
       })
       .addCase(fetchStarterKits.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.starterKitsLoadFailed';
+        state.error = errorKey(action.error, 'errors.starterKitsLoadFailed');
       })
       // Complete
       .addCase(completeOnboarding.fulfilled, (state) => {

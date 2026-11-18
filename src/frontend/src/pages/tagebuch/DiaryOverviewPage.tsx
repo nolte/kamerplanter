@@ -17,7 +17,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { useNotification } from '@/hooks/useNotification';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import { attachmentUri } from '@/api/endpoints/attachments';
 import {
   listDiaryOverview,
@@ -150,7 +150,7 @@ export default function DiaryOverviewPage() {
     } catch (err) {
       setRows([]);
       setTotal(0);
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }

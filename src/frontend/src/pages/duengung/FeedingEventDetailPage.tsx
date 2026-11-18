@@ -51,6 +51,7 @@ import {
   materialLabel,
   showsLiquidFields,
 } from './feedingEventDose';
+import { errorKey } from '@/api/errors';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 
@@ -162,7 +163,7 @@ export default function FeedingEventDetailPage() {
         notes: e.notes,
       });
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -211,7 +212,7 @@ export default function FeedingEventDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error || !event) return <ErrorDisplay error={error ?? 'Not found'} />;
+  if (error || !event) return <ErrorDisplay error={error ?? 'errors.notFound'} onRetry={() => void load()} />;
 
   const topDress = isTopDress(event);
   const liquid = showsLiquidFields(event);

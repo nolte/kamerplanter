@@ -32,6 +32,7 @@ import { useSurvivalStats } from '@/hooks/useSurvivalStats';
 import { kamiPlants } from '@/assets/brand/illustrations';
 import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export default function PlantInstanceListPage() {
   const { t, i18n } = useTranslation();
@@ -77,7 +78,10 @@ export default function PlantInstanceListPage() {
         for (const l of locs) lm.set(l.key, l);
       }
       setLocationMap(lm);
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      // Display enrichment only: site and location columns show keys; the plants come from the store.
+      captureHandledError(err, { source: 'PlantInstanceListPage.locationNames' });
+    });
   }, [dispatch]);
 
   // Load plant→run mapping
@@ -93,7 +97,10 @@ export default function PlantInstanceListPage() {
         }
       }
       setPlantRunMap(map);
-    }).catch(() => {});
+    }).catch((err: unknown) => {
+      // Display enrichment only: the run column stays empty; the plants themselves come from the store.
+      captureHandledError(err, { source: 'PlantInstanceListPage.runMap' });
+    });
   }, []);
 
   // Load cultivars for species that have instances with cultivar_key

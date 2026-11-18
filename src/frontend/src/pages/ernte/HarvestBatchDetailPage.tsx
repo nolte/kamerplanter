@@ -42,6 +42,7 @@ import type {
   QualityAssessment,
   YieldMetric,
 } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const harvestTypes = ['partial', 'final', 'continuous'] as const;
 const qualityGrades = ['a_plus', 'a', 'b', 'c', 'd'] as const;
@@ -192,7 +193,7 @@ export default function HarvestBatchDetailPage() {
       }
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -275,7 +276,7 @@ export default function HarvestBatchDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!batch) return <ErrorDisplay error={t('errors.notFound')} />;
 
   return (

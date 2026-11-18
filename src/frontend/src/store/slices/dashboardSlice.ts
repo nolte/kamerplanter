@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { DashboardWidgetCatalogEntry } from '@/api/types';
 import * as api from '@/api/endpoints/dashboard';
+import { errorKey } from '@/api/errors';
 
 /**
  * REQ-045 — dashboard personalization read-state: the server-authoritative
@@ -71,7 +72,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchWidgetCatalog.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.dashboardCatalogLoadFailed';
+        state.error = errorKey(action.error, 'errors.dashboardCatalogLoadFailed');
       })
       .addCase(fetchAggregated.pending, (state) => {
         state.aggregatedLoading = true;

@@ -7,6 +7,7 @@ import { initErrorTracking } from '@/observability/errorTracking';
 import './styles/print.css';
 import { registerServiceWorker } from '@/lib/serviceWorkerRegistration';
 import { purgeExpiredPlanCache } from '@/features/gardenPlanner/offline/planCache';
+import { captureHandledError } from '@/observability/errorTracking';
 
 function mount() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -46,7 +47,10 @@ function mount() {
   // decides whether the buffer exists at all, so the purge waits for `runtime-config.js` — the page's `load`
   // when the script has not run yet. The sync host purges again after sign-in.
   const purgeWriteQueue = () =>
-    void import('@/features/gardenPlanner/offline/queue').then((queue) => queue.purgeExpiredEntries()).catch(() => undefined);
+    void import('@/features/gardenPlanner/offline/queue').then((queue) => queue.purgeExpiredEntries()).catch((err: unknown) => {
+      // Housekeeping only: expired offline entries are purged on the next start.
+      captureHandledError(err, { source: 'main.purgeExpiredEntries' });
+    });
   if (window.__RUNTIME_CONFIG__ !== undefined || document.readyState === 'complete') purgeWriteQueue();
   else window.addEventListener('load', purgeWriteQueue, { once: true });
 }

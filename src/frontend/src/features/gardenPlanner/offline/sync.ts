@@ -38,6 +38,7 @@ import {
 } from './queue';
 import { photoFile } from './queuedPhoto';
 import type { ConflictCode, QueueEntry } from './queueTypes';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** The entries a run of this tab is sending right now: a stale-claim reset never takes them back. */
 const claimedHere = new Set<number>();
@@ -301,7 +302,10 @@ let tail: Promise<unknown> = Promise.resolve();
 /** Run `task` after every run this tab already started has finished. */
 export function runExclusive<T>(task: () => Promise<T>): Promise<T> {
   const next = tail.then(task, task);
-  tail = next.catch(() => undefined);
+  tail = next.catch((err: unknown) => {
+    // Serialisation only: each queued run reports its own outcome; the chain must survive a failed one.
+    captureHandledError(err, { source: 'offlineSync.tail' });
+  });
   return next;
 }
 

@@ -181,14 +181,14 @@ describe('identificationSlice — identify thunk + error mapping', () => {
     expect(state.identifying).toBe(false);
   });
 
-  it('falls back to the API message for an unmapped error code', async () => {
+  it('maps an unmapped error code to a translated key, not the API message (#3013)', async () => {
     mockedApi.identifyPlant.mockRejectedValue(apiError('SOMETHING_ELSE', 'specific msg'));
     const store = makeStore();
     await store.dispatch(
       identifyPlant({ image: new File([], 'p.jpg'), organ: 'auto' }),
     );
     const state = store.getState().identification;
-    expect(state.error).toBe('specific msg');
+    expect(state.error).toBe('errors.server');
     expect(state.errorCode).toBe('SOMETHING_ELSE');
   });
 
@@ -203,14 +203,14 @@ describe('identificationSlice — identify thunk + error mapping', () => {
     expect(state.errorCode).toBe('WEIRD');
   });
 
-  it('maps a plain Error to its message with a null code', async () => {
+  it('maps a plain Error to a translated key with a null code (#3013)', async () => {
     mockedApi.identifyPlant.mockRejectedValue(new Error('canvas exploded'));
     const store = makeStore();
     await store.dispatch(
       identifyPlant({ image: new File([], 'p.jpg'), organ: 'auto' }),
     );
     const state = store.getState().identification;
-    expect(state.error).toBe('canvas exploded');
+    expect(state.error).toBe('errors.unknown');
     expect(state.errorCode).toBeNull();
   });
 
@@ -242,25 +242,25 @@ describe('identificationSlice — identify thunk + error mapping', () => {
     expect(state.result).toBeNull();
   });
 
-  it('falls back to action.error.message when no rejectWithValue payload is present', () => {
+  it('falls back to a key derived from action.error when no rejectWithValue payload is present (#3013)', () => {
     // Simulate a rejected action that bypassed rejectWithValue (thrown thunk).
     const state = reducer(undefined, {
       type: identifyPlant.rejected.type,
       payload: undefined,
       error: { message: 'thrown thunk failure' },
     });
-    expect(state.error).toBe('thrown thunk failure');
+    expect(state.error).toBe('errors.generic');
     expect(state.errorCode).toBeNull();
     expect(state.identifying).toBe(false);
   });
 
-  it('falls back to the literal message when neither payload nor error message exist', () => {
+  it('falls back to the generic key when neither payload nor error code exist (#3013)', () => {
     const state = reducer(undefined, {
       type: identifyPlant.rejected.type,
       payload: undefined,
       error: {},
     });
-    expect(state.error).toBe('Identification failed');
+    expect(state.error).toBe('errors.generic');
   });
 });
 
@@ -293,23 +293,23 @@ describe('identificationSlice — select thunk', () => {
     expect(state.selecting).toBe(true);
   });
 
-  it('falls back to action.error.message on a thrown select rejection', () => {
+  it('falls back to a key derived from action.error on a thrown select rejection (#3013)', () => {
     const state = reducer(undefined, {
       type: selectIdentificationResult.rejected.type,
       payload: undefined,
       error: { message: 'select threw' },
     });
-    expect(state.error).toBe('select threw');
+    expect(state.error).toBe('errors.generic');
     expect(state.selecting).toBe(false);
   });
 
-  it('falls back to the literal message on a payload-less select rejection', () => {
+  it('falls back to the generic key on a payload-less select rejection (#3013)', () => {
     const state = reducer(undefined, {
       type: selectIdentificationResult.rejected.type,
       payload: undefined,
       error: {},
     });
-    expect(state.error).toBe('Selection failed');
+    expect(state.error).toBe('errors.generic');
   });
 });
 

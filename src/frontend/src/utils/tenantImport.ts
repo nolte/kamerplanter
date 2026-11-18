@@ -1,4 +1,5 @@
 import axios from 'axios';
+import i18n from 'i18next';
 import { isApiError, parseApiError } from '@/api/errors';
 import type { TenantImportStatus } from '@/api/types';
 import { formatNumber } from '@/utils/formatting';
@@ -204,6 +205,6 @@ export function describeImportRefusal(error: unknown): ImportRefusal {
     rawCode: 'UNKNOWN',
     entries: [],
     limitMb: null,
-    message: parseApiError(error),
+    message: parseApiError(error, (key: string) => i18n.t(key)),
   };
 }

@@ -10,8 +10,9 @@
  * northern hemisphere and says so. `gridStepM` is the plan's snap grid (`plan.default_grid_m`, else the site type's
  * default): slots placed or dragged in the planting dialog and in "Correct position" snap to it (GP-FR-154).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSite } from '@/api/endpoints/sites';
+import { captureHandledError } from '@/observability/errorTracking';
 import type { Site, SiteType } from '@/api/types';
 import { isIndoorPlanSite } from '../model/siteKind';
 import { siteThresholds, type SiteThresholds } from '../model/siteThresholds';
@@ -29,10 +30,19 @@ export interface SiteFacts {
   latitude: number | null;
   /** The plan's snap grid in metres; the garden default (10 cm) while the site is read or cannot be read. */
   gridStepM: number;
+  /**
+   * The site could not be read (#3013, B-01): every fact above then shows the garden default, so an indoor
+   * site renders weather, frost and a 10 cm grid. A caller that shows those facts says so and offers `reloadSite`.
+   */
+  siteLoadFailed: boolean;
+  reloadSite: () => void;
 }
 
 export function useSiteFacts(siteKey: string | null | undefined): SiteFacts {
   const [loaded, setLoaded] = useState<{ key: string; site: SiteFields } | null>(null);
+  const [failedKey, setFailedKey] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const reloadSite = useCallback(() => setAttempt((value) => value + 1), []);
   useEffect(() => {
     if (!siteKey) return undefined;
     let cancelled = false;
@@ -50,13 +60,18 @@ export function useSiteFacts(siteKey: string | null | undefined): SiteFacts {
               gridM: site.plan?.default_grid_m ?? null,
             },
           });
+          setFailedKey(null);
         }
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        captureHandledError(error, { source: 'useSiteFacts' });
+        if (!cancelled) setFailedKey(siteKey);
+      });
     return () => {
       cancelled = true;
     };
-  }, [siteKey]);
+  }, [siteKey, attempt]);
+  const siteLoadFailed = !!siteKey && failedKey === siteKey;
   // A site loaded for another key (the user moved on) does not count.
   const site = loaded !== null && loaded.key === siteKey ? loaded.site : null;
   return useMemo(
@@ -65,7 +80,9 @@ export function useSiteFacts(siteKey: string | null | undefined): SiteFacts {
       siteType: site?.type ?? null,
       latitude: site?.gps_coordinates?.[0] ?? null,
       gridStepM: siteGridStep(site?.gridM, isIndoorPlanSite(site?.type)),
+      siteLoadFailed,
+      reloadSite,
     }),
-    [site],
+    [site, siteLoadFailed, reloadSite],
   );
 }

@@ -45,6 +45,7 @@ import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
 const REFERENCE_CONSENT_PURPOSE = 'reference_contribution';
@@ -262,7 +263,10 @@ export default function PlantInstanceCreateDialog({
           setValue('site_key', loc.site_key);
           setValue('location_key', loc.key);
           setValue('slot_key', slot.key);
-        }).catch(() => {});
+        }).catch((err: unknown) => {
+          // Duplicate pre-fill only: the user picks site, location and slot by hand instead.
+          captureHandledError(err, { source: 'PlantInstanceCreateDialog.duplicateSlot' });
+        });
       }
     }
   }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom, i18n]);

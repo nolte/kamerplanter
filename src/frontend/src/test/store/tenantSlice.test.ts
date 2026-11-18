@@ -179,7 +179,7 @@ describe('tenantSlice thunks', () => {
     mocked.listMyTenants.mockRejectedValue(new Error('load failed'));
     const store = configureStore({ reducer: { tenants: reducer } });
     await store.dispatch(loadMyTenants());
-    expect(store.getState().tenants.error).toBe('load failed');
+    expect(store.getState().tenants.error).toBe('errors.tenantsLoadFailed');
   });
 
   it('createOrganization creates and then reloads the tenant list', async () => {

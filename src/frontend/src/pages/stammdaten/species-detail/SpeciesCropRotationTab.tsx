@@ -26,6 +26,7 @@ import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface SpeciesCropRotationTabProps {
   familyKey: string | null | undefined;
@@ -66,7 +67,10 @@ export default function SpeciesCropRotationTab({
       familiesApi
         .getBotanicalFamily(familyKey)
         .then(setCurrentFamily)
-        .catch(() => {});
+        .catch((err: unknown) => {
+          // Heading enrichment only: the tab shows the family key instead of its name.
+          captureHandledError(err, { source: 'SpeciesCropRotationTab.family' });
+        });
       rotationApi
         .getSuccessors(familyKey)
         .then(setRotationSuccessors)

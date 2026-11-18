@@ -5,7 +5,7 @@
  * failing the tab.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getBedQueue, listActivePlants } from './careApi';
 import type { BedPlantRef, CareTask } from './careTypes';
 
@@ -31,7 +31,7 @@ export function useBedCare(bedKey: string): BedCare {
         if (!cancelled) setState({ status: 'ready', tasks, plants, loadedAt: Date.now() });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

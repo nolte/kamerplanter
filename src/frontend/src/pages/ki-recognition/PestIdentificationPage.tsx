@@ -214,7 +214,7 @@ export default function PestIdentificationPage() {
 
             {error && (
               <Alert severity="error" sx={{ mt: 2 }} data-testid="pest-error" role="alert">
-                {error}
+                {t(error)}
               </Alert>
             )}
 

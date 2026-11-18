@@ -74,13 +74,13 @@ describe('createListSlice', () => {
     expect(state.loading).toBe(false);
   });
 
-  it('fetchList.rejected preserves an ApiError message', () => {
+  it('fetchList.rejected stores an i18n key, never the ApiError message (#3013)', () => {
     const { reducer, fetchList } = makeSlice();
     const state = reducer(undefined, {
       type: fetchList.rejected.type,
       error: { message: 'Widget not found' },
     });
-    expect(state.error).toBe('Widget not found');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('uses a custom errorKey as the fallback', () => {

@@ -1147,7 +1147,11 @@
       "pendingInvitation": "Du hast eine Einladung geöffnet. Melde dich mit der eingeladenen E-Mail-Adresse an – oder registriere dich mit ihr –, danach wird die Einladung angenommen.",
       "returnAfterLogin": "Melde dich an – danach geht es direkt zur aufgerufenen Seite weiter.",
       "platformChip": "Plattform",
-      "adminUserKey": "Schlüssel"
+      "adminUserKey": "Schlüssel",
+      "sessionsLoadFailed": "Die Sitzungen konnten nicht geladen werden. Solange die Liste fehlt, kannst du fremde Anmeldungen weder sehen noch abmelden.",
+      "adminTenantMembersLoadFailed": "Die Mitglieder dieser Organisation konnten nicht geladen werden.",
+      "adminUserMembershipsLoadFailed": "Die Mitgliedschaften dieses Kontos konnten nicht geladen werden.",
+      "stepUpRejected": "Die Bestätigung ist fehlgeschlagen. Prüfe dein Passwort oder den Code und versuche es erneut."
     },
     "tenants": {
       "selectTenant": "Garten wählen",
@@ -1248,7 +1252,10 @@
         "download": "Herunterladen",
         "downloadExpired": "Dieses Archiv ist abgelaufen und nicht mehr verfügbar. Fordere bei Bedarf einen neuen Export an.",
         "downloadFailed": "Das Archiv konnte nicht heruntergeladen werden: {{reason}}"
-      }
+      },
+      "membersLoadFailed": "Die Mitglieder konnten nicht geladen werden. Solange die Liste fehlt, siehst du nicht, wer Zugriff auf diesen Garten hat.",
+      "invitationsLoadFailed": "Die Einladungen konnten nicht geladen werden. Offene Einladungslinks lassen sich erst nach dem Laden widerrufen.",
+      "invitationNotForThisAccount": "Diese Einladung lässt sich mit deinem Konto nicht annehmen: Die Einladung gilt für eine andere E-Mail-Adresse, oder deine Adresse ist noch nicht bestätigt."
     },
     "dashboard": {
       "title": "Dashboard",
@@ -2026,7 +2033,8 @@
       "plantsAndRuns": "Pflanzen & Durchläufe",
       "noPlantsOrRuns": "Keine Pflanzen oder Durchläufe an diesem Standort",
       "plantCount": "Pflanzen",
-      "standalonePlants": "Einzelpflanzen (ohne Durchlauf)"
+      "standalonePlants": "Einzelpflanzen (ohne Durchlauf)",
+      "sectionLoadFailed": "Dieser Bereich konnte nicht geladen werden. Was hier fehlt, ist nicht unbedingt leer."
     },
     "locationTypes": {
       "title": "Standort-Typen",
@@ -2437,7 +2445,9 @@
       "deletePhaseMessage": "Soll dieser Phaseneintrag wirklich gelöscht werden? Die vorherige Phase wird wieder als aktuelle Phase gesetzt.",
       "phaseDeleted": "Phaseneintrag gelöscht",
       "managedBySequence": "Die Phasen dieser Art werden über einen Phasenablauf verwaltet.",
-      "viewPhaseSequence": "Phasenablauf anzeigen"
+      "viewPhaseSequence": "Phasenablauf anzeigen",
+      "targetPhasesLoadFailed": "Die möglichen Zielphasen konnten nicht geladen werden. Ohne sie ist kein Phasenwechsel möglich.",
+      "noTargetPhases": "Für diese Pflanze sind keine Phasen hinterlegt. Lege zuerst eine Phasenfolge für die Art an."
     },
     "lifecycle": {
       "title": "Lebenszyklus-Konfiguration",
@@ -8080,7 +8090,8 @@
         },
         "page": {
           "title": "Pflegehistorie",
-          "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst."
+          "description": "Was in allen Beeten dieses Gartens gemacht wurde, die neuesten zuerst. Es werden die letzten 90 Tage gezeigt, solange du keinen anderen Zeitraum wählst.",
+          "bedsLoadFailed": "Die Beete für den Filter konnten nicht geladen werden."
         },
         "succession": {
           "title": "Folgekultur-Empfehlung",
@@ -8519,7 +8530,8 @@
           "dataError_one": "{{count}} Kurztagpflanze steht in der Blüte, ihr Phasenprofil nennt aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer Autoflower-Sorte (tagneutral) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählt die Pflanze nicht mit.",
           "dataError_other": "{{count}} Kurztagpflanzen stehen in der Blüte, ihre Phasenprofile nennen aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer Autoflower-Sorte (tagneutral) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählen die Pflanzen nicht mit."
         }
-      }
+      },
+      "siteLoadFailed": "Die Standortdaten konnten nicht geladen werden. Bis dahin gelten die Vorgaben für einen Garten – bei einem Innenraum stimmen Wetter-, Frosthinweise und Raster dann nicht."
     },
     "rotationMatrix": {
       "title": "Fruchtfolge-Matrix",

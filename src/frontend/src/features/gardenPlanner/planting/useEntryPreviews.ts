@@ -4,7 +4,7 @@
  * wherever the two differ. A refusal (`layout.too_many_positions` ...) is a result, not an exception.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { computeLayout, LayoutError, type EntryLayout, type LayoutResult } from '../model/layout';
 import type { Geometry, Point } from '../model/types';
 import { previewLayout } from './plantingApi';
@@ -166,7 +166,7 @@ export function useEntryPreviews(
                 preview: {
                   ...localRef.current[item.id],
                   pending: false,
-                  error: { code: null, message: parseApiError(error) },
+                  error: { code: null, message: errorKey(error) },
                 },
               },
             }));

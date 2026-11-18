@@ -89,6 +89,7 @@ export default function LocationCreateDialog({ siteKey, parentLocationKey, paren
   useEffect(() => {
     if (open) {
       api.listLocationTypes().then(setLocationTypes).catch((err) => {
+        // Open #3013 follow-up: the type picker then reads as empty; logged so the failure stays visible.
         console.error('Failed to load location types', err);
       });
     }

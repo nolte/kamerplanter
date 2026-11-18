@@ -46,7 +46,7 @@ import axios from 'axios';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import PageTitle from '@/components/layout/PageTitle';
 import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
@@ -112,6 +112,7 @@ import PlantPhotoGallery from './photos/PlantPhotoGallery';
 import PlantCoverPreview from './photos/PlantCoverPreview';
 import PlantDiaryTab from './diary/PlantDiaryTab';
 import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -196,7 +197,10 @@ export default function PlantInstanceDetailPage() {
       import('@/api/endpoints/phaseSequences').then((api) =>
         api.getSpeciesPhaseSequence(lc.species_key).then((seq) => {
           if (seq) setPhaseSequenceKey(seq.key);
-        }).catch(() => {}),
+        }).catch((err: unknown) => {
+          // Fallback lookup only: without it the phase-sequence link is not shown.
+          captureHandledError(err, { source: 'PlantInstanceDetailPage.phaseSequence' });
+        }),
       );
     }
   }, []);
@@ -472,7 +476,7 @@ export default function PlantInstanceDetailPage() {
       }
     } catch (err) {
       if (isCancelled()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!isCancelled()) setLoading(false);
     }
@@ -1138,7 +1142,7 @@ export default function PlantInstanceDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="plant-instance-detail-page">

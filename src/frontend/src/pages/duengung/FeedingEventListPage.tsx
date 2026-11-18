@@ -18,6 +18,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import FeedingEventCreateDialog from './FeedingEventCreateDialog';
 import { formatFeedingAmount } from './feedingEventDose';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export default function FeedingEventListPage() {
   const { t, i18n } = useTranslation();
@@ -54,7 +55,10 @@ export default function FeedingEventListPage() {
       setPlantMap(map);
     }
 
-    resolve().catch(() => {});
+    resolve().catch((err: unknown) => {
+      // Display enrichment only: rows show the plant key instead of its name.
+      captureHandledError(err, { source: 'FeedingEventListPage.plantNames' });
+    });
     return () => { cancelled = true; };
   }, [plantKeys]);
 

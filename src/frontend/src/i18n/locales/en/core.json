@@ -498,7 +498,13 @@
     },
     "slotOccupied": "A plant stands on this planting spot already. Choose another spot or remove that plant first.",
     "slotAlreadyPlanned": "This planting spot is reserved for a planned planting. Choose another spot.",
-    "generic": "Something went wrong. Please try again."
+    "generic": "Something went wrong. Please try again.",
+    "unauthorized": "Your sign-in is no longer valid. Please sign in again.",
+    "rateLimited": "Too many requests in a short time. Wait a moment, then try again.",
+    "invalidCredentials": "The email address or password is incorrect.",
+    "ACCOUNT_LOCKED": "Your account is temporarily locked after too many failed attempts. Try again later.",
+    "EMAIL_NOT_VERIFIED": "Your email address is not verified yet. Check your inbox for the verification link.",
+    "INVALID_STATUS_TRANSITION": "This step is no longer possible in the current state – something probably changed in the meantime. Reload the page."
   },
   "validation": {
     "required": "This field is required.",

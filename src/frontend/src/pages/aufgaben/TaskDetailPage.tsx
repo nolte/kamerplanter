@@ -68,6 +68,7 @@ import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDispla
 import AuthImage from '@/components/common/AuthImage';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
+import { errorKey } from '@/api/errors';
 
 /**
  * Legacy care tasks stored instruction as "care:<type>:<id>" keys.
@@ -386,7 +387,7 @@ export default function TaskDetailPage() {
       setError(null);
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -615,7 +616,7 @@ export default function TaskDetailPage() {
   const canReopen = task?.status === 'completed' || task?.status === 'skipped';
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!task) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const rawInstruction = (i18n.language === 'de' && task.instruction_de) ? task.instruction_de : task.instruction;

@@ -5,7 +5,7 @@
  * not be checked", not as "all clear".
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getCompatibleSpecies, getIncompatibleSpecies } from '@/api/endpoints/companionPlanting';
 import { validatePlanting } from './plantingApi';
 import type { ValidatePlantingResponse } from './plantingTypes';
@@ -41,7 +41,7 @@ export function useBedHints(
         .catch((error: unknown) =>
           setStates((current) => ({
             ...current,
-            [key]: { status: 'error', message: parseApiError(error) },
+            [key]: { status: 'error', message: errorKey(error) },
           })),
         );
     }

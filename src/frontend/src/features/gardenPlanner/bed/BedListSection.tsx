@@ -24,7 +24,7 @@ import Typography from '@mui/material/Typography';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import MobileCard from '@/components/common/MobileCard';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { useTableLocalState } from '@/hooks/useTableState';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import type { BedStatus } from '../model/types';
@@ -80,7 +80,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed, indo
         if (!cancelled) setState({ status: 'ready', beds });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: parseApiError(error) });
+        if (!cancelled) setState({ status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

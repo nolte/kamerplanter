@@ -4,7 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { TaskItem } from '@/api/types';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { listOpenObjectTasks } from './careApi';
 
 export type ObjectTasksState =
@@ -40,7 +40,7 @@ export function useObjectTasks(objectKey: string, enabled: boolean): ObjectTasks
         if (!cancelled) setAnswer({ request, status: 'ready', tasks, loadedAt: Date.now() });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setAnswer({ request, status: 'error', message: parseApiError(error) });
+        if (!cancelled) setAnswer({ request, status: 'error', message: errorKey(error) });
       });
     return () => {
       cancelled = true;

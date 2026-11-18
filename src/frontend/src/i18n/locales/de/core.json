@@ -498,7 +498,13 @@
     },
     "slotOccupied": "Auf diesem Pflanzplatz steht schon eine Pflanze. Wähle einen anderen Platz oder entferne die Pflanze zuerst.",
     "slotAlreadyPlanned": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen Platz.",
-    "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "unauthorized": "Deine Anmeldung ist nicht mehr gültig. Bitte melde dich erneut an.",
+    "rateLimited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+    "invalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",
+    "ACCOUNT_LOCKED": "Dein Konto ist nach zu vielen Fehlversuchen vorübergehend gesperrt. Versuche es später erneut.",
+    "EMAIL_NOT_VERIFIED": "Deine E-Mail-Adresse ist noch nicht bestätigt. Prüfe dein Postfach auf den Bestätigungslink.",
+    "INVALID_STATUS_TRANSITION": "Dieser Schritt ist im aktuellen Zustand nicht mehr möglich – vermutlich hat sich inzwischen etwas geändert. Lade die Seite neu."
   },
   "validation": {
     "required": "Pflichtfeld.",

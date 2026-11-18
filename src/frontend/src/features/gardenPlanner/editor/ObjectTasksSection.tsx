@@ -84,7 +84,7 @@ export default function ObjectTasksSection({ objectKey, objectType, objectName }
           </Button>
         }
       >
-        {t(`${PREFIX}.error`, { message: state.message })}
+        {t(`${PREFIX}.error`, { message: t(state.message) })}
       </Alert>
     );
   } else if (state.tasks.length === 0) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -89,7 +89,7 @@ interface TenantExportCardProps {
  */
 export default function TenantExportCard({ slug, tenantKey, tenantName }: TenantExportCardProps) {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   // #1815 — back from the fresh sign-in at the identity provider: reopen the dialog once.
   const resumed = useStepUpResume(TENANT_EXPORT_STEP_UP_SURFACE);
   const [dialogOpen, setDialogOpen] = useState(resumed);
@@ -142,7 +142,7 @@ export default function TenantExportCard({ slug, tenantKey, tenantName }: Tenant
       throw error;
     }
     setDialogOpen(false);
-    enqueueSnackbar(t('pages.tenants.export.requested'), { variant: 'success' });
+    notification.success(t('pages.tenants.export.requested'));
     void load();
   };
 
@@ -166,7 +166,7 @@ export default function TenantExportCard({ slug, tenantKey, tenantName }: Tenant
       } else {
         setNotice({
           severity: 'error',
-          message: t('pages.tenants.export.downloadFailed', { reason: parseApiError(error) }),
+          message: t('pages.tenants.export.downloadFailed', { reason: parseApiError(error, t) }),
         });
       }
     } finally {

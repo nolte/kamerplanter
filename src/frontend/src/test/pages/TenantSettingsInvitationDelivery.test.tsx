@@ -301,7 +301,9 @@ describe('TenantSettingsPage — a link for several people (#2182, REQ-024 AK-07
 
     await userEvent.click(screen.getByTestId('create-link-btn'));
 
-    expect(await screen.findByText('max_uses: Input should be less than or equal to 10')).toBeInTheDocument();
+    // #3013: translated from the code; the backend's English sentence never shows.
+    expect(await screen.findByText(i18n.t('errors.validation'))).toBeInTheDocument();
+    expect(screen.queryByText('max_uses: Input should be less than or equal to 10')).toBeNull();
     expect(screen.queryByTestId('invitation-link-created')).toBeNull();
     expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
     expect(maxUsesInput()).toHaveValue(20);

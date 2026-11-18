@@ -23,7 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import {
   getPreferences,
   updatePreferences,
@@ -99,7 +99,7 @@ function getChannelPref(
 
 export default function NotificationSettingsTab() {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const pwaPush = usePwaPush();
   const accountUser = useAppSelector((st) => st.auth.user);
 
@@ -182,9 +182,9 @@ export default function NotificationSettingsTab() {
         setChannels((prev) => ({ ...prev, apprise: savedApprise }));
       }
       setAppriseDraft(null);
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -195,17 +195,12 @@ export default function NotificationSettingsTab() {
     try {
       const result = await sendTest(channelKey);
       if (result.success) {
-        enqueueSnackbar(t('pages.notifications.settings.testSuccess'), {
-          variant: 'success',
-        });
+        notification.success(t('pages.notifications.settings.testSuccess'));
       } else {
-        enqueueSnackbar(
-          `${t('pages.notifications.settings.testFailed')}: ${result.error ?? ''}`,
-          { variant: 'error' },
-        );
+        notification.error(`${t('pages.notifications.settings.testFailed')}: ${result.error ?? ''}`);
       }
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setTestingChannel(null);
     }
@@ -215,23 +210,19 @@ export default function NotificationSettingsTab() {
     try {
       const nextState = await pwaPush.enable();
       if (nextState === 'active') {
-        enqueueSnackbar(t('pages.notifications.settings.pwaEnabled'), {
-          variant: 'success',
-        });
+        notification.success(t('pages.notifications.settings.pwaEnabled'));
       }
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
   const handlePwaDisable = async () => {
     try {
       await pwaPush.disable();
-      enqueueSnackbar(t('pages.notifications.settings.pwaDisabled'), {
-        variant: 'info',
-      });
+      notification.info(t('pages.notifications.settings.pwaDisabled'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 

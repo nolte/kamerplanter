@@ -177,7 +177,7 @@ describe('AdminEditTenantPage — adding a member needs the step-up (#2106)', ()
     await userEvent.type(passwordInput(dialog), 'wrong');
     await userEvent.click(within(dialog).getByTestId('add-member-confirm'));
 
-    expect(await within(dialog).findByTestId('add-member-error')).toHaveTextContent('Password confirmation failed.');
+    expect(await within(dialog).findByTestId('add-member-error')).toHaveTextContent(i18n.t('pages.auth.stepUpRejected'));
     expect(screen.getByTestId('add-member-dialog')).toBeInTheDocument();
   });
 

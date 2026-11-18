@@ -43,6 +43,7 @@ import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as api from '@/api/endpoints/substrates';
 import Chip from '@mui/material/Chip';
 import type { Substrate, Batch, ReusabilityResponse } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const schema = z.object({
   type: z.enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution']),
@@ -153,7 +154,7 @@ export default function SubstrateDetailPage() {
       // shared reader does it now, gated on the same condition (#1560).
     } catch (err) {
       if (stale()) return;
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!stale()) setLoading(false);
     }
@@ -245,7 +246,7 @@ export default function SubstrateDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   const PANEL_GAP = 4;
 

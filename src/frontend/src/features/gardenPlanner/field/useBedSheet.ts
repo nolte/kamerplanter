@@ -12,7 +12,7 @@
  * fields of a task (assignee, completion notes, photos, ratings) and the plants' photo refs are stripped.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import { getBedQueue } from '../care/careApi';
 import type { CareTask } from '../care/careTypes';
 import { bedSheetEntry, isOfflineCacheMiss, readThrough, type CacheScope } from '../offline/planCache';
@@ -78,7 +78,7 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
           setLoaded({
             bedKey,
             attempt,
-            state: { status: 'error', message: parseApiError(error), offlineMiss: isOfflineCacheMiss(error) },
+            state: { status: 'error', message: errorKey(error), offlineMiss: isOfflineCacheMiss(error) },
           });
         }
       });
