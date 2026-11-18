@@ -28,6 +28,7 @@ inventory:
     - deployment-chart-manage
     - dockerfile-audit
     - error-tracking-audit
+    - frontend-audit
     - guard-coverage-check
     - kpi-derive
     - license-check
