@@ -264,8 +264,7 @@ class DiseaseListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        btn = self.wait_for_element(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field.

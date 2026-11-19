@@ -299,7 +299,7 @@ class PlantingRunDetailPage(BasePage):
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form by clicking Cancel."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_edit_form_name_value(self) -> str:
         """Return the current value in the edit form Name field."""

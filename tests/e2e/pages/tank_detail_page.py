@@ -262,7 +262,7 @@ class TankDetailPage(BasePage):
 
     def cancel_state_form(self) -> None:
         """Cancel the TankState dialog."""
-        self.wait_and_click(self.STATE_FORM_CANCEL)
+        self.cancel_form_dialog(self.STATE_FORM_CANCEL)
 
     def wait_for_states_table(self) -> None:
         """Wait for the states table to be back on screen; never raises.
@@ -373,7 +373,7 @@ class TankDetailPage(BasePage):
 
     def cancel_maintenance_form(self) -> None:
         """Cancel the maintenance dialog."""
-        self.wait_and_click(self.MAINT_FORM_CANCEL)
+        self.cancel_form_dialog(self.MAINT_FORM_CANCEL)
 
     def wait_for_maintenance_table(self) -> None:
         """Wait for the maintenance table to be back on screen; never raises.

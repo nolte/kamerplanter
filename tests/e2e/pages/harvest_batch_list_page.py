@@ -278,8 +278,7 @@ class HarvestBatchListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        btn = self.wait_for_element(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text.

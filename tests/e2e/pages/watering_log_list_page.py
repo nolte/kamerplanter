@@ -452,8 +452,7 @@ class WateringLogListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        btn = self.wait_for_element_clickable(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open a `FormSelectField` and pick the option carrying *value_text*.

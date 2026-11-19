@@ -276,7 +276,7 @@ class FertilizerListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_product_name_field_value(self) -> str:
         """Return the current value of the product_name input."""

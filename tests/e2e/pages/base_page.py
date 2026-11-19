@@ -1630,6 +1630,45 @@ class BasePage:
         """
         self.scroll_and_click(self.wait_for_element_clickable(locator, timeout=timeout))
 
+    #: The confirm button of the "discard changes?" prompt `FormDialog` opens
+    #: over a dirty create/edit dialog (#3019, UI-NFR-008 R-006). The prompt is
+    #: the shared `ConfirmDialog`, so its testids are the fixed E2E contract.
+    DISCARD_CONFIRM = (By.CSS_SELECTOR, "[data-testid='confirm-dialog-confirm']")
+
+    def cancel_form_dialog(self, cancel: Locator, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Cancel a form dialog, discarding its input, and wait until it is gone.
+
+        Since #3019 a dirty `FormDialog` does not close on Cancel: it asks
+        "discard changes?" first and stays open until that is confirmed. A
+        cancel helper that only clicks Cancel therefore leaves the dialog -- and
+        its backdrop, which intercepts the next click -- on screen whenever the
+        test typed something. This clicks Cancel, then waits for whichever of
+        the two outcomes the form produces: the discard prompt (confirmed here)
+        or the dialog closing straight away (a clean form). Either way it
+        returns only once *cancel* is no longer visible, so the caller reads
+        the page behind the dialog, not its fade-out.
+        """
+        self.wait_and_click(cancel, timeout=timeout)
+
+        def _outcome(driver: WebDriver) -> str | bool:
+            if any(e.is_displayed() for e in driver.find_elements(*self.DISCARD_CONFIRM)):
+                return "discard-prompt"
+            if not any(e.is_displayed() for e in driver.find_elements(*cancel)):
+                return "closed"
+            return False
+
+        try:
+            outcome = self.poll(timeout).until(_outcome)
+            if outcome == "discard-prompt":
+                self.wait_and_click(self.DISCARD_CONFIRM, timeout=timeout)
+                self.wait_for_element_hidden(self.DISCARD_CONFIRM, timeout=timeout)
+            self.wait_for_element_hidden(cancel, timeout=timeout)
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"cancel_form_dialog({cancel[1]!r}): Cancel was clicked but the dialog "
+                f"neither closed nor asked to discard its changes within {timeout}s."
+            ) from exc
+
     # ── Robust form-select / table helpers (prefer dedicated testids) ──────
     # These replace brittle `.MuiSelect-select` clicks, i18n-fragile
     # `contains(text(), label)` option XPaths, and position-based `cells[N]`

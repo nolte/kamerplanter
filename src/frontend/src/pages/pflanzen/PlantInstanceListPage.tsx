@@ -8,6 +8,7 @@ import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Skeleton from '@mui/material/Skeleton';
+import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -19,7 +20,7 @@ import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
+import { fetchAllPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
 import { listCultivars } from '@/api/endpoints/species';
@@ -38,7 +39,9 @@ export default function PlantInstanceListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { items, loading } = useAppSelector((s) => s.plantInstances);
+  // `loading` covers only the wait for the first page; later pages append while
+  // `loadingMore` is set, so a large tenant renders at once (#3032).
+  const { items, loading, loadingMore = false, loadedGeneration = 0 } = useAppSelector((s) => s.plantInstances);
   const [createOpen, setCreateOpen] = useState(false);
   const [duplicateData, setDuplicateData] = useState<PlantInstanceDuplicateData | undefined>();
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
@@ -60,12 +63,14 @@ export default function PlantInstanceListPage() {
   const [slotMap, setSlotMap] = useState<Map<string, Slot>>(new Map());
   const [plantRunMap, setPlantRunMap] = useState<Map<string, { runKey: string; runName: string }>>(new Map());
   const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
-  // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever the
-  // instance list changes (create/remove) so the panel stays in sync.
-  const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(items.length);
+  // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever a
+  // complete load of the instance list landed (mount, create) so the panel stays
+  // in sync — keyed on the load, not on `items.length`, which now grows page by
+  // page and would refetch the stats once per page.
+  const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(loadedGeneration);
 
   useEffect(() => {
-    dispatch(fetchPlantInstances({ all: true }));
+    dispatch(fetchAllPlantInstances());
     // Load sites + all locations
     listSites(0, 200).then((sites) => {
       const sm = new Map<string, Site>();
@@ -103,9 +108,12 @@ export default function PlantInstanceListPage() {
     });
   }, []);
 
-  // Load cultivars for species that have instances with cultivar_key
+  // Load cultivars for species that have instances with cultivar_key. Both
+  // enrichments wait for the complete list: while pages still arrive, `items`
+  // changes once per page, and re-resolving every slot on each of them would
+  // multiply the requests by the page count (#3032).
   useEffect(() => {
-    if (items.length === 0 || speciesMap.size === 0) return;
+    if (loadingMore || items.length === 0 || speciesMap.size === 0) return;
     const speciesKeysWithCultivars = new Set(
       items.filter((p) => p.cultivar_key).map((p) => p.species_key),
     );
@@ -120,11 +128,11 @@ export default function PlantInstanceListPage() {
       }
       setCultivarMap(map);
     });
-  }, [items, speciesMap]);
+  }, [items, speciesMap, loadingMore]);
 
   // Load slots for instances that have slot_key
   useEffect(() => {
-    if (items.length === 0) return;
+    if (loadingMore || items.length === 0) return;
     const slotKeys = new Set(items.map((p) => p.slot_key).filter(Boolean) as string[]);
     if (slotKeys.size === 0) return;
     Promise.all([...slotKeys].map((sk) => getSlot(sk).catch(() => null))).then((results) => {
@@ -134,7 +142,7 @@ export default function PlantInstanceListPage() {
       }
       setSlotMap(map);
     });
-  }, [items]);
+  }, [items, loadingMore]);
 
   const filteredItems = useMemo(
     () => (hideRemoved ? items.filter((p) => !p.removed_on) : items),
@@ -463,6 +471,15 @@ export default function PlantInstanceListPage() {
         <SurvivalStatsPanel stats={survivalStats} />
       )}
 
+      {loadingMore && (
+        <Box role="status" sx={{ mb: 1 }} data-testid="plant-list-loading-more">
+          <LinearProgress sx={{ height: 2, mb: 0.5 }} aria-hidden="true" />
+          <Typography variant="caption" color="text.secondary">
+            {t('pages.plantInstances.loadingMore', { count: items.length })}
+          </Typography>
+        </Box>
+      )}
+
       {/* Lookup only: a failed load leaves plants without their species name (#1628). */}
       <CatalogueLoadError reader={speciesCatalogue} impact="lookup" />
       <DataTable
@@ -481,7 +498,7 @@ export default function PlantInstanceListPage() {
       <PlantInstanceCreateDialog
         open={createOpen}
         onClose={() => { setCreateOpen(false); setDuplicateData(undefined); }}
-        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({ all: true })); }}
+        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchAllPlantInstances()); }}
         duplicateFrom={duplicateData}
       />
       <PlantLabelDialog
