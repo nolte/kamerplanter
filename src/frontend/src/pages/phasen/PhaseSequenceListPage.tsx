@@ -385,7 +385,7 @@ export default function PhaseSequenceListPage() {
         rows={sequences}
         loading={loading}
         getRowKey={(seq) => seq.key}
-        onRowClick={(seq) => navigate(`/phasen/ablaeufe/${seq.key}`)}
+        getRowHref={(seq) => `/phasen/ablaeufe/${seq.key}`}
         tableState={tableState}
         ariaLabel={t('pages.phaseSequences.sequencesTitle')}
         emptyMessage={t('pages.phaseSequences.noSequences')}

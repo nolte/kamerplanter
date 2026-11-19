@@ -6,6 +6,42 @@ import { kioskThemeOverrides } from '@/kiosk/kioskTheme';
 
 const reducedMotion = '@media (prefers-reduced-motion: reduce)';
 
+/**
+ * UI-NFR-001 R-011 — interactive elements reach 48×48 px where they are operated by touch. Scoped to a
+ * coarse pointer: R-013 lets a mouse-driven desktop keep smaller targets, and the dense desktop tables and
+ * the plan Gantt rely on that. On a fine pointer the WCAG 2.2 AA floor (2.5.8, 24×24 px) still holds —
+ * the smallest MUI IconButton (`size="small"`) is 28 px. Kiosk mode raises this again to 64 px (R-007).
+ */
+export const TOUCH_TARGET_MIN = 48;
+const coarsePointer = '@media (pointer: coarse)';
+
+/**
+ * UI-NFR-002 R-005 / WCAG 2.4.7, 2.4.13 (#3017, W-08/L-07) — one visible focus ring for every MUI control
+ * that takes keyboard focus. MUI's own focus cue on ButtonBase (ListItemButton, MenuItem, IconButton, Tab,
+ * CardActionArea …) is a ~12 % tint, about 1.3:1 against the item. The ring is 2 px in `primary.main`:
+ * light #2e7d32 on #f5f5f5/#fff = 4.7–5.1:1, dark #66bb6a on #121212/#1e1e1e = 7.6–8.6:1, high contrast
+ * #000 on #fff = 21:1 — every mode clears the 3:1 the NFR asks for.
+ *
+ * Inline controls get the ring outside (offset 2 px), list-like rows inside (offset -2 px) so a scroll
+ * container's `overflow: hidden` cannot clip it.
+ */
+function focusRingStyles(theme: Theme) {
+  const ring = {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+  };
+  return {
+    '.MuiButtonBase-root.Mui-focusVisible': ring,
+    [[
+      '.MuiListItemButton-root.Mui-focusVisible',
+      '.MuiMenuItem-root.Mui-focusVisible',
+      '.MuiTab-root.Mui-focusVisible',
+      '.MuiCardActionArea-root.Mui-focusVisible',
+      '.MuiAccordionSummary-root.Mui-focusVisible',
+    ].join(', ')]: { outlineOffset: -2 },
+  };
+}
+
 function buildTheme(mode: 'light' | 'dark'): Theme {
   const palette = mode === 'light' ? lightPalette : darkPalette;
 
@@ -18,13 +54,26 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
     },
     components: {
       MuiCssBaseline: {
-        styleOverrides: {
+        // A function so the ring follows the palette of whichever theme is built on top of this one
+        // (the high-contrast theme reuses these component settings).
+        styleOverrides: (theme) => ({
+          ...focusRingStyles(theme),
           [reducedMotion]: {
             '*, *::before, *::after': {
               animationDuration: '0.01ms !important',
               animationIterationCount: '1 !important',
               transitionDuration: '0.01ms !important',
               scrollBehavior: 'auto !important',
+            },
+          },
+        }),
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            [coarsePointer]: {
+              minWidth: TOUCH_TARGET_MIN,
+              minHeight: TOUCH_TARGET_MIN,
             },
           },
         },

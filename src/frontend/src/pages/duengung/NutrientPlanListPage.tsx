@@ -202,7 +202,7 @@ export default function NutrientPlanListPage() {
         columns={columns}
         rows={filteredPlans}
         loading={loading}
-        onRowClick={(r) => navigate(`/duengung/plans/${r.key}`)}
+        getRowHref={(r) => `/duengung/plans/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.nutrientPlans.create')}
         onEmptyAction={() => setCreateOpen(true)}

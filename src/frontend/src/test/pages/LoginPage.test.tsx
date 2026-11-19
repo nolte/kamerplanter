@@ -77,6 +77,40 @@ describe('LoginPage', () => {
     });
   });
 
+  // #3017 (W-06): the login page rendered outside MainLayout with no landmark, no h1, and an error that
+  // no field pointed at.
+  it('renders a main landmark and an h1', async () => {
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+    const main = await screen.findByRole('main');
+    expect(within(main).getByRole('heading', { level: 1, name: i18n.t('pages.auth.login') })).toBeTruthy();
+  });
+
+  it('binds a refused sign-in to both fields: invalid and described by the message', async () => {
+    server.use(
+      http.post('/api/v1/auth/login', () =>
+        HttpResponse.json(
+          { error_id: 'e', error_code: 'INVALID_CREDENTIALS', message: 'bad creds', details: [], timestamp: '', path: '', method: '' },
+          { status: 401 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<LoginPage />, { store: idleAuthStore() });
+
+    const email = await screen.findByLabelText(/E-Mail/);
+    const password = screen.getByLabelText(/Passwort/);
+    expect(email).not.toHaveAttribute('aria-invalid', 'true');
+    await user.type(email, 'demo@kamerplanter.local');
+    await user.type(password, 'wrong');
+    await user.click(screen.getByRole('button', { name: 'Anmelden' }));
+
+    const message = await screen.findByTestId('login-error');
+    for (const field of [email, password]) {
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(field).toHaveAccessibleDescription(message.textContent ?? '');
+    }
+  });
+
   it('updates the remember-me checkbox on toggle', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginPage />, { store: idleAuthStore() });

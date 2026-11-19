@@ -176,11 +176,9 @@ describe('PhaseSequenceListPage', () => {
 
   it('navigates to the sequence detail on row click', async () => {
     useSequences([makeSequence()]);
-    const user = userEvent.setup();
     renderAsAdmin(<PhaseSequenceListPage />);
 
-    await user.click(await screen.findByText('Tomaten-Zyklus'));
-    expect(mockNavigate).toHaveBeenCalledWith('/phasen/ablaeufe/seq-1');
+    expect((await screen.findByText('Tomaten-Zyklus')).closest('a')).toHaveAttribute('href', '/phasen/ablaeufe/seq-1');
   });
 
   it('creates a new sequence through the create dialog', async () => {

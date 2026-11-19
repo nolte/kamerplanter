@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -25,7 +24,6 @@ import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
 export default function SubstrateListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.substrates);
   const [createOpen, setCreateOpen] = useState(false);
   const [mixOpen, setMixOpen] = useState(false);
@@ -125,7 +123,7 @@ export default function SubstrateListPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/standorte/substrates/${r.key}`)}
+        getRowHref={(r) => `/standorte/substrates/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.substrates.create')}
         onEmptyAction={() => setCreateOpen(true)}

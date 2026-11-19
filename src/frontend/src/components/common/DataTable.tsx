@@ -23,6 +23,7 @@ import LoadingSkeleton from './LoadingSkeleton';
 import EmptyState from './EmptyState';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { TableState } from '@/hooks/useTableState';
+import { LinkedCard, LinkedTableRow, RowCellLink } from './DataTableRowLink';
 
 export interface Column<T> {
   id: string;
@@ -54,6 +55,12 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
   onRowClick?: (row: T) => void;
+  /**
+   * The detail URL a row leads to (#3017). Prefer it over `onRowClick` for navigation: the row then
+   * carries a real link (named by its first visible cell) that keyboard and screen-reader users can
+   * reach, and Ctrl/Cmd/Shift/middle click open it in a new tab. Wins over `onRowClick` when both are set.
+   */
+  getRowHref?: (row: T) => string;
   emptyMessage?: string;
   /** Optional secondary sentence shown below `emptyMessage` (e.g. how to create the first entry). */
   emptyDescription?: string;
@@ -124,6 +131,19 @@ function activateRowOnKey(e: KeyboardEvent<HTMLElement>, activate: () => void): 
   }
 }
 
+const NESTED_FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
+
+/**
+ * A clickable card without a URL (it opens a dialog or panel) is announced as a button (#3017, W-01).
+ * A button's children are presentational, so a card that holds its own link or control (diary entry,
+ * garden bed) would turn into an invalid nested-interactive button; such a card becomes a named `group`
+ * instead — still a role, and its inner controls stay reachable.
+ */
+function assignActionCardRole(el: HTMLElement | null): void {
+  if (!el) return;
+  el.setAttribute('role', el.querySelector(NESTED_FOCUSABLE) ? 'group' : 'button');
+}
+
 export default function DataTable<T>({
   columns,
   rows,
@@ -134,6 +154,7 @@ export default function DataTable<T>({
   onPageChange,
   onRowsPerPageChange,
   onRowClick,
+  getRowHref,
   emptyMessage,
   emptyDescription,
   emptyActionLabel,
@@ -316,6 +337,8 @@ export default function DataTable<T>({
   };
 
   const displayRows = tableState ? processedData.rows : rows;
+  // The cell that carries a row's link: the first one visible at every width and not an action column.
+  const linkColumnId = columns.find((c) => !c.hideBelowBreakpoint && c.id !== 'actions')?.id;
   const totalCount = tableState ? processedData.totalFiltered : (total ?? rows.length);
 
   // Column labels for sort chip
@@ -397,7 +420,12 @@ export default function DataTable<T>({
           sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}
           data-testid="data-table-cards"
         >
-          {displayRows.map((row) => (
+          {displayRows.map((row) =>
+            getRowHref ? (
+              <LinkedCard key={getRowKey(row)} href={getRowHref(row)} rowKey={getRowKey(row)}>
+                {mobileCardRenderer(row)}
+              </LinkedCard>
+            ) : (
             <Box
               key={getRowKey(row)}
               onClick={() => onRowClick?.(row)}
@@ -405,6 +433,7 @@ export default function DataTable<T>({
                 onRowClick ? (e) => activateRowOnKey(e, () => onRowClick(row)) : undefined
               }
               tabIndex={onRowClick ? 0 : undefined}
+              ref={onRowClick ? assignActionCardRole : undefined}
               sx={{
                 ...(onRowClick && {
                   cursor: 'pointer',
@@ -420,7 +449,8 @@ export default function DataTable<T>({
             >
               {mobileCardRenderer(row)}
             </Box>
-          ))}
+            ),
+          )}
         </Box>
       ) : (
         /* Desktop table view */
@@ -486,7 +516,34 @@ export default function DataTable<T>({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {displayRows.map((row) => (
+                {displayRows.map((row) => {
+                  const cells = columns.map((col) => {
+                    const responsiveSx = col.hideBelowBreakpoint
+                      ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
+                      : undefined;
+                    return (
+                      <TableCell
+                        key={col.id}
+                        align={col.align}
+                        sx={responsiveSx}
+                        data-testid={`cell-${col.id}`}
+                      >
+                        {getRowHref && col.id === linkColumnId ? (
+                          <RowCellLink href={getRowHref(row)}>{col.render(row)}</RowCellLink>
+                        ) : (
+                          col.render(row)
+                        )}
+                      </TableCell>
+                    );
+                  });
+                  if (getRowHref) {
+                    return (
+                      <LinkedTableRow key={getRowKey(row)} href={getRowHref(row)} rowKey={getRowKey(row)}>
+                        {cells}
+                      </LinkedTableRow>
+                    );
+                  }
+                  return (
                   <TableRow
                     key={getRowKey(row)}
                     hover
@@ -508,23 +565,10 @@ export default function DataTable<T>({
                     data-testid="data-table-row"
                     data-row-key={getRowKey(row)}
                   >
-                    {columns.map((col) => {
-                      const responsiveSx = col.hideBelowBreakpoint
-                        ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
-                        : undefined;
-                      return (
-                        <TableCell
-                          key={col.id}
-                          align={col.align}
-                          sx={responsiveSx}
-                          data-testid={`cell-${col.id}`}
-                        >
-                          {col.render(row)}
-                        </TableCell>
-                      );
-                    })}
+                    {cells}
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

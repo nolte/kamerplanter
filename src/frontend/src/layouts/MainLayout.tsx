@@ -24,6 +24,7 @@ import ModuleGuard from '@/components/common/ModuleGuard';
 import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
+import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
 import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
@@ -247,6 +248,8 @@ export default function MainLayout() {
       </AppBar>
 
       <Sidebar open={sidebarOpen} />
+      {/* #3017 (W-02) — focus to the new page's h1 and a polite announcement on every route change. */}
+      <RouteAnnouncer mainId="main-content" />
 
       <Box
         component="main"

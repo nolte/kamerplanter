@@ -151,7 +151,7 @@ export default function IdentificationConsentGate({
           variant="text"
           onClick={onDecline}
           data-testid="consent-decline"
-          aria-label={t('pages.plantIdentification.consentDeclineAria')}
+          // No aria-label: the visible "No, thanks" is the name (#3017, L-12; WCAG 2.5.3 label in name).
           sx={{ minHeight: 44 }}
         >
           {t('pages.plantIdentification.consentDecline')}

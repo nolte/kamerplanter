@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -77,7 +77,6 @@ function PlantLinkChips({ plants, testId }: PlantLinkChipsProps) {
 export default function WateringLogListPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { logs, loading } = useAppSelector((s) => s.wateringLogs);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({
@@ -235,7 +234,7 @@ export default function WateringLogListPage() {
         rows={logs}
         loading={loading}
         getRowKey={(r) => r.key}
-        onRowClick={(r) => navigate(`/giessprotokoll/${r.key}`)}
+        getRowHref={(r) => `/giessprotokoll/${r.key}`}
         emptyActionLabel={t('pages.wateringLogs.create')}
         onEmptyAction={() => setCreateOpen(true)}
         emptyIllustration={kamiTanks}

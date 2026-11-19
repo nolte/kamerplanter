@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -156,6 +157,23 @@ describe('WidgetFrame', () => {
       expect(navLink.tagName).toBe('A'); // CardActionArea renders as <a> with RouterLink.
       expect(navLink).toHaveAttribute('href', '/aufgaben/queue');
       expect(screen.getByTestId('widget-nav-affordance-care_reminders')).toBeInTheDocument();
+    });
+
+    it('names the panel link by its visible content, not by an aria-label replacing it (#3017, L-11)', () => {
+      const careInst: DashboardWidgetInstance = {
+        instance_id: 'inst-1',
+        widget_key: 'care_reminders',
+        config: {},
+      } as DashboardWidgetInstance;
+      renderWithProviders(<WidgetFrame {...makeProps({ instance: careInst, editMode: false })} />);
+      const navLink = screen.getByTestId('widget-nav-care_reminders');
+      expect(navLink).not.toHaveAttribute('aria-label');
+      // WCAG 2.5.3: the visible text is part of the name; the hidden phrase only adds the purpose.
+      const name = navLink.textContent ?? '';
+      expect(name).toContain('widget body');
+      expect(name).toContain(
+        i18n.t('dashboard.nav.openWidget', { widget: i18n.t('dashboard.widgets.care_reminders.label') }),
+      );
     });
 
     it('skips the panel-level link for entity-list widgets (#461, tasks_today)', () => {

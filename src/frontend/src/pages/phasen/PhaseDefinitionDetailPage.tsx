@@ -544,7 +544,7 @@ export default function PhaseDefinitionDetailPage() {
             columns={plantColumns}
             rows={plantsInPhase.items}
             getRowKey={(plant) => plant.key}
-            onRowClick={(plant) => navigate(`/pflanzen/plant-instances/${plant.key}`)}
+            getRowHref={(plant) => `/pflanzen/plant-instances/${plant.key}`}
             variant="simple"
             ariaLabel={t('pages.phaseSequences.plantsInPhase')}
             emptyMessage={t('pages.phaseSequences.noPlantsInPhase')}
@@ -605,7 +605,7 @@ export default function PhaseDefinitionDetailPage() {
                 columns={sequenceColumns}
                 rows={sequences}
                 getRowKey={(seq) => seq.key}
-                onRowClick={(seq) => navigate(`/phasen/ablaeufe/${seq.key}`)}
+                getRowHref={(seq) => `/phasen/ablaeufe/${seq.key}`}
                 variant="simple"
                 ariaLabel={t('pages.phaseSequences.usedInSequences')}
                 emptyMessage={t('pages.phaseSequences.noSequencesUsingDefinition')}
@@ -649,7 +649,7 @@ export default function PhaseDefinitionDetailPage() {
                 columns={speciesColumns}
                 rows={speciesInPhase}
                 getRowKey={(species) => species.key}
-                onRowClick={(species) => navigate(`/stammdaten/species/${species.key}`)}
+                getRowHref={(species) => `/stammdaten/species/${species.key}`}
                 variant="simple"
                 ariaLabel={t('pages.phaseSequences.speciesInPhase')}
                 emptyMessage={t('pages.phaseSequences.noSpeciesInPhase')}

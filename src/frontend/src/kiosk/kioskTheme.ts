@@ -38,6 +38,12 @@ export const kioskThemeOverrides: ThemeOptions = {
         root: {
           minWidth: KIOSK_TOUCH_TARGET,
           minHeight: KIOSK_TOUCH_TARGET,
+          // The base theme's coarse-pointer minimum (48 px, UI-NFR-001 R-011) sits in a media query, which
+          // would win over the plain 64 px above on exactly the touch tablets kiosk mode is for.
+          '@media (pointer: coarse)': {
+            minWidth: KIOSK_TOUCH_TARGET,
+            minHeight: KIOSK_TOUCH_TARGET,
+          },
         },
       },
     },

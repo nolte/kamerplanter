@@ -469,7 +469,7 @@ export default function PlantInstanceListPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+        getRowHref={(r) => `/pflanzen/plant-instances/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantInstances.create')}
         onEmptyAction={() => setCreateOpen(true)}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -23,7 +23,6 @@ import { captureHandledError } from '@/observability/errorTracking';
 export default function FeedingEventListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { events, loading } = useAppSelector((s) => s.feedingEvents);
   const [createOpen, setCreateOpen] = useState(false);
   const [plantMap, setPlantMap] = useState<Map<string, PlantInstance>>(new Map());
@@ -150,7 +149,7 @@ export default function FeedingEventListPage() {
         columns={columns}
         rows={events}
         loading={loading}
-        onRowClick={(r) => navigate(`/duengung/feeding-events/${r.key}`)}
+        getRowHref={(r) => `/duengung/feeding-events/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.feedingEvents.create')}
         onEmptyAction={() => setCreateOpen(true)}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -55,7 +54,6 @@ const FILTER_IDS = [FILTER_PEST_TYPE, FILTER_DIFFICULTY, FILTER_RECOGNITION] as 
 
 export default function PestListPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
   const detectionStatus = useAppSelector((s) => s.pestDetection.status);
@@ -252,7 +250,7 @@ export default function PestListPage() {
         rows={filteredPests}
         loading={loading}
         getRowKey={(r) => r.key}
-        onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
+        getRowHref={(r) => `/pflanzenschutz/pests/${r.key}`}
         // The description closes the understanding gap the hidden create control
         // (header and empty state alike) leaves behind for a non-admin (#1501).
         emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}

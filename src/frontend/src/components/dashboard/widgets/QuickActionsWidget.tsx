@@ -38,7 +38,7 @@ export default function QuickActionsWidget() {
   return (
     <Card sx={{ height: '100%' }} data-testid="widget-quick_actions">
       <CardContent>
-        <Typography variant="subtitle1" component="h3" sx={{ mb: 2 }}>
+        <Typography variant="subtitle1" component="h2" sx={{ mb: 2 }}>
           {t('dashboard.widgets.quick_actions.label')}
         </Typography>
         <Grid container spacing={2}>

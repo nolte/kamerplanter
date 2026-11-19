@@ -649,7 +649,7 @@ export default function LocationDetailPage() {
                 ]}
                 rows={assignedRuns}
                 getRowKey={(r) => r.key}
-                onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
+                getRowHref={(r) => `/durchlaeufe/planting-runs/${r.key}`}
                 tableState={runTableState}
                 ariaLabel={t('pages.locations.assignedRuns')}
                 mobileCardRenderer={(r) => (
@@ -691,7 +691,7 @@ export default function LocationDetailPage() {
                   ]}
                   rows={standaloneInstances}
                   getRowKey={(r) => r.key}
-                  onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+                  getRowHref={(r) => `/pflanzen/plant-instances/${r.key}`}
                   tableState={instanceTableState}
                   ariaLabel={t('pages.locations.standalonePlants')}
                   mobileCardRenderer={(r) => {
@@ -748,7 +748,7 @@ export default function LocationDetailPage() {
             ]}
             rows={childLocations}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/standorte/locations/${r.key}`)}
+            getRowHref={(r) => `/standorte/locations/${r.key}`}
             tableState={childTableState}
             ariaLabel={t('pages.locations.sublocations')}
             mobileCardRenderer={(r) => (
@@ -784,7 +784,7 @@ export default function LocationDetailPage() {
             columns={slotColumns}
             rows={slots}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)}
+            getRowHref={(r) => `/standorte/slots/${r.key}`}
             tableState={slotTableState}
             ariaLabel={t('pages.slots.title')}
             mobileCardRenderer={(r) => (

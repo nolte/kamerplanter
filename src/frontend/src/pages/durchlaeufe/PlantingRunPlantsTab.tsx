@@ -7,7 +7,6 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import EmptyState from '@/components/common/EmptyState';
-import { useNavigate } from 'react-router-dom';
 import type { PlantInRun, PlantingRunStatus } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
 
@@ -27,7 +26,6 @@ export default function PlantingRunPlantsTab({
   onAdoptPlants,
 }: PlantingRunPlantsTabProps) {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
 
   return (
     <Box role="tabpanel" aria-labelledby="tab-plants">
@@ -65,7 +63,7 @@ export default function PlantingRunPlantsTab({
           columns={plantColumns}
           rows={plants}
           getRowKey={(r) => r.key}
-          onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+          getRowHref={(r) => `/pflanzen/plant-instances/${r.key}`}
           variant="simple"
           ariaLabel={t('pages.plantingRuns.tabPlants')}
           mobileCardRenderer={(r) => {

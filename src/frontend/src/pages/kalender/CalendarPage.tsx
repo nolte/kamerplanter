@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -215,6 +215,11 @@ export default function CalendarPage() {
   const [dayPopoverDate, setDayPopoverDate] = useState<{ year: number; month: number; day: number } | null>(
     null,
   );
+
+  // Month grid keyboard model (#3017, L-10): one tab stop, the arrow keys move between days.
+  const monthGridRef = useRef<HTMLDivElement>(null);
+  // Remembered per month, so paging to another month starts on its own default day.
+  const [focusedDay, setFocusedDay] = useState<{ month: string; day: number } | null>(null);
 
   // Fetch events when month changes
   useEffect(() => {
@@ -601,6 +606,45 @@ export default function CalendarPage() {
   const isToday = (day: number) =>
     today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === day;
 
+  // The roving tab stop: the last focused day, else today in the current month, else the 1st.
+  const monthId = `${currentYear}-${currentMonth}`;
+  const activeDay =
+    focusedDay !== null && focusedDay.month === monthId
+      ? focusedDay.day
+      : today.getFullYear() === currentYear && today.getMonth() === currentMonth
+        ? today.getDate()
+        : 1;
+
+  const focusDay = (day: number) => {
+    const target = Math.min(Math.max(day, 1), daysInMonth);
+    setFocusedDay({ month: monthId, day: target });
+    monthGridRef.current?.querySelector<HTMLElement>(`[data-day="${target}"]`)?.focus();
+  };
+
+  // WAI-ARIA grid keys: arrows move a day / a week, Home/End jump to the week's edges,
+  // Enter/Space open the day. Keys pressed on an entry inside the cell belong to that entry.
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLElement>, day: number) => {
+    if (e.target !== e.currentTarget) return;
+    const column = (firstDayOfWeek + day - 1) % 7;
+    const moves: Record<string, number> = {
+      ArrowLeft: day - 1,
+      ArrowRight: day + 1,
+      ArrowUp: day - 7,
+      ArrowDown: day + 7,
+      Home: day - column,
+      End: day + (6 - column),
+    };
+    if (e.key in moves) {
+      e.preventDefault();
+      focusDay(moves[e.key]);
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleDayClick(e as unknown as React.MouseEvent<HTMLElement>, currentYear, currentMonth, day);
+    }
+  };
+
   const renderMonthGrid = () => {
     const rows: React.ReactNode[] = [];
     let cells: React.ReactNode[] = [];
@@ -616,29 +660,20 @@ export default function CalendarPage() {
       cells.push(
         <Box
           key={i}
+          role="gridcell"
           onClick={isValidDay ? (e) => handleDayClick(e, currentYear, currentMonth, dayNum) : undefined}
-          role={isValidDay ? 'button' : undefined}
-          tabIndex={isValidDay && dayEvents.length > 0 ? 0 : undefined}
+          tabIndex={isValidDay ? (dayNum === activeDay ? 0 : -1) : undefined}
           aria-label={
             isValidDay
-              ? `${dayNum}. ${formatMonthYear}${dayEntries.length > 0 ? `, ${dayEntries.length} ${t('pages.calendar.title')}` : ''}`
+              ? `${dayNum}. ${formatMonthYear}${
+                  dayEntries.length > 0 ? `, ${t('pages.calendar.dayEntryCount', { count: dayEntries.length })}` : ''
+                }`
               : undefined
           }
-          onKeyDown={
-            isValidDay
-              ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleDayClick(
-                      e as unknown as React.MouseEvent<HTMLElement>,
-                      currentYear,
-                      currentMonth,
-                      dayNum,
-                    );
-                  }
-                }
-              : undefined
-          }
+          aria-current={isValidDay && isToday(dayNum) ? 'date' : undefined}
+          onFocus={isValidDay ? () => setFocusedDay({ month: monthId, day: dayNum }) : undefined}
+          onKeyDown={isValidDay ? (e) => handleGridKeyDown(e, dayNum) : undefined}
+          data-day={isValidDay ? dayNum : undefined}
           data-testid={isValidDay ? `calendar-day-${dayNum}` : undefined}
           sx={{
             flex: '1 0 calc(100% / 7)',
@@ -654,6 +689,7 @@ export default function CalendarPage() {
               : 'action.disabledBackground',
             overflow: 'hidden',
             '&:hover': isValidDay && dayEvents.length > 0 ? { bgcolor: 'action.hover' } : {},
+            '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
           }}
         >
           {isValidDay && (
@@ -678,9 +714,7 @@ export default function CalendarPage() {
                       <Box
                         key={`run-${entry.runKey}`}
                         component="span"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={entry.runName}
+                        data-testid={`calendar-run-entry-${entry.runKey}`}
                         sx={{
                           display: 'block',
                           borderLeft: `3px solid ${entryColor}`,
@@ -716,8 +750,9 @@ export default function CalendarPage() {
                         }
                       }}
                       role="button"
-                      tabIndex={0}
-                      aria-label={ev.title}
+                      // The grid is a single tab stop; keyboard users open an entry through its
+                      // day (Enter), whose popover lists every entry of that day.
+                      tabIndex={-1}
                       data-testid={`calendar-event-dot-${ev.id}`}
                       sx={{
                         display: 'block',
@@ -763,7 +798,7 @@ export default function CalendarPage() {
 
       if ((i + 1) % 7 === 0) {
         rows.push(
-          <Box key={`row-${i}`} sx={{ display: 'flex' }}>
+          <Box key={`row-${i}`} role="row" sx={{ display: 'flex' }}>
             {cells}
           </Box>,
         );
@@ -1057,7 +1092,13 @@ export default function CalendarPage() {
           {/* Main content */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {viewMode === 'month' ? (
-              <Paper sx={{ overflow: 'hidden' }} role="table" aria-label={t('pages.calendar.monthView')}>
+              <Paper
+                ref={monthGridRef}
+                sx={{ overflow: 'hidden' }}
+                role="grid"
+                aria-label={`${t('pages.calendar.monthView')} ${formatMonthYear}`}
+                data-testid="calendar-month-grid"
+              >
                 {/* Weekday headers */}
                 <Box sx={{ display: 'flex', bgcolor: 'action.hover' }} role="row">
                   {weekdayHeaders.map((wh) => (
@@ -1078,7 +1119,7 @@ export default function CalendarPage() {
                 </Box>
                 {/* Day cells */}
                 {filteredEvents.length === 0 && !loading ? (
-                  <Box sx={{ p: 4 }}>
+                  <Box sx={{ p: 4 }} role="rowgroup">
                     {renderMonthGrid()}
                   </Box>
                 ) : (

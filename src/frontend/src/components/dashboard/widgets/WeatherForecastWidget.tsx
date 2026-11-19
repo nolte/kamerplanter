@@ -46,7 +46,7 @@ export default function WeatherForecastWidget() {
       <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <Typography
           variant="subtitle1"
-          component="h3"
+          component="h2"
           sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}
         >
           <CloudIcon fontSize="small" color="primary" />

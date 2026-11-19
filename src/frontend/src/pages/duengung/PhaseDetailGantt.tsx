@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -12,7 +12,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import AddIcon from '@mui/icons-material/Add';
 import Button from '@mui/material/Button';
-import { alpha, useTheme, type Theme } from '@mui/material/styles';
+import { alpha, useTheme, type SxProps, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import type { NutrientPlanPhaseEntry, Fertilizer, ApplicationMethod } from '@/api/types';
 import { getPhaseColor } from '@/theme/domainColors';
@@ -542,7 +542,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       const isHatched = group.ecMap.has(w) && (ec == null || ec === 0);
                       const cellEditing = isEditing(w, group.groupKey, 'ec');
                       return (
-                        <Box
+                        <EditableGanttCell
                           key={w}
                           sx={{
                             py: 0.5,
@@ -552,16 +552,17 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            ...(editable && !cellEditing && { cursor: 'pointer' }),
                           }}
-                          onClick={() => {
-                            if (!cellEditing && group.ecMap.has(w)) {
-                              startEdit({ week: w, groupKey: group.groupKey, type: 'ec' });
-                            }
-                          }}
+                          canEdit={editable && group.ecMap.has(w)}
+                          editing={cellEditing}
+                          label={`${t('pages.gantt.ecTarget')}, ${t('pages.gantt.weekNumber', { week: w })}`}
+                          value={ec}
+                          onStart={() => startEdit({ week: w, groupKey: group.groupKey, type: 'ec' })}
+                          testId="gantt-cell-ec"
                         >
                           {cellEditing ? (
                             <InlineInput
+                              ariaLabel={`${t('pages.gantt.ecTarget')}, ${t('pages.gantt.weekNumber', { week: w })}`}
                               value={editValue}
                               onChange={setEditValue}
                               onCommit={commitEdit}
@@ -608,7 +609,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                               )}
                             </>
                           )}
-                        </Box>
+                        </EditableGanttCell>
                       );
                     })}
                   </>
@@ -641,7 +642,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       const isHatched = group.roMap.has(w) && roVal == null;
                       const cellEditing = isEditing(w, group.groupKey, 'ro');
                       return (
-                        <Box
+                        <EditableGanttCell
                           key={w}
                           sx={{
                             py: 0.5,
@@ -651,16 +652,17 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            ...(editable && !cellEditing && { cursor: 'pointer' }),
                           }}
-                          onClick={() => {
-                            if (!cellEditing && group.roMap.has(w)) {
-                              startEdit({ week: w, groupKey: group.groupKey, type: 'ro' });
-                            }
-                          }}
+                          canEdit={editable && group.roMap.has(w)}
+                          editing={cellEditing}
+                          label={`${t('pages.gantt.roTarget')}, ${t('pages.gantt.weekNumber', { week: w })}`}
+                          value={roVal?.percent}
+                          onStart={() => startEdit({ week: w, groupKey: group.groupKey, type: 'ro' })}
+                          testId="gantt-cell-ro"
                         >
                           {cellEditing ? (
                             <InlineInput
+                              ariaLabel={`${t('pages.gantt.roTarget')}, ${t('pages.gantt.weekNumber', { week: w })}`}
                               value={editValue}
                               onChange={setEditValue}
                               onCommit={commitEdit}
@@ -723,7 +725,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                               )}
                             </>
                           )}
-                        </Box>
+                        </EditableGanttCell>
                       );
                     })}
                   </>
@@ -754,7 +756,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                       const ph = group.phMap.get(w);
                       const cellEditing = isEditing(w, group.groupKey, 'ph');
                       return (
-                        <Box
+                        <EditableGanttCell
                           key={w}
                           sx={{
                             py: 0.5,
@@ -764,16 +766,17 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            ...(editable && !cellEditing && ph != null && { cursor: 'pointer' }),
                           }}
-                          onClick={() => {
-                            if (!cellEditing && ph != null) {
-                              startEdit({ week: w, groupKey: group.groupKey, type: 'ph' });
-                            }
-                          }}
+                          canEdit={editable && ph != null}
+                          editing={cellEditing}
+                          label={`pH, ${t('pages.gantt.weekNumber', { week: w })}`}
+                          value={ph}
+                          onStart={() => startEdit({ week: w, groupKey: group.groupKey, type: 'ph' })}
+                          testId="gantt-cell-ph"
                         >
                           {cellEditing ? (
                             <InlineInput
+                              ariaLabel={`pH, ${t('pages.gantt.weekNumber', { week: w })}`}
                               value={editValue}
                               onChange={setEditValue}
                               onCommit={commitEdit}
@@ -803,7 +806,7 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
                               </Box>
                             )
                           )}
-                        </Box>
+                        </EditableGanttCell>
                       );
                     })}
                   </>
@@ -845,21 +848,94 @@ export default function PhaseDetailGantt({ entries, fertilizers, title, currentW
   );
 }
 
+// ── Editable week cell ───────────────────────────────────────────────
+
+/**
+ * A week cell whose value is edited in place (#3017, A-07). When editable it is a named button in the
+ * tab order: Enter/Space open the inline input, Enter commits, Escape cancels — and focus comes back
+ * to the cell either way, so a keyboard user is never dropped onto the page body.
+ */
+function EditableGanttCell({
+  canEdit,
+  editing,
+  label,
+  value,
+  onStart,
+  testId,
+  sx,
+  children,
+}: {
+  testId: string;
+  canEdit: boolean;
+  editing: boolean;
+  label: string;
+  value: number | null | undefined;
+  onStart: () => void;
+  sx: SxProps<Theme>;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const cellRef = useRef<HTMLDivElement>(null);
+  const wasEditing = useRef(editing);
+
+  useEffect(() => {
+    if (wasEditing.current && !editing) {
+      // Commit/cancel by key unmounts the focused input and focus falls to <body>: put it back on the
+      // cell. A commit by clicking elsewhere already moved focus on, and that stays where the user put it.
+      const active = document.activeElement;
+      if (!active || active === document.body) cellRef.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
+
+  const interactive = canEdit && !editing;
+  return (
+    <Box
+      ref={cellRef}
+      data-testid={testId}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      aria-label={
+        interactive ? t('pages.gantt.editCell', { field: label, value: value ?? '–' }) : undefined
+      }
+      onClick={interactive ? onStart : undefined}
+      onKeyDown={
+        interactive
+          ? (e) => {
+              if (e.target !== e.currentTarget || e.repeat) return;
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onStart();
+              }
+            }
+          : undefined
+      }
+      sx={[
+        ...(Array.isArray(sx) ? sx : [sx]),
+        interactive && {
+          cursor: 'pointer',
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+        },
+      ]}
+    >
+      {children}
+    </Box>
+  );
+}
+
 // ── Inline input for cell editing ────────────────────────────────────
 
-function InlineInput({
-  value,
-  onChange,
-  onCommit,
-  onCancel,
-  color,
-}: {
+interface InlineInputProps {
   value: string;
   onChange: (v: string) => void;
   onCommit: () => void;
   onCancel: () => void;
   color: string;
-}) {
+  /** Field and week of the value being edited — the input's accessible name. */
+  ariaLabel?: string;
+}
+
+function InlineInput({ value, onChange, onCommit, onCancel, color, ariaLabel }: InlineInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -872,16 +948,19 @@ function InlineInput({
       ref={inputRef}
       type="number"
       step="any"
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={onCommit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
+          e.stopPropagation();
           onCommit();
         }
         if (e.key === 'Escape') {
           e.preventDefault();
+          e.stopPropagation();
           onCancel();
         }
       }}
@@ -947,6 +1026,7 @@ function FertilizerRow({
   onCancel: () => void;
   editable: boolean;
 }) {
+  const { t } = useTranslation();
   const cellEditing = (w: number) =>
     editing?.week === w && editing.groupKey === groupKey && editing.type === 'fert' && editing.fertKey === row.fertKey;
 
@@ -974,6 +1054,7 @@ function FertilizerRow({
               size="small"
               onClick={onMoveUp}
               disabled={index === 0}
+              aria-label={t('pages.gantt.moveFertilizerUp', { name: row.name })}
               sx={{ p: 0, opacity: index === 0 ? 0.2 : 0.6, '&:hover': { opacity: 1 } }}
             >
               <ArrowUpwardIcon sx={{ fontSize: 12 }} />
@@ -982,6 +1063,7 @@ function FertilizerRow({
               size="small"
               onClick={onMoveDown}
               disabled={index === totalRows - 1}
+              aria-label={t('pages.gantt.moveFertilizerDown', { name: row.name })}
               sx={{ p: 0, opacity: index === totalRows - 1 ? 0.2 : 0.6, '&:hover': { opacity: 1 } }}
             >
               <ArrowDownwardIcon sx={{ fontSize: 12 }} />
@@ -1003,6 +1085,7 @@ function FertilizerRow({
             size="small"
             color="error"
             onClick={onRemove}
+            aria-label={t('pages.gantt.removeFertilizer', { name: row.name })}
             sx={{ flexShrink: 0, p: 0.25, opacity: 0.5, '&:hover': { opacity: 1 } }}
           >
             <DeleteOutlineIcon sx={{ fontSize: 14 }} />
@@ -1013,7 +1096,7 @@ function FertilizerRow({
         const ml = row.weekMap.get(w);
         const isEdit = cellEditing(w);
         return (
-          <Box
+          <EditableGanttCell
             key={w}
             sx={{
               py: 0.5,
@@ -1028,16 +1111,17 @@ function FertilizerRow({
                 borderLeft: `2px solid ${alpha(theme.palette.error.main, 0.4)}`,
                 borderRight: `2px solid ${alpha(theme.palette.error.main, 0.4)}`,
               }),
-              ...(editable && !isEdit && ml != null && { cursor: 'pointer' }),
             }}
-            onClick={() => {
-              if (!isEdit && ml != null) {
-                onStartEdit({ week: w, groupKey, type: 'fert', fertKey: row.fertKey });
-              }
-            }}
+            canEdit={editable && ml != null}
+            editing={isEdit}
+            label={`${row.name}, ${t('pages.gantt.weekNumber', { week: w })}`}
+            value={ml}
+            onStart={() => onStartEdit({ week: w, groupKey, type: 'fert', fertKey: row.fertKey })}
+            testId="gantt-cell-fert"
           >
             {isEdit ? (
               <InlineInput
+                ariaLabel={`${row.name}, ${t('pages.gantt.weekNumber', { week: w })}`}
                 value={editValue}
                 onChange={onEditValueChange}
                 onCommit={onCommit}
@@ -1069,7 +1153,7 @@ function FertilizerRow({
                 </Tooltip>
               )
             )}
-          </Box>
+          </EditableGanttCell>
         );
       })}
     </>
