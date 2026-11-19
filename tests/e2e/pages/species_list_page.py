@@ -236,7 +236,7 @@ class SpeciesListPage(BasePage):
         self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_form(self) -> None:
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0

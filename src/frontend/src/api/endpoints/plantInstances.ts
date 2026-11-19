@@ -1,5 +1,5 @@
 import { tenantClient as client } from '../client';
-import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages, type OnPage } from '../paginate';
 import type {
   PlantInstance,
   PlantInstanceCreate,
@@ -31,8 +31,9 @@ export async function listPlantInstances(
  */
 export async function listAllPlantInstances(
   pageSize = CATALOGUE_PAGE_SIZE,
+  onPage?: OnPage<PlantInstance>,
 ): Promise<PlantInstance[]> {
-  return fetchAllPages(listPlantInstances, pageSize);
+  return fetchAllPages(listPlantInstances, pageSize, onPage);
 }
 
 export async function getPlantInstance(key: string): Promise<PlantInstance> {

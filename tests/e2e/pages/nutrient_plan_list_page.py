@@ -276,8 +276,7 @@ class NutrientPlanListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        btn = self.wait_for_element(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_name_field_value(self) -> str:
         """Return the current value of the name input field."""

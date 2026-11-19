@@ -425,11 +425,13 @@ class ExpertiseLevelPage(BasePage):
         self.wait_for_element_visible((By.CSS_SELECTOR, DIALOG_SELECTOR))
 
     def close_create_dialog(self) -> None:
-        """Close an open create dialog via the cancel button."""
-        cancel_btn = self.wait_for_element_clickable(
-            (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")
-        )
-        self.scroll_and_click(cancel_btn)
+        """Close an open create dialog via the cancel button.
+
+        Through :meth:`cancel_form_dialog`: a dialog that pre-fills defaults or
+        was touched by the test is dirty and asks "discard changes?" first
+        (#3019); that prompt is confirmed there.
+        """
+        self.cancel_form_dialog((By.CSS_SELECTOR, "[data-testid='form-cancel-button']"))
         # Wait for any dialog to close
         self.poll(DEFAULT_TIMEOUT).until(
             EC.invisibility_of_element_located((By.CSS_SELECTOR, DIALOG_SELECTOR))

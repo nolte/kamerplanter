@@ -2227,6 +2227,7 @@
     "plantInstances": {
       "title": "Plant Instances",
       "intro": "All registered plants with their current location, growth phase, and run assignment. Click any row to open the detail view.",
+      "loadingMore": "Loading more plants … ({{count}} so far)",
       "create": "Create Plant",
       "identificationPhoto": {
         "sectionTitle": "Identification Photo",

@@ -204,7 +204,7 @@ class WorkflowListPage(BasePage):
 
     def cancel_instantiate_dialog(self) -> None:
         """Cancel the instantiate dialog."""
-        self.wait_and_click(self.FORM_CANCEL_BUTTON)
+        self.cancel_form_dialog(self.FORM_CANCEL_BUTTON)
 
     # ── Confirm dialog ─────────────────────────────────────────────────
 

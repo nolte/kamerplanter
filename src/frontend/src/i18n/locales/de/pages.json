@@ -2227,6 +2227,7 @@
     "plantInstances": {
       "title": "Pflanzeninstanzen",
       "intro": "Hier siehst du alle angelegten Pflanzen mit aktuellem Standort, Wachstumsphase und Durchlauf-Zuordnung. Klicke auf eine Zeile, um die Detailansicht zu öffnen.",
+      "loadingMore": "Weitere Pflanzen werden geladen … ({{count}} bisher)",
       "create": "Pflanze erstellen",
       "identificationPhoto": {
         "sectionTitle": "Erkennungsfoto",

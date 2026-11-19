@@ -278,7 +278,7 @@ class BotanicalFamilyListPage(BasePage):
         self.wait_for_element_hidden(self.CREATE_DIALOG)
 
     def cancel_create_form(self) -> None:
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         return len(self.driver.find_elements(*self.CREATE_DIALOG)) > 0
@@ -318,11 +318,23 @@ class BotanicalFamilyListPage(BasePage):
 
     # ── Keyboard navigation ────────────────────────────────────────────
 
+    #: The row's own link (#3017): a real ``<a href>`` in the first visible
+    #: cell of a desktop row, and that row's keyboard stop since the ``<tr>``
+    #: lost its ``tabIndex``. Mobile cards are themselves the link and carry none.
+    ROW_LINK = (By.CSS_SELECTOR, "[data-row-link='true']")
+
     def focus_row_and_press_enter(self, index: int) -> None:
-        """Tab to a row and press Enter."""
+        """Press Enter on a row's keyboard stop.
+
+        A desktop row is reached through its row link (#3017) -- the ``<tr>``
+        is no longer focusable, so keys sent to it raise "element not
+        interactable". A mobile card is itself ``role="link"`` with
+        ``tabIndex=0`` and takes the key directly.
+        """
         rows = self.driver.find_elements(*self.TABLE_ROWS)
         row = self.require_index(rows, index, "botanical family row")
-        row.send_keys(Keys.ENTER)
+        links = row.find_elements(*self.ROW_LINK)
+        (links[0] if links else row).send_keys(Keys.ENTER)
 
     # ── Pagination ─────────────────────────────────────────────────────
 

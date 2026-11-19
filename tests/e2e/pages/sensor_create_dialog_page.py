@@ -65,7 +65,7 @@ class SensorCreateDialogPage(BasePage):
         return bool(elements) and elements[0].is_displayed()
 
     def close_via_cancel(self) -> None:
-        self.wait_and_click(self.CANCEL_BUTTON)
+        self.cancel_form_dialog(self.CANCEL_BUTTON)
         self.wait_for_element_hidden(self.DIALOG)
 
     # ── Form interactions ─────────────────────────────────────────────────

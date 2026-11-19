@@ -292,6 +292,41 @@ describe('PlantInstanceListPage', () => {
       renderWithProviders(<PlantInstanceListPage />);
       expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
     });
+
+    it('renders after the first page while later pages still load', async () => {
+      // Hold every page past the first until the test releases it: the list must
+      // not wait for the complete set before it renders (#3032).
+      let releaseLaterPages: () => void = () => {};
+      const laterPages = new Promise<void>((resolve) => {
+        releaseLaterPages = resolve;
+      });
+      const gatedResponse = async ({ request }: { request: Request }) => {
+        if (Number(new URL(request.url).searchParams.get('offset') ?? 0) > 0) await laterPages;
+        return pagedResponse(request);
+      };
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', gatedResponse),
+        http.get('/api/v1/plant-instances', gatedResponse),
+      );
+
+      try {
+        renderWithProviders(<PlantInstanceListPage />);
+
+        // First page on screen, the loading-more hint up, page 2 not yet there.
+        expect((await screen.findAllByText(/^OLD-\d+$/)).length).toBeGreaterThan(0);
+        expect(screen.getByText(/Weitere Pflanzen werden geladen/)).toBeTruthy();
+        expect(screen.queryByText('Newest Plant')).toBeNull();
+
+        releaseLaterPages();
+
+        expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+        await waitFor(() => {
+          expect(screen.queryByText(/Weitere Pflanzen werden geladen/)).toBeNull();
+        });
+      } finally {
+        releaseLaterPages();
+      }
+    });
   });
 
   describe('mobile viewport', () => {
