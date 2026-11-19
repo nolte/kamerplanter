@@ -342,8 +342,8 @@ export default function SubstrateDetailPage() {
               {t('pages.substrates.sectionChemistryDesc')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
-              <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
+              <FormNumberField name="ph_base" helpTerm="ph" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
+              <FormNumberField name="ec_base_ms" helpTerm="ec" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
             </Box>
           </CardContent>
         </Card>
@@ -366,7 +366,7 @@ export default function SubstrateDetailPage() {
                   value: v, label: t(`enums.waterRetention.${v}`),
                 }))}
               />
-              <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+              <FormNumberField name="air_porosity_percent" helpTerm="air_porosity" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
             </FormRow>
             <FormSelectField
               name="buffer_capacity"

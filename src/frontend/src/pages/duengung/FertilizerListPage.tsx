@@ -164,12 +164,14 @@ export default function FertilizerListPage() {
     {
       id: 'npk',
       label: 'NPK',
+      helpTerm: 'npk',
       render: (r) => `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}`,
       searchValue: (r) => `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}`,
     },
     {
       id: 'ec_contribution_per_ml',
       label: t('pages.fertilizers.ecContribution'),
+      helpTerm: 'ec',
       render: (r) => `${r.ec_contribution_per_ml.toFixed(3)} mS/ml`,
       align: 'right',
       searchValue: (r) => String(r.ec_contribution_per_ml),

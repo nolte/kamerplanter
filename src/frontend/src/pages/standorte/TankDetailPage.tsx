@@ -408,8 +408,8 @@ export default function TankDetailPage() {
   // Column definitions for data tables
   const stateColumns: Column<TankState>[] = [
     { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—' },
-    { id: 'ph', label: 'pH', render: (r) => r.ph ?? '—', align: 'right' },
-    { id: 'ec', label: 'EC (mS/cm)', render: (r) => r.ec_ms ?? '—', align: 'right' },
+    { id: 'ph', label: 'pH', helpTerm: 'ph', render: (r) => r.ph ?? '—', align: 'right' },
+    { id: 'ec', label: 'EC (mS/cm)', helpTerm: 'ec', render: (r) => r.ec_ms ?? '—', align: 'right' },
     { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '—', align: 'right' },
     { id: 'fillLevel', label: t('pages.tanks.fillLevel'), render: (r) => r.fill_level_percent != null ? `${r.fill_level_percent}%` : '—', align: 'right' },
     { id: 'tds', label: 'TDS (ppm)', render: (r) => r.tds_ppm ?? '—', align: 'right' },
@@ -1143,8 +1143,8 @@ export default function TankDetailPage() {
                 { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '—' },
                 { id: 'fillType', label: t('pages.tanks.fillType'), render: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`), searchValue: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`) },
                 { id: 'volume', label: t('pages.tanks.volumeLiters'), render: (r: TankFillEvent) => `${r.volume_liters} L`, align: 'right' as const },
-                { id: 'ec', label: 'EC (mS/cm)', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '—', align: 'right' as const },
-                { id: 'ph', label: 'pH', render: (r: TankFillEvent) => r.measured_ph ?? '—', align: 'right' as const },
+                { id: 'ec', label: 'EC (mS/cm)', helpTerm: 'ec', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '—', align: 'right' as const },
+                { id: 'ph', label: 'pH', helpTerm: 'ph', render: (r: TankFillEvent) => r.measured_ph ?? '—', align: 'right' as const },
                 { id: 'waterSource', label: t('pages.tanks.waterSource'), render: (r: TankFillEvent) => r.water_source ? t(`enums.waterSource.${r.water_source}`) : '—' },
               ]}
               rows={fillEvents}

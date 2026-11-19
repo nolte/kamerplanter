@@ -116,8 +116,8 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
             {t('pages.substrates.sectionChemistry')}
           </Typography>
           <FormRow>
-            <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} inputMode="decimal" />
-            <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} inputMode="decimal" />
+            <FormNumberField name="ph_base" helpTerm="ph" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} inputMode="decimal" />
+            <FormNumberField name="ec_base_ms" helpTerm="ec" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} inputMode="decimal" />
           </FormRow>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.substrates.sectionPhysical')}
@@ -131,7 +131,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
               value: v, label: t(`enums.waterRetention.${v}`),
             }))}
           />
-          <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+          <FormNumberField name="air_porosity_percent" helpTerm="air_porosity" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
           <FormSelectField
             name="buffer_capacity"
             control={control}

@@ -531,6 +531,7 @@ export default function FeedingEventDetailPage() {
                   <FormRow>
                     <FormNumberField
                       name="measured_ec_before"
+                      helpTerm="ec"
                       control={control}
                       label={t('pages.feedingEvents.ecBefore')}
                       min={0}
@@ -540,6 +541,7 @@ export default function FeedingEventDetailPage() {
                     />
                     <FormNumberField
                       name="measured_ec_after"
+                      helpTerm="ec"
                       control={control}
                       label={t('pages.feedingEvents.ecAfter')}
                       min={0}
@@ -550,6 +552,7 @@ export default function FeedingEventDetailPage() {
                   <FormRow>
                     <FormNumberField
                       name="measured_ph_before"
+                      helpTerm="ph"
                       control={control}
                       label={t('pages.feedingEvents.phBefore')}
                       min={0}
@@ -559,6 +562,7 @@ export default function FeedingEventDetailPage() {
                     />
                     <FormNumberField
                       name="measured_ph_after"
+                      helpTerm="ph"
                       control={control}
                       label={t('pages.feedingEvents.phAfter')}
                       min={0}
@@ -581,6 +585,7 @@ export default function FeedingEventDetailPage() {
                   <FormRow>
                     <FormNumberField
                       name="runoff_ec"
+                      helpTerm="runoff"
                       control={control}
                       label={t('pages.feedingEvents.runoffEc')}
                       min={0}
@@ -590,6 +595,7 @@ export default function FeedingEventDetailPage() {
                     />
                     <FormNumberField
                       name="runoff_ph"
+                      helpTerm="runoff"
                       control={control}
                       label={t('pages.feedingEvents.runoffPh')}
                       min={0}
@@ -599,6 +605,7 @@ export default function FeedingEventDetailPage() {
                   </FormRow>
                   <FormNumberField
                     name="runoff_volume_liters"
+                    helpTerm="runoff"
                     control={control}
                     label={t('pages.feedingEvents.runoffVolume')}
                     min={0}

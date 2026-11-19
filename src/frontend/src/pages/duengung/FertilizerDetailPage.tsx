@@ -1066,18 +1066,16 @@ export default function FertilizerDetailPage() {
               </Box>
             </Box>
             <FormRow>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                <FormNumberField
-                  name="ec_contribution_per_ml"
-                  control={control}
-                  label={t('pages.fertilizers.ecContribution')}
-                  min={0}
-                  suffix="mS/ml"
-                  inputMode="decimal"
-                  helperText={t('pages.fertilizers.ecContributionHelper')}
-                />
-                <HelpTooltip term="ec" iconOnly />
-              </Box>
+              <FormNumberField
+                name="ec_contribution_per_ml"
+                helpTerm="ec"
+                control={control}
+                label={t('pages.fertilizers.ecContribution')}
+                min={0}
+                suffix="mS/ml"
+                inputMode="decimal"
+                helperText={t('pages.fertilizers.ecContributionHelper')}
+              />
               <FormNumberField
                 name="max_dose_ml_per_liter"
                 control={control}
@@ -1104,6 +1102,7 @@ export default function FertilizerDetailPage() {
             <FormRow>
               <FormNumberField
                 name="mixing_priority"
+                helpTerm="mixing_priority"
                 control={control}
                 label={t('pages.fertilizers.mixingPriority')}
                 min={1}

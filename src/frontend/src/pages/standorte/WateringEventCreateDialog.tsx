@@ -212,6 +212,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="target_ec"
+              helpTerm="ec"
               control={control}
               label={t('pages.wateringEvents.targetEc')}
               helperText={t('pages.wateringEvents.targetEcHelper')}
@@ -220,6 +221,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="target_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.wateringEvents.targetPh')}
               helperText={t('pages.wateringEvents.targetPhHelper')}
@@ -234,6 +236,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="measured_ec"
+              helpTerm="ec"
               control={control}
               label={t('pages.wateringEvents.measuredEc')}
               min={0}
@@ -241,6 +244,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="measured_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.wateringEvents.measuredPh')}
               min={0}
@@ -254,6 +258,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="runoff_ec"
+              helpTerm="runoff"
               control={control}
               label={t('pages.wateringEvents.runoffEc')}
               helperText={t('pages.wateringEvents.runoffEcHelper')}
@@ -262,6 +267,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="runoff_ph"
+              helpTerm="runoff"
               control={control}
               label={t('pages.wateringEvents.runoffPh')}
               min={0}

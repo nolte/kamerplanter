@@ -75,8 +75,8 @@ export default function SubstrateListPage() {
       render: (r) => (lang === 'en' ? r.name_en : r.name_de) || r.brand || '—',
       searchValue: (r) => `${r.name_de} ${r.name_en} ${r.brand ?? ''}`,
     },
-    { id: 'ph', label: t('pages.substrates.phBase'), render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },
-    { id: 'ec', label: t('pages.substrates.ecBase'), render: (r) => r.ec_base_ms.toFixed(2), align: 'right', searchValue: (r) => r.ec_base_ms.toFixed(2) },
+    { id: 'ph', label: t('pages.substrates.phBase'), helpTerm: 'ph', render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },
+    { id: 'ec', label: t('pages.substrates.ecBase'), helpTerm: 'ec', render: (r) => r.ec_base_ms.toFixed(2), align: 'right', searchValue: (r) => r.ec_base_ms.toFixed(2) },
     {
       id: 'reusable',
       label: t('pages.substrates.reusable'),

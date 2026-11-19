@@ -192,6 +192,7 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
             />
             <FormNumberField
               name="ec_contribution_per_ml"
+              helpTerm="ec"
               control={control}
               label={t('pages.fertilizers.ecContribution')}
               min={0}
@@ -207,6 +208,7 @@ export default function FertilizerCreateDialog({ open, onClose, onCreated }: Pro
           <FormRow>
             <FormNumberField
               name="mixing_priority"
+              helpTerm="mixing_priority"
               control={control}
               label={t('pages.fertilizers.mixingPriority')}
               min={1}
