@@ -61,6 +61,12 @@ interface FormSelectFieldProps<T extends FieldValues> {
   required?: boolean;
   disabled?: boolean;
   helperText?: string;
+  /**
+   * Element id for the focusable control, e.g. so `CatalogueLoadError`'s
+   * `focusTargetId` can return focus here after a retry (#3024). Not derived
+   * from `data-testid`, which is a test contract only (UI-NFR-022 R-004).
+   */
+  id?: string;
   autoFocus?: boolean;
 }
 
@@ -73,6 +79,7 @@ export default function FormSelectField<T extends FieldValues>({
   disabled,
   helperText,
   autoFocus,
+  id,
 }: FormSelectFieldProps<T>) {
   return (
     <Controller
@@ -95,7 +102,10 @@ export default function FormSelectField<T extends FieldValues>({
           margin="dense"
           sx={{ mb: 1.5 }}
           data-testid={`form-field-${name}`}
-          slotProps={{ select: { MenuProps: MENU_PROPS } }}
+          // `SelectDisplayProps.id` lands on the `role="combobox"` trigger, the
+          // element keyboard focus belongs on (TextField's own `id` would only
+          // reach the hidden native input of a select).
+          slotProps={{ select: { MenuProps: MENU_PROPS, SelectDisplayProps: { id } } }}
         >
           {/*
             Each option carries a dedicated testid `form-option-{name}-{value}` and

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, useId } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import { useRetryFocus } from '@/hooks/useRetryFocus';
@@ -174,11 +174,12 @@ export default function WorkflowDetailPage() {
   const activityCatalogue = useCatalogue('activities', { enabled: addDialogOpen });
   // After a retry succeeds, focus returns to the search box — the control that
   // stays mounted across all three states and the one the user reaches for next.
-  const { attachRegion: attachActivityRegion, beginRetry: beginActivityRetry } = useRetryFocus(
-    activityCatalogue.status,
-    "[data-testid='activity-catalogue-search'] input",
-    { enabled: addDialogOpen },
-  );
+  const activitySearchId = useId();
+  const {
+    attachRegion: attachActivityRegion,
+    beginRetry: beginActivityRetry,
+    failureId: activityRetryId,
+  } = useRetryFocus(activityCatalogue.status, activitySearchId, { enabled: addDialogOpen });
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [addDayOffset, setAddDayOffset] = useState(0);
   const [activityFilter, setActivityFilter] = useState('');
@@ -1213,6 +1214,7 @@ export default function WorkflowDetailPage() {
               placeholder={t('pages.tasks.searchActivities')}
               value={activityFilter}
               onChange={(e) => setActivityFilter(e.target.value)}
+              id={activitySearchId}
               data-testid="activity-catalogue-search"
               slotProps={{ input: {
                 startAdornment: (
@@ -1260,6 +1262,7 @@ export default function WorkflowDetailPage() {
               <Box data-testid="activity-catalogue-error">
                 <ErrorDisplay
                   error={activityCatalogue.error ?? 'errors.loadFailed'}
+                  retryButtonId={activityRetryId}
                   onRetry={() => {
                     // Armed before the state flips: the button this click landed
                     // on is about to unmount with the whole `failed` branch.

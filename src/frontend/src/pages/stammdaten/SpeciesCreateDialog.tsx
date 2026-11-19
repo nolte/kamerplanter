@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -113,14 +113,14 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
   // no ignore guard, so closing and reopening the dialog started a second
   // sequence whose late answer could overwrite the live one.
   const families = useCatalogue('botanicalFamilies', { enabled: open });
-  // After a retry succeeds, focus the control the user was trying to reach.
-  // `FormSelectField` documents `[role='combobox']` as the stable trigger
-  // selector, which is also what its own tests address.
-  const { attachRegion: attachFamilyRegion, beginRetry: beginFamilyRetry } = useRetryFocus(
-    families.status,
-    "[data-testid='form-field-family_key'] [role='combobox']",
-    { enabled: open },
-  );
+  // After a retry succeeds, focus the control the user was trying to reach:
+  // `FormSelectField` puts its `id` on the `role="combobox"` trigger.
+  const familyFieldId = useId();
+  const {
+    attachRegion: attachFamilyRegion,
+    beginRetry: beginFamilyRetry,
+    failureId: familyRetryId,
+  } = useRetryFocus(families.status, familyFieldId, { enabled: open });
   const { showAllOverride, toggleShowAll, level } = useExpertiseLevel();
 
   useResetShowAllFieldsOnClose(open);
@@ -253,6 +253,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
             */}
             <Box ref={attachFamilyRegion}>
               <FormSelectField
+                id={familyFieldId}
                 name="family_key"
                 control={control}
                 label={t('pages.species.family')}
@@ -306,6 +307,7 @@ export default function SpeciesCreateDialog({ open, onClose, onCreated }: Props)
                 <Box data-testid="family-catalogue-error">
                   <ErrorDisplay
                     error={families.error ?? 'errors.loadFailed'}
+                    retryButtonId={familyRetryId}
                     onRetry={() => {
                       // Arm the focus restore before the state flips, because the
                       // button this click landed on is about to unmount.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -107,6 +107,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   // asked for one page of 200 against 207 seeded species, and the picker filters
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
+  const speciesFieldId = useId();
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
 
@@ -265,6 +266,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             autoFocus
           />
           <SpeciesAutocompleteField
+            id={speciesFieldId}
             name="species_key"
             control={control}
             label={t('entities.species')}
@@ -283,12 +285,12 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             A failed load is its own state, not an empty picker (#1628). In edit
             mode the field is locked anyway, so the failure only costs the
             species' display name there — and there is no picker to return
-            focus to, so `focusSelector` is only wired for the create case.
+            focus to, so `focusTargetId` is only wired for the create case.
           */}
           <CatalogueLoadError
             reader={speciesCatalogue}
             impact={isEdit ? 'lookup' : 'picker'}
-            focusSelector={isEdit ? undefined : "[data-testid='form-field-species_key'] input"}
+            focusTargetId={isEdit ? undefined : speciesFieldId}
           />
           <FormSelectField
             name="cultivar_key"

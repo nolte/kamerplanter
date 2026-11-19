@@ -1,4 +1,4 @@
-import type { FormEventHandler } from 'react';
+import { useId, type FormEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -69,6 +69,7 @@ export default function PlanEditTab({
   speciesCatalogue,
 }: PlanEditTabProps) {
   const { t } = useTranslation();
+  const speciesFieldId = useId();
 
   return (
     <Form onSubmit={onSubmit} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -167,6 +168,7 @@ export default function PlanEditTab({
                 Disabled until the catalogue is complete, and a failed load is
                 shown as such rather than as an empty picker (#1628). */}
             <SpeciesMultiAutocompleteField
+              id={speciesFieldId}
               name="species_keys"
               control={control}
               label={t('pages.nutrientPlans.speciesKeys')}
@@ -176,7 +178,7 @@ export default function PlanEditTab({
             />
             <CatalogueLoadError
               reader={speciesCatalogue}
-              focusSelector="[data-testid='form-field-species_keys'] input"
+              focusTargetId={speciesFieldId}
             />
           </CardContent>
         </Card>

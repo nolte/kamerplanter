@@ -393,7 +393,7 @@ class Wave9PlanPage(GardenPlanPage):
 
     BED_LIST_ROWS = (
         By.CSS_SELECTOR,
-        "[data-testid='data-table'][data-table-section='bed-list'] [data-testid='data-table-row']",
+        "[data-testid='data-table'][data-table-section='bed-list'] [data-row-key]",
     )
 
     def bed_list_cell(self, bed_key: str, column: str, what: str) -> str:

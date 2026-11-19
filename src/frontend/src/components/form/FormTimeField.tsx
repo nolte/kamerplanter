@@ -37,6 +37,7 @@ export default function FormTimeField<T extends FieldValues>({
           fullWidth
           sx={{ mb: 2 }}
           slotProps={{ inputLabel: { shrink: true } }}
+          data-testid={`form-field-${name}`}
         />
       )}
     />

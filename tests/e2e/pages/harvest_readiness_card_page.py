@@ -32,7 +32,7 @@ class HarvestReadinessCardPage(BasePage):
         By.CSS_SELECTOR,
         "[data-testid='harvest-readiness-card'] table tbody tr",
     )
-    DATA_TABLE_ROW = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    DATA_TABLE_ROW = (By.CSS_SELECTOR, "[data-row-key]")
     #: Identifying column of `PlantInstanceListPage`; the row's click target.
     INSTANCE_ID_COLUMN_ID = "instanceId"
     #: Borrowed from the page object that owns the list route rather than

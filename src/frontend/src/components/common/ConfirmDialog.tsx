@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -34,6 +35,12 @@ export default function ConfirmDialog({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
+  // Generated, not the fixed `confirm-dialog-title`: a confirmation can open on
+  // top of another one (the discard prompt over a form dialog), and two
+  // elements with the same id leave one dialog named after the other's title
+  // (#3024). The `data-testid`s stay fixed — they are the E2E contract.
+  const titleId = useId();
+  const descriptionId = useId();
 
   return (
     <Dialog
@@ -46,13 +53,13 @@ export default function ConfirmDialog({
       maxWidth="sm"
       fullWidth
       role="alertdialog"
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-description"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       data-testid="confirm-dialog"
     >
-      <DialogTitle id="confirm-dialog-title">{title}</DialogTitle>
+      <DialogTitle id={titleId}>{title}</DialogTitle>
       <DialogContent>
-        <DialogContentText id="confirm-dialog-description" sx={{ whiteSpace: 'pre-line' }}>
+        <DialogContentText id={descriptionId} sx={{ whiteSpace: 'pre-line' }}>
           {message}
         </DialogContentText>
       </DialogContent>

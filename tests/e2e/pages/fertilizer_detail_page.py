@@ -33,7 +33,7 @@ class FertilizerDetailPage(BasePage):
 
     # Stock tab (Tab 1)
     STOCK_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    STOCK_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    STOCK_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # Edit tab (Tab 2) — form fields
     FORM_PRODUCT_NAME = (By.CSS_SELECTOR, "[data-testid='form-field-product_name'] input")

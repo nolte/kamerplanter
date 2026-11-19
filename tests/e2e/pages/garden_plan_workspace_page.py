@@ -335,12 +335,19 @@ class WorkspacePlanPage(GardenPlanPage):
 
     def activate_bed_list_row(self, bed_key: str) -> None:
         """Choose the row of *bed_key* with the keyboard (focus + Enter: the row's own key handler, no coordinates)."""
-        link = self.wait_for_element_visible(_tid(f"bed-list-link-{bed_key}"))
-        row = self.driver.execute_script(
-            "return arguments[0].closest(\"[data-testid='data-table-row']\");", link
-        )
-        if row is None:
-            raise AssertionError(f"the bed list link of {bed_key} sits in no data-table-row")
+        self.wait_for_element_visible(_tid(f"bed-list-link-{bed_key}"))
+        # The row is looked up by its business key (`getRowKey` = bed key, #3024),
+        # not walked up to from the link: either layout renders exactly one.
+        rows = [
+            row
+            for row in self.driver.find_elements(*self.data_table_row(bed_key))
+            if row.is_displayed()
+        ]
+        if len(rows) != 1:
+            raise AssertionError(
+                f"the bed list shows {len(rows)} rows keyed {bed_key!r}, expected exactly one"
+            )
+        row = rows[0]
         self.driver.execute_script("arguments[0].focus();", row)
         if not self.driver.execute_script("return document.activeElement === arguments[0];", row):
             raise AssertionError(f"the bed list row of {bed_key} did not take the keyboard focus")

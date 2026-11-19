@@ -49,7 +49,7 @@ class SubstrateDetailPage(BasePage):
 
     # ── Batches section ────────────────────────────────────────────────
     BATCH_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    BATCH_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    BATCH_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Alert banner ───────────────────────────────────────────────────
     # Scoped to the page root: an unscoped ``.MuiAlert-root`` also matches

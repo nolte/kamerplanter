@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -104,6 +104,8 @@ interface EntryRowProps {
    * same as a field the form itself decided to lock.
    */
   speciesLoading: boolean;
+  /** Element id for the species picker (focus target after a catalogue retry). */
+  speciesFieldId?: string;
   onRemove: () => void;
   canRemove: boolean;
 }
@@ -119,6 +121,7 @@ function EntryRow({
   speciesList,
   speciesDisabled,
   speciesLoading,
+  speciesFieldId,
   onRemove,
   canRemove,
 }: EntryRowProps) {
@@ -170,6 +173,7 @@ function EntryRow({
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1, flexWrap: 'wrap' }}>
       <Box sx={{ flex: 1, minWidth: 160 }}>
         <SpeciesAutocompleteField
+          id={speciesFieldId}
           name={`entries.${index}.species_key`}
           control={control}
           label={t('entities.species')}
@@ -237,6 +241,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   // asked for one page of 200 against 207 seeded species, and the picker filters
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
+  const firstSpeciesFieldId = useId();
   const [sitesList, setSitesList] = useState<Site[]>([]);
   const [adoptMode, setAdoptMode] = useState(false);
   const [availablePlants, setAvailablePlants] = useState<PlantInstance[]>([]);
@@ -587,7 +592,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
               */}
               <CatalogueLoadError
                 reader={speciesCatalogue}
-                focusSelector="[data-testid='form-field-entries.0.species_key'] input"
+                focusTargetId={firstSpeciesFieldId}
               />
               {fields.map((field, index) => (
                 <EntryRow
@@ -598,6 +603,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                   speciesList={speciesCatalogue.items}
                   speciesDisabled={speciesCatalogue.status !== 'ready'}
                   speciesLoading={speciesCatalogue.status === 'loading'}
+                  speciesFieldId={index === 0 ? firstSpeciesFieldId : undefined}
                   onRemove={() => remove(index)}
                   canRemove={fields.length > 1}
                 />

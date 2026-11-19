@@ -61,7 +61,7 @@ export default function FormMultiSelectField<T extends FieldValues>({
           }}
         >
           {options.map((opt) => (
-            <MenuItem key={opt.value} value={opt.value}>
+            <MenuItem key={opt.value} value={opt.value} data-testid={`form-option-${name}-${opt.value}`}>
               {opt.label}
             </MenuItem>
           ))}

@@ -106,11 +106,11 @@ export default function LocationTreeSelect<T extends FieldValues>({
             sx={{ mb: 2 }}
             data-testid={`form-field-${name}`}
           >
-            <MenuItem value="">
+            <MenuItem value="" data-testid={`form-option-${name}-empty`}>
               {'—'}
             </MenuItem>
             {options.map((opt) => (
-              <MenuItem key={opt.key} value={opt.key}>
+              <MenuItem key={opt.key} value={opt.key} data-testid={`form-option-${name}-${opt.key}`}>
                 <ListItemText
                   primary={opt.label}
                   sx={{ pl: opt.depth * 2 }}

@@ -28,9 +28,15 @@ interface ErrorDisplayProps {
   /** An i18n key (preferred — e.g. a slice's `error`) or an already translated message. */
   error: string;
   onRetry?: () => void;
+  /**
+   * Element id for the retry button, so focus management can find it again
+   * after a retry (`useRetryFocus`'s `failureId`) without reaching for its
+   * `data-testid`, which is a test contract only (UI-NFR-022 R-004).
+   */
+  retryButtonId?: string;
 }
 
-export default function ErrorDisplay({ error, onRetry }: ErrorDisplayProps) {
+export default function ErrorDisplay({ error, onRetry, retryButtonId }: ErrorDisplayProps) {
   const { t } = useTranslation();
   const displayMessage = translateError(error, t);
 
@@ -46,6 +52,7 @@ export default function ErrorDisplay({ error, onRetry }: ErrorDisplayProps) {
               color="inherit"
               size="small"
               onClick={onRetry}
+              id={retryButtonId}
               data-testid="error-retry-button"
             >
               {t('common.retry')}

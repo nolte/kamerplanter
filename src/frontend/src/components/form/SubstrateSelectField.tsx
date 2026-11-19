@@ -48,6 +48,12 @@ interface SubstrateSelectFieldProps<T extends FieldValues> {
   label: string;
   substrates: Substrate[];
   helperText?: string;
+  /**
+   * Element id for the focusable control, e.g. so `CatalogueLoadError`'s
+   * `focusTargetId` can return focus here after a retry (#3024). Not derived
+   * from `data-testid`, which is a test contract only (UI-NFR-022 R-004).
+   */
+  id?: string;
   disabled?: boolean;
 }
 
@@ -58,6 +64,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
   substrates,
   helperText,
   disabled,
+  id,
 }: SubstrateSelectFieldProps<T>) {
   const { t, i18n } = useTranslation();
   const { isFavorite, toggleFavorite, hasFavorites } = useSubstrateFavorites();
@@ -118,6 +125,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
         const selected = allOptions.find((s) => s.key === field.value) ?? null;
         return (
           <Autocomplete
+            id={id}
             value={selected}
             onChange={(_e, newVal) => {
               field.onChange(newVal?.key ?? '');
@@ -141,6 +149,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
                     e.stopPropagation();
                     toggleFavorite(option.key);
                   }}
+                  data-testid={`form-option-${name}-${option.key}-favorite`}
                   sx={{ p: 0.25, color: isFavorite(option.key) ? 'warning.main' : 'action.disabled' }}
                 >
                   {isFavorite(option.key) ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
@@ -208,6 +217,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
                                 size="small"
                                 onClick={() => setFavFilterActive((p) => !p)}
                                 color={favFilterActive ? 'warning' : 'default'}
+                                data-testid={`form-field-${name}-favorites-filter`}
                               >
                                 <FilterListIcon fontSize="small" />
                               </IconButton>

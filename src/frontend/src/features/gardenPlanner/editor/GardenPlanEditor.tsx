@@ -1356,7 +1356,7 @@ export function GardenPlanEditor({
   );
 
   const focusPanel = useCallback(() => {
-    document.querySelector<HTMLElement>('[data-testid="garden-plan-panel-name"]')?.focus();
+    document.getElementById(EDITOR_ANCHORS.panelName)?.focus();
   }, []);
   /** The skip link "To the properties panel": the open panel takes the focus, a collapsed one its switch (GP-UX-068). */
   const panelOpen = sidePanel.open;
