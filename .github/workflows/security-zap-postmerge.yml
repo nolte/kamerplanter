@@ -488,15 +488,22 @@ jobs:
             const more = blocking.length > 20 ? `\n…and ${blocking.length - 20} more.` : '';
             // One cause, one issue. This step used to create an issue per scanned
             // commit, so a finding that outlives a merge (a base image with a new
-            // advisory) filed ten identical issues in 19 hours. An open issue that
-            // already lists exactly these findings gets a comment instead.
-            const open = await github.paginate(github.rest.issues.listForRepo, {
-              owner: context.repo.owner, repo: context.repo.repo,
-              state: 'open', labels: 'zap', per_page: 100,
-            });
-            const same = open.find(i => !i.pull_request
-              && i.title.startsWith('[zap-postmerge]')
-              && (i.body || '').includes(summary + more));
+            // advisory) filed ten identical issues within a day. An open issue
+            // carrying the same set of rule + site gets a comment instead. The set
+            // travels as a marker in the body, so neither the instance count, the
+            // report order nor a browser edit (CRLF) breaks the comparison. A failed
+            // lookup must not cost the finding its issue: it falls through to create.
+            const marker = `<!-- zap-findings: ${[...new Set(blocking.map(h => `${h.plugin}@${h.site}`))].sort().join(' ')} -->`;
+            let same;
+            try {
+              const open = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: 'zap', per_page: 100,
+              });
+              same = open.find(i => !i.pull_request && (i.body || '').includes(marker));
+            } catch (e) {
+              core.warning(`Could not look for an open issue with the same findings (${e}); opening a new one.`);
+            }
             if (same) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner, repo: context.repo.repo, issue_number: same.number,
@@ -519,6 +526,8 @@ jobs:
                 '## Findings (truncated to 20)',
                 '',
                 summary + more,
+                '',
+                marker,
               ].join('\n'),
               labels: ['security', 'zap'],
             });
