@@ -21,6 +21,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import LoadingSkeleton from './LoadingSkeleton';
 import EmptyState from './EmptyState';
+import HelpTooltip from './HelpTooltip';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { TableState } from '@/hooks/useTableState';
 import { LinkedCard, LinkedTableRow, RowCellLink } from './DataTableRowLink';
@@ -43,6 +44,12 @@ export interface Column<T> {
    */
   searchValues?: (row: T) => readonly string[];
   hideBelowBreakpoint?: 'md' | 'lg';
+  /**
+   * Glossary key of the domain term this column shows (e.g. "ec", "ppfd") — renders the shared
+   * `HelpTooltip` trigger next to the header label (#3020, UI-NFR-011 §6.2). The trigger is a sibling
+   * of the sort control, not inside it, so a click or Enter on it never sorts.
+   */
+  helpTerm?: string;
 }
 
 interface DataTableProps<T> {
@@ -99,6 +106,21 @@ interface DataTableProps<T> {
   /** Called when the user clicks the "reset filters" CTA in the column-filter
    *  empty state. Typically clears both the DataTable search and column filters. */
   onResetColumnFilters?: () => void;
+}
+
+/**
+ * Puts a column's help trigger next to its header label (#3020). `TableSortLabel` is itself a
+ * button, and a button inside a button is invalid HTML whose inner control screen readers flatten
+ * away — so the trigger sits beside it, and `HelpTooltip` already swallows its own activation.
+ */
+function HeaderLabelWithHelp({ helpTerm, children }: { helpTerm?: string; children: ReactNode }) {
+  if (!helpTerm) return <>{children}</>;
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+      {children}
+      <HelpTooltip term={helpTerm} iconOnly placement="bottom" />
+    </Box>
+  );
 }
 
 function defaultSearchExtractor<T>(row: T, col: Column<T>): string {
@@ -491,25 +513,27 @@ export default function DataTable<T>({
                             : undefined
                         }
                       >
-                        {isSortable ? (
-                          // `data-testid` belongs on the label, not on the surrounding
-                          // cell: the click handler lives here, and a click that lands on
-                          // the cell beside this label never reaches it — DOM events
-                          // bubble up, not down. The E2E suite clicked the `<th>` and so
-                          // sorted nothing whenever a column was wider than its label,
-                          // which stayed invisible because the sort chip is already
-                          // rendered by `defaultSort` (#802).
-                          <TableSortLabel
-                            data-testid={`sort-${col.id}`}
-                            active={isSorted}
-                            direction={isSorted ? tableState!.sort!.direction : 'asc'}
-                            onClick={() => tableState!.setSort(col.id)}
-                          >
-                            {col.label}
-                          </TableSortLabel>
-                        ) : (
-                          col.label
-                        )}
+                        <HeaderLabelWithHelp helpTerm={col.helpTerm}>
+                          {isSortable ? (
+                            // `data-testid` belongs on the label, not on the surrounding
+                            // cell: the click handler lives here, and a click that lands on
+                            // the cell beside this label never reaches it — DOM events
+                            // bubble up, not down. The E2E suite clicked the `<th>` and so
+                            // sorted nothing whenever a column was wider than its label,
+                            // which stayed invisible because the sort chip is already
+                            // rendered by `defaultSort` (#802).
+                            <TableSortLabel
+                              data-testid={`sort-${col.id}`}
+                              active={isSorted}
+                              direction={isSorted ? tableState!.sort!.direction : 'asc'}
+                              onClick={() => tableState!.setSort(col.id)}
+                            >
+                              {col.label}
+                            </TableSortLabel>
+                          ) : (
+                            col.label
+                          )}
+                        </HeaderLabelWithHelp>
                       </TableCell>
                     );
                   })}

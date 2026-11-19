@@ -1,6 +1,7 @@
-import { useMemo, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlined';
@@ -114,9 +115,22 @@ export default function HelpTooltip({
   // listener. `defaultPrevented` closes both — the browser skips the default
   // navigation, and `useLinkClickHandler` returns early on an already-prevented
   // event.
+  //
+  // The activation also *opens* the tooltip (#3020, UI-NFR-011 §4.4). MUI's
+  // Tooltip only reacts to hover, focus and a long touch-hold (`enterTouchDelay`,
+  // 700 ms) — a plain tap on a phone showed nothing, and the touch-hold's own
+  // `leaveTouchDelay` closed it again 1.5 s after lifting the finger. The open
+  // state is therefore controlled: hover/focus still open it through `onOpen`, a
+  // tap or click opens it here, and it closes on mouse-leave/blur/Escape
+  // (`onClose`) or a tap outside (the ClickAwayListener below). It opens rather
+  // than toggles, so a desktop click on an already hovered icon keeps it open.
+  const [open, setOpen] = useState(false);
+  const handleOpen = useCallback(() => setOpen(true), []);
+  const handleClose = useCallback(() => setOpen(false), []);
   const swallowActivation = (e: MouseEvent<HTMLElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    setOpen(true);
   };
 
   // A real <button>, not a span carrying `tabIndex` (#1290). A <span> maps to
@@ -190,14 +204,29 @@ export default function HelpTooltip({
   );
 
   return (
-    <Tooltip
-      title={tooltipContent}
-      placement={placement}
-      arrow
-      enterDelay={300}
-      leaveDelay={100}
+    // Listening only while open keeps a page with dozens of help icons from
+    // registering dozens of document listeners. The tooltip popper is a portal
+    // inside this React subtree, so a tap on the tooltip itself is not "away".
+    <ClickAwayListener
+      onClickAway={handleClose}
+      mouseEvent={open ? 'onClick' : false}
+      touchEvent={open ? 'onTouchEnd' : false}
     >
-      {trigger}
-    </Tooltip>
+      <Tooltip
+        title={tooltipContent}
+        placement={placement}
+        arrow
+        enterDelay={300}
+        leaveDelay={100}
+        open={open}
+        onOpen={handleOpen}
+        onClose={handleClose}
+        // The tap above opens it; the built-in touch-hold would close it again
+        // after `leaveTouchDelay` once the finger lifts.
+        disableTouchListener
+      >
+        {trigger}
+      </Tooltip>
+    </ClickAwayListener>
   );
 }

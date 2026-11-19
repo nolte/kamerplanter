@@ -195,6 +195,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
           <FormRow>
             <FormNumberField
               name="target_ec_ms"
+              helpTerm="ec"
               control={control}
               label={t('pages.tanks.targetEc')}
               helperText={t('pages.tanks.targetEcHelper')}
@@ -204,6 +205,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
             />
             <FormNumberField
               name="target_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.tanks.targetPh')}
               helperText={t('pages.tanks.targetPhHelper')}
@@ -219,6 +221,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
           <FormRow>
             <FormNumberField
               name="measured_ec_ms"
+              helpTerm="ec"
               control={control}
               label={t('pages.tanks.measuredEc')}
               helperText={t('pages.tanks.measuredEcHelper')}
@@ -228,6 +231,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
             />
             <FormNumberField
               name="measured_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.tanks.measuredPh')}
               helperText={t('pages.tanks.measuredPhHelper')}

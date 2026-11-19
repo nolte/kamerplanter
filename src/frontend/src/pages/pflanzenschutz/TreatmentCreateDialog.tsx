@@ -135,6 +135,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
           />
           <FormNumberField
             name="safety_interval_days"
+            helpTerm="karenzzeit"
             control={control}
             label={t('pages.ipm.safetyIntervalDays')}
             min={0}

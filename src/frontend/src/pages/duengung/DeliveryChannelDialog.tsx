@@ -313,6 +313,7 @@ export default function DeliveryChannelDialog({
               />
               <FormNumberField
                 name="target_ec_ms"
+                helpTerm="ec"
                 control={control}
                 label={t('pages.deliveryChannels.targetEc')}
                 min={0}
@@ -324,6 +325,7 @@ export default function DeliveryChannelDialog({
               />
               <FormNumberField
                 name="target_ph"
+                helpTerm="ph"
                 control={control}
                 label={t('pages.deliveryChannels.targetPh')}
                 min={0}

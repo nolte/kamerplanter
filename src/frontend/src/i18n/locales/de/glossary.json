@@ -256,6 +256,126 @@
       "short": "Randabstand — Abstand der äußeren Pflanzen zum Beetrand",
       "long": "Der Randabstand legt fest, wie weit die äußeren Pflanzen vom Beetrand entfernt stehen, getrennt nach der Richtung längs und quer zur Reihe. So wachsen die Pflanzen nicht über die Kante in den Weg oder ins Nachbarbeet.",
       "beginnerTip": "Etwa der halbe Pflanzabstand ist ein guter Startwert für den Rand."
+    },
+    "rh": {
+      "short": "Relative Luftfeuchte — wie viel Wasserdampf die Luft gerade trägt",
+      "long": "Die relative Luftfeuchte (rH) gibt in Prozent an, wie viel Wasserdampf die Luft im Verhältnis zur höchstmöglichen Menge bei dieser Temperatur enthält. Warme Luft kann mehr Wasser aufnehmen, darum sinkt die rH, wenn es wärmer wird. Zusammen mit der Temperatur ergibt sie das VPD.",
+      "beginnerTip": "Zimmerluft liegt meist bei 40–60 %. Sämlinge und Stecklinge mögen es feuchter, blühende Pflanzen eher trockener (Schimmelgefahr).",
+      "unit": "%",
+      "typicalRange": "40–70 %",
+      "category": "klima"
+    },
+    "dif": {
+      "short": "Temperatur-Unterschied zwischen Tag und Nacht",
+      "long": "DIF beschreibt die Differenz zwischen Tag- und Nachttemperatur. Positiver DIF (Tag wärmer als Nacht) fördert Streckungswachstum, negativer DIF (Nacht wärmer) hält Pflanzen kompakt. In Gewächshäusern wird DIF gezielt zur Wuchssteuerung eingesetzt.",
+      "beginnerTip": "Für Zimmerpflanzen gilt: Nachts darf es 3–5 °C kühler sein als tagsüber — das ist natürlich und gut für die Pflanze.",
+      "unit": "°C",
+      "category": "klima"
+    },
+    "hysterese": {
+      "short": "Abstand der Schaltschwellen, der Gerätependeln verhindert",
+      "long": "Hysterese bedeutet, dass ein Gerät bei einem anderen Wert einschaltet als es ausschaltet. Beispiel: Befeuchter AN bei 50 % rH, AUS erst bei 60 % rH. Ohne Hysterese würde das Gerät um den Sollwert herum im Sekundentakt ein- und ausschalten.",
+      "beginnerTip": "Das steuert das System für dich. Wichtig wird es erst, wenn du eigene Automatisierungsregeln anlegst.",
+      "category": "klima"
+    },
+    "lux_vs_ppfd": {
+      "short": "Lux misst Helligkeit fürs Auge, PPFD das Licht, das Pflanzen nutzen",
+      "long": "Lux gewichtet Licht nach der Empfindlichkeit des menschlichen Auges (am höchsten im Grün). PPFD zählt die Photonen zwischen 400 und 700 nm, die Pflanzen für die Photosynthese nutzen. Der Umrechnungsfaktor hängt von der Lichtquelle ab — Lux-Werte aus Handy-Apps sind nur eine grobe Schätzung.",
+      "beginnerTip": "Faustregel für Sonnenlicht: 1000 Lux ≈ 18–19 µmol/m²/s. Bei LED-Growlampen weicht der Faktor deutlich ab.",
+      "category": "licht"
+    },
+    "flushing": {
+      "short": "Spülen — nur klares Wasser, um Düngersalze aus dem Substrat zu waschen",
+      "long": "Beim Flushing gießt du einige Zeit nur mit klarem, bei Bedarf pH-angepasstem Wasser und lässt reichlich ablaufen. So spülst du angesammelte Düngersalze aus dem Substrat — etwa bei zu hohem Runoff-EC, weißen Salzkrusten oder je nach Kultur vor der Ernte.",
+      "beginnerTip": "Bei Topfpflanzen in Erde reicht es, den Topf ab und zu kräftig durchzugießen, bis unten klares Wasser herausläuft.",
+      "category": "naehrstoffe"
+    },
+    "runoff": {
+      "short": "Ablaufwasser — was nach dem Gießen unten aus dem Topf läuft",
+      "long": "Runoff ist das Gießwasser, das aus den Abzugslöchern läuft. Etwa 10–20 % der Gießmenge als Runoff verhindern, dass sich Salze im Substrat anreichern. Misst du EC und pH des Runoffs, siehst du, was im Wurzelraum passiert: Liegt der Runoff-EC deutlich über dem Gieß-EC, sammeln sich Salze an.",
+      "beginnerTip": "Gieß so lange, bis unten ein kleiner Teil wieder herausläuft, und kipp den Untersetzer danach aus.",
+      "category": "naehrstoffe"
+    },
+    "mixing_priority": {
+      "short": "Reihenfolge, in der Dünger ins Wasser gemischt wird",
+      "long": "Beim Anmischen einer Nährlösung zählt die Reihenfolge. Kamerplanter sortiert die Dünger nach ihrer Mischpriorität, üblich ist Silizium → CalMag → Basis A → Basis B → zuletzt pH-Korrektur. Falsche Reihenfolge kann Ausfällungen verursachen (Trübung, Bodensatz), etwa wenn Kalzium auf Sulfat trifft.",
+      "beginnerTip": "Wichtig vor allem bei Hydroponik und mehreren Komponenten. Einen einzelnen Flüssigdünger gibst du einfach ins Gießwasser.",
+      "category": "naehrstoffe"
+    },
+    "cec": {
+      "short": "Kationenaustauschkapazität — wie viele Nährstoffe ein Substrat speichern kann",
+      "long": "Die CEC gibt an, wie viele positiv geladene Nährstoffe (z. B. Kalzium, Magnesium, Kalium) ein Substrat binden und nach und nach an die Wurzeln abgeben kann. Erde und Kokos puffern so Düngefehler ab; Steinwolle, Perlite und Blähton speichern fast nichts — dort zählt allein die Nährlösung.",
+      "beginnerTip": "Pflanzen in Erde verzeihen mehr. In Steinwolle oder Blähton musst du die Nährlösung genauer dosieren.",
+      "unit": "meq/100 g",
+      "category": "substrat"
+    },
+    "drainage": {
+      "short": "Abfluss von überschüssigem Wasser aus Topf oder Beet",
+      "long": "Gute Drainage sorgt dafür, dass überschüssiges Gießwasser schnell abläuft und die Wurzeln wieder Luft bekommen. Dafür braucht der Topf Abzugslöcher und das Substrat genug grobe Poren, etwa durch Perlite oder Blähton. Schlechte Drainage führt zu Staunässe.",
+      "beginnerTip": "Nimm nur Töpfe mit Loch im Boden — oder stell einen Innentopf mit Loch in den Übertopf.",
+      "category": "substrat"
+    },
+    "air_porosity": {
+      "short": "Luftanteil im Substrat, nachdem das Wasser abgelaufen ist",
+      "long": "Die Luftporosität gibt an, wie viel Prozent des Substratvolumens nach dem Abtropfen noch mit Luft gefüllt sind. Wurzeln brauchen Sauerstoff; ist der Luftanteil zu gering (unter etwa 10 %), drohen Wurzelfäule und Wachstumsstopp. Perlite, Blähton und Kokos-Chips erhöhen den Luftanteil.",
+      "beginnerTip": "Mischst du Erde mit etwas Perlite, bekommen die Wurzeln mehr Luft — gut für alle, die gern zu viel gießen.",
+      "unit": "%",
+      "typicalRange": "10–30 %",
+      "category": "substrat"
+    },
+    "substrat": {
+      "short": "Das Material, in dem die Wurzeln wachsen",
+      "long": "Substrat ist der Oberbegriff für jedes Wurzelmedium: Erde, Kokos, Steinwolle, Blähton, Perlite oder Mischungen daraus. Es bestimmt, wie viel Wasser, Luft und Nährstoffe den Wurzeln zur Verfügung stehen — und damit, wie oft du gießen und wie genau du düngen musst.",
+      "beginnerTip": "Für den Start reicht gute Blumen- oder Gemüseerde. Spezialsubstrate lohnen sich erst bei Hydroponik oder anspruchsvollen Pflanzen.",
+      "category": "substrat"
+    },
+    "staunaesse": {
+      "short": "Wasser, das sich im Wurzelraum staut",
+      "long": "Staunässe entsteht, wenn Wasser nicht ablaufen kann — ohne Abzugsloch, mit vollem Untersetzer oder in verdichtetem Boden. Die Poren bleiben mit Wasser gefüllt, den Wurzeln fehlt Sauerstoff und sie beginnen zu faulen. Typische Zeichen: welke Blätter trotz nasser Erde und ein muffiger Geruch.",
+      "beginnerTip": "Kipp Wasser im Untersetzer nach 15–30 Minuten weg und gieß erst wieder, wenn die oberste Erdschicht abgetrocknet ist.",
+      "category": "substrat"
+    },
+    "seneszenz": {
+      "short": "Alterungsphase — die Pflanze stirbt natürlich ab",
+      "long": "Seneszenz ist der natürliche Alterungsprozess am Ende eines Lebenszyklus: bei einjährigen Pflanzen nach der Samenreife, bei Stauden und Gehölzen als herbstliches Vergilben und Blattabwurf. Die Pflanze zieht dabei Nährstoffe aus den Blättern ab.",
+      "beginnerTip": "Gelbe untere Blätter gegen Ende der Saison sind oft ganz natürlich und kein Grund, mehr zu düngen.",
+      "category": "wachstum"
+    },
+    "allelopathie": {
+      "short": "Biochemische Wechselwirkung zwischen Pflanzenarten",
+      "long": "Manche Pflanzen hemmen oder fördern das Wachstum benachbarter Pflanzen durch Stoffe, die sie über Wurzeln, Blätter oder Pflanzenreste abgeben. Bekanntes Beispiel: Walnussbäume hemmen Tomaten.",
+      "beginnerTip": "Spielt erst bei Mischkultur im Beet eine Rolle. Bei einzelnen Pflanzen auf der Fensterbank kannst du es ignorieren.",
+      "category": "wachstum"
+    },
+    "binomialnomenklatur": {
+      "short": "Wissenschaftlicher Name aus Gattung und Art",
+      "long": "Jede Art hat einen weltweit eindeutigen lateinischen Namen aus zwei Teilen: Gattung (großgeschrieben) und Artbeiname (kleingeschrieben), z. B. Solanum lycopersicum für die Tomate. Er wird kursiv geschrieben und ist — anders als Volksnamen — in jeder Sprache gleich.",
+      "beginnerTip": "Findest du eine Pflanze nicht, such nach dem botanischen Namen — er steht oft auf dem Etikett.",
+      "category": "taxonomie"
+    },
+    "cultivar_varietaet": {
+      "short": "Sorte (Cultivar) ist gezüchtet, Varietät natürlich entstanden",
+      "long": "Eine Varietät (var.) ist eine natürlich entstandene Abwandlung einer Art. Ein Cultivar (cv.) ist eine vom Menschen gezüchtete und gezielt erhaltene Sorte; ihr Name steht in einfachen Anführungszeichen hinter dem Artnamen, z. B. Solanum lycopersicum 'Moneymaker'.",
+      "beginnerTip": "Der Name auf der Samentüte (z. B. 'Moneymaker') ist fast immer der Cultivar.",
+      "category": "taxonomie"
+    },
+    "standort_slot": {
+      "short": "Standort → Bereich → Stellplatz: wo eine Pflanze steht",
+      "long": "Kamerplanter ordnet Orte in einer Hierarchie: Ein Standort (z. B. Wohnung oder Garten) enthält Bereiche wie Zimmer, Growzelt oder Beet, die wiederum weitere Bereiche enthalten können. Ein Stellplatz (Slot) ist der konkrete Platz für eine Pflanze oder ein Gefäß darin.",
+      "beginnerTip": "Für den Anfang reicht ein Standort mit einem Bereich, z. B. „Wohnung“ → „Fensterbank Küche“.",
+      "category": "allgemein"
+    },
+    "pflanzdurchlauf": {
+      "short": "Ein gemeinsamer Anbau-Durchgang mehrerer Pflanzen",
+      "long": "Ein Pflanzdurchlauf (Run) fasst Pflanzen zusammen, die gemeinsam gestartet, gepflegt und geerntet werden — etwa ein Durchgang im Growzelt oder eine Aussaat Salat. Phasen, Nährstoffpläne, Aufgaben und Ernte gelten dann für alle Pflanzen des Durchlaufs gleichzeitig.",
+      "beginnerTip": "Pflanzt du mehrere gleiche Pflanzen auf einmal, leg einen Durchlauf an — dann pflegst du sie alle mit einem Klick.",
+      "category": "allgemein"
+    },
+    "umtopfen": {
+      "short": "Pflanze in einen größeren Topf oder frisches Substrat setzen",
+      "long": "Beim Umtopfen bekommt die Pflanze mehr Wurzelraum und frisches Substrat. Fällig ist es, wenn Wurzeln unten aus dem Topf wachsen, das Wasser sofort durchläuft oder die Pflanze trotz Pflege nicht mehr wächst. Der neue Topf sollte meist nur eine Größe größer sein.",
+      "beginnerTip": "Topf am besten im Frühjahr um und dünge danach ein bis zwei Wochen nicht — frische Erde enthält genug Nährstoffe.",
+      "category": "allgemein"
     }
   }
 }
