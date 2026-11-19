@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
+import { act, render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SnackbarProvider } from 'notistack';
@@ -21,7 +21,8 @@ import '@/i18n';
 
 /**
  * #3019 — the dialog form contract: dirty guard on every close path,
- * `mode: 'onBlur'`, and 422 field violations on the fields.
+ * blur validation only for fields the user entered something in (operator
+ * decision 2026-11-19), and 422 field violations on the fields.
  */
 
 const schema = z.object({
@@ -96,6 +97,13 @@ function renderHarness(props: Partial<HarnessProps> = {}) {
     </ThemeContextProvider>,
   );
   return { onClose, user: userEvent.setup() };
+}
+
+/** Lets react-hook-form's asynchronous resolver run finish before asserting its absence. */
+async function flushValidation(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  });
 }
 
 function nameInput(): HTMLInputElement {
@@ -190,13 +198,60 @@ describe('FormDialog', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('validates a field when it loses focus, before any submit (mode onBlur)', async () => {
+  it('leaves an untouched empty required field quiet when it loses focus', async () => {
     const { user } = renderHarness();
+    const field = screen.getByTestId('form-field-name');
+    const markupBefore = field.innerHTML;
 
     await user.click(nameInput());
     await user.tab();
+    // The blur check runs the resolver asynchronously; let it settle.
+    await flushValidation();
+
+    expect(within(field).queryByText('required-name')).not.toBeInTheDocument();
+    expect(nameInput()).toHaveAttribute('aria-invalid', 'false');
+    // No helper line is inserted, so the dialog does not shift under the pointer.
+    expect(field.querySelector('.MuiFormHelperText-root')).toBeNull();
+    expect(field.innerHTML).toBe(markupBefore);
+  });
+
+  it('validates a field on blur once the user typed in it, even when cleared again', async () => {
+    const { user } = renderHarness();
+
+    await user.type(nameInput(), 'T');
+    await user.clear(nameInput());
+    await user.tab();
+
+    const field = screen.getByTestId('form-field-name');
+    expect(await within(field).findByText('required-name')).toBeInTheDocument();
+    // Leaving it once more without a change keeps the error instead of dropping it.
+    await user.click(nameInput());
+    await user.tab();
+    await flushValidation();
+    expect(within(field).getByText('required-name')).toBeInTheDocument();
+  });
+
+  it('reports untouched empty required fields on submit', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const { user } = renderHarness({ onSubmit });
+
+    await user.click(screen.getByTestId('form-submit-button'));
 
     expect(await within(screen.getByTestId('form-field-name')).findByText('required-name')).toBeInTheDocument();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('clears an error on change once a failed submit marked it', async () => {
+    const { user } = renderHarness();
+    await user.click(screen.getByTestId('form-submit-button'));
+    const field = screen.getByTestId('form-field-name');
+    expect(await within(field).findByText('required-name')).toBeInTheDocument();
+
+    await user.type(nameInput(), 'T');
+
+    // Still focused: the error goes on change, not only on the next blur.
+    expect(nameInput()).toHaveFocus();
+    await waitFor(() => expect(within(field).queryByText('required-name')).not.toBeInTheDocument());
   });
 
   it('puts a 422 violation on its field in German and never shows the English reason', async () => {

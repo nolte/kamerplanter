@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type FocusEvent } from 'react';
 import Dialog, { type DialogProps } from '@mui/material/Dialog';
 import { useTranslation } from 'react-i18next';
 import { useFormState, type Control, type FieldValues } from 'react-hook-form';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { validateEnteredFields } from '@/hooks/useDialogForm';
 import { FormDialogContext, type FormDialogContextValue } from './formDialogContext';
 
 export interface FormDialogProps<TFieldValues extends FieldValues = FieldValues, TTransformedValues = TFieldValues>
@@ -28,14 +29,20 @@ export interface FormDialogProps<TFieldValues extends FieldValues = FieldValues,
  * is clean, and ask "discard changes?" first when it is dirty. A successful
  * submit closes through the caller (`onCreated`/`onSaved`) and is not guarded.
  *
- * Pair it with `useDialogForm` (`mode: 'onBlur'`) and `useFormFieldViolations`
- * (422 → field errors) — the three together are the dialog form contract.
+ * It also runs the blur check of `useDialogForm`: whenever focus leaves an
+ * element inside the dialog, the fields the user entered something in since
+ * their last check are validated — an untouched empty field stays quiet until
+ * submit (UI-NFR-008 R-001, operator decision 2026-11-19).
+ *
+ * Pair it with `useDialogForm` and `useFormFieldViolations` (422 → field
+ * errors) — the three together are the dialog form contract.
  */
 export default function FormDialog<TFieldValues extends FieldValues = FieldValues, TTransformedValues = TFieldValues>({
   control,
   onClose,
   dirty = false,
   children,
+  onBlur,
   ...dialogProps
 }: FormDialogProps<TFieldValues, TTransformedValues>) {
   const { t } = useTranslation();
@@ -72,11 +79,20 @@ export default function FormDialog<TFieldValues extends FieldValues = FieldValue
     setConfirmOpen(false);
   }, []);
 
+  // React's `onBlur` bubbles (focusout), also out of portals such as a Select menu.
+  const handleBlur = useCallback(
+    (event: FocusEvent<HTMLDivElement>) => {
+      onBlur?.(event);
+      validateEnteredFields(control);
+    },
+    [control, onBlur],
+  );
+
   const contextValue = useMemo<FormDialogContextValue>(() => ({ requestClose }), [requestClose]);
 
   return (
     <FormDialogContext.Provider value={contextValue}>
-      <Dialog {...dialogProps} onClose={onClose ? handleDialogClose : undefined}>
+      <Dialog {...dialogProps} onBlur={handleBlur} onClose={onClose ? handleDialogClose : undefined}>
         {children}
       </Dialog>
       <ConfirmDialog
