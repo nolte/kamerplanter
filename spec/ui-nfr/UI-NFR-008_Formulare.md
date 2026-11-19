@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Formulare, Eingaben, Validierung
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.3
+Version: 1.4
 Autor: Business Analyst - Agrotech
-Datum: 2026-04-25
+Datum: 2026-11-19
 Tags: [formulare, forms, validierung, dirty-state, autofokus, tab-order, submit, double-submit, fremdschlüssel, autocomplete, dropdown, layout, panel-grid, content-density]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-004, UI-NFR-006, UI-NFR-007]
 Betroffene Module: [Frontend, Mobile]
@@ -51,7 +51,7 @@ Formulare sind die primäre Datenerfassungsmethode in der Anwendung. Schlechte F
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-001 | Formularfelder MÜSSEN bei Verlust des Fokus (On-Blur) validiert werden. | MUSS |
+| R-001 | Formularfelder MÜSSEN bei Verlust des Fokus (On-Blur) validiert werden — aber nur, wenn der Nutzer in das Feld bereits etwas eingegeben hat (auch Eintippen und wieder Löschen zählt). Ein unberührtes leeres Pflichtfeld DARF beim Verlassen KEINEN Fehler zeigen; es wird erst beim Absenden gemeldet (R-002). Hintergrund: Eine beim Fokusverlust eingeblendete Fehlerzeile verschiebt den Dialog, sodass der Klick, der den Fokus wegnimmt, neben seinem Ziel landet (Betreiberentscheidung 2026-11-19). Nach einem Absendeversuch MUSS jedes Feld bei jeder Änderung erneut validiert werden, damit eine Korrektur den Fehler sofort entfernt. | MUSS |
 | R-002 | Beim Absenden (On-Submit) MUSS das gesamte Formular validiert werden, auch wenn einzelne Felder nicht berührt wurden. | MUSS |
 | R-003 | Die Frontend-Validierung MUSS als Ergänzung zur Backend-Validierung dienen — die Frontend-Validierung allein ist NICHT ausreichend. | MUSS |
 | R-004 | Backend-Validierungsfehler MÜSSEN inline am betroffenen Feld angezeigt werden, sofern ein Feldbezug vorhanden ist. Gemappt wird aus dem Fehler-Envelope: `details[].field` (ohne `body.`-Präfix) bestimmt **welches** Feld, `details[].code` bestimmt **welcher Text** — aufgelöst über den i18n-Key `errors.<code>`. Der Server-`reason` ist ein englischer Entwicklertext und DARF NICHT als Feldmeldung gerendert werden (NFR-017 R-118a, Beleg #1015). Trifft eines von beidem nicht (unbekanntes Feld oder fehlender Katalog-Key), bleibt es bei der generischen, lokalisierten Meldung — der Fehler verschwindet nie stillschweigend (UI-NFR-004 R-014a). | MUSS |
@@ -450,7 +450,7 @@ R-063 erinnert: bei Master-Detail springt der Fokus nach dem letzten Fliesstext-
 ### Definition of Done
 
 - [ ] **Validierung**
-    - [ ] On-Blur-Validierung auf allen Formularen
+    - [ ] On-Blur-Validierung auf allen Formularen (nur für Felder mit Nutzereingabe; unberührte leere Felder erst beim Absenden)
     - [ ] On-Submit-Validierung auf allen Formularen
     - [ ] Backend-Validierungsfehler werden inline angezeigt
     - [ ] Validierungsregeln sind zentral definiert
@@ -519,10 +519,11 @@ R-063 erinnert: bei Master-Detail springt der Fokus nach dem letzten Fliesstext-
 
 **Dokumenten-Ende**
 
-**Version**: 1.3
+**Version**: 1.4
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-04-25
+**Letzte Aktualisierung**: 2026-11-19
 **Changelog**:
+- 1.4 (2026-11-19): R-001 präzisiert (Betreiberentscheidung): Fokusverlust validiert ein Feld nur, wenn der Nutzer darin bereits etwas eingegeben hat; ein unberührtes leeres Pflichtfeld meldet sich erst beim Absenden. Nach einem Absendeversuch wird jedes Feld bei Änderung erneut validiert. Anlass: Die beim Verlassen des autofokussierten Namensfelds eingeblendete Pflichtfeld-Zeile verschob den Dialog um ca. 23 px, der Klick landete neben seinem Ziel.
 - 1.3 (2026-04-25): Sektion 2.11 „Inhaltsdichte & Mehrspalten-Layout" ergänzt (R-053–R-064): Container-Breite, Lese-Spalten-Limit für Fließtext, optionales 2-/3-Spalten-Grid für kompakte Panels, Implementierer-Freiheit bei der konkreten Card-Anordnung pro Seite. Master-Detail-Wireframe als zweite zulässige Layout-Variante zu R-061 ergänzt.
 - 1.2 (2026-03-17): Vorherige Fassung.
 **Review**: Pending
