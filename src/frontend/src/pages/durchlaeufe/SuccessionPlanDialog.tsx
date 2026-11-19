@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,9 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -114,10 +116,11 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   // site_key backfill in edit mode) does not wipe a pre-selected location.
   const skipLocationReset = useRef(true);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: defaultsFor(plan),
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const speciesKey = useWatch({ control, name: 'species_key' });
   const siteKey = useWatch({ control, name: 'site_key' });
@@ -224,14 +227,15 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -415,6 +419,6 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

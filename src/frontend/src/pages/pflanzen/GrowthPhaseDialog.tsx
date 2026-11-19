@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -9,7 +9,9 @@ import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import { useForm, Controller } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -53,7 +55,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
   const [saving, setSaving] = useState(false);
   const isEdit = !!phase;
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -66,6 +68,7 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
       watering_interval_days: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (phase) {
@@ -109,14 +112,14 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
       notification.success(isEdit ? t('common.save') : t('common.create'));
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="growth-phase-dialog"
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="growth-phase-dialog"
       aria-labelledby="growth-phase-dialog-title">
       <DialogTitle id="growth-phase-dialog-title">
         {isEdit ? t('common.edit') : t('pages.growthPhases.create')}
@@ -179,6 +182,6 @@ export default function GrowthPhaseDialog({ lifecycleKey, phase, open, onClose, 
           <FormActions onCancel={onClose} loading={saving} saveLabel={isEdit ? t('common.save') : t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

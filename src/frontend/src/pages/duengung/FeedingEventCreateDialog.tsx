@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,9 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -75,7 +77,7 @@ export default function FeedingEventCreateDialog({
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       plant_key: plantKey ?? '',
@@ -93,6 +95,7 @@ export default function FeedingEventCreateDialog({
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (open && !plantKey) {
       setLoadingPlants(true);
@@ -138,14 +141,14 @@ export default function FeedingEventCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
       <DialogTitle id="feeding-event-create-dialog-title">{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -316,6 +319,6 @@ export default function FeedingEventCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

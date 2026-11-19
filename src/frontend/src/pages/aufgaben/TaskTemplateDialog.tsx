@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -74,7 +75,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
   const [saving, setSaving] = useState(false);
   const isEdit = !!template;
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '', instruction: '', category: 'maintenance', trigger_type: 'manual',
@@ -84,6 +85,7 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
       timer_duration_seconds: null, timer_label: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open && template) {
@@ -148,14 +150,14 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title" data-testid="task-template-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-template-dialog-title" data-testid="task-template-dialog">
       <DialogTitle id="task-template-dialog-title">{isEdit ? t('pages.tasks.editTaskTemplate') : t('pages.tasks.addTaskTemplate')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -211,6 +213,6 @@ export default function TaskTemplateDialog({ open, onClose, workflowKey, templat
           <FormActions onCancel={onClose} loading={saving} saveLabel={isEdit ? t('common.save') : t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -43,6 +43,7 @@ import { Link } from 'react-router-dom';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import * as activityPlanApi from '@/api/endpoints/activityPlans';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { ActivityPlanResponse, TaskTemplateResponse, TaskItem } from '@/api/types';
@@ -438,9 +439,14 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
     }
   }, [plan, handleError, reloadAfterFork]);
 
+  // A removed template is gone server-side — ask first (UI-NFR-004 R-022, #3019).
+  const [templatePendingRemoval, setTemplatePendingRemoval] = useState<TaskTemplateResponse | null>(null);
+  const [removingTemplate, setRemovingTemplate] = useState(false);
+
   const handleRemoveTemplate = useCallback(async (templateKey: string) => {
     const wasShared = plan?.is_shared_template ?? false;
     try {
+      setRemovingTemplate(true);
       await activityPlanApi.deleteTaskTemplate(templateKey);
       if (wasShared) {
         await reloadAfterFork();
@@ -456,6 +462,9 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
       });
     } catch (err) {
       handleError(err);
+    } finally {
+      setRemovingTemplate(false);
+      setTemplatePendingRemoval(null);
     }
   }, [plan, handleError, reloadAfterFork]);
 
@@ -930,7 +939,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                       <IconButton
                                         size="small"
                                         color="error"
-                                        onClick={() => handleRemoveTemplate(tt.key)}
+                                        onClick={() => setTemplatePendingRemoval(tt)}
                                         data-testid="activity-plan-template-delete-button"
                                       >
                                         <DeleteOutlineIcon sx={{ fontSize: 16 }} />
@@ -951,6 +960,24 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
           })}
         </>
       )}
+      <ConfirmDialog
+        open={templatePendingRemoval !== null}
+        title={t('pages.activityPlan.removeActivityTitle')}
+        message={t('pages.activityPlan.removeActivityConfirm', {
+          name: templatePendingRemoval
+            ? i18n.language === 'de' && templatePendingRemoval.name_de
+              ? templatePendingRemoval.name_de
+              : templatePendingRemoval.name
+            : '',
+        })}
+        confirmLabel={t('pages.activityPlan.removeActivity')}
+        destructive
+        loading={removingTemplate}
+        onConfirm={() => {
+          if (templatePendingRemoval) void handleRemoveTemplate(templatePendingRemoval.key);
+        }}
+        onCancel={() => setTemplatePendingRemoval(null)}
+      />
     </Box>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -15,7 +15,9 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { useForm, Controller } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -84,7 +86,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -101,6 +103,7 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
       reminder_hours_before: 2,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -152,14 +155,14 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="nutrient-plan-create-dialog-title" data-testid="nutrient-plan-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="nutrient-plan-create-dialog-title" data-testid="nutrient-plan-create-dialog">
       <DialogTitle id="nutrient-plan-create-dialog-title">{t('pages.nutrientPlans.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -319,6 +322,6 @@ export default function NutrientPlanCreateDialog({ open, onClose, onCreated }: P
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,8 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Alert from '@mui/material/Alert';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -71,7 +72,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
   // A list loaded under another tenant context is never shown without the scope.
   const entityOptions = canConfigureIntegrations ? haEntities : [];
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -81,6 +82,7 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
       mqtt_topic: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open) {
@@ -173,14 +175,14 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="sensor-create-dialog-title" data-testid="sensor-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="sensor-create-dialog-title" data-testid="sensor-create-dialog">
       <DialogTitle id="sensor-create-dialog-title">{isEdit ? t('pages.sensors.edit') : t('pages.sensors.add')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -266,6 +268,6 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

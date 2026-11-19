@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormNumberField from '@/components/form/FormNumberField';
@@ -80,10 +82,11 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
 
   const resolver = useMemo(() => buildSiteResolver(t), [t]);
   const typeOptions = useMemo(() => siteTypeOptions(t), [t]);
-  const { control, handleSubmit, reset, setValue } = useForm<SiteFormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<SiteFormData>({
     resolver,
     defaultValues: DEFAULT_VALUES,
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   // REQ-046 follow-up — the weather/frost section only ever unlocks for
   // weather-relevant sites (outdoor/greenhouse/balcony, see
   // WEATHER_RELEVANT_SITE_TYPES and WeatherSourceSection in SiteDetailPage).
@@ -115,7 +118,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
       setWaterConfig({ has_ro_system: false, tap_water_profile: { ...TAP_WATER_DEFAULTS }, ro_water_profile: { ...RO_WATER_DEFAULTS } });
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
@@ -124,7 +127,7 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
   const fc = siteFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth aria-labelledby="site-create-dialog-title" data-testid="site-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="sm" fullWidth aria-labelledby="site-create-dialog-title" data-testid="site-create-dialog">
       <DialogTitle id="site-create-dialog-title">{t('pages.sites.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -185,6 +188,6 @@ export default function SiteCreateDialog({ open, onClose, onCreated }: Props) {
           <FormActions onCancel={handleClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

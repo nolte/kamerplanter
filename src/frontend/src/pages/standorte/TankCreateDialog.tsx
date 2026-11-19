@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -8,7 +8,8 @@ import DialogContent from '@mui/material/DialogContent';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -64,7 +65,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
   const loadSites = useCallback(() => sitesApi.listSites(0, 200), []);
   const { options: sites, error: sitesError } = useAsyncOptions(loadSites, { enabled: open });
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -82,6 +83,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const handleSiteChange = (siteKey: string) => {
     setSelectedSiteKey(siteKey);
@@ -97,14 +99,14 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
       setSelectedSiteKey('');
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open}
+    <FormDialog control={control} fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
@@ -254,6 +256,6 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -4450,6 +4450,8 @@
       "addActivityToPhase": "Aktivität zu Phase \"{{phase}}\" hinzufügen",
       "selectActivity": "Aktivität auswählen",
       "removeActivity": "Entfernen",
+      "removeActivityTitle": "Aktivität entfernen?",
+      "removeActivityConfirm": "Möchtest du „{{name}}“ wirklich aus dem Aktivitätsplan entfernen? Das lässt sich nicht rückgängig machen.",
       "duplicateActivity": "Duplizieren (erneut einplanen)",
       "recovery": "Erholung",
       "stressTolerance": "Stresstoleranz: {{level}}",

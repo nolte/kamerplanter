@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -18,7 +18,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import { Link as RouterLink } from 'react-router-dom';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -195,7 +197,7 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open, referenceConsent]);
 
-  const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, getValues } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       instance_id: '',
@@ -211,6 +213,7 @@ export default function PlantInstanceCreateDialog({
       slot_key: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const speciesKey = useWatch({ control, name: 'species_key' });
   const siteKey = useWatch({ control, name: 'site_key' });
@@ -489,14 +492,14 @@ export default function PlantInstanceCreateDialog({
       reset();
       onCreated(result.key);
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="plant-instance-create-dialog-title" data-testid="plant-instance-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="plant-instance-create-dialog-title" data-testid="plant-instance-create-dialog">
       <DialogTitle id="plant-instance-create-dialog-title">{duplicateFrom ? t('pages.plantInstances.duplicateTitle') : t('pages.plantInstances.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -781,6 +784,6 @@ export default function PlantInstanceCreateDialog({
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

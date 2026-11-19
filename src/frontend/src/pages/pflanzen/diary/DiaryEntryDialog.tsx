@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
@@ -140,7 +142,7 @@ export default function DiaryEntryDialog({
     handleSubmit,
     reset,
     formState: { isDirty },
-  } = useForm<FormData>({
+  } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       entry_type: 'observation',
@@ -150,6 +152,7 @@ export default function DiaryEntryDialog({
       measurements: [],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'measurements' });
 
@@ -235,7 +238,7 @@ export default function DiaryEntryDialog({
         onSaved(saved);
         onClose();
       } catch (err) {
-        handleError(err);
+        handleError(err, applyFieldViolation);
       } finally {
         setSaving(false);
       }
@@ -250,6 +253,7 @@ export default function DiaryEntryDialog({
       onSaved,
       onClose,
       handleError,
+      applyFieldViolation,
     ],
   );
 
@@ -261,7 +265,8 @@ export default function DiaryEntryDialog({
   const photoLimitReached = photoRefs.length >= DIARY_MAX_PHOTOS;
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={saving ? undefined : onClose}
@@ -499,6 +504,6 @@ export default function DiaryEntryDialog({
         onClose={() => setUploadOpen(false)}
         onUploaded={handlePhotoUploaded}
       />
-    </Dialog>
+    </FormDialog>
   );
 }

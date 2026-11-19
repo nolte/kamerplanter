@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -69,7 +70,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
   const [saving, setSaving] = useState(false);
   const isEdit = !!entry;
 
-  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       phase_name: 'germination',
@@ -88,6 +89,7 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
       water_mix_ratio_ro_percent: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const overrideEnabled = watch('override_enabled');
 
@@ -165,14 +167,14 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
       notification.success(t(isEdit ? 'common.save' : 'common.create'));
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-entry-dialog-title" data-testid="phase-entry-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="phase-entry-dialog-title" data-testid="phase-entry-dialog">
       <DialogTitle id="phase-entry-dialog-title">
         {isEdit
           ? t('pages.nutrientPlans.editEntry')
@@ -355,6 +357,6 @@ export default function PhaseEntryDialog({ open, onClose, planKey, entry, onSave
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

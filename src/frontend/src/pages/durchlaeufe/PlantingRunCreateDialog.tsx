@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -29,7 +29,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import type { Control, UseFormSetValue } from 'react-hook-form';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useFieldArray, useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -251,7 +253,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
     onClose();
   }, [dispatch, onClose]);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -265,6 +267,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'entries' });
   const runType = useWatch({ control, name: 'run_type' });
@@ -382,7 +385,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
@@ -396,7 +399,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const fc = plantingRunFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
       <DialogTitle id="planting-run-create-dialog-title">{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -624,6 +627,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
