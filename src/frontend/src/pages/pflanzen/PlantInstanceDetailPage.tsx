@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTabUrl } from '@/hooks/useTabUrl';
@@ -238,6 +238,7 @@ export default function PlantInstanceDetailPage() {
   // filters client-side, so a row that never arrived is unpickable rather than
   // merely off-screen.
   const substrateCatalogue = useCatalogue('substrates', { enabled: tab === 7 });
+  const substrateFieldId = useId();
 
   // Assigned location display (info tab)
   const [assignedSlot, setAssignedSlot] = useState<Slot | null>(null);
@@ -2811,6 +2812,7 @@ export default function PlantInstanceDetailPage() {
                     suffix="L"
                   />
                   <SubstrateSelectField
+                    id={substrateFieldId}
                     name="substrate_key"
                     control={control}
                     label={t('pages.plantInstances.substrate')}
@@ -2822,7 +2824,7 @@ export default function PlantInstanceDetailPage() {
                 {/* A failed load is its own state, not an empty picker (#1628). */}
                 <CatalogueLoadError
                   reader={substrateCatalogue}
-                  focusSelector="[data-testid='form-field-substrate_key'] input"
+                  focusTargetId={substrateFieldId}
                 />
                 <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
               </CardContent>

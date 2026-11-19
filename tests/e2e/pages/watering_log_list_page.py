@@ -20,7 +20,7 @@ class WateringLogListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='watering-log-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-log-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     # Linked plant chips of a row (Chip mounted on a RouterLink → a real
     # anchor). Addressed by the *per-plant* hook the product emits in both
     # layouts, `plant-link-<plant key>`, rather than by the container that

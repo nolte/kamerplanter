@@ -4,4 +4,9 @@ export const EDITOR_ANCHORS = {
   canvas: 'garden-plan-canvas',
   /** The side panel (§17.3, WP 10.5; the properties panel before); the third skip link aims at it. */
   panel: 'garden-plan-properties-panel',
+  /**
+   * The name field of the properties panel, focused after "Rename" (#3024: by id,
+   * not by its `data-testid`, which is a test contract only — UI-NFR-022 R-004).
+   */
+  panelName: 'garden-plan-panel-name-input',
 } as const;

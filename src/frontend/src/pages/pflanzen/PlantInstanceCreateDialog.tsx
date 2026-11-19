@@ -141,6 +141,8 @@ export default function PlantInstanceCreateDialog({
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
   const substrateCatalogue = useCatalogue('substrates', { enabled: open });
+  const speciesFieldId = useId();
+  const substrateFieldId = useId();
   // Normalized start-phase options for the "Current Phase" select. The source
   // (PhaseSequence entries vs LifecycleConfig growth phases) is resolved the
   // same way the backend validates (issue #626), so the stored keys are always
@@ -507,6 +509,7 @@ export default function PlantInstanceCreateDialog({
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <SpeciesAutocompleteField
+                id={speciesFieldId}
                 name="species_key"
                 control={control}
                 label={t('entities.species')}
@@ -545,11 +548,7 @@ export default function PlantInstanceCreateDialog({
           <CatalogueLoadError
             reader={speciesCatalogue}
             impact={initialSpeciesKey || duplicateFrom ? 'lookup' : 'picker'}
-            focusSelector={
-              initialSpeciesKey || duplicateFrom
-                ? undefined
-                : "[data-testid='form-field-species_key'] input"
-            }
+            focusTargetId={initialSpeciesKey || duplicateFrom ? undefined : speciesFieldId}
           />
           <FormRow>
             <FormSelectField
@@ -763,6 +762,7 @@ export default function PlantInstanceCreateDialog({
           ) : null}
           <FormTextField name="instance_id" control={control} label={t('pages.plantInstances.instanceId')} required helperText={t('pages.plantInstances.instanceIdHelper')} />
           <SubstrateSelectField
+            id={substrateFieldId}
             name="substrate_key"
             control={control}
             label={t('pages.plantInstances.substrate')}
@@ -772,7 +772,7 @@ export default function PlantInstanceCreateDialog({
           />
           <CatalogueLoadError
             reader={substrateCatalogue}
-            focusSelector="[data-testid='form-field-substrate_key'] input"
+            focusTargetId={substrateFieldId}
           />
 
           <LocationAssignmentSection

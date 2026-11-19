@@ -15,6 +15,12 @@ interface SpeciesMultiAutocompleteFieldProps<T extends FieldValues> {
   label: string;
   species: Species[];
   helperText?: string;
+  /**
+   * Element id for the focusable control, e.g. so `CatalogueLoadError`'s
+   * `focusTargetId` can return focus here after a retry (#3024). Not derived
+   * from `data-testid`, which is a test contract only (UI-NFR-022 R-004).
+   */
+  id?: string;
   disabled?: boolean;
 }
 
@@ -60,6 +66,7 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
   species,
   helperText,
   disabled,
+  id,
 }: SpeciesMultiAutocompleteFieldProps<T>) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -81,6 +88,7 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
         );
         return (
           <Autocomplete
+            id={id}
             multiple
             value={selected}
             onChange={(_e, newVal) => field.onChange(newVal.map((o) => o.key))}

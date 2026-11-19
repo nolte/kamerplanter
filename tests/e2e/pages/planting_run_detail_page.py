@@ -33,11 +33,11 @@ class PlantingRunDetailPage(BasePage):
     # locate by visible typography text.
     DETAILS_CARD = (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] .MuiCard-root")
     ENTRIES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    ENTRIES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    ENTRIES_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Tab 1 – Plants ─────────────────────────────────────────────────
     PLANTS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    PLANTS_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    PLANTS_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Edit dialog (opened via edit button) ────────────────────────────
     EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")

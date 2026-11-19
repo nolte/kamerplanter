@@ -16,6 +16,12 @@ interface SpeciesAutocompleteFieldProps<T extends FieldValues> {
   helperText?: string;
   disabled?: boolean;
   required?: boolean;
+  /**
+   * Element id for the focusable control, e.g. so `CatalogueLoadError`'s
+   * `focusTargetId` can return focus here after a retry (#3024). Not derived
+   * from `data-testid`, which is a test contract only (UI-NFR-022 R-004).
+   */
+  id?: string;
   autoFocus?: boolean;
 }
 
@@ -40,6 +46,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
   disabled,
   required,
   autoFocus,
+  id,
 }: SpeciesAutocompleteFieldProps<T>) {
   const { t, i18n } = useTranslation();
   const language = i18n.language;
@@ -72,6 +79,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
         const selected = sortedOptions.find((o) => o.species.key === field.value) ?? null;
         return (
           <Autocomplete
+            id={id}
             value={selected}
             onChange={(_e, newVal) => {
               field.onChange(newVal?.species.key ?? '');

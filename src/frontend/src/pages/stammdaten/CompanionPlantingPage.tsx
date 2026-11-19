@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -87,6 +87,7 @@ export default function CompanionPlantingPage() {
   // asked for one page of 200 against 207 seeded species, and every filter here
   // runs client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species');
+  const speciesSelectId = useId();
   const [companionCounts, setCompanionCounts] = useState<CompanionCountsMap>({});
   const [selectedKey, setSelectedKey] = useState('');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
@@ -196,6 +197,7 @@ export default function CompanionPlantingPage() {
       </Typography>
 
       <Autocomplete
+        id={speciesSelectId}
         fullWidth
         options={speciesCatalogue.items}
         value={selectedSpecies}
@@ -315,7 +317,7 @@ export default function CompanionPlantingPage() {
       */}
       <CatalogueLoadError
         reader={speciesCatalogue}
-        focusSelector="[data-testid='species-select'] input"
+        focusTargetId={speciesSelectId}
       />
 
       {/* Persistent legend (not hover-dependent, so it works on touch too) mapping

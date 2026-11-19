@@ -423,8 +423,8 @@ export default function SpeciesListPage() {
           mb: 2,
         }}
       >
-        <Box sx={{ '& [data-testid="page-title"]': { mb: 0 } }}>
-          <PageTitle title={t('pages.species.title')} />
+        <Box>
+          <PageTitle title={t('pages.species.title')} sx={{ mb: 0 }} />
         </Box>
 
         <Tooltip title={t('pages.species.filters')}>

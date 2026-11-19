@@ -77,6 +77,7 @@ import { stackRefs } from './tools/selection';
 import type { ZMove } from './tools/zOrder';
 import { firstViolation } from './tools/validation';
 import { facingOf, planHasWindows } from './windowSuggestion';
+import { EDITOR_ANCHORS } from './anchors';
 
 // The tiles load when a bed is selected: the panel is part of the editor chunk, the tiles are not (E-12 budget).
 const SunTileSelector = lazy(() => import('../bed/SunTileSelector'));
@@ -402,6 +403,7 @@ function EntityForm({
         </Alert>
       )}
       <TextField
+        id={EDITOR_ANCHORS.panelName}
         size="small"
         label={t(
           entity === 'location' ? `${PREFIX}.panel.name` : caption ? `${PREFIX}.text.field` : `${PREFIX}.panel.label`,

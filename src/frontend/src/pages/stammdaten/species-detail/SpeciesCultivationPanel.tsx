@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -36,6 +37,7 @@ export default function SpeciesCultivationPanel({
   nutrientPlanCatalogue,
 }: SpeciesCultivationPanelProps) {
   const { t } = useTranslation();
+  const nutrientPlanFieldId = useId();
 
   return (
     <Card variant="outlined">
@@ -89,6 +91,7 @@ export default function SpeciesCultivationPanel({
             ]}
           />
           <FormSelectField
+            id={nutrientPlanFieldId}
             name="default_nutrient_plan_key"
             control={control}
             label={t('pages.species.defaultNutrientPlan')}
@@ -106,7 +109,7 @@ export default function SpeciesCultivationPanel({
         {/* A failed load is its own state, not an empty picker (#1628). */}
         <CatalogueLoadError
           reader={nutrientPlanCatalogue}
-          focusSelector="[data-testid='form-field-default_nutrient_plan_key'] [role='combobox']"
+          focusTargetId={nutrientPlanFieldId}
         />
         {/* Phase A harvest properties (REQ-007/008). intermediate: pattern + part;
           expert: climacteric ripening class. Empty select → null on submit. */}

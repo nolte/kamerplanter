@@ -26,7 +26,7 @@ class PlantInstanceDetailPage(BasePage):
     CURRENT_PHASE = (By.CSS_SELECTOR, "[data-testid='current-phase']")
     # The "Phasenverlauf" table no longer has a dedicated data-testid='phase-history'
     # container -- PhaseHistoryTable now delegates to the shared DataTable, which
-    # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows
+    # renders [data-testid='data-table'] with keyed [data-row-key] rows
     # (PhaseHistoryTable.tsx). The bare `[data-testid='phase-history']` this used
     # to be matches nothing in the current frontend, so both readers below always
     # returned False/0 regardless of the real state -- silent, not just unanchored.
@@ -39,7 +39,7 @@ class PlantInstanceDetailPage(BasePage):
     )
     PHASE_HISTORY_ROWS = (
         By.CSS_SELECTOR,
-        "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
+        "[data-testid='phases-tab-content'] [data-row-key]",
     )
     PHASES_TAB = (By.CSS_SELECTOR, "[data-testid='phases-tab']")
     PHASES_TAB_CONTENT = (By.CSS_SELECTOR, "[data-testid='phases-tab-content']")
@@ -74,7 +74,7 @@ class PlantInstanceDetailPage(BasePage):
     # Trailing integer of a summary chip, e.g. "Überfällig: 2" / "Overdue: 2".
     _SUMMARY_COUNT_RE = re.compile(r"(\d+)\s*$")
     LOADING_SKELETON = (By.CSS_SELECTOR, "[data-testid='loading-skeleton']")
-    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # `DataTable.sectionTestId` values for the two task-history sections — the
     # active table lists pending/in-progress tasks, the done table the
@@ -258,7 +258,7 @@ class PlantInstanceDetailPage(BasePage):
         self.wait_for_task_history_content()
         return self.driver.find_elements(
             By.CSS_SELECTOR,
-            f"{self.SECTION_TABLE_CSS.format(section=section)} [data-testid='data-table-row']",
+            f"{self.SECTION_TABLE_CSS.format(section=section)} [data-row-key]",
         )
 
     #: `MobileCard` slot that carries each section's subtitle, per the tasks-tab

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -75,6 +76,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   // asked for one page of 200 against 207 seeded species, and the picker filters
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
+  const speciesFieldId = useId();
   const { instances: plantInstances, loading: plantsLoading } = usePlantInstanceOptions(open);
 
   const defaults: FormData = {
@@ -162,6 +164,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
             />
           </FormRow>
           <SpeciesAutocompleteField
+            id={speciesFieldId}
             name="species_key"
             control={control}
             label={t('pages.propagation.fields.speciesKey')}
@@ -179,7 +182,7 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
           */}
           <CatalogueLoadError
             reader={speciesCatalogue}
-            focusSelector="[data-testid='form-field-species_key'] input"
+            focusTargetId={speciesFieldId}
           />
 
           <Divider sx={{ my: 2 }} />

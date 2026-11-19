@@ -19,7 +19,7 @@ class SiteListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='site-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

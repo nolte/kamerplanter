@@ -41,6 +41,7 @@ export default function FormSwitchField<T extends FieldValues>({
                   // `?? field.disabled` honours `useForm({ disabled })` / `<Controller disabled>`;
                   // a bare `disabled={disabled}` overwrites RHF's value with `undefined` (#1402 C).
                   disabled={disabled ?? field.disabled}
+                  data-testid={`form-field-${name}-switch`}
                 />
               }
               label={label}

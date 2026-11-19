@@ -2001,7 +2001,7 @@ class BasePage:
         return ""
 
     # ── Layout-tolerant DataTable row access ──────────────────────────────
-    # `DataTable` emits ``[data-testid='data-table-row']`` in BOTH layouts, but
+    # `DataTable` emits keyed rows (``[data-row-key]``) in BOTH layouts, but
     # only the desktop table renders ``<td data-testid='cell-<col_id>'>``. Below
     # the table's `mobileBreakpoint` it renders a `MobileCard` inside the same
     # row container. Position-based `cells[0]` access is doubly wrong there: it
@@ -2018,7 +2018,33 @@ class BasePage:
     # single key addresses the same value in both layouts (``cell-<id>`` on the
     # desktop table, ``card-field-<id>``/``card-chip-<id>`` on the card).
 
-    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    #: Every `DataTable` row in both layouts. Rows are addressed through
+    #: ``data-row-key`` -- the row's stable business key (`getRowKey`, UI-NFR-022
+    #: R-014) -- rather than the unkeyed ``data-testid='data-table-row'`` (#3024).
+    #: `DataTable` sets both attributes on the same element, so the set of rows
+    #: this matches is unchanged; :meth:`data_table_row` narrows it to one key.
+    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
+
+    @staticmethod
+    def data_table_row(row_key: str, section: str | None = None) -> tuple[str, str]:
+        """Locator of the `DataTable` row whose ``data-row-key`` is *row_key*.
+
+        Args:
+            row_key: The value the table's ``getRowKey`` returns for the row
+                (normally the entity ``key``).
+            section: The ``data-table-section`` qualifier of one table on a page
+                that renders several (UI-NFR-022 §2.5.1); ``None`` searches the
+                whole page.
+        """
+        escaped = row_key.replace("\\", "\\\\").replace("'", "\\'")
+        row = f"[data-row-key='{escaped}']"
+        if section is None:
+            return (By.CSS_SELECTOR, row)
+        return (
+            By.CSS_SELECTOR,
+            f"[data-testid='data-table'][data-table-section='{section}'] {row}",
+        )
+
     #: Container `DataTable` emits *only* in the mobile card layout.
     DATA_TABLE_CARDS = (By.CSS_SELECTOR, "[data-testid='data-table-cards']")
 

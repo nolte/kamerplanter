@@ -42,7 +42,7 @@ class SpeciesDetailPage(BasePage):
 
     # Cultivar tab locators
     CULTIVAR_CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
-    CULTIVAR_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    CULTIVAR_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     # The Cultivar tab opens CultivarCreateDialog (cultivar-create-dialog),
     # the Lifecycle tab opens GrowthPhaseDialog (growth-phase-dialog).
     # Both are modal: at most one is open at a time.
@@ -85,7 +85,7 @@ class SpeciesDetailPage(BasePage):
     # Section heading — present for every species with a lifecycle config,
     # including system/managed species, which hide the create button.
     PHASE_SECTION_TITLE = (By.XPATH, "//h6[normalize-space()='Wachstumsphasen']")
-    PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    PHASE_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)

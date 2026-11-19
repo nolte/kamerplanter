@@ -23,7 +23,7 @@ class PlantInstanceListExt(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='plant-instance-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -189,7 +189,7 @@ class PlantInstanceDetailExt(BasePage):
     CURRENT_PHASE_CHIP = (By.CSS_SELECTOR, "[data-testid='current-phase']")
     # The "Phasenverlauf" table no longer has a dedicated data-testid='phase-history'
     # container — PhaseHistoryTable now delegates to the shared DataTable, which
-    # renders [data-testid='data-table'] with [data-testid='data-table-row'] rows.
+    # renders [data-testid='data-table'] with keyed [data-row-key] rows.
     # Scope to the phases-tab-content panel so these don't match other tables.
     PHASE_HISTORY = (
         By.CSS_SELECTOR,
@@ -197,7 +197,7 @@ class PlantInstanceDetailExt(BasePage):
     )
     PHASE_HISTORY_ROWS = (
         By.CSS_SELECTOR,
-        "[data-testid='phases-tab-content'] [data-testid='data-table-row']",
+        "[data-testid='phases-tab-content'] [data-row-key]",
     )
     #: `PhaseHistoryTable`'s own empty branch (``history.length === 0``),
     #: scoped inside the phases tab panel for the same reason `PHASE_HISTORY`

@@ -65,6 +65,7 @@ export default function FormChipInput<T extends FieldValues>({
               error={!!error}
               helperText={error?.message ?? helperText}
               fullWidth
+              data-testid={`form-field-${name}-input`}
             />
             {values.length > 0 && (
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>

@@ -32,7 +32,7 @@ class TankDetailPage(BasePage):
     # ── Tab 1 – States ─────────────────────────────────────────────────
     RECORD_STATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='tank-record-state-button']")
     STATES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    STATES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    STATES_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── TankStateCreateDialog ──────────────────────────────────────────
     STATE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
@@ -59,7 +59,7 @@ class TankDetailPage(BasePage):
     # ── Tab 2 – Maintenance ────────────────────────────────────────────
     LOG_MAINTENANCE_BUTTON = (By.CSS_SELECTOR, "[data-testid='tank-log-maintenance-button']")
     MAINTENANCE_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    MAINTENANCE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── MaintenanceLogDialog ───────────────────────────────────────────
     MAINTENANCE_DIALOG = (By.CSS_SELECTOR, ".MuiDialog-root [role='dialog']")
@@ -80,7 +80,7 @@ class TankDetailPage(BasePage):
 
     # ── Tab 3 – Schedules ─────────────────────────────────────────────
     SCHEDULES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    SCHEDULES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    SCHEDULES_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Tab 4 – Fills ────────────────────────────────────────────────────
     # (Tab for tank fill events – no specific locators needed beyond data-table)

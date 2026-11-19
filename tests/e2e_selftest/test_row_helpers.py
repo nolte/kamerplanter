@@ -142,6 +142,11 @@ class StubNode:
         #: testid -- see `_matches`.
         self.tag = tag
         self.attrs = frozenset(attrs)
+        #: Attribute *values*, modelled only for ``data-row-key``: `DataTable`
+        #: puts the row's business key on every row next to the unkeyed
+        #: ``data-table-row`` testid, and the page objects locate rows by it
+        #: (``[data-row-key]`` / ``[data-row-key='<key>']``, #3024).
+        self.attr_values: dict[str, str] = {}
         #: Modelled only for the #946 wave 4/5 guarded-dismissal readers that
         #: address a MUI Dialog structurally (``.MuiDialog-root [role='dialog']``)
         #: rather than by testid -- `TankDetailPage.STATE_DIALOG`/
@@ -183,7 +188,12 @@ class TableDom:
 
     def _new(self, testid: str, text: str = "", css_class: str = "") -> StubNode:
         self._counter += 1
-        return StubNode(f"element-{self._counter}", testid, text, css_class)
+        node = StubNode(f"element-{self._counter}", testid, text, css_class)
+        if testid == self.ROW_TESTID:
+            # Mirrors `DataTable`: every row carries both the unkeyed testid and
+            # its business key (`getRowKey`); the row's text stands in for it.
+            node.attr_values[ROW_KEY_ATTR] = text
+        return node
 
     def render(
         self, names: list[str], *, with_cells: bool = True, chip_palette: str | None = None
@@ -289,6 +299,14 @@ class TableDom:
 _TAG_SELECTOR = re.compile(r"^([a-zA-Z][a-zA-Z0-9]*)(\[([a-zA-Z-]+)\])?$")
 
 
+#: The attribute `DataTable` keys every row with (UI-NFR-022 R-014, #3024).
+ROW_KEY_ATTR = "data-row-key"
+
+#: ``[data-row-key]`` or ``[data-row-key='<key>']`` -- a bare attribute selector,
+#: optionally with a quoted value, modelled only for the keyed row locator.
+_ATTR_SELECTOR = re.compile(r"^\[([a-zA-Z-]+)(?:='([^']*)')?\]$")
+
+
 def _matches(node: StubNode, selector: str) -> bool:
     """Answer the selector shapes the helpers under test actually issue.
 
@@ -313,6 +331,12 @@ def _matches(node: StubNode, selector: str) -> bool:
         return node.testid == selector[len(exact) : -2]
     if selector == ".MuiDialog-root [role='dialog']":
         return node.is_mui_dialog
+    attr_match = _ATTR_SELECTOR.match(selector)
+    if attr_match:
+        name, value = attr_match.groups()
+        if name not in node.attr_values:
+            return False
+        return value is None or node.attr_values[name] == value
     if selector.startswith(".") and " " not in selector:
         return selector[1:] in node.css_class.split()
     tag_match = _TAG_SELECTOR.match(selector)
@@ -1823,11 +1847,11 @@ class TestTheAnchoredDetailTabReaders:
 
     Two of the three anchors introduced here gate readers whose actual row
     locator is a compound-plus-descendant CSS selector
-    (``[data-testid='data-table'][data-table-section='...'] [data-testid=
-    'data-table-row']`` for `get_task_rows`; ``[data-testid='phases-tab-
-    content'] [data-testid='data-table-row']`` for `get_phase_history_count`)
+    (``[data-testid='data-table'][data-table-section='...'] [data-row-key]``
+    for `get_task_rows`; ``[data-testid='phases-tab-content'] [data-row-key]``
+    for `get_phase_history_count`)
     that this module's stub `_matches` cannot resolve (documented there: it
-    answers exact, prefix and bare-class selectors only). Those two anchors
+    answers exact, prefix, bare-class and bare-attribute selectors only, no descendant combinator). Those two anchors
     are therefore measured directly (`wait_for_task_history_content`,
     `wait_for_phases_tab_content`) rather than through the row count they
     guard -- the **settled-absence** direction of the guarded readers is
@@ -1837,7 +1861,7 @@ class TestTheAnchoredDetailTabReaders:
     wave 2 hit on `plant_instance_detail_page` before it.
 
     `get_watering_log_row_count` has no such gap: `DATA_TABLE_ROWS` is a
-    plain ``[data-testid='data-table-row']`` selector, so both directions are
+    plain ``[data-row-key]`` selector, so both directions are
     measured end-to-end, same as the gallery readers above.
     """
 
