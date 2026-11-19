@@ -15,7 +15,7 @@ export default function FormDialogCancelButton({ onCancel, children, ...props }:
   const { t } = useTranslation();
   const formDialog = useFormDialogClose();
   return (
-    <Button {...props} onClick={() => (formDialog ? formDialog.requestClose(onCancel) : onCancel())}>
+    <Button data-testid="form-cancel-button" {...props} onClick={() => (formDialog ? formDialog.requestClose(onCancel) : onCancel())}>
       {children ?? t('common.cancel')}
     </Button>
   );
