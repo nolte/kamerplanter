@@ -486,6 +486,24 @@ jobs:
               `- \`${h.plugin}\` — ${h.name} (${h.count} instance(s)) on ${h.site}`
             ).join('\n');
             const more = blocking.length > 20 ? `\n…and ${blocking.length - 20} more.` : '';
+            // One cause, one issue. This step used to create an issue per scanned
+            // commit, so a finding that outlives a merge (a base image with a new
+            // advisory) filed ten identical issues in 19 hours. An open issue that
+            // already lists exactly these findings gets a comment instead.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'zap', per_page: 100,
+            });
+            const same = open.find(i => !i.pull_request
+              && i.title.startsWith('[zap-postmerge]')
+              && (i.body || '').includes(summary + more));
+            if (same) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: same.number,
+                body: `Still present on \`${process.env.COMMIT_SHA}\`: ${process.env.RUN_URL}`,
+              });
+              return;
+            }
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,

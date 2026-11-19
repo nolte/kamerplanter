@@ -44,7 +44,10 @@ RUN npm run build
 
 # ── Production target (default; last stage): non-root nginx-unprivileged ──
 # Runs as UID 101, listens on 8080 — no root, no privileged port.
-FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e AS prod
+# Upstream publishes this image as `nginx/nginx-unprivileged`. The former
+# `nginxinc/nginx-unprivileged` repository still resolves but stopped receiving
+# tags at 1.31.7, so a pin on it never gets a security release.
+FROM nginx/nginx-unprivileged:1.31-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6 AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \

@@ -42,9 +42,9 @@ CHART="${1:-helm/kamerplanter}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 CHART_VALUES="${CHART}/values.yaml"
 
-image="${NGINX_IMAGE:-$(sed -n 's/^FROM \(nginxinc\/nginx-unprivileged[^ ]*\) AS prod$/\1/p' "${REPO}/src/frontend/Dockerfile")}"
+image="${NGINX_IMAGE:-$(sed -n 's/^FROM \(nginx\/nginx-unprivileged[^ ]*\) AS prod$/\1/p' "${REPO}/src/frontend/Dockerfile")}"
 if [[ -z "${image}" ]]; then
-  echo "::error::no 'FROM nginxinc/nginx-unprivileged… AS prod' line in src/frontend/Dockerfile" >&2
+  echo "::error::no 'FROM nginx/nginx-unprivileged… AS prod' line in src/frontend/Dockerfile" >&2
   exit 1
 fi
 
