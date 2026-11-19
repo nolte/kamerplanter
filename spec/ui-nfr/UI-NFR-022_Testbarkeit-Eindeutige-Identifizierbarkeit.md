@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.27
+Version: 1.28
 Autor: Business Analyst - Agrotech
 Datum: 2026-11-12
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.28 | 2026-11-19 | §2.5.1: Kennungen der Formular-Wrapper registriert (Issue #3024): `form-field-<name>-switch` (Schalter in `FormSwitchField`), `form-field-<name>-input` (Eingabe in `FormChipInput`), `form-option-<name>-<wert>` (Option in `FormMultiSelectField` und `LocationTreeSelect`, dort zusätzlich `form-option-<name>-empty`), `form-option-<name>-<key>-favorite` und `form-field-<name>-favorites-filter` (`SubstrateSelectField`); `FormTimeField` trägt jetzt `form-field-<name>`. Dazu `data-row-key` (fachlicher Schlüssel der Tabellenzeile, #3026) und `data-row-link="true"` (Zeilen-Link der ersten Zelle, #3017) als qualifizierende Attribute an `data-table-row`. Der Guard `src/frontend/src/test/guards/testabilityContract.test.ts` setzt R-005/R-009/R-010/R-018 für Dialoge, Seitenwurzeln und Formular-Wrapper durch; bestehende Index-, `-btn`- und Nicht-kebab-Kennungen stehen dort in einer Ausnahmeliste, die nur schrumpfen darf. Keine bestehende Kennung umbenannt (R-021). |
 | 1.27 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Text“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-text`, `garden-plan-text-status`, `garden-plan-text-place`, `garden-plan-text-dialog` und `garden-plan-caption-<key>`; `garden-plan-touch-place` gilt auch für das Setzen des Ankerpunkts. |
 | 1.26 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Pflanze setzen“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-plant`, `garden-plan-plant-status` und `garden-plan-plant-dialog`. |
 | 1.25 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Bereich“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-area` und `garden-plan-new-area-type-rule`. |
@@ -149,6 +150,23 @@ verbindliche **Bereitstellungs**-Anforderung an das Frontend. Diese UI-NFR schli
 | Muster | Bedeutung |
 |---|---|
 | `form-actions` | Container der Aktionsschaltflächen eines Formulars (Speichern/Abbrechen); ergänzt, nicht ersetzt, die Einzel-IDs der Buttons |
+
+**Formular-Wrapper (`components/form`):**
+
+| Muster | Bedeutung |
+|---|---|
+| `form-field-<name>-switch` | Schaltelement eines `FormSwitchField`; das umgebende Feld trägt `form-field-<name>` |
+| `form-field-<name>-input` | Texteingabe eines `FormChipInput` |
+| `form-option-<name>-<wert>` | Option eines `FormMultiSelectField` bzw. `LocationTreeSelect`; `form-option-<name>-empty` für den Leerzustand der Baumauswahl |
+| `form-option-<name>-<key>-favorite` | Favoriten-Umschalter einer Option im `SubstrateSelectField` |
+| `form-field-<name>-favorites-filter` | Filter „Nur Favoriten“ des `SubstrateSelectField` |
+
+**Tabellenzeile (`DataTable`), qualifizierende Attribute an `data-table-row`:**
+
+| Attribut | Bedeutung |
+|---|---|
+| `data-row-key` | Fachlicher Schlüssel der Zeile; Page Objects suchen Zeilen hierüber, nicht über die Position |
+| `data-row-link="true"` | Markiert den echten Link der ersten sichtbaren Zelle einer verlinkten Zeile; ein Klick darauf führt zum selben Ziel wie der Zeilenklick |
 
 **Tabellenkopf (`DataTable`):**
 
