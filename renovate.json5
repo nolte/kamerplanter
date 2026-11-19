@@ -802,7 +802,7 @@
         'arangodb',
         'valkey/valkey',
         'ollama/ollama',
-        'nginxinc/nginx-unprivileged',
+        'nginx/nginx-unprivileged',
         'python',
         'node',
         'postgres',
