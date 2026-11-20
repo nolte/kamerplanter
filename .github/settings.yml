@@ -315,10 +315,11 @@ branches:
           # source of infrastructure flake. Either is a measurement.
           - Integration tests (ArangoDB)
       enforce_admins: true
-      # No `required_pull_request_reviews` block, deliberately — recorded here
-      # because the CI/CD audit on 2026-08-01 flagged its absence and the live
-      # state (`required_pull_request_reviews: null`) had no written rationale,
-      # which made it indistinguishable from an accident.
+      # No `required_pull_request_reviews` requirement, deliberately — the
+      # rationale below was recorded because the CI/CD audit on 2026-08-01
+      # flagged the missing requirement and the live state
+      # (`required_pull_request_reviews: null`) had no written rationale, which
+      # made it indistinguishable from an accident.
       #
       # This is a single-maintainer repository whose merges run through the
       # `automerge` label. A self-approval requirement would either be satisfied
@@ -334,7 +335,17 @@ branches:
       #
       # Revisit if a second regular contributor appears: at that point the
       # approval stops being self-approval and starts being a review.
-      # `restrictions: null` is load-bearing, not a tidy-up. The commons declare
+      #
+      # The key is written out as `null` rather than left out (#3042): GitHub's
+      # "Update branch protection" endpoint requires all four of
+      # `required_status_checks`, `enforce_admins`, `required_pull_request_reviews`
+      # and `restrictions`. Until nolte/gh-plumbing#496 the shared commons
+      # supplied the field through their own branch entry; they declare none any
+      # more, so a missing key here would make GitHub reject the whole `develop`
+      # update — silently, as described for `restrictions` below.
+      required_pull_request_reviews: null
+      # `restrictions: null` is load-bearing, not a tidy-up. Until
+      # nolte/gh-plumbing#496 the commons declared
       # `restrictions.apps: [nolte-portfolio-app]` for develop, but GitHub only
       # accepts push restrictions on ORGANISATION-owned repositories; on a
       # personal account the branch-protection PUT is rejected outright. The
@@ -355,8 +366,8 @@ branches:
 #
 # The Probot Settings App merges arrays of named objects by `name` and PUSHES
 # every entry it does not find — `mergeArrayByName.js` in
-# `repository-settings/app`, the same mechanism the `develop` block above relies
-# on. So this block ADDS to the commons' 28 labels; it does not replace them.
+# `repository-settings/app`, the same mechanism the `develop` block above relied
+# on while the commons still declared a branch entry. So this block ADDS to the commons' 28 labels; it does not replace them.
 # Measured before writing it, not assumed: the live label set was the commons
 # set plus `deployment` and `release-lag`, both of which exist only because a
 # `issues.create({labels: […]})` call in a workflow created them as a side
