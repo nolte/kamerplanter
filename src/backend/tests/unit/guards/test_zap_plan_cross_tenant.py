@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from app.api.v1.garden_plan.schemas import PlanImportRequest
 from app.api.v1.router import api_router
 from tests.support.repo_scripts import find_repo_root
 
@@ -109,8 +110,9 @@ def test_every_probed_route_is_mounted(route) -> None:
 
 
 #: Routes that read the request body themselves, after authentication and the role gate, and so declare no
-#: request model FastAPI could refuse a body with before the service runs.
-_READS_ITS_OWN_BODY = frozenset({"plan/import"})
+#: request model FastAPI could resolve - mapped to the model the handler validates the body against, still
+#: before the service checks the site's tenant.
+_READS_ITS_OWN_BODY: dict[str, type] = {"plan/import": PlanImportRequest}
 
 
 def _body_models() -> dict[tuple[str, str], type]:
@@ -148,6 +150,7 @@ def test_every_probe_body_passes_the_request_model(route) -> None:
     model = _body_models().get((route.method, path))
     if route.name in _READS_ITS_OWN_BODY:
         assert model is None, f"{route.name} declares a request model now - drop it from _READS_ITS_OWN_BODY"
+        _READS_ITS_OWN_BODY[route.name].model_validate(route.body)
         return
     assert model is not None, f"{route.method} {path} has no request model to check the probe body against"
     model.model_validate(route.body)
