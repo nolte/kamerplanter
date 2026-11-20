@@ -34,6 +34,7 @@ import { kamiPlants } from '@/assets/brand/illustrations';
 import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
 import { captureHandledError } from '@/observability/errorTracking';
+import { createRequestLimiter, ENRICHMENT_CONCURRENCY } from '@/api/requestLimiter';
 
 export default function PlantInstanceListPage() {
   const { t, i18n } = useTranslation();
@@ -69,15 +70,31 @@ export default function PlantInstanceListPage() {
   // page and would refetch the stats once per page.
   const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(loadedGeneration);
 
+  // Every enrichment read below goes through one limiter per page (#3032): the
+  // per-key fan-out (a slot per plant, the plants of every run, the locations of
+  // every site) used to fire all at once — hundreds of requests on a large tenant —
+  // and the browser queued the route chunk of a row click behind them, so the
+  // detail page could not render for as long as the queue took. Each effect aborts
+  // its queued reads when it re-runs or the page unmounts.
+  const [enrichmentLimiter] = useState(() => createRequestLimiter(ENRICHMENT_CONCURRENCY));
+
   useEffect(() => {
     dispatch(fetchAllPlantInstances());
+    const controller = new AbortController();
+    const { signal } = controller;
     // Load sites + all locations
     listSites(0, 200).then((sites) => {
+      if (signal.aborted) return null;
       const sm = new Map<string, Site>();
       for (const s of sites) sm.set(s.key, s);
       setSiteMap(sm);
-      return Promise.all(sites.map((s) => listLocations(s.key).catch(() => [] as Location[])));
+      return Promise.all(
+        sites.map((s) =>
+          enrichmentLimiter.run(() => listLocations(s.key), signal).catch(() => [] as Location[]),
+        ),
+      );
     }).then((results) => {
+      if (results === null || signal.aborted) return;
       const lm = new Map<string, Location>();
       for (const locs of results) {
         for (const l of locs) lm.set(l.key, l);
@@ -87,15 +104,24 @@ export default function PlantInstanceListPage() {
       // Display enrichment only: site and location columns show keys; the plants come from the store.
       captureHandledError(err, { source: 'PlantInstanceListPage.locationNames' });
     });
-  }, [dispatch]);
+    return () => controller.abort();
+  }, [dispatch, enrichmentLimiter]);
 
   // Load plant→run mapping
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
     listPlantingRuns(0, 200).then(async (runs) => {
       const map = new Map<string, { runKey: string; runName: string }>();
       const results = await Promise.all(
-        runs.map((r) => listRunPlants(r.key).then((plants) => ({ run: r, plants })).catch(() => ({ run: r, plants: [] as { key: string }[] }))),
+        runs.map((r) =>
+          enrichmentLimiter
+            .run(() => listRunPlants(r.key), signal)
+            .then((plants) => ({ run: r, plants }))
+            .catch(() => ({ run: r, plants: [] as { key: string }[] })),
+        ),
       );
+      if (signal.aborted) return;
       for (const { run, plants } of results) {
         for (const p of plants) {
           map.set(p.key, { runKey: run.key, runName: run.name });
@@ -106,7 +132,8 @@ export default function PlantInstanceListPage() {
       // Display enrichment only: the run column stays empty; the plants themselves come from the store.
       captureHandledError(err, { source: 'PlantInstanceListPage.runMap' });
     });
-  }, []);
+    return () => controller.abort();
+  }, [enrichmentLimiter]);
 
   // Load cultivars for species that have instances with cultivar_key. Both
   // enrichments wait for the complete list: while pages still arrive, `items`
@@ -118,31 +145,41 @@ export default function PlantInstanceListPage() {
       items.filter((p) => p.cultivar_key).map((p) => p.species_key),
     );
     if (speciesKeysWithCultivars.size === 0) return;
+    const controller = new AbortController();
+    const { signal } = controller;
     const promises = [...speciesKeysWithCultivars].map((sk) =>
-      listCultivars(sk).catch(() => [] as Cultivar[]),
+      enrichmentLimiter.run(() => listCultivars(sk), signal).catch(() => [] as Cultivar[]),
     );
     Promise.all(promises).then((results) => {
+      if (signal.aborted) return;
       const map = new Map<string, Cultivar>();
       for (const cultivars of results) {
         for (const c of cultivars) map.set(c.key, c);
       }
       setCultivarMap(map);
     });
-  }, [items, speciesMap, loadingMore]);
+    return () => controller.abort();
+  }, [items, speciesMap, loadingMore, enrichmentLimiter]);
 
   // Load slots for instances that have slot_key
   useEffect(() => {
     if (loadingMore || items.length === 0) return;
     const slotKeys = new Set(items.map((p) => p.slot_key).filter(Boolean) as string[]);
     if (slotKeys.size === 0) return;
-    Promise.all([...slotKeys].map((sk) => getSlot(sk).catch(() => null))).then((results) => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    Promise.all(
+      [...slotKeys].map((sk) => enrichmentLimiter.run(() => getSlot(sk), signal).catch(() => null)),
+    ).then((results) => {
+      if (signal.aborted) return;
       const map = new Map<string, Slot>();
       for (const s of results) {
         if (s) map.set(s.key, s);
       }
       setSlotMap(map);
     });
-  }, [items, loadingMore]);
+    return () => controller.abort();
+  }, [items, loadingMore, enrichmentLimiter]);
 
   const filteredItems = useMemo(
     () => (hideRemoved ? items.filter((p) => !p.removed_on) : items),

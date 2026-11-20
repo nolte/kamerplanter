@@ -83,7 +83,11 @@ export default function TenantSwitcher() {
         color="inherit"
         onClick={handleOpen}
         endIcon={<ArrowDropDownIcon />}
-        sx={{ textTransform: 'none', mr: 1 }}
+        // #3032 (#2815 follow-up): below sm the button may give up MUI's 64 px minimum
+        // width and shrink its ellipsised name, so the full-mode app bar still fits 390 px
+        // while the offline indicators show. With the minimum it overflowed by 18 px at
+        // 393 px (bar 411 px, nightly 44706366400, TC-053-087/088).
+        sx={{ textTransform: 'none', mr: { xs: 0.5, sm: 1 }, minWidth: { xs: 0, sm: 64 } }}
         size="small"
       >
         {/* `data-tenant-selected` distinguishes the two things this label can
