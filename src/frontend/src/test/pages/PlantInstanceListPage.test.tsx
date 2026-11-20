@@ -382,6 +382,9 @@ describe('PlantInstanceListPage', () => {
 
         release();
         await waitFor(() => expect(stats.started).toBe(SLOT_COUNT));
+        // A second fan-out over the same slots would only show after the first one is through.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(stats.started).toBe(SLOT_COUNT);
         expect(stats.maxInFlight).toBeLessThanOrEqual(ENRICHMENT_CONCURRENCY);
       } finally {
         release();

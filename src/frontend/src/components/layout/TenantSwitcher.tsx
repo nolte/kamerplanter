@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import CheckIcon from '@mui/icons-material/Check';
 import GroupsIcon from '@mui/icons-material/Groups';
+import { TOUCH_TARGET_MIN } from '@/theme/theme';
 import PersonIcon from '@mui/icons-material/Person';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -83,11 +84,18 @@ export default function TenantSwitcher() {
         color="inherit"
         onClick={handleOpen}
         endIcon={<ArrowDropDownIcon />}
-        // #3032 (#2815 follow-up): below sm the button may give up MUI's 64 px minimum
-        // width and shrink its ellipsised name, so the full-mode app bar still fits 390 px
-        // while the offline indicators show. With the minimum it overflowed by 18 px at
-        // 393 px (bar 411 px, nightly 44706366400, TC-053-087/088).
-        sx={{ textTransform: 'none', mr: { xs: 0.5, sm: 1 }, minWidth: { xs: 0, sm: 64 } }}
+        // #3032 (#2815 follow-up): below sm the button gives up MUI's 64 px minimum width
+        // for the touch-target floor and a smaller margin (20 px together), so the
+        // full-mode app bar still fits 390 px while the offline indicators show. With the
+        // 64 px minimum it overflowed by 18 px at 393 px (bar 411 px, nightly 44706366400,
+        // TC-053-087/088). It never goes below the touch target: the theme holds only
+        // icon buttons to it, so this small text button carries the floor itself.
+        sx={{
+          textTransform: 'none',
+          mr: { xs: 0.5, sm: 1 },
+          minWidth: { xs: TOUCH_TARGET_MIN, sm: 64 },
+          minHeight: { xs: TOUCH_TARGET_MIN, sm: 'auto' },
+        }}
         size="small"
       >
         {/* `data-tenant-selected` distinguishes the two things this label can
