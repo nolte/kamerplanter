@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useId } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +35,8 @@ import LocationAssignmentSection from '@/components/form/LocationAssignmentSecti
 import FavoriteToggle from '@/components/common/FavoriteToggle';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { useServerConsentGrant } from '@/hooks/useServerConsentGrant';
 import { isLightMode } from '@/config/mode';
@@ -148,8 +150,13 @@ export default function PlantInstanceCreateDialog({
   // same way the backend validates (issue #626), so the stored keys are always
   // members of the backend's `_valid_phase_keys` set.
   const [phaseOptionSources, setPhaseOptionSources] = useState<PhaseOptionSource[]>([]);
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  // Failed option reads are shown with a retry, never as empty pickers (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
+  const [slotsLoadError, setSlotsLoadError] = useState<string | null>(null);
+  const [cultivarsLoadError, setCultivarsLoadError] = useState(false);
 
   // ── Identification photo carry-over (issue #447) ─────────────────────
   const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
@@ -255,13 +262,18 @@ export default function PlantInstanceCreateDialog({
         location_key: null,
         slot_key: null,
       });
-      sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
       // Resolve slot → location → site for duplicate
       if (duplicateFrom?.slot_key) {
         sitesApi.getSlot(duplicateFrom.slot_key).then(async (slot) => {
           const loc = await sitesApi.getLocation(slot.location_key);
           // Load slots for the location so the dropdown is populated
-          const slots = await sitesApi.listSlots(loc.key).catch(() => [] as Slot[]);
+          let slots: Slot[] = [];
+          try {
+            slots = await sitesApi.listSlots(loc.key);
+          } catch (err) {
+            captureHandledError(err, { source: 'PlantInstanceCreateDialog.duplicateSlots' });
+            setSlotsLoadError(loc.key);
+          }
           setSlotsList(slots);
           // Set values without triggering cascade resets
           skipLocationReset.current = true;
@@ -304,6 +316,20 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open]);
 
+  const fetchCultivars = useCallback((key: string) => {
+    setCultivarsLoading(true);
+    setCultivarsLoadError(false);
+    speciesApi
+      .listCultivars(key)
+      .then((cultivars) => setCultivarList(cultivars))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'PlantInstanceCreateDialog.cultivars' });
+        setCultivarList([]);
+        setCultivarsLoadError(true);
+      })
+      .finally(() => setCultivarsLoading(false));
+  }, []);
+
   useEffect(() => {
     if (!speciesKey) {
       setCultivarList([]);
@@ -311,16 +337,11 @@ export default function PlantInstanceCreateDialog({
       return;
     }
     const isInitialDuplicate = duplicateFrom && !initialLoadDone;
-    setCultivarsLoading(true);
     if (!isInitialDuplicate) {
       setValue('cultivar_key', null);
       setValue('current_phase_key', null);
     }
-    speciesApi
-      .listCultivars(speciesKey)
-      .then((cultivars) => setCultivarList(cultivars))
-      .catch(() => setCultivarList([]))
-      .finally(() => setCultivarsLoading(false));
+    fetchCultivars(speciesKey);
 
     // Resolve the start-phase options the SAME way the backend validates them
     // (issue #626): a species' PhaseSequence entry keys are authoritative; only a
@@ -366,7 +387,7 @@ export default function PlantInstanceCreateDialog({
         setPhaseOptionSources([]);
         setInitialLoadDone(true);
       });
-  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open]);
+  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open, fetchCultivars]);
 
   // Human-readable, i18n-aware option list for the "Current Phase" select. Both
   // sources are normalized to `{ value, label }` so the dropdown renders
@@ -410,17 +431,25 @@ export default function PlantInstanceCreateDialog({
     setValue('slot_key', null);
   }, [siteKey, setValue]);
 
+  const fetchSlots = useCallback((key: string) => {
+    setSlotsLoadError(null);
+    sitesApi.listSlots(key).then(setSlotsList).catch((err: unknown) => {
+      captureHandledError(err, { source: 'PlantInstanceCreateDialog.slots' });
+      setSlotsList([]);
+      setSlotsLoadError(key);
+    });
+  }, []);
+
   useEffect(() => {
     if (skipSlotReset.current) {
       skipSlotReset.current = false;
       return;
     }
     setSlotsList([]);
+    setSlotsLoadError(null);
     setValue('slot_key', null);
-    if (locationKey) {
-      sitesApi.listSlots(locationKey).then(setSlotsList).catch(() => setSlotsList([]));
-    }
-  }, [locationKey, setValue]);
+    if (locationKey) fetchSlots(locationKey);
+  }, [locationKey, setValue, fetchSlots]);
 
   const onSubmit = async (data: FormData) => {
     const contributeReference = !!identificationPhoto && referenceToggleAvailable && useAsReference;
@@ -562,6 +591,12 @@ export default function PlantInstanceCreateDialog({
                 ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
               ]}
             />
+            {speciesKey && cultivarsLoadError && (
+              <OptionsLoadError
+                onRetry={() => fetchCultivars(speciesKey)}
+                data-testid="plant-create-cultivars-load-error"
+              />
+            )}
             <FormTextField
               name="plant_name"
               control={control}
@@ -781,6 +816,15 @@ export default function PlantInstanceCreateDialog({
             slots={slotsList}
             variant="inline"
           />
+          {sitesLoad.error && (
+            <OptionsLoadError onRetry={sitesLoad.reload} data-testid="plant-create-sites-load-error" />
+          )}
+          {slotsLoadError && (
+            <OptionsLoadError
+              onRetry={() => fetchSlots(slotsLoadError)}
+              data-testid="plant-create-slots-load-error"
+            />
+          )}
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>

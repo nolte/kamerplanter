@@ -43,6 +43,7 @@ import type {
   YieldMetric,
 } from '@/api/types';
 import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const harvestTypes = ['partial', 'final', 'continuous'] as const;
 const qualityGrades = ['a_plus', 'a', 'b', 'c', 'd'] as const;
@@ -188,7 +189,9 @@ export default function HarvestBatchDetailPage() {
         const plant = await plantInstancesApi.getPlantInstance(b.plant_key);
         if (stale()) return;
         setHarvestCompleted(plant.removed_on != null);
-      } catch {
+      } catch (err) {
+        // Documented above: the complete-harvest action stays offered and the backend call is idempotent.
+        captureHandledError(err, { source: 'HarvestBatchDetailPage.plant' });
         if (!stale()) setHarvestCompleted(false);
       }
     } catch (err) {

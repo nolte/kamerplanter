@@ -214,12 +214,17 @@ describe('NotificationSettingsTab — save failure', () => {
     );
   });
 
-  it('keeps defaults and stops loading when the initial load fails', async () => {
-    api.getPreferences.mockRejectedValue(new Error('load failed'));
-    api.getChannelStatus.mockRejectedValue(new Error('load failed'));
+  it('shows the failed load with a retry instead of the defaults (#3037)', async () => {
+    api.getPreferences.mockRejectedValueOnce(new Error('load failed'));
+    api.getChannelStatus.mockRejectedValueOnce(new Error('load failed'));
     renderWithProviders(<NotificationSettingsTab />);
 
-    // The channels section still renders from the built-in defaults.
+    // The built-in defaults are not shown as if they were stored: saving them
+    // would overwrite the user's real preferences.
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    expect(screen.queryByTestId('channel-toggle-home_assistant')).toBeNull();
+
+    await userEvent.setup().click(retry);
     expect(
       await screen.findByTestId('channel-toggle-home_assistant'),
     ).toBeInTheDocument();

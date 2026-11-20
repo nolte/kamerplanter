@@ -23,6 +23,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import {
   getPreferences,
@@ -32,7 +34,7 @@ import {
 } from '@/api/endpoints/notifications';
 import { useAppSelector } from '@/store/hooks';
 import { usePwaPush } from '@/hooks/usePwaPush';
-import { parseApiError } from '@/api/errors';
+import { errorKey, parseApiError } from '@/api/errors';
 import type {
   NotificationPreferencesResponse,
   ChannelStatusResponse,
@@ -106,6 +108,8 @@ export default function NotificationSettingsTab() {
   const [prefs, setPrefs] = useState<NotificationPreferencesResponse | null>(null);
   const [channelStatuses, setChannelStatuses] = useState<ChannelStatusResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed read must not show the defaults as if they were stored — saving them would overwrite the real ones (#3037).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testingChannel, setTestingChannel] = useState<string | null>(null);
   // The Apprise textarea's raw text while the user edits it. The saved list drops
@@ -138,6 +142,7 @@ export default function NotificationSettingsTab() {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [prefsData, statusData] = await Promise.all([
         getPreferences(),
@@ -152,8 +157,9 @@ export default function NotificationSettingsTab() {
       setBatching(prefsData.batching);
       setEscalation(prefsData.escalation);
       setDailySummary(prefsData.daily_summary);
-    } catch {
-      // Keep defaults if loading fails
+    } catch (err) {
+      captureHandledError(err, { source: 'NotificationSettingsTab.load' });
+      setLoadError(errorKey(err, 'errors.preferencesLoadFailed'));
     } finally {
       setLoading(false);
     }
@@ -263,6 +269,10 @@ export default function NotificationSettingsTab() {
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (loadError) {
+    return <ErrorDisplay error={loadError} onRetry={() => void loadData()} />;
   }
 
   return (

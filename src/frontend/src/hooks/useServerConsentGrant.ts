@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { grantConsent, listConsents } from '@/api/endpoints/privacy';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export interface UseServerConsentGrantResult {
   /**
@@ -33,7 +34,11 @@ export function useServerConsentGrant(purpose: string): UseServerConsentGrantRes
     if (!known.current) {
       known.current = listConsents()
         .then((records) => records.some((r) => r.purpose === purpose && r.granted))
-        .catch(() => false);
+        .catch((err: unknown) => {
+          // Unknown counts as not granted: the grant below is authoritative and idempotent.
+          captureHandledError(err, { source: 'useServerConsentGrant.consents' });
+          return false;
+        });
     }
     if (await known.current) return;
     await grantConsent(purpose);

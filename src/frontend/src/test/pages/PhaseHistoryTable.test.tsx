@@ -55,10 +55,15 @@ describe('PhaseHistoryTable', () => {
     expect(await screen.findByText(i18n.t('pages.plantingRuns.noPlantsYet'))).toBeInTheDocument();
   });
 
-  it('falls back to the empty state when loading fails', async () => {
-    mockGet.mockRejectedValue(new Error('boom'));
+  it('shows a failed load with a retry, not the empty state (#3037)', async () => {
+    mockGet.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce([]);
     renderWithProviders(<PhaseHistoryTable plantKey="p1" />);
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    expect(screen.queryByText(i18n.t('pages.plantingRuns.noPlantsYet'))).toBeNull();
+
+    await userEvent.setup().click(retry);
     expect(await screen.findByText(i18n.t('pages.plantingRuns.noPlantsYet'))).toBeInTheDocument();
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 
   it('renders history rows with duration and reason', async () => {

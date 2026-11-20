@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -21,6 +21,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
@@ -105,7 +107,13 @@ export default function BotanicalFamilyDetailPage() {
   // nothing here.
   const canEditCatalogue = usePlatformAdmin();
   const [deleting, setDeleting] = useState(false);
-  const [familySpecies, setFamilySpecies] = useState<Species[]>([]);
+  // A failed read is shown with a retry, never as "no species in this family" (#3037).
+  const loadFamilySpecies = useCallback(
+    (): Promise<Species[]> => (key ? api.listSpeciesByFamily(key) : Promise.resolve([])),
+    [key],
+  );
+  const familySpeciesLoad = useAsyncOptions(loadFamilySpecies, { enabled: Boolean(key) });
+  const familySpecies = familySpeciesLoad.options;
 
   const {
     control,
@@ -137,10 +145,6 @@ export default function BotanicalFamilyDetailPage() {
   useEffect(() => {
     if (key) {
       dispatch(fetchBotanicalFamily(key));
-      api
-        .listSpeciesByFamily(key)
-        .then(setFamilySpecies)
-        .catch(() => {});
     }
     return () => {
       dispatch(clearCurrent());
@@ -484,7 +488,13 @@ export default function BotanicalFamilyDetailPage() {
         )}
       </Typography>
 
-      {familySpecies.length === 0 ? (
+      {familySpeciesLoad.error ? (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={familySpeciesLoad.reload}
+          data-testid="family-species-load-error"
+        />
+      ) : familySpecies.length === 0 ? (
         <EmptyState
           message={t('pages.botanicalFamilies.noSpeciesInFamily')}
           actionLabel={t('pages.botanicalFamilies.showAllSpeciesFiltered')}

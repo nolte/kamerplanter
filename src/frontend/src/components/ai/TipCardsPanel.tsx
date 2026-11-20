@@ -168,6 +168,7 @@ export default function TipCardsPanel({ contextType, contextKey, title }: TipCar
       <Box aria-live="polite">
         {refreshError !== null && (
           <Box sx={{ mb: isEmpty ? 0 : 1.5 }} data-testid="tip-cards-refresh-error">
+            {/* No onRetry: the refresh button in the heading already reads "try again" here (#3037). */}
             <ErrorDisplay
               error={resolveAiErrorMessage(refreshError, t, t('ai.errors.tipsGenerateFailed'))}
             />

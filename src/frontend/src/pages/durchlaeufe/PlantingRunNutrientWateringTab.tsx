@@ -25,6 +25,7 @@ import type {
   SpeciesPhaseTimeline,
 } from '@/api/types';
 import type { RunNutrientData } from '@/hooks/useRunNutrientData';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface PlantingRunNutrientWateringTabProps {
   runStatus: PlantingRunStatus | undefined;
@@ -79,7 +80,11 @@ export default function PlantingRunNutrientWateringTab({
         }
         setRecommendedRoMap(map);
       })
-      .catch(() => setRecommendedRoMap(new Map()));
+      .catch((err: unknown) => {
+        // The RO% recommendation is a hint next to each phase; the plan renders without it.
+        captureHandledError(err, { source: 'PlantingRunNutrientWateringTab.roRecommendation' });
+        setRecommendedRoMap(new Map());
+      });
   }, [planKey, siteKey]);
 
   return (

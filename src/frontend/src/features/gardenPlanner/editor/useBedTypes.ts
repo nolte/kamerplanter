@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { LocationType } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export function useBedTypes(enabled: boolean): LocationType[] {
   const [types, setTypes] = useState<LocationType[] | null>(null);
@@ -18,7 +19,9 @@ export function useBedTypes(enabled: boolean): LocationType[] {
       .then((all) => {
         if (!cancelled) setTypes(all.filter((type) => type.supports_layout));
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // Documented above: the draw tool then keeps the plan's most common bed type.
+        captureHandledError(err, { source: 'useBedTypes' });
         if (!cancelled) setTypes([]);
       });
     return () => {

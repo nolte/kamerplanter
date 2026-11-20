@@ -174,24 +174,29 @@ export default function WorkflowInstantiateDialog({
           activeRuns = runsData.filter(
             (r) => r.status === 'active' || r.status === 'harvesting',
           );
-        } catch {
+        } catch (err) {
+          // The plants above stay pickable; the missing runs are announced (#3037).
           // The finally below releases this loader's slot.
+          if (!cancelled) handleError(err);
           return;
         }
 
         const plantsMap: Record<string, PlantInRun[]> = {};
+        let runFailure: unknown = null;
         await Promise.all(
           activeRuns.map(async (run) => {
             try {
               const runPlants = await plantingRunApi.listRunPlants(run.key);
               plantsMap[run.key] = runPlants;
-            } catch {
-              // Skip this run
+            } catch (err) {
+              runFailure ??= err;
             }
           }),
         );
 
         if (cancelled) return;
+        // A run whose plants did not load is left out of the picker, and that is said once (#3037).
+        if (runFailure !== null) handleError(runFailure);
         setRuns(activeRuns.filter((r) => r.key in plantsMap));
         setRunPlantsMap(plantsMap);
       } catch (err) {
@@ -206,17 +211,21 @@ export default function WorkflowInstantiateDialog({
         const sites = await siteApi.listSites(0, 200);
         if (cancelled) return;
         const allLocations: Location[] = [];
+        let siteFailure: unknown = null;
         await Promise.all(
           sites.map(async (site) => {
             try {
               const locs = await siteApi.listLocations(site.key);
               allLocations.push(...locs);
-            } catch {
-              // Skip this site
+            } catch (err) {
+              siteFailure ??= err;
             }
           }),
         );
-        if (!cancelled) setLocations(allLocations);
+        if (cancelled) return;
+        // A site whose locations did not load is left out of the picker, and that is said once (#3037).
+        if (siteFailure !== null) handleError(siteFailure);
+        setLocations(allLocations);
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {

@@ -71,6 +71,8 @@ export default function ActivityDetailPage() {
   const [activity, setActivity] = useState<Activity | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by the retry on the error state; re-runs the load below (#3037).
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -111,9 +113,12 @@ export default function ActivityDetailPage() {
 
   useEffect(() => {
     if (!key) return;
+    let cancelled = false;
     setLoading(true);
+    setError(null);
     api.getActivity(key)
       .then((data) => {
+        if (cancelled) return;
         setActivity(data);
         reset({
           name: data.name,
@@ -134,9 +139,16 @@ export default function ActivityDetailPage() {
           sort_order: data.sort_order,
         });
       })
-      .catch((err) => setError(errorKey(err, 'errors.loadFailed')))
-      .finally(() => setLoading(false));
-  }, [key, reset]);
+      .catch((err) => {
+        if (!cancelled) setError(errorKey(err, 'errors.loadFailed'));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, reset, loadAttempt]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;
@@ -191,7 +203,7 @@ export default function ActivityDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => setLoadAttempt((n) => n + 1)} />;
   if (!activity) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const lang = i18n.language?.startsWith('en') ? 'en' : 'de';

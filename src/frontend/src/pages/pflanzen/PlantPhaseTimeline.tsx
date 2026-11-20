@@ -12,6 +12,7 @@ import type {
 } from '@/api/types';
 import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
 import PhaseKamiTimeline from '@/pages/durchlaeufe/PhaseKamiTimeline';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface Props {
   plant: PlantInstance;
@@ -122,7 +123,11 @@ export default function PlantPhaseTimeline({
     // Try PhaseSequence first, fall back to LifecycleConfig + GrowthPhases
     phaseSequenceApi
       .getSpeciesPhaseSequence(plant.species_key)
-      .catch(() => null)
+      .catch((err: unknown) => {
+        // The endpoint answers null for 'no sequence'; a failure falls back to the legacy lifecycle path below.
+        captureHandledError(err, { source: 'PlantPhaseTimeline.phaseSequence' });
+        return null;
+      })
       .then((sequence) => {
         if (sequence && sequence.entries.length > 0) {
           // Map PhaseSequence to LifecycleConfig-compatible object for callback

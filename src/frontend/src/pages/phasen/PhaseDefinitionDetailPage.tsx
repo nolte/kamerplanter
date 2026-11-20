@@ -39,6 +39,7 @@ import type {
 } from '@/api/types';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
 import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Elapsed whole days since a phase-start timestamp (FIX-01 R2). Null when unknown. */
 function daysInPhase(startedAt: string | null): number | null {
@@ -93,15 +94,27 @@ export default function PhaseDefinitionDetailPage() {
       try {
         const [defData, seqData, plantsData, speciesData] = await Promise.all([
           phaseSequenceApi.getPhaseDefinition(key),
-          phaseSequenceApi.listSequencesForDefinition(key).catch(() => [] as PhaseSequence[]),
+          phaseSequenceApi.listSequencesForDefinition(key).catch((err: unknown) => {
+            // The sequences using this definition are secondary; the definition renders without them.
+            captureHandledError(err, { source: 'PhaseDefinitionDetailPage.sequences' });
+            return [] as PhaseSequence[];
+          }),
           // Tenant-scoped (FIX-01 List 1): tolerate absence of a tenant context (e.g.
           // light mode) by degrading to an empty list rather than failing the page.
           plantInstanceApi
             .listPlantInstancesInPhaseDefinition(key)
-            .catch(() => ({ total: 0, items: [] }) as PlantInstancesInPhase),
+            .catch((err: unknown) => {
+              // See above: no tenant context (light mode) must not fail the page.
+              captureHandledError(err, { source: 'PhaseDefinitionDetailPage.plants' });
+              return ({ total: 0, items: [] }) as PlantInstancesInPhase;
+            }),
           phaseSequenceApi
             .listSpeciesForDefinition(key)
-            .catch(() => [] as PhaseDefinitionSpecies[]),
+            .catch((err: unknown) => {
+              // The species list is secondary; the definition renders without it.
+              captureHandledError(err, { source: 'PhaseDefinitionDetailPage.species' });
+              return [] as PhaseDefinitionSpecies[];
+            }),
         ]);
         if (cancelled) return;
         setDefinition(defData);

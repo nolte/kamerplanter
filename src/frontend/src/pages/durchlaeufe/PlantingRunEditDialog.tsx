@@ -19,6 +19,7 @@ import FormSelectField from '@/components/form/FormSelectField';
 import FormDateField from '@/components/form/FormDateField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
@@ -39,6 +40,9 @@ interface PlantingRunEditDialogProps {
   open: boolean;
   run: PlantingRun;
   sitesList: Site[];
+  /** The site list failed to load — shown with a retry instead of an empty picker (#3037). */
+  sitesLoadError?: boolean;
+  onRetrySites?: () => void;
   initialSiteKey: string | null;
   onClose: () => void;
   onSaved: (updated: PlantingRun) => void;
@@ -48,6 +52,8 @@ export default function PlantingRunEditDialog({
   open,
   run,
   sitesList,
+  sitesLoadError = false,
+  onRetrySites,
   initialSiteKey,
   onClose,
   onSaved,
@@ -162,6 +168,9 @@ export default function PlantingRunEditDialog({
                     ...sitesList.map((s) => ({ value: s.key, label: s.name })),
                   ]}
                 />
+                {sitesLoadError && onRetrySites && (
+                  <OptionsLoadError onRetry={onRetrySites} data-testid="run-edit-sites-load-error" />
+                )}
                 <LocationTreeSelect
                   name="location_key"
                   control={control}

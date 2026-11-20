@@ -4184,7 +4184,8 @@
         "testSend": "Send test",
         "testSuccess": "Test notification sent",
         "testFailed": "Test failed"
-      }
+      },
+      "markAllReadError": "Could not mark the notifications as read. Please try again."
     },
     "pflege": {
       "title": "Care Dashboard",

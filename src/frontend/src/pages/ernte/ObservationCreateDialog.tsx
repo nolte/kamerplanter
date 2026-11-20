@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -17,6 +17,8 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as harvestApi from '@/api/endpoints/harvest';
 import type { HarvestIndicator } from '@/api/types';
 
@@ -56,8 +58,11 @@ export default function ObservationCreateDialog({
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [indicators, setIndicators] = useState<HarvestIndicator[]>([]);
-  const [loadingIndicators, setLoadingIndicators] = useState(false);
+  // A failed read is shown with a retry, never as an empty picker (#3037).
+  const loadIndicators = useCallback((): Promise<HarvestIndicator[]> => harvestApi.getIndicators(), []);
+  const indicatorsLoad = useAsyncOptions(loadIndicators, { enabled: open });
+  const indicators = indicatorsLoad.options;
+  const loadingIndicators = indicatorsLoad.loading;
 
   const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
@@ -73,13 +78,6 @@ export default function ObservationCreateDialog({
 
   useEffect(() => {
     if (open) {
-      setLoadingIndicators(true);
-      harvestApi
-        .getIndicators()
-        .then(setIndicators)
-        .catch(() => setIndicators([]))
-        .finally(() => setLoadingIndicators(false));
-
       reset({
         indicator_key: '',
         observer: '',
@@ -130,6 +128,9 @@ export default function ObservationCreateDialog({
               label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '—'})`,
             }))}
           />
+          {indicatorsLoad.error && (
+            <OptionsLoadError onRetry={indicatorsLoad.reload} data-testid="observation-indicators-load-error" />
+          )}
           <FormTextField
             name="observer"
             control={control}

@@ -3,6 +3,7 @@ import { computePlantState, type PhaseFacts, type PlantVisualState } from '../mo
 import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
 import { stateInstant, usePlantStateClock } from './plantStateClock';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** A plant (or sown slot) of the answer with the state the port computed at the current instant (GP-FR-192). */
 export type PlantStateView = PlantStateEntryWire & { visual: PlantVisualState };
@@ -68,8 +69,10 @@ export function usePlantStates(bedKey: string | null, enabled = true): UsePlantS
       .then((items) => {
         if (!abort.signal.aborted) setWires({ bedKey, items, loadedAt: Date.now() });
       })
-      .catch(() => {
-        // States are an enhancement of the plan: a failed read leaves the plain markers.
+      .catch((err: unknown) => {
+        // States are an enhancement of the plan: a failed read leaves the plain markers,
+        // and the next refresh (plan action, foreground, clock) reads them again.
+        if (!abort.signal.aborted) captureHandledError(err, { source: 'usePlantStates' });
       });
     return () => abort.abort();
   }, [bedKey, enabled, attempt, requestLanguage]);

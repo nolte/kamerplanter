@@ -73,6 +73,7 @@ import MaintenanceScheduleDialog from './MaintenanceScheduleDialog';
 import TankFillCreateDialog from './TankFillCreateDialog';
 import SensorCreateDialog from './SensorCreateDialog';
 import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -276,7 +277,9 @@ export default function TankDetailPage() {
           const site = allSites.find((s) => s.key === loc.site_key);
           setSiteName(site?.name ?? '');
           setSelectedSiteKey(loc.site_key);
-        } catch {
+        } catch (err) {
+          // Only the location/site labels are missing; the tank itself loaded.
+          captureHandledError(err, { source: 'TankDetailPage.location' });
           if (stale()) return;
           setLocationName('');
           setSiteName('');
@@ -323,7 +326,11 @@ export default function TankDetailPage() {
   useEffect(() => {
     observationsApi.getTimeseriesStatus()
       .then((s) => setTsAvailable(s.available))
-      .catch(() => setTsAvailable(false));
+      .catch((err: unknown) => {
+        // Unknown availability hides the sensor charts, which then have nothing to read anyway.
+        captureHandledError(err, { source: 'TankDetailPage.timeseriesStatus' });
+        setTsAvailable(false);
+      });
   }, []);
 
   // Dynamic breadcrumbs

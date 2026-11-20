@@ -27,6 +27,7 @@ import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationC
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { LifecycleConfig, PhaseSequence, PhotoperiodType } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Cycle-type enum values — mirrors CycleType in api/types.ts. */
 const CYCLE_TYPES = ['annual', 'biennial', 'perennial'] as const;
@@ -114,7 +115,9 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
         setPhaseSequence(ps);
         return ps;
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // The endpoint answers null for 'no sequence'; a failure leaves the lifecycle config as the source.
+        captureHandledError(err, { source: 'LifecycleConfigSection.phaseSequence' });
         setPhaseSequence(null);
         return null;
       });

@@ -44,7 +44,9 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from '@/api/types';
-import { errorKey } from '@/api/errors';
+import { errorKey, isApiError } from '@/api/errors';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
 const DTM_REFERENCES = ['direct_seed', 'transplant', 'from_flip'] as const;
@@ -90,6 +92,8 @@ export default function CultivarDetailPage() {
   const [cultivar, setCultivar] = useState<Cultivar | null>(null);
   const [species, setSpecies] = useState<Species | null>(null);
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
+  // A failed lifecycle read is shown with a retry, never as "no lifecycle yet" (#3037).
+  const [growthPhasesError, setGrowthPhasesError] = useState(false);
   const [phaseOverrides, setPhaseOverrides] = useState<Record<string, number | ''>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,14 +154,19 @@ export default function CultivarDetailPage() {
       });
 
       // Load growth phases for phase watering overrides section
+      setGrowthPhasesError(false);
       try {
         const lc = await phasesApi.getLifecycleConfig(speciesKey);
         if (lc?.key) {
           const phases = await phasesApi.listGrowthPhases(lc.key);
           setGrowthPhases(phases);
         }
-      } catch {
-        // Lifecycle may not exist yet — that's fine
+      } catch (err) {
+        // A species without a lifecycle answers 404 — then there are no phases to override.
+        if (!(isApiError(err) && err.statusCode === 404)) {
+          captureHandledError(err, { source: 'CultivarDetailPage.growthPhases' });
+          setGrowthPhasesError(true);
+        }
       }
 
       // Initialize override state from cultivar data
@@ -483,6 +492,13 @@ export default function CultivarDetailPage() {
       </Form>
 
       {/* Phase watering overrides */}
+      {growthPhasesError && (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={() => void load()}
+          data-testid="cultivar-growth-phases-load-error"
+        />
+      )}
       {growthPhases.length > 0 && (
         <Paper sx={{ mt: 4, p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>

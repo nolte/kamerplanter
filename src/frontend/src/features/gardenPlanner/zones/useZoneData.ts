@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { captureHandledError } from '@/observability/errorTracking';
 import { getGardenPlan } from '../api/gardenPlan';
 import type { PlanLocation } from '../model/types';
 import { listZones } from './zonesApi';
@@ -46,8 +47,9 @@ export function useIrrigationZones(
         setFailed(false);
         setSettledAttempt(attempt);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (abort.signal.aborted) return;
+        captureHandledError(err, { source: 'useIrrigationZones' });
         setFailed(true);
         setSettledAttempt(attempt);
       });
@@ -91,8 +93,9 @@ export function useLastWatered(
         for (const location of plan.locations) byBed[location.key] = location.last_watered_at ?? null;
         setFresh({ token: refreshToken, siteKey, byBed });
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         // The layer keeps the numbers it had; they only age by a day at most.
+        if (!abort.signal.aborted) captureHandledError(err, { source: 'useLastWatered' });
       });
     return () => abort.abort();
   }, [siteKey, refreshToken]);

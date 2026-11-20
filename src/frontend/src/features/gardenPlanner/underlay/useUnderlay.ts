@@ -3,6 +3,7 @@ import type { PlanModel } from '../model/planModel';
 import type { PlanUnderlay } from '../model/types';
 import type { UnderlayRenderEntry } from '../renderer/types';
 import { fetchUnderlayBlob } from './underlayApi';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface LoadedImage {
   attachmentKey: string;
@@ -64,7 +65,8 @@ export function useUnderlay(plan: PlanModel, visible: boolean) {
         if (abort.signal.aborted) return;
         setLoaded({ attachmentKey, href, widthPx: size.width, heightPx: size.height });
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'useUnderlay.picture' });
         // The picture is an enhancement of the plan: a failed read leaves the plan as it is.
         if (!abort.signal.aborted) setLoaded(null);
       });

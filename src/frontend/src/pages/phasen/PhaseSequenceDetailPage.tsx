@@ -57,6 +57,7 @@ import type { PhaseSequenceSpecies } from '@/api/endpoints/phaseSequences';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import type { PhaseSequence, PhaseSequenceEntry } from '@/api/types';
 import PhaseSequenceEntryDialog from './PhaseSequenceEntryDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const cycleTypes = ['annual', 'biennial', 'perennial'] as const;
 
@@ -320,7 +321,11 @@ export default function PhaseSequenceDetailPage() {
       setError(null);
       const [data, species] = await Promise.all([
         phaseSequenceApi.getPhaseSequence(key),
-        phaseSequenceApi.listSpeciesForSequence(key).catch(() => []),
+        phaseSequenceApi.listSpeciesForSequence(key).catch((err: unknown) => {
+          // The linked-species list is secondary; the sequence itself renders without it.
+          captureHandledError(err, { source: 'PhaseSequenceDetailPage.linkedSpecies' });
+          return [];
+        }),
       ]);
       setSequence(data);
       setLinkedSpecies(species);

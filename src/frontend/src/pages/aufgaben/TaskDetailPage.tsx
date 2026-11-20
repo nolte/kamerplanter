@@ -46,6 +46,8 @@ import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -269,6 +271,8 @@ export default function TaskDetailPage() {
 
   // Comments state
   const [comments, setComments] = useState<TaskComment[]>([]);
+  // A failed read is shown with a retry, never as "no comments" / "no history" (#3037).
+  const [commentsError, setCommentsError] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [editingCommentKey, setEditingCommentKey] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -276,6 +280,7 @@ export default function TaskDetailPage() {
 
   // History state
   const [history, setHistory] = useState<TaskAuditEntry[]>([]);
+  const [historyError, setHistoryError] = useState(false);
 
   // Checklist add state
   const [newChecklistText, setNewChecklistText] = useState('');
@@ -360,11 +365,17 @@ export default function TaskDetailPage() {
               }
               if (stale()) return;
               setPlantInfo({ plant: p, species: sp, cultivarName });
-            } catch {
+            } catch (err) {
+              // The species/cultivar only enrich the plant's tooltip; the plant name and link stay.
+              captureHandledError(err, { source: 'TaskDetailPage.plantInfo' });
               if (!stale()) setPlantInfo(null);
             }
           })
-          .catch(() => { if (!stale()) setNamedPlant(null); });
+          .catch((err: unknown) => {
+            // The plant name is a label next to the task; without it the entity key link still applies.
+            captureHandledError(err, { source: 'TaskDetailPage.namedPlant' });
+            if (!stale()) setNamedPlant(null);
+          });
       }
       resetEdit({
         name: fetched.name,
@@ -398,8 +409,10 @@ export default function TaskDetailPage() {
     try {
       const data = await taskApi.listTaskComments(key);
       setComments(data);
-    } catch {
-      // silently fail
+      setCommentsError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'TaskDetailPage.comments' });
+      setCommentsError(true);
     }
   }, [key]);
 
@@ -408,8 +421,10 @@ export default function TaskDetailPage() {
     try {
       const data = await taskApi.getTaskHistory(key);
       setHistory(data);
-    } catch {
-      // silently fail
+      setHistoryError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'TaskDetailPage.history' });
+      setHistoryError(true);
     }
   }, [key]);
 
@@ -1257,7 +1272,14 @@ export default function TaskDetailPage() {
               {t('pages.tasks.tabComments')} ({comments.length})
             </Typography>
 
-            {comments.length === 0 && (
+            {commentsError && (
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadComments()}
+                data-testid="task-comments-load-error"
+              />
+            )}
+            {!commentsError && comments.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tasks.noComments')}
               </Typography>
@@ -1355,7 +1377,14 @@ export default function TaskDetailPage() {
               {t('pages.tasks.tabHistory')} ({history.length})
             </Typography>
 
-            {history.length === 0 && (
+            {historyError && (
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadHistory()}
+                data-testid="task-history-load-error"
+              />
+            )}
+            {!historyError && history.length === 0 && (
               <Typography variant="body2" color="text.secondary">
                 {t('pages.tasks.noHistory')}
               </Typography>

@@ -169,14 +169,21 @@ describe('BotanicalFamilyDetailPage', () => {
     expect(navigate).toHaveBeenCalledWith('/stammdaten/species?family=fam-1');
   });
 
-  it('tolerates a failing species lookup and still renders the form', async () => {
-    listSpeciesByFamily.mockRejectedValue(new Error('boom'));
+  it('tolerates a failing species lookup: the form renders and the list says it failed, with a retry (#3037)', async () => {
+    listSpeciesByFamily.mockRejectedValueOnce(new Error('boom'));
     renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
+    expect(await screen.findByText(i18n.t('errors.loadFailed'))).toBeInTheDocument();
+    // A failed read is not "no species in this family".
+    expect(screen.queryByText(i18n.t('pages.botanicalFamilies.noSpeciesInFamily'))).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: i18n.t('common.retry') }));
+    await waitFor(() => expect(listSpeciesByFamily).toHaveBeenCalledTimes(2));
     expect(
       await screen.findByText(i18n.t('pages.botanicalFamilies.noSpeciesInFamily')),
     ).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('errors.loadFailed'))).toBeNull();
   });
 
   it('submits the update with a soil-pH preference derived from both bounds', async () => {

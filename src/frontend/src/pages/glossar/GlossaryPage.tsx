@@ -53,6 +53,8 @@ export default function GlossaryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  // Bumped by the retry on the list's error state; re-runs the load below (#3037).
+  const [listAttempt, setListAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,7 +75,7 @@ export default function GlossaryPage() {
     return () => {
       cancelled = true;
     };
-  }, [language]);
+  }, [language, listAttempt]);
 
   // Group terms by category for the browse view.
   const grouped = useMemo(() => {
@@ -152,7 +154,12 @@ export default function GlossaryPage() {
 
       {loading && <LoadingSkeleton variant="card" />}
 
-      {error && !loading && <ErrorDisplay error={t('pages.glossary.loadError')} />}
+      {error && !loading && (
+        <ErrorDisplay
+          error={t('pages.glossary.loadError')}
+          onRetry={() => setListAttempt((n) => n + 1)}
+        />
+      )}
 
       {!loading && !error && terms.length === 0 && (
         <EmptyState message={t('pages.glossary.empty')} illustration={kamiGlossar} />
@@ -175,7 +182,7 @@ export default function GlossaryPage() {
           <Box aria-live="polite">
             {detail.loading && <LoadingSkeleton variant="form" />}
             {detail.error && !detail.loading && (
-              <ErrorDisplay error={t('pages.glossary.tooltip.error')} />
+              <ErrorDisplay error={t('pages.glossary.tooltip.error')} onRetry={detail.reload} />
             )}
             {detail.answer && !detail.loading && !detail.error && (
               <Card sx={{ p: 3 }}>
@@ -255,6 +262,8 @@ export default function GlossaryPage() {
                       tabIndex={-1}
                       data-testid="glossary-detail-generate-error"
                     >
+                      {/* No onRetry here: the generate control above already turns into
+                          "try again", and an unavailable reason cannot be retried away. */}
                       <ErrorDisplay
                         error={
                           failureReason !== null

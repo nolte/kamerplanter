@@ -121,6 +121,27 @@ describe('NotificationDrawer', () => {
     await waitFor(() => expect(onCountChange).toHaveBeenCalledWith(0));
   });
 
+  it('shows a failed load with a retry instead of the empty state (#3037)', async () => {
+    let calls = 0;
+    server.use(
+      http.get(BASE, () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+          : HttpResponse.json({ items: [makeNotif({ key: 'n1', title: 'Gießen' })], total: 1, unread_count: 1 });
+      }),
+    );
+    renderDrawer(<NotificationDrawer open onClose={noop} onCountChange={noop} />);
+
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    // A failed read is not "no notifications".
+    expect(screen.queryByText('Keine Benachrichtigungen')).toBeNull();
+
+    await userEvent.setup().click(retry);
+    expect(await screen.findByText('Gießen')).toBeInTheDocument();
+    expect(calls).toBe(2);
+  });
+
   it('does not render drawer content while closed', () => {
     useList([makeNotif({ key: 'n1' })]);
     renderDrawer(

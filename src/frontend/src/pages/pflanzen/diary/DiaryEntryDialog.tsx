@@ -43,6 +43,7 @@ import {
 import { attachmentUri } from '@/api/endpoints/attachments';
 import type { DiaryEntryType, PlantDiaryEntry, PlantEnvironmentPreview } from '@/api/types';
 import DiaryPhotoUploadDialog from './DiaryPhotoUploadDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const schema = z.object({
   entry_type: z.enum(['observation', 'problem', 'milestone', 'measurement', 'photo', 'note']),
@@ -187,7 +188,8 @@ export default function DiaryEntryDialog({
       .then((preview) => {
         if (!cancelled) setEnvPreview(preview);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'DiaryEntryDialog.envPreview' });
         // A failed preview is not an error the grower has to act on: the entry
         // saves either way, and the server records honestly that the capture did
         // not get through. Surfacing a toast here would turn a non-event into an

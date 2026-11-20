@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useId } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +36,8 @@ import type {
   SuccessionPlan,
 } from '@/api/types';
 import { captureHandledError } from '@/observability/errorTracking';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const schema = z.object({
@@ -96,6 +98,9 @@ function defaultsFor(plan?: SuccessionPlan | null): FormData {
   };
 }
 
+/** Stable empty list while no species is chosen, so dependants keep their identity. */
+const NO_CULTIVARS: Cultivar[] = [];
+
 export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -108,8 +113,10 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
   const speciesFieldId = useId();
-  const [sitesList, setSitesList] = useState<Site[]>([]);
-  const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
+  // Failed reads are shown with a retry, never as an empty picker (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
 
   const isEdit = Boolean(plan);
 
@@ -143,10 +150,6 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
     if (open) {
       skipLocationReset.current = true;
       reset(defaultsFor(plan));
-      sitesApi
-        .listSites(0, 200)
-        .then(setSitesList)
-        .catch(() => {});
       // In edit mode the plan carries only location_key. Resolve its parent
       // site so LocationTreeSelect can display and preserve the assignment.
       if (plan?.location_key) {
@@ -165,17 +168,12 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   }, [open, plan, reset, setValue]);
 
   // Load cultivars whenever the selected species changes.
-  useEffect(() => {
-    if (!speciesKey) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset cultivars when species cleared
-      setCultivarList([]);
-      return;
-    }
-    speciesApi
-      .listCultivars(speciesKey)
-      .then(setCultivarList)
-      .catch(() => setCultivarList([]));
-  }, [speciesKey]);
+  const loadCultivars = useCallback(
+    (): Promise<Cultivar[]> => speciesApi.listCultivars(speciesKey),
+    [speciesKey],
+  );
+  const cultivarLoad = useAsyncOptions(loadCultivars, { enabled: Boolean(speciesKey) });
+  const cultivarList = speciesKey ? cultivarLoad.options : NO_CULTIVARS;
 
   // Clear the location only on a genuine user-driven site change — never on the
   // initial mount or the async site backfill, which would drop a saved location.
@@ -302,6 +300,9 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
               ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
             ]}
           />
+          {speciesKey && cultivarLoad.error && (
+            <OptionsLoadError onRetry={cultivarLoad.reload} data-testid="succession-cultivars-load-error" />
+          )}
           <FormNumberField
             name="plants_per_batch"
             control={control}
@@ -390,6 +391,9 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
+            {sitesLoad.error && (
+              <OptionsLoadError onRetry={sitesLoad.reload} data-testid="succession-sites-load-error" />
+            )}
             <LocationTreeSelect
               name="location_key"
               control={control}

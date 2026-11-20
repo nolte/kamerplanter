@@ -22,6 +22,7 @@ import { useStepUpFactors } from '@/hooks/useStepUpFactors';
 import { usePendingStepUpReauth } from '@/hooks/useStepUpReauth';
 import StepUpCodeField from './StepUpCodeField';
 import StepUpReauthButton from './StepUpReauthButton';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** What the requester typed to prove the irreversible action is intended. */
 export interface StepUpConfirmation {
@@ -181,7 +182,9 @@ export default function StepUpConfirmDialog({
       .then((list) => {
         if (!cancelled) setProviders(list);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // Without the provider list the dialog offers the password/code factors only; the server still decides.
+        captureHandledError(err, { source: 'StepUpConfirmDialog.providers' });
         if (!cancelled) setProviders(null);
       });
     return () => {

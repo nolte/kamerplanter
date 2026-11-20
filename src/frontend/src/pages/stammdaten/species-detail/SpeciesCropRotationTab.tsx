@@ -19,6 +19,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
@@ -58,6 +59,8 @@ export default function SpeciesCropRotationTab({
   const [rotationDialogOpen, setRotationDialogOpen] = useState(false);
   const [rotationFamilies, setRotationFamilies] = useState<BotanicalFamily[]>([]);
   const [rotationFamiliesLoaded, setRotationFamiliesLoaded] = useState(false);
+  // A failed family read is shown in the dialog with a retry, never as an empty picker (#3037).
+  const [rotationFamiliesError, setRotationFamiliesError] = useState(false);
   const [rotationTargetKey, setRotationTargetKey] = useState('');
   const [rotationWaitYears, setRotationWaitYears] = useState(3);
 
@@ -79,16 +82,22 @@ export default function SpeciesCropRotationTab({
     }
   }, [familyKey, handleError]);
 
+  const loadRotationFamilies = () => {
+    setRotationFamiliesError(false);
+    familiesApi
+      .listAllBotanicalFamilies()
+      .then((f) => {
+        setRotationFamilies(f);
+        setRotationFamiliesLoaded(true);
+      })
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'SpeciesCropRotationTab.families' });
+        setRotationFamiliesError(true);
+      });
+  };
+
   const openRotationDialog = () => {
-    if (!rotationFamiliesLoaded) {
-      familiesApi
-        .listAllBotanicalFamilies()
-        .then((f) => {
-          setRotationFamilies(f);
-          setRotationFamiliesLoaded(true);
-        })
-        .catch(() => {});
-    }
+    if (!rotationFamiliesLoaded) loadRotationFamilies();
     setRotationDialogOpen(true);
   };
 
@@ -294,6 +303,12 @@ export default function SpeciesCropRotationTab({
               <DialogContentText sx={{ mb: 2 }}>
                 {t('pages.cropRotation.addSuccessorHint')}
               </DialogContentText>
+              {rotationFamiliesError && (
+                <OptionsLoadError
+                  onRetry={loadRotationFamilies}
+                  data-testid="species-rotation-families-load-error"
+                />
+              )}
               <TextField
                 select
                 fullWidth

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import * as favoritesApi from '@/api/endpoints/favorites';
 import { mayAdoptLocalData } from '@/lib/localDataOwner';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useSignedInUserKey } from '@/hooks/useSignedInUserKey';
 
 /**
@@ -60,8 +61,11 @@ export function useServerFavorites(entityType: string, legacyStorageKey?: string
         if (loadedFor.current !== owner) return;
         replaceFavorites(new Set([...server, ...carried]));
       })
-      .catch(() => {
-        // Silently fall back to an empty set (e.g. not authenticated).
+      .catch((err: unknown) => {
+        // Favourites only mark rows in a list that loaded on its own; without them
+        // the list is complete, merely unstarred, and the next mount reads again.
+        // Reported so a failing favourites endpoint does not go unnoticed.
+        captureHandledError(err, { source: 'useServerFavorites', entityType });
       });
   }, [entityType, legacyStorageKey, userKey, replaceFavorites]);
 

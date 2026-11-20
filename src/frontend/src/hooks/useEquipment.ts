@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '@/api/endpoints/inventree';
 import { useApiError } from './useApiError';
 import type { Equipment, InvenTreeConnection } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface UseEquipmentResult {
   equipment: Equipment[];
@@ -46,7 +47,9 @@ export function useEquipment(): UseEquipmentResult {
       try {
         const conns = await api.listConnections();
         if (!cancelled) setConnections(conns);
-      } catch {
+      } catch (err) {
+        // See above: reported, but the equipment view stays usable without connections.
+        captureHandledError(err, { source: 'useEquipment.connections' });
         if (!cancelled) setConnections([]);
       }
     };

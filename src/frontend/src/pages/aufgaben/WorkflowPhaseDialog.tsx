@@ -26,6 +26,9 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
+import { isApiError } from '@/api/errors';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
@@ -89,6 +92,10 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
   // Existing phase suggestions
   const [suggestions, setSuggestions] = useState<WorkflowPhaseSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  // A failed read of the fill-in helpers (species, suggestions, growth phases) is shown
+  // with a retry, never as "nothing to pick from" (#3037).
+  const [assistLoadError, setAssistLoadError] = useState(false);
+  const [assistAttempt, setAssistAttempt] = useState(0);
 
   const defaultValues: FormData = {
     name: '',
@@ -128,6 +135,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
       setGrowthPhases([]);
       setSpeciesLoading(true);
       setSuggestionsLoading(true);
+      setAssistLoadError(false);
       try {
         // The complete catalogue (#1560); one leg of an imperative sequence
         // whose surrounding loading state already covers it.
@@ -142,16 +150,24 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
             })),
           );
         }
-      } catch {
-        if (!cancelled) setSpeciesOptions([]);
+      } catch (err) {
+        captureHandledError(err, { source: 'WorkflowPhaseDialog.species' });
+        if (!cancelled) {
+          setSpeciesOptions([]);
+          setAssistLoadError(true);
+        }
       } finally {
         if (!cancelled) setSpeciesLoading(false);
       }
       try {
         const sugg = await taskApi.listPhaseSuggestions();
         if (!cancelled) setSuggestions(sugg);
-      } catch {
-        if (!cancelled) setSuggestions([]);
+      } catch (err) {
+        captureHandledError(err, { source: 'WorkflowPhaseDialog.suggestions' });
+        if (!cancelled) {
+          setSuggestions([]);
+          setAssistLoadError(true);
+        }
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
       }
@@ -159,7 +175,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
     return () => {
       cancelled = true;
     };
-  }, [open, isEdit]);
+  }, [open, isEdit, assistAttempt]);
 
   // Load growth phases when species changes
   useEffect(() => {
@@ -176,8 +192,14 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         if (cancelled) return;
         const sorted = [...gphases].sort((a, b) => a.sequence_order - b.sequence_order);
         setGrowthPhases(sorted);
-      } catch {
-        if (!cancelled) setGrowthPhases([]);
+      } catch (err) {
+        // A species without a lifecycle answers 404: nothing to fill in, not a failure.
+        const absent = isApiError(err) && err.statusCode === 404;
+        if (!absent) captureHandledError(err, { source: 'WorkflowPhaseDialog.growthPhases' });
+        if (!cancelled) {
+          setGrowthPhases([]);
+          if (!absent) setAssistLoadError(true);
+        }
       } finally {
         if (!cancelled) setGrowthPhasesLoading(false);
       }
@@ -257,6 +279,12 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         {/* Species selector and suggestions — only in create mode */}
         {!isEdit && (
           <>
+            {assistLoadError && (
+              <OptionsLoadError
+                onRetry={() => setAssistAttempt((n) => n + 1)}
+                data-testid="workflow-phase-assist-load-error"
+              />
+            )}
             {/* Species-based phase loading */}
             <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
               {t('pages.tasks.loadFromSpecies')}

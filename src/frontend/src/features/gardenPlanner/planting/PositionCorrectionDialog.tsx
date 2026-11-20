@@ -36,6 +36,7 @@ import { formatDecimal } from '../model/units';
 import LayoutCanvas from './LayoutCanvas';
 import { correctSlotPosition, getSlot, listBedSlots } from './plantingApi';
 import { insideBed } from './plantingLogic';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Stepper step in centimetres (§18.1 step 9: "Stepper als Standard (±10 cm ...)"). */
 export const STEP_CM = 10;
@@ -108,7 +109,11 @@ export default function PositionCorrectionDialog({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getSlot(slotKey), listBedSlots(bedKey).catch(() => [])])
+    Promise.all([getSlot(slotKey), listBedSlots(bedKey).catch((err: unknown) => {
+      // The neighbouring slots only add snap targets; the slot itself is corrected without them.
+      captureHandledError(err, { source: 'PositionCorrectionDialog.bedSlots' });
+      return [];
+    })])
       .then(([slot, slots]) => {
         if (cancelled) return;
         if (slot.geometry?.kind === 'point') {

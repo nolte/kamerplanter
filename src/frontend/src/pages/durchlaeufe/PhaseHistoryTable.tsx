@@ -11,6 +11,9 @@ import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EmptyState from '@/components/common/EmptyState';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
@@ -39,6 +42,8 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
   const { handleError } = useApiError();
   const [history, setHistory] = useState<PhaseHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed read is shown with a retry, never as "no plants yet" (#3037).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editEnteredAt, setEditEnteredAt] = useState('');
   const [editExitedAt, setEditExitedAt] = useState('');
@@ -50,8 +55,15 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
     setLoading(true);
     phasesApi
       .getPhaseHistory(plantKey)
-      .then(setHistory)
-      .catch(() => setHistory([]))
+      .then((data) => {
+        setHistory(data);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'PhaseHistoryTable' });
+        setHistory([]);
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      })
       .finally(() => setLoading(false));
   };
 
@@ -241,6 +253,10 @@ export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (loadError) {
+    return <ErrorDisplay error={loadError} onRetry={loadHistory} />;
   }
 
   if (history.length === 0) {

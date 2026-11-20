@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getSpeciesReferenceImages } from '@/api/endpoints/species';
 import type { ReferenceImage } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Stable return shape of {@link useSpeciesReferenceImages}. */
 export interface UseSpeciesReferenceImagesResult {
@@ -36,7 +37,8 @@ export function useSpeciesReferenceImages(
     try {
       const data = await getSpeciesReferenceImages(speciesKey);
       setImages(data.images ?? []);
-    } catch {
+    } catch (err) {
+      captureHandledError(err, { source: 'useSpeciesReferenceImages' });
       // A missing index / unreachable service is treated as "no images".
       setImages([]);
     } finally {

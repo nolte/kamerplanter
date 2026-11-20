@@ -23,6 +23,9 @@ import {
   markActed,
   markAllRead,
 } from '@/api/endpoints/notifications';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { isCareConfirmAction } from '@/utils/careConfirmActions';
@@ -111,6 +114,8 @@ export default function NotificationDrawer({
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  // A failed page load is shown as such, with a retry — never as "no notifications" (#3037).
+  const [loadError, setLoadError] = useState<{ key: string; offset: number; append: boolean } | null>(null);
   // Keys currently awaiting the `POST …/act` round-trip — drives the per-button
   // loading state and guards against a second tap while one is in flight
   // (UI-NFR-008 R-016/R-017 double-submit protection).
@@ -119,6 +124,7 @@ export default function NotificationDrawer({
   const loadNotifications = useCallback(
     async (currentOffset: number, append: boolean) => {
       setLoading(true);
+      setLoadError(null);
       try {
         const result = await getNotifications({
           limit: PAGE_SIZE,
@@ -131,8 +137,9 @@ export default function NotificationDrawer({
         }
         setHasMore(result.items.length === PAGE_SIZE);
         onCountChange(result.unread_count);
-      } catch {
-        // Silently ignore
+      } catch (err) {
+        captureHandledError(err, { source: 'NotificationDrawer.load' });
+        setLoadError({ key: errorKey(err, 'errors.loadFailed'), offset: currentOffset, append });
       } finally {
         setLoading(false);
       }
@@ -163,8 +170,10 @@ export default function NotificationDrawer({
       );
       // Decrement is handled by re-fetching count on next load
       // The parent will get the accurate count when the drawer is re-opened
-    } catch {
-      // Silently ignore
+    } catch (err) {
+      // Marking as read is a side effect of opening the notification; the card
+      // simply stays unread and the next open retries it. Reported, not shown.
+      captureHandledError(err, { source: 'NotificationDrawer.markRead' });
     }
   };
 
@@ -179,8 +188,9 @@ export default function NotificationDrawer({
         })),
       );
       onCountChange(0);
-    } catch {
-      // Silently ignore
+    } catch (err) {
+      captureHandledError(err, { source: 'NotificationDrawer.markAllRead' });
+      notify.error(t('pages.notifications.markAllReadError'));
     } finally {
       setMarkingAllRead(false);
     }
@@ -245,6 +255,11 @@ export default function NotificationDrawer({
       navigate(actionUrl);
       onClose();
     }
+  };
+
+  const handleRetryLoad = () => {
+    if (!loadError) return;
+    void loadNotifications(loadError.offset, loadError.append);
   };
 
   const unreadExist = notifications.some((n) => !n.read_at);
@@ -321,7 +336,7 @@ export default function NotificationDrawer({
         role="list"
         aria-label={t('pages.notifications.title')}
       >
-        {notifications.length === 0 && !loading && (
+        {notifications.length === 0 && !loading && !loadError && (
           <Box
             sx={{
               display: 'flex',
@@ -444,7 +459,10 @@ export default function NotificationDrawer({
             <CircularProgress size={24} />
           </Box>
         )}
-        {!loading && hasMore && notifications.length > 0 && (
+        {!loading && loadError && (
+          <ErrorDisplay error={loadError.key} onRetry={handleRetryLoad} />
+        )}
+        {!loading && !loadError && hasMore && notifications.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
             <Button
