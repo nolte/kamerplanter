@@ -42,7 +42,7 @@ feature/* ──► develop ──► (Release-Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Veröffentlichtes Release | MkDocs-Dokumentation auf GitHub Pages deployen |
 | `release-cd-refresh-master.yml` | Veröffentlichtes Release | `main`-Branch auf den Release-Stand aktualisieren |
 | `release-lag.yml` | Zeitplan, täglich 09:00 UTC (+ manuell) | Meldet, wenn `develop` Commits trägt, die kein **veröffentlichtes** Release enthält |
-| `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht |
+| `renovate-health.yml` | Zeitplan, täglich 09:20 UTC (+ manuell) | Liest das Dependency Dashboard (#12) und meldet, wenn Renovate ein Problem berichtet oder die Manager-Inventur abweicht; fragt außerdem die Registries, wann das Repository hinter jedem gepinnten Fremd-Image zuletzt einen Tag erhalten hat |
 | `lane-inputs.yml` | wöchentlich auf `develop`, manuell | Misst, welche Dateien die gefilterten Jobs lesen, vergleicht mit `.github/lane-inputs/` und schlägt Abweichungen als Bot-Pull-Request vor ([Details](#lane-inputs)) |
 | `reach-audit.yml` | wöchentlich (sonntags 02:43 UTC), manuell | Führt die Capability-Reach-Audit einschließlich der T2-Proben mit vollem Stack auf einem Runner aus; beratend, kein Merge-Gate ([Details](#reach-audit)) |
 
@@ -168,6 +168,29 @@ Der Workflow liest deshalb täglich den Body von #12 und vergleicht:
 Bei einem Befund öffnet bzw. aktualisiert der Lauf **ein einziges, dedupliziertes Issue** (Label `renovate-health`) statt nur rot zu werden — ein roter Zeitplan-Lauf ist nach einer Woche roter Zeitplan-Läufe unsichtbar. Umgekehrt gilt: Kann der Lauf *nicht entscheiden* (Issue unerreichbar, Body leer, Dashboard unparsbar), wird **der Lauf rot und es entsteht kein Issue** — ein unbestimmtes Ergebnis darf nicht wie ein sauberes aussehen (NFR-018 §2).
 
 Die Erwartung selbst steht in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); ein neuer Python-Baum wird dort eingetragen, statt die Regel stillschweigend aufzuweichen.
+
+### Verwaiste Image-Koordinaten (Job `stale-image-upstreams`)
+
+Renovate beantwortet die Frage „gibt es in **diesem** Repository einen neueren Tag?". Die Frage „bekommt dieses Repository überhaupt noch Tags?" stellt es nicht.
+
+Genau daran lag es im Herbst 2026: Das Frontend-Image baute auf `nginxinc/nginx-unprivileged` auf. Upstream veröffentlicht seit dem 19.10.2026 nur noch unter `nginx/nginx-unprivileged`. Das alte Repository löste weiter auf, bekam aber keinen Tag mehr — der Pin sah einen Monat lang aktuell aus, und zehn Sicherheitskorrekturen kamen nie als Pull Request an.
+
+Der zweite Job in `renovate-health.yml` fragt deshalb täglich für jedes Fremd-Image nach, wann sein Repository zuletzt Aktivität hatte:
+
+* **Die Inventur wird aus dem Checkout gelesen**, nicht aus einer Liste: jede Referenz der Form `name:tag@sha256:…` in Dockerfiles, Compose-Dateien, Workflows, `.pins/` und Taskfiles sowie jeder `repository:`/`tag:`-Block in den Helm-Values. Eigene Images (`kamerplanter-*`) zählen nicht. Das Protokoll des Laufs nennt jedes betrachtete Image einzeln.
+* **Docker Hub** liefert das Datum des jüngsten Tag-Pushs. **ghcr.io** kennt kein Push-Datum; dort liest der Job das Build-Datum der jüngsten Tags. Der Bericht sagt je Image, welches der beiden Signale er gelesen hat.
+* **Das Fenster beträgt 45 Tage.** Für Images, die selten erscheinen, steht ein größeres Fenster mit Begründung in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py` (derzeit `curlimages/curl`, `busybox`, `ghcr.io/hadolint/hadolint`).
+
+!!! note "Was das Fenster leistet — und was nicht"
+    Gemessen am 20.11.2026 lag die jüngste Aktivität bei 14 der 17 Images höchstens 15 Tage zurück; der größte Abstand zwischen zwei Push-Tagen eines Images im Standardfenster betrug 36 Tage. Ein Fenster von 30 Tagen hätte also auf einem gesunden Repository Alarm geschlagen.
+
+    Die Kehrseite: Am Tag, an dem der nginx-Fall auf anderem Weg auffiel (Tag 31), hätte der Job noch geschwiegen. Er hätte am 03.12.2026 gemeldet. Die Prüfung begrenzt die Dauer der Stille, sie erkennt einen Umzug nicht am ersten Tag.
+
+Ein Befund landet wie beim Dashboard-Job in **einem einzigen, deduplizierten Issue** (Label `stale-image-upstream`), das der Job aktualisiert und wieder schließt. Als Befund gilt auch ein Repository, das die Registry nicht mehr kennt, und ein Image auf einer Registry, die der Job nicht lesen kann — ein solches Image wird gemeldet und nicht stillschweigend durchgewunken.
+
+Kann der Job *nicht entscheiden* — eine Registry ist nicht erreichbar oder drosselt, die Inventur ist leer, ein Pin ist nicht lesbar —, wird **der Lauf rot und es entsteht kein Issue**. Alle Abfragen laufen anonym; der Job erhält kein Token.
+
+Wenn das Issue aufgeht: Sieh beim Upstream-Projekt nach, ob es umgezogen ist. Falls ja, ändere den Image-Namen an allen genannten Stellen und in `renovate.json5` im selben Pull Request. Erscheint das Projekt nur selten, trag ein größeres Fenster mit der gemessenen Kadenz als Begründung ein.
 
 ### `task renovate:dry-run` — die Konfiguration vor dem Merge beweisen
 
