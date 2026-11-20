@@ -93,7 +93,10 @@ const { reducer, fetchList, fetchOne, actions } = createListSlice<PlantInstance,
       .addCase(fetchAllPlantInstances.fulfilled, (state, action) => {
         const s = state as PlantInstancesState;
         if (action.meta.requestId !== s.progressiveRequestId) return;
-        s.items = action.payload;
+        // The pages of this load already hold the complete set. Replacing it with an
+        // equal array would hand every `items`-keyed effect a new reference right
+        // after the last page and run each enrichment fan-out a second time.
+        if (s.items.length !== action.payload.length) s.items = action.payload;
         s.loading = false;
         s.loadingMore = false;
         s.progressiveRequestId = null;

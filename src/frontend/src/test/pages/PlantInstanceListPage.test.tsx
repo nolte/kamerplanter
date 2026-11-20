@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import PlantInstanceListPage from '@/pages/pflanzen/PlantInstanceListPage';
+import { ENRICHMENT_CONCURRENCY } from '@/api/requestLimiter';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 
@@ -325,6 +326,88 @@ describe('PlantInstanceListPage', () => {
         });
       } finally {
         releaseLaterPages();
+      }
+    });
+  });
+
+  describe('slot enrichment fan-out (#3032)', () => {
+    const SLOT_COUNT = 12;
+
+    /** Plants that each sit in their own slot, so the page resolves SLOT_COUNT slots. */
+    const slottedPlants = Array.from({ length: SLOT_COUNT }, (_, i) => ({
+      ...richPlant,
+      key: `slotted-${i}`,
+      instance_id: `SLOT-${i}`,
+      plant_name: `Slotted ${i}`,
+      cultivar_key: null,
+      slot_key: `slot-${i}`,
+      removed_on: null,
+    }));
+
+    /** Holds every slot read until the test releases it, recording how many ran at once. */
+    function gateSlotReads() {
+      const stats = { started: 0, inFlight: 0, maxInFlight: 0 };
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const slotResponse = async ({ params }: { params: Record<string, string | readonly string[] | undefined> }) => {
+        stats.started += 1;
+        stats.inFlight += 1;
+        stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
+        await released;
+        stats.inFlight -= 1;
+        return HttpResponse.json({ key: params.key, location_key: 'loc-1', slot_id: String(params.key) });
+      };
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', () => HttpResponse.json(slottedPlants)),
+        http.get('/api/v1/plant-instances', () => HttpResponse.json(slottedPlants)),
+        http.get('/api/v1/t/:tenant/slots/:key', slotResponse),
+        http.get('/api/v1/slots/:key', slotResponse),
+      );
+      return { stats, release };
+    }
+
+    it('never holds more than ENRICHMENT_CONCURRENCY slot reads at once', async () => {
+      const { stats, release } = gateSlotReads();
+      try {
+        renderWithProviders(<PlantInstanceListPage />);
+        await screen.findByText('SLOT-0');
+        await waitFor(() => expect(stats.started).toBeGreaterThan(0));
+        // Give a fan-out that ignores the limit every chance to fire the rest.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(stats.maxInFlight).toBeLessThanOrEqual(ENRICHMENT_CONCURRENCY);
+        expect(stats.started).toBeLessThan(SLOT_COUNT);
+
+        release();
+        await waitFor(() => expect(stats.started).toBe(SLOT_COUNT));
+        // A second fan-out over the same slots would only show after the first one is through.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(stats.started).toBe(SLOT_COUNT);
+        expect(stats.maxInFlight).toBeLessThanOrEqual(ENRICHMENT_CONCURRENCY);
+      } finally {
+        release();
+      }
+    });
+
+    it('starts no queued slot read once the page has unmounted', async () => {
+      const { stats, release } = gateSlotReads();
+      try {
+        const { unmount } = renderWithProviders(<PlantInstanceListPage />);
+        await screen.findByText('SLOT-0');
+        await waitFor(() => expect(stats.started).toBeGreaterThan(0));
+        const startedBeforeUnmount = stats.started;
+        // Some reads are still queued, so the unmount has something to drop.
+        expect(startedBeforeUnmount).toBeLessThan(SLOT_COUNT);
+
+        unmount();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(stats.started).toBe(startedBeforeUnmount);
+      } finally {
+        release();
       }
     });
   });
