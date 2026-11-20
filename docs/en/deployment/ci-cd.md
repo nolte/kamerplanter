@@ -177,7 +177,7 @@ That is what happened in autumn 2026: the frontend image was built on `nginxinc/
 
 The second job in `renovate-health.yml` therefore asks daily, for every third-party image, when its repository last saw activity:
 
-* **The inventory is read from the checkout**, not from a list: every reference of the form `name:tag@sha256:…` in Dockerfiles, Compose files, workflows, `.pins/` and Taskfiles, plus every `repository:`/`tag:` block in the Helm values. Our own images (`kamerplanter-*`) do not count. The run log names every image it looked at.
+* **The inventory is read from the checkout**, not from a list: every reference of the form `name:tag@sha256:…` in Dockerfiles, Compose files, workflows, `.pins/` and Taskfiles, plus every image block in the Helm values (a `repository:` with `tag:` or `digest:` in the same block, or under an `image:` key). Our own images (`kamerplanter-*`) do not count. The run log names every image it looked at.
 * **Docker Hub** provides the date of the newest tag push. **ghcr.io** has no push date; there the job reads the build date of the newest tags. The report says per image which of the two signals it read.
 * **The window is 45 days.** Images that release rarely get a wider window, with the reason, in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py` (currently `curlimages/curl`, `busybox`, `ghcr.io/hadolint/hadolint`).
 
@@ -186,9 +186,9 @@ The second job in `renovate-health.yml` therefore asks daily, for every third-pa
 
     The flip side: on the day the nginx case was noticed by other means (day 31), the job would still have been silent. It would have reported on 2026-12-03. The check bounds how long the silence can last; it does not detect a move on day one.
 
-As with the dashboard job, a finding lands in **a single deduplicated issue** (label `stale-image-upstream`), which the job updates and closes again. A repository the registry no longer knows also counts as a finding, and so does an image on a registry the job cannot read — such an image is reported, not waved through silently.
+As with the dashboard job, a finding lands in **a single deduplicated issue** (label `stale-image-upstream`), which the job updates and closes again. A repository the registry no longer knows also counts as a finding (the registry already answers the request for the tag list with "not found"), and so does an image on a registry the job cannot read — such an image is reported, not waved through silently.
 
-When the job *cannot decide* — a registry is unreachable or rate-limits, the inventory is empty, a pin is unreadable — **the run goes red and no issue is created**. All queries are anonymous; the job is handed no token.
+When the job *cannot decide* — a registry is unreachable or rate-limits, the inventory is empty, a pin is unreadable — **the run goes red and no issue is created**. All registry queries are anonymous: the script and its requests are handed no token. The job's `GITHUB_TOKEN` (`issues: write`) is used by the issue step that follows, and by nothing else.
 
 When the issue opens: check with the upstream project whether it moved. If it did, change the image name in every place listed and in `renovate.json5` in the same pull request. If the project merely releases rarely, record a wider window with the measured cadence as the reason.
 

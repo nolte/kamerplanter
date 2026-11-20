@@ -177,7 +177,7 @@ Genau daran lag es im Herbst 2026: Das Frontend-Image baute auf `nginxinc/nginx-
 
 Der zweite Job in `renovate-health.yml` fragt deshalb täglich für jedes Fremd-Image nach, wann sein Repository zuletzt Aktivität hatte:
 
-* **Die Inventur wird aus dem Checkout gelesen**, nicht aus einer Liste: jede Referenz der Form `name:tag@sha256:…` in Dockerfiles, Compose-Dateien, Workflows, `.pins/` und Taskfiles sowie jeder `repository:`/`tag:`-Block in den Helm-Values. Eigene Images (`kamerplanter-*`) zählen nicht. Das Protokoll des Laufs nennt jedes betrachtete Image einzeln.
+* **Die Inventur wird aus dem Checkout gelesen**, nicht aus einer Liste: jede Referenz der Form `name:tag@sha256:…` in Dockerfiles, Compose-Dateien, Workflows, `.pins/` und Taskfiles sowie jeder Image-Block in den Helm-Values (ein `repository:` mit `tag:` oder `digest:` im selben Block oder unter einem `image:`-Schlüssel). Eigene Images (`kamerplanter-*`) zählen nicht. Das Protokoll des Laufs nennt jedes betrachtete Image einzeln.
 * **Docker Hub** liefert das Datum des jüngsten Tag-Pushs. **ghcr.io** kennt kein Push-Datum; dort liest der Job das Build-Datum der jüngsten Tags. Der Bericht sagt je Image, welches der beiden Signale er gelesen hat.
 * **Das Fenster beträgt 45 Tage.** Für Images, die selten erscheinen, steht ein größeres Fenster mit Begründung in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py` (derzeit `curlimages/curl`, `busybox`, `ghcr.io/hadolint/hadolint`).
 
@@ -186,9 +186,9 @@ Der zweite Job in `renovate-health.yml` fragt deshalb täglich für jedes Fremd-
 
     Die Kehrseite: Am Tag, an dem der nginx-Fall auf anderem Weg auffiel (Tag 31), hätte der Job noch geschwiegen. Er hätte am 03.12.2026 gemeldet. Die Prüfung begrenzt die Dauer der Stille, sie erkennt einen Umzug nicht am ersten Tag.
 
-Ein Befund landet wie beim Dashboard-Job in **einem einzigen, deduplizierten Issue** (Label `stale-image-upstream`), das der Job aktualisiert und wieder schließt. Als Befund gilt auch ein Repository, das die Registry nicht mehr kennt, und ein Image auf einer Registry, die der Job nicht lesen kann — ein solches Image wird gemeldet und nicht stillschweigend durchgewunken.
+Ein Befund landet wie beim Dashboard-Job in **einem einzigen, deduplizierten Issue** (Label `stale-image-upstream`), das der Job aktualisiert und wieder schließt. Als Befund gilt auch ein Repository, das die Registry nicht mehr kennt (sie beantwortet schon die Frage nach der Tag-Liste mit „nicht vorhanden“), und ein Image auf einer Registry, die der Job nicht lesen kann — ein solches Image wird gemeldet und nicht stillschweigend durchgewunken.
 
-Kann der Job *nicht entscheiden* — eine Registry ist nicht erreichbar oder drosselt, die Inventur ist leer, ein Pin ist nicht lesbar —, wird **der Lauf rot und es entsteht kein Issue**. Alle Abfragen laufen anonym; der Job erhält kein Token.
+Kann der Job *nicht entscheiden* — eine Registry ist nicht erreichbar oder drosselt, die Inventur ist leer, ein Pin ist nicht lesbar —, wird **der Lauf rot und es entsteht kein Issue**. Alle Abfragen an die Registries laufen anonym: Das Skript und seine Anfragen erhalten kein Token. Das `GITHUB_TOKEN` des Jobs (`issues: write`) nutzt nur der anschließende Issue-Schritt.
 
 Wenn das Issue aufgeht: Sieh beim Upstream-Projekt nach, ob es umgezogen ist. Falls ja, ändere den Image-Namen an allen genannten Stellen und in `renovate.json5` im selben Pull Request. Erscheint das Projekt nur selten, trag ein größeres Fenster mit der gemessenen Kadenz als Begründung ein.
 

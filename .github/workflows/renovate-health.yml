@@ -261,13 +261,19 @@ jobs:
     # bound covers three attempts with a 20-second timeout on a slow registry.
     timeout-minutes: 10
     # `issues: write` for the one alert issue, granted here and not at workflow
-    # level (see above). No `packages` scope: every registry read is anonymous
-    # and the script is handed no token at all.
+    # level (see above). No `packages` scope: every registry read is anonymous.
+    # The job's GITHUB_TOKEN exists for the issue step ALONE — the script step
+    # is handed no token and sends none to a registry.
     permissions:
       contents: read
       issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this job uses git after the checkout, and the script
+          # step talks to third-party registries: the token is not left in
+          # `.git/config` beside it.
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -305,15 +311,19 @@ jobs:
             const TITLE = 'A pinned third-party image\'s upstream repository stopped receiving tags (#3060)';
             const runUrl = process.env.RUN_URL;
 
-            // Dedup anchor: the single open issue carrying our label. One
-            // issue is updated; a new one is NOT opened per run (#3040 and its
-            // nine duplicates are what that looks like).
+            // Dedup anchor: the single open issue carrying our label AND our
+            // exact title. One issue is updated; a new one is NOT opened per
+            // run (#3040 and its nine duplicates are what that looks like).
+            // The title is part of the anchor because a label can be put on
+            // any issue by hand: an issue somebody labelled `stale-image-upstream`
+            // themselves must not have its body overwritten or be closed by
+            // this job.
             const open = (await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               labels: LABEL,
-            })).data.filter(i => !i.pull_request);
+            })).data.filter(i => !i.pull_request && i.title === TITLE);
             const existing = open[0];
 
             if (!report.alert) {

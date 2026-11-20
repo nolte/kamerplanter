@@ -896,11 +896,12 @@ aufgegeben, löst die alte Koordinate weiter auf und der Pin gilt als aktuell. S
 (#3060, behoben in #3061).
 
 **MUSS**: Ein geplanter Lauf (`renovate-health.yml`, Job `stale-image-upstreams`, täglich) fragt für jedes Fremd-Image die Registry, wann das Repository zuletzt Aktivität hatte, und meldet jedes Repository, dessen jüngste Aktivität älter ist als das Fenster.
-**MUSS**: Die Inventur der Fremd-Images wird aus dem Checkout abgeleitet (Digest-Pins in Dockerfiles, Compose-Dateien, Workflows, `.pins/`, Taskfiles; Image-Blöcke der Helm-Values) und nicht als Liste gepflegt. Eine leere Inventur ist kein sauberes Ergebnis, sondern ein unbestimmtes.
+**MUSS**: Die Inventur der Fremd-Images wird aus dem Checkout abgeleitet (Digest-Pins in Dockerfiles, Compose-Dateien, Workflows, `.pins/`, Taskfiles; Image-Blöcke der Helm-Values: `repository:` mit `tag:` oder `digest:` im selben Block oder unter einem `image:`-Schlüssel, unabhängig von Reihenfolge und Zwischenzeilen) und nicht als Liste gepflegt. Eine leere Inventur ist kein sauberes Ergebnis, sondern ein unbestimmtes.
 **MUSS**: Das Fenster beträgt 45 Tage. Eine Abweichung je Image steht mit Begründung in `THRESHOLD_OVERRIDES_DAYS` (`scripts/ci/check_stale_image_upstreams.py`); ein Eintrag für ein Image, das nichts mehr referenziert, ist selbst ein Befund.
 **MUSS**: Ein Image auf einer Registry ohne lesbares Aktivitätsdatum wird als „nicht prüfbar" gemeldet und nicht stillschweigend als bestanden gewertet.
 **MUSS**: Ein Befund führt zu genau einem deduplizierten Issue (Label `stale-image-upstream`). Ein unbestimmtes Ergebnis (Registry nicht erreichbar oder gedrosselt, leere Inventur, unlesbarer Pin) macht den Lauf rot und erzeugt kein Issue (NFR-018 §2).
-**MUSS**: Die Abfragen laufen anonym; der Job erhält kein Token.
+**MUSS**: Die Abfragen an die Registries laufen anonym: Das Skript und seine Anfragen erhalten kein Token des Repositorys. Das `GITHUB_TOKEN` des Jobs (`issues: write`) dient allein dem Issue-Schritt; der Checkout hinterlegt es nicht (`persist-credentials: false`). Ein von einer Registry ausgestelltes anonymes Pull-Token wird bei einer Weiterleitung auf einen anderen Host nicht mitgesendet.
+**MUSS**: „Repository existiert nicht“ wird nur aus den Abfragen gelesen, die nach dem Repository fragen (Tag-Liste, bei ghcr.io zusätzlich die Token-Abfrage). Fehlt nach erfolgreicher Tag-Liste ein einzelner Tag (HTTP 404 auf Manifest oder Blob), wird dieser Tag übersprungen; jede andere Fehlerantwort an dieser Stelle ist ein unbestimmtes Ergebnis.
 
 Das Fenster ist gemessen, nicht geschätzt (2026-11-20): Der größte Abstand zwischen zwei
 Push-Tagen eines Images im Standardfenster betrug 36 Tage, 30 Tage hätten also auf einem
