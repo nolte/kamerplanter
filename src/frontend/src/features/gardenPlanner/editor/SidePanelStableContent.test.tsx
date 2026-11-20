@@ -2,7 +2,8 @@
  * The side panel's content keeps one place in the component tree (REQ-053 §17.3, GP-UX-068/069, AC-5; #2882, #2887).
  *
  * Pinned, through the real editor:
- * - A change of the panel's form across md (docked beside the canvas <-> bottom sheet) keeps the content mounted: an
+ * - A change of the panel's form across md (docked beside the canvas <-> bottom sheet) or across the canvas minimum
+ *   (docked <-> drawer, a resize of the measured canvas row, #3034) keeps the content mounted: an
  *   open "create task" dialog of a garden object with its typed name, the open window suggestion and a typed but not
  *   yet committed object property survive it (#2882, G-W10 b).
  * - The panel tabs activate manually (WAI-ARIA tabs, manual activation): the arrow keys only move the focus, Enter
@@ -164,6 +165,48 @@ describe('the panel content survives a change of the panel form (#2882, GP-UX-06
     expect(screen.getByTestId('care-task-name')).toHaveValue('Turn the heap');
 
     resizeTo(t, 1366);
+    expect(panel()).toHaveAttribute('data-variant', 'docked');
+    expect(screen.getByTestId('care-task-dialog')).toBe(dialog);
+    expect(screen.getByTestId('care-task-name')).toHaveValue('Turn the heap');
+  });
+
+  it('keeps the open "create task" dialog with its typed name over docked -> drawer -> docked (#3034)', async () => {
+    const user = userEvent.setup();
+    // The canvas row as the browser lays it out, read by the editor's measurement (jsdom lays out nothing).
+    let rowPx = 1094;
+    const client = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+    Object.defineProperty(Element.prototype, 'clientWidth', {
+      configurable: true,
+      get(this: Element) {
+        const isRow = this.querySelector(':scope > [data-testid="garden-plan-canvas-area"]') !== null;
+        return isRow ? rowPx : (client?.get?.call(this) ?? 0);
+      },
+    });
+    restores.push(() => {
+      if (client) Object.defineProperty(Element.prototype, 'clientWidth', client);
+    });
+    const rowResizesTo = (px: number) => {
+      rowPx = px;
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    };
+
+    selectObject('go_compost');
+    expect(panel()).toHaveAttribute('data-variant', 'docked');
+    await screen.findByTestId('garden-plan-panel-object-tasks');
+    await user.click(screen.getByTestId('garden-plan-panel-object-task-add'));
+    const dialog = await screen.findByTestId('care-task-dialog');
+    await user.type(within(dialog).getByTestId('care-task-name'), 'Turn the heap');
+
+    // 1366 -> 820 px window: the row narrows from 1094 to 548 px, too little for the canvas beside the panel.
+    rowResizesTo(548);
+    expect(panel()).toHaveAttribute('data-variant', 'drawer');
+    expect(screen.getByTestId('garden-plan-side-panel-drawer')).toBeInTheDocument();
+    expect(screen.getByTestId('care-task-dialog')).toBe(dialog);
+    expect(screen.getByTestId('care-task-name')).toHaveValue('Turn the heap');
+
+    rowResizesTo(1094);
     expect(panel()).toHaveAttribute('data-variant', 'docked');
     expect(screen.getByTestId('care-task-dialog')).toBe(dialog);
     expect(screen.getByTestId('care-task-name')).toHaveValue('Turn the heap');

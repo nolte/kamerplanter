@@ -24,6 +24,7 @@ interface Props {
   /** The line's midpoint on screen; the card sits next to it, inside the canvas. */
   x: number;
   y: number;
+  /** The width the card may use: the canvas, less what covers its right edge (the side panel's drawer, #3034). */
   canvasWidthPx: number;
   canvasHeightPx: number;
   /** A tapped line keeps its card until it is closed; a hovered one closes when the pointer leaves. */
@@ -67,7 +68,8 @@ export default function CompanionEdgeInfo({ edge, x, y, canvasWidthPx, canvasHei
         left,
         top,
         width: CARD_WIDTH_PX,
-        maxWidth: 'calc(100% - 12px)',
+        // Where the room it is given is narrower than the card (left of an open drawer, #3034), the card narrows.
+        maxWidth: `${Math.max(canvasWidthPx - GAP_PX, 0)}px`,
         p: 1.5,
         zIndex: 2,
         pointerEvents: pinned ? 'auto' : 'none',

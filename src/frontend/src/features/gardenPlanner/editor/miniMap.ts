@@ -10,6 +10,20 @@ import type { Viewport } from '../renderer';
 /** The side of the square mini-map in pixels (GP-UX-014). */
 export const MINI_MAP_PX = 120;
 
+/** The inset of the mini-map from the right and bottom edge of the canvas (plus whatever covers the right edge). */
+export const MINI_MAP_INSET_PX = 8;
+
+/** The width the mini-map takes with its 1 px border and its insets on both sides. */
+const MINI_MAP_FOOTPRINT_PX = MINI_MAP_PX + 2 + 2 * MINI_MAP_INSET_PX;
+
+/**
+ * Whether the mini-map fits into the canvas strip left free of an overlay at its right edge - the side panel's drawer
+ * (#3034). Where it does not, it is hidden rather than laid over or under the drawer (WCAG 2.2 SC 2.4.11).
+ */
+export function miniMapFitsBeside(canvasWidthPx: number, coverRightPx: number): boolean {
+  return coverRightPx <= 0 || canvasWidthPx - coverRightPx >= MINI_MAP_FOOTPRINT_PX;
+}
+
 /** The extent must exceed this many viewports (by area) for the mini-map to show (§9.6). */
 export const MINI_MAP_MIN_RATIO = 4;
 

@@ -43,9 +43,25 @@ export type SidePanelVariant = 'docked' | 'drawer' | 'sheet';
  *
  * `canvasRoomPx` is the width the canvas has without a docked panel - the canvas row less the tool rail and its gap,
  * measured on the page, so the app sidebar and the paddings count. `null` (not laid out yet, jsdom) docks.
+ *
+ * `listView`: the list view always docks, whatever the width. The list wraps into any width and has no canvas to
+ * keep a minimum for - and no pan that could move a row out from under a drawer, which would cover its move buttons.
  */
-export function sidePanelVariant(belowMd: boolean, canvasRoomPx: number | null): SidePanelVariant {
+export function sidePanelVariant(
+  belowMd: boolean,
+  canvasRoomPx: number | null,
+  listView: boolean,
+): SidePanelVariant {
   if (belowMd) return 'sheet';
-  if (canvasRoomPx === null) return 'docked';
+  if (listView || canvasRoomPx === null) return 'docked';
   return canvasRoomPx - PANEL_WIDTH_PX - PANEL_GAP_PX >= MIN_CANVAS_WIDTH_PX ? 'docked' : 'drawer';
+}
+
+/**
+ * How far the open drawer covers the canvas from its right edge (#3034): its width while the plan shows it, else 0.
+ * The canvas's other overlays at the right or bottom (the mini-map, the "zoom to edit" hint, the companion card) keep
+ * clear of it by this much, or step aside where too little stays free (WCAG 2.2 SC 2.4.11).
+ */
+export function drawerCoverPx(variant: SidePanelVariant, panelOpen: boolean, planView: boolean): number {
+  return variant === 'drawer' && panelOpen && planView ? PANEL_WIDTH_PX : 0;
 }

@@ -17,6 +17,7 @@ import type { BoundingBox, Point } from '../model/types';
 import type { Viewport } from '../renderer';
 import {
   fromMiniMap,
+  MINI_MAP_INSET_PX,
   MINI_MAP_PX,
   miniMapScale,
   toMiniMap,
@@ -31,6 +32,8 @@ interface MiniMapProps {
   viewport: Viewport;
   /** Pan the view by this many canvas pixels so that the clicked model point is centred. */
   onJump: (target: Point) => void;
+  /** Extra inset from the right edge: the width of an overlay covering it there - the side panel's drawer (#3034). */
+  insetRightPx?: number;
 }
 
 const stop = (event: { stopPropagation: () => void }) => event.stopPropagation();
@@ -41,7 +44,7 @@ function boxRect(box: BoundingBox, extent: BoundingBox, fit: MiniMapScale) {
   return { x: x0, y: y0, width: Math.max(x1 - x0, 1), height: Math.max(y1 - y0, 1) };
 }
 
-function MiniMapView({ plan, extent, viewport, onJump }: MiniMapProps) {
+function MiniMapView({ plan, extent, viewport, onJump, insetRightPx = 0 }: MiniMapProps) {
   const { t } = useTranslation();
   const { palette } = useTheme();
   const fit = useMemo(() => miniMapScale(extent), [extent]);
@@ -114,8 +117,8 @@ function MiniMapView({ plan, extent, viewport, onJump }: MiniMapProps) {
       }}
       sx={{
         position: 'absolute',
-        right: 8,
-        bottom: 8,
+        right: MINI_MAP_INSET_PX + insetRightPx,
+        bottom: MINI_MAP_INSET_PX,
         // the 120 px drawing sits inside the border, not 2 px over it (the app's boxes are border-box)
         boxSizing: 'content-box',
         width: MINI_MAP_PX,

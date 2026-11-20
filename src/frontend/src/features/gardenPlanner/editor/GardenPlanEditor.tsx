@@ -124,7 +124,7 @@ import {
 } from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
-import { miniMapVisible, panToCentre } from './miniMap';
+import { miniMapFitsBeside, miniMapVisible, panToCentre } from './miniMap';
 import { KeyboardHelp } from './KeyboardHelp';
 import { LiveRegion } from './LiveRegion';
 import { NewTypeSelect } from './NewTypeSelect';
@@ -145,7 +145,7 @@ import { ViewBar } from './ViewBar';
 import { LayersTab, type LayerToggle } from './LayersTab';
 import { SidePanel, type SheetSize, type SidePanelVariant } from './SidePanel';
 import { useSidePanel, type SidePanelTab } from './sidePanelState';
-import { PANEL_GAP_PX, PANEL_WIDTH_PX, sidePanelVariant } from './layout';
+import { drawerCoverPx, PANEL_GAP_PX, PANEL_WIDTH_PX, sidePanelVariant } from './layout';
 import { ZoomOverlay } from './ZoomOverlay';
 import { useAutoSave } from './useAutoSave';
 import { useCanvasArea, type CanvasAreaSize } from './useCanvasArea';
@@ -614,7 +614,8 @@ export function GardenPlanEditor({
   const canvasRowRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const canvasRoomPx = useCanvasRoom(canvasRowRef, railRef, !toolbarBelow && view !== 'list');
-  const panelVariant: SidePanelVariant = sidePanelVariant(toolbarBelow, canvasRoomPx);
+  // The list view always docks: it wraps into any width and no pan could move a row out from under a drawer.
+  const panelVariant: SidePanelVariant = sidePanelVariant(toolbarBelow, canvasRoomPx, view === 'list');
   const changeView = useCallback(
     (next: EditorView) => {
       if (onViewChange) onViewChange(next);
@@ -1767,6 +1768,8 @@ export function GardenPlanEditor({
   // drawer (#3034) covers the right edge of the canvas instead: the selection pans left of it the same way.
   const panelBeside = (panelVariant === 'docked' || panelVariant === 'drawer') && sidePanel.open && view === 'plan';
   const panelOver = panelVariant === 'drawer';
+  // The open drawer covers this much of the canvas from its right edge; the canvas's other overlays keep clear of it.
+  const coverRightPx = drawerCoverPx(panelVariant, sidePanel.open, view === 'plan');
   const canvasWidthPx = canvasArea?.widthPx;
   useEffect(() => {
     if (selectionSignature === '' || (!toolbarBelow && !panelBeside)) return;
@@ -2180,9 +2183,11 @@ export function GardenPlanEditor({
   // During a move the marker is the moved object's snapped corner or edge point (GP-FR-154), else the pointer's.
   const shownSnapMark = tools.moving ? tools.moveSnap : snapMark;
 
-  // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
+  // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6). Left of an open drawer, or not at
+  // all where the strip left free of it is narrower than the map: it never lies under the drawer (#3034).
   const extent = useMemo(() => planContentBounds(plan), [plan]);
-  const showMiniMap = extent !== null && miniMapVisible(extent, viewport);
+  const showMiniMap =
+    extent !== null && miniMapVisible(extent, viewport) && miniMapFitsBeside(viewport.widthPx, coverRightPx);
   const jumpTo = useCallback(
     (target: Point) => {
       const [dx, dy] = panToCentre(viewport, target);
@@ -2249,7 +2254,8 @@ export function GardenPlanEditor({
               edge={companionInfo.edge}
               x={companionInfo.x}
               y={companionInfo.y}
-              canvasWidthPx={viewport.widthPx}
+              // Clamped into the strip left of an open drawer (#3034): its close button is never under it.
+              canvasWidthPx={Math.max(viewport.widthPx - coverRightPx, 0)}
               canvasHeightPx={viewport.heightPx}
               pinned={companionInfo.pinned}
               onClose={closeCompanionInfo}
@@ -2310,7 +2316,7 @@ export function GardenPlanEditor({
       {/* Overlays in the corners of the canvas (GP-UX-067): they take no row of their own. */}
       <ScaleBar pxPerM={pxPerM} />
       {showMiniMap && extent && (
-        <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />
+        <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} insetRightPx={coverRightPx} />
       )}
       <TouchOverlay
         ring={touch.ring}
@@ -2584,8 +2590,16 @@ export function GardenPlanEditor({
               {!listShown && singleTooSmall && (
                 // An overlay on the canvas, not a row above it: it takes no layout height (AC-1, GP-UX-067). The
                 // wrapper lets pointer events through to the canvas; only the alert itself takes them (its button).
+                // It ends left of an open drawer, so the button is never under it (#3034, WCAG 2.2 SC 2.4.11).
                 <Box
-                  sx={{ position: 'absolute', left: 8, right: 8, bottom: 48, zIndex: 1, pointerEvents: 'none' }}
+                  sx={{
+                    position: 'absolute',
+                    left: 8,
+                    right: 8 + coverRightPx,
+                    bottom: 48,
+                    zIndex: 1,
+                    pointerEvents: 'none',
+                  }}
                 >
                   <Alert
                     severity="info"
