@@ -6,9 +6,9 @@ Kategorie: UI-Verhalten Unterkategorie: Testbarkeit, E2E-Automatisierung, stabil
 Technologie: React, TypeScript, MUI, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.28
+Version: 1.29
 Autor: Business Analyst - Agrotech
-Datum: 2026-11-12
+Datum: 2026-11-20
 Tags: [testability, e2e, selenium, data-testid, selektoren, page-object, automation]
 Abhängigkeiten: [UI-NFR-002, UI-NFR-005, UI-NFR-008, UI-NFR-017]
 Betroffene Module: [Frontend, Mobile]
@@ -20,6 +20,7 @@ Betroffene Module: [Frontend, Mobile]
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.29 | 2026-11-20 | §2.5.1: Die Kennung `garden-plan-side-panel-drawer` und der `data-variant`-Wert `drawer` sind wieder registriert (REQ-053 v1.54, GP-UX-069, Issue #3034, Betreiberentscheidung 2026-11-20): Ab md öffnet das Seitenpanel als Drawer über dem rechten Rand der Zeichenfläche, wo sie neben dem angedockten Panel schmaler als 320 px würde; sonst trägt es weiter `garden-plan-side-panel-dock` und `docked`. Die mit v1.18 entfallene Kennung kehrt unter demselben Namen zurück, keine bestehende Kennung umbenannt (R-021); Page Object (`SIDE_PANEL_DRAWER`) und TC-053-102/103 sind im selben Pull Request nachgezogen (R-020). |
 | 1.28 | 2026-11-19 | §2.5.1: Kennungen der Formular-Wrapper registriert (Issue #3024): `form-field-<name>-switch` (Schalter in `FormSwitchField`), `form-field-<name>-input` (Eingabe in `FormChipInput`), `form-option-<name>-<wert>` (Option in `FormMultiSelectField` und `LocationTreeSelect`, dort zusätzlich `form-option-<name>-empty`), `form-option-<name>-<key>-favorite` und `form-field-<name>-favorites-filter` (`SubstrateSelectField`); `FormTimeField` trägt jetzt `form-field-<name>`. Dazu `data-row-key` (fachlicher Schlüssel der Tabellenzeile, #3026) und `data-row-link="true"` (Zeilen-Link der ersten Zelle, #3017) als qualifizierende Attribute an `data-table-row`. Der Guard `src/frontend/src/test/guards/testabilityContract.test.ts` setzt R-005/R-009/R-010/R-018 für Dialoge, Seitenwurzeln und Formular-Wrapper durch; bestehende Index-, `-btn`- und Nicht-kebab-Kennungen stehen dort in einer Ausnahmeliste, die nur schrumpfen darf. Keine bestehende Kennung umbenannt (R-021). |
 | 1.27 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Text“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-text`, `garden-plan-text-status`, `garden-plan-text-place`, `garden-plan-text-dialog` und `garden-plan-caption-<key>`; `garden-plan-touch-place` gilt auch für das Setzen des Ankerpunkts. |
 | 1.26 | 2026-11-13 | §2.5.1: Kennungen des Werkzeugs „Pflanze setzen“ (REQ-053 GP-UX-071, Issue #2913) registriert, darunter `garden-plan-tool-plant`, `garden-plan-plant-status` und `garden-plan-plant-dialog`. |
@@ -271,10 +272,11 @@ Weitere in GP-UX-012 vergebene Identifikatoren, die das Grundschema R-018 präzi
 | `garden-plan-new-area-type` | Typauswahl über der Zeichenfläche, solange das Werkzeug „Bereich“ aktiv ist (Garten, Terrasse, Balkon, Gewächshaus, eigene Bereichstypen; im Indoor-Plan Zimmer); das native Eingabefeld trägt die Kennung; daneben nennt `garden-plan-new-area-type-rule` die Eltern-Regel (REQ-053 GP-UX-071, #2913) |
 | `garden-plan-selection-group` | Auswahlgruppe der Werkzeug-Leiste (GP-UX-066, AC-4): Drehraster `garden-plan-angle-<step>`, `garden-plan-align-button`, `garden-plan-delete-button`; nur gerendert, solange eine Auswahl besteht |
 | `garden-plan-panel-toggle` | Umschalter des Seitenpanels in der Kopfleiste (WP 10.5, GP-UX-068): `aria-expanded`, `aria-controls` auf `garden-plan-properties-panel`; auf schmaler Kopfleiste als Überlauf-Eintrag `garden-plan-menu-panel` („Seitenpanel ein-/ausblenden“) |
-| `garden-plan-side-panel` | Das Seitenpanel (DOM-`id` `garden-plan-properties-panel`, Ziel des Sprunglinks „Zum Eigenschaftenpanel“); eingeklappt nicht gerendert. `data-variant` nennt die Form nach der Breite (`docked` ab md, `sheet` unter md; `drawer` bei md bis v1.17, entfallen mit #2885), `data-tab` den offenen Tab |
+| `garden-plan-side-panel` | Das Seitenpanel (DOM-`id` `garden-plan-properties-panel`, Ziel des Sprunglinks „Zum Eigenschaftenpanel“); eingeklappt nicht gerendert. `data-variant` nennt die Form nach der Breite: `sheet` unter md; ab md `docked`, wo die Zeichenfläche neben dem Panel mindestens 320 px behält, sonst `drawer` (seit v1.29, #3034; mit v1.18 entfallen, #2885). `data-tab` nennt den offenen Tab |
 | `garden-plan-side-panel-tabs` | Tab-Leiste des Seitenpanels (`role="tablist"`, Roving-Tabindex, Pfeiltasten, Pos1/Ende) |
 | `garden-plan-side-panel-tab-<tab>` / `garden-plan-side-panel-tabpanel-<tab>` | Ein Panel-Tab und sein Tab-Panel, `<tab>` ∈ `properties` (Eigenschaften), `view` (Ansicht), `layers` (Ebenen), `zones` (Zonen); nur das aktive Tab-Panel hat Inhalt |
-| `garden-plan-side-panel-dock` | Hülle des angedockten Panels ab md (neben der Zeichenfläche). `garden-plan-side-panel-drawer` (Drawer bei md) ist mit #2885 entfallen |
+| `garden-plan-side-panel-dock` | Hülle des angedockten Panels ab md (neben der Zeichenfläche), wo diese daneben mindestens 320 px behält |
+| `garden-plan-side-panel-drawer` | Hülle des Panels als Drawer ab md (#3034): über dem rechten Rand der Zeichenzeile, unterhalb der Zoom-Steuerung `garden-plan-zoom-overlay`, nicht modal; an derselben Stelle im Komponentenbaum wie `-dock` und `garden-plan-sheet`. Mit v1.18 (#2885) entfallen, mit v1.29 wieder registriert |
 | `garden-plan-sheet-size` | Schalter halbe/volle Höhe des Bottom Sheets unter md (`data-size` `half`/`full`); die Hülle bleibt `garden-plan-sheet` |
 | `garden-plan-legend-toggle` | Schalter „Legende anzeigen“ im Tab „Ebenen“ (GP-UX-005: Legende ein-/ausblendbar) |
 | `garden-plan-panel-object-props` | Abschnitt „Objekteigenschaften“ im Tab „Eigenschaften“ für jedes gewählte Gartenobjekt (WP 10.6, GP-FR-180); `data-object-type` nennt die Klasse. Enthält je Klasse genau die Felder ihres Props-Modells und den Schalter `garden-plan-panel-off-site-switch` |

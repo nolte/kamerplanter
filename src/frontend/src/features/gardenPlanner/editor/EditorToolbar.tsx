@@ -202,8 +202,24 @@ export function EditorToolbar(props: EditorToolbarProps) {
   const stackSx = vertical
     ? ({ display: 'flex', flexDirection: 'column', gap: 0.5 } as const)
     : ({ display: 'flex', alignItems: 'center', gap: 0.5 } as const);
-  // Eight tools (three with a sub-menu) are wider than a 360 px bar: docked, the tool group wraps instead of clipping.
-  const toolsSx = vertical ? stackSx : ({ ...stackSx, flexWrap: 'wrap', minWidth: 0 } as const);
+  // Eight tools (three with a sub-menu, about 570 px) are wider than a phone's bar. Docked below md the tool group is
+  // one row that scrolls sideways inside the bar (#3034): wrapped into two rows it made the dock 52 px higher and
+  // pushed the selection actions under the bottom edge of a 390 x 844 phone. A tool scrolled out of sight is reached by
+  // swiping the row, and the roving focus scrolls a tool it moves to into view; the page itself never scrolls sideways.
+  const toolsSx = vertical
+    ? stackSx
+    : ({
+        ...stackSx,
+        flexWrap: 'nowrap',
+        flex: '1 1 100%',
+        minWidth: 0,
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        overscrollBehaviorX: 'contain',
+        scrollbarWidth: 'thin',
+      } as const);
+  // A tool (with its sub-menu button) keeps its 48 px targets in the scrolling row instead of shrinking.
+  const toolItemSx = { display: 'flex', gap: 0.5, flex: vertical ? undefined : 'none' } as const;
   const wrapSx = { display: 'flex', gap: 0.5, flexWrap: 'wrap' } as const;
   // Docked below md the selection group is one row that never wraps (#2904).
   const selectionRowSx = { display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'nowrap', flex: 'none' } as const;
@@ -244,7 +260,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
               alignItems: 'center',
               gap: 1,
               p: 0.5,
-              // Wrap instead of scrolling sideways: a control scrolled out of sight cannot be used.
+              // The groups wrap onto lines of their own (the tools, the selection group); only the tool group's own
+              // row scrolls sideways (#3034).
               flexWrap: 'wrap',
               bgcolor: 'background.paper',
             }
@@ -256,7 +273,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
           const pressed = !templateActive && props.tool === tool;
           const menuOpen = menu?.tool === tool && menu.anchor !== null;
           return (
-            <Box key={tool} sx={{ display: 'flex', gap: 0.5 }}>
+            <Box key={tool} sx={toolItemSx}>
               <Tooltip title={t(`${PREFIX}.tools.${tool}.hint`)} placement={tooltipPlacement}>
                 <ToggleButton
                   value={tool}

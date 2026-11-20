@@ -6,6 +6,10 @@
  * - `docked` (md and up): beside the canvas, as high as the canvas area; the canvas gives up the width, so the panel
  *   never covers the zoom controls or a selected object (WCAG 2.2 SC 2.4.11, #2885). Collapsed it is not rendered at
  *   all, so it reserves no width (AC-5).
+ * - `drawer` (md and up, where docking would leave the canvas narrower than `MIN_CANVAS_WIDTH_PX`, #3034): the same
+ *   box laid over the right edge of the canvas row, below the zoom overlay (`DRAWER_TOP_PX`) so the zoom controls
+ *   stay uncovered; the editor pans a selection into the canvas left of it. Like the docked panel it is not modal -
+ *   no backdrop, no focus trap, no `role="dialog"` - and its close button gives the focus back to the switch.
  * - `sheet` (below md): a bottom sheet in the dock above the tool bars, half or full height of what is visible
  *   above the on-screen keyboard (`visualViewport`, GP-UX-052); not modal, closed by its button.
  * Both forms are the same elements; only their attributes and styles differ. A change of the form therefore keeps
@@ -31,16 +35,23 @@ import CloseIcon from '@mui/icons-material/Close';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { EDITOR_ANCHORS } from './anchors';
-import { PANEL_WIDTH_PX } from './layout';
+import { DRAWER_TOP_PX, PANEL_WIDTH_PX, type SidePanelVariant } from './layout';
 import { SIDE_PANEL_TABS, type SidePanelTab } from './sidePanelState';
 
 const PREFIX = 'pages.gardenPlan.editor.sidePanel';
 const TARGET_PX = 48;
 
-/** The form of the panel, chosen by the width (GP-UX-069). */
-export type SidePanelVariant = 'docked' | 'sheet';
+/** The form of the panel, chosen by the width (GP-UX-069, `sidePanelVariant`). */
+export type { SidePanelVariant };
 /** The height of the bottom sheet. */
 export type SheetSize = 'half' | 'full';
+
+/** The test id of the panel's box per form (UI-NFR-022 §2.5.1). */
+const BOX_TEST_ID: Record<SidePanelVariant, string> = {
+  docked: 'garden-plan-side-panel-dock',
+  drawer: 'garden-plan-side-panel-drawer',
+  sheet: 'garden-plan-sheet',
+};
 
 /** Share of the visible height the sheet takes at most (half) or exactly (full). */
 const SHEET_SHARE: Record<SheetSize, number> = { half: 0.45, full: 0.9 };
@@ -60,7 +71,7 @@ export interface SidePanelProps {
   onClose: () => void;
   /** The content of the active tab; only that one is mounted. */
   children: ReactNode;
-  /** Docked: the height of the canvas area beside it (absent where nothing is laid out). */
+  /** Docked and drawer: the height of the canvas area beside or under it (absent where nothing is laid out). */
   heightPx?: number;
   /** Sheet: the height visible above the on-screen keyboard (`visualViewport`). */
   visibleHeight: number;
@@ -201,6 +212,12 @@ function boxStyle(
     const sheetPx = Math.round(visibleHeight * SHEET_SHARE[sheetSize]);
     return sheetSize === 'full' ? { height: sheetPx } : { maxHeight: sheetPx };
   }
+  if (variant === 'drawer') {
+    // Over the plan: from below the zoom overlay down to the bottom of the canvas area.
+    return heightPx !== undefined
+      ? { top: DRAWER_TOP_PX, height: Math.max(heightPx - DRAWER_TOP_PX, 0) }
+      : { top: 0, maxHeight: '80vh' };
+  }
   return heightPx !== undefined ? { height: heightPx } : { maxHeight: '80vh' };
 }
 
@@ -208,16 +225,29 @@ export function SidePanel({ open, heightPx, visibleHeight, ...frame }: SidePanel
   const { variant, sheetSize } = frame;
   if (!open) return null;
   const sheet = variant === 'sheet';
-  // One box for both forms: a change of the form changes attributes and styles, never the elements (#2882).
+  // One box for every form: a change of the form changes attributes and styles, never the elements (#2882).
   return (
     <Box
-      data-testid={sheet ? 'garden-plan-sheet' : 'garden-plan-side-panel-dock'}
+      data-testid={BOX_TEST_ID[variant]}
       data-size={sheet ? sheetSize : undefined}
       sx={{
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
-        ...(sheet ? {} : { width: PANEL_WIDTH_PX, flex: 'none' }),
+        ...(variant === 'docked' ? { width: PANEL_WIDTH_PX, flex: 'none' } : {}),
+        ...(variant === 'drawer'
+          ? {
+              // Laid over the right edge of the canvas row (the editor positions the row), not the window.
+              position: 'absolute',
+              right: 0,
+              width: PANEL_WIDTH_PX,
+              maxWidth: '100%',
+              zIndex: 3,
+              boxShadow: 6,
+              borderRadius: 1,
+              bgcolor: 'background.paper',
+            }
+          : {}),
       }}
       style={boxStyle(variant, sheetSize, visibleHeight, heightPx)}
     >

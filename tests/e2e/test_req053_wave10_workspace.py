@@ -12,9 +12,9 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
                   (WAI-ARIA tabs), selection group only with a selection                                    AC-17)
   TC-053-101  ->  desktop 1366 x 768: canvas >= 60 % of the viewport height, one header bar on one line,   (AC-1, AC-3,
                   vertical tool rail left of the canvas, zoom inside the canvas, panel docked beside it     AC-5, AC-14)
-  TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel docked beside the canvas - zoom controls    (GP-UX-069)
-                  and a selected bed stay uncovered (#2885),
-                  no horizontal scrolling - the layout of md only, not the 1024 x 768 criterion (TC-053-103)
+  TC-053-102  ->  tablet 820 x 1180 (md): rail left, the panel a drawer over the canvas's right edge       (GP-UX-069)
+                  (#3034) - the canvas keeps its width (>= 320 px), zoom controls and a selected bed stay
+                  uncovered (#2885), no horizontal scrolling; AC-2 at md (#2884)
   TC-053-103  ->  1024 x 768 (lg, AC-2): every top-level tool of GP-UX-001 and its sub-menu entries, every   (GP-UX-001,
                   panel tab and every overflow entry reachable inside the viewport, no horizontal scrolling  GP-UX-069,
                   (steps 5-8: measure, area, plant and text tool of GP-UX-071)                              GP-UX-071)
@@ -31,8 +31,10 @@ spec/e2e-testcases/TC-REQ-053.md, section 14):
   TC-053-108  ->  indoor tab and list "Pflanzplätze" with tent and shelf (not the room), no frost layer;   (GP-FR-183,
                   the garden keeps "Beete" and its frost layer                                               GP-FR-182)
 
-Breakpoints are the app theme's own (``theme/tokens.ts``): md = 768 px, lg = 1024 px - so 1024 x 768 is already lg
-(docked panel), and the tablet case uses the suite's tablet size 820 x 1180, which is md (drawer).
+Breakpoints are the app theme's own (``theme/tokens.ts``): md = 768 px, lg = 1024 px. From md up the side panel's
+form follows the measured room of the canvas row, not a breakpoint (REQ-053 v1.54, #3034): it docks where the canvas
+keeps at least 320 px beside it (1366 x 768) and is a drawer over the canvas's right edge where it would not - with
+the 240 px app sidebar that is 820 x 1180 (md) and 1024 x 768 (lg) alike.
 
 Device: every case carries ``requires_desktop`` and runs on the desktop profile. The three width cases put the
 browser at exactly their width themselves (``set_phone_viewport`` resizes and reads ``innerWidth``/``innerHeight``
@@ -85,6 +87,9 @@ pytestmark = pytest.mark.requires_desktop
 DIRTY_ONE = "Ungespeicherte Änderungen (1)"
 #: Touch targets of UI-NFR-001 R-011 / GP-UX-008 (half a pixel for sub-pixel layout).
 MIN_TARGET_PX = 47.5
+#: The canvas is never narrower than this beside a docked side panel (REQ-053 GP-UX-069, #3034; the frontend's
+#: ``MIN_CANVAS_WIDTH_PX``): where docking would leave less, the panel opens as a drawer over the canvas.
+MIN_CANVAS_WIDTH_PX = 320
 #: The indoor flat of every indoor case: 6 x 4 m, north up (``north_angle_deg`` 0).
 FLAT = rect(0.0, 0.0, 6.0, 4.0)
 #: A window on the inside of the south wall: a line 2 m long, 10 cm wide, 5-15 cm from the wall (inside the outline,
@@ -536,7 +541,7 @@ def assert_every_editor_function_reachable(
             f"{tc} (AC-2): with the tab {tab!r} the panel {panel} reaches past the viewport"
         )
         overflow[f"tab {tab}"] = plan.horizontal_overflow_px()
-    screenshot(shots[1], f"{width} × {height}: Panel angedockt, alle Tabs erreichbar")
+    screenshot(shots[1], f"{width} × {height}: Seitenpanel offen, alle Tabs erreichbar")
 
     entries = plan.menu_entry_rects(plan.OVERFLOW, "garden-plan-overflow-menu", "the overflow menu")
     # AC-2 asks for "erreichbar": an entry reached by scrolling inside the menu counts, a cut-off one does not
@@ -556,17 +561,19 @@ def assert_every_editor_function_reachable(
 # ── TC-053-102 ──────────────────────────────────────────────────────────────
 
 
-def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
+def test_tc_053_102_tablet_820_panel_opens_as_drawer_over_the_canvas(
     plan: WorkspacePlanPage, browser: WebDriver, base_url: str, e2e_seed_data: dict, screenshot
 ) -> None:
-    """TC-053-102 - at 820 x 1180 (md, the theme's 768-1023 px) the rail stays left and the panel docks beside the canvas.
+    """TC-053-102 - at 820 x 1180 (md) the rail stays left and the panel opens as a drawer over the canvas's right edge.
 
-    Breaks if the rail is not vertical left of the canvas, the header bar wraps, the panel opens in another form than
-    docked, the panel overlaps the canvas area or the zoom controls (WCAG 2.2 SC 2.4.11, #2885), a bed on the plan's
-    right edge that the selection docks the panel beside is left outside the visible canvas, or the page scrolls
-    sideways (GP-UX-069, GP-UX-068) - and, since the operator decision of 2026-11-14 (#2884 Pkt. 1), if an editor
-    function is not reachable at 820 x 1180 (AC-2, the check steps of TC-053-103:
-    :func:`assert_every_editor_function_reachable`).
+    Docked, the panel would leave the canvas 76 px there (#3034); the operator decision of 2026-11-20 keeps the
+    canvas at least 320 px wide and lays the panel over it instead (REQ-053 v1.54, GP-UX-069). Breaks if the rail is
+    not vertical left of the canvas, the header bar wraps, the panel opens in another form than the drawer, opening
+    it changes the width of the canvas area or that width is below 320 px, the drawer reaches past the canvas area
+    or starts above the bottom edge of the zoom controls (WCAG 2.2 SC 2.4.11, #2885), a selected bed on the plan's
+    right edge is left under the drawer instead of panning left of it, or the page scrolls sideways (GP-UX-069,
+    GP-UX-068) - and, since the operator decision of 2026-11-14 (#2884 Pkt. 1), if an editor function is not
+    reachable at 820 x 1180 (AC-2, the check steps of TC-053-103: :func:`assert_every_editor_function_reachable`).
     """
     width, height = set_phone_viewport(browser, 820, 1180)
     plan.dismiss_light_mode_warning()
@@ -576,7 +583,7 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
         purpose="tc102",
         beds=(
             BedSpec("Beet A", rect(4.0, 4.5, 2.0, 1.0)),
-            # On the right edge: the canvas that the docked panel narrows cuts it off unless the view pans.
+            # On the right edge: the drawer covers it unless the view pans it left of the drawer.
             BedSpec("Beet B", rect(8.8, 4.5, 1.0, 1.0)),
         ),
     )
@@ -603,54 +610,65 @@ def test_tc_053_102_tablet_820_panel_docks_beside_the_canvas(
 
     plan.open_side_panel_by_switch()
     plan.wait_for_side_panel(
-        ("docked", "view"), "TC-053-102: at md the panel docks beside the canvas"
+        ("drawer", "view"),
+        "TC-053-102: at 820 px the canvas would keep less than 320 px beside a docked panel - a drawer",
     )
-    panel, after, zoom = (
-        plan.rect_of(plan.SIDE_PANEL, "side panel"),
+    drawer, after, zoom = (
+        plan.rect_of(plan.SIDE_PANEL_DRAWER, "side panel drawer"),
         plan.rect_of(plan.CANVAS_AREA, "canvas area"),
         plan.rect_of(plan.ZOOM_OVERLAY, "zoom overlay"),
     )
-    assert panel["left"] >= after["right"] - 1, (
-        f"TC-053-102: the panel {panel} must stand right of the canvas area {after}, not over it (#2885)"
+    assert abs(after["width"] - before["width"]) <= 1, (
+        f"TC-053-102: the drawer lies over the canvas, it must not narrow it: "
+        f"{before['width']:.0f} -> {after['width']:.0f} px (#3034)"
     )
-    assert after["width"] < before["width"], (
-        f"TC-053-102: the canvas should give the panel its width: {before['width']:.0f} -> {after['width']:.0f}"
+    assert after["width"] >= MIN_CANVAS_WIDTH_PX, (
+        f"TC-053-102: the canvas area is {after['width']:.0f} px wide, the minimum is {MIN_CANVAS_WIDTH_PX} px"
     )
-    assert (
-        after["left"] <= zoom["left"] and zoom["right"] <= min(after["right"], panel["left"]) + 1
-    ), (
-        f"TC-053-102: the zoom controls {zoom} must lie inside the visible canvas area {after}, left of {panel}"
+    assert drawer["left"] >= after["left"] - 1 and drawer["right"] <= after["right"] + 1, (
+        f"TC-053-102: the drawer {drawer} should lie over the right edge of the canvas area {after}, inside it"
     )
-    overflow_docked = plan.horizontal_overflow_px()
-    screenshot("053_102_02_tablet_docked", "820 × 1180: Panel neben der Zeichenfläche, Zoom frei")
+    assert after["left"] <= zoom["left"] and zoom["right"] <= after["right"] + 1, (
+        f"TC-053-102: the zoom controls {zoom} must lie inside the canvas area {after}"
+    )
+    assert drawer["top"] >= zoom["bottom"] - 1, (
+        f"TC-053-102: the drawer {drawer} must start below the zoom controls {zoom}, "
+        "not cover them (WCAG 2.2 SC 2.4.11, #2885)"
+    )
+    overflow_drawer = plan.horizontal_overflow_px()
+    screenshot(
+        "053_102_02_tablet_drawer", "820 × 1180: Panel als Drawer über dem rechten Rand, Zoom frei"
+    )
 
-    # A selection opens the panel and the plan keeps its fit: the bed on the right edge must pan into view.
+    # A selection opens the drawer and the plan keeps its fit: the bed on the right edge must pan left of it.
     plan.close_side_panel()
     bed_b = garden.bed_key("Beet B")
     plan.select_with_keyboard(bed_b)
     plan.wait_for_side_panel(
-        ("docked", "properties"), "TC-053-102: the selection opens the panel on its properties"
+        ("drawer", "properties"), "TC-053-102: the selection opens the drawer on its properties"
     )
     area = plan.rect_of(plan.CANVAS_AREA, "canvas area")
+    drawer = plan.rect_of(plan.SIDE_PANEL_DRAWER, "side panel drawer")
     try:
         plan.poll().until(
             lambda _d: (
                 (box := plan.rect_of(plan.object_locator(bed_b), "Beet B"))["left"]
                 >= area["left"] - 1
-                and box["right"] <= area["right"] + 1
+                and box["right"] <= drawer["left"] + 1
             )
         )
     except TimeoutException as exc:
         raise AssertionError(
             f"TC-053-102: the selected bed {plan.rect_of(plan.object_locator(bed_b), 'Beet B')} should pan "
-            f"into the visible canvas area {area} left of the docked panel (#2885)"
+            f"into the canvas area {area} left of the drawer {drawer} (#3034, WCAG 2.2 SC 2.4.11)"
         ) from exc
     screenshot(
-        "053_102_03_tablet_selection", "820 × 1180: ausgewähltes Beet am rechten Rand im Bild"
+        "053_102_03_tablet_selection",
+        "820 × 1180: ausgewähltes Beet vom rechten Rand links neben dem Drawer",
     )
-    assert overflow_collapsed <= 0 and overflow_docked <= 0, (
+    assert overflow_collapsed <= 0 and overflow_drawer <= 0, (
         f"TC-053-102: the page scrolls sideways at 820 px - by {overflow_collapsed} px with the panel collapsed, "
-        f"by {overflow_docked} px with the panel docked (header bar: {controls})"
+        f"by {overflow_drawer} px with the drawer open (header bar: {controls})"
     )
 
     # AC-2 at md (#2884 Pkt. 1): every function of the editor is reachable at 820 x 1180 as well.
@@ -675,8 +693,9 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
     Breaks if a top-level tool of GP-UX-001 is missing from the rail or lies outside the viewport, a tool sub-menu
     does not open or an entry of it lies outside the viewport, a panel tab cannot be chosen, an overflow entry lies
     outside the viewport or is lower than 48 px, or the page scrolls sideways at any of these steps (AC-2,
-    GP-UX-001, GP-UX-069). 1024 px is the theme's lg: the panel docks beside the canvas. The same steps run at
-    820 x 1180 in TC-053-102 (:func:`assert_every_editor_function_reachable`, #2884 Pkt. 1).
+    GP-UX-001, GP-UX-069). 1024 px is the theme's lg, but beside the 240 px app sidebar a docked panel would leave
+    the canvas 280 px, less than the minimum of 320 px: the panel is a drawer here as well (REQ-053 v1.54, #3034).
+    The same steps run at 820 x 1180 in TC-053-102 (:func:`assert_every_editor_function_reachable`, #2884 Pkt. 1).
     """
     width, height = set_phone_viewport(browser, 1024, 768)
     plan.dismiss_light_mode_warning()
@@ -695,6 +714,11 @@ def test_tc_053_103_every_editor_function_reachable_at_1024(
         "TC-053-103",
         screenshot,
         ("053_103_01_rail_1024", "053_103_02_panel_1024"),
+    )
+    # The helper leaves the panel open on its last tab.
+    assert plan.side_panel_state() == ("drawer", PANEL_TABS[-1]), (
+        f"TC-053-103: at 1024 px the canvas would keep less than {MIN_CANVAS_WIDTH_PX} px beside a docked panel, "
+        f"so the panel is a drawer (#3034); it is {plan.side_panel_state()}"
     )
 
 

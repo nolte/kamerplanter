@@ -133,6 +133,9 @@ class WorkspacePlanPage(GardenPlanPage):
     SELECTION_GROUP = _tid("garden-plan-selection-group")
     DELETE_BUTTON = _tid("garden-plan-delete-button")
     TOOLTIP = (By.CSS_SELECTOR, "[role='tooltip']")
+    #: The box of the panel in its drawer form (md and up where the canvas would keep less than 320 px beside a docked
+    #: panel, REQ-053 GP-UX-069, #3034): laid over the right edge of the canvas row. Its rect is the drawer's.
+    SIDE_PANEL_DRAWER = _tid("garden-plan-side-panel-drawer")
     SIDE_PANEL_TABLIST = _tid("garden-plan-side-panel-tabs")
     SIDE_PANEL_CLOSE = _tid("garden-plan-panel-close")
     LAYER_TOGGLES = _tid("garden-plan-layer-toggles")

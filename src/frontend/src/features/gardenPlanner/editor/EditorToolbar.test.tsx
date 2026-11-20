@@ -223,6 +223,24 @@ describe('the docked bar below md with a selection (GP-UX-066/069, AC-9, #2904)'
     }
   });
 
+  it('keeps the eight tools in one row that scrolls inside the bar instead of wrapping into a second (#3034)', () => {
+    const { bar } = renderBar({ orientation: 'horizontal', selectionGroup: group() });
+    const tools = within(bar).getByRole('group', { name: 'Tool' });
+    // Wrapped into two rows the tools made the dock 52 px higher and pushed "Delete" under a 390 x 844 phone's edge.
+    expect(tools).toHaveStyle({ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto' });
+    // Every tool keeps its 48 px targets in the row instead of shrinking into it.
+    const items = Array.from(tools.children) as HTMLElement[];
+    expect(items.length).toBeGreaterThanOrEqual(8);
+    for (const item of items) expect(item).toHaveStyle({ flexShrink: '0' });
+  });
+
+  it('leaves the vertical rail of md and up a column that does not scroll sideways', () => {
+    const { bar } = renderBar({ orientation: 'vertical' });
+    const tools = within(bar).getByRole('group', { name: 'Tool' });
+    expect(tools).toHaveStyle({ display: 'flex', flexDirection: 'column' });
+    expect(tools).not.toHaveStyle({ overflowX: 'auto' });
+  });
+
   it('offers the rotation step in the header overflow on the phone - never dropped - and only with a selection', () => {
     restores.push(stubPhone());
     const t = setupEditor();
