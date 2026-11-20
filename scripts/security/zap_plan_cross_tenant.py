@@ -17,8 +17,9 @@ step (exit 1). A 401, or a request that dies before an answer, voids the run
 "no leak found" (NFR-018 §1).
 
 Each route is first sent once as tenant A, the owner. That answer must not be
-0/401/403/405, so a dead token cannot read as green. The owner answer MAY be 404
-or 422 (a made-up child key, a plan without the referenced entity), and that is
+0/401/403/405, so a dead token cannot read as green. The owner answer MAY be 404,
+409 or 422 (a made-up child key, a stale revision, a plan without the referenced
+entity), and that is
 acceptable ONLY because the guard test
 src/backend/tests/unit/guards/test_zap_plan_cross_tenant.py proves that every
 entry of ROUTES (method + path template) is mounted under
@@ -28,8 +29,9 @@ Only the foreign answer carries the verdict.
 
 Bodies are kept small: the import is a dry run and the batch deletes a key that
 does not exist. This runs against the EPHEMERAL stack only: tenant A's own
-boundary write and the place-template bed (when the template exists) do change
-tenant A's data there. Under intact isolation tenant B changes nothing.
+boundary write does change tenant A's data there. The place-template control
+carries `expected_revision: 0` after that write and is refused with 409 before
+a bed is created. Under intact isolation tenant B changes nothing.
 
 Redirects are never followed (urllib would replay a POST as GET and forward the
 Authorization header); a 3xx is treated as a non-refusal. A 5xx for tenant B is
@@ -80,7 +82,9 @@ ROUTES: tuple[Route, ...] = (
         "plan/batch",
         "POST",
         "plan/batch",
-        {"operations": [{"op": "delete", "entity": "garden_object", "key": "go_zap_probe"}]},
+        # `expected_revision` is required. Without it the request model refuses the body with 422 before the
+        # service looks at the site, and the foreign tenant's 422 then says nothing about isolation.
+        {"expected_revision": 0, "operations": [{"op": "delete", "entity": "garden_object", "key": "go_zap_probe"}]},
     ),
     Route(
         "plan/import",
@@ -97,7 +101,7 @@ ROUTES: tuple[Route, ...] = (
         "plan/place-template",
         "POST",
         "plan/place-template",
-        {"template_key": "sys_raised_bed_2x1x0_8", "origin": [1.0, 1.0], "rotation_deg": 0},
+        {"template_key": "sys_raised_bed_2x1x0_8", "origin": [1.0, 1.0], "rotation_deg": 0, "expected_revision": 0},
     ),
     Route(
         "plan/snapshots/{audit_key}/restore",

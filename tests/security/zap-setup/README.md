@@ -25,7 +25,7 @@ The script:
 
 1. Registers every user from `test-identities.yaml` via `POST /api/v1/auth/register`. Already-existing accounts are reported but not treated as failures.
 2. For each tenant, logs in as the configured owner and creates the tenant via `POST /api/v1/tenants/`. Existing tenants are reused.
-3. Invites every additional member via `POST /api/v1/tenants/{slug}/invitations/email`, then accepts the invitation as the invitee via `POST /api/v1/tenants/invitations/accept`.
+3. Creates a single-use link invitation per additional member via `POST /api/v1/tenants/{slug}/invitations/link`, then accepts it as the invitee via `POST /api/v1/tenants/invitations/accept`.
 
 Repeated runs are no-ops as long as backend state is consistent.
 
