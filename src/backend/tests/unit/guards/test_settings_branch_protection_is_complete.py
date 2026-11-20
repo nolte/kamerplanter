@@ -3,7 +3,7 @@
 GitHub's "Update branch protection" endpoint requires ``required_status_checks``,
 ``enforce_admins``, ``required_pull_request_reviews`` and ``restrictions`` in one
 request. The Probot Settings App sends the ``protection`` mapping as declared, so
-an entry that leaves one key away is rejected as a whole, and the App reports
+an entry that leaves one key out is rejected as a whole, and the App reports
 nothing: the labels and repository settings of the same sync still apply, and
 the protection that was live before simply stays.
 
@@ -16,6 +16,7 @@ present; that is how "no requirement" is spelled for this endpoint.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -31,7 +32,7 @@ _REQUIRED_KEYS = frozenset(
 )
 
 
-def _branch_entries() -> list[dict]:
+def _branch_entries() -> list[dict[str, Any]]:
     settings = yaml.safe_load((_REPO_ROOT / ".github" / "settings.yml").read_text(encoding="utf-8"))
     return settings.get("branches") or []
 
@@ -42,7 +43,7 @@ def test_settings_declare_a_protected_branch() -> None:
 
 
 @pytest.mark.parametrize("entry", _branch_entries(), ids=lambda entry: entry["name"])
-def test_protection_names_every_key_the_api_requires(entry: dict) -> None:
+def test_protection_names_every_key_the_api_requires(entry: dict[str, Any]) -> None:
     protection = entry.get("protection")
     if protection is None:
         pytest.skip("entry removes protection; the endpoint takes no body then")
