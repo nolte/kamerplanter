@@ -6,7 +6,7 @@
 #
 # This script is *external* tooling. It speaks to the backend exclusively
 # through the public REST API (/auth/register, /tenants/, /tenants/{slug}/
-# invitations/email, /tenants/invitations/accept). It does not import any
+# invitations/link, /tenants/invitations/accept). It does not import any
 # backend Python module and does not need access to the database. Therefore
 # it must NOT be deployed inside the production backend image.
 #
@@ -242,11 +242,16 @@ ensure_membership() {
     return 0
   fi
 
+  # A LINK invitation, not an e-mail one. An e-mail invitation is bound to its
+  # address since #2115: only the account that carries the invited address AND
+  # has confirmed it may accept, and these accounts are registered through the
+  # public API without ever confirming anything. The seed answered 403 on every
+  # nightly from 2026-10-05 on. A single-use link is open to any signed-in
+  # account, which is all this step needs: put a known account into a tenant.
   local invite_body
-  invite_body=$(jq -n --arg e "$invitee_email" --arg r "$role" \
-    '{email:$e, role:$r}')
+  invite_body=$(jq -n --arg r "$role" '{role:$r, max_uses:1}')
   local invite
-  invite=$(api POST "/api/v1/tenants/$slug/invitations/email" \
+  invite=$(api POST "/api/v1/tenants/$slug/invitations/link" \
             "$admin_token" "$invite_body")
   local token
   token=$(echo "$invite" | jq -er '.token') || {
