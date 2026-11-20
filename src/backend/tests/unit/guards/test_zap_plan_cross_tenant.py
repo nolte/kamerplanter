@@ -108,6 +108,51 @@ def test_every_probed_route_is_mounted(route) -> None:
     assert (route.method, expected) in _mounted(), f"{route.method} {expected} is not mounted"
 
 
+#: Routes that read the request body themselves, after authentication and the role gate, and so declare no
+#: request model FastAPI could refuse a body with before the service runs.
+_READS_ITS_OWN_BODY = frozenset({"plan/import"})
+
+
+def _body_models() -> dict[tuple[str, str], type]:
+    """(METHOD, normalised path) -> the request model of each mounted route that takes a body."""
+    found: dict[tuple[str, str], type] = {}
+
+    def walk(router, prefix: str = "") -> None:
+        for route in getattr(router, "routes", []):
+            included = getattr(route, "original_router", None)
+            if included is not None:
+                context = getattr(route, "include_context", None)
+                walk(included, prefix + (getattr(context, "prefix", "") or ""))
+                continue
+            body_field = getattr(route, "body_field", None)
+            model = getattr(getattr(body_field, "field_info", None), "annotation", None)
+            if model is None or not hasattr(model, "model_validate"):
+                continue
+            path = re.sub(r"\{[^}]+\}", "{}", prefix + (getattr(route, "path", "") or ""))
+            for method in getattr(route, "methods", ()) or ():
+                found[(method, path)] = model
+
+    walk(api_router)
+    return found
+
+
+@pytest.mark.parametrize("route", probe.ROUTES, ids=lambda r: r.name)
+def test_every_probe_body_passes_the_request_model(route) -> None:
+    """A body the request model refuses never reaches the service, where the site's tenant is checked.
+
+    Both tenants then get the same 422 and the probe reports a leak that says nothing about isolation -
+    which is what `plan/batch` and `plan/place-template` did (no `expected_revision`) from the day the
+    probe was written; the nightly was red in its setup step at the time and never ran it.
+    """
+    path = re.sub(r"\{[^}]+\}", "{}", f"/api/v1/t/{{tenant_slug}}/sites/{{key}}/{route.path_template}")
+    model = _body_models().get((route.method, path))
+    if route.name in _READS_ITS_OWN_BODY:
+        assert model is None, f"{route.name} declares a request model now - drop it from _READS_ITS_OWN_BODY"
+        return
+    assert model is not None, f"{route.method} {path} has no request model to check the probe body against"
+    model.model_validate(route.body)
+
+
 def test_a_renamed_route_would_fail_the_existence_check() -> None:
     assert ("POST", "/api/v1/t/{}/sites/{}/plan/bacth") not in _mounted()
 

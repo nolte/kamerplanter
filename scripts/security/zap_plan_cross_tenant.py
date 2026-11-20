@@ -80,7 +80,9 @@ ROUTES: tuple[Route, ...] = (
         "plan/batch",
         "POST",
         "plan/batch",
-        {"operations": [{"op": "delete", "entity": "garden_object", "key": "go_zap_probe"}]},
+        # `expected_revision` is required. Without it the request model refuses the body with 422 before the
+        # service looks at the site, and the foreign tenant's 422 then says nothing about isolation.
+        {"expected_revision": 0, "operations": [{"op": "delete", "entity": "garden_object", "key": "go_zap_probe"}]},
     ),
     Route(
         "plan/import",
@@ -97,7 +99,7 @@ ROUTES: tuple[Route, ...] = (
         "plan/place-template",
         "POST",
         "plan/place-template",
-        {"template_key": "sys_raised_bed_2x1x0_8", "origin": [1.0, 1.0], "rotation_deg": 0},
+        {"template_key": "sys_raised_bed_2x1x0_8", "origin": [1.0, 1.0], "rotation_deg": 0, "expected_revision": 0},
     ),
     Route(
         "plan/snapshots/{audit_key}/restore",
