@@ -265,13 +265,14 @@ echo "Reports: $REPORT_DIR/"
 echo "  - logs/        Container logs (backend, frontend, selenium, ...)"
 echo "  - screenshots/ Selenium screenshots"
 echo "  - protokoll.md Test protocol"
-# The runner writes a single merged JUnit XML (xdist-aware) which the protocol
+# Each pytest pass writes one merged JUnit XML (xdist-aware) which the protocol
 # plugin relocates into the container report dir; the cp move above carries it
-# here. Surface it so CI consumers know where the machine-readable report is.
-JUNIT_FILE=$(find "$REPORT_DIR" -maxdepth 1 -type f -name "junit-*.xml" 2>/dev/null | head -1)
-if [ -n "$JUNIT_FILE" ]; then
+# here. The parallel profiles run two passes (tests/e2e/two_pass_entrypoint.sh,
+# #3032), so there are two: <stem>.xml and <stem>-bulk-seed.xml. Surface every
+# one so CI consumers know where the machine-readable reports are.
+find "$REPORT_DIR" -maxdepth 1 -type f -name "junit-*.xml" 2>/dev/null | sort | while read -r JUNIT_FILE; do
     echo "  - $(basename "$JUNIT_FILE")  JUnit XML report (CI-consumable, per-testcase tc_id)"
-fi
+done
 echo ""
 
 exit $EXIT_CODE

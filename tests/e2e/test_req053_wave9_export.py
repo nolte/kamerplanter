@@ -694,6 +694,8 @@ def _grid(name: str, slots_per_bed: int) -> GridPlan:
     )
 
 
+# bulk_seed (#3032): two plan imports of 2 970 and 2 940 slots into the shared tenant - the serial pass.
+@pytest.mark.bulk_seed
 @pytest.mark.requires_desktop
 def test_tc_053_097_konva_draws_a_plan_of_three_thousand_objects(
     plan: Wave9PlanPage, base_url: str, e2e_seed_data: dict, screenshot

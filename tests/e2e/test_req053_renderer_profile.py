@@ -72,8 +72,9 @@ from .pages.field_mode_page import set_phone_viewport
 from .pages.garden_plan_page import GardenPlanPage
 
 # The module sets its own viewports (desktop window, phone 390 x 844): a mobile/tablet device run would only
-# measure the same thing in a second emulation.
-pytestmark = pytest.mark.requires_desktop
+# measure the same thing in a second emulation. bulk_seed (#3032): it plants 8 000 plants into the shared tenant
+# (280 planting runs on 4 threads), which starved the journeys running next to it - it runs in the serial pass.
+pytestmark = [pytest.mark.requires_desktop, pytest.mark.bulk_seed]
 
 #: Every record of this run carries it; the report reads one run only (older runs' records never mix in).
 #: ``--dist=loadfile`` keeps the module on one worker, so one import is one run.
