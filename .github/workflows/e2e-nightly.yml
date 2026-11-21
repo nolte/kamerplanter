@@ -352,7 +352,13 @@ jobs:
             exit 0
           fi
           report="test-reports/e2e/renderer-measurement-${PROFILE}.md"
-          python3 tests/e2e/_renderer_report.py test-reports/e2e --allow-empty --output "$report"
+          # The records do not sit in test-reports/e2e itself: run-e2e.sh moves
+          # the runner's report into test-reports/e2e/<timestamp>/ (the JUnit
+          # files there, the sidecar JSON in its screenshots/), and the report
+          # script reads each directory it is given without descending. Hand it
+          # every directory of this fresh checkout's run (#3032).
+          mapfile -t inputs < <(find test-reports/e2e -type d | sort)
+          python3 tests/e2e/_renderer_report.py "${inputs[@]}" --allow-empty --output "$report"
           if [ -f "$report" ]; then
             cat "$report" >> "$GITHUB_STEP_SUMMARY"
           fi

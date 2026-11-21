@@ -296,6 +296,11 @@ def pytest_configure(config: pytest.Config) -> None:
         "so the service worker and Cache Storage exist on plain http://frontend:8080 "
         "(REQ-053 WP 9.15, UI-NFR-012 §5.1.5); Chrome only",
     )
+    config.addinivalue_line(
+        "markers",
+        "bulk_seed: bulk-provisions thousands of records into the shared tenant; runs alone "
+        "after the parallel pass (tests/e2e/two_pass_entrypoint.sh, #3032)",
+    )
 
     # Register the feature-axis markers (semantic, cross-cutting to REQ IDs).
     for name, description in KNOWN_FEATURE_MARKERS.items():
