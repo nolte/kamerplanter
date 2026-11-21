@@ -612,8 +612,29 @@ class PflegeDashboardPage(BasePage):
     # ── CareProfileEditDialog interactions ────────────────────────────
 
     def wait_for_profile_dialog(self, timeout: int = DEFAULT_TIMEOUT) -> None:
-        """Wait until the CareProfileEditDialog is visible."""
+        """Wait until the CareProfileEditDialog shows the loaded profile form.
+
+        The dialog opens at once with a loading skeleton and renders the form
+        only once the requested plant's profile has arrived (#3065/#3077), so a
+        visible dialog alone says nothing about the fields a caller reads next.
+        This waits for the form's care-style select; if the dialog settles on
+        its error branch instead, it fails with that state rather than letting
+        the caller's next lookup time out on a field that will never render.
+        """
         self.poll(timeout).until(EC.visibility_of_element_located(self.PROFILE_DIALOG))
+        dialog_form = (By.CSS_SELECTOR, f"{self.PROFILE_DIALOG[1]} {self.CARE_STYLE_SELECT[1]}")
+        dialog_error = (By.CSS_SELECTOR, f"{self.PROFILE_DIALOG[1]} {self.ERROR_DISPLAY[1]}")
+        self.poll(timeout).until(
+            EC.any_of(
+                EC.visibility_of_element_located(dialog_form),
+                EC.visibility_of_element_located(dialog_error),
+            ),
+            message="Care profile dialog never left its loading state",
+        )
+        if self.driver.find_elements(*dialog_error):
+            raise AssertionError(
+                "Care profile dialog shows its load error instead of the profile form"
+            )
 
     def is_profile_dialog_open(self) -> bool:
         """Return True if the care profile edit dialog is visible."""
