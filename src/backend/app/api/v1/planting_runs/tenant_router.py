@@ -4,7 +4,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from app.api.mapping import to_response
-from app.api.v1.plant_instances.schemas import ActiveChannelResponse, CultivarSummary, SpeciesSummary
+from app.api.v1.plant_instances.row_labels import PlantRowLabels
+from app.api.v1.plant_instances.schemas import ActiveChannelResponse
 from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryCreateRequest,
     DiaryEntryResponse,
@@ -446,35 +447,14 @@ def list_plants(
     service.get_run(key, tenant_key=ctx.tenant_key)
     plants = service.get_plants(key, include_detached)
 
-    # Resolve denormalized species/cultivar labels with a per-request cache to
-    # avoid N+1 lookups for plants that share a species or cultivar.
-    species_cache: dict[str, SpeciesSummary | None] = {}
-    cultivar_cache: dict[str, CultivarSummary | None] = {}
-
-    def _species_summary(species_key: str) -> SpeciesSummary | None:
-        if not species_key:
-            return None
-        if species_key not in species_cache:
-            # #2082: a legacy plant may carry another tenant's private species key.
-            sp = readable_species(species_repo, species_key, ctx.tenant_key)
-            species_cache[species_key] = (
-                SpeciesSummary(
-                    scientific_name=sp.scientific_name,
-                    common_names=sp.common_names,
-                    common_names_i18n=sp.common_names_i18n,
-                )
-                if sp
-                else None
-            )
-        return species_cache[species_key]
-
-    def _cultivar_summary(cultivar_key: str | None) -> CultivarSummary | None:
-        if not cultivar_key:
-            return None
-        if cultivar_key not in cultivar_cache:
-            cv = species_repo.get_cultivar_by_key(cultivar_key)
-            cultivar_cache[cultivar_key] = CultivarSummary(name=cv.name) if cv else None
-        return cultivar_cache[cultivar_key]
+    # Resolve denormalized species/cultivar labels once per distinct key (#3032).
+    # #2082: a legacy plant may carry another tenant's private species key — it
+    # resolves to None through ``readable_species``. Phase names are not resolved
+    # here; ``current_phase`` comes from the run's plant rows as before.
+    labels = PlantRowLabels(
+        resolve_species=lambda species_key: readable_species(species_repo, species_key, ctx.tenant_key),
+        resolve_cultivar=species_repo.get_cultivar_by_key,
+    )
 
     return [
         PlantInRunResponse(
@@ -486,8 +466,8 @@ def list_plants(
             planted_on=p.get("planted_on", "1970-01-01"),
             removed_on=p.get("removed_on"),
             current_phase=p.get("current_phase", ""),
-            species=_species_summary(p.get("species_key", "")),
-            cultivar=_cultivar_summary(p.get("cultivar_key")),
+            species=labels.species(p.get("species_key", "")),
+            cultivar=labels.cultivar(p.get("cultivar_key")),
             detached_at=p.get("_edge_detached_at"),
             detach_reason=p.get("_edge_detach_reason"),
         )

@@ -33,7 +33,11 @@ import pytest
 APP = Path(__file__).resolve().parents[3] / "app"
 
 _LOOKUP_ATTRS = {"get_species", "get_species_or_raise", "get_species_by_key", "resolve_species", "_resolve_species"}
-_RESOLVER_NAMES = {"readable_species", "_require_readable_species", "_species_is_readable"}
+#: ``_row_labels`` builds the plant-row label memo (#3032) whose species resolver runs under the tenant;
+#: a reader that follows ``p.species_key`` through it resolves. That the memo really is built with a
+#: tenant resolver is pinned by :func:`test_the_plant_row_label_memo_resolves_under_the_tenant`.
+_ROW_LABEL_MEMO = ("app/api/v1/plant_instances/tenant_router.py", "_row_labels")
+_RESOLVER_NAMES = {"readable_species", "_require_readable_species", "_species_is_readable", _ROW_LABEL_MEMO[1]}
 _TENANT_KWARGS = {"tenant_key"}
 _TENANT_POSITION = 3
 
@@ -235,6 +239,15 @@ def test_every_listed_reader_names_its_reason() -> None:
 def test_the_scan_is_not_vacuous(population) -> None:
     assert len(population) >= 25, len(population)
     assert sum(1 for v, _ in _READERS.values() if v == _RESOLVES) >= 15
+
+
+def test_the_plant_row_label_memo_resolves_under_the_tenant() -> None:
+    """``_row_labels`` counts as a tenant resolver only because its species resolver takes the tenant."""
+    rel, name = _ROW_LABEL_MEMO
+    tree = ast.parse((APP.parent / rel).read_text(encoding="utf-8"))
+    memo = next(node for qual, node in _function_nodes(rel, tree) if qual == f"{rel}:{name}")
+
+    assert _resolves(memo), f"{rel}:{name} no longer resolves the species under the tenant"
 
 
 # -- selftests: the guard can fail ------------------------------------------------------
