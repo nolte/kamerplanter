@@ -166,8 +166,11 @@ def test_tc_053_098_tabs_keep_their_state_in_the_url_deep_link_back_and_row(
     plan.activate_bed_list_row(bed_b)
     plan.wait_for_tab("plan", "TC-053-098: a bed-list row opens 'Plan'")
     plan.wait_for_selected(bed_b, True, "TC-053-098: the row's bed is selected on the plan")
-    assert not plan.is_selected(bed_a), (
-        "TC-053-098: only the row's bed may be selected, Beet A is too"
+    # The row zooms onto Beet B (focusViewport, up to 200 %), which culls Beet A off the canvas on a wide
+    # window - so Beet A is not looked up itself. A selected object is never culled (scene.ts), so the
+    # drawn selection is the whole selection.
+    assert plan.selected_keys() == {bed_b}, (
+        f"TC-053-098: only the row's bed may be selected, the plan draws {plan.selected_keys()} as selected"
     )
     screenshot("053_098_03_row_to_plan", "Zeile Beet B gewählt: Tab „Plan“, Beet B ausgewählt")
 

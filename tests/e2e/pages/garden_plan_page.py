@@ -1167,7 +1167,20 @@ class GardenPlanPage(BasePage):
         Reaching the list by Tab at all — without a focus trap on the way — is
         part of what TC-053-009 asserts, so this fails loudly when it never gets
         there.
+
+        The walk starts at the inline "Liste" tab, the control a user activates
+        to get here and which a pointer click focuses. :meth:`open_tab`
+        activates it with ``HTMLElement.click()``, which neither focuses it nor
+        moves Chrome's sequential focus navigation starting point, so without
+        this the first Tab began wherever the page had left its focus - at the
+        document start in nightly 44931220064 (``light``, desktop): header, then
+        the whole sidebar, and the 25 presses ended on its entry "Import".
+        Below ``md`` the tab is an overflow entry, and the closing menu hands
+        the focus back to its "⋮", which precedes the list as well.
         """
+        list_tab = _tid("garden-plan-tab-list")
+        if self._inline(list_tab):
+            self.driver.execute_script("arguments[0].focus();", self.driver.find_element(*list_tab))
         for _ in range(max_presses):
             key = self.active_list_key()
             if key:
