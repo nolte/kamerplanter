@@ -261,6 +261,27 @@ describe('SpeciesWorkflowsSection — duplicate', () => {
 
     await waitFor(() => expect(dupKey).toBe('wf-1'));
   });
+
+  it('opens the duplicate dialog on a Ctrl-click without following the card link (#3069)', async () => {
+    server.use(listHandler([makeWorkflow({ key: 'wf-1', name: 'Basis' })]));
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+    const before = router.state.location.pathname;
+
+    const card = await screen.findByTestId('species-workflow-card-wf-1');
+    const duplicate = within(card).getByTestId('ContentCopyIcon').closest('button')!;
+    const remove = within(card).getByTestId('DeleteIcon').closest('button')!;
+    // Neither control lives inside an <a>: the stretched link's default never applies to their clicks,
+    // which is why their handlers need no preventDefault.
+    expect(duplicate.closest('a')).toBeNull();
+    expect(remove.closest('a')).toBeNull();
+
+    await user.keyboard('{Control>}');
+    await user.click(duplicate);
+    await user.keyboard('{/Control}');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
+  });
 });
 
 describe('SpeciesWorkflowsSection — delete', () => {

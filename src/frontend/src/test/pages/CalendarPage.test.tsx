@@ -210,16 +210,35 @@ describe('CalendarPage — month view & events', () => {
   it('opens an event popover and navigates to its detail', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    const { store } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
-    void store;
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await user.click(await screen.findByTestId('calendar-event-dot-ev-task'));
     const popover = await screen.findByTestId('event-popover');
     expect(within(popover).getByText('Prune tomato')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: i18n.t('pages.calendar.goToDetail') }));
-    // getEventLink -> /aufgaben/tasks/<task_key>
+    // A real link (#3069 SCR-005): getEventLink -> /aufgaben/tasks/<task_key>.
+    const detail = within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') });
+    expect(detail).toHaveAttribute('href', '/aufgaben/tasks/t1');
+    await user.click(detail);
     await waitFor(() => expect(screen.queryByTestId('event-popover')).toBeNull());
+    expect(router.state.location.pathname).toBe('/aufgaben/tasks/t1');
+  });
+
+  it('keeps the event popover open on a Ctrl-click on its detail link (#3069 SCR-005)', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await user.click(await screen.findByTestId('calendar-event-dot-ev-task'));
+    const popover = await screen.findByTestId('event-popover');
+    const detail = within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') });
+    const before = router.state.location.pathname;
+    // The browser opens a modified click in a new tab; this tab stays where it is.
+    await user.keyboard('{Control>}');
+    await user.click(detail);
+    await user.keyboard('{/Control}');
+    expect(screen.getByTestId('event-popover')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
   });
 
   it('shows watering-forecast hints and confirms watering from the popover', async () => {
@@ -427,6 +446,27 @@ describe('CalendarPage — day popover interactions', () => {
     expect(router.state.location.pathname).toBe('/durchlaeufe/planting-runs/run-1');
   });
 
+  it('keeps the day popover open on a Ctrl- or Shift-click, which opens the link in a new tab (#3069 SCR-005)', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-water');
+    await user.click(screen.getByTestId('calendar-day-12'));
+    const dayPopover = await screen.findByTestId('day-popover');
+    const before = router.state.location.pathname;
+
+    // Run group link and linked event entry: both stay put on a modified click.
+    await user.keyboard('{Control>}');
+    await user.click(within(dayPopover).getByRole('link', { name: /Batch A/ }));
+    await user.keyboard('{/Control}');
+    await user.keyboard('{Shift>}');
+    await user.click(within(dayPopover).getByRole('link', { name: /Flowering start/ }));
+    await user.keyboard('{/Shift}');
+    expect(screen.getByTestId('day-popover')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
+  });
+
   it('opens the event popover for a non-linked event from the day popover', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
@@ -498,7 +538,7 @@ describe('CalendarPage — day popover interactions', () => {
     const popover = await screen.findByTestId('event-popover');
     // Description and the goToDetail link (task_key present) are both shown.
     expect(within(popover).getByText('A described event')).toBeInTheDocument();
-    expect(within(popover).getByRole('button', { name: i18n.t('pages.calendar.goToDetail') })).toBeInTheDocument();
+    expect(within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') })).toBeInTheDocument();
   });
 
   it('renders linked and all-day events together in a day popover', async () => {

@@ -4,7 +4,7 @@
  * A card that holds other controls (duplicate, delete, a chip link) cannot be wrapped in an `<a>` or a
  * `CardActionArea`: interactive content inside a link or button is invalid, and a screen reader then
  * announces neither correctly. The usual answer is a *stretched link*: the title is the one real
- * `<a href>` (named by the title, opens in a new tab), and its `::after` covers the card so a click
+ * `<a href>` (named by the title, so Ctrl/Cmd/middle click can open it in a new tab), and its `::after` covers the card so a click
  * anywhere on the card follows it. Controls that must stay clickable sit above that layer with
  * {@link aboveStretchedLink}.
  *

@@ -27,7 +27,25 @@ import ts from 'typescript';
  *
  * **What counts as navigating.** The handler contains a call of `navigate` (or any other name bound
  * to `useNavigate()` in the file), directly or through one level of a handler declared in the same
- * file (`onClick={handleOpen}`, `onClick={() => handleOpen(x)}`, `useCallback(...)` included).
+ * file: `onClick={handleOpen}`, or any call in the handler's body — `() => handleOpen(x)` as well as
+ * `() => { close(); handleOpen(x); }` — `useCallback(...)` included. A handler name is resolved in
+ * the scope of the element (the enclosing component first, then outward), so two components of one
+ * file with an equally named `handleOpen` are judged by their own declaration.
+ *
+ * **A link that also navigates.** An element that carries `to` or `href` *and* a navigating handler
+ * is reported even when it is a button: `<Button component={RouterLink} to=… onClick={() =>
+ * navigate(…)}>` follows the router link and then navigates a second time.
+ *
+ * **Not detected (known false negatives).** A member handler — `onClick={actions.open}`,
+ * `onClick={() => props.onOpen()}` — is not resolved: the object's shape is unknown to a per-file
+ * syntactic scan (a hook's return value, a prop, a context). The same holds for a destructured
+ * hook result — `const { follow } = useRowFollow(href)`: the `TableRow` in `DataTableRowLink.tsx`
+ * navigates through it and is no longer reported once names resolve per scope (before #3069 a
+ * file-global name map matched it to the hook's inner `const follow` by accident; it was allowlisted
+ * as the deliberate row-surface extension of the row's real cell link). Neither is a handler two levels deep
+ * (`handleOpen` → `goTo` → `navigate`) or one imported from another module. Such a surface is caught
+ * only by review; make it a link at the source when you meet one.
+ *
  * Props of custom components that are not DOM events (`onRowClick`, `onAction`, `onNavigate`) are
  * out of scope: the component decides what it renders.
  *
@@ -65,6 +83,8 @@ export interface NavigateFinding {
   line: number;
   element: string;
   attribute: string;
+  /** `surface`: a non-button navigates; `link-also-navigates`: an element with `to`/`href` navigates again. */
+  kind: 'surface' | 'link-also-navigates';
 }
 
 function tagNameText(name: ts.JsxTagNameExpression, source: ts.SourceFile): string {
@@ -91,19 +111,37 @@ function navigateNames(source: ts.SourceFile): Set<string> {
   return names;
 }
 
-/** Function-valued declarations of the file by name: `const x = () => …`, `useCallback(…)`, `function x()`. */
-function handlerDeclarations(source: ts.SourceFile): Map<string, ts.Node> {
-  const declarations = new Map<string, ts.Node>();
-  const visit = (node: ts.Node) => {
-    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
-      declarations.set(node.name.text, node.initializer);
-    } else if (ts.isFunctionDeclaration(node) && node.name) {
-      declarations.set(node.name.text, node);
+/** The function-valued declaration `name` binds in the statement list `statements`, if any. */
+function declarationIn(statements: ts.NodeArray<ts.Statement>, name: string): ts.Node | undefined {
+  for (const statement of statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement;
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.name.text === name && declaration.initializer) {
+          return declaration.initializer;
+        }
+      }
     }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return declarations;
+  }
+  return undefined;
+}
+
+/**
+ * The declaration `name` resolves to as seen from `from`: the innermost enclosing block (the
+ * component's body first), then outward to the file. A parameter of that name shadows anything
+ * outside it and is unknown here.
+ */
+function resolveDeclaration(name: string, from: ts.Node): ts.Node | undefined {
+  for (let node: ts.Node | undefined = from.parent; node; node = node.parent) {
+    if (ts.isFunctionLike(node) && node.parameters.some((p) => ts.isIdentifier(p.name) && p.name.text === name)) {
+      return undefined;
+    }
+    if (ts.isBlock(node) || ts.isSourceFile(node) || ts.isModuleBlock(node)) {
+      const found = declarationIn(node.statements, name);
+      if (found) return found;
+    }
+  }
+  return undefined;
 }
 
 function callsNavigate(node: ts.Node, names: Set<string>): boolean {
@@ -120,40 +158,49 @@ function callsNavigate(node: ts.Node, names: Set<string>): boolean {
   return found;
 }
 
-/** The handler a `{ident}` or `{() => ident(...)}` attribute delegates to, if any. */
-function delegatedHandlerName(expression: ts.Expression): string | null {
-  if (ts.isIdentifier(expression)) return expression.text;
-  if (ts.isArrowFunction(expression)) {
-    let body: ts.Node = expression.body;
-    if (ts.isBlock(body) && body.statements.length === 1 && ts.isExpressionStatement(body.statements[0])) {
-      body = body.statements[0].expression;
-    }
-    if (ts.isVoidExpression(body as ts.Expression)) body = (body as ts.VoidExpression).expression;
-    if (ts.isCallExpression(body as ts.Node) && ts.isIdentifier((body as ts.CallExpression).expression)) {
-      return ((body as ts.CallExpression).expression as ts.Identifier).text;
-    }
-  }
-  return null;
+/**
+ * The handlers an attribute delegates to: the identifier of `{handleOpen}`, or every plain-identifier
+ * call in an inline handler's body — `() => handleOpen(x)`, `() => { close(); handleOpen(x); }`,
+ * `() => void open()`. Member calls (`actions.open()`) are not resolved (see the header).
+ */
+function delegatedHandlerNames(expression: ts.Expression): string[] {
+  if (ts.isIdentifier(expression)) return [expression.text];
+  if (!ts.isArrowFunction(expression) && !ts.isFunctionExpression(expression)) return [];
+  const callees: string[] = [];
+  const visit = (n: ts.Node) => {
+    if (ts.isCallExpression(n) && ts.isIdentifier(n.expression)) callees.push(n.expression.text);
+    ts.forEachChild(n, visit);
+  };
+  visit(expression.body);
+  return callees;
 }
 
-/** Every handler attribute that navigates on a non-button element of `code`. */
+/** True for an element that is already a link: it carries a `to` or `href` attribute. */
+function isLinkElement(attributes: ts.JsxAttributes, source: ts.SourceFile): boolean {
+  return attributes.properties.some(
+    (a) => ts.isJsxAttribute(a) && ['to', 'href'].includes(a.name.getText(source)),
+  );
+}
+
+/** Every handler attribute that navigates on a non-button element of `code`, or on any link. */
 export function findNavigatingSurfaces(code: string, fileName = 'x.tsx'): NavigateFinding[] {
   const source = ts.createSourceFile(fileName, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const names = navigateNames(source);
-  const declarations = handlerDeclarations(source);
   const findings: NavigateFinding[] = [];
 
   const navigates = (expression: ts.Expression): boolean => {
     if (callsNavigate(expression, names)) return true;
-    const delegate = delegatedHandlerName(expression);
-    if (delegate === null || names.has(delegate)) return false;
-    const declaration = declarations.get(delegate);
-    return declaration !== undefined && callsNavigate(declaration, names);
+    return delegatedHandlerNames(expression).some((delegate) => {
+      if (names.has(delegate)) return false;
+      const declaration = resolveDeclaration(delegate, expression);
+      return declaration !== undefined && callsNavigate(declaration, names);
+    });
   };
 
   const checkAttributes = (tagName: ts.JsxTagNameExpression, attributes: ts.JsxAttributes) => {
     const element = tagNameText(tagName, source);
-    if (BUTTON_ELEMENTS.has(element)) return;
+    const isLink = isLinkElement(attributes, source);
+    if (BUTTON_ELEMENTS.has(element) && !isLink) return;
     for (const attribute of attributes.properties) {
       if (!ts.isJsxAttribute(attribute)) continue;
       const attributeName = attribute.name.getText(source);
@@ -165,6 +212,7 @@ export function findNavigatingSurfaces(code: string, fileName = 'x.tsx'): Naviga
         line: source.getLineAndCharacterOfPosition(attribute.getStart(source)).line + 1,
         element,
         attribute: attributeName,
+        kind: isLink ? 'link-also-navigates' : 'surface',
       });
     }
   };
@@ -201,10 +249,6 @@ export function countNavigatingHandlers(code: string): number {
  * `file::Element` pairs that keep a navigating handler deliberately. Shrink-only.
  */
 const ALLOWLIST: Readonly<Record<string, string>> = {
-  'components/common/DataTableRowLink.tsx::TableRow':
-    'the row keeps its native row role (a table row must stay a row); its first cell carries the real ' +
-    '<a href> and the row handler only extends that link to the rest of the surface, modifier and ' +
-    'middle clicks included (#3017)',
   'components/common/DataTableRowLink.tsx::Box':
     'the DataTable mobile card is role="link" with Enter and modifier-click handling — it cannot be an ' +
     '<a> because a card may hold row actions, and nested interactive content inside <a> is invalid (#3017)',
@@ -298,8 +342,61 @@ export function X() {
     expect(findNavigatingSurfaces(code)).toEqual([]);
   });
 
+  it('follows a multi-statement inline handler into the handler it delegates to (#3069)', () => {
+    const code = `const navigate = useNavigate();
+export function X() {
+  const handleOpen = (k: string) => navigate(\`/a/\${k}\`);
+  return (<>
+    <Card onClick={() => { close(); handleOpen(k); }} />
+    <Paper onClick={() => { setBusy(true); void handleOpen(k); setBusy(false); }} />
+    <Box onClick={() => { close(); setOpen(false); }} />
+  </>);
+}`;
+    expect(findNavigatingSurfaces(code).map((f) => f.element)).toEqual(['Card', 'Paper']);
+  });
+
+  it('resolves a handler name in the enclosing component, not file-wide (#3069)', () => {
+    const code = `const navigate = useNavigate();
+function A() {
+  const handleOpen = () => navigate('/a');
+  return <Card onClick={handleOpen} />;
+}
+function B() {
+  const handleOpen = () => setOpen(true);
+  return <Paper onClick={handleOpen} />;
+}
+function C() {
+  return <Box onClick={handleOpen} />;
+}`;
+    // A's handler navigates; B's equally named one does not; C sees no declaration in its scope chain.
+    expect(findNavigatingSurfaces(code).map((f) => f.element)).toEqual(['Card']);
+    // The order of declaration does not matter: B declared first must not shadow A.
+    const swapped = code.replace(/function A\(\)[\s\S]*?\n}\n/, '') + '\nfunction A() {\n  const handleOpen = () => navigate("/a");\n  return <Card onClick={handleOpen} />;\n}';
+    expect(findNavigatingSurfaces(swapped).map((f) => f.element)).toEqual(['Card']);
+  });
+
+  it('reports a link that also navigates, even on a button (#3069)', () => {
+    const code = wrap(
+      [
+        '<Button component={RouterLink} to="/a" onClick={() => navigate("/a")}>a</Button>',
+        '<MenuItem component="a" href="/b" onClick={handleSettings}>b</MenuItem>',
+        '<Button component={RouterLink} to="/c" onClick={() => setOpen(false)}>c</Button>',
+      ].join('\n'),
+      'const handleSettings = () => { setAnchor(null); navigate("/settings"); };',
+    );
+    expect(findNavigatingSurfaces(code).map((f) => `${f.element}:${f.kind}`)).toEqual([
+      'Button:link-also-navigates',
+      'MenuItem:link-also-navigates',
+    ]);
+  });
+
+  it('does not resolve member handlers (documented false negative)', () => {
+    const code = wrap('<Card onClick={actions.open} />\n<Paper onClick={() => props.onOpen()} />');
+    expect(findNavigatingSurfaces(code)).toEqual([]);
+  });
+
   it('reports the line of the offending attribute', () => {
     const code = 'const navigate = useNavigate();\n<Box\n  sx={{}}\n  onClick={() => navigate("/x")}\n/>';
-    expect(findNavigatingSurfaces(code)).toEqual([{ line: 4, element: 'Box', attribute: 'onClick' }]);
+    expect(findNavigatingSurfaces(code)).toEqual([{ line: 4, element: 'Box', attribute: 'onClick', kind: 'surface' }]);
   });
 });

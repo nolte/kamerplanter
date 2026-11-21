@@ -267,6 +267,39 @@ describe('NotificationDrawer', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 
+  it('ignores a right click: neither marks read nor closes (#3069 SCR-002)', async () => {
+    const items = [
+      makeNotif({ key: 'n1', title: 'Rechtsklick', read_at: null, action_url: '/dashboard' }),
+      makeNotif({ key: 'n2', title: 'Mittelklick', read_at: null, action_url: '/dashboard' }),
+    ];
+    useList(items);
+    const readKeys: string[] = [];
+    server.use(
+      http.post(`${BASE}/:key/read`, ({ params }) => {
+        readKeys.push(String(params.key));
+        const found = items.find((n) => n.key === params.key)!;
+        return HttpResponse.json({ ...found, read_at: new Date().toISOString() });
+      }),
+    );
+    const onClose = vi.fn();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const rightClicked = await screen.findByTestId('notification-action-n1');
+    fireEvent(rightClicked, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 2 }));
+    // Control: a middle click on the other card IS an activation — it marks read and keeps the drawer open.
+    // Its request is issued after any the right click would have issued, so once it arrived, n1's would have.
+    fireEvent(
+      screen.getByTestId('notification-action-n2'),
+      new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }),
+    );
+    await waitFor(() => expect(readKeys).toContain('n2'));
+    expect(readKeys).not.toContain('n1');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
   it('does not follow an action url that leaves the app (#3012)', async () => {
     useList([
       makeNotif({ key: 'n1', title: 'Fremder Link', read_at: '2024-01-01T00:00:00Z', action_url: '/\\evil.com' }),

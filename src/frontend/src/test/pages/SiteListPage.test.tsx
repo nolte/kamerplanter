@@ -110,6 +110,8 @@ describe('SiteListPage', () => {
     expect(within(card).getByRole('button', { expanded: false }).contains(siteName)).toBe(false);
     await user.click(siteName);
     expect(router.state.location.pathname).toBe('/standorte/sites/site-1');
+    // The header around the link toggles the card; the link's click must not reach it.
+    expect(within(screen.getByTestId('site-card-site-1')).getByRole('button', { expanded: false })).toBeInTheDocument();
   });
 
   it('toggles once per click on the expand button and on the header (#3047)', async () => {

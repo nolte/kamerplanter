@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -70,6 +70,7 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
@@ -175,7 +176,6 @@ export default function CalendarPage() {
   const dispatch = useAppDispatch();
   // Sowing-calendar labels are worded by the server in the UI language: reload on a switch (#2902).
   const requestLanguage = useRequestLanguage();
-  const navigate = useNavigate();
   const notification = useNotification();
   // `require_permission(CALENDAR_FEED, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
   const { canDelete } = useTenantPermissions();
@@ -462,6 +462,22 @@ export default function CalendarPage() {
     setDayPopoverAnchor(null);
     setDayPopoverDate(null);
   }, []);
+
+  // A link inside a popover (#3047): the router follows a plain click, so the popover closes with it.
+  // A Ctrl/Cmd/Shift click opens the target in a new tab and leaves this one where it is — the popover
+  // stays open so the next entry can be opened too. (A middle click fires no `click` at all.)
+  const closeDayPopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleCloseDayPopover();
+    },
+    [handleCloseDayPopover],
+  );
+  const closePopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleClosePopover();
+    },
+    [handleClosePopover],
+  );
 
   // ── Feed management ──────────────────────────────────────────────
 
@@ -1247,14 +1263,14 @@ export default function CalendarPage() {
               const link = getEventLink(popoverEvent);
               if (!link) return null;
               return (
+                // A real link (#3047): it can be opened in a new tab; the router follows a plain click.
                 <Button
+                  component={RouterLink}
+                  to={link}
                   size="small"
                   variant="text"
                   endIcon={<OpenInNewIcon sx={{ fontSize: '0.875rem' }} />}
-                  onClick={() => {
-                    handleClosePopover();
-                    navigate(link);
-                  }}
+                  onClick={closePopoverOnPlainClick}
                   sx={{ mt: 1, textTransform: 'none' }}
                 >
                   {t('pages.calendar.goToDetail')}
@@ -1301,12 +1317,12 @@ export default function CalendarPage() {
             {dayPopoverGrouped.runGroups.map((group) => (
               <Box key={group.runKey || '_ungrouped'} sx={{ mb: 1 }}>
                 {group.runKey && (
-                  // A real link (#3047): opens in a new tab, announced as a link. The router follows
-                  // it; the click only closes the popover.
+                  // A real link (#3047): can be opened in a new tab, announced as a link. The router
+                  // follows a plain click; that click also closes the popover, a modified one does not.
                   <Box
                     component={RouterLink}
                     to={getRunLink(group.runKey)}
-                    onClick={handleCloseDayPopover}
+                    onClick={closeDayPopoverOnPlainClick}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -1352,7 +1368,7 @@ export default function CalendarPage() {
                       key={ev.id}
                       component={RouterLink}
                       to={link}
-                      onClick={handleCloseDayPopover}
+                      onClick={closeDayPopoverOnPlainClick}
                       sx={{
                         ...entrySx,
                         color: 'inherit',
@@ -1432,7 +1448,7 @@ export default function CalendarPage() {
                     <Box
                       component={RouterLink}
                       to={link}
-                      onClick={handleCloseDayPopover}
+                      onClick={closeDayPopoverOnPlainClick}
                       sx={{ ...entrySx, color: 'inherit', textDecoration: 'none' }}
                     >
                       {entryContent}

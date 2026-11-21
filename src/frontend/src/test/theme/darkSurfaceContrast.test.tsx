@@ -4,7 +4,7 @@ import { ThemeProvider, getContrastRatio } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Paper from '@mui/material/Paper';
-import { darkTheme } from '@/theme/theme';
+import { MAX_DARK_OVERLAY_ELEVATION, darkTheme } from '@/theme/theme';
 
 /**
  * #3047 — dark-mode contrast on the surfaces the dark theme actually paints.
@@ -65,7 +65,15 @@ function paintedPaper(elevation: number): string {
     : style.backgroundImage;
   cleanup();
   const tint = image.match(/rgba?\([^)]+\)/);
-  return tint ? over(tint[0], style.backgroundColor) : over(style.backgroundColor, '#000000');
+  // jsdom resolves both forms (measured for #3069): elevation 0/4/8 carry `var(--Paper-overlay)` with
+  // the inline custom property `linear-gradient(rgba(255, 255, 255, 0 | 0.092 | 0.119), …)`; 16 and 24
+  // carry the theme override's literal gradient (0.119, the elevation-8 tint). An elevated Paper without
+  // a readable tint would silently measure the flat, darker paper — a false green — so it fails here.
+  if (!tint) {
+    if (elevation > 0) throw new Error(`no overlay tint found for elevation ${elevation}: ${image}`);
+    return over(style.backgroundColor, '#000000');
+  }
+  return over(tint[0], style.backgroundColor);
 }
 
 const { palette } = darkTheme;
@@ -95,8 +103,18 @@ describe('dark theme: text and role labels on elevated surfaces (#3047)', () => 
 
   it('reads a lighter surface for a higher elevation, so the measurement is not of one flat colour', () => {
     const flat = channels(paintedPaper(0))[0];
+    const appBar = channels(paintedPaper(4))[0];
+    const menu = channels(paintedPaper(8))[0];
     const dialog = channels(paintedPaper(24))[0];
     expect(dialog).toBeGreaterThan(flat);
+    expect(menu).toBeGreaterThan(appBar);
+    expect(appBar).toBeGreaterThan(flat);
+  });
+
+  it('caps the overlay of a drawer and a dialog at the menu elevation (theme MuiPaper override)', () => {
+    const cap = paintedPaper(MAX_DARK_OVERLAY_ELEVATION);
+    expect(paintedPaper(16)).toBe(cap);
+    expect(paintedPaper(24)).toBe(cap);
   });
 
   it.each(['success', 'info', 'warning', 'error'] as const)(

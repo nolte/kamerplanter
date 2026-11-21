@@ -29,10 +29,20 @@ function wantsNewTab(e: MouseEvent<HTMLElement>): boolean {
   return e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1;
 }
 
-/** True when the event started on the row's own link — that anchor already handled it. */
-function startedOnRowLink(e: MouseEvent<HTMLElement>): boolean {
+/** Anything inside a row or card that handles its own activation (links, buttons, form fields). */
+const INTERACTIVE_DESCENDANT =
+  'a[href],button,input,select,textarea,[role="button"],[role="link"],[data-row-link="true"]';
+
+/**
+ * True when the event started on an interactive element nested inside the row or card — the row's own
+ * cell link, a chip link to another page, an action button. That element owns the click, middle click
+ * and key press; the row must neither navigate nor open its own URL in a new tab on top of it.
+ * The row or card element itself (a card carries `role="link"`) does not count.
+ */
+function startedOnNestedControl(e: MouseEvent<HTMLElement>): boolean {
   const target = e.target as HTMLElement | null;
-  return Boolean(target?.closest('[data-row-link="true"]'));
+  const interactive = target?.closest(INTERACTIVE_DESCENDANT);
+  return Boolean(interactive && interactive !== e.currentTarget && e.currentTarget.contains(interactive));
 }
 
 function useRowFollow(href: string) {
@@ -40,7 +50,7 @@ function useRowFollow(href: string) {
   // The URL as the browser sees it (basename applied), for `window.open`.
   const absoluteHref = useHref(href);
   const follow = (e: MouseEvent<HTMLElement>) => {
-    if (startedOnRowLink(e)) return;
+    if (startedOnNestedControl(e)) return;
     if (wantsNewTab(e)) {
       e.preventDefault();
       window.open(absoluteHref, '_blank', 'noopener');
@@ -110,6 +120,7 @@ export function LinkedCard({ href, rowKey, children }: LinkedCardProps) {
   const { follow, navigate, absoluteHref } = useRowFollow(href);
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     // A link activates on Enter only (Space scrolls); keys on nested controls are theirs.
+    // `target !== currentTarget` already leaves every key on a nested control (see startedOnNestedControl) to it.
     if (e.target !== e.currentTarget || e.repeat || e.key !== 'Enter') return;
     e.preventDefault();
     if (e.ctrlKey || e.metaKey || e.shiftKey) {

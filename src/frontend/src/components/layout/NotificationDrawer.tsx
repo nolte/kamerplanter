@@ -30,6 +30,7 @@ import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { isCareConfirmAction } from '@/utils/careConfirmActions';
+import { isLinkActivation, isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
 import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
@@ -255,17 +256,18 @@ export default function NotificationDrawer({
 
   /**
    * Marks the notification read. With an action URL the card is a real link (#3047): the router follows
-   * it, so this only closes the drawer — and not for a Ctrl/Cmd/Shift/middle click, which opens the
-   * target in a new tab and leaves this one where it is.
+   * it, so this only closes the drawer — and only for a plain primary click; a Ctrl/Cmd/Shift/middle click
+   * opens the target in a new tab and leaves this one where it is. A right click (`auxclick` with
+   * `button === 2`) opens the context menu and is no activation: nothing is marked, nothing closes.
    */
   const handleNotificationClick = (
     notification: NotificationResponse,
     actionUrl: string | null,
     event: ReactMouseEvent<HTMLElement>,
   ) => {
+    if (!isLinkActivation(event)) return;
     void handleMarkRead(notification);
-    const newTab = event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1;
-    if (actionUrl && !newTab) onClose();
+    if (actionUrl && isPlainPrimaryClick(event)) onClose();
   };
 
   const handleRetryLoad = () => {

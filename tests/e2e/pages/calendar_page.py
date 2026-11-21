@@ -82,6 +82,7 @@ class CalendarPage(BasePage):
 
     # ── Calendar grid (month view) ──────────────────────────────────────
     MONTH_GRID_COLUMN_HEADERS = (By.CSS_SELECTOR, "th, [role='columnheader']")
+    MONTH_GRID = (By.CSS_SELECTOR, "[data-testid='calendar-month-grid']")
 
     # ── Sowing calendar cards ────────────────────────────────────────────
     SOWING_CARDS = (By.CSS_SELECTOR, "[data-testid='calendar-page'] .MuiCard-root")
@@ -122,6 +123,22 @@ class CalendarPage(BasePage):
         """Click the Season Overview tab and wait for its content to settle."""
         self.wait_for_element_clickable(self.VIEW_TAB_SEASON).click()
         self.wait_for_season_content()
+
+    def wait_for_month_settled(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the month grid rendered and no skeleton is up; raise otherwise.
+
+        A gate for the default month view: while `fetchCalendarEvents` is
+        pending `CalendarPage.tsx` replaces the grid with a `LoadingSkeleton`,
+        and `open()` can return in that frame. The month view has no empty
+        state -- a month without events is still the grid -- so the grid
+        itself plus the skeleton being gone is the settled signal. Not closed
+        by this gate: the single commit before the mount effect dispatches the
+        fetch (`loading` starts ``false``) also renders the bare grid; the page
+        exposes no "events loaded" marker that would tell the two apart.
+        """
+        self.wait_for_settled(
+            {"month-grid": self.MONTH_GRID}, "calendar month grid", timeout=timeout
+        )
 
     #: `CalendarPage.tsx` fetches `sowingEntries` fresh on every switch into
     #: this view (`sowingLoading` gates a `LoadingSkeleton` that replaces the

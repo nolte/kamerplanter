@@ -225,9 +225,9 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
                   <Tooltip title={t('pages.species.duplicateWorkflow')}>
                     <IconButton
                       size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
+                      // Not inside the stretched link's <a> and above its `::after` layer: the click
+                      // reaches only this button, so there is no link default to prevent.
+                      onClick={() => {
                         setDuplicateSource(wf);
                         setDuplicateName(`${wf.name} (${t('common.copy')})`);
                       }}
@@ -240,7 +240,7 @@ export default function SpeciesWorkflowsSection({ speciesKey }: Props) {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDeleteKey(wf.key); }}
+                        onClick={() => setDeleteKey(wf.key)}
                         disabled={wf.is_system}
                         data-testid="species-workflow-delete-button"
                       >
