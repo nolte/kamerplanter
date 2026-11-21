@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -141,16 +141,27 @@ export default function SiteDetailPage() {
     }
   }, [key, beginSensorLoad]);
 
+  const siteRequestRef = useRef<{ abort: () => void } | null>(null);
   useEffect(() => {
     if (!key) return () => { dispatch(clearCurrent()); };
     // Aborting the superseded fetch keeps its late answer out of `currentSite` (#3014);
     // the slice ignores the abort's own `rejected` action.
     const siteRequest = dispatch(fetchSite(key));
+    siteRequestRef.current = siteRequest;
     loadSensors();
     return () => {
-      siteRequest.abort();
+      siteRequestRef.current?.abort();
+      siteRequestRef.current = null;
       dispatch(clearCurrent());
     };
+  }, [key, dispatch, loadSensors]);
+
+  // The error display's retry re-runs the load in place instead of leaving the page (#3037).
+  const retryLoad = useCallback(() => {
+    if (!key) return;
+    siteRequestRef.current?.abort();
+    siteRequestRef.current = dispatch(fetchSite(key));
+    loadSensors();
   }, [key, dispatch, loadSensors]);
 
   useEffect(() => {
@@ -244,7 +255,7 @@ export default function SiteDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={retryLoad} />;
 
   const PANEL_GAP = 4;
 

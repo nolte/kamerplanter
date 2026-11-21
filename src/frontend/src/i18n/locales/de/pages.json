@@ -4145,6 +4145,8 @@
         "channelApprise": "Apprise (Telegram, Slack, ...)",
         "channelNotConfigured": "Nicht konfiguriert",
         "channelAvailable": "Verfügbar",
+        "channelStatusUnknown": "Status unbekannt",
+        "channelStatusLoadFailed": "Der Kanalstatus konnte nicht geladen werden.",
         "pwaEnable": "Auf diesem Gerät aktivieren",
         "pwaDisable": "Deaktivieren",
         "pwaActive": "Auf diesem Gerät aktiviert",

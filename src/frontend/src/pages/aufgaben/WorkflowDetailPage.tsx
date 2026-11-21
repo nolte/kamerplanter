@@ -195,6 +195,9 @@ export default function WorkflowDetailPage() {
   // A failed catalogue read is shown with a retry, never as an empty picker (#3037).
   const [speciesLoadError, setSpeciesLoadError] = useState(false);
   const [speciesAttempt, setSpeciesAttempt] = useState(0);
+  // True only once the catalogue of the current run has arrived: until then
+  // `selectedSpecies` is not the stored selection and must not be saved.
+  const [speciesReady, setSpeciesReady] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<SpeciesOption[]>([]);
   const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
   const [speciesFilter, setSpeciesFilter] = useState<'all' | 'favorites'>('all');
@@ -303,6 +306,7 @@ export default function WorkflowDetailPage() {
     if (!workflow) return;
     setSpeciesLoading(true);
     setSpeciesLoadError(false);
+    setSpeciesReady(false);
     Promise.all([
       // The complete catalogue (#1560); one leg of an imperative sequence whose
       // surrounding loading state already covers it.
@@ -323,6 +327,7 @@ export default function WorkflowDetailPage() {
         setFavoriteKeys(new Set(favs.map((f) => f.target_key)));
         const compatNames = new Set(workflow.species_compatible ?? []);
         setSelectedSpecies(items.filter((s) => compatNames.has(s.scientific_name) || compatNames.has(s.key)));
+        setSpeciesReady(true);
       })
       .catch((err: unknown) => {
         captureHandledError(err, { source: 'WorkflowDetailPage.species' });
@@ -342,10 +347,11 @@ export default function WorkflowDetailPage() {
         version: data.version,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         target_entity_types: data.target_entity_types,
-        // Without the catalogue the picker is empty, not cleared: keep the stored list.
-        species_compatible: speciesLoadError
-          ? (workflow?.species_compatible ?? [])
-          : selectedSpecies.map((s) => s.scientific_name),
+        // Until the catalogue has arrived (pending, failed or retrying) the picker
+        // is empty, not cleared: keep the stored list.
+        species_compatible: speciesReady
+          ? selectedSpecies.map((s) => s.scientific_name)
+          : (workflow?.species_compatible ?? []),
       });
       notification.success(t('pages.tasks.workflowUpdated'));
       load();

@@ -189,7 +189,17 @@ export default function SpeciesDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  // The retry re-runs the load in place; it does not leave the page (#3037).
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        onRetry={() => {
+          if (key) void dispatch(fetchSpecies(key));
+        }}
+      />
+    );
+  }
 
   return (
     <Box data-testid="species-detail-page">

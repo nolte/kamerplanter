@@ -15,6 +15,9 @@ import Tooltip from '@mui/material/Tooltip';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditIcon from '@mui/icons-material/Edit';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey, isApiError } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import EmptyState from '@/components/common/EmptyState';
 import ProfileEditDialog from './ProfileEditDialog';
 import { useNotification } from '@/hooks/useNotification';
@@ -35,21 +38,34 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   const [reqProfile, setReqProfile] = useState<RequirementProfile | null>(null);
   const [nutProfile, setNutProfile] = useState<NutrientProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  // A failed read is shown with a retry; only a 404 means "no profile yet" and offers to
+  // generate the defaults (#3037) — generating over a failed read would overwrite.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
+    const absent = (err: unknown) => isApiError(err) && err.statusCode === 404;
     try {
       const req = await phasesApi.getRequirementProfile(phaseKey);
       setReqProfile(req);
-    } catch {
+    } catch (err) {
       setReqProfile(null);
+      if (!absent(err)) {
+        captureHandledError(err, { source: 'ProfilesSection.requirement' });
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      }
     }
     try {
       const nut = await phasesApi.getNutrientProfile(phaseKey);
       setNutProfile(nut);
-    } catch {
+    } catch (err) {
       setNutProfile(null);
+      if (!absent(err)) {
+        captureHandledError(err, { source: 'ProfilesSection.nutrient' });
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      }
     }
     setLoading(false);
   };
@@ -73,6 +89,7 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   };
 
   if (loading) return <LoadingSkeleton variant="card" />;
+  if (loadError) return <ErrorDisplay error={loadError} onRetry={() => void load()} />;
 
   const hasProfiles = !!(reqProfile || nutProfile);
 

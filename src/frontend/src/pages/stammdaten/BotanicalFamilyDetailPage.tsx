@@ -213,7 +213,17 @@ export default function BotanicalFamilyDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  // The retry re-runs the load in place; it does not leave the page (#3037).
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        onRetry={() => {
+          if (key) void dispatch(fetchBotanicalFamily(key));
+        }}
+      />
+    );
+  }
 
   const nutrientDemandOptions = [
     { value: 'light_feeder', label: t('enums.nutrientDemand.light_feeder') },

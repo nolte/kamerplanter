@@ -4,6 +4,8 @@ import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import ProfilesSection from '@/pages/pflanzen/ProfilesSection';
 import type { NutrientProfile, RequirementProfile } from '@/api/types';
+import userEvent from '@testing-library/user-event';
+import { ApiError } from '@/api/errors';
 
 // ProfilesSection loads its data via the phases API on mount. Mock the module so
 // each test controls exactly which nutrient profile the E7/E8 guidance renders.
@@ -20,6 +22,14 @@ import {
 
 const mockGetReq = vi.mocked(getRequirementProfile);
 const mockGetNut = vi.mocked(getNutrientProfile);
+
+/** The API's answer for a phase without that profile: 404, the normal "none" case. */
+function notFound(): ApiError {
+  return new ApiError(
+    { error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'not found', details: [], timestamp: '', path: '/', method: 'GET' },
+    404,
+  );
+}
 
 /** Minimal but type-complete NutrientProfile with overridable guidance fields. */
 function makeNutrientProfile(overrides: Partial<NutrientProfile> = {}): NutrientProfile {
@@ -46,7 +56,7 @@ describe('ProfilesSection — E7/E8 nutrient guidance', () => {
     vi.clearAllMocks();
     // No requirement profile: keeps the render focused on the nutrient card while
     // still yielding hasProfiles === true so the card is shown.
-    mockGetReq.mockRejectedValue(new Error('no requirement profile'));
+    mockGetReq.mockRejectedValue(notFound());
   });
 
   it('renders the pH-lockout warning alert with the ph_note when micros are unavailable', async () => {
@@ -142,7 +152,7 @@ describe('ProfilesSection — origin of the light hours', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetNut.mockRejectedValue(new Error('no nutrient profile'));
+    mockGetNut.mockRejectedValue(notFound());
   });
 
   it.each([
@@ -191,5 +201,35 @@ describe('ProfilesSection — origin of the light hours', () => {
     renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" readOnly />);
     await screen.findByTestId('profile-photoperiod-source');
     expect(screen.queryByTestId('profile-photoperiod-source-todo')).not.toBeInTheDocument();
+  });
+});
+
+/** #3037: a failed read is not "no profile" — it offers no "generate defaults". */
+describe('ProfilesSection — load failure vs. no profile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('offers to generate the defaults only when neither profile exists (404)', async () => {
+    mockGetReq.mockRejectedValue(notFound());
+    mockGetNut.mockRejectedValue(notFound());
+    renderWithProviders(<ProfilesSection phaseKey="phase-veg" phaseName="Vegetativ" />);
+
+    expect(
+      (await screen.findAllByRole('button', { name: i18n.t('pages.profiles.generateDefaults') })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByTestId('error-display')).toBeNull();
+  });
+
+  it('shows a failed read with a retry instead of "generate defaults", and the retry shows the profile', async () => {
+    mockGetReq.mockRejectedValue(notFound());
+    mockGetNut.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(makeNutrientProfile());
+    const user = userEvent.setup();
+    renderWithProviders(<ProfilesSection phaseKey="phase-veg" phaseName="Vegetativ" />);
+
+    await user.click(await screen.findByTestId('error-retry-button'));
+    expect(screen.queryByRole('button', { name: i18n.t('pages.profiles.generateDefaults') })).toBeNull();
+    expect(await screen.findByText(i18n.t('pages.profiles.npkRatio'))).toBeInTheDocument();
+    expect(mockGetNut).toHaveBeenCalledTimes(2);
   });
 });

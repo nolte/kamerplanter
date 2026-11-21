@@ -25,6 +25,7 @@ import {
 } from '@/api/endpoints/notifications';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import { errorKey } from '@/api/errors';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
@@ -121,8 +122,12 @@ export default function NotificationDrawer({
   // (UI-NFR-008 R-016/R-017 double-submit protection).
   const [actingKeys, setActingKeys] = useState<Set<string>>(new Set());
 
+  // Latest-wins (#3014): a reopen or a reset supersedes a pending page, so a stale
+  // answer can neither put its error over a fresh list nor append into a reset one.
+  const beginLoad = useAbortableLoad();
   const loadNotifications = useCallback(
     async (currentOffset: number, append: boolean) => {
+      const ticket = beginLoad();
       setLoading(true);
       setLoadError(null);
       try {
@@ -130,6 +135,7 @@ export default function NotificationDrawer({
           limit: PAGE_SIZE,
           offset: currentOffset,
         });
+        if (!ticket.isCurrent()) return;
         if (append) {
           setNotifications((prev) => [...prev, ...result.items]);
         } else {
@@ -138,13 +144,14 @@ export default function NotificationDrawer({
         setHasMore(result.items.length === PAGE_SIZE);
         onCountChange(result.unread_count);
       } catch (err) {
+        if (!ticket.isCurrent()) return;
         captureHandledError(err, { source: 'NotificationDrawer.load' });
         setLoadError({ key: errorKey(err, 'errors.loadFailed'), offset: currentOffset, append });
       } finally {
-        setLoading(false);
+        if (ticket.isCurrent()) setLoading(false);
       }
     },
-    [onCountChange],
+    [onCountChange, beginLoad],
   );
 
   useEffect(() => {

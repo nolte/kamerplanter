@@ -18,17 +18,40 @@ import ts from 'typescript';
  * page renders with a retry — and is then out of scope.
  *
  * **What counts as a fallback handler.**
- * - a `.catch(cb)` whose callback returns a fallback value (`null`, `false`,
- *   `0`, `''`, `[]`, `new Map()`/`new Set()`, an object literal of fallbacks) or
- *   only calls `setX(<fallback>)`, possibly behind `if (...)` guards;
+ * - a `.catch(cb)` — or the rejection handler of `.then(ok, cb)` — whose
+ *   callback returns a fallback value (`null`, `false`, `0`, `''`, `[]`,
+ *   `new Map()`/`new Set()`, an object literal of fallbacks) or calls
+ *   `setX(<fallback>)`, at the top level or inside `if`/`else` branches;
  * - a `.catch(noop)`-style identifier (`noop`, `ignore…`, `swallow…`);
- * - a `catch` clause that only calls `setX(<fallback>)`, or that only returns
- *   a fallback **after an `await`** in its `try`. A synchronous
+ * - a `catch` clause that calls `setX(<fallback>)`, or that returns a fallback
+ *   **after an `await`** in its `try`. A synchronous
  *   `try { return JSON.parse(raw) } catch { return null }` is a parser, not a
  *   load, and is left alone.
  *
- * Log calls and bare `if (cond) return;` guards are neutral. A handler that is
- * empty or returns `undefined` is `swallowedErrorsAreLogged`'s business.
+ * Other statements beside the fallback do not acquit it (#3037 SCR-006): the
+ * common "fallback plus done-flag" shape `.catch(() => { setItems([]);
+ * setDone(true); })` is still a fallback. A handler is out of scope only when
+ * it **surfaces** the failure: an error setter (`setXError` / `setXFailed` /
+ * `setXFailure`), a named reporter that puts it on screen (`handleError`,
+ * `report…Failure` / `report…Error`, `…Failed` — the name is the contract), a
+ * toast (`notification.error(...)`), or a `throw`. Nested functions inside the
+ * handler are not looked into. Log calls (`captureHandledError`, `console.*`,
+ * `log…Failure`/`log…Error` wrappers) and bare `if (cond) return;` guards are
+ * neutral. A handler that is empty or returns `undefined` is
+ * `swallowedErrorsAreLogged`'s business. Comments are found by the TypeScript
+ * scanner, so `'https://…'` in a string is no comment.
+ *
+ * **Not detected, and why** (deliberately not widened now, SCR-012):
+ * - handler factories — `.catch(degrade('plan', { plan: null }))`: the
+ *   fallback is built in another function; resolving it needs data flow across
+ *   declarations. The one factory in the tree (`PlantingRunDetailPage`) logs and
+ *   flags the leg itself.
+ * - constant identifiers — `.catch(() => EMPTY_LIST)`: an identifier says
+ *   nothing about its value without resolving the binding; only the literal
+ *   fallbacks above are recognised.
+ * - ignored `Promise.allSettled` results — a rejected leg read as "nothing" is
+ *   decided where the results are consumed, not in a handler; there is no
+ *   handler node to judge.
  *
  * **The allowlist** names the files that still fall back silently, with a count
  * and one reason each. It may only shrink: a file whose count rises fails, and a
@@ -54,8 +77,8 @@ function isProductionSource(path: string): boolean {
   );
 }
 
-const LOG_CALL = /\b(captureHandledError|console\.(warn|error|info|debug|log))\s*\(/;
-const COMMENT = /\/\/|\/\*/;
+// `logEnrichmentFailure(...)`-style wrappers are log calls too: the name is the contract.
+const LOG_CALL = /\b(captureHandledError|console\.(warn|error|info|debug|log)|log\w*(Failure|Error))\s*\(/;
 const NOOP_NAME = /^(noop|ignore\w*|swallow\w*)$/i;
 
 function unwrap(expression: ts.Expression): ts.Expression {
@@ -101,38 +124,77 @@ function isFallbackSet(expression: ts.Expression): boolean {
   );
 }
 
-type StatementKind = 'neutral' | 'set' | 'return' | 'other';
+/** `setLoadError(...)`, `setPlansFailed(...)`, `setFailure(...)` — the failure is put on screen. */
+const ERROR_SETTER = /^set\w*(Error|Failed|Failure)$/;
+/**
+ * Named reporters that put the failure on screen: `handleError` (toast),
+ * `reportSectionFailure` / `sectionFailed` (a page's section banner). The name
+ * is the contract — a helper so named that only logs would slip through.
+ */
+const ERROR_REPORTER = /^(handle\w*Error|report\w*(Failure|Error)|\w+Failed)$/;
+/** `notification.error(...)` — a toast. */
+const TOAST_OBJECT = /^(notification|notify|snackbar)$/;
 
-function kindOf(statement: ts.Statement, source: ts.SourceFile): StatementKind {
-  if (
-    ts.isExpressionStatement(statement) &&
-    ts.isCallExpression(statement.expression) &&
-    LOG_CALL.test(statement.getText(source))
-  ) {
-    return 'neutral';
-  }
-  if (
-    ts.isIfStatement(statement) &&
-    !statement.elseStatement &&
-    ts.isReturnStatement(statement.thenStatement) &&
-    !statement.thenStatement.expression
-  ) {
-    return 'neutral';
-  }
-  if (ts.isExpressionStatement(statement) && isFallbackSet(statement.expression)) return 'set';
-  if (ts.isReturnStatement(statement) && statement.expression && isFallbackValue(statement.expression)) {
-    return 'return';
-  }
-  if (ts.isIfStatement(statement) && !statement.elseStatement) {
-    const inner = ts.isBlock(statement.thenStatement)
-      ? [...statement.thenStatement.statements]
-      : [statement.thenStatement];
-    const kinds = inner.map((s) => kindOf(s, source));
-    if (inner.length > 0 && kinds.every((k) => k === 'set' || k === 'return')) {
-      return kinds.includes('set') ? 'set' : 'return';
+/**
+ * Walks `node` without entering nested functions: what a nested callback does
+ * happens later, not as this handler's answer to the failure.
+ */
+function walkOwn(node: ts.Node, visit: (child: ts.Node) => void): void {
+  const step = (child: ts.Node) => {
+    visit(child);
+    if (ts.isFunctionLike(child)) return;
+    ts.forEachChild(child, step);
+  };
+  ts.forEachChild(node, step);
+}
+
+/** Whether the handler reports the failure instead of hiding it: an error setter or a rethrow. */
+function surfacesFailure(node: ts.Node): boolean {
+  let found = false;
+  const check = (child: ts.Node) => {
+    if (found) return;
+    if (ts.isThrowStatement(child)) found = true;
+    else if (ts.isCallExpression(child)) {
+      const callee = child.expression;
+      if (ts.isIdentifier(callee)) {
+        found = ERROR_SETTER.test(callee.text) || ERROR_REPORTER.test(callee.text);
+      } else if (
+        ts.isPropertyAccessExpression(callee) &&
+        callee.name.text === 'error' &&
+        ts.isIdentifier(callee.expression) &&
+        TOAST_OBJECT.test(callee.expression.text)
+      ) {
+        found = true;
+      }
     }
-  }
-  return 'other';
+  };
+  check(node);
+  walkOwn(node, check);
+  return found;
+}
+
+/**
+ * The fallbacks a block answers with: `setX(<fallback>)` statements and
+ * `return <fallback>` — at the top level and inside `if`/`else` branches and
+ * nested blocks. Other statements (a done-flag, a toast, a log) do not make a
+ * fallback block innocent; they only sit beside it.
+ */
+function collectFallbacks(statements: readonly ts.Statement[]): { sets: number; returns: number } {
+  const found = { sets: 0, returns: 0 };
+  const visit = (statement: ts.Statement) => {
+    if (ts.isExpressionStatement(statement) && isFallbackSet(statement.expression)) {
+      found.sets += 1;
+    } else if (ts.isReturnStatement(statement) && statement.expression && isFallbackValue(statement.expression)) {
+      found.returns += 1;
+    } else if (ts.isIfStatement(statement)) {
+      visit(statement.thenStatement);
+      if (statement.elseStatement) visit(statement.elseStatement);
+    } else if (ts.isBlock(statement)) {
+      statement.statements.forEach(visit);
+    }
+  };
+  statements.forEach(visit);
+  return found;
 }
 
 /** Whether `node` awaits something itself (nested functions are not looked into). */
@@ -151,16 +213,52 @@ function containsAwait(node: ts.Node): boolean {
   return found;
 }
 
-function blockFallsBack(block: ts.Block, source: ts.SourceFile, asyncTry: boolean): boolean {
-  const kinds = block.statements.map((s) => kindOf(s, source));
-  if (kinds.includes('other')) return false;
-  if (kinds.includes('set')) return true;
-  return kinds.includes('return') && asyncTry;
+/**
+ * A block falls back when it answers with at least one fallback setter (or a
+ * fallback `return`, where returns count) and neither sets an error state nor
+ * rethrows. Log calls are neutral here; the reporter asks for one beside a
+ * comment.
+ */
+function blockFallsBack(block: ts.Block, asyncTry: boolean): boolean {
+  if (surfacesFailure(block)) return false;
+  const { sets, returns } = collectFallbacks(block.statements);
+  return sets > 0 || (returns > 0 && asyncTry);
 }
 
 interface FallbackFinding {
   line: number;
-  kind: 'catch' | '.catch' | '.catch(noop)';
+  kind: 'catch' | '.catch' | '.catch(noop)' | '.then(_, onRejected)';
+}
+
+/**
+ * Whether `text` holds a real comment. Scans tokens, so `'https://…'` inside a
+ * string or template literal is not mistaken for one (#3037 SCR-012).
+ */
+function hasComment(text: string, jsx: boolean): boolean {
+  const scanner = ts.createScanner(
+    ts.ScriptTarget.Latest,
+    false,
+    jsx ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard,
+    text,
+  );
+  for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {
+    if (token === ts.SyntaxKind.SingleLineCommentTrivia || token === ts.SyntaxKind.MultiLineCommentTrivia) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Whether a `.catch`-style callback answers a failure with a fallback. */
+function handlerFallsBack(handler: ts.ArrowFunction | ts.FunctionExpression): boolean {
+  const body = handler.body;
+  if (ts.isBlock(body)) return blockFallsBack(body, true);
+  if (surfacesFailure(body)) return false;
+  const value = unwrap(body);
+  return (
+    isFallbackSet(body) ||
+    (isFallbackValue(body) && !(ts.isIdentifier(value) && value.text === 'undefined'))
+  );
 }
 
 /** Every fallback-returning handler of `code` that lacks the comment or the log call. */
@@ -173,33 +271,33 @@ function findUnloggedFallbacks(code: string, fileName = 'x.tsx'): FallbackFindin
     fileName.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
   const findings: FallbackFinding[] = [];
+  const jsx = fileName.endsWith('x');
   const report = (node: ts.Node, kind: FallbackFinding['kind'], text: string | null) => {
-    if (text !== null && COMMENT.test(text) && LOG_CALL.test(text)) return;
+    if (text !== null && hasComment(text, jsx) && LOG_CALL.test(text)) return;
     findings.push({ line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1, kind });
   };
 
   const visit = (node: ts.Node) => {
     if (ts.isCatchClause(node) && ts.isTryStatement(node.parent)) {
-      if (blockFallsBack(node.block, source, containsAwait(node.parent.tryBlock))) {
+      if (blockFallsBack(node.block, containsAwait(node.parent.tryBlock))) {
         // `getFullText` keeps the comments inside the braces.
         report(node, 'catch', node.block.getFullText(source));
       }
-    } else if (
-      ts.isCallExpression(node) &&
-      ts.isPropertyAccessExpression(node.expression) &&
-      node.expression.name.text === 'catch' &&
-      node.arguments.length === 1
-    ) {
-      const handler = node.arguments[0];
-      if (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler)) {
-        const body = handler.body;
-        const fallsBack = ts.isBlock(body)
-          ? blockFallsBack(body, source, true)
-          : isFallbackSet(body) ||
-            (isFallbackValue(body) && !(ts.isIdentifier(unwrap(body)) && (unwrap(body) as ts.Identifier).text === 'undefined'));
-        if (fallsBack) report(node, '.catch', handler.getFullText(source));
-      } else if (ts.isIdentifier(handler) && NOOP_NAME.test(handler.text)) {
-        report(node, '.catch(noop)', null);
+    } else if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+      const method = node.expression.name.text;
+      // `.catch(onRejected)` and the rejection handler of `.then(onFulfilled, onRejected)`.
+      const handler =
+        method === 'catch' && node.arguments.length === 1
+          ? node.arguments[0]
+          : method === 'then' && node.arguments.length === 2
+            ? node.arguments[1]
+            : null;
+      if (handler && (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))) {
+        if (handlerFallsBack(handler)) {
+          report(node, method === 'catch' ? '.catch' : '.then(_, onRejected)', handler.getFullText(source));
+        }
+      } else if (handler && ts.isIdentifier(handler) && NOOP_NAME.test(handler.text)) {
+        report(node, method === 'catch' ? '.catch(noop)' : '.then(_, onRejected)', null);
       }
     }
     ts.forEachChild(node, visit);
@@ -242,6 +340,11 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     reason:
       'deliberate: display-only rotation hint (GP-API-039, documented on the function); an aborted or failed read gives no hint, never an error',
   },
+  '/src/features/gardenPlanner/templates/TemplateImportDialog.tsx': {
+    count: 1,
+    reason:
+      "deliberate: a failed confirm clears the stale dry-run report and `refuse(error)` shows the refusal (409 proposes a free name); no load reads as 'none' here",
+  },
   '/src/main.tsx': {
     count: 1,
     reason:
@@ -252,21 +355,6 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     reason:
       'open: legacy LifecycleConfig fallback — a 404 (species without lifecycle) is the normal empty case and must be told apart from a failure first',
   },
-  '/src/pages/pflanzen/LifecycleConfigSection.tsx': {
-    count: 1,
-    reason:
-      'open: legacy LifecycleConfig read — a 404 (species without lifecycle) is the normal empty case and must be told apart from a failure first',
-  },
-  '/src/pages/pflanzen/PlantPhaseTimeline.tsx': {
-    count: 1,
-    reason:
-      'open: legacy LifecycleConfig fallback — a 404 (species without lifecycle) is the normal empty case and must be told apart from a failure first',
-  },
-  '/src/pages/pflanzen/ProfilesSection.tsx': {
-    count: 2,
-    reason:
-      'open: requirement/nutrient profiles answer 404 when none is set; a failure must be told apart from that before the section can show an error',
-  },
   '/src/pages/pflege/components/SpringReturnAssistant.tsx': {
     count: 1,
     reason:
@@ -276,6 +364,11 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     count: 1,
     reason:
       "open: the curation grid reads a failed load as 'no images'; it needs an error state with retry",
+  },
+  '/src/pages/standorte/LocationDetailPage.tsx': {
+    count: 1,
+    reason:
+      "open: a failed bed-summary read (not an offline miss) shows the plain location page instead of the bed view; the bed view has no error slot with a retry yet",
   },
   '/src/pages/tenants/TenantSettingsPage.tsx': {
     count: 1,
@@ -347,6 +440,17 @@ describe('findUnloggedFallbacks — fixtures', () => {
     ['an async catch clause returning a fallback', 'async function f() { try { return await g(); } catch { return []; } }'],
     ['a comment without a log call', 'p.catch(() => {\n  // fine\n  return [];\n});'],
     ['a log call without a comment', 'p.catch((e) => { captureHandledError(e); return []; });'],
+    // SCR-006: another call beside the fallback does not acquit it.
+    ['a fallback plus a done-flag', 'p.catch(() => { setItems([]); setDone(true); });'],
+    ['a fallback in an else branch', 'p.catch((e) => { if (gone(e)) { setItem(null); } else { setItems([]); } });'],
+    // SCR-012: the rejection handler of a two-argument `.then`.
+    ['a .then rejection handler returning a fallback', 'p.then((r) => r.items, () => []);'],
+    ['a .then rejection handler that is noop', 'p.then(use, noop);'],
+    // SCR-012: `//` inside a string literal is no comment.
+    [
+      'a URL in a string mistaken for a comment',
+      "p.catch((e) => { captureHandledError(e, { from: 'https://example.org' }); return []; });",
+    ],
   ];
   const ACCEPTED: [string, string][] = [
     ['a commented, logged fallback', 'p.catch((e) => {\n  // labels only\n  captureHandledError(e);\n  return [];\n});'],
@@ -358,6 +462,15 @@ describe('findUnloggedFallbacks — fixtures', () => {
     ['a rethrow', 'try { f(); } catch (e) { throw e; }'],
     ['an empty swallow (the other guard)', 'p.catch(() => {});'],
     ['a value that is data, not a fallback', "p.catch(() => ({ status: 'offline' }));"],
+    ['a .then rejection handler that sets an error state', 'p.then(use, () => setLoadError(true));'],
+    ['a fallback with a toast', 'p.catch((e) => { setItems([]); handleError(e); });'],
+    ['a fallback with a section reporter', "p.catch((e) => { setItems([]); reportSectionFailure('items', e); });"],
+    ['a fallback with a failure setter', 'try { await f(); } catch (e) { setReport(null); setFailure(e); }'],
+    ['a 404 as empty, else an error state', 'p.catch((e) => { if (gone(e)) { setItem(null); return; } setLoadError(true); });'],
+    [
+      'a commented, logged fallback with a URL in a string',
+      "p.catch((e) => {\n  // hint only\n  captureHandledError(e, { from: 'https://example.org' });\n  return [];\n});",
+    ],
   ];
 
   it.each(FLAGGED)('flags %s', (_name, code) => {

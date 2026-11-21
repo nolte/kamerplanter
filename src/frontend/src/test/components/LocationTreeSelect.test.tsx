@@ -78,14 +78,34 @@ describe('LocationTreeSelect', () => {
     expect(container.querySelector('input[name="location_key"]')).toHaveValue('loc-bed');
   });
 
-  it('falls back to an empty option list when the fetch fails', async () => {
-    mockGetLocationTree.mockRejectedValue(new Error('network'));
-    renderWithProviders(<TestForm siteKey="site-1" />);
-    await waitFor(() => expect(mockGetLocationTree).toHaveBeenCalled());
-
+  it('shows a failed fetch with a retry, not as a site without areas (#3037)', async () => {
+    mockGetLocationTree
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValue([node('loc-bed', 'Beet')]);
+    const onTreeLoaded = vi.fn();
     const user = userEvent.setup();
+    function Form() {
+      const { control } = useForm({ defaultValues: { location_key: '' } });
+      return (
+        <LocationTreeSelect
+          name="location_key"
+          control={control}
+          siteKey="site-1"
+          emptyHelperText="Dieser Standort hat noch keine Bereiche"
+          onTreeLoaded={onTreeLoaded}
+        />
+      );
+    }
+    renderWithProviders(<Form />);
+
+    await user.click(await screen.findByTestId('form-field-location_key-load-error-retry'));
+    // The failure was no count of areas, and its empty hint never showed.
+    expect(onTreeLoaded).not.toHaveBeenCalledWith(0);
+    await waitFor(() => expect(onTreeLoaded).toHaveBeenCalledWith(1));
+    expect(screen.queryByText('Dieser Standort hat noch keine Bereiche')).toBeNull();
+    expect(screen.queryByTestId('form-field-location_key-load-error')).toBeNull();
+
     await user.click(screen.getByRole('combobox'));
-    // Only the empty placeholder "—" option is present.
-    expect(within(screen.getByRole('listbox')).getAllByRole('option').length).toBe(1);
+    expect(within(screen.getByRole('listbox')).getByText('Beet')).toBeTruthy();
   });
 });

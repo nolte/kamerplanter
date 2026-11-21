@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+import { WAIT_BUDGET } from '../waitBudget';
 import type {
   WorkflowTemplate,
   TaskTemplate,
@@ -793,6 +794,99 @@ describe('WorkflowDetailPage', () => {
     expect(
       await screen.findByText(i18n.t('pages.tasks.workflowUpdated')),
     ).toBeInTheDocument();
+  });
+
+  // #3037 SCR-001: while the species catalogue is pending the picker holds no
+  // selection; a save in that window must keep the stored list, not clear it.
+  async function saveRenamed(user: ReturnType<typeof userEvent.setup>) {
+    await screen.findByTestId('workflow-detail-page');
+    await user.click(screen.getByRole('tab', { name: i18n.t('common.edit') }));
+    const nameField = await screen.findByLabelText(i18n.t('pages.tasks.workflowName'), {
+      exact: false,
+    });
+    await user.type(nameField, ' v2');
+    await user.click(screen.getByTestId('form-submit-button'));
+  }
+
+  it('keeps the stored compatible species when saving while the catalogue is still loading', async () => {
+    let release!: () => void;
+    const never = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let sent: unknown = null;
+    useWorkflow({ workflow: makeWorkflow({ species_compatible: ['Solanum lycopersicum'] }) });
+    server.use(
+      http.get('/api/v1/species', async () => {
+        await never;
+        return HttpResponse.json({ items: [], total: 0 });
+      }),
+      http.put(UPDATE_URL, async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(makeWorkflow({ species_compatible: ['Solanum lycopersicum'] }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+    try {
+      await saveRenamed(user);
+      await waitFor(() => expect(sent).not.toBeNull());
+      expect((sent as { species_compatible: string[] }).species_compatible).toEqual([
+        'Solanum lycopersicum',
+      ]);
+    } finally {
+      release();
+    }
+  });
+
+  it('keeps the stored compatible species when saving while the catalogue retry is pending', async () => {
+    let release!: () => void;
+    const never = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Fails until the retry is clicked, then hangs: the save lands in the retry's pending window.
+    let retried = false;
+    let retryCalls = 0;
+    let sent: unknown = null;
+    useWorkflow({ workflow: makeWorkflow({ species_compatible: ['Solanum lycopersicum'] }) });
+    server.use(
+      http.get('/api/v1/species', async () => {
+        if (!retried) return new HttpResponse(null, { status: 500 });
+        retryCalls += 1;
+        await never;
+        return HttpResponse.json({ items: [], total: 0 });
+      }),
+      http.put(UPDATE_URL, async ({ request }) => {
+        sent = await request.json();
+        return HttpResponse.json(makeWorkflow({ species_compatible: ['Solanum lycopersicum'] }));
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<WorkflowDetailPage />, { route: '/aufgaben/workflows/wf-1' });
+    try {
+      await screen.findByTestId('workflow-detail-page');
+      await user.click(screen.getByRole('tab', { name: i18n.t('common.edit') }));
+      const retry = await screen.findByTestId(
+        'workflow-species-load-error-retry',
+        {},
+        { timeout: WAIT_BUDGET },
+      );
+      retried = true;
+      await user.click(retry);
+      await waitFor(() => expect(retryCalls).toBe(1));
+      // The retry clears the error before the catalogue arrives.
+      expect(screen.queryByTestId('workflow-species-load-error')).toBeNull();
+      const nameField = await screen.findByLabelText(i18n.t('pages.tasks.workflowName'), {
+        exact: false,
+      });
+      await user.type(nameField, ' v2');
+      await user.click(screen.getByTestId('form-submit-button'));
+      await waitFor(() => expect(sent).not.toBeNull());
+      expect((sent as { species_compatible: string[] }).species_compatible).toEqual([
+        'Solanum lycopersicum',
+      ]);
+    } finally {
+      release();
+    }
   });
 
   it('deletes the workflow from the edit tab through the confirm dialog', async () => {

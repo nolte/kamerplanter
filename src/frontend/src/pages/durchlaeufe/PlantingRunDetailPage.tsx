@@ -179,6 +179,10 @@ export default function PlantingRunDetailPage() {
   // above the tabs instead of reading as "none" (#3037).
   const [sectionLoadError, setSectionLoadError] = useState(false);
   const [wateringLoadError, setWateringLoadError] = useState(false);
+  // Which watering legs failed: the tab then shows neither "no plan assigned" with
+  // its assign call to action nor "no schedule" in their place (#3037).
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
+  const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
   const loadSites = useCallback((): Promise<Site[]> => siteApi.listSites(0, 200), []);
   const sitesLoad = useAsyncOptions(loadSites);
   const sitesList = sitesLoad.options;
@@ -234,6 +238,8 @@ export default function PlantingRunDetailPage() {
           captureHandledError(err, { source: 'PlantingRunDetailPage.location' });
           setResolvedTank(null);
           setLocationName('');
+          // Never keep the previous run's site after a sibling switch.
+          setSiteKeyFromLocation(null);
           setSectionLoadError(true);
         }
       } else {
@@ -342,10 +348,10 @@ export default function PlantingRunDetailPage() {
       // Each leg degrades on its own so the others still render, but a failed leg is
       // reported and announced with a retry — a missing plan must not read as "no plan
       // assigned" (#3037).
-      let legFailed = false;
+      const failedLegs = new Set<string>();
       const degrade = <T,>(source: string, fallback: T) => (err: unknown): T => {
         captureHandledError(err, { source: `PlantingRunDetailPage.${source}` });
-        legFailed = true;
+        failedLegs.add(source);
         return fallback;
       };
       const [planResult, calendar, timelines] = await Promise.all([
@@ -354,7 +360,9 @@ export default function PlantingRunDetailPage() {
         runApi.getPhaseTimeline(key).catch(degrade<SpeciesPhaseTimeline[]>('phaseTimeline', [])),
       ]);
       if (stale()) return;
-      setWateringLoadError(legFailed);
+      setWateringLoadError(failedLegs.size > 0);
+      setPlanLoadFailed(failedLegs.has('nutrientPlan'));
+      setScheduleLoadFailed(failedLegs.has('wateringSchedule'));
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
       setPhaseTimelines(timelines);
@@ -380,12 +388,13 @@ export default function PlantingRunDetailPage() {
       }
     } catch (err) {
       if (stale()) return;
-      handleError(err);
+      // One cause, one message: the section banner announces it with a retry, no toast.
+      captureHandledError(err, { source: 'PlantingRunDetailPage.wateringData' });
       setWateringLoadError(true);
     } finally {
       if (!stale()) setWateringLoading(false);
     }
-  }, [key, handleError, beginWateringLoad]);
+  }, [key, beginWateringLoad]);
 
   // Load watering data for details tab (tab 0), phases tab (tab 2), and nutrient+watering tab (tab 3)
   useEffect(() => {
@@ -859,6 +868,8 @@ export default function PlantingRunDetailPage() {
           runStatus={run?.status}
           wateringLoading={wateringLoading}
           assignedPlan={assignedPlan}
+          planLoadFailed={planLoadFailed}
+          scheduleLoadFailed={scheduleLoadFailed}
           nutrientData={nutrientData}
           fertilizers={fertilizers}
           wateringCalendar={wateringCalendar}

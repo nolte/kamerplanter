@@ -129,14 +129,16 @@ describe('BotanicalFamilyDetailPage', () => {
     expect(await screen.findByTestId('loading-skeleton')).toBeInTheDocument();
   });
 
-  it('shows the error display and retries via navigate when the fetch fails', async () => {
-    getBotanicalFamily.mockRejectedValue(new Error('nope'));
+  it('shows the error display, and its retry loads again instead of leaving the page (#3037)', async () => {
+    getBotanicalFamily.mockRejectedValueOnce(new Error('nope')).mockResolvedValue(makeFamily());
     const user = userEvent.setup();
     renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
     await user.click(screen.getByTestId('error-retry-button'));
-    expect(navigate).toHaveBeenCalledWith(-1);
+    expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
+    expect(getBotanicalFamily).toHaveBeenCalledTimes(2);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('lists the species belonging to the family and links to the filtered species view', async () => {

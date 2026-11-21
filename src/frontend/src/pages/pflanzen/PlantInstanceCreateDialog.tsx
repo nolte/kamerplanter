@@ -50,6 +50,8 @@ import * as sitesApi from '@/api/endpoints/sites';
 import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
 import { captureHandledError } from '@/observability/errorTracking';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { isApiError } from '@/api/errors';
 import { toLocalIsoDate } from '@/utils/calendarDay';
 
 /** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
@@ -157,6 +159,7 @@ export default function PlantInstanceCreateDialog({
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
   const [slotsLoadError, setSlotsLoadError] = useState<string | null>(null);
   const [cultivarsLoadError, setCultivarsLoadError] = useState(false);
+  const [phaseSourcesLoadError, setPhaseSourcesLoadError] = useState(false);
 
   // ── Identification photo carry-over (issue #447) ─────────────────────
   const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
@@ -330,27 +333,20 @@ export default function PlantInstanceCreateDialog({
       .finally(() => setCultivarsLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!speciesKey) {
-      setCultivarList([]);
-      setPhaseOptionSources([]);
-      return;
-    }
-    const isInitialDuplicate = duplicateFrom && !initialLoadDone;
-    if (!isInitialDuplicate) {
-      setValue('cultivar_key', null);
-      setValue('current_phase_key', null);
-    }
-    fetchCultivars(speciesKey);
-
+  // The start-phase options of a species. Its own latest-wins run, so the retry
+  // re-reads only the phases — not the cultivars and not the chosen values (#3037).
+  const beginPhaseSourcesLoad = useAbortableLoad();
+  const loadPhaseSources = useCallback((forSpeciesKey: string, keepCarriedPhase: boolean) => {
     // Resolve the start-phase options the SAME way the backend validates them
     // (issue #626): a species' PhaseSequence entry keys are authoritative; only a
     // species without a sequence falls back to the LifecycleConfig growth phases.
     // This guarantees the auto-selected default `current_phase_key` is always a
     // member of the backend's `_valid_phase_keys` set, so an unchanged form no
     // longer 422s with PHASE_NOT_IN_SEQUENCE.
+    const ticket = beginPhaseSourcesLoad();
+    setPhaseSourcesLoadError(false);
     phaseSequenceApi
-      .getSpeciesPhaseSequence(speciesKey)
+      .getSpeciesPhaseSequence(forSpeciesKey)
       .then(async (seq): Promise<PhaseOptionSource[]> => {
         if (seq && seq.entries.length > 0) {
           return [...seq.entries]
@@ -364,7 +360,7 @@ export default function PlantInstanceCreateDialog({
         }
         // No PhaseSequence → fall back to the LifecycleConfig growth phases
         // (unchanged behaviour for LifecycleConfig-only species).
-        const lifecycle = await phaseApi.getLifecycleConfig(speciesKey);
+        const lifecycle = await phaseApi.getLifecycleConfig(forSpeciesKey);
         const phases = await phaseApi.listGrowthPhases(lifecycle.key);
         return [...phases]
           .sort((a, b) => a.sequence_order - b.sequence_order)
@@ -375,19 +371,46 @@ export default function PlantInstanceCreateDialog({
           }));
       })
       .then((sources) => {
+        if (!ticket.isCurrent()) return;
         setPhaseOptionSources(sources);
         // Auto-select the first phase only when the caller did not carry one over
         // (the duplicate path preserves its explicit `current_phase_key`).
-        if (!isInitialDuplicate && sources.length > 0) {
+        if (!keepCarriedPhase && sources.length > 0) {
           setValue('current_phase_key', sources[0].key);
         }
         setInitialLoadDone(true);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        if (!ticket.isCurrent()) return;
         setPhaseOptionSources([]);
-        setInitialLoadDone(true);
+        // A species without a lifecycle answers 404: no start phases to offer, not a failure.
+        if (isApiError(err) && err.statusCode === 404) {
+          setInitialLoadDone(true);
+          return;
+        }
+        // Otherwise shown with a retry, never as "this species has no phases" (#3037). The
+        // initial load stays open, so the retry still keeps a duplicate's carried phase.
+        captureHandledError(err, { source: 'PlantInstanceCreateDialog.phaseSources' });
+        setPhaseSourcesLoadError(true);
       });
-  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open, fetchCultivars]);
+  }, [beginPhaseSourcesLoad, setValue]);
+
+  useEffect(() => {
+    if (!speciesKey) {
+      setCultivarList([]);
+      setPhaseOptionSources([]);
+      setPhaseSourcesLoadError(false);
+      return;
+    }
+    const isInitialDuplicate = duplicateFrom && !initialLoadDone;
+    if (!isInitialDuplicate) {
+      setValue('cultivar_key', null);
+      setValue('current_phase_key', null);
+    }
+    fetchCultivars(speciesKey);
+
+    loadPhaseSources(speciesKey, Boolean(isInitialDuplicate));
+  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open, fetchCultivars, loadPhaseSources]);
 
   // Human-readable, i18n-aware option list for the "Current Phase" select. Both
   // sources are normalized to `{ value, label }` so the dropdown renders
@@ -766,6 +789,12 @@ export default function PlantInstanceCreateDialog({
               options={phaseOptions}
             />
           </FormRow>
+          {phaseSourcesLoadError && speciesKey && (
+            <OptionsLoadError
+              onRetry={() => loadPhaseSources(speciesKey, Boolean(duplicateFrom) && !initialLoadDone)}
+              data-testid="plant-create-phases-load-error"
+            />
+          )}
           {/* ADR-006 E1 (#565) — per-instance cultivation cycle. Optional: leaving it
               on "same as the species" keeps the existing species-driven behaviour, so
               the flow is unchanged when the grower does not decide per plant.

@@ -31,6 +31,10 @@ interface PlantingRunNutrientWateringTabProps {
   runStatus: PlantingRunStatus | undefined;
   wateringLoading: boolean;
   assignedPlan: Record<string, unknown> | null;
+  /** The plan read failed: neither "no plan assigned" nor the assign call to action is shown. */
+  planLoadFailed?: boolean;
+  /** The schedule read failed: "no schedule" is not shown in its place. */
+  scheduleLoadFailed?: boolean;
   nutrientData: RunNutrientData;
   fertilizers: Fertilizer[];
   wateringCalendar: WateringScheduleCalendarResponse | null;
@@ -48,6 +52,8 @@ export default function PlantingRunNutrientWateringTab({
   runStatus,
   wateringLoading,
   assignedPlan,
+  planLoadFailed = false,
+  scheduleLoadFailed = false,
   nutrientData,
   fertilizers,
   wateringCalendar,
@@ -131,8 +137,8 @@ export default function PlantingRunNutrientWateringTab({
                 </Button>
               </Box>
             </Box>
-          ) : (
-            <Box>
+          ) : planLoadFailed ? null : (
+            <Box data-testid="run-no-plan-assigned">
               <Alert severity="info" sx={{ mb: 2 }}>
                 {t('pages.nutrientPlans.noPlanAssigned')}
               </Alert>
@@ -225,7 +231,7 @@ export default function PlantingRunNutrientWateringTab({
                 </Typography>
               </Box>
 
-              {!wateringCalendar || !wateringCalendar.has_schedule ? (
+              {scheduleLoadFailed ? null : !wateringCalendar || !wateringCalendar.has_schedule ? (
                 <Alert severity="info">
                   {t('pages.wateringSchedule.noPlan')}
                 </Alert>

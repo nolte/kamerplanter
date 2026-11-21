@@ -220,6 +220,9 @@ export default function PlantInstanceDetailPage() {
 
   // Nutrient plan assignment state
   const [assignedPlan, setAssignedPlan] = useState<NutrientPlan | null>(null);
+  // The plan read failed: there is no "no plan assigned" to show, and no assign
+  // call to action in its place — the section banner carries the retry (#3037).
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
   const [removingPlan, setRemovingPlan] = useState(false);
@@ -292,6 +295,7 @@ export default function PlantInstanceDetailPage() {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     formState: { isDirty },
   } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
@@ -315,7 +319,10 @@ export default function PlantInstanceDetailPage() {
   // the user navigated away from (or an older refresh) never lands. Every state
   // write below, including the fire-and-forget ones, checks `isCancelled` first.
   const beginLoad = useAbortableLoad();
-  const load = async () => {
+  // `secondaryOnly` is the section retry (#3037 SCR-003): it re-runs the secondary
+  // reads against the plant already on screen, without the page skeleton and
+  // without `reset(...)`, so unsaved input on the edit tab survives it.
+  const load = async ({ secondaryOnly = false }: { secondaryOnly?: boolean } = {}) => {
     if (!key) return;
     const ticket = beginLoad();
     const isCancelled = () => !ticket.isCurrent();
@@ -327,12 +334,13 @@ export default function PlantInstanceDetailPage() {
       captureHandledError(err, { source: `PlantInstanceDetailPage.${source}` });
       setSectionLoadError(true);
     };
-    setLoading(true);
+    const reuse = secondaryOnly && plant?.key === key ? plant : null;
+    if (!reuse) setLoading(true);
     setSectionLoadError(false);
     try {
-      const p = await plantApi.getPlantInstance(key);
+      const p = reuse ?? (await plantApi.getPlantInstance(key));
       if (isCancelled()) return;
-      setPlant(p);
+      if (!reuse) setPlant(p);
       // Resolve the mother instance for the ancestry link (D10 clonal continuation).
       // Kicked off in the same tick as setPlant (before any further awaits) so the
       // "loading" state batches with the initial render — the raw mother_key never
@@ -397,7 +405,13 @@ export default function PlantInstanceDetailPage() {
           if (isCancelled()) return;
           setAssignedLocation(null);
         }
-        sitesApi.listSlots(resolvedLocationKey)
+      } else {
+        setAssignedLocation(null);
+      }
+      // A section retry must not swap the slot list under an edited location.
+      const slotsLocationKey = reuse ? (getValues('location_key') ?? null) : resolvedLocationKey;
+      if (slotsLocationKey) {
+        sitesApi.listSlots(slotsLocationKey)
           .then((sl) => {
             if (isCancelled()) return;
             setSlotsList(sl);
@@ -409,8 +423,6 @@ export default function PlantInstanceDetailPage() {
             setSlotsList([]);
             setSlotsLoadError(true);
           });
-      } else {
-        setAssignedLocation(null);
       }
       // Resolve slot display
       if (p.slot_key) {
@@ -423,18 +435,20 @@ export default function PlantInstanceDetailPage() {
       } else {
         setAssignedSlot(null);
       }
-      skipLocationReset.current = true;
-      skipSlotReset.current = true;
-      reset({
-        plant_name: p.plant_name,
-        cultivar_key: p.cultivar_key,
-        site_key: resolvedSiteKey,
-        location_key: resolvedLocationKey,
-        slot_key: p.slot_key,
-        substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
-        planted_on: p.planted_on,
-        container_volume_liters: p.container_volume_liters,
-      });
+      if (!reuse) {
+        skipLocationReset.current = true;
+        skipSlotReset.current = true;
+        reset({
+          plant_name: p.plant_name,
+          cultivar_key: p.cultivar_key,
+          site_key: resolvedSiteKey,
+          location_key: resolvedLocationKey,
+          slot_key: p.slot_key,
+          substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
+          planted_on: p.planted_on,
+          container_volume_liters: p.container_volume_liters,
+        });
+      }
       // Load planting runs for this plant
       plantApi.getPlantRuns(key)
         .then((r) => { if (!isCancelled()) setPlantRuns(r); })
@@ -529,6 +543,7 @@ export default function PlantInstanceDetailPage() {
       }
       if (isCancelled()) return;
       setAssignedPlan(ap);
+      setPlanLoadFailed(planFailed);
       if (ap) {
         const [pe, f] = await Promise.all([
           planApi.fetchPhaseEntries(ap.key),
@@ -546,7 +561,9 @@ export default function PlantInstanceDetailPage() {
       }
     } catch (err) {
       if (isCancelled()) return;
-      setError(errorKey(err, 'errors.loadFailed'));
+      // On a section retry the page is already on screen: flag the section, keep the page.
+      if (reuse) reportSectionFailure('plan', err);
+      else setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       if (!isCancelled()) setLoading(false);
     }
@@ -1309,7 +1326,7 @@ export default function PlantInstanceDetailPage() {
       {sectionLoadError && (
         <OptionsLoadError
           messageKey="errors.loadFailed"
-          onRetry={() => void load()}
+          onRetry={() => void load({ secondaryOnly: true })}
           data-testid="plant-section-load-error"
         />
       )}
@@ -1835,7 +1852,7 @@ export default function PlantInstanceDetailPage() {
                 )}
 
                 {/* Hint when no nutrient plan assigned */}
-                {!assignedPlan && currentGrowthPhase && (
+                {!assignedPlan && !planLoadFailed && currentGrowthPhase && (
                   <>
                     <Divider sx={{ my: 1.5 }} />
                     <Alert severity="info" variant="outlined" sx={{ py: 0 }}>
@@ -2188,8 +2205,8 @@ export default function PlantInstanceDetailPage() {
                 </Button>
               </Box>
             </Box>
-          ) : (
-            <Box>
+          ) : planLoadFailed ? null : (
+            <Box data-testid="plant-no-plan-assigned">
               <Alert severity="info" sx={{ mb: 2 }}>
                 {t('pages.nutrientPlans.noPlanAssigned')}
               </Alert>

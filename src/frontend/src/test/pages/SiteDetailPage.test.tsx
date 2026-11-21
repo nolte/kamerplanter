@@ -165,6 +165,35 @@ describe('SiteDetailPage', () => {
     expect(screen.queryByTestId('site-detail-page')).toBeNull();
   });
 
+  it('retries the failed site load in place instead of navigating back (#3037)', async () => {
+    let calls = 0;
+    server.use(
+      http.get('/api/v1/t/:tenant/sites/:key', () => {
+        calls += 1;
+        return calls === 1
+          ? errorEnvelope(500)
+          : HttpResponse.json({
+            key: 'site-1',
+            name: 'Main Greenhouse',
+            type: 'greenhouse',
+            gps_coordinates: null,
+            climate_zone: '8b',
+            total_area_m2: 50,
+            timezone: 'UTC',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: null,
+          });
+      }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByTestId('error-retry-button'));
+    expect(await screen.findByTestId('site-detail-page')).toBeTruthy();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(calls).toBe(2);
+  });
+
   it('shows the weather type hint for a non-outdoor site', async () => {
     useSite({ type: 'indoor' });
     useSiteSensors();

@@ -314,6 +314,18 @@ describe('SpeciesDetailPage — edit form & actions', () => {
     expect(payload.default_nutrient_plan_key).toBeNull();
   });
 
+  it('retries a failed species load in place instead of navigating back (#3037)', async () => {
+    getSpecies.mockReset().mockRejectedValueOnce(new Error('boom')).mockResolvedValue(makeFullSpecies());
+    const user = userEvent.setup();
+    renderWithProviders(<SpeciesDetailPage />, { store: makeStore('intermediate', null) });
+
+    await user.click(await screen.findByTestId('error-retry-button'));
+
+    expect(await screen.findByTestId('species-detail-page')).toBeInTheDocument();
+    expect(getSpecies).toHaveBeenCalledTimes(2);
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('toggles the sowing favorite from the header action', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SpeciesDetailPage />, { store: makeStore('intermediate', makeFullSpecies()) });

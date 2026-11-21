@@ -96,6 +96,10 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
   // with a retry, never as "nothing to pick from" (#3037).
   const [assistLoadError, setAssistLoadError] = useState(false);
   const [assistAttempt, setAssistAttempt] = useState(0);
+  // The growth-phase leg has its own flag and retry: re-running the species leg
+  // would clear the selected species and with it the phases to reload.
+  const [growthPhasesLoadError, setGrowthPhasesLoadError] = useState(false);
+  const [growthPhasesAttempt, setGrowthPhasesAttempt] = useState(0);
 
   const defaultValues: FormData = {
     name: '',
@@ -181,6 +185,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setGrowthPhasesLoadError(false);
       if (!selectedSpecies) {
         setGrowthPhases([]);
         return;
@@ -198,7 +203,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         if (!absent) captureHandledError(err, { source: 'WorkflowPhaseDialog.growthPhases' });
         if (!cancelled) {
           setGrowthPhases([]);
-          if (!absent) setAssistLoadError(true);
+          if (!absent) setGrowthPhasesLoadError(true);
         }
       } finally {
         if (!cancelled) setGrowthPhasesLoading(false);
@@ -207,7 +212,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
     return () => {
       cancelled = true;
     };
-  }, [selectedSpecies]);
+  }, [selectedSpecies, growthPhasesAttempt]);
 
   const fillFromGrowthPhase = useCallback(
     (gp: GrowthPhase) => {
@@ -279,9 +284,12 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         {/* Species selector and suggestions — only in create mode */}
         {!isEdit && (
           <>
-            {assistLoadError && (
+            {(assistLoadError || growthPhasesLoadError) && (
               <OptionsLoadError
-                onRetry={() => setAssistAttempt((n) => n + 1)}
+                onRetry={() => {
+                  if (assistLoadError) setAssistAttempt((n) => n + 1);
+                  if (growthPhasesLoadError) setGrowthPhasesAttempt((n) => n + 1);
+                }}
                 data-testid="workflow-phase-assist-load-error"
               />
             )}

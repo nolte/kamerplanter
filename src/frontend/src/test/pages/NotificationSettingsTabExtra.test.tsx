@@ -229,4 +229,29 @@ describe('NotificationSettingsTab — save failure', () => {
       await screen.findByTestId('channel-toggle-home_assistant'),
     ).toBeInTheDocument();
   });
+
+  it('keeps the editor when only the channel status fails, and shows the status as unknown (#3037)', async () => {
+    api.getChannelStatus.mockRejectedValueOnce(new Error('status failed'));
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationSettingsTab />);
+
+    // The preferences loaded: the form and its save action are there.
+    expect(await screen.findByTestId('channel-toggle-email')).toBeInTheDocument();
+    expect(screen.getByTestId('notification-settings-save')).toBeInTheDocument();
+    // The status is unknown, not "not configured" and not "available".
+    expect(await screen.findByTestId('channel-status-load-error')).toBeInTheDocument();
+    expect(screen.getByTestId('channel-status-email')).toHaveTextContent(
+      i18n.t('pages.notifications.settings.channelStatusUnknown'),
+    );
+    expect(screen.queryByText(i18n.t('pages.notifications.settings.channelNotConfigured'))).toBeNull();
+
+    // The status retry reloads the status only.
+    await user.click(screen.getByTestId('channel-status-load-error-retry'));
+    await waitFor(() =>
+      expect(screen.getByTestId('channel-status-email')).toHaveTextContent(
+        i18n.t('pages.notifications.settings.channelAvailable'),
+      ),
+    );
+    expect(api.getPreferences).toHaveBeenCalledTimes(1);
+  });
 });

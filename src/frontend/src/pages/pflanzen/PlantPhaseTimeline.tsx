@@ -13,6 +13,8 @@ import type {
 import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
 import PhaseKamiTimeline from '@/pages/durchlaeufe/PhaseKamiTimeline';
 import { captureHandledError } from '@/observability/errorTracking';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { isApiError } from '@/api/errors';
 
 interface Props {
   plant: PlantInstance;
@@ -111,14 +113,20 @@ export default function PlantPhaseTimeline({
 }: Props) {
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed read is shown with a retry; only a 404 (species without lifecycle) means
+  // "no timeline" (#3037).
+  const [loadError, setLoadError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!plant.species_key) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset loading when no species
       setLoading(false);
+      setLoadError(false);
       return;
     }
     setLoading(true);
+    setLoadError(false);
 
     // Try PhaseSequence first, fall back to LifecycleConfig + GrowthPhases
     phaseSequenceApi
@@ -165,10 +173,15 @@ export default function PlantPhaseTimeline({
             return phasesApi.listGrowthPhases(lc.key);
           })
           .then(setGrowthPhases)
-          .catch(() => setGrowthPhases([]))
+          .catch((err: unknown) => {
+            setGrowthPhases([]);
+            if (isApiError(err) && err.statusCode === 404) return;
+            captureHandledError(err, { source: 'PlantPhaseTimeline.growthPhases' });
+            setLoadError(true);
+          })
           .finally(() => setLoading(false));
       });
-  }, [plant.species_key, onLifecycleLoaded]);
+  }, [plant.species_key, onLifecycleLoaded, attempt]);
 
   const timeline = useMemo(
     () => (growthPhases.length > 0 ? buildTimeline(growthPhases, history, plant) : []),
@@ -180,6 +193,16 @@ export default function PlantPhaseTimeline({
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <OptionsLoadError
+        messageKey="errors.loadFailed"
+        onRetry={() => setAttempt((n) => n + 1)}
+        data-testid="plant-phase-timeline-load-error"
+      />
     );
   }
 
