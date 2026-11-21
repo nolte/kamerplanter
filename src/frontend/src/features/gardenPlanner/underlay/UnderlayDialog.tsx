@@ -208,15 +208,18 @@ export default function UnderlayDialog({
   });
   const originNumbers: [number, number] = [numberOf(originX), numberOf(originY)];
   const rotationNumber = numberOf(rotation);
+  // A point not given yet is not outside the picture: the warning names a point that was set off the picture,
+  // while an unset one only keeps Save off (no scale without two points).
   const pointsInside =
     natural === null ||
-    ([...calibration.p1, ...calibration.p2].every(
-      (value) => Number.isFinite(value) && value >= 0,
-    ) &&
-      calibration.p1[0] <= natural.width &&
-      calibration.p2[0] <= natural.width &&
-      calibration.p1[1] <= natural.height &&
-      calibration.p2[1] <= natural.height);
+    [calibration.p1, calibration.p2].every(
+      (point) =>
+        !isSet(point) ||
+        (point[0] >= 0 &&
+          point[1] >= 0 &&
+          point[0] <= natural.width &&
+          point[1] <= natural.height),
+    );
   const placementValid =
     originNumbers.every((value) => Number.isFinite(value) && Math.abs(value) <= 1000) &&
     Number.isFinite(rotationNumber) &&
@@ -341,7 +344,12 @@ export default function UnderlayDialog({
         data-testid="garden-plan-underlay-dialog"
       >
         <DialogTitle id="underlay-title">{t(`${PREFIX}.title`)}</DialogTitle>
-        <DialogContent dividers sx={{ display: 'grid', gap: 2 }}>
+        {/*
+          Rows as tall as their content: with `auto` rows a grid that is shorter than its content shrinks the one
+          row whose item is a scroll container (its automatic minimum height is 0) - the picture box below
+          collapsed to a few pixels on a 945 px desktop window and hid the picture. The content scrolls instead.
+        */}
+        <DialogContent dividers sx={{ display: 'grid', gap: 2, gridAutoRows: 'max-content' }}>
           <Typography variant="body2" color="text.secondary">
             {t(`${PREFIX}.intro`)}
           </Typography>

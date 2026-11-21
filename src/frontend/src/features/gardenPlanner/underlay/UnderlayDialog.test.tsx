@@ -140,6 +140,36 @@ describe('calibration', () => {
     expect(screen.getByTestId('underlay-p2x')).toHaveValue('500');
     expect(screen.getByTestId('underlay-p2y')).toHaveValue('50');
   });
+
+  const OUTSIDE = 'A point lies outside the picture.';
+
+  it('warns about a point off the picture only once one is set there, not for points still missing', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    loadPicture(800, 400);
+    expect(screen.queryByText(OUTSIDE)).not.toBeInTheDocument();
+
+    fillCalibration({ p1x: '100', p1y: '200' });
+    expect(screen.queryByText(OUTSIDE)).not.toBeInTheDocument();
+
+    fillCalibration({ p2x: '900', p2y: '200', distance: '4' });
+    expect(screen.getByText(OUTSIDE)).toBeInTheDocument();
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+
+    fillCalibration({ p2x: '-1' });
+    expect(screen.getByText(OUTSIDE)).toBeInTheDocument();
+  });
+
+  it('sizes the content rows to their content, so the scrolling picture box is never squeezed', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    // `auto` rows let a grid shorter than its content shrink a scroll container to nothing. jsdom has no layout:
+    // the declaration that prevents it is what can be pinned here; TC-053-044 (E2E) clicks the shown picture.
+    const content = screen.getByTestId('underlay-picture').parentElement;
+    expect(content).toHaveStyle({ display: 'grid', gridAutoRows: 'max-content' });
+  });
 });
 
 describe('calibration by keyboard', () => {
