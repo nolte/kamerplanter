@@ -19,6 +19,27 @@ from app.api.v1.plant_instances.schemas import CultivarSummary, SpeciesSummary
 from app.domain.models.species import Cultivar, Species
 
 
+def _memoised[T](memo: dict[str, T], key: str, resolve: Callable[[str], T]) -> T:
+    """``resolve(key)`` once per ``memo``; every later call for ``key`` is served from it."""
+    if key not in memo:
+        memo[key] = resolve(key)
+    return memo[key]
+
+
+def _species_summary(species: Species | None) -> SpeciesSummary | None:
+    if species is None:
+        return None
+    return SpeciesSummary(
+        scientific_name=species.scientific_name,
+        common_names=species.common_names,
+        common_names_i18n=species.common_names_i18n,
+    )
+
+
+def _cultivar_summary(cultivar: Cultivar | None) -> CultivarSummary | None:
+    return CultivarSummary(name=cultivar.name) if cultivar else None
+
+
 class PlantRowLabels:
     """Resolve species/cultivar summaries and phase names once per distinct key."""
 
@@ -29,8 +50,12 @@ class PlantRowLabels:
         resolve_cultivar: Callable[[str], Cultivar | None],
         resolve_phase_name: Callable[[str], str] | None = None,
     ) -> None:
-        self._resolve_species = resolve_species
-        self._resolve_cultivar = resolve_cultivar
+        self._summarise_species: Callable[[str], SpeciesSummary | None] = lambda key: _species_summary(
+            resolve_species(key)
+        )
+        self._summarise_cultivar: Callable[[str], CultivarSummary | None] = lambda key: _cultivar_summary(
+            resolve_cultivar(key)
+        )
         self._resolve_phase_name = resolve_phase_name
         self._species: dict[str, SpeciesSummary | None] = {}
         self._cultivars: dict[str, CultivarSummary | None] = {}
@@ -40,32 +65,16 @@ class PlantRowLabels:
         """Return the species summary for ``species_key``; ``None`` if absent or unreadable."""
         if not species_key:
             return None
-        if species_key not in self._species:
-            sp = self._resolve_species(species_key)
-            self._species[species_key] = (
-                SpeciesSummary(
-                    scientific_name=sp.scientific_name,
-                    common_names=sp.common_names,
-                    common_names_i18n=sp.common_names_i18n,
-                )
-                if sp
-                else None
-            )
-        return self._species[species_key]
+        return _memoised(self._species, species_key, self._summarise_species)
 
     def cultivar(self, cultivar_key: str | None) -> CultivarSummary | None:
         """Return the cultivar summary for ``cultivar_key``; ``None`` if absent or unknown."""
         if not cultivar_key:
             return None
-        if cultivar_key not in self._cultivars:
-            cv = self._resolve_cultivar(cultivar_key)
-            self._cultivars[cultivar_key] = CultivarSummary(name=cv.name) if cv else None
-        return self._cultivars[cultivar_key]
+        return _memoised(self._cultivars, cultivar_key, self._summarise_cultivar)
 
     def phase_name(self, phase_key: str | None) -> str:
         """Return the phase name for ``phase_key``; ``""`` if absent or no resolver is configured."""
         if not phase_key or self._resolve_phase_name is None:
             return ""
-        if phase_key not in self._phase_names:
-            self._phase_names[phase_key] = self._resolve_phase_name(phase_key)
-        return self._phase_names[phase_key]
+        return _memoised(self._phase_names, phase_key, self._resolve_phase_name)

@@ -453,7 +453,7 @@ def list_plants(
     # here; ``current_phase`` comes from the run's plant rows as before.
     labels = PlantRowLabels(
         resolve_species=lambda species_key: readable_species(species_repo, species_key, ctx.tenant_key),
-        resolve_cultivar=species_repo.get_cultivar_by_key,
+        resolve_cultivar=lambda cultivar_key: species_repo.get_cultivar_by_key(cultivar_key),
     )
 
     return [
