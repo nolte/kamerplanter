@@ -81,7 +81,7 @@ import {
   EMPTY_QUEUE_SCOPE,
 } from '@/store/slices/tasksSlice';
 import type { OriginFilter, QueueScope } from '@/store/slices/tasksSlice';
-import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
+import { clearCurrentProfile, fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
@@ -264,6 +264,7 @@ export default function TaskQueuePage() {
     loading: careLoading,
     dashboardLoaded: careDashboardLoaded,
     currentProfile,
+    profileError: careProfileError,
   } = useAppSelector((s) => s.careReminders);
   const [careActionLoading, setCareActionLoading] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -499,6 +500,10 @@ export default function TaskQueuePage() {
     [dispatch, notification, handleError, t],
   );
 
+  // The dialog opens at once and shows a loading state until the profile of
+  // *this* plant is in the store (#3065). It used to render whatever profile
+  // was there — the previously edited plant's — and re-seed every field when
+  // the right one arrived, discarding the user's input in between.
   const handleEditProfile = useCallback(
     (plantKey: string) => {
       setEditPlantKey(plantKey);
@@ -508,14 +513,26 @@ export default function TaskQueuePage() {
     [dispatch],
   );
 
+  const closeEditProfile = useCallback(() => {
+    setEditDialogOpen(false);
+    setEditPlantKey(null);
+    dispatch(clearCurrentProfile());
+  }, [dispatch]);
+
   const handleProfileUpdated = useCallback(
     (_profile: CareProfile) => {
-      setEditDialogOpen(false);
-      setEditPlantKey(null);
+      closeEditProfile();
       dispatch(fetchDashboard());
     },
-    [dispatch],
+    [closeEditProfile, dispatch],
   );
+
+  const retryEditProfile = useCallback(() => {
+    if (editPlantKey) dispatch(fetchProfile({ plantKey: editPlantKey }));
+  }, [dispatch, editPlantKey]);
+
+  const editProfile =
+    currentProfile && currentProfile.plant_key === editPlantKey ? currentProfile : null;
 
   // ── Bulk actions ─────────────────────────────────────────────────────
 
@@ -1785,11 +1802,13 @@ export default function TaskQueuePage() {
         }}
       />
 
-      {currentProfile && editPlantKey && (
+      {editPlantKey && (
         <CareProfileEditDialog
           open={editDialogOpen}
-          onClose={() => { setEditDialogOpen(false); setEditPlantKey(null); }}
-          profile={currentProfile}
+          onClose={closeEditProfile}
+          profile={editProfile}
+          error={editProfile ? null : careProfileError}
+          onRetry={retryEditProfile}
           onUpdated={handleProfileUpdated}
         />
       )}

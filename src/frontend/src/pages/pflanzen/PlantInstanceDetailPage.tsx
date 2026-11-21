@@ -268,7 +268,10 @@ export default function PlantInstanceDetailPage() {
 
   // Care profile state
   const [careProfile, setCareProfile] = useState<import('@/api/types').CareProfile | null>(null);
-  const [careProfileError, setCareProfileError] = useState<string | null>(null);
+  // The failed read's error key together with the plant it was for (#3065): the
+  // effect that clears it runs only after the first render under a new route
+  // key, so the render filters it by key — like the profile by `plant_key`.
+  const [careProfileError, setCareProfileError] = useState<{ plantKey: string; error: string } | null>(null);
   const [careProfileAttempt, setCareProfileAttempt] = useState(0);
 
   // Watering state
@@ -574,21 +577,35 @@ export default function PlantInstanceDetailPage() {
     load();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load care profile when switching to Care tab
+  // Load care profile when switching to Care tab.
+  //
+  // The form seeds its fields from the profile object it is handed and re-seeds
+  // when a new object arrives (#3065). Keeping the previous answer on screen
+  // while this read runs would therefore show a stale profile — another plant's
+  // after a key change — and then discard whatever the user typed before the
+  // fresh one landed. The previous answer is dropped first, and an answer for a
+  // superseded read (key or tab changed meanwhile) is ignored.
   useEffect(() => {
-    if (tab === 4 && key) {
-      careApi.getOrCreateProfile(key)
-        .then((profile) => {
-          setCareProfile(profile);
-          setCareProfileError(null);
-        })
-        .catch((err: unknown) => {
-          // Shown with a retry instead of a skeleton that never resolves (#3037).
-          captureHandledError(err, { source: 'PlantInstanceDetailPage.careProfile' });
-          setCareProfile(null);
-          setCareProfileError(errorKey(err, 'errors.loadFailed'));
-        });
-    }
+    if (tab !== 4 || !key) return undefined;
+    let cancelled = false;
+    setCareProfile(null); // eslint-disable-line react-hooks/set-state-in-effect -- drop the superseded answer before the read starts (#3065)
+    setCareProfileError(null);
+    careApi.getOrCreateProfile(key)
+      .then((profile) => {
+        if (cancelled) return;
+        setCareProfile(profile);
+        setCareProfileError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Shown with a retry instead of a skeleton that never resolves (#3037).
+        captureHandledError(err, { source: 'PlantInstanceDetailPage.careProfile' });
+        setCareProfile(null);
+        setCareProfileError({ plantKey: key, error: errorKey(err, 'errors.loadFailed') });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [tab, key, careProfileAttempt]);
 
   // Load every task bound to this plant instance (all categories, all statuses).
@@ -2407,7 +2424,7 @@ export default function PlantInstanceDetailPage() {
       {/* Tab 4: Care Profile */}
       {tab === 4 && (
         <Box sx={{ maxWidth: 1280 }}>
-          {careProfile ? (
+          {careProfile && careProfile.plant_key === key ? (
             <>
               {/* Care-tab profile editing happens inline (#577): the form is always
                   editable directly on the page instead of behind a modal. The
@@ -2432,9 +2449,9 @@ export default function PlantInstanceDetailPage() {
                 onUpdated={(updated) => setCareProfile(updated)}
               />
             </>
-          ) : careProfileError ? (
+          ) : careProfileError && careProfileError.plantKey === key ? (
             <ErrorDisplay
-              error={careProfileError}
+              error={careProfileError.error}
               onRetry={() => {
                 setCareProfileError(null);
                 setCareProfileAttempt((n) => n + 1);

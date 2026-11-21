@@ -412,6 +412,16 @@ class StubConnection:
             return {"value": True}
         if command == Command.W3C_EXECUTE_SCRIPT:
             return self._run_script(params)
+        if command == Command.W3C_GET_ALERT_TEXT:
+            # `scroll_and_click` asks whether a prompt is open before each probe
+            # script (#3065). This table never opens one.
+            return _w3c_error("no such alert", "no prompt is open")
+        if command == Command.W3C_EXECUTE_SCRIPT_ASYNC:
+            # `scroll_and_click`'s frame-settled hit-test (#3065). Answered like a
+            # synchronous script -- staleness first, then the generic stub value,
+            # which the helper reads as "no verdict" -- so the click path stays
+            # what these tests measure.
+            return self._run_script(params)
 
         raise AssertionError(f"stub driver got an unmodelled command: {command}")
 

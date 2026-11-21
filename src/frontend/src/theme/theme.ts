@@ -237,6 +237,26 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
           variant: 'outlined',
         },
       },
+      // #3065 — a dialog's scrolling content must not change its width when its
+      // scrollbar comes or goes. Where the platform draws a classic (space-taking)
+      // scrollbar — desktop Chrome/Firefox on Linux and Windows — the 15 px it
+      // takes from the content re-wraps every helper text and toggle row the
+      // moment the content starts to overflow: an alert or a section appearing,
+      // an accordion expanding, the window shrinking. Everything below the first
+      // re-wrapped line moves under the pointer. Measured in the nightly on the
+      // plant-create dialog (same dialog instance before/after its first scroll:
+      // fields 15 px narrower, "Optionaler Anzeigename für diese Pflanze" on two
+      // lines, the action row lower) and on the care-profile dialog (the month
+      // row wrapping October onto a second line). Reserving the gutter keeps the
+      // layout identical either way; overlay scrollbars (macOS, mobile) are not
+      // affected by the property at all.
+      MuiDialogContent: {
+        styleOverrides: {
+          root: {
+            scrollbarGutter: 'stable',
+          },
+        },
+      },
       MuiTableCell: {
         styleOverrides: {
           head: {
