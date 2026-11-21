@@ -183,7 +183,9 @@ export default function MobileCard({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
           {leading && <Box sx={{ flexShrink: 0 }}>{leading}</Box>}
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle2" noWrap data-testid="card-title">
+            {/* `subtitle2` maps to an `<h6>` by default: every card of a list page then opened an h1 → h6
+                heading jump (#3047 L-13). The card title is the card's label, not a document section. */}
+            <Typography variant="subtitle2" component="div" noWrap data-testid="card-title">
               {withColumnHook(title, titleId)}
             </Typography>
             {subtitle && (

@@ -1,4 +1,4 @@
-import { createTheme, darken, type Theme } from '@mui/material/styles';
+import { alpha, createTheme, darken, getOverlayAlpha, type Theme } from '@mui/material/styles';
 import { lightPalette, darkPalette, highContrastPalette } from './palette';
 import { typography } from './typography';
 import { breakpoints, radii } from './tokens';
@@ -40,6 +40,15 @@ function focusRingStyles(theme: Theme) {
       '.MuiAccordionSummary-root.Mui-focusVisible',
     ].join(', ')]: { outlineOffset: -2 },
   };
+}
+
+/** Highest elevation whose dark-mode overlay still keeps every role colour legible as a label (#3047). */
+export const MAX_DARK_OVERLAY_ELEVATION = 8;
+
+/** The overlay MUI paints on a dark Paper of `elevation` (same formula as `Paper.js`). */
+function darkOverlay(elevation: number): string {
+  const tint = alpha('#fff', getOverlayAlpha(elevation));
+  return `linear-gradient(${tint}, ${tint})`;
 }
 
 function buildTheme(mode: 'light' | 'dark'): Theme {
@@ -174,6 +183,22 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
       MuiCard: {
         defaultProps: {
           variant: 'outlined',
+        },
+      },
+      // Dark mode lightens an elevated Paper with a white overlay that grows with the elevation. On a
+      // Dialog (elevation 24) and a temporary Drawer (16) it reaches rgb(63-67) — and every role colour
+      // used as a label there fell below WCAG AA: `primary.main` 4.19:1, `success` 4.19, `secondary`
+      // 4.28, `info` 4.30, `error` 4.34 (the dialog's text buttons and links, #3047). Capped at the
+      // elevation-8 overlay a Menu already paints, where the lowest role reads 4.88:1, so a dialog
+      // still sits visibly above the page.
+      MuiPaper: {
+        styleOverrides: {
+          root: ({ theme, ownerState }) =>
+            theme.palette.mode === 'dark' &&
+            ownerState.variant !== 'outlined' &&
+            (ownerState.elevation ?? 1) > MAX_DARK_OVERLAY_ELEVATION
+              ? { backgroundImage: darkOverlay(MAX_DARK_OVERLAY_ELEVATION) }
+              : {},
         },
       },
       // `warning.main` (#ed6c02) reaches only 3.11:1 on white, so wherever it is

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -165,7 +165,8 @@ export default function PlantIdentificationPage() {
                       color="primary"
                       variant="filled"
                       clickable
-                      onClick={() => navigate(`/pflanzen/plant-instances/${instanceKey}`)}
+                      component={RouterLink}
+                      to={`/pflanzen/plant-instances/${instanceKey}`}
                       aria-label={t('pages.plantIdentification.historyOpenInstance')}
                       data-testid="identification-history-instance-link"
                       sx={{ height: { xs: 40, sm: 32 } }}

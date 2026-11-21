@@ -408,15 +408,23 @@ describe('CalendarPage — day popover interactions', () => {
   it('follows a run group link and closes the popover', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await screen.findByTestId('calendar-event-dot-ev-water');
     await user.click(screen.getByTestId('calendar-day-12'));
     const dayPopover = await screen.findByTestId('day-popover');
 
-    await user.click(within(dayPopover).getByText('Batch A'));
+    // The run group and the linked phase event are real links (#3047).
+    const runLink = within(dayPopover).getByRole('link', { name: /Batch A/ });
+    expect(runLink).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
+    expect(within(dayPopover).getByRole('link', { name: /Flowering start/ })).toHaveAttribute(
+      'href',
+      '/pflanzen/plant-instances/plant-2',
+    );
+    await user.click(runLink);
     // Navigating to the run detail closes the day popover.
     await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
+    expect(router.state.location.pathname).toBe('/durchlaeufe/planting-runs/run-1');
   });
 
   it('opens the event popover for a non-linked event from the day popover', async () => {
@@ -459,10 +467,11 @@ describe('CalendarPage — day popover interactions', () => {
     // The non-linked event opens its own detail popover.
     expect(await screen.findByTestId('event-popover')).toBeInTheDocument();
 
-    // Re-open the day popover and activate the run group via keyboard.
+    // Re-open the day popover and follow the run group link with Enter.
     await user.click(screen.getByTestId('calendar-day-12'));
     dayPopover = await screen.findByTestId('day-popover');
-    fireEvent.keyDown(within(dayPopover).getByText('Batch A'), { key: 'Enter' });
+    within(dayPopover).getByRole('link', { name: /Batch A/ }).focus();
+    await user.keyboard('{Enter}');
     await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
   });
 
@@ -518,15 +527,25 @@ describe('CalendarPage — view modes', () => {
     i18n.changeLanguage('en');
   });
 
-  it('switches to the list view and navigates on row click', async () => {
+  it('switches to the list view and links the rows that have a detail page (#3047)', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await screen.findByTestId('calendar-page');
     await user.click(screen.getByTestId('calendar-view-list'));
     // The list renders event titles as table rows.
     expect(await screen.findByText('Prune tomato')).toBeInTheDocument();
+
+    // A row with a detail page carries a real link (#3047); one without stays a plain row.
+    const linked = screen.getByText('Prune tomato').closest('[data-testid="data-table-row"]') as HTMLElement;
+    const plain = screen.getByText('Water basil').closest('[data-testid="data-table-row"]') as HTMLElement;
+    const rowLink = within(linked).getByTestId('data-table-row-link');
+    expect(rowLink).toHaveAttribute('href', '/aufgaben/tasks/t1');
+    expect(within(plain).queryByTestId('data-table-row-link')).toBeNull();
+    expect(plain).not.toHaveAttribute('tabindex');
+    await user.click(rowLink);
+    expect(router.state.location.pathname).toBe('/aufgaben/tasks/t1');
   });
 
   it('switches to the phase timeline view', async () => {

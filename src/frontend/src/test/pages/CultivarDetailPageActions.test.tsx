@@ -246,6 +246,14 @@ describe('CultivarDetailPage — actions', () => {
     );
   });
 
+  it('links the species context chip to the species (#3047)', async () => {
+    renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('expert') });
+
+    await screen.findByTestId('form-field-name');
+    const chip = (await screen.findByText('Malus domestica')).closest('a');
+    expect(chip).toHaveAttribute('href', '/stammdaten/species/sp-1');
+  });
+
   it('deletes the cultivar through the confirm dialog and navigates back to the species', async () => {
     const user = userEvent.setup();
     renderWithProviders(<CultivarDetailPage />, { store: createStoreWithExpertise('expert') });

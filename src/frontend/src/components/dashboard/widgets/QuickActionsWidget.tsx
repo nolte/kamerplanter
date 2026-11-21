@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -21,7 +21,6 @@ import { useModuleVisibility } from '@/hooks/useModuleVisibility';
  */
 export default function QuickActionsWidget() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { isPathVisible } = useModuleVisibility();
 
   const quickActions = [
@@ -45,7 +44,7 @@ export default function QuickActionsWidget() {
           {visible.map((action) => (
             <Grid size={{ xs: 6, sm: 4, md: 2 }} key={action.path}>
               <Card variant="outlined" data-testid={`quick-action-${action.path}`}>
-                <CardActionArea onClick={() => navigate(action.path)} sx={{ minHeight: 48 }}>
+                <CardActionArea component={RouterLink} to={action.path} sx={{ minHeight: 48 }}>
                   <CardContent sx={{ textAlign: 'center', py: 2 }}>
                     <Box sx={{ color: 'primary.main', mb: 1 }}>{action.icon}</Box>
                     <Typography variant="body2">{action.label}</Typography>

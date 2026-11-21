@@ -100,20 +100,43 @@ describe('SpeciesWorkflowsSection — populated list', () => {
     expect(deleteBtn).toBeDisabled();
   });
 
-  it('navigates when the assigned-count chip is clicked', async () => {
+  it('links the assigned-count chip to the workflow and follows it on click (#3047)', async () => {
     server.use(
       listHandler([
         makeWorkflow({ key: 'wf-1', name: 'Assigned WF', assigned_entity_count: 5 }),
       ]),
     );
-    renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
 
     const chip = await screen.findByLabelText(
       i18n.t('pages.species.viewWorkflowAssignments', { name: 'Assigned WF' }),
     );
+    expect(chip.tagName).toBe('A');
+    expect(chip).toHaveAttribute('href', '/aufgaben/workflows/wf-1');
     await userEvent.click(chip);
-    // No crash — navigation handled by the router.
-    expect(screen.getByText('Assigned WF')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/aufgaben/workflows/wf-1');
+    expect(router.state.location.hash).toBe('');
+  });
+
+  it('links the card title to the workflow templates, with no control nested in the link (#3047)', async () => {
+    server.use(
+      listHandler([
+        makeWorkflow({ key: 'wf-1', name: 'Assigned WF', assigned_entity_count: 5 }),
+      ]),
+    );
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+
+    const title = await screen.findByRole('link', { name: 'Assigned WF' });
+    expect(title).toHaveAttribute('href', '/aufgaben/workflows/wf-1#templates');
+    // The stretched link holds only the title: buttons and the chip link are its siblings.
+    expect(within(title).queryAllByRole('button')).toHaveLength(0);
+    expect(within(title).queryAllByRole('link')).toHaveLength(0);
+    const card = screen.getByTestId('species-workflow-card-wf-1');
+    expect(within(card).getAllByRole('button').length).toBeGreaterThan(0);
+
+    await userEvent.click(title);
+    expect(router.state.location.pathname).toBe('/aufgaben/workflows/wf-1');
+    expect(router.state.location.hash).toBe('#templates');
   });
 });
 

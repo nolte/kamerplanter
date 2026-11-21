@@ -36,6 +36,13 @@ describe('WinterProtectionWidget', () => {
     });
     expect(screen.getByTestId('winter-count-yellow').textContent).toBe('3');
     expect(screen.getByTestId('winter-count-red').textContent).toBe('2');
+    // Each tile is a real link to the profile list (#3047), named by its light and count.
+    for (const light of ['green', 'yellow', 'red']) {
+      expect(screen.getByTestId(`winter-tile-${light}`).closest('a')).toHaveAttribute(
+        'href',
+        '/ueberwinterung/profile',
+      );
+    }
   });
 
   it('lists the red (must-relocate) plants with their winter action', async () => {

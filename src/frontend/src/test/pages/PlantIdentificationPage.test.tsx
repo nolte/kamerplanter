@@ -328,18 +328,20 @@ describe('PlantIdentificationPage', () => {
     expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
   });
 
-  it('renders a link chip to the created instance and navigates on click', async () => {
+  it('renders a link chip to the created instance and follows it on click (#3047)', async () => {
     server.use(
       http.get('/api/v1/t/:tenant/identification/history', () =>
         HttpResponse.json([historyEntry({ plant_instance_key: 'plant_42' })]),
       ),
     );
-    renderWithProviders(<PlantIdentificationPage />, {
+    const { router } = renderWithProviders(<PlantIdentificationPage />, {
       store: createStoreWithExpertise('beginner'),
     });
     const chip = await screen.findByTestId('identification-history-instance-link');
     expect(screen.getByTestId('identification-history-instance-created')).toBeInTheDocument();
+    expect(chip.tagName).toBe('A');
+    expect(chip).toHaveAttribute('href', '/pflanzen/plant-instances/plant_42');
     await userEvent.click(chip);
-    expect(navigateSpy).toHaveBeenCalledWith('/pflanzen/plant-instances/plant_42');
+    expect(router.state.location.pathname).toBe('/pflanzen/plant-instances/plant_42');
   });
 });

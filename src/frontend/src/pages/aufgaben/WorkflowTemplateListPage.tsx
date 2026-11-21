@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -55,7 +55,6 @@ function WorkflowCard({
   onDelete: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const theme = useTheme();
   // `require_permission(TASK, DELETE)` on `DELETE /tasks/workflows/{key}` is
   // lead-only (REQ-049 §2.3) (#1467).
@@ -78,7 +77,8 @@ function WorkflowCard({
       }}
     >
       <CardActionArea
-        onClick={() => navigate(`/aufgaben/workflows/${workflow.key}`)}
+        component={RouterLink}
+        to={`/aufgaben/workflows/${workflow.key}`}
         sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
       >
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>

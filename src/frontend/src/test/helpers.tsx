@@ -297,6 +297,9 @@ export function renderWithProviders(
   );
   return {
     store,
+    // Exposed so a test can assert where a real link led (`router.state.location`) instead of
+    // mocking `useNavigate` (#3047).
+    router,
     ...render(
       <Provider store={store}>
         <ThemeContextProvider>

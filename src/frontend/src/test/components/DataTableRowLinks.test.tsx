@@ -134,6 +134,26 @@ describe('DataTable action cards without a URL (#3017)', () => {
     delete window.matchMedia;
   });
 
+  it('leaves a row without a detail page unlinked and falls back to onRowClick (#3047)', async () => {
+    const onRowClick = vi.fn();
+    render(
+      <MemoryRouter>
+        <DataTable
+          columns={columns}
+          rows={rows}
+          getRowKey={(r) => r.id}
+          getRowHref={(r) => (r.id === '1' ? '/items/1' : null)}
+          onRowClick={onRowClick}
+          ariaLabel="Items"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'Alice' })).toHaveAttribute('href', '/items/1');
+    expect(screen.queryByRole('link', { name: 'Bob' })).toBeNull();
+    await userEvent.click(screen.getByText('Bob'));
+    expect(onRowClick).toHaveBeenCalledWith(rows[1]);
+  });
+
   it('announces a plain action card as a button', () => {
     stubMatchMedia(true);
     render(

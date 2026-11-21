@@ -3,6 +3,7 @@
 Spec-TC Mapping (test TC -> spec/e2e-testcases/):
   TC-UINFR002-001  ->  spec/e2e-testcases/TC-UI-NFR-002.md  Composed-page axe pass across the core route
   TC-UINFR002-002  ->  spec/e2e-testcases/TC-UI-NFR-002.md  Negative control — a seeded violation is reported
+  TC-UINFR002-003  ->  spec/e2e-testcases/TC-UI-NFR-002.md  Dark-mode axe pass across the main pages (#3047)
 
 Why an E2E pass at all, next to the component-level `vitest-axe`: a component
 test renders one component into a bare container, so it cannot see landmark
@@ -28,6 +29,12 @@ what it found and does not fail the run (see `_assert_no_new_violations`).
 Promotion to blocking is a decision on measured history, per NFR-018 §4 — a
 gate switched on before anyone knows its false-positive rate gets disabled
 again, which is worse than starting advisory.
+
+The dark-mode pass (TC-UINFR002-003, #3047) is the exception: its acceptance
+criterion is "no serious or critical finding", so those two impacts fail it.
+jsdom computes no colour contrast, which left the dark theme entirely unmeasured
+until this pass; the static half of the same check is
+`src/frontend/src/test/theme/darkSurfaceContrast.test.tsx`.
 """
 
 from __future__ import annotations
@@ -42,7 +49,13 @@ from ._a11y_helpers import (
     violations_json,
 )
 from ._journey_helpers import provision_plant, unique_suffix
+from .pages.base_page import BasePage
+from .pages.calendar_page import CalendarPage
+from .pages.dashboard_page import DashboardPage
 from .pages.plant_instance_list_page import PlantInstanceListPage
+from .pages.site_list_page import SiteListPage
+from .pages.species_list_page import SpeciesListPage
+from .pages.task_queue_page import TaskQueuePage
 
 # Feature-axis marker(s) for machine-selectable test identification.
 FEATURES = ("plant", "journey")
@@ -51,6 +64,19 @@ FEATURES = ("plant", "journey")
 #: pass is advisory. Empty on purpose: an allowlist added before any measurement
 #: would encode today's defects as tomorrow's baseline.
 KNOWN_ADVISORY_RULES: frozenset[str] = frozenset()
+
+#: The localStorage key and value `ThemeContext.tsx` reads for a manual theme
+#: pick. Seeded before the page loads, so the app starts dark instead of being
+#: toggled mid-test (which would scan a frame still transitioning colours).
+THEME_STORAGE_KEY = "kamerplanter-theme"
+DARK_MODE = "dark"
+
+#: `background.default` of the dark palette, as the browser reports the body
+#: colour CssBaseline paints. The proof that the scan measured the dark theme.
+DARK_BODY_BACKGROUND = "rgb(18, 18, 18)"
+
+#: Impacts that fail the dark pass (#3047 acceptance: no serious or critical).
+BLOCKING_IMPACTS: frozenset[str] = frozenset({"serious", "critical"})
 
 
 @pytest.fixture
@@ -128,4 +154,62 @@ def test_uinfr002_a02_a_seeded_violation_is_reported(browser: WebDriver, base_ur
     targets = [t for v in seeded for n in v.get("nodes", []) for t in n.get("target", [])]
     assert any("a11y-negative-control" in t for t in targets), (
         f"color-contrast fired, but not on the seeded element: {targets}"
+    )
+
+
+#: The main pages of the dark pass: what a grower sees every day. Each opens
+#: through its page object's ``open()`` and then waits for its own content
+#: signal where the page object has one, so a scan never measures a skeleton.
+_DARK_PAGES: tuple[tuple[str, type[BasePage], str | None], ...] = (
+    ("dashboard", DashboardPage, "wait_for_quick_actions_widget"),
+    ("plant-list", PlantInstanceListPage, "wait_for_list_content"),
+    ("species-list", SpeciesListPage, None),
+    ("site-list", SiteListPage, None),
+    ("task-queue", TaskQueuePage, "wait_for_queue_content"),
+    ("calendar", CalendarPage, None),
+)
+
+
+def _body_background(browser: WebDriver) -> str:
+    return browser.execute_script("return getComputedStyle(document.body).backgroundColor;")
+
+
+def test_uinfr002_a03_dark_mode_main_pages_have_no_serious_findings(
+    browser: WebDriver, base_url: str
+) -> None:
+    """TC-UINFR002-003 — axe against the dark theme on the main pages (#3047).
+
+    The theme is chosen the way a user's manual pick is stored, before the first
+    page of the pass loads. Every page then has to *show* the dark theme (body
+    background) before its scan counts — a pass that silently ran in light mode
+    would report the light palette as dark-mode compliant.
+    """
+    browser.get(base_url)
+    browser.execute_script(
+        "window.localStorage.setItem(arguments[0], arguments[1]);", THEME_STORAGE_KEY, DARK_MODE
+    )
+
+    blocking: dict[str, list[dict]] = {}
+    for label, page_class, settle in _DARK_PAGES:
+        page = page_class(browser, base_url)
+        page.open()
+        if settle is not None:
+            getattr(page, settle)()
+        background = _body_background(browser)
+        assert background == DARK_BODY_BACKGROUND, (
+            f"{label}: the page is not in dark mode (body background {background}, expected "
+            f"{DARK_BODY_BACKGROUND}) — the scan would measure the light theme. Did the "
+            f"`{THEME_STORAGE_KEY}` key or the dark palette's background change?"
+        )
+        violations = _scan(browser, f"dark {label}")
+        found = [
+            v
+            for v in violations
+            if v.get("impact") in BLOCKING_IMPACTS and v.get("id") not in KNOWN_ADVISORY_RULES
+        ]
+        if found:
+            blocking[label] = found
+
+    assert not blocking, "dark mode has serious/critical accessibility findings:\n" + "\n".join(
+        f"{label}:\n{format_violations(violations)}" for label, violations in blocking.items()
     )

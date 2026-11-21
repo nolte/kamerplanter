@@ -818,9 +818,8 @@ export default function WorkflowDetailPage() {
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Typography
                                   variant="body2"
-                                  component="a"
-                                  href={`/durchlaeufe/planting-runs/${g.run.key}`}
-                                  onClick={(e) => { e.preventDefault(); navigate(`/durchlaeufe/planting-runs/${g.run!.key}`); }}
+                                  component={RouterLink}
+                                  to={`/durchlaeufe/planting-runs/${g.run.key}`}
                                   sx={{ color: 'primary.main', textDecoration: 'none', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                                 >
                                   {g.run.name}

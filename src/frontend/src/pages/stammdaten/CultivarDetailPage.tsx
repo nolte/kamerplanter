@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -330,8 +330,10 @@ export default function CultivarDetailPage() {
           label={species.scientific_name}
           size="small"
           variant="outlined"
-          onClick={() => navigate(`/stammdaten/species/${speciesKey}`)}
-          sx={{ mb: 2, cursor: 'pointer' }}
+          component={RouterLink}
+          to={`/stammdaten/species/${speciesKey}`}
+          clickable
+          sx={{ mb: 2 }}
         />
       )}
 

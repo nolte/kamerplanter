@@ -215,6 +215,18 @@ describe('PlantInstanceListPage', () => {
       expect(screen.getAllByText('Spring Batch').length).toBeGreaterThan(0);
     });
 
+    it('links the planting-run chip to the run detail route, and the row does not follow too (#3047)', async () => {
+      const user = userEvent.setup();
+      const { router } = renderWithProviders(<PlantInstanceListPage />);
+
+      await user.click(await screen.findByRole('switch'));
+      const chip = (await screen.findAllByText('Spring Batch'))[0].closest('a');
+      // `/durchlaeufe/<key>` matched no route; the detail lives under `planting-runs`.
+      expect(chip).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
+      await user.click(chip!);
+      expect(router.state.location.pathname).toBe('/durchlaeufe/planting-runs/run-1');
+    });
+
     it('searches the table, exercising the column search predicates', async () => {
       const user = userEvent.setup();
       renderWithProviders(<PlantInstanceListPage />);

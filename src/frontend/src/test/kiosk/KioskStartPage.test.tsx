@@ -36,6 +36,14 @@ describe('KioskStartPage (UI-NFR-019)', () => {
     expect(screen.getByTestId('kiosk-tile-problem')).toBeInTheDocument();
   });
 
+  it('renders each tile as a real link to its target (#3047)', () => {
+    renderStartPage(createTestStore());
+    expect(screen.getByTestId('kiosk-tile-scan')).toHaveAttribute('href', '/pflanzen/identifikation');
+    expect(screen.getByTestId('kiosk-tile-watering')).toHaveAttribute('href', '/giessprotokoll');
+    expect(screen.getByTestId('kiosk-tile-round')).toHaveAttribute('href', '/aufgaben/queue');
+    expect(screen.getByTestId('kiosk-tile-problem')).toHaveAttribute('href', '/pflanzenschutz/erkennung');
+  });
+
   it('renders the current-status panel with the open-task count (R-016)', () => {
     const store = createTestStore({
       tasks: {

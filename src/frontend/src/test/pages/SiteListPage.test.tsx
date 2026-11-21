@@ -98,16 +98,40 @@ describe('SiteListPage', () => {
     expect(await screen.findByTestId('location-create-dialog')).toBeTruthy();
   });
 
-  it('navigates to the site detail when the site name is clicked', async () => {
+  it('renders the site name as a link that does not toggle the card (#3047)', async () => {
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<SiteListPage />, { route: '/standorte/sites' });
+
+    const siteName = await screen.findByTestId('site-name-site-1');
+    expect(siteName.tagName).toBe('A');
+    expect(siteName).toHaveAttribute('href', '/standorte/sites/site-1');
+    // The link is not nested in the expand button any more.
+    const card = screen.getByTestId('site-card-site-1');
+    expect(within(card).getByRole('button', { expanded: false }).contains(siteName)).toBe(false);
+    await user.click(siteName);
+    expect(router.state.location.pathname).toBe('/standorte/sites/site-1');
+  });
+
+  it('toggles once per click on the expand button and on the header (#3047)', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SiteListPage />);
 
-    const siteName = await screen.findByTestId('site-name-site-1');
-    // Clicking the name must not toggle the expand state (stopPropagation)
-    await user.click(siteName);
-    // Card stays collapsed: expand control still reports not-expanded
-    const card = screen.getByTestId('site-card-site-1');
+    const card = await screen.findByTestId('site-card-site-1');
+    await user.click(within(card).getByRole('button', { expanded: false }));
+    expect(within(card).getByRole('button', { expanded: true })).toBeTruthy();
+    // A click on the header text outside the link toggles back.
+    await user.click(within(card).getByText('50 m²'));
     expect(within(card).getByRole('button', { expanded: false })).toBeTruthy();
+  });
+
+  it('links each location of the tree to its detail page (#3047)', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SiteListPage />);
+
+    const card = await screen.findByTestId('site-card-site-1');
+    await user.click(within(card).getByRole('button', { expanded: false }));
+    const location = await within(card).findByRole('link', { name: 'Zone A' });
+    expect(location.getAttribute('href')).toMatch(/^\/standorte\/locations\//);
   });
 
   it('renders a nested location tree with slot, plant and tank chips', async () => {

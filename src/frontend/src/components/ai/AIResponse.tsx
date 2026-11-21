@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Chip from '@mui/material/Chip';
@@ -67,7 +67,6 @@ export default function AIResponse({
 }: AIResponseProps) {
   const { t } = useTranslation();
   const { level } = useExpertiseLevel();
-  const navigate = useNavigate();
 
   // Expert-Nutzer sehen die Quellen per Default ausgeklappt (REQ-021 §6.1).
   const sourcesDefaultExpanded = useMemo(() => level === 'expert', [level]);
@@ -99,9 +98,10 @@ export default function AIResponse({
               color="info"
               variant="outlined"
               clickable
+              component={RouterLink}
+              to="/privacy"
               icon={<PersonOutlineIcon />}
               label={t('ai.tenantData.label')}
-              onClick={() => navigate('/privacy')}
               data-testid="ai-tenant-data-indicator"
             />
           </Tooltip>

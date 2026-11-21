@@ -108,14 +108,17 @@ describe('WorkflowTemplateListPage', () => {
     expect(screen.getByText(i18n.t('pages.tasks.allSpecies'))).toBeInTheDocument();
   });
 
-  it('navigates to the workflow detail when a card is activated', async () => {
+  it('links the card to the workflow detail and follows it when activated (#3047)', async () => {
     useWorkflows([makeWorkflow()]);
     const user = userEvent.setup();
-    renderWithProviders(<WorkflowTemplateListPage />);
+    const { router } = renderWithProviders(<WorkflowTemplateListPage />);
 
     const card = await screen.findByTestId('workflow-card-wf-1');
+    // A real link: opens in a new tab, announced as a link.
+    const link = within(card).getByRole('link', { name: /Tomaten-Workflow/ });
+    expect(link).toHaveAttribute('href', '/aufgaben/workflows/wf-1');
     await user.click(within(card).getByText('Tomaten-Workflow'));
-    expect(mockNavigate).toHaveBeenCalledWith('/aufgaben/workflows/wf-1');
+    expect(router.state.location.pathname).toBe('/aufgaben/workflows/wf-1');
   });
 
   it('filters workflows through the search field', async () => {

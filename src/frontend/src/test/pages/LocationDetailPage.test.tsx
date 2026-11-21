@@ -419,14 +419,16 @@ describe('LocationDetailPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
-  it('navigates to the assigned tank on chip click', async () => {
+  it('links the assigned tank chip to the tank and follows it on click (#3047)', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderPage();
+    const { router } = renderPage();
 
     await screen.findByTestId('location-detail-page');
-    await user.click(await screen.findByText(/Tank One/));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/tanks/tank-1');
+    const chip = (await screen.findByText(/Tank One/)).closest('a');
+    expect(chip).toHaveAttribute('href', '/standorte/tanks/tank-1');
+    await user.click(chip!);
+    expect(router.state.location.pathname).toBe('/standorte/tanks/tank-1');
   });
 
   it('navigates from the run, plant, sub-location and slot rows', async () => {

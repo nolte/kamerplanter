@@ -236,12 +236,35 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderDrawer(
+    const { router } = renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
-    await user.click(await screen.findByTestId('notification-action-n1'));
+    // A real link (#3047): it can be opened in a new tab and is announced as one.
+    const action = await screen.findByTestId('notification-action-n1');
+    expect(action.tagName).toBe('A');
+    expect(action).toHaveAttribute('href', '/dashboard');
+    await user.click(action);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(router.state.location.pathname).toBe('/dashboard');
+  });
+
+  it('keeps the drawer open on a modified click, which opens the link in a new tab (#3047)', async () => {
+    useList([
+      makeNotif({ key: 'n1', title: 'Mit Link', read_at: null, action_url: '/dashboard' }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const action = await screen.findByTestId('notification-action-n1');
+    await user.keyboard('{Control>}');
+    await user.click(action);
+    await user.keyboard('{/Control}');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
   });
 
   it('does not follow an action url that leaves the app (#3012)', async () => {
@@ -254,8 +277,10 @@ describe('NotificationDrawer', () => {
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
-    await user.click(await screen.findByTestId('notification-action-n1'));
-    // `/\evil.com` is `//evil.com` to a browser: no navigation, the drawer stays open.
+    const action = await screen.findByTestId('notification-action-n1');
+    // `/\evil.com` is `//evil.com` to a browser: no link, no navigation, the drawer stays open.
+    expect(action).not.toHaveAttribute('href');
+    await user.click(action);
     expect(onClose).not.toHaveBeenCalled();
   });
 
