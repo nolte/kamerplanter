@@ -2295,7 +2295,11 @@ class GardenPlanPage(BasePage):
             )
         except TimeoutException as exc:
             raise AssertionError(f"the click on the picture did not mark point {which}") from exc
-        return float(self.underlay_field(f"{which}x")), float(self.underlay_field(f"{which}y"))
+        # The fields show the UI language's decimal separator (`formatDecimal`: "6,4" in German, no grouping).
+        return (
+            float(self.underlay_field(f"{which}x").replace(",", ".")),
+            float(self.underlay_field(f"{which}y").replace(",", ".")),
+        )
 
     def save_underlay(self) -> None:
         """'Speichern'; the dialog closes only after the server stored picture and calibration."""
