@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
@@ -30,6 +30,7 @@ import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { isCareConfirmAction } from '@/utils/careConfirmActions';
+import { isLinkActivation, isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
 import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
@@ -106,7 +107,6 @@ export default function NotificationDrawer({
   onCountChange,
 }: NotificationDrawerProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const notify = useNotification();
   const { canEdit } = useTenantPermissions();
 
@@ -254,14 +254,20 @@ export default function NotificationDrawer({
     }
   };
 
-  const handleNotificationClick = (notification: NotificationResponse) => {
+  /**
+   * Marks the notification read. With an action URL the card is a real link (#3047): the router follows
+   * it, so this only closes the drawer — and only for a plain primary click; a Ctrl/Cmd/Shift/middle click
+   * opens the target in a new tab and leaves this one where it is. A right click (`auxclick` with
+   * `button === 2`) opens the context menu and is no activation: nothing is marked, nothing closes.
+   */
+  const handleNotificationClick = (
+    notification: NotificationResponse,
+    actionUrl: string | null,
+    event: ReactMouseEvent<HTMLElement>,
+  ) => {
+    if (!isLinkActivation(event)) return;
     void handleMarkRead(notification);
-    // Only a same-origin app path is followed: the URL is server data that may derive from user content (#3012).
-    const actionUrl = toSameOriginAppPath(notification.data?.action_url as string | undefined);
-    if (actionUrl) {
-      navigate(actionUrl);
-      onClose();
-    }
+    if (actionUrl && isPlainPrimaryClick(event)) onClose();
   };
 
   const handleRetryLoad = () => {
@@ -377,62 +383,75 @@ export default function NotificationDrawer({
             }}
             data-testid={`notification-card-${notification.key}`}
           >
-            <CardActionArea
-              onClick={() => handleNotificationClick(notification)}
-              data-testid={`notification-action-${notification.key}`}
-            >
-              <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 0.5,
-                  }}
-                >
-                  <Typography
-                    variant="subtitle2"
+            {(() => {
+              // Only a same-origin app path becomes a link: the URL is server data that may derive from
+              // user content (#3012).
+              const actionUrl = toSameOriginAppPath(notification.data?.action_url as string | undefined);
+              const content = (
+                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                  <Box
                     sx={{
-                      fontWeight: notification.read_at ? 'normal' : 'bold',
-                      flex: 1,
-                      mr: 1,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      mb: 0.5,
                     }}
                   >
-                    {notification.title}
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: notification.read_at ? 'normal' : 'bold',
+                        flex: 1,
+                        mr: 1,
+                      }}
+                    >
+                      {notification.title}
+                    </Typography>
+                    {notification.urgency !== 'normal' &&
+                      notification.urgency !== 'low' && (
+                        <Chip
+                          size="small"
+                          label={notification.urgency}
+                          color={
+                            notification.urgency === 'critical'
+                              ? 'error'
+                              : 'warning'
+                          }
+                          sx={{ height: 20, fontSize: '0.6875rem' }}
+                        />
+                      )}
+                  </Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 0.5,
+                      whiteSpace: 'pre-line',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {notification.body}
                   </Typography>
-                  {notification.urgency !== 'normal' &&
-                    notification.urgency !== 'low' && (
-                      <Chip
-                        size="small"
-                        label={notification.urgency}
-                        color={
-                          notification.urgency === 'critical'
-                            ? 'error'
-                            : 'warning'
-                        }
-                        sx={{ height: 20, fontSize: '0.6875rem' }}
-                      />
-                    )}
-                </Box>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    mb: 0.5,
-                    whiteSpace: 'pre-line',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {notification.body}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatRelativeTime(notification.created_at, t)}
-                </Typography>
-              </CardContent>
-            </CardActionArea>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatRelativeTime(notification.created_at, t)}
+                  </Typography>
+                </CardContent>
+              );
+              const onClick = (e: ReactMouseEvent<HTMLElement>) => handleNotificationClick(notification, actionUrl, e);
+              const testId = `notification-action-${notification.key}`;
+              return actionUrl ? (
+                <CardActionArea component={RouterLink} to={actionUrl} onClick={onClick} onAuxClick={onClick} data-testid={testId}>
+                  {content}
+                </CardActionArea>
+              ) : (
+                <CardActionArea onClick={onClick} data-testid={testId}>
+                  {content}
+                </CardActionArea>
+              );
+            })()}
             {(() => {
               const actionId = actionableActionId(notification, canEdit);
               if (!actionId) return null;

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -70,6 +70,7 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
@@ -157,6 +158,13 @@ function getEventLink(event: CalendarEvent): string | null {
   return null;
 }
 
+/** Visible focus for the links and entries of the day popover (#3047). */
+const popoverLinkFocus = {
+  outline: '2px solid',
+  outlineColor: 'primary.main',
+  outlineOffset: 1,
+} as const;
+
 function getRunLink(runKey: string): string {
   return `/durchlaeufe/planting-runs/${runKey}`;
 }
@@ -168,7 +176,6 @@ export default function CalendarPage() {
   const dispatch = useAppDispatch();
   // Sowing-calendar labels are worded by the server in the UI language: reload on a switch (#2902).
   const requestLanguage = useRequestLanguage();
-  const navigate = useNavigate();
   const notification = useNotification();
   // `require_permission(CALENDAR_FEED, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
   const { canDelete } = useTenantPermissions();
@@ -455,6 +462,22 @@ export default function CalendarPage() {
     setDayPopoverAnchor(null);
     setDayPopoverDate(null);
   }, []);
+
+  // A link inside a popover (#3047): the router follows a plain click, so the popover closes with it.
+  // A Ctrl/Cmd/Shift click opens the target in a new tab and leaves this one where it is — the popover
+  // stays open so the next entry can be opened too. (A middle click fires no `click` at all.)
+  const closeDayPopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleCloseDayPopover();
+    },
+    [handleCloseDayPopover],
+  );
+  const closePopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleClosePopover();
+    },
+    [handleClosePopover],
+  );
 
   // ── Feed management ──────────────────────────────────────────────
 
@@ -861,19 +884,13 @@ export default function CalendarPage() {
     },
   ], [t, formatEventDate, formatEventTime, theme]);
 
-  const handleListRowClick = useCallback((event: CalendarEvent) => {
-    const link = getEventLink(event);
-    if (link) {
-      navigate(link);
-    }
-  }, [navigate]);
-
   const renderListView = () => (
     <DataTable<CalendarEvent>
       columns={listColumns}
       rows={sortedEvents}
       getRowKey={(event) => event.id}
-      onRowClick={handleListRowClick}
+      // An event with a detail page is a real row link (#3047); one without stays plain.
+      getRowHref={getEventLink}
       emptyMessage={t('pages.calendar.noEvents')}
       emptyIllustration={kamiCalendar}
       variant="simple"
@@ -1246,14 +1263,14 @@ export default function CalendarPage() {
               const link = getEventLink(popoverEvent);
               if (!link) return null;
               return (
+                // A real link (#3047): it can be opened in a new tab; the router follows a plain click.
                 <Button
+                  component={RouterLink}
+                  to={link}
                   size="small"
                   variant="text"
                   endIcon={<OpenInNewIcon sx={{ fontSize: '0.875rem' }} />}
-                  onClick={() => {
-                    handleClosePopover();
-                    navigate(link);
-                  }}
+                  onClick={closePopoverOnPlainClick}
                   sx={{ mt: 1, textTransform: 'none' }}
                 >
                   {t('pages.calendar.goToDetail')}
@@ -1300,27 +1317,21 @@ export default function CalendarPage() {
             {dayPopoverGrouped.runGroups.map((group) => (
               <Box key={group.runKey || '_ungrouped'} sx={{ mb: 1 }}>
                 {group.runKey && (
+                  // A real link (#3047): can be opened in a new tab, announced as a link. The router
+                  // follows a plain click; that click also closes the popover, a modified one does not.
                   <Box
+                    component={RouterLink}
+                    to={getRunLink(group.runKey)}
+                    onClick={closeDayPopoverOnPlainClick}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
                       mb: 0.5,
-                      cursor: 'pointer',
+                      color: 'inherit',
+                      textDecoration: 'none',
                       '&:hover': { textDecoration: 'underline' },
-                    }}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => {
-                      handleCloseDayPopover();
-                      navigate(getRunLink(group.runKey));
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCloseDayPopover();
-                        navigate(getRunLink(group.runKey));
-                      }
+                      '&:focus-visible': popoverLinkFocus,
                     }}
                   >
                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -1332,42 +1343,45 @@ export default function CalendarPage() {
                 {group.events.map((ev) => {
                   const link = getEventLink(ev);
                   const evColor = ev.color || getEventCategoryColor(theme, ev.category);
-                  return (
-                    <Box
-                      key={ev.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.75,
-                        py: 0.5,
-                        px: 0.75,
-                        ml: group.runKey ? 1.5 : 0,
-                        cursor: link ? 'pointer' : 'default',
-                        '&:hover': link ? { bgcolor: 'action.hover' } : {},
-                        borderRadius: 1,
-                        borderLeft: `3px solid ${evColor}`,
-                        bgcolor: `${evColor}0A`,
-                      }}
-                      role={link ? 'link' : undefined}
-                      tabIndex={link ? 0 : undefined}
-                      onClick={() => {
-                        if (link) {
-                          handleCloseDayPopover();
-                          navigate(link);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (link && (e.key === 'Enter' || e.key === ' ')) {
-                          e.preventDefault();
-                          handleCloseDayPopover();
-                          navigate(link);
-                        }
-                      }}
-                    >
+                  const entrySx = {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    py: 0.5,
+                    px: 0.75,
+                    ml: group.runKey ? 1.5 : 0,
+                    borderRadius: 1,
+                    borderLeft: `3px solid ${evColor}`,
+                    bgcolor: `${evColor}0A`,
+                  };
+                  const entryContent = (
+                    <>
                       <Typography variant="body2" noWrap sx={{ flex: 1, color: link ? 'primary.main' : 'text.primary' }}>
                         {ev.title}
                       </Typography>
                       {link && <OpenInNewIcon sx={{ fontSize: '0.75rem', color: 'text.secondary', flexShrink: 0 }} />}
+                    </>
+                  );
+                  // A linked entry is a real link (#3047); one without a target is plain text.
+                  return link ? (
+                    <Box
+                      key={ev.id}
+                      component={RouterLink}
+                      to={link}
+                      onClick={closeDayPopoverOnPlainClick}
+                      sx={{
+                        ...entrySx,
+                        color: 'inherit',
+                        textDecoration: 'none',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        '&:focus-visible': popoverLinkFocus,
+                      }}
+                    >
+                      {entryContent}
+                    </Box>
+                  ) : (
+                    <Box key={ev.id} sx={entrySx}>
+                      {entryContent}
                     </Box>
                   );
                 })}
@@ -1377,46 +1391,21 @@ export default function CalendarPage() {
             {dayPopoverGrouped.otherEvents.map((ev) => {
               const link = getEventLink(ev);
               const evColor = ev.color || getEventCategoryColor(theme, ev.category);
-              return (
-                <Box
-                  key={ev.id}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    py: 0.5,
-                    px: 0.75,
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
-                    borderRadius: 1,
-                    borderLeft: `3px solid ${evColor}`,
-                    bgcolor: `${evColor}0A`,
-                    mb: 0.5,
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    if (link) {
-                      handleCloseDayPopover();
-                      navigate(link);
-                    } else {
-                      handleCloseDayPopover();
-                      handleEventClick(e, ev);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (link) {
-                        handleCloseDayPopover();
-                        navigate(link);
-                      } else {
-                        handleCloseDayPopover();
-                        handleEventClick(e as unknown as React.MouseEvent<HTMLElement>, ev);
-                      }
-                    }
-                  }}
-                >
+              const entrySx = {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                flex: 1,
+                minWidth: 0,
+                py: 0.5,
+                px: 0.75,
+                borderRadius: 1,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'action.hover' },
+                '&:focus-visible': popoverLinkFocus,
+              };
+              const entryContent = (
+                <>
                   <Typography variant="body2" noWrap sx={{ flex: 1, color: link ? 'primary.main' : 'text.primary' }}>
                     {!ev.all_day && ev.start && (
                       <Typography component="span" variant="caption" sx={{ color: 'text.secondary', mr: 0.5 }}>
@@ -1438,16 +1427,59 @@ export default function CalendarPage() {
                     }}
                   />
                   {link && <OpenInNewIcon sx={{ fontSize: '0.75rem', color: 'text.secondary', flexShrink: 0 }} />}
+                </>
+              );
+              return (
+                <Box
+                  key={ev.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    borderRadius: 1,
+                    borderLeft: `3px solid ${evColor}`,
+                    bgcolor: `${evColor}0A`,
+                    mb: 0.5,
+                  }}
+                >
+                  {/* A linked event is a real link (#3047); one without a target opens its detail
+                      popover. The confirm button is a sibling, never nested in either. */}
+                  {link ? (
+                    <Box
+                      component={RouterLink}
+                      to={link}
+                      onClick={closeDayPopoverOnPlainClick}
+                      sx={{ ...entrySx, color: 'inherit', textDecoration: 'none' }}
+                    >
+                      {entryContent}
+                    </Box>
+                  ) : (
+                    <Box
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        handleCloseDayPopover();
+                        handleEventClick(e, ev);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleCloseDayPopover();
+                          handleEventClick(e as unknown as React.MouseEvent<HTMLElement>, ev);
+                        }
+                      }}
+                      sx={entrySx}
+                    >
+                      {entryContent}
+                    </Box>
+                  )}
                   {ev.source === 'watering_forecast' && ev.plant_key && (
                     <Tooltip title={t('pages.calendar.confirmWatering')} arrow>
                       <IconButton
                         size="small"
                         color="success"
                         disabled={confirmingWatering === ev.plant_key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmWatering(ev.plant_key!);
-                        }}
+                        onClick={() => handleConfirmWatering(ev.plant_key!)}
                         aria-label={t('pages.calendar.confirmWatering')}
                         data-testid={`day-confirm-watering-${ev.plant_key}`}
                         sx={{ flexShrink: 0, p: 0.25 }}

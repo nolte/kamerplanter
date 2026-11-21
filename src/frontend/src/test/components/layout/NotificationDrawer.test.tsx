@@ -236,12 +236,68 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
-    renderDrawer(
+    const { router } = renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
-    await user.click(await screen.findByTestId('notification-action-n1'));
+    // A real link (#3047): it can be opened in a new tab and is announced as one.
+    const action = await screen.findByTestId('notification-action-n1');
+    expect(action.tagName).toBe('A');
+    expect(action).toHaveAttribute('href', '/dashboard');
+    await user.click(action);
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(router.state.location.pathname).toBe('/dashboard');
+  });
+
+  it('keeps the drawer open on a modified click, which opens the link in a new tab (#3047)', async () => {
+    useList([
+      makeNotif({ key: 'n1', title: 'Mit Link', read_at: null, action_url: '/dashboard' }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const action = await screen.findByTestId('notification-action-n1');
+    await user.keyboard('{Control>}');
+    await user.click(action);
+    await user.keyboard('{/Control}');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('ignores a right click: neither marks read nor closes (#3069 SCR-002)', async () => {
+    const items = [
+      makeNotif({ key: 'n1', title: 'Rechtsklick', read_at: null, action_url: '/dashboard' }),
+      makeNotif({ key: 'n2', title: 'Mittelklick', read_at: null, action_url: '/dashboard' }),
+    ];
+    useList(items);
+    const readKeys: string[] = [];
+    server.use(
+      http.post(`${BASE}/:key/read`, ({ params }) => {
+        readKeys.push(String(params.key));
+        const found = items.find((n) => n.key === params.key)!;
+        return HttpResponse.json({ ...found, read_at: new Date().toISOString() });
+      }),
+    );
+    const onClose = vi.fn();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const rightClicked = await screen.findByTestId('notification-action-n1');
+    fireEvent(rightClicked, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 2 }));
+    // Control: a middle click on the other card IS an activation — it marks read and keeps the drawer open.
+    // Its request is issued after any the right click would have issued, so once it arrived, n1's would have.
+    fireEvent(
+      screen.getByTestId('notification-action-n2'),
+      new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }),
+    );
+    await waitFor(() => expect(readKeys).toContain('n2'));
+    expect(readKeys).not.toContain('n1');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
   });
 
   it('does not follow an action url that leaves the app (#3012)', async () => {
@@ -254,8 +310,10 @@ describe('NotificationDrawer', () => {
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
-    await user.click(await screen.findByTestId('notification-action-n1'));
-    // `/\evil.com` is `//evil.com` to a browser: no navigation, the drawer stays open.
+    const action = await screen.findByTestId('notification-action-n1');
+    // `/\evil.com` is `//evil.com` to a browser: no link, no navigation, the drawer stays open.
+    expect(action).not.toHaveAttribute('href');
+    await user.click(action);
     expect(onClose).not.toHaveBeenCalled();
   });
 

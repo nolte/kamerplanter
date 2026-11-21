@@ -38,6 +38,25 @@ class SpeciesListPage(BasePage):
         self.wait_for_loading_complete()
         return self
 
+    #: The states the species table settles into once its first fetch resolved:
+    #: rows (desktop rows and mobile cards both carry ``data-row-key``), the
+    #: generic `EmptyState`, or the "no results" panel of an active filter.
+    LIST_BRANCHES = {
+        "rows": TABLE_ROWS,
+        BasePage.BRANCH_EMPTY: EMPTY_STATE,
+        "no-search-results": BasePage.NO_SEARCH_RESULTS,
+    }
+
+    def wait_for_list_settled(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Wait until the table shows rows or an empty state and no skeleton; raise otherwise.
+
+        A gate, not an anchor: `open()` returns once the page root mounted,
+        which happens before the species fetch resolved, so a read there can see
+        the `LoadingSkeleton` instead of the table (the axe dark pass,
+        TC-UINFR002-003, must not measure that frame).
+        """
+        self.wait_for_settled(self.LIST_BRANCHES, "species list content", timeout=timeout)
+
     def get_row_count(self) -> int:
         return len(self.driver.find_elements(*self.TABLE_ROWS))
 

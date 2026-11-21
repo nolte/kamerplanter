@@ -100,20 +100,43 @@ describe('SpeciesWorkflowsSection — populated list', () => {
     expect(deleteBtn).toBeDisabled();
   });
 
-  it('navigates when the assigned-count chip is clicked', async () => {
+  it('links the assigned-count chip to the workflow and follows it on click (#3047)', async () => {
     server.use(
       listHandler([
         makeWorkflow({ key: 'wf-1', name: 'Assigned WF', assigned_entity_count: 5 }),
       ]),
     );
-    renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
 
     const chip = await screen.findByLabelText(
       i18n.t('pages.species.viewWorkflowAssignments', { name: 'Assigned WF' }),
     );
+    expect(chip.tagName).toBe('A');
+    expect(chip).toHaveAttribute('href', '/aufgaben/workflows/wf-1');
     await userEvent.click(chip);
-    // No crash — navigation handled by the router.
-    expect(screen.getByText('Assigned WF')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/aufgaben/workflows/wf-1');
+    expect(router.state.location.hash).toBe('');
+  });
+
+  it('links the card title to the workflow templates, with no control nested in the link (#3047)', async () => {
+    server.use(
+      listHandler([
+        makeWorkflow({ key: 'wf-1', name: 'Assigned WF', assigned_entity_count: 5 }),
+      ]),
+    );
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+
+    const title = await screen.findByRole('link', { name: 'Assigned WF' });
+    expect(title).toHaveAttribute('href', '/aufgaben/workflows/wf-1#templates');
+    // The stretched link holds only the title: buttons and the chip link are its siblings.
+    expect(within(title).queryAllByRole('button')).toHaveLength(0);
+    expect(within(title).queryAllByRole('link')).toHaveLength(0);
+    const card = screen.getByTestId('species-workflow-card-wf-1');
+    expect(within(card).getAllByRole('button').length).toBeGreaterThan(0);
+
+    await userEvent.click(title);
+    expect(router.state.location.pathname).toBe('/aufgaben/workflows/wf-1');
+    expect(router.state.location.hash).toBe('#templates');
   });
 });
 
@@ -237,6 +260,27 @@ describe('SpeciesWorkflowsSection — duplicate', () => {
     );
 
     await waitFor(() => expect(dupKey).toBe('wf-1'));
+  });
+
+  it('opens the duplicate dialog on a Ctrl-click without following the card link (#3069)', async () => {
+    server.use(listHandler([makeWorkflow({ key: 'wf-1', name: 'Basis' })]));
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<SpeciesWorkflowsSection speciesKey="sp-1" />);
+    const before = router.state.location.pathname;
+
+    const card = await screen.findByTestId('species-workflow-card-wf-1');
+    const duplicate = within(card).getByTestId('ContentCopyIcon').closest('button')!;
+    const remove = within(card).getByTestId('DeleteIcon').closest('button')!;
+    // Neither control lives inside an <a>: the stretched link's default never applies to their clicks,
+    // which is why their handlers need no preventDefault.
+    expect(duplicate.closest('a')).toBeNull();
+    expect(remove.closest('a')).toBeNull();
+
+    await user.keyboard('{Control>}');
+    await user.click(duplicate);
+    await user.keyboard('{/Control}');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
   });
 });
 

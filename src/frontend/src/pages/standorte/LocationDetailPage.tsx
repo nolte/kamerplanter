@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -600,7 +600,9 @@ export default function LocationDetailPage() {
                 size="small"
                 color="primary"
                 variant="outlined"
-                onClick={() => navigate(`/standorte/tanks/${assignedTank.key}`)}
+                component={RouterLink}
+                to={`/standorte/tanks/${assignedTank.key}`}
+                clickable
               />
             ) : (
               <Typography variant="body2" color="text.secondary">

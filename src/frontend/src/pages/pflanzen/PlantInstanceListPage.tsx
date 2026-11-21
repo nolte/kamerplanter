@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -48,7 +48,6 @@ function logEnrichmentFailure(err: unknown, source: string): void {
 export default function PlantInstanceListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   // `loading` covers only the wait for the first page; later pages append while
   // `loadingMore` is set, so a large tenant renders at once (#3032).
   const { items, loading, loadingMore = false, loadedGeneration = 0 } = useAppSelector((s) => s.plantInstances);
@@ -376,10 +375,11 @@ export default function PlantInstanceListPage() {
             size="small"
             color="secondary"
             variant="outlined"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/durchlaeufe/${runInfo.runKey}`);
-            }}
+            // A real link (#3047). The old `/durchlaeufe/<key>` target matched no route.
+            component={RouterLink}
+            to={`/durchlaeufe/planting-runs/${runInfo.runKey}`}
+            // The row's own handler would follow the row's link instead.
+            onClick={(e) => e.stopPropagation()}
             clickable
           />
         );

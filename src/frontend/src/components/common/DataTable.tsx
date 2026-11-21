@@ -66,8 +66,9 @@ interface DataTableProps<T> {
    * The detail URL a row leads to (#3017). Prefer it over `onRowClick` for navigation: the row then
    * carries a real link (named by its first visible cell) that keyboard and screen-reader users can
    * reach, and Ctrl/Cmd/Shift/middle click open it in a new tab. Wins over `onRowClick` when both are set.
+   * `null` for a row that has no detail page (#3047): that row falls back to `onRowClick`, if any.
    */
-  getRowHref?: (row: T) => string;
+  getRowHref?: (row: T) => string | null;
   emptyMessage?: string;
   /** Optional secondary sentence shown below `emptyMessage` (e.g. how to create the first entry). */
   emptyDescription?: string;
@@ -442,9 +443,10 @@ export default function DataTable<T>({
           sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}
           data-testid="data-table-cards"
         >
-          {displayRows.map((row) =>
-            getRowHref ? (
-              <LinkedCard key={getRowKey(row)} href={getRowHref(row)} rowKey={getRowKey(row)}>
+          {displayRows.map((row) => {
+            const href = getRowHref?.(row) ?? null;
+            return href !== null ? (
+              <LinkedCard key={getRowKey(row)} href={href} rowKey={getRowKey(row)}>
                 {mobileCardRenderer(row)}
               </LinkedCard>
             ) : (
@@ -471,8 +473,8 @@ export default function DataTable<T>({
             >
               {mobileCardRenderer(row)}
             </Box>
-            ),
-          )}
+            );
+          })}
         </Box>
       ) : (
         /* Desktop table view */
@@ -541,6 +543,7 @@ export default function DataTable<T>({
               </TableHead>
               <TableBody>
                 {displayRows.map((row) => {
+                  const href = getRowHref?.(row) ?? null;
                   const cells = columns.map((col) => {
                     const responsiveSx = col.hideBelowBreakpoint
                       ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
@@ -552,17 +555,17 @@ export default function DataTable<T>({
                         sx={responsiveSx}
                         data-testid={`cell-${col.id}`}
                       >
-                        {getRowHref && col.id === linkColumnId ? (
-                          <RowCellLink href={getRowHref(row)}>{col.render(row)}</RowCellLink>
+                        {href !== null && col.id === linkColumnId ? (
+                          <RowCellLink href={href}>{col.render(row)}</RowCellLink>
                         ) : (
                           col.render(row)
                         )}
                       </TableCell>
                     );
                   });
-                  if (getRowHref) {
+                  if (href !== null) {
                     return (
-                      <LinkedTableRow key={getRowKey(row)} href={getRowHref(row)} rowKey={getRowKey(row)}>
+                      <LinkedTableRow key={getRowKey(row)} href={href} rowKey={getRowKey(row)}>
                         {cells}
                       </LinkedTableRow>
                     );

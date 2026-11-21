@@ -55,7 +55,8 @@ describe('AIResponse', () => {
         <span>x</span>
       </AIResponse>,
     );
-    expect(screen.getByTestId('ai-tenant-data-indicator')).toBeTruthy();
+    // A real link to the privacy settings (#3047), not a click handler.
+    expect(screen.getByTestId('ai-tenant-data-indicator')).toHaveAttribute('href', '/privacy');
   });
 
   it('shows the cloud indicator when usesCloudProvider is true', () => {

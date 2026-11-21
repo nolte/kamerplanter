@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -214,7 +214,6 @@ export default function TaskQueuePage() {
   const dispatch = useAppDispatch();
   // Server-worded species names (care dashboard) follow the UI language: reload on a switch (#2902).
   const requestLanguage = useRequestLanguage();
-  const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
   // `POST /tasks/batch/delete` carries `require_permission(TASK, DELETE)` — lead
@@ -894,8 +893,12 @@ export default function TaskQueuePage() {
             )}
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
+              {/* Outside bulk mode the card is a real link to the task (#3047): it opens in a new tab
+                  and is announced as a link. In bulk mode the same surface toggles the selection. */}
               <CardActionArea
-                onClick={bulkMode ? () => toggleSelection(task.key) : () => navigate(`/aufgaben/tasks/${task.key}`)}
+                {...(bulkMode
+                  ? { onClick: () => toggleSelection(task.key) }
+                  : { component: RouterLink, to: `/aufgaben/tasks/${task.key}` })}
                 data-testid={`task-card-${task.key}`}
                 sx={{ minHeight: 56 }}
               >
@@ -1019,7 +1022,7 @@ export default function TaskQueuePage() {
         </Card>
       );
     },
-    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection, isCompactCard],
+    [actionLoading, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection, isCompactCard],
   );
 
   const renderCareCard = useCallback(

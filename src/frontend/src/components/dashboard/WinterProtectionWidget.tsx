@@ -1,6 +1,6 @@
 import { usePendingWidget } from '@/components/dashboard/DashboardDataContext';
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -119,7 +119,6 @@ export default function WinterProtectionWidget() {
   const dispatch = useAppDispatch();
   // The red entries' species names are worded by the server in the UI language: reload on a switch (#2902).
   const requestLanguage = useRequestLanguage();
-  const navigate = useNavigate();
   // Self-fetching like the weather widget, and outside the aggregate flag for the
   // same reason (#1373).
   const { overview, overviewLoading, overviewError } = useAppSelector(
@@ -195,7 +194,8 @@ export default function WinterProtectionWidget() {
                 return (
                   <Grid size={4} key={light}>
                     <CardActionArea
-                      onClick={() => navigate('/ueberwinterung/profile')}
+                      component={RouterLink}
+                      to="/ueberwinterung/profile"
                       sx={{ borderRadius: 1 }}
                       aria-label={`${t(
                         `pages.dashboard.winterProtection.tile.${light}`,

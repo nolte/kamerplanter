@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -30,7 +30,6 @@ interface QuickAction {
  */
 export default function KioskStartPage() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
 
   const openTasks = useAppSelector((s) => s.tasks?.taskQueue?.length ?? 0);
   const overdueTasks = useAppSelector((s) => s.tasks?.overdueTasks?.length ?? 0);
@@ -86,7 +85,8 @@ export default function KioskStartPage() {
         {actions.map((action) => (
           <Card key={action.key} sx={{ minHeight: 200 }}>
             <CardActionArea
-              onClick={() => navigate(action.path)}
+              component={RouterLink}
+              to={action.path}
               aria-label={t(action.labelKey)}
               data-testid={`kiosk-tile-${action.key}`}
               sx={{

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -8,6 +8,7 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import Collapse from '@mui/material/Collapse';
 import IconButton from '@mui/material/IconButton';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import AddIcon from '@mui/icons-material/Add';
@@ -79,7 +80,6 @@ interface SiteCardProps {
 
 function SiteCard({ site, locationTypes }: SiteCardProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { handleError } = useApiError();
   const [expanded, setExpanded] = useState(false);
   const [tree, setTree] = useState<LocationTreeNode[] | null>(null);
@@ -141,17 +141,19 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
               {icon}
-              <Typography
+              {/* A real link (#3047); it must not expand or collapse the tree item it labels. */}
+              <Link
+                component={RouterLink}
+                to={`/standorte/locations/${node.key}`}
                 variant="body2"
-                component="span"
-                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/standorte/locations/${node.key}`);
-                }}
+                color="inherit"
+                underline="hover"
+                onClick={(e) => e.stopPropagation()}
+                // Enter follows the link; the tree item must not also toggle on it.
+                onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}
               >
                 {node.name}
-              </Typography>
+              </Link>
             </Box>
             <Box
               sx={{
@@ -225,7 +227,9 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
 
   return (
     <Card variant="outlined" data-testid={`site-card-${site.key}`}>
-      {/* Card header — manually built to allow keyboard-accessible expand control separate from site navigation */}
+      {/* Card header. The site name is a link and the chevron is the expand button (#3047): a link
+          inside a role="button" header was nested interactive content. A click on the rest of the
+          header still toggles, as a mouse shortcut for the chevron. */}
       <Box
         sx={{
           display: 'flex',
@@ -235,19 +239,8 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
           py: 1.5,
           cursor: 'pointer',
           '&:hover': { bgcolor: 'action.hover' },
-          '&:focus-visible': { outline: (theme) => `2px solid ${theme.palette.primary.main}`, outlineOffset: -2 },
         }}
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        aria-controls={`site-tree-${site.key}`}
         onClick={() => setExpanded((prev) => !prev)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setExpanded((prev) => !prev);
-          }
-        }}
       >
         <PlaceIcon color="primary" aria-hidden="true" />
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -259,18 +252,18 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
               flexWrap: 'wrap',
             }}
           >
-            <Typography
+            <Link
+              component={RouterLink}
+              to={`/standorte/sites/${site.key}`}
               variant="subtitle1"
-              component="span"
+              color="inherit"
+              underline="hover"
               data-testid={`site-name-${site.key}`}
-              sx={{ fontWeight: 600, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/standorte/sites/${site.key}`);
-              }}
+              sx={{ fontWeight: 600 }}
+              onClick={(e) => e.stopPropagation()}
             >
               {site.name}
-            </Typography>
+            </Link>
             {site.climate_zone && (
               <Chip label={site.climate_zone} size="small" variant="outlined" />
             )}
@@ -293,20 +286,26 @@ function SiteCard({ site, locationTypes }: SiteCardProps) {
           )}
         </Box>
         <Tooltip title={expandLabel}>
-          <Box
-            component="span"
+          <IconButton
             aria-label={expandLabel}
-            sx={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            aria-expanded={expanded}
+            aria-controls={`site-tree-${site.key}`}
+            data-testid={`site-expand-${site.key}`}
+            // The header's own click would toggle a second time.
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((prev) => !prev);
+            }}
+            sx={{ flexShrink: 0, width: 48, height: 48 }}
           >
             <ExpandMoreIcon
               aria-hidden="true"
               sx={{
                 transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
                 transition: 'transform 0.2s',
-                color: 'action.active',
               }}
             />
-          </Box>
+          </IconButton>
         </Tooltip>
       </Box>
 

@@ -838,7 +838,8 @@ export default function PlantingRunDetailPage() {
                         {grouped[phase].map((p) => (
                           <ListItemButton
                             key={p.key}
-                            onClick={() => navigate(`/pflanzen/plant-instances/${p.key}`)}
+                            component={RouterLink}
+                            to={`/pflanzen/plant-instances/${p.key}`}
                             data-testid={`phase-plant-${p.key}`}
                           >
                             <ListItemText
