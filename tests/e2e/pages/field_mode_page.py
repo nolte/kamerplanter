@@ -221,7 +221,18 @@ class FieldModePage(BasePage):
 
         The stamps are ``performance.now()`` values taken by the page itself, so the 8 s of GP-FR-149 is measured
         where it happens, and the test waits for a *state* (the button is gone) instead of for a duration.
+
+        The observer starts only once no "Rückgängig" button is in the DOM at all. Invisible is not enough: a
+        snackbar that was just dismissed (:meth:`tap_undo` waits for invisibility) stays mounted through its exit
+        transition (MUI: 195 ms), and an observer installed then stamps that leaving button as "shown" and its
+        unmount as "hidden" - TC-053-026 measured 259 ms instead of about 8 s.
         """
+        try:
+            self.poll().until(lambda _d: not self.driver.find_elements(*self.SNACKBAR_UNDO))
+        except TimeoutException as exc:
+            raise AssertionError(
+                "a 'Rückgängig' snackbar is still mounted: its lifetime cannot be measured from a clean start"
+            ) from exc
         self.driver.execute_script(_UNDO_LIFETIME_PROBE)
 
     def undo_lifetime_ms(self, what: str) -> float:

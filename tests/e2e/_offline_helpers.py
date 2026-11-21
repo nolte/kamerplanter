@@ -118,19 +118,52 @@ indexedDB.databases().then(function (list) {
 }, function (e) { done({error: String(e)}); });
 """
 
-#: Opens an existing database read-only and lists the primary keys of one store. Never creates a database: the
-#: caller checks the name first, and ``onupgradeneeded`` (which only fires for a new database) aborts.
+#: How long the probe's ``indexedDB.open`` may stay pending before it reports that instead of answering. Below the
+#: driver's 30 s script timeout on purpose: an open request queued behind a version change or deletion that another
+#: connection blocks never completes, and Selenium would only say "script timeout" (TC-053-086/087/088 nightlies).
+STORE_OPEN_PENDING_MS = 10_000
+
+#: Opens an existing database read-only and lists the primary keys of one store. Never keeps a database it created:
+#: the caller checks the name first, and ``onupgradeneeded`` (which only fires for a new database) aborts the
+#: creation. That abort still matters while pending: an open queued behind the app's own ``deleteDatabase`` would
+#: create a fresh v1 once the deletion completes, and the abort discards it again. A version-less open is never
+#: ``blocked`` itself; it only waits in the queue, which is what the watchdog reports.
+#: Every path calls ``done`` exactly once: a request still pending after ``STORE_OPEN_PENDING_MS`` answers
+#: ``{pending: ...}`` with the origin's databases and versions, a request that succeeds after that closes its
+#: connection at once (left open it would itself block the app's next upgrade or deletion), and an exception in a
+#: callback answers ``{error: ...}`` instead of leaving the script to time out.
 _STORE_KEYS = """
-var name = arguments[0], store = arguments[1], done = arguments[arguments.length - 1];
+var name = arguments[0], store = arguments[1], pendingMs = arguments[2], done = arguments[arguments.length - 1];
+var answered = false;
+function finish(value) { if (!answered) { answered = true; clearTimeout(watchdog); done(value); } }
 var request = indexedDB.open(name);
-request.onupgradeneeded = function () { request.transaction.abort(); done({missing: true}); };
-request.onerror = function () { done({error: String(request.error)}); };
+var watchdog = setTimeout(function () {
+  var state = {pending: true, readyState: request.readyState, waitedMs: pendingMs};
+  // databases() can stall like the open itself; answer without the list rather than run into the script timeout.
+  setTimeout(function () { finish(state); }, 2000);
+  indexedDB.databases().then(function (list) {
+    state.databases = list.map(function (d) { return d.name + '@' + d.version; });
+    finish(state);
+  }, function () { finish(state); });
+}, pendingMs);
+request.onupgradeneeded = function () { request.transaction.abort(); finish({missing: true}); };
+request.onerror = function () { finish({error: String(request.error)}); };
 request.onsuccess = function () {
   var db = request.result;
-  if (!db.objectStoreNames.contains(store)) { db.close(); done({keys: null, stores: Array.from(db.objectStoreNames)}); return; }
-  var keys = db.transaction(store, 'readonly').objectStore(store).getAllKeys();
-  keys.onsuccess = function () { db.close(); done({keys: keys.result.map(String)}); };
-  keys.onerror = function () { db.close(); done({error: String(keys.error)}); };
+  if (answered) { db.close(); return; }
+  try {
+    if (!db.objectStoreNames.contains(store)) {
+      db.close();
+      finish({keys: null, stores: Array.from(db.objectStoreNames)});
+      return;
+    }
+    var keys = db.transaction(store, 'readonly').objectStore(store).getAllKeys();
+    keys.onsuccess = function () { db.close(); finish({keys: keys.result.map(String)}); };
+    keys.onerror = function () { db.close(); finish({error: String(keys.error)}); };
+  } catch (e) {
+    db.close();
+    finish({error: String(e)});
+  }
 };
 """
 
@@ -147,7 +180,13 @@ def indexeddb_record_keys(driver: WebDriver, database: str, store: str) -> list[
     """Primary keys of *store* in *database*; ``None`` when the database does not exist (it is not created)."""
     if database not in indexeddb_database_names(driver):
         return None
-    answer = driver.execute_async_script(_STORE_KEYS, database, store)
+    answer = driver.execute_async_script(_STORE_KEYS, database, store, STORE_OPEN_PENDING_MS)
+    if isinstance(answer, dict) and answer.get("pending"):
+        raise OfflineProbeError(
+            f"opening {database!r} did not complete within {answer.get('waitedMs')} ms "
+            f"(request readyState {answer.get('readyState')!r}; databases {answer.get('databases')}): "
+            "the open is queued behind a version change or deletion that another connection blocks"
+        )
     if not isinstance(answer, dict) or "error" in answer:
         raise OfflineProbeError(f"reading {database}/{store} failed: {answer!r}")
     if answer.get("missing"):
