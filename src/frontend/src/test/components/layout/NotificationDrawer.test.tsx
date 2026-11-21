@@ -1,6 +1,6 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -119,6 +119,70 @@ describe('NotificationDrawer', () => {
 
     expect(await screen.findByText('Keine Benachrichtigungen')).toBeInTheDocument();
     await waitFor(() => expect(onCountChange).toHaveBeenCalledWith(0));
+  });
+
+  it('shows a failed load with a retry instead of the empty state (#3037)', async () => {
+    let calls = 0;
+    server.use(
+      http.get(BASE, () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+          : HttpResponse.json({ items: [makeNotif({ key: 'n1', title: 'Gießen' })], total: 1, unread_count: 1 });
+      }),
+    );
+    renderDrawer(<NotificationDrawer open onClose={noop} onCountChange={noop} />);
+
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    // A failed read is not "no notifications".
+    expect(screen.queryByText('Keine Benachrichtigungen')).toBeNull();
+
+    await userEvent.setup().click(retry);
+    expect(await screen.findByText('Gießen')).toBeInTheDocument();
+    expect(calls).toBe(2);
+  });
+
+  it('ignores a stale page that fails after the drawer was reopened (#3037)', async () => {
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let calls = 0;
+    server.use(
+      http.get(BASE, async () => {
+        calls += 1;
+        if (calls === 1) {
+          await firstGate;
+          return HttpResponse.json({ message: 'boom' }, { status: 500 });
+        }
+        return HttpResponse.json({ items: [makeNotif({ key: 'n1', title: 'Frisch' })], total: 1, unread_count: 1 });
+      }),
+    );
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button type="button" data-testid="toggle-drawer" onClick={() => setOpen((o) => !o)} />
+          <NotificationDrawer open={open} onClose={noop} onCountChange={noop} />
+        </>
+      );
+    }
+    renderDrawer(<Harness />);
+    await waitFor(() => expect(calls).toBe(1));
+
+    // Close and reopen: the reopen's read supersedes the pending first one. `fireEvent`,
+    // because the open modal drawer marks the rest of the page aria-hidden.
+    fireEvent.click(screen.getByTestId('toggle-drawer'));
+    fireEvent.click(screen.getByTestId('toggle-drawer'));
+    expect(await screen.findByText('Frisch')).toBeInTheDocument();
+
+    // The superseded read now fails — its error must not cover the fresh list.
+    releaseFirst();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.getByText('Frisch')).toBeInTheDocument();
+    expect(screen.queryByTestId('error-display')).toBeNull();
   });
 
   it('does not render drawer content while closed', () => {

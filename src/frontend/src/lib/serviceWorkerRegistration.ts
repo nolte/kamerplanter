@@ -119,6 +119,7 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     });
     return registration;
   } catch (error) {
+    // The app runs without the worker; only push and offline reading are lost.
     console.warn('[pwa] service worker registration failed; push and offline reading are unavailable', error);
     return null;
   }

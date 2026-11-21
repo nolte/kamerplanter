@@ -59,6 +59,8 @@ import OriginChip from '@/components/common/OriginChip';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
@@ -190,6 +192,12 @@ export default function WorkflowDetailPage() {
   // Species selection
   const [allSpecies, setAllSpecies] = useState<SpeciesOption[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
+  // A failed catalogue read is shown with a retry, never as an empty picker (#3037).
+  const [speciesLoadError, setSpeciesLoadError] = useState(false);
+  const [speciesAttempt, setSpeciesAttempt] = useState(0);
+  // True only once the catalogue of the current run has arrived: until then
+  // `selectedSpecies` is not the stored selection and must not be saved.
+  const [speciesReady, setSpeciesReady] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<SpeciesOption[]>([]);
   const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
   const [speciesFilter, setSpeciesFilter] = useState<'all' | 'favorites'>('all');
@@ -235,7 +243,10 @@ export default function WorkflowDetailPage() {
       if (wf.species_key) {
         try {
           sp = await speciesApi.getSpecies(wf.species_key);
-        } catch { /* species may not resolve */ }
+        } catch (err) {
+          // The species only adds a breadcrumb level; the workflow itself loaded.
+          captureHandledError(err, { source: 'WorkflowDetailPage.crumbSpecies' });
+        }
       }
       setCrumbSpecies(sp);
       setError(null);
@@ -264,8 +275,9 @@ export default function WorkflowDetailPage() {
       .then((execs) => {
         if (!cancelled) setExecutions(execs);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         // Keep the executions of the previous language; the next full load replaces them.
+        captureHandledError(err, { source: 'WorkflowDetailPage.executionsLanguage' });
       });
     return () => {
       cancelled = true;
@@ -293,11 +305,17 @@ export default function WorkflowDetailPage() {
   useEffect(() => {
     if (!workflow) return;
     setSpeciesLoading(true);
+    setSpeciesLoadError(false);
+    setSpeciesReady(false);
     Promise.all([
       // The complete catalogue (#1560); one leg of an imperative sequence whose
       // surrounding loading state already covers it.
       speciesApi.listAllSpecies(),
-      favApi.listFavorites('species').catch(() => []),
+      favApi.listFavorites('species').catch((err: unknown) => {
+        // Favourites only sort/filter the catalogue; the picker works without them.
+        captureHandledError(err, { source: 'WorkflowDetailPage.speciesFavorites' });
+        return [];
+      }),
     ])
       .then(([res, favs]) => {
         const items: SpeciesOption[] = res.items.map((s) => ({
@@ -309,10 +327,15 @@ export default function WorkflowDetailPage() {
         setFavoriteKeys(new Set(favs.map((f) => f.target_key)));
         const compatNames = new Set(workflow.species_compatible ?? []);
         setSelectedSpecies(items.filter((s) => compatNames.has(s.scientific_name) || compatNames.has(s.key)));
+        setSpeciesReady(true);
       })
-      .catch(() => setAllSpecies([]))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'WorkflowDetailPage.species' });
+        setAllSpecies([]);
+        setSpeciesLoadError(true);
+      })
       .finally(() => setSpeciesLoading(false));
-  }, [workflow]);
+  }, [workflow, speciesAttempt]);
 
   const onSave = async (data: EditFormData) => {
     if (!key) return;
@@ -324,7 +347,11 @@ export default function WorkflowDetailPage() {
         version: data.version,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         target_entity_types: data.target_entity_types,
-        species_compatible: selectedSpecies.map((s) => s.scientific_name),
+        // Until the catalogue has arrived (pending, failed or retrying) the picker
+        // is empty, not cleared: keep the stored list.
+        species_compatible: speciesReady
+          ? selectedSpecies.map((s) => s.scientific_name)
+          : (workflow?.species_compatible ?? []),
       });
       notification.success(t('pages.tasks.workflowUpdated'));
       load();
@@ -451,7 +478,11 @@ export default function WorkflowDetailPage() {
   // keeps its own swallowed catch. The catalogue itself does not — that is the
   // distinction #1568 is about.
   const loadActivityFavorites = useCallback(async () => {
-    const favs = await favApi.listFavorites('activities').catch(() => []);
+    const favs = await favApi.listFavorites('activities').catch((err: unknown) => {
+      // Favourites only order the activity picker; it works without them.
+      captureHandledError(err, { source: 'WorkflowDetailPage.activityFavorites' });
+      return [];
+    });
     setActivityFavKeys(new Set(favs.map((f) => f.target_key)));
   }, []);
 
@@ -1509,6 +1540,12 @@ export default function WorkflowDetailPage() {
                       onClick={() => setSpeciesFilter('favorites')}
                     />
                   </Box>
+                  {speciesLoadError && (
+                    <OptionsLoadError
+                      onRetry={() => setSpeciesAttempt((n) => n + 1)}
+                      data-testid="workflow-species-load-error"
+                    />
+                  )}
                   <Autocomplete
                     multiple
                     options={filteredSpeciesOptions}

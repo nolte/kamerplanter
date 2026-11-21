@@ -22,11 +22,10 @@ import ts from 'typescript';
  * fallback the caller renders) is not swallowing and is out of scope — whether
  * it renders the failure is the three-state contract's business, not this guard's.
  *
- * **Known gap.** That out-of-scope case is also the most common "empty on error"
- * shape: `.catch(() => [])`, `.catch(() => null)` or `catch { setX([]) }` turn a
- * failure into an empty list without this guard noticing, and `.catch(noop)` with
- * an identifier is not inspected at all. Those are tracked as the follow-up of
- * #3013, not covered here.
+ * **The other half.** That out-of-scope case is also the most common "empty on
+ * error" shape: `.catch(() => [])`, `.catch(() => null)`, `catch { setX([]) }` or
+ * `.catch(noop)` turn a failure into an empty list. `fallbackCatchesAreLogged`
+ * holds those to the same rule (#3037).
  *
  * **The allowlist** names the files that still swallow, with a count and one
  * reason each. It may only shrink: a file whose count rises fails, and a file
@@ -114,11 +113,11 @@ function findUnloggedSwallows(code: string, fileName = 'x.tsx'): SwallowFinding[
 /**
  * Files that still swallow, with how many handlers and why. Shrinks only — see the header.
  *
- * Two kinds of entries:
- * - **deliberate** — best-effort work whose failure has no user-facing consequence
- *   (storage quota, a cache, a lazy translation chunk). These still lack the log call.
- * - **open #3013 follow-up** — a load whose failure renders as an empty picker or
- *   list; each needs the three-state treatment (`useAsyncOptions` + `OptionsLoadError`).
+ * Every entry is **deliberate** — best-effort work whose failure has no user-facing
+ * consequence (storage quota, a cache, a lazy translation chunk). These still lack
+ * the log call. A load whose failure would render as an empty picker or list does
+ * not belong here: it gets the three-state treatment (`useAsyncOptions` +
+ * `OptionsLoadError`, or an `ErrorDisplay` with `onRetry`) — #3037 cleared the last ones.
  */
 const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
   '/src/api/endpoints/ai.ts': {
@@ -150,16 +149,6 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     count: 1,
     reason:
       'deliberate: browser storage unavailable (private mode, quota) — the in-memory state applies; logging every blocked storage access would flood error tracking',
-  },
-  '/src/components/layout/NotificationBell.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: the bell keeps a stale unread count without saying so',
-  },
-  '/src/components/layout/NotificationDrawer.tsx': {
-    count: 3,
-    reason:
-      'open #3013 follow-up: a failed notification load or mark-read reads as an empty/unchanged drawer',
   },
   '/src/features/gardenPlanner/editor/tools/useEditorTools.ts': {
     count: 2,
@@ -216,25 +205,10 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     reason:
       'deliberate: browser storage unavailable (private mode, quota) — the in-memory state applies; logging every blocked storage access would flood error tracking',
   },
-  '/src/features/gardenPlanner/planting/usePlantStates.ts': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: the plant-state wires of a bed silently stay empty on a failed load',
-  },
-  '/src/features/gardenPlanner/zones/useZoneData.ts': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: zone task data silently stays empty on a failed load',
-  },
   '/src/hooks/useCountdownTimer.ts': {
     count: 1,
     reason:
       'deliberate: the audio cue is optional; the timer works without it',
-  },
-  '/src/hooks/useServerFavorites.ts': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: server favourites fall back to the local set without telling the user',
   },
   '/src/hooks/useTableState.ts': {
     count: 2,
@@ -266,85 +240,10 @@ const ALLOWLIST: Readonly<Record<string, { count: number; reason: string }>> = {
     reason:
       'deliberate: the app mounts even if i18n init fails; initI18n reports its own load errors',
   },
-  '/src/pages/aufgaben/TaskDetailPage.tsx': {
-    count: 2,
-    reason:
-      'open #3013 follow-up: comments and history of a task read as empty on a failed load',
-  },
-  '/src/pages/aufgaben/WorkflowDetailPage.tsx': {
-    count: 2,
-    reason:
-      'open #3013 follow-up: breadcrumb species and workflow executions read as absent on a failed load',
-  },
-  '/src/pages/aufgaben/WorkflowInstantiateDialog.tsx': {
-    count: 2,
-    reason:
-      'open #3013 follow-up: a run/site whose targets fail to load is skipped from the picker without a word',
-  },
-  '/src/pages/auth/AccountSettingsPage.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: the admin system settings read as unset on a failed load',
-  },
   '/src/pages/auth/EmailChangeCard.tsx': {
     count: 2,
     reason:
       'deliberate: browser storage unavailable (private mode, quota) — the in-memory state applies; logging every blocked storage access would flood error tracking',
-  },
-  '/src/pages/auth/NotificationSettingsTab.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: failed preferences load shows the defaults as if they were stored',
-  },
-  '/src/pages/duengung/NutrientPlanAssignDialog.tsx': {
-    count: 2,
-    reason:
-      'open #3013 follow-up: plan list load failure reads as empty; the save path is handled by the parent',
-  },
-  '/src/pages/durchlaeufe/PlantingRunCreateDialog.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
-  },
-  '/src/pages/durchlaeufe/PlantingRunDetailPage.tsx': {
-    count: 4,
-    reason:
-      'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
-  },
-  '/src/pages/durchlaeufe/SuccessionPlanDialog.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
-  },
-  '/src/pages/pflanzen/PlantInstanceDetailPage.tsx': {
-    count: 2,
-    reason:
-      'open #3013 follow-up: secondary sections (site, plan) read as empty on a failed load',
-  },
-  '/src/pages/stammdaten/BotanicalFamilyDetailPage.tsx': {
-    count: 1,
-    reason:
-      "open #3013 follow-up: the family's species list reads as empty on a failed load",
-  },
-  '/src/pages/stammdaten/CropRotationPage.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
-  },
-  '/src/pages/stammdaten/CultivarDetailPage.tsx': {
-    count: 1,
-    reason:
-      "open #3013 follow-up: a failed lifecycle load reads as 'no lifecycle yet'",
-  },
-  '/src/pages/stammdaten/species-detail/SpeciesCropRotationTab.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: a load failure renders as an empty list/picker — needs useAsyncOptions + OptionsLoadError',
-  },
-  '/src/pages/standorte/SiteDetailPage.tsx': {
-    count: 1,
-    reason:
-      'open #3013 follow-up: the sensors section reads as empty on a failed load',
   },
   '/src/pwa/offlineData.ts': {
     count: 3,

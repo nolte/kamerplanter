@@ -26,6 +26,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { HAEntitySuggestion } from '@/api/endpoints/tanks';
 import type { Sensor } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export type SensorParentType = 'tank' | 'site' | 'location';
 
@@ -108,7 +109,11 @@ export default function SensorCreateDialog({ open, onClose, context, sensor, onS
       setLoadingEntities(true);
       tankApi.listHaEntities()
         .then(setHaEntities)
-        .catch(() => setHaEntities([]))
+        .catch((err: unknown) => {
+          // Without suggestions the entity ID stays a free-text field; the sensor can still be saved.
+          captureHandledError(err, { source: 'SensorCreateDialog.haEntities' });
+          setHaEntities([]);
+        })
         .finally(() => setLoadingEntities(false));
     }
   }, [open, sensor, reset, context.parentType, canConfigureIntegrations]);

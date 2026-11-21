@@ -34,7 +34,16 @@ import { kamiPlants } from '@/assets/brand/illustrations';
 import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
 import { captureHandledError } from '@/observability/errorTracking';
-import { createRequestLimiter, ENRICHMENT_CONCURRENCY } from '@/api/requestLimiter';
+import { createRequestLimiter, ENRICHMENT_CONCURRENCY, RequestDroppedError } from '@/api/requestLimiter';
+
+/**
+ * A read the limiter dropped because the page moved on is not a failure; every other
+ * rejection of an enrichment read is logged, so a row without its label has a trace.
+ */
+function logEnrichmentFailure(err: unknown, source: string): void {
+  if (err instanceof RequestDroppedError) return;
+  captureHandledError(err, { source });
+}
 
 export default function PlantInstanceListPage() {
   const { t, i18n } = useTranslation();
@@ -90,7 +99,13 @@ export default function PlantInstanceListPage() {
       setSiteMap(sm);
       return Promise.all(
         sites.map((s) =>
-          enrichmentLimiter.run(() => listLocations(s.key), signal).catch(() => [] as Location[]),
+          enrichmentLimiter
+            .run(() => listLocations(s.key), signal)
+            .catch((err: unknown) => {
+              // Location names only label rows; a site whose locations fail shows its rows without them.
+              logEnrichmentFailure(err, 'PlantInstanceListPage.locations');
+              return [] as Location[];
+            }),
         ),
       );
     }).then((results) => {
@@ -118,7 +133,11 @@ export default function PlantInstanceListPage() {
           enrichmentLimiter
             .run(() => listRunPlants(r.key), signal)
             .then((plants) => ({ run: r, plants }))
-            .catch(() => ({ run: r, plants: [] as { key: string }[] })),
+            .catch((err: unknown) => {
+              // A run whose plants fail to load leaves its rows without the run label.
+              logEnrichmentFailure(err, 'PlantInstanceListPage.runPlants');
+              return { run: r, plants: [] as { key: string }[] };
+            }),
         ),
       );
       if (signal.aborted) return;
@@ -148,7 +167,13 @@ export default function PlantInstanceListPage() {
     const controller = new AbortController();
     const { signal } = controller;
     const promises = [...speciesKeysWithCultivars].map((sk) =>
-      enrichmentLimiter.run(() => listCultivars(sk), signal).catch(() => [] as Cultivar[]),
+      enrichmentLimiter
+        .run(() => listCultivars(sk), signal)
+        .catch((err: unknown): Cultivar[] => {
+          // Cultivar names only label rows; the list is complete without them.
+          logEnrichmentFailure(err, 'PlantInstanceListPage.cultivars');
+          return [];
+        }),
     );
     Promise.all(promises).then((results) => {
       if (signal.aborted) return;
@@ -169,7 +194,15 @@ export default function PlantInstanceListPage() {
     const controller = new AbortController();
     const { signal } = controller;
     Promise.all(
-      [...slotKeys].map((sk) => enrichmentLimiter.run(() => getSlot(sk), signal).catch(() => null)),
+      [...slotKeys].map((sk) =>
+        enrichmentLimiter
+          .run(() => getSlot(sk), signal)
+          .catch((err: unknown) => {
+            // Slot names only label rows; the list is complete without them.
+            logEnrichmentFailure(err, 'PlantInstanceListPage.slots');
+            return null;
+          }),
+      ),
     ).then((results) => {
       if (signal.aborted) return;
       const map = new Map<string, Slot>();

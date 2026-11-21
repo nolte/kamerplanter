@@ -30,6 +30,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
@@ -88,6 +89,9 @@ export default function CropRotationPage() {
   // has not run yet), so a wait keyed on "no skeleton is visible" is satisfied
   // before loading has begun at all.
   const [catalogLoading, setCatalogLoading] = useState(true);
+  // A failed family read is shown with a retry, never as "no family found" (#3037).
+  const [familiesError, setFamiliesError] = useState(false);
+  const [familiesAttempt, setFamiliesAttempt] = useState(0);
   const [successorsLoading, setSuccessorsLoading] = useState(false);
   // The family whose successors `successors` currently holds. React commits one
   // render between `setSelectedKey` and the effect that fetches for it, carrying
@@ -120,8 +124,15 @@ export default function CropRotationPage() {
     Promise.all([
       familiesApi
         .listAllBotanicalFamilies()
-        .then((f) => { if (!cancelled) setFamilies(f); })
-        .catch(() => {}),
+        .then((f) => {
+          if (cancelled) return;
+          setFamilies(f);
+          setFamiliesError(false);
+        })
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'CropRotationPage.families' });
+          if (!cancelled) setFamiliesError(true);
+        }),
       rotationApi
         .getRotationCounts()
         .then((c) => { if (!cancelled) setRotationCounts(c); })
@@ -131,6 +142,11 @@ export default function CropRotationPage() {
         }),
     ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
+  }, [familiesAttempt]);
+
+  const retryFamilies = useCallback(() => {
+    setCatalogLoading(true);
+    setFamiliesAttempt((n) => n + 1);
   }, []);
 
   useEffect(() => {
@@ -360,6 +376,9 @@ export default function CropRotationPage() {
       {/* onKeyDownCapture runs before MUI's own Enter/Arrow handling on the input
           (capture phase, so it can never be shadowed by an internal stopPropagation),
           giving the Shift+F favorite shortcut a safe, non-interfering hook. */}
+      {familiesError && !catalogLoading && (
+        <OptionsLoadError onRetry={retryFamilies} data-testid="crop-rotation-families-load-error" />
+      )}
       <Box onKeyDownCapture={handleFavoriteShortcut}>
         <Autocomplete
           fullWidth

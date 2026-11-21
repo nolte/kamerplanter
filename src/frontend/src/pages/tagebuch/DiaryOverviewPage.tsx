@@ -36,6 +36,7 @@ import {
   type DiaryOverviewFilterState,
 } from './diaryOverviewFilterState';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Page size the overview starts with; the backend caps `limit` at 200. */
 const DEFAULT_PAGE_SIZE = 50;
@@ -184,7 +185,9 @@ export default function DiaryOverviewPage() {
       .then((all) => {
         if (!cancelled) setPlants(all);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // The plant filter is optional: without it the diary still lists every entry.
+        captureHandledError(err, { source: 'DiaryOverviewPage.plants' });
         if (!cancelled) setPlants([]);
       });
     return () => {

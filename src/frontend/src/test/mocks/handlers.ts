@@ -332,6 +332,14 @@ export const handlers = [
   http.get('/api/v1/species/:key/phase-sequence', () => {
     return HttpResponse.json(null);
   }),
+  // Phase profiles: the API answers 404 for a phase without that profile — the normal
+  // "none" case, which ProfilesSection tells apart from a failed read (#3037).
+  http.get('/api/v1/profiles/requirements/:phaseKey', () =>
+    HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 }),
+  ),
+  http.get('/api/v1/profiles/nutrients/:phaseKey', () =>
+    HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 }),
+  ),
   // Lifecycle config + growth phases (plant-instance create dialog)
   http.get('/api/v1/species/:key/lifecycle', ({ params }) => {
     return HttpResponse.json({

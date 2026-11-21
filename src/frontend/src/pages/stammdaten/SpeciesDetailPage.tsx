@@ -52,6 +52,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSpecies, clearCurrent } from '@/store/slices/speciesSlice';
 import * as api from '@/api/endpoints/species';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export default function SpeciesDetailPage() {
   const { key } = useParams<{ key: string }>();
@@ -137,7 +138,11 @@ export default function SpeciesDetailPage() {
       phaseSequenceApi
         .getSpeciesPhaseSequence(key)
         .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
-        .catch(() => setPhaseSequenceKey(null));
+        .catch((err: unknown) => {
+          // Only the link to the species' phase sequence is missing; the page renders without it.
+          captureHandledError(err, { source: 'SpeciesDetailPage.phaseSequence' });
+          setPhaseSequenceKey(null);
+        });
     }
     return () => {
       dispatch(clearCurrent());
@@ -184,7 +189,17 @@ export default function SpeciesDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  // The retry re-runs the load in place; it does not leave the page (#3037).
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        onRetry={() => {
+          if (key) void dispatch(fetchSpecies(key));
+        }}
+      />
+    );
+  }
 
   return (
     <Box data-testid="species-detail-page">

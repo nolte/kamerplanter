@@ -397,6 +397,33 @@ describe('WorkflowPhaseDialog', () => {
     expect(screen.queryByRole('button', { name: 'Vegetative' })).not.toBeInTheDocument();
   });
 
+  it('reloads the growth phases through the retry after a failed read (#3037)', async () => {
+    let growthCalls = 0;
+    seed({ suggestions: [] });
+    server.use(
+      http.get(GROWTH_PHASES_URL, () => {
+        growthCalls += 1;
+        return growthCalls === 1
+          ? HttpResponse.json({ error_id: 'e', error_code: 'X', message: 'boom', details: [] }, { status: 500 })
+          : HttpResponse.json(growthPhases);
+      }),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+
+    await screen.findByTestId('workflow-phase-dialog');
+    const speciesInput = screen.getByLabelText(i18n.t('pages.tasks.selectSpecies'), { exact: false });
+    await user.click(speciesInput);
+    await user.click(await screen.findByRole('option', { name: /Solanum lycopersicum/ }));
+
+    await user.click(await screen.findByTestId('workflow-phase-assist-load-error-retry'));
+
+    // The phases really arrive — the error does not just disappear.
+    expect(await screen.findByRole('button', { name: 'Vegetative' })).toBeInTheDocument();
+    expect(screen.queryByTestId('workflow-phase-assist-load-error')).toBeNull();
+    expect(growthCalls).toBe(2);
+  });
+
   it('closes via the cancel action', async () => {
     seed({ suggestions: [] });
     const user = userEvent.setup();

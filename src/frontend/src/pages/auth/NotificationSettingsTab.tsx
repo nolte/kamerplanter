@@ -23,6 +23,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlined';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import {
   getPreferences,
@@ -32,7 +37,7 @@ import {
 } from '@/api/endpoints/notifications';
 import { useAppSelector } from '@/store/hooks';
 import { usePwaPush } from '@/hooks/usePwaPush';
-import { parseApiError } from '@/api/errors';
+import { errorKey, parseApiError } from '@/api/errors';
 import type {
   NotificationPreferencesResponse,
   ChannelStatusResponse,
@@ -105,7 +110,14 @@ export default function NotificationSettingsTab() {
 
   const [prefs, setPrefs] = useState<NotificationPreferencesResponse | null>(null);
   const [channelStatuses, setChannelStatuses] = useState<ChannelStatusResponse[]>([]);
+  // The channel status is secondary (the server health-checks every channel and can be
+  // slow): only the preferences may block the editor. Until it arrives, or when it
+  // failed, each channel's status reads "unknown", never "not configured" (#3037).
+  const [statusReady, setStatusReady] = useState(false);
+  const [statusLoadError, setStatusLoadError] = useState(false);
   const [loading, setLoading] = useState(true);
+  // A failed read must not show the defaults as if they were stored — saving them would overwrite the real ones (#3037).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testingChannel, setTestingChannel] = useState<string | null>(null);
   // The Apprise textarea's raw text while the user edits it. The saved list drops
@@ -136,15 +148,31 @@ export default function NotificationSettingsTab() {
     channel: 'home_assistant',
   });
 
+  const beginStatusLoad = useAbortableLoad();
+  const loadChannelStatus = useCallback(async () => {
+    const ticket = beginStatusLoad();
+    setStatusReady(false);
+    setStatusLoadError(false);
+    try {
+      const statusData = await getChannelStatus();
+      if (!ticket.isCurrent()) return;
+      setChannelStatuses(statusData);
+      setStatusReady(true);
+    } catch (err) {
+      if (!ticket.isCurrent()) return;
+      captureHandledError(err, { source: 'NotificationSettingsTab.channelStatus' });
+      setChannelStatuses([]);
+      setStatusLoadError(true);
+    }
+  }, [beginStatusLoad]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+    void loadChannelStatus();
     try {
-      const [prefsData, statusData] = await Promise.all([
-        getPreferences(),
-        getChannelStatus(),
-      ]);
+      const prefsData = await getPreferences();
       setPrefs(prefsData);
-      setChannelStatuses(statusData);
 
       // Populate form state from loaded prefs
       setChannels(prefsData.channels ?? {});
@@ -152,12 +180,13 @@ export default function NotificationSettingsTab() {
       setBatching(prefsData.batching);
       setEscalation(prefsData.escalation);
       setDailySummary(prefsData.daily_summary);
-    } catch {
-      // Keep defaults if loading fails
+    } catch (err) {
+      captureHandledError(err, { source: 'NotificationSettingsTab.load' });
+      setLoadError(errorKey(err, 'errors.preferencesLoadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadChannelStatus]);
 
   useEffect(() => {
     void loadData();
@@ -265,6 +294,10 @@ export default function NotificationSettingsTab() {
     );
   }
 
+  if (loadError) {
+    return <ErrorDisplay error={loadError} onRetry={() => void loadData()} />;
+  }
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* ── Channels Section ── */}
@@ -279,6 +312,13 @@ export default function NotificationSettingsTab() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.notifications.settings.channelsDesc')}
           </Typography>
+          {statusLoadError && (
+            <OptionsLoadError
+              messageKey="pages.notifications.settings.channelStatusLoadFailed"
+              onRetry={() => void loadChannelStatus()}
+              data-testid="channel-status-load-error"
+            />
+          )}
 
           {CHANNEL_KEYS.map((channelKey) => {
             const pref = channels[channelKey] ?? getChannelPref(prefs, channelKey);
@@ -309,17 +349,22 @@ export default function NotificationSettingsTab() {
                   />
                   <Chip
                     size="small"
+                    data-testid={`channel-status-${channelKey}`}
                     label={
-                      status?.healthy
-                        ? t('pages.notifications.settings.channelAvailable')
-                        : t('pages.notifications.settings.channelNotConfigured')
+                      !statusReady
+                        ? t('pages.notifications.settings.channelStatusUnknown')
+                        : status?.healthy
+                          ? t('pages.notifications.settings.channelAvailable')
+                          : t('pages.notifications.settings.channelNotConfigured')
                     }
-                    color={status?.healthy ? 'success' : 'default'}
+                    color={statusReady && status?.healthy ? 'success' : 'default'}
                     icon={
-                      status?.healthy ? (
+                      statusReady && status?.healthy ? (
                         <CheckCircleIcon fontSize="small" />
-                      ) : (
+                      ) : statusReady ? (
                         <ErrorOutlineIcon fontSize="small" />
+                      ) : (
+                        <HelpOutlineIcon fontSize="small" />
                       )
                     }
                   />

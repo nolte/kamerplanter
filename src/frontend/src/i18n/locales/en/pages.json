@@ -4145,6 +4145,8 @@
         "channelApprise": "Apprise (Telegram, Slack, ...)",
         "channelNotConfigured": "Not configured",
         "channelAvailable": "Available",
+        "channelStatusUnknown": "Status unknown",
+        "channelStatusLoadFailed": "The channel status could not be loaded.",
         "pwaEnable": "Enable on this device",
         "pwaDisable": "Disable",
         "pwaActive": "Enabled on this device",
@@ -4184,7 +4186,8 @@
         "testSend": "Send test",
         "testSuccess": "Test notification sent",
         "testFailed": "Test failed"
-      }
+      },
+      "markAllReadError": "Could not mark the notifications as read. Please try again."
     },
     "pflege": {
       "title": "Care Dashboard",

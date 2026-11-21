@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -21,6 +21,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -97,6 +99,8 @@ export default function SiteDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [deletingSensor, setDeletingSensor] = useState(false);
   const [sensors, setSensors] = useState<Sensor[]>([]);
+  // A failed read is shown with a retry, never as "no sensors" (#3037).
+  const [sensorsError, setSensorsError] = useState(false);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
@@ -129,21 +133,35 @@ export default function SiteDetailPage() {
       const s = await api.getSiteSensors(key);
       if (!ticket.isCurrent()) return;
       setSensors(s);
-    } catch {
-      // Sensors may not be available
+      setSensorsError(false);
+    } catch (err) {
+      if (!ticket.isCurrent()) return;
+      captureHandledError(err, { source: 'SiteDetailPage.sensors' });
+      setSensorsError(true);
     }
   }, [key, beginSensorLoad]);
 
+  const siteRequestRef = useRef<{ abort: () => void } | null>(null);
   useEffect(() => {
     if (!key) return () => { dispatch(clearCurrent()); };
     // Aborting the superseded fetch keeps its late answer out of `currentSite` (#3014);
     // the slice ignores the abort's own `rejected` action.
     const siteRequest = dispatch(fetchSite(key));
+    siteRequestRef.current = siteRequest;
     loadSensors();
     return () => {
-      siteRequest.abort();
+      siteRequestRef.current?.abort();
+      siteRequestRef.current = null;
       dispatch(clearCurrent());
     };
+  }, [key, dispatch, loadSensors]);
+
+  // The error display's retry re-runs the load in place instead of leaving the page (#3037).
+  const retryLoad = useCallback(() => {
+    if (!key) return;
+    siteRequestRef.current?.abort();
+    siteRequestRef.current = dispatch(fetchSite(key));
+    loadSensors();
   }, [key, dispatch, loadSensors]);
 
   useEffect(() => {
@@ -237,7 +255,7 @@ export default function SiteDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={retryLoad} />;
 
   const PANEL_GAP = 4;
 
@@ -386,7 +404,13 @@ export default function SiteDetailPage() {
             {t('pages.sensors.add')}
           </Button>
         </Box>
-        {sensors.length === 0 ? (
+        {sensorsError ? (
+          <OptionsLoadError
+            messageKey="errors.loadFailed"
+            onRetry={() => void loadSensors()}
+            data-testid="site-sensors-load-error"
+          />
+        ) : sensors.length === 0 ? (
           <EmptyState
             message={t('pages.sensors.noSensors')}
             actionLabel={t('pages.sensors.add')}

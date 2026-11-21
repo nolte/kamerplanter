@@ -15,6 +15,9 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import EmptyState from '@/components/common/EmptyState';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import MobileCard from '@/components/common/MobileCard';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useNotification } from '@/hooks/useNotification';
@@ -62,6 +65,8 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
   const { handleError } = useApiError();
   const [timelines, setTimelines] = useState<SpeciesPhaseTimeline[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed read is shown with a retry, never as "no plants yet" (#3037).
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editingPhaseKey, setEditingPhaseKey] = useState<string | null>(null);
   const [editEnteredAt, setEditEnteredAt] = useState('');
   const [editExitedAt, setEditExitedAt] = useState('');
@@ -71,8 +76,15 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
     setLoading(true);
     runApi
       .getPhaseTimeline(runKey)
-      .then(setTimelines)
-      .catch(() => setTimelines([]))
+      .then((data) => {
+        setTimelines(data);
+        setLoadError(null);
+      })
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'RunPhaseEditor' });
+        setTimelines([]);
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      })
       .finally(() => setLoading(false));
   };
 
@@ -125,6 +137,10 @@ export default function RunPhaseEditor({ runKey, isActive, onPhaseDatesChanged }
         <CircularProgress />
       </Box>
     );
+  }
+
+  if (loadError) {
+    return <ErrorDisplay error={loadError} onRetry={loadTimelines} />;
   }
 
   if (timelines.length === 0) {

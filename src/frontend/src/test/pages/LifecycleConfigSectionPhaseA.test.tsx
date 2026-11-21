@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
 import type { LifecycleConfig } from '@/api/types';
+import { ApiError } from '@/api/errors';
 
 const getLifecycleConfig = vi.fn();
 const updateLifecycleConfig = vi.fn();
@@ -179,5 +180,43 @@ describe('LifecycleConfigSection — Phase A fields', () => {
       expect(screen.queryByTestId('form-submit-button')).toBeNull();
       expect(within(cct).getByDisplayValue('annual')).toBeDisabled();
     });
+  });
+});
+
+describe('LifecycleConfigSection — load failure vs. no lifecycle (#3037)', () => {
+  const notFound = () =>
+    new ApiError(
+      { error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'nope', details: [], timestamp: '', path: '/', method: 'GET' },
+      404,
+    );
+
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+    getLifecycleConfig.mockReset();
+    createLifecycleConfig.mockReset();
+  });
+
+  it('shows a failed read with a retry instead of offering to create a lifecycle', async () => {
+    getLifecycleConfig.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(makeLifecycle());
+    const user = userEvent.setup();
+    renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
+    });
+
+    await user.click(await screen.findByTestId('error-retry-button'));
+    // The retry loads the stored lifecycle: the form saves, it does not create.
+    expect(await screen.findByTestId('lifecycle-config-section')).toBeInTheDocument();
+    expect(screen.getByTestId('form-submit-button')).toHaveTextContent(i18n.t('common.save'));
+    expect(getLifecycleConfig).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers to create a lifecycle only when there is none (404)', async () => {
+    getLifecycleConfig.mockRejectedValue(notFound());
+    renderWithProviders(<LifecycleConfigSection speciesKey="sp-1" />, {
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
+    });
+
+    expect(await screen.findByTestId('form-submit-button')).toHaveTextContent(i18n.t('common.create'));
+    expect(screen.queryByTestId('error-display')).toBeNull();
   });
 });

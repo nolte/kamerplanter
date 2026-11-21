@@ -25,6 +25,8 @@ import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import * as api from '@/api/endpoints/feeding-events';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
@@ -76,6 +78,9 @@ export default function FeedingEventCreateDialog({
   const [saving, setSaving] = useState(false);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
+  // A failed read is shown with a retry, never as an empty picker (#3037).
+  const [plantsError, setPlantsError] = useState(false);
+  const [plantsAttempt, setPlantsAttempt] = useState(0);
 
   const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
@@ -99,13 +104,18 @@ export default function FeedingEventCreateDialog({
   useEffect(() => {
     if (open && !plantKey) {
       setLoadingPlants(true);
+      setPlantsError(false);
       plantApi
         .listPlantInstances()
         .then(setPlants)
-        .catch(() => setPlants([]))
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'FeedingEventCreateDialog.plants' });
+          setPlants([]);
+          setPlantsError(true);
+        })
         .finally(() => setLoadingPlants(false));
     }
-  }, [open, plantKey]);
+  }, [open, plantKey, plantsAttempt]);
 
   useEffect(() => {
     if (open) {
@@ -172,6 +182,12 @@ export default function FeedingEventCreateDialog({
                 value: p.key,
                 label: getPlantLabel(p, i18n.language),
               }))}
+            />
+          )}
+          {!plantKey && plantsError && (
+            <OptionsLoadError
+              onRetry={() => setPlantsAttempt((n) => n + 1)}
+              data-testid="feeding-plants-load-error"
             />
           )}
           <FormSelectField

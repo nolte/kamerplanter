@@ -178,6 +178,8 @@ export default function HistoryList({ pages, bedName, filtered, onResetFilters, 
             : t('pages.bed.history.shown', { count: state.items.length })}
         </Typography>
       </Box>
+      {/* No onRetry: the "more" button below stays in place and reads "try again", so the
+          keyboard focus survives the failure (BedHistoryTab test, #3037). */}
       {state.moreError && <ErrorDisplay error={state.moreError} />}
       {state.hasMore && (
         <Button

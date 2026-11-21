@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { LocationType } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** The seeded area types a garden plan offers, in this order. */
 const GARDEN_AREA_TYPES: readonly string[] = ['garden', 'terrace', 'balcony', 'greenhouse'];
@@ -48,7 +49,9 @@ export function useAreaTypes(enabled: boolean, indoor: boolean): LocationType[] 
       .then((types) => {
         if (!cancelled) setAll(types);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // Without the types the tool offers the plan's seeded area types only; drawing still works.
+        captureHandledError(err, { source: 'useAreaTypes' });
         if (!cancelled) setAll([]);
       });
     return () => {

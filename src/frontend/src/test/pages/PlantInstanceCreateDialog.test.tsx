@@ -669,6 +669,54 @@ describe('PlantInstanceCreateDialog', () => {
       // species.
       expect(payloads[0].current_phase_key).toBe('gp-veg');
     });
+
+    it('shows a failed phase read with a retry, and the retry offers the phases (#3037)', async () => {
+      let failed = false;
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () => {
+          if (failed) return HttpResponse.json(phaseSequenceWithEntries());
+          failed = true;
+          return HttpResponse.json(
+            { error_id: 'e', error_code: 'X', message: 'boom', details: [] },
+            { status: 500 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+
+      await user.click(await screen.findByTestId('plant-create-phases-load-error-retry'));
+      await waitForPhaseOptions();
+      expect(screen.queryByTestId('plant-create-phases-load-error')).toBeNull();
+      expect(
+        within(screen.getByTestId('form-field-current_phase_key')).getByRole('combobox'),
+      ).toHaveTextContent('Keimung');
+    });
+
+    it('treats a species without a lifecycle (404) as having no phases, not as a failure (#3037)', async () => {
+      let lifecycleCalls = 0;
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () => HttpResponse.json(null)),
+        http.get('/api/v1/species/:key/lifecycle', () => {
+          lifecycleCalls += 1;
+          return HttpResponse.json(
+            { error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'nope', details: [] },
+            { status: 404 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+
+      await waitFor(() => expect(lifecycleCalls).toBeGreaterThan(0));
+      expect(screen.queryByTestId('plant-create-phases-load-error')).toBeNull();
+    });
   });
 
   // ── Identification photo carry-over (issue #447) ─────────────────────

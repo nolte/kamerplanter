@@ -13,6 +13,7 @@ import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import ReferenceImageGrid from '@/components/common/ReferenceImageGrid';
 import { ReferenceImageCuration } from './ReferenceImageCuration';
 import type { ReferenceImage } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface ReferenceImageGalleryProps {
   speciesKey: string;
@@ -51,7 +52,8 @@ function ReferenceImageGallery({ speciesKey, scientificName }: ReferenceImageGal
     try {
       const data = await getSpeciesReferenceImages(speciesKey);
       setImages(data.images ?? []);
-    } catch {
+    } catch (err) {
+      captureHandledError(err, { source: 'ReferenceImageGallery' });
       // A missing index / failed lookup is treated as "no images", not an error.
       setImages([]);
     } finally {

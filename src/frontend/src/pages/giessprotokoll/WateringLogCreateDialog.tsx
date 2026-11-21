@@ -30,6 +30,8 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -193,24 +195,34 @@ export default function WateringLogCreateDialog({
   // Options for plant and fertilizer selection
   const [plantOptions, setPlantOptions] = useState<PlantInstance[]>([]);
   const [fertilizerOptions, setFertilizerOptions] = useState<Fertilizer[]>([]);
+  // A failed option read is shown with a retry, never as empty pickers (#3037).
+  const [optionsLoadError, setOptionsLoadError] = useState(false);
+  const [optionsAttempt, setOptionsAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     async function loadOptions() {
+      let failed = false;
+      const degrade = <T,>(source: string, fallback: T) => (err: unknown): T => {
+        captureHandledError(err, { source: `WateringLogCreateDialog.${source}` });
+        failed = true;
+        return fallback;
+      };
       const [plants, fertilizers] = await Promise.all([
-        plantApi.listAllPlantInstances().catch(() => []),
+        plantApi.listAllPlantInstances().catch(degrade<PlantInstance[]>('plants', [])),
         availableFertilizers
           ? Promise.resolve(availableFertilizers)
-          : fertApi.fetchAllFertilizers().catch(() => []),
+          : fertApi.fetchAllFertilizers().catch(degrade<Fertilizer[]>('fertilizers', [])),
       ]);
       if (cancelled) return;
       setPlantOptions(plants);
       setFertilizerOptions(fertilizers);
+      setOptionsLoadError(failed);
     }
     loadOptions();
     return () => { cancelled = true; };
-  }, [open, availableFertilizers]);
+  }, [open, availableFertilizers, optionsAttempt]);
 
   const buildDefaults = (): FormData => ({
     plant_keys: initialPlantKeys ?? [],
@@ -323,6 +335,12 @@ export default function WateringLogCreateDialog({
           </Typography>
 
           {/* Plant selection (multi-select autocomplete) */}
+          {optionsLoadError && (
+            <OptionsLoadError
+              onRetry={() => setOptionsAttempt((n) => n + 1)}
+              data-testid="watering-log-options-load-error"
+            />
+          )}
           <Controller
             name="plant_keys"
             control={control}

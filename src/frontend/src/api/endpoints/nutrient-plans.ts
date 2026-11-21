@@ -318,17 +318,18 @@ export async function assignPlanToPlant(
   await client.post(`/plant-instances/${plantKey}/nutrient-plan`, payload);
 }
 
+/**
+ * The nutrient plan assigned to a plant, or `null` when none is assigned — the
+ * backend answers `null` for that. A failed request rejects: it is not "no plan"
+ * (#3037).
+ */
 export async function getPlantPlan(
   plantKey: string,
 ): Promise<NutrientPlan | null> {
-  try {
-    const { data } = await client.get<NutrientPlan>(
-      `/plant-instances/${plantKey}/nutrient-plan`,
-    );
-    return data;
-  } catch {
-    return null;
-  }
+  const { data } = await client.get<NutrientPlan | null>(
+    `/plant-instances/${plantKey}/nutrient-plan`,
+  );
+  return data ?? null;
 }
 
 export async function removePlantPlan(plantKey: string): Promise<void> {

@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import { getBedQueue } from '../care/careApi';
 import type { CareTask } from '../care/careTypes';
 import { bedSheetEntry, isOfflineCacheMiss, readThrough, type CacheScope } from '../offline/planCache';
@@ -60,7 +61,10 @@ export function useBedSheet(bedKey: string, scope: CacheScope | null): BedSheet 
         // The sheet lists standing plants: a sown slot (W-015) is not one.
         listPlantStates(bedKey, controller.signal, SHEET_READ_TIMEOUT_MS)
           .then((entries) => entries.filter(isPlantEntry))
-          .catch((): null => {
+          .catch((err: unknown): null => {
+            // The sheet still shows its tasks; the answer is marked incomplete, so it is
+            // neither cached nor taken for "no plants", and the next read tries again.
+            captureHandledError(err, { source: 'useBedSheet.plants' });
             complete = false;
             return null;
           }),

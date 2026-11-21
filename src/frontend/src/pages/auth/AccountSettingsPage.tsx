@@ -66,6 +66,8 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -317,6 +319,8 @@ export default function AccountSettingsPage() {
   const [haSaveSuccess, setHaSaveSuccess] = useState(false);
   const [haResetDone, setHaResetDone] = useState(false);
   const [haLoaded, setHaLoaded] = useState(false);
+  // A failed settings read is shown with a retry: empty fields would read as "not configured" (#3037).
+  const [haLoadError, setHaLoadError] = useState(false);
   // Pl@ntNet (plant identification) settings state
   const [plantnetKey, setPlantnetKey] = useState('');
   const [plantnetMaskedKey, setPlantnetMaskedKey] = useState('');
@@ -423,7 +427,9 @@ export default function AccountSettingsPage() {
       setAdminTenants(tenants);
       setAdminUsers(users);
       setAdminDataOk(true);
-    } catch {
+    } catch (err) {
+      // Rendered below as a load error with retry, not as an absent admin section (#3037).
+      captureHandledError(err, { source: 'AccountSettingsPage.adminData' });
       setAdminDataOk(false);
     } finally {
       setAdminLoaded(true);
@@ -454,8 +460,10 @@ export default function AccountSettingsPage() {
       setPlantnetSource(pi.source_plantnet_api_key);
       setPlantnetKey('');
       setHaLoaded(true);
-    } catch {
-      /* ignore — settings optional */
+      setHaLoadError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'AccountSettingsPage.systemSettings' });
+      setHaLoadError(true);
     }
   }, []);
 
@@ -463,10 +471,10 @@ export default function AccountSettingsPage() {
   // ``GET /admin/settings`` answers 403 to anyone else, and firing it anyway
   // would spend a request to fill fields that are no longer rendered.
   useEffect(() => {
-    if (activeTab === 'ha' && !haLoaded && canManageInstanceSettings) {
+    if (activeTab === 'ha' && !haLoaded && !haLoadError && canManageInstanceSettings) {
       loadHaSettings();
     }
-  }, [activeTab, haLoaded, loadHaSettings, canManageInstanceSettings]);
+  }, [activeTab, haLoaded, haLoadError, loadHaSettings, canManageInstanceSettings]);
 
   const handleHaTest = async () => {
     setHaTesting(true);
@@ -1390,6 +1398,15 @@ export default function AccountSettingsPage() {
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (
         <Box sx={GRID_2COL}>
+          {haLoadError && canManageInstanceSettings && (
+            <Box sx={{ gridColumn: '1 / -1' }}>
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadHaSettings()}
+                data-testid="system-settings-load-error"
+              />
+            </Box>
+          )}
           {/* Smart Home Master Toggle */}
           <Card variant="outlined" sx={{ gridColumn: '1 / -1' }}>
             <CardContent>
@@ -1818,6 +1835,14 @@ export default function AccountSettingsPage() {
               </Typography>
             </Typography>
           </Alert>
+
+          {isFullMode && isPlatformAdminUser && adminLoaded && !adminLoading && !adminDataOk && (
+            <OptionsLoadError
+              messageKey="errors.loadFailed"
+              onRetry={() => void loadAdminData()}
+              data-testid="admin-data-load-error"
+            />
+          )}
 
           {/* Admin: Stats + Org/User tables */}
           {isFullMode && isPlatformAdminUser && adminDataOk && (

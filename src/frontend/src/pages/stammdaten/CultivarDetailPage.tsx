@@ -44,7 +44,10 @@ import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { Cultivar, CultivarCreate, GrowthPhase, PlantTrait, Species } from '@/api/types';
-import { errorKey } from '@/api/errors';
+import { errorKey, isApiError } from '@/api/errors';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 
 /** Days-to-maturity reference enum — mirrors DtmReference in api/types.ts (REQ-007). */
 const DTM_REFERENCES = ['direct_seed', 'transplant', 'from_flip'] as const;
@@ -90,6 +93,8 @@ export default function CultivarDetailPage() {
   const [cultivar, setCultivar] = useState<Cultivar | null>(null);
   const [species, setSpecies] = useState<Species | null>(null);
   const [growthPhases, setGrowthPhases] = useState<GrowthPhase[]>([]);
+  // A failed lifecycle read is shown with a retry, never as "no lifecycle yet" (#3037).
+  const [growthPhasesError, setGrowthPhasesError] = useState(false);
   const [phaseOverrides, setPhaseOverrides] = useState<Record<string, number | ''>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -125,14 +130,43 @@ export default function CultivarDetailPage() {
     },
   });
 
+  // Latest-wins (#3014) for the page load and, separately, for the growth-phase
+  // read, which the section retry re-runs on its own (#3037 SCR-003): that retry
+  // must neither show the page skeleton nor `reset(...)` the form.
+  const beginLoad = useAbortableLoad();
+  const beginPhasesLoad = useAbortableLoad();
+
+  const loadGrowthPhases = async () => {
+    if (!speciesKey) return;
+    const ticket = beginPhasesLoad();
+    setGrowthPhasesError(false);
+    try {
+      const lc = await phasesApi.getLifecycleConfig(speciesKey);
+      const phases = lc?.key ? await phasesApi.listGrowthPhases(lc.key) : [];
+      if (!ticket.isCurrent()) return;
+      setGrowthPhases(phases);
+    } catch (err) {
+      if (!ticket.isCurrent()) return;
+      setGrowthPhases([]);
+      // A species without a lifecycle answers 404 — then there are no phases to override.
+      if (!(isApiError(err) && err.statusCode === 404)) {
+        captureHandledError(err, { source: 'CultivarDetailPage.growthPhases' });
+        setGrowthPhasesError(true);
+      }
+    }
+  };
+
   const load = async () => {
     if (!speciesKey || !cultivarKey) return;
+    const ticket = beginLoad();
     setLoading(true);
+    setError(null);
     try {
       const [c, s] = await Promise.all([
         api.getCultivar(speciesKey, cultivarKey),
         api.getSpecies(speciesKey),
       ]);
+      if (!ticket.isCurrent()) return;
       setCultivar(c);
       setSpecies(s);
       reset({
@@ -150,15 +184,8 @@ export default function CultivarDetailPage() {
       });
 
       // Load growth phases for phase watering overrides section
-      try {
-        const lc = await phasesApi.getLifecycleConfig(speciesKey);
-        if (lc?.key) {
-          const phases = await phasesApi.listGrowthPhases(lc.key);
-          setGrowthPhases(phases);
-        }
-      } catch {
-        // Lifecycle may not exist yet — that's fine
-      }
+      await loadGrowthPhases();
+      if (!ticket.isCurrent()) return;
 
       // Initialize override state from cultivar data
       const overrides: Record<string, number | ''> = {};
@@ -169,9 +196,10 @@ export default function CultivarDetailPage() {
       }
       setPhaseOverrides(overrides);
     } catch (err) {
+      if (!ticket.isCurrent()) return;
       setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (ticket.isCurrent()) setLoading(false);
     }
   };
 
@@ -483,6 +511,13 @@ export default function CultivarDetailPage() {
       </Form>
 
       {/* Phase watering overrides */}
+      {growthPhasesError && (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={() => void loadGrowthPhases()}
+          data-testid="cultivar-growth-phases-load-error"
+        />
+      )}
       {growthPhases.length > 0 && (
         <Paper sx={{ mt: 4, p: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>

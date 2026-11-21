@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { getGrowthPhase } from '@/api/endpoints/phases';
 import { ApiError } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import { planPhaseColor } from '@/theme/domainColors';
 
 /**
@@ -65,7 +66,11 @@ export function usePhaseNames(phaseKeys: readonly (string | null | undefined)[])
           // failure is tried again when the set of phases changes.
           .catch((error: unknown): null => {
             if (isNotFound(error)) missingPhaseKeys.add(key);
-            else requested.current.delete(key);
+            else {
+              // Reported, then retried with the next phase set; the default colour stands in meanwhile.
+              captureHandledError(error, { source: 'phaseColors.growthPhase' });
+              requested.current.delete(key);
+            }
             return null;
           }),
       ),

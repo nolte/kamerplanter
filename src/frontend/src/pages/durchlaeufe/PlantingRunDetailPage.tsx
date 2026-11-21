@@ -31,6 +31,9 @@ import DialogActions from '@mui/material/DialogActions';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import type { Column } from '@/components/common/DataTable';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -172,7 +175,17 @@ export default function PlantingRunDetailPage() {
   const [activeChannels, setActiveChannels] = useState<ActiveChannel[] | null>(null);
 
   // Site list for edit dialog
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  // Secondary reads that failed (location/tank, plants; plan/schedule/timeline) — shown with a retry
+  // above the tabs instead of reading as "none" (#3037).
+  const [sectionLoadError, setSectionLoadError] = useState(false);
+  const [wateringLoadError, setWateringLoadError] = useState(false);
+  // Which watering legs failed: the tab then shows neither "no plan assigned" with
+  // its assign call to action nor "no schedule" in their place (#3037).
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
+  const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
+  const loadSites = useCallback((): Promise<Site[]> => siteApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites);
+  const sitesList = sitesLoad.options;
 
   // Full species/cultivar data for details tab
   const [speciesDataForTab, setSpeciesDataForTab] = useState<Species | null>(null);
@@ -195,6 +208,7 @@ export default function PlantingRunDetailPage() {
     const ticket = beginLoad();
     const stale = () => !ticket.isCurrent();
     setLoading(true);
+    setSectionLoadError(false);
     try {
       const r = await runApi.getPlantingRun(key);
       if (stale()) return;
@@ -219,10 +233,14 @@ export default function PlantingRunDetailPage() {
               setResolvedTank(null);
             }
           }
-        } catch {
+        } catch (err) {
           if (stale()) return;
+          captureHandledError(err, { source: 'PlantingRunDetailPage.location' });
           setResolvedTank(null);
           setLocationName('');
+          // Never keep the previous run's site after a sibling switch.
+          setSiteKeyFromLocation(null);
+          setSectionLoadError(true);
         }
       } else {
         setResolvedTank(null);
@@ -254,9 +272,15 @@ export default function PlantingRunDetailPage() {
                 if (!firstCultivar && e.length > 0 && e[0].cultivar_key === ent.cultivar_key) {
                   firstCultivar = cv;
                 }
-              } catch { /* ok */ }
+              } catch (err) {
+                // A cultivar name only labels the entry; the entry itself is listed.
+                captureHandledError(err, { source: 'PlantingRunDetailPage.cultivar' });
+              }
             }
-          } catch { /* ok */ }
+          } catch (err) {
+            // A species only labels the entry; the entry itself is listed.
+            captureHandledError(err, { source: 'PlantingRunDetailPage.species' });
+          }
         }),
       );
       if (stale()) return;
@@ -270,7 +294,11 @@ export default function PlantingRunDetailPage() {
         phaseSequenceApi
           .getSpeciesPhaseSequence(primarySpeciesKey)
           .then((seq) => { if (!stale()) setPhaseSequenceKey(seq?.key ?? null); })
-          .catch(() => { if (!stale()) setPhaseSequenceKey(null); });
+          .catch((err: unknown) => {
+            // Only the link to the species' phase sequence is missing; the phases tab still renders.
+            captureHandledError(err, { source: 'PlantingRunDetailPage.phaseSequence' });
+            if (!stale()) setPhaseSequenceKey(null);
+          });
       } else {
         setPhaseSequenceKey(null);
       }
@@ -278,8 +306,11 @@ export default function PlantingRunDetailPage() {
         const p = await runApi.listRunPlants(key, true);
         if (stale()) return;
         setPlants(p);
-      } catch {
-        // Plants may not exist yet
+      } catch (err) {
+        // A run without plants answers with an empty list; a failure is not "no plants".
+        if (stale()) return;
+        captureHandledError(err, { source: 'PlantingRunDetailPage.plants' });
+        setSectionLoadError(true);
       }
     } catch (err) {
       if (stale()) return;
@@ -291,7 +322,6 @@ export default function PlantingRunDetailPage() {
 
   useEffect(() => {
     load();
-    siteApi.listSites(0, 200).then(setSitesList).catch(() => {});
   }, [load]);
 
   // Dynamic breadcrumbs
@@ -313,13 +343,26 @@ export default function PlantingRunDetailPage() {
     const ticket = beginWateringLoad();
     const stale = () => !ticket.isCurrent();
     setWateringLoading(true);
+    setWateringLoadError(false);
     try {
+      // Each leg degrades on its own so the others still render, but a failed leg is
+      // reported and announced with a retry — a missing plan must not read as "no plan
+      // assigned" (#3037).
+      const failedLegs = new Set<string>();
+      const degrade = <T,>(source: string, fallback: T) => (err: unknown): T => {
+        captureHandledError(err, { source: `PlantingRunDetailPage.${source}` });
+        failedLegs.add(source);
+        return fallback;
+      };
       const [planResult, calendar, timelines] = await Promise.all([
-        runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
-        runApi.getWateringSchedule(key, 90).catch(() => null),
-        runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
+        runApi.getRunNutrientPlan(key).catch(degrade('nutrientPlan', { plan: null })),
+        runApi.getWateringSchedule(key, 90).catch(degrade<WateringScheduleCalendarResponse | null>('wateringSchedule', null)),
+        runApi.getPhaseTimeline(key).catch(degrade<SpeciesPhaseTimeline[]>('phaseTimeline', [])),
       ]);
       if (stale()) return;
+      setWateringLoadError(failedLegs.size > 0);
+      setPlanLoadFailed(failedLegs.has('nutrientPlan'));
+      setScheduleLoadFailed(failedLegs.has('wateringSchedule'));
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
       setPhaseTimelines(timelines);
@@ -344,11 +387,14 @@ export default function PlantingRunDetailPage() {
         setActiveChannels(null);
       }
     } catch (err) {
-      if (!stale()) handleError(err);
+      if (stale()) return;
+      // One cause, one message: the section banner announces it with a retry, no toast.
+      captureHandledError(err, { source: 'PlantingRunDetailPage.wateringData' });
+      setWateringLoadError(true);
     } finally {
       if (!stale()) setWateringLoading(false);
     }
-  }, [key, handleError, beginWateringLoad]);
+  }, [key, beginWateringLoad]);
 
   // Load watering data for details tab (tab 0), phases tab (tab 2), and nutrient+watering tab (tab 3)
   useEffect(() => {
@@ -677,6 +723,17 @@ export default function PlantingRunDetailPage() {
         <Tab id="tab-activity-plan" label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
       </Tabs>
 
+      {(sectionLoadError || (wateringLoadError && (tab === 0 || tab === 2 || tab === 3))) && (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={() => {
+            if (sectionLoadError) void load();
+            if (wateringLoadError) void loadWateringData();
+          }}
+          data-testid="run-section-load-error"
+        />
+      )}
+
       {/* Tab 0: Details */}
       {tab === 0 && run && (
         <PlantingRunDetailsTab
@@ -811,6 +868,8 @@ export default function PlantingRunDetailPage() {
           runStatus={run?.status}
           wateringLoading={wateringLoading}
           assignedPlan={assignedPlan}
+          planLoadFailed={planLoadFailed}
+          scheduleLoadFailed={scheduleLoadFailed}
           nutrientData={nutrientData}
           fertilizers={fertilizers}
           wateringCalendar={wateringCalendar}
@@ -841,6 +900,8 @@ export default function PlantingRunDetailPage() {
           open={editDialogOpen}
           run={run}
           sitesList={sitesList}
+          sitesLoadError={sitesLoad.error}
+          onRetrySites={sitesLoad.reload}
           initialSiteKey={siteKeyFromLocation}
           onClose={() => setEditDialogOpen(false)}
           onSaved={(updated) => {

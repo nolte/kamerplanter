@@ -88,18 +88,25 @@ describe('SlotDetailPage', () => {
     expect(screen.getAllByText('A1_B2').length).toBeGreaterThan(0);
   });
 
-  it('shows the error display when the slot cannot be loaded', async () => {
+  it('shows the error display when the slot cannot be loaded, and its retry loads again (#3037)', async () => {
+    let calls = 0;
     server.use(
-      http.get('/api/v1/t/:tenant/slots/:key', () => errorEnvelope(500)),
+      http.get('/api/v1/t/:tenant/slots/:key', () => {
+        calls += 1;
+        return calls === 1 ? errorEnvelope(500) : HttpResponse.json(slot);
+      }),
     );
     renderWithProviders(<SlotDetailPage />);
 
     // load()'s catch sets the error string; ErrorDisplay renders with a retry.
     const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    expect(screen.queryByTestId('slot-detail-page')).toBeNull();
     const user = userEvent.setup();
     await user.click(retry);
-    expect(mockNavigate).toHaveBeenCalledWith(-1);
-    expect(screen.queryByTestId('slot-detail-page')).toBeNull();
+    // The retry re-runs the load in place — it no longer leaves the page.
+    expect(await screen.findByTestId('slot-detail-page')).toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(calls).toBe(2);
   });
 
   it('saves the edited slot and notifies success', async () => {

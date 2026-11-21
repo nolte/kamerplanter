@@ -4145,6 +4145,8 @@
         "channelApprise": "Apprise (Telegram, Slack, ...)",
         "channelNotConfigured": "Nicht konfiguriert",
         "channelAvailable": "Verfügbar",
+        "channelStatusUnknown": "Status unbekannt",
+        "channelStatusLoadFailed": "Der Kanalstatus konnte nicht geladen werden.",
         "pwaEnable": "Auf diesem Gerät aktivieren",
         "pwaDisable": "Deaktivieren",
         "pwaActive": "Auf diesem Gerät aktiviert",
@@ -4184,7 +4186,8 @@
         "testSend": "Test senden",
         "testSuccess": "Test-Benachrichtigung gesendet",
         "testFailed": "Test fehlgeschlagen"
-      }
+      },
+      "markAllReadError": "Die Benachrichtigungen konnten nicht als gelesen markiert werden. Bitte versuche es erneut."
     },
     "pflege": {
       "title": "Pflege-Dashboard",

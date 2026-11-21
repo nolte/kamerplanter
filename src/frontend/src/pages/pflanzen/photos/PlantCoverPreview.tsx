@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import AuthImage from '@/components/common/AuthImage';
 import { listPlantPhotos } from '@/api/endpoints/plantPhotos';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface PlantCoverPreviewProps {
   plantInstanceKey: string;
@@ -50,7 +51,9 @@ export default function PlantCoverPreview({
           result.photos[0];
         setFetchedThumb(cover?.thumbnail_uris?.small ?? cover?.uri ?? null);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // The cover is decoration; the placeholder icon stands in for it.
+        captureHandledError(err, { source: 'PlantCoverPreview.thumb' });
         if (active) setFetchedThumb(null);
       });
     return () => {

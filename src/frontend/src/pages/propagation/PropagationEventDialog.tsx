@@ -26,6 +26,7 @@ import PlantInstanceAutocompleteField from '@/components/form/PlantInstanceAutoc
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useApiError } from '@/hooks/useApiError';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import * as api from '@/api/endpoints/propagation';
 import type { PropagationEventMethod } from '@/api/types';
 
@@ -77,7 +78,12 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
   const speciesFieldId = useId();
-  const { instances: plantInstances, loading: plantsLoading } = usePlantInstanceOptions(open);
+  const {
+    instances: plantInstances,
+    loading: plantsLoading,
+    error: plantsError,
+    reload: reloadPlants,
+  } = usePlantInstanceOptions(open);
 
   const defaults: FormData = {
     method: 'cutting',
@@ -196,6 +202,9 @@ export default function PropagationEventDialog({ open, onClose, onCreated }: Pro
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             {t('pages.propagation.fields.sectionPlantsIntro')}
           </Typography>
+          {plantsError && (
+            <OptionsLoadError onRetry={reloadPlants} data-testid="propagation-plants-load-error" />
+          )}
           <PlantInstanceAutocompleteField
             name="parent_plant_keys"
             control={control}

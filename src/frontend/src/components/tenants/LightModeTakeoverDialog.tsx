@@ -22,6 +22,7 @@ import { fetchProfile } from '@/store/slices/authSlice';
 import { loadMyTenants, switchTenant } from '@/store/slices/tenantSlice';
 import { clearOfflineData } from '@/pwa/offlineData';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** The counts the dialog lists, in this order; a zero count is left out. */
 const COUNT_FIELDS: readonly (keyof TakeoverResourceCounts)[] = [
@@ -71,7 +72,8 @@ export default function LightModeTakeoverDialog() {
       .then((result) => {
         if (!cancelled) setStatus(result);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'LightModeTakeoverDialog.status' });
         // The probe is a convenience: an older backend or a failed request shows no dialog.
         if (!cancelled) setStatus(null);
       });

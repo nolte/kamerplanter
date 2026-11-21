@@ -45,6 +45,9 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
@@ -128,6 +131,9 @@ function EntryRow({
   const { t } = useTranslation();
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
+  // A failed read is shown with a retry, never as "this species has no cultivars" (#3037).
+  const [cultivarsError, setCultivarsError] = useState(false);
+  const [cultivarsAttempt, setCultivarsAttempt] = useState(0);
   const speciesKey = useWatch({ control, name: `entries.${index}.species_key` });
   const cultivarKey = useWatch({ control, name: `entries.${index}.cultivar_key` });
   const idPrefix = useWatch({ control, name: `entries.${index}.id_prefix` });
@@ -137,10 +143,12 @@ function EntryRow({
     if (!speciesKey) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when species cleared
       setCultivarList([]);
+      setCultivarsError(false);
       autoPrefix.current = '';
       return;
     }
     setCultivarsLoading(true);
+    setCultivarsError(false);
     setValue(`entries.${index}.cultivar_key`, null);
     const species = speciesList.find((s) => s.key === speciesKey);
     if (species) {
@@ -153,9 +161,13 @@ function EntryRow({
     speciesApi
       .listCultivars(speciesKey)
       .then(setCultivarList)
-      .catch(() => setCultivarList([]))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'PlantingRunCreateDialog.cultivars' });
+        setCultivarList([]);
+        setCultivarsError(true);
+      })
       .finally(() => setCultivarsLoading(false));
-  }, [speciesKey, index, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [speciesKey, index, setValue, cultivarsAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!cultivarKey) return;
@@ -194,6 +206,12 @@ function EntryRow({
             ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
           ]}
         />
+        {cultivarsError && (
+          <OptionsLoadError
+            onRetry={() => setCultivarsAttempt((n) => n + 1)}
+            data-testid="run-entry-cultivars-load-error"
+          />
+        )}
       </Box>
       <Box sx={{ width: 100 }}>
         <FormNumberField
@@ -242,7 +260,10 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
   const firstSpeciesFieldId = useId();
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  // A failed read is shown with a retry, never as "no sites" (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
   const [adoptMode, setAdoptMode] = useState(false);
   const [availablePlants, setAvailablePlants] = useState<PlantInstance[]>([]);
   const [plantsLoading, setPlantsLoading] = useState(false);
@@ -295,7 +316,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       setSelectedPlants(new Set());
       setPlantSearch('');
       setPlantsError(null);
-      sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
   }, [open, reset]);
 
@@ -316,7 +336,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         .then((allPlants) => {
           setAvailablePlants(allPlants.filter((p) => !p.removed_on));
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'PlantingRunCreateDialog.plants' });
           setAvailablePlants([]);
           setPlantsError(t('common.loadingError'));
         })
@@ -439,6 +460,9 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
+            {sitesLoad.error && (
+              <OptionsLoadError onRetry={sitesLoad.reload} data-testid="run-sites-load-error" />
+            )}
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.location_key.level}>
             <LocationTreeSelect

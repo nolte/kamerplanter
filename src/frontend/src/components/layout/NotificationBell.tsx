@@ -4,6 +4,7 @@ import Badge from '@mui/material/Badge';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { useTranslation } from 'react-i18next';
 import { getUnreadCount } from '@/api/endpoints/notifications';
+import { captureHandledError } from '@/observability/errorTracking';
 
 // #3023 (W-30) — the drawer is its own chunk, fetched on the first click on the bell instead of with the shell.
 const NotificationDrawer = lazy(() => import('./NotificationDrawer'));
@@ -26,8 +27,11 @@ export default function NotificationBell() {
     try {
       const result = await getUnreadCount();
       setUnreadCount(result.unread_count);
-    } catch {
-      // Silently ignore — bell just shows stale count
+    } catch (err) {
+      // The badge is a hint, re-polled every minute and on every drawer close; the
+      // drawer itself shows a failed load with a retry. Keeping the last count is
+      // the right fallback here, but the failure is reported.
+      captureHandledError(err, { source: 'NotificationBell.unreadCount' });
     }
   }, []);
 

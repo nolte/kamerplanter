@@ -24,6 +24,7 @@ import PlantInstancePicker from '@/components/form/PlantInstancePicker';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import * as api from '@/api/endpoints/propagation';
 import type {
   DescendantsResponse,
@@ -53,7 +54,8 @@ export default function LineagePanel(): ReactElement {
   const { t, i18n } = useTranslation();
   const { handleError } = useApiError();
   const notification = useNotification();
-  const { instances, loading: instancesLoading } = usePlantInstanceOptions();
+  const { instances, loading: instancesLoading, error: instancesError, reload: reloadInstances } =
+    usePlantInstanceOptions();
 
   // Species reference data resolves raw `*_species_key` values (e.g. in the
   // graft result) to human-readable names so no raw key ever reaches the user.
@@ -150,6 +152,9 @@ export default function LineagePanel(): ReactElement {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.propagation.lineage.intro')}
             </Typography>
+            {instancesError && (
+              <OptionsLoadError onRetry={reloadInstances} data-testid="lineage-plants-load-error" />
+            )}
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
@@ -250,6 +255,9 @@ export default function LineagePanel(): ReactElement {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.propagation.graft.intro')}
             </Typography>
+            {instancesError && (
+              <OptionsLoadError onRetry={reloadInstances} data-testid="graft-plants-load-error" />
+            )}
             <Stack spacing={1.5} sx={{ mb: 0.5 }}>
               <PlantInstancePicker
                 label={t('pages.propagation.graft.scionKey')}

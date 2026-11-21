@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { errorKey } from '@/api/errors';
 import { getBedQueue, listActivePlants } from './careApi';
 import type { BedPlantRef, CareTask } from './careTypes';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export type BedCareState =
   | { status: 'loading' }
@@ -26,7 +27,11 @@ export function useBedCare(bedKey: string): BedCare {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getBedQueue(bedKey), listActivePlants(bedKey).catch((): null => null)])
+    Promise.all([getBedQueue(bedKey), listActivePlants(bedKey).catch((err: unknown) => {
+      // Plants only enrich the task queue; null tells the panel they are unknown, not absent.
+      captureHandledError(err, { source: 'useBedCare.activePlants' });
+      return null;
+    })])
       .then(([tasks, plants]) => {
         if (!cancelled) setState({ status: 'ready', tasks, plants, loadedAt: Date.now() });
       })

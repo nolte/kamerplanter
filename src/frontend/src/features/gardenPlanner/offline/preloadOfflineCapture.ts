@@ -10,6 +10,7 @@
  * page. A failed load is not remembered, so the next call (the sheet calls again after a reconnect) tries again.
  */
 import { preloadWriteQueue } from './queue';
+import { captureHandledError } from '@/observability/errorTracking';
 
 let loaded: Promise<boolean> | null = null;
 
@@ -29,7 +30,10 @@ export function preloadOfflineCapture(): Promise<boolean> {
       if (!ready) loaded = null;
       return ready;
     },
-    () => {
+    (err: unknown) => {
+      // `false` is the documented "a part could not load" answer; it is not remembered,
+      // so the next call tries again.
+      captureHandledError(err, { source: 'preloadOfflineCapture' });
       loaded = null;
       return false;
     },

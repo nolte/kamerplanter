@@ -5,6 +5,8 @@ import ListItemText from '@mui/material/ListItemText';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import * as sitesApi from '@/api/endpoints/sites';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import type { LocationTreeNode } from '@/api/types';
 
 interface FlatOption {
@@ -60,8 +62,11 @@ export default function LocationTreeSelect<T extends FieldValues>({
   const { t } = useTranslation();
   const [options, setOptions] = useState<FlatOption[]>([]);
   const [loading, setLoading] = useState(false);
+  // A failed read is shown with a retry, never as "this site has no areas" (#3037).
+  const [loadError, setLoadError] = useState(false);
 
   const loadTree = useCallback(async () => {
+    setLoadError(false);
     if (!siteKey) {
       setOptions([]);
       return;
@@ -72,9 +77,11 @@ export default function LocationTreeSelect<T extends FieldValues>({
       const flat = flattenTree(tree);
       setOptions(flat);
       onTreeLoaded?.(flat.length);
-    } catch {
+    } catch (err) {
+      // Not reported through `onTreeLoaded`: a failed read is no count of areas.
+      captureHandledError(err, { source: 'LocationTreeSelect.tree' });
       setOptions([]);
-      onTreeLoaded?.(0);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -84,42 +91,47 @@ export default function LocationTreeSelect<T extends FieldValues>({
     loadTree();
   }, [loadTree]);
 
-  const isEmptyForSite = !!siteKey && !loading && options.length === 0;
+  const isEmptyForSite = !!siteKey && !loading && !loadError && options.length === 0;
 
   return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field, fieldState: { error } }) => {
-        const nonErrorHelper = isEmptyForSite ? (emptyHelperText ?? helperText) : helperText;
-        return (
-          <TextField
-            {...field}
-            value={field.value ?? ''}
-            select
-            label={label ?? t('entities.location')}
-            required={required}
-            disabled={disabled || loading || !siteKey}
-            error={!!error}
-            helperText={error?.message ?? nonErrorHelper}
-            fullWidth
-            sx={{ mb: 2 }}
-            data-testid={`form-field-${name}`}
-          >
-            <MenuItem value="" data-testid={`form-option-${name}-empty`}>
-              {'—'}
-            </MenuItem>
-            {options.map((opt) => (
-              <MenuItem key={opt.key} value={opt.key} data-testid={`form-option-${name}-${opt.key}`}>
-                <ListItemText
-                  primary={opt.label}
-                  sx={{ pl: opt.depth * 2 }}
-                />
+    <>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field, fieldState: { error } }) => {
+          const nonErrorHelper = isEmptyForSite ? (emptyHelperText ?? helperText) : helperText;
+          return (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              select
+              label={label ?? t('entities.location')}
+              required={required}
+              disabled={disabled || loading || !siteKey}
+              error={!!error}
+              helperText={error?.message ?? nonErrorHelper}
+              fullWidth
+              sx={{ mb: 2 }}
+              data-testid={`form-field-${name}`}
+            >
+              <MenuItem value="" data-testid={`form-option-${name}-empty`}>
+                {'—'}
               </MenuItem>
-            ))}
-          </TextField>
-        );
-      }}
-    />
+              {options.map((opt) => (
+                <MenuItem key={opt.key} value={opt.key} data-testid={`form-option-${name}-${opt.key}`}>
+                  <ListItemText
+                    primary={opt.label}
+                    sx={{ pl: opt.depth * 2 }}
+                  />
+                </MenuItem>
+              ))}
+            </TextField>
+          );
+        }}
+      />
+      {loadError && (
+        <OptionsLoadError onRetry={() => void loadTree()} data-testid={`form-field-${name}-load-error`} />
+      )}
+    </>
   );
 }

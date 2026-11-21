@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -27,6 +27,9 @@ import ScienceIcon from '@mui/icons-material/Science';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import type { NutrientPlan } from '@/api/types';
 import * as planApi from '@/api/endpoints/nutrient-plans';
@@ -46,36 +49,23 @@ export default function NutrientPlanAssignDialog({
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const [plans, setPlans] = useState<NutrientPlan[]>([]);
   const { favorites, isFavorite } = useNutrientPlanFavorites();
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedPlanKey, setSelectedPlanKey] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'favorites'>('all');
 
+  // The complete catalogue (#1560). A failed read is shown with a retry, never as "no plans found" (#3037).
+  const loadPlans = useCallback((): Promise<NutrientPlan[]> => planApi.fetchAllNutrientPlans(), []);
+  const planLoad = useAsyncOptions(loadPlans, { enabled: open });
+  const plans = planLoad.options;
+  const loading = planLoad.loading;
+
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
-    const loadData = async () => {
-      setLoading(true);
-      try {
-        // The complete catalogue (#1560); one leg of an imperative sequence whose
-      // surrounding loading and error state already covers it.
-      const planList = await planApi.fetchAllNutrientPlans();
-        if (cancelled) return;
-        setPlans(planList);
-      } catch {
-        // plan fetch failed
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    loadData();
     setSelectedPlanKey(null);
     setSearch('');
     setFilter('all');
-    return () => { cancelled = true; };
   }, [open]);
 
   const filteredPlans = useMemo(() => {
@@ -96,7 +86,7 @@ export default function NutrientPlanAssignDialog({
       );
     }
 
-    return result.sort((a, b) => {
+    return [...result].sort((a, b) => {
       const aFav = isFavorite(a.key) ? 0 : 1;
       const bFav = isFavorite(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
@@ -110,8 +100,9 @@ export default function NutrientPlanAssignDialog({
       setSaving(true);
       await onAssign(selectedPlanKey);
       onClose();
-    } catch {
-      // error handled by parent
+    } catch (err) {
+      // The parent's onAssign shows the failure; the dialog stays open for another try.
+      captureHandledError(err, { source: 'NutrientPlanAssignDialog.assign' });
     } finally {
       setSaving(false);
     }
@@ -182,7 +173,11 @@ export default function NutrientPlanAssignDialog({
             </Box>
           )}
 
-          {!loading && filteredPlans.length === 0 && (
+          {!loading && planLoad.error && (
+            <OptionsLoadError onRetry={planLoad.reload} data-testid="assign-plan-load-error" />
+          )}
+
+          {!loading && !planLoad.error && filteredPlans.length === 0 && (
             <EmptyState
               message={
                 filter === 'favorites'

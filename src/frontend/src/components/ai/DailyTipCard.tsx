@@ -95,7 +95,8 @@ export default function DailyTipCard() {
           setLoaded(true);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'DailyTipCard.tip' });
         // Online-only feature (UI-NFR-012): a failure hides the card silently.
         // `loaded` stays false, so the "generate" invitation is not offered for
         // what may be an outage rather than an empty day.
@@ -166,6 +167,7 @@ export default function DailyTipCard() {
           </Button>
           {generateState === 'failed' && (
             <Box sx={{ mt: 1 }} data-testid="daily-tip-generate-error">
+              {/* No onRetry: the generate button right above already reads "try again" here (#3037). */}
               <ErrorDisplay
                 error={resolveAiErrorMessage(
                   generateError,

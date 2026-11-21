@@ -36,6 +36,7 @@ import type {
   WinterAction,
 } from '@/api/types';
 import OverwinteringProfileDialog from './OverwinteringProfileDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** REQ-022 hardiness rating → traffic-light palette token for the list chip. */
 const hardinessColor: Record<HardinessRating, ChipProps['color']> = {
@@ -111,7 +112,11 @@ export default function OverwinteringListPage() {
     plantApi
       .listPlantInstances(0, 200)
       .then(setPlants)
-      .catch(() => setPlants([]));
+      .catch((err: unknown) => {
+        // Plant names only label profiles; without them the subject falls back to its key.
+        captureHandledError(err, { source: 'OverwinteringListPage.plants' });
+        setPlants([]);
+      });
   }, [dispatch]);
 
   const plantNames = useMemo(() => {
