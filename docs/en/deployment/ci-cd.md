@@ -42,7 +42,7 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Published release | Deploy MkDocs documentation to GitHub Pages |
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
-| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
+| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift; also asks the registries when the repository behind each pinned third-party image last received a tag |
 | `lane-inputs.yml` | weekly on `develop`, manual | Measures which files the filtered jobs read, compares with `.github/lane-inputs/` and proposes differences as a bot pull request ([details](#lane-inputs)) |
 | `reach-audit.yml` | weekly (Sunday 02:43 UTC), manual | Runs the capability reach audit including the full-stack T2 probes on a runner; advisory, no merge gate ([details](#reach-audit)) |
 
@@ -168,6 +168,29 @@ So this workflow reads the body of #12 daily and compares:
 On a finding the run opens or updates **a single deduplicated issue** (label `renovate-health`) instead of merely going red — a red scheduled run is invisible after a week of red scheduled runs. Conversely, when the run *cannot decide* (issue unreachable, empty body, unparseable dashboard) **the run goes red and no issue is opened** — an undetermined check must not read as a clean one (NFR-018 §2).
 
 The expectation itself lives in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); a new Python tree is added there rather than the rule being quietly widened.
+
+### Orphaned image coordinates (job `stale-image-upstreams`)
+
+Renovate answers the question "is there a newer tag in **this** repository?". It does not ask "does this repository still receive tags at all?".
+
+That is what happened in autumn 2026: the frontend image was built on `nginxinc/nginx-unprivileged`. Since 2026-10-19 upstream has published under `nginx/nginx-unprivileged` only. The old repository kept resolving but received no further tag — the pin looked up to date for a month, and ten security fixes never arrived as a pull request.
+
+The second job in `renovate-health.yml` therefore asks daily, for every third-party image, when its repository last saw activity:
+
+* **The inventory is read from the checkout**, not from a list: every reference of the form `name:tag@sha256:…` in Dockerfiles, Compose files, workflows, `.pins/` and Taskfiles, plus every image block in the Helm values (a `repository:` with `tag:` or `digest:` in the same block, or under an `image:` key). Our own images (`kamerplanter-*`) do not count. The run log names every image it looked at.
+* **Docker Hub** provides the date of the newest tag push. **ghcr.io** has no push date; there the job reads the build date of the newest tags. The report says per image which of the two signals it read.
+* **The window is 45 days.** Images that release rarely get a wider window, with the reason, in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py` (currently `curlimages/curl`, `busybox`, `ghcr.io/hadolint/hadolint`).
+
+!!! note "What the window does — and what it does not"
+    Measured on 2026-11-20, the newest activity of 14 of the 17 images was at most 15 days old; the largest gap between two push days of an image on the default window was 36 days. A 30-day window would therefore have alerted on a healthy repository.
+
+    The flip side: on the day the nginx case was noticed by other means (day 31), the job would still have been silent. It would have reported on 2026-12-03. The check bounds how long the silence can last; it does not detect a move on day one.
+
+As with the dashboard job, a finding lands in **a single deduplicated issue** (label `stale-image-upstream`), which the job updates and closes again. A repository the registry no longer knows also counts as a finding (the registry already answers the request for the tag list with "not found"), and so does an image on a registry the job cannot read — such an image is reported, not waved through silently.
+
+When the job *cannot decide* — a registry is unreachable or rate-limits, the inventory is empty, a pin is unreadable — **the run goes red and no issue is created**. All registry queries are anonymous: the script and its requests are handed no token. The job's `GITHUB_TOKEN` (`issues: write`) is used by the issue step that follows, and by nothing else.
+
+When the issue opens: check with the upstream project whether it moved. If it did, change the image name in every place listed and in `renovate.json5` in the same pull request. If the project merely releases rarely, record a wider window with the measured cadence as the reason.
 
 ### `task renovate:dry-run` — prove the configuration before merging
 

@@ -886,6 +886,34 @@ FROM nginx:1.27-alpine AS serve
 **MUSS**: Base-Image-Updates durchlaufen den vollständigen Docker-Build in der CI.
 **SOLL**: Alpine-basierte Images werden bevorzugt, um die Angriffsfläche zu minimieren.
 
+#### 6.3.1 Verwaiste Image-Koordinaten
+
+Renovate prüft, ob es im **gepinnten** Repository einen neueren Tag gibt. Ob dieses Repository
+überhaupt noch Tags erhält, prüft es nicht: Zieht ein Upstream-Projekt um oder wird es
+aufgegeben, löst die alte Koordinate weiter auf und der Pin gilt als aktuell. So blieb
+`nginxinc/nginx-unprivileged` ab dem 2026-10-19 ohne neuen Tag, nachdem Upstream zu
+`nginx/nginx-unprivileged` gewechselt war; zehn Sicherheitskorrekturen wurden nie angeboten
+(#3060, behoben in #3061).
+
+**MUSS**: Ein geplanter Lauf (`renovate-health.yml`, Job `stale-image-upstreams`, täglich) fragt für jedes Fremd-Image die Registry, wann das Repository zuletzt Aktivität hatte, und meldet jedes Repository, dessen jüngste Aktivität älter ist als das Fenster.
+**MUSS**: Die Inventur der Fremd-Images wird aus dem Checkout abgeleitet (Digest-Pins in Dockerfiles, Compose-Dateien, Workflows, `.pins/`, Taskfiles; Image-Blöcke der Helm-Values: `repository:` mit `tag:` oder `digest:` im selben Block oder unter einem `image:`-Schlüssel, unabhängig von Reihenfolge und Zwischenzeilen) und nicht als Liste gepflegt. Eine leere Inventur ist kein sauberes Ergebnis, sondern ein unbestimmtes.
+**MUSS**: Das Fenster beträgt 45 Tage. Eine Abweichung je Image steht mit Begründung in `THRESHOLD_OVERRIDES_DAYS` (`scripts/ci/check_stale_image_upstreams.py`); ein Eintrag für ein Image, das nichts mehr referenziert, ist selbst ein Befund.
+**MUSS**: Ein Image auf einer Registry ohne lesbares Aktivitätsdatum wird als „nicht prüfbar" gemeldet und nicht stillschweigend als bestanden gewertet.
+**MUSS**: Ein Befund führt zu genau einem deduplizierten Issue (Label `stale-image-upstream`). Ein unbestimmtes Ergebnis (Registry nicht erreichbar oder gedrosselt, leere Inventur, unlesbarer Pin) macht den Lauf rot und erzeugt kein Issue (NFR-018 §2).
+**MUSS**: Die Abfragen an die Registries laufen anonym: Das Skript und seine Anfragen erhalten kein Token des Repositorys. Das `GITHUB_TOKEN` des Jobs (`issues: write`) dient allein dem Issue-Schritt; der Checkout hinterlegt es nicht (`persist-credentials: false`). Ein von einer Registry ausgestelltes anonymes Pull-Token wird bei einer Weiterleitung auf einen anderen Host nicht mitgesendet.
+**MUSS**: „Repository existiert nicht“ wird nur aus den Abfragen gelesen, die nach dem Repository fragen (Tag-Liste, bei ghcr.io zusätzlich die Token-Abfrage). Fehlt nach erfolgreicher Tag-Liste ein einzelner Tag (HTTP 404 auf Manifest oder Blob), wird dieser Tag übersprungen; jede andere Fehlerantwort an dieser Stelle ist ein unbestimmtes Ergebnis.
+
+Das Fenster ist gemessen, nicht geschätzt (2026-11-20): Der größte Abstand zwischen zwei
+Push-Tagen eines Images im Standardfenster betrug 36 Tage, 30 Tage hätten also auf einem
+gesunden Repository gemeldet. Die Grenze der Prüfung steht daneben: Am Tag der Entdeckung des
+nginx-Falls (Tag 31 der Stille) hätte der Lauf noch nicht gemeldet, sondern erst am
+2026-12-03. Die Prüfung begrenzt die Dauer der Stille; sie erkennt einen Umzug nicht sofort.
+
+```bash
+# Nachmessen: Inventur und jüngste Aktivität je Image, ohne Issue-Schritt
+python3 scripts/ci/check_stale_image_upstreams.py /tmp/stale-image-report.json
+```
+
 ### 6.4 Helm Charts
 
 **MUSS**: Helm-Chart-Dependencies in `Chart.yaml` werden von Renovate verwaltet:
@@ -1026,6 +1054,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
     - [x] Keine `packageRules`-Regel setzt `automerge`; gehalten von `test_renovate_automerge_policy.py`
     - [x] Der Label-Automerge (`automerge.yaml`) überspringt `renovate/`-Branches und hinterlässt dort keine `cancelled`-Check-Runs
     - [ ] Renovate-Pull-Requests, die an einem roten oder abgebrochenen nicht-pflichtigen Check hängen, werden beobachtet (Dependency Dashboard, `renovate-health.yml`)
+    - [x] Fremd-Images, deren Registry-Repository keine Tags mehr erhält, werden gemeldet (§6.3.1, `renovate-health.yml` Job `stale-image-upstreams`; gehalten von `test_stale_image_upstreams_check.py`)
 - [ ] **CI-Integration**
     - [ ] Alle Dependency-PRs durchlaufen die vollständige CI-Pipeline (Tests, Lint, Build)
     - [ ] `npm audit` und `pip-audit` sind in der CI-Pipeline integriert
