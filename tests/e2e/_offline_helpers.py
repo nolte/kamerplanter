@@ -123,8 +123,11 @@ indexedDB.databases().then(function (list) {
 #: connection blocks never completes, and Selenium would only say "script timeout" (TC-053-086/087/088 nightlies).
 STORE_OPEN_PENDING_MS = 10_000
 
-#: Opens an existing database read-only and lists the primary keys of one store. Never creates a database: the
-#: caller checks the name first, and ``onupgradeneeded`` (which only fires for a new database) aborts.
+#: Opens an existing database read-only and lists the primary keys of one store. Never keeps a database it created:
+#: the caller checks the name first, and ``onupgradeneeded`` (which only fires for a new database) aborts the
+#: creation. That abort still matters while pending: an open queued behind the app's own ``deleteDatabase`` would
+#: create a fresh v1 once the deletion completes, and the abort discards it again. A version-less open is never
+#: ``blocked`` itself; it only waits in the queue, which is what the watchdog reports.
 #: Every path calls ``done`` exactly once: a request still pending after ``STORE_OPEN_PENDING_MS`` answers
 #: ``{pending: ...}`` with the origin's databases and versions, a request that succeeds after that closes its
 #: connection at once (left open it would itself block the app's next upgrade or deletion), and an exception in a
@@ -136,12 +139,13 @@ function finish(value) { if (!answered) { answered = true; clearTimeout(watchdog
 var request = indexedDB.open(name);
 var watchdog = setTimeout(function () {
   var state = {pending: true, readyState: request.readyState, waitedMs: pendingMs};
+  // databases() can stall like the open itself; answer without the list rather than run into the script timeout.
+  setTimeout(function () { finish(state); }, 2000);
   indexedDB.databases().then(function (list) {
     state.databases = list.map(function (d) { return d.name + '@' + d.version; });
     finish(state);
   }, function () { finish(state); });
 }, pendingMs);
-request.onblocked = function () { finish({error: 'the open request is blocked by another connection'}); };
 request.onupgradeneeded = function () { request.transaction.abort(); finish({missing: true}); };
 request.onerror = function () { finish({error: String(request.error)}); };
 request.onsuccess = function () {
