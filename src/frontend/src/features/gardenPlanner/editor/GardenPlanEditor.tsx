@@ -17,7 +17,8 @@
  *
  * WP 10.5: the side panel (`SidePanel`) carries the tabs Eigenschaften, Ansicht (`ViewBar`), Ebenen (`LayersTab` with
  * the legend) and Zonen (`ZonePanel`); its switch is in the header bar, its state rule in `useSidePanel`. Its form
- * follows the width (GP-UX-069): docked beside the canvas from md up, a bottom sheet below md (#2885).
+ * follows the width (GP-UX-069): docked beside the canvas from md up (#2885) - a drawer over the canvas's right edge
+ * where docking would leave the canvas narrower than `MIN_CANVAS_WIDTH_PX` (#3034) - and a bottom sheet below md.
  * Collapsed it takes no width.
  */
 import {
@@ -123,7 +124,7 @@ import {
 } from './EditorToolbar';
 import { Grid } from './Grid';
 import { MiniMap } from './MiniMap';
-import { miniMapVisible, panToCentre } from './miniMap';
+import { miniMapFitsBeside, miniMapVisible, panToCentre } from './miniMap';
 import { KeyboardHelp } from './KeyboardHelp';
 import { LiveRegion } from './LiveRegion';
 import { NewTypeSelect } from './NewTypeSelect';
@@ -144,10 +145,11 @@ import { ViewBar } from './ViewBar';
 import { LayersTab, type LayerToggle } from './LayersTab';
 import { SidePanel, type SheetSize, type SidePanelVariant } from './SidePanel';
 import { useSidePanel, type SidePanelTab } from './sidePanelState';
-import { PANEL_GAP_PX, PANEL_WIDTH_PX } from './layout';
+import { drawerCoverPx, PANEL_GAP_PX, PANEL_WIDTH_PX, sidePanelVariant } from './layout';
 import { ZoomOverlay } from './ZoomOverlay';
 import { useAutoSave } from './useAutoSave';
 import { useCanvasArea, type CanvasAreaSize } from './useCanvasArea';
+import { useCanvasRoom } from './useCanvasRoom';
 import { BedZoneInfo } from '../zones/BedZoneInfo';
 import { useUnderlay } from '../underlay/useUnderlay';
 import { useIrrigationZones, useLastWatered } from '../zones/useZoneData';
@@ -403,9 +405,6 @@ export function GardenPlanEditor({
   const toolbarBelow = useMediaQuery(theme.breakpoints.down('md'));
   const coarsePointer = useMediaQuery('(pointer: coarse)');
   const touchUi = toolbarBelow || coarsePointer;
-  // The side panel's form follows the width alone (GP-UX-069): docked beside the canvas from md up, a sheet below md.
-  // At md it docks too, never over the canvas: an overlay hid the zoom controls and the selection (#2885).
-  const panelVariant: SidePanelVariant = toolbarBelow ? 'sheet' : 'docked';
   const visibleHeight = useVisibleHeight();
   const dispatch = useAppDispatch();
   const { selection, stack, tool, editError, past, future, pending, offline } =
@@ -609,6 +608,14 @@ export function GardenPlanEditor({
   const deleteTexts = useDeleteTexts(pendingDelete, plan, labels);
   const [ownView, setOwnView] = useState<EditorView>('plan');
   const view = viewProp ?? ownView;
+  // The side panel's form follows the width (GP-UX-069): a sheet below md; from md up docked beside the canvas (#2885)
+  // where the canvas keeps `MIN_CANVAS_WIDTH_PX`, a drawer over it where it would not (#3034). The width is the one
+  // measured for the canvas, so the app sidebar beside the editor counts - not a viewport breakpoint.
+  const canvasRowRef = useRef<HTMLDivElement | null>(null);
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const canvasRoomPx = useCanvasRoom(canvasRowRef, railRef, !toolbarBelow && view !== 'list');
+  // The list view always docks: it wraps into any width and no pan could move a row out from under a drawer.
+  const panelVariant: SidePanelVariant = sidePanelVariant(toolbarBelow, canvasRoomPx, view === 'list');
   const changeView = useCallback(
     (next: EditorView) => {
       if (onViewChange) onViewChange(next);
@@ -1757,8 +1764,12 @@ export function GardenPlanEditor({
   });
   const isPointerDown = tools.isPointerDown;
   // A panel docked beside the canvas narrows it while the plan keeps its fit (`fitReservePx`): a selection on the
-  // right may now lie beyond the canvas edge. It pans back into the visible width (WCAG 2.2 SC 2.4.11, #2885).
-  const panelBeside = panelVariant === 'docked' && sidePanel.open && view === 'plan';
+  // right may now lie beyond the canvas edge. It pans back into the visible width (WCAG 2.2 SC 2.4.11, #2885). The
+  // drawer (#3034) covers the right edge of the canvas instead: the selection pans left of it the same way.
+  const panelBeside = (panelVariant === 'docked' || panelVariant === 'drawer') && sidePanel.open && view === 'plan';
+  const panelOver = panelVariant === 'drawer';
+  // The open drawer covers this much of the canvas from its right edge; the canvas's other overlays keep clear of it.
+  const coverRightPx = drawerCoverPx(panelVariant, sidePanel.open, view === 'plan');
   const canvasWidthPx = canvasArea?.widthPx;
   useEffect(() => {
     if (selectionSignature === '' || (!toolbarBelow && !panelBeside)) return;
@@ -1786,9 +1797,11 @@ export function GardenPlanEditor({
         const ys = corners.map((corner) => corner[1]);
         dy = panIntoView(Math.min(...ys), Math.max(...ys), freeHeight);
       }
-      // md and up: left of the docked panel, inside the canvas area.
+      // md and up: left of the docked panel, inside the canvas area - or left of the drawer that lies over its edge.
       const area = panelBeside ? canvasAreaRef.current : null;
-      const freeWidth = area ? area.getBoundingClientRect().right - canvasRect.left : 0;
+      const freeWidth = area
+        ? area.getBoundingClientRect().right - (panelOver ? PANEL_WIDTH_PX : 0) - canvasRect.left
+        : 0;
       if (freeWidth > 0) {
         const xs = corners.map((corner) => corner[0]);
         dx = panIntoView(Math.min(...xs), Math.max(...xs), freeWidth);
@@ -1797,7 +1810,7 @@ export function GardenPlanEditor({
     };
     if (isPointerDown()) panDeferred.current = true;
     else run();
-  }, [selectionSignature, toolbarBelow, panelBeside, canvasWidthPx, isPointerDown, panAfterRelease]);
+  }, [selectionSignature, toolbarBelow, panelBeside, panelOver, canvasWidthPx, isPointerDown, panAfterRelease]);
 
   const code = notice ?? editError;
   const noticeText = code
@@ -1948,7 +1961,7 @@ export function GardenPlanEditor({
   /**
    * The panel's close button (and the zone panel's). The bottom sheet was the selection's sheet before wave 10 and
    * still clears it (GP-UX-052, the touch tests stay as they are); the focus goes to the plan or the list then. The
-   * docked panel only collapses - the selection stays - and gives the focus back to its switch.
+   * docked panel and the drawer only collapse - the selection stays - and give the focus back to their switch.
    */
   const closePanel = useCallback(() => {
     if (panelVariant === 'sheet' && panelSelection !== '') {
@@ -2170,9 +2183,11 @@ export function GardenPlanEditor({
   // During a move the marker is the moved object's snapped corner or edge point (GP-FR-154), else the pointer's.
   const shownSnapMark = tools.moving ? tools.moveSnap : snapMark;
 
-  // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6).
+  // The mini-map shows only for a plan larger than four viewports (GP-UX-014, §9.6). Left of an open drawer, or not at
+  // all where the strip left free of it is narrower than the map: it never lies under the drawer (#3034).
   const extent = useMemo(() => planContentBounds(plan), [plan]);
-  const showMiniMap = extent !== null && miniMapVisible(extent, viewport);
+  const showMiniMap =
+    extent !== null && miniMapVisible(extent, viewport) && miniMapFitsBeside(viewport.widthPx, coverRightPx);
   const jumpTo = useCallback(
     (target: Point) => {
       const [dx, dy] = panToCentre(viewport, target);
@@ -2239,7 +2254,8 @@ export function GardenPlanEditor({
               edge={companionInfo.edge}
               x={companionInfo.x}
               y={companionInfo.y}
-              canvasWidthPx={viewport.widthPx}
+              // Clamped into the strip left of an open drawer (#3034): its close button is never under it.
+              canvasWidthPx={Math.max(viewport.widthPx - coverRightPx, 0)}
               canvasHeightPx={viewport.heightPx}
               pinned={companionInfo.pinned}
               onClose={closeCompanionInfo}
@@ -2300,7 +2316,7 @@ export function GardenPlanEditor({
       {/* Overlays in the corners of the canvas (GP-UX-067): they take no row of their own. */}
       <ScaleBar pxPerM={pxPerM} />
       {showMiniMap && extent && (
-        <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} />
+        <MiniMap plan={plan} extent={extent} viewport={viewport} onJump={jumpTo} insetRightPx={coverRightPx} />
       )}
       <TouchOverlay
         ring={touch.ring}
@@ -2516,9 +2532,10 @@ export function GardenPlanEditor({
     </>
   );
 
-  // The side panel has ONE place in the tree for both of its forms (GP-UX-069, G-W10 b, #2882): the last item of the
+  // The side panel has ONE place in the tree for all of its forms (GP-UX-069, G-W10 b, #2882): the last item of the
   // canvas row. From md up its box takes no box of its own (`display: contents`), so the panel is the row's item
-  // beside the canvas; below md the same box is the bottom dock - a sticky line of its own under the canvas holding the
+  // beside the canvas - or, as the drawer (#3034), laid over the row's right edge (the row is positioned for it);
+  // below md the same box is the bottom dock - a sticky line of its own under the canvas holding the
   // sheet above the TouchBar and the tool bar. A resize across md only restyles it: what the panel holds (an open
   // dialog, a typed draft) stays mounted. A portal into a slot per form would not do: a portal whose container
   // changes mounts its content anew.
@@ -2527,7 +2544,9 @@ export function GardenPlanEditor({
   const body = (
     <Box sx={{ minWidth: 0 }}>
       <Box
+        ref={canvasRowRef}
         sx={{
+          position: 'relative',
           display: 'flex',
           flexWrap: toolbarBelow ? 'wrap' : 'nowrap',
           gap: 1,
@@ -2552,6 +2571,7 @@ export function GardenPlanEditor({
             {/* The tool rail (md up, GP-UX-066) is as high as the canvas area and scrolls inside when it is longer. */}
             {!toolbarBelow && (
               <Box
+                ref={railRef}
                 style={canvasArea ? { height: canvasArea.heightPx } : undefined}
                 sx={{ display: 'flex', flex: 'none' }}
               >
@@ -2570,8 +2590,16 @@ export function GardenPlanEditor({
               {!listShown && singleTooSmall && (
                 // An overlay on the canvas, not a row above it: it takes no layout height (AC-1, GP-UX-067). The
                 // wrapper lets pointer events through to the canvas; only the alert itself takes them (its button).
+                // It ends left of an open drawer, so the button is never under it (#3034, WCAG 2.2 SC 2.4.11).
                 <Box
-                  sx={{ position: 'absolute', left: 8, right: 8, bottom: 48, zIndex: 1, pointerEvents: 'none' }}
+                  sx={{
+                    position: 'absolute',
+                    left: 8,
+                    right: 8 + coverRightPx,
+                    bottom: 48,
+                    zIndex: 1,
+                    pointerEvents: 'none',
+                  }}
                 >
                   <Alert
                     severity="info"

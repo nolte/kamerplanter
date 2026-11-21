@@ -264,6 +264,148 @@ describe('form per width (GP-UX-069)', () => {
     expect(t.onPan).toHaveBeenCalledWith(150 - 16 - 200, 0);
   });
 
+  /**
+   * Lays out the canvas row `rowPx` wide (jsdom lays out nothing): at 820 px the app leaves the row 548 px - the
+   * docked panel would leave the canvas 76 px there (#3034).
+   */
+  function stubCanvasRow(rowPx: number): void {
+    const client = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth');
+    const isRow = (element: Element) =>
+      element.querySelector(':scope > [data-testid="garden-plan-canvas-area"]') !== null;
+    Object.defineProperty(Element.prototype, 'clientWidth', {
+      configurable: true,
+      get(this: Element) {
+        return isRow(this) ? rowPx : (client?.get?.call(this) ?? 0);
+      },
+    });
+    restores.push(() => {
+      if (client) Object.defineProperty(Element.prototype, 'clientWidth', client);
+    });
+  }
+
+  it('md with too little room for the canvas beside the panel: a drawer over it, below the zoom (#3034)', async () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    const t = setupEditor();
+    expect(screen.getByTestId('garden-plan-toolbar')).toHaveAttribute('data-orientation', 'vertical');
+    t.click(4, 4);
+    const drawer = screen.getByTestId('garden-plan-side-panel-drawer');
+    expect(within(drawer).getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
+    expect(screen.queryByTestId('garden-plan-side-panel-dock')).toBeNull();
+    // Laid over the right edge of the canvas row - in the row, not a portal (one place in the tree, #2882).
+    const area = screen.getByTestId('garden-plan-canvas-area');
+    expect(area.parentElement).toContainElement(drawer);
+    expect(area.parentElement).toHaveStyle({ position: 'relative' });
+    expect(drawer).toHaveStyle({ position: 'absolute', right: '0px', width: `${PANEL_WIDTH_PX}px` });
+    // The zoom stays in the canvas area and uncovered: the drawer starts below it.
+    expect(area).toContainElement(screen.getByTestId('garden-plan-zoom-overlay'));
+    expect(drawer).not.toContainElement(screen.getByTestId('garden-plan-zoom-overlay'));
+    // Not modal, like the docked panel: no dialog, the close button collapses it and keeps the selection.
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.click(screen.getByTestId('garden-plan-panel-close'));
+    await waitFor(() => expect(panel()).toBeNull());
+    expect(t.selected()).toEqual(['b1']);
+    await waitFor(() => expect(toggle()).toHaveFocus());
+  });
+
+  it('md with room for the canvas beside the panel: docked, not a drawer (#3034)', () => {
+    restores.push(stubWidth(1366));
+    // 1366 px: row 1094 px, canvas room 974 px, docked canvas 622 px.
+    stubCanvasRow(1094);
+    const t = setupEditor();
+    t.click(4, 4);
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'docked');
+    expect(screen.queryByTestId('garden-plan-side-panel-drawer')).toBeNull();
+  });
+
+  it('pans a selection under the drawer into the canvas left of it (#3034, WCAG 2.2 SC 2.4.11)', () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    const t = setupEditor();
+    // The canvas area is 428 px wide; the drawer covers its right 344 px, so 84 px stay free. Bed b1: 120..200 px.
+    vi.spyOn(screen.getByTestId('garden-plan-canvas-area'), 'getBoundingClientRect').mockReturnValue({
+      top: 0, bottom: 800, left: 0, right: 428, width: 428, height: 800, x: 0, y: 0, toJSON: () => ({}),
+    });
+    t.click(4, 4);
+    act(() => t.rerender());
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
+    // Wider than the free 84 px with its margins: its left edge goes to the margin (the start edge wins).
+    expect(t.onPan).toHaveBeenCalledWith(16 - 120, 0);
+  });
+
+  it('keeps the "zoom to edit" hint left of the drawer, so its button is never under it (#3034, SC 2.4.11)', () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    const t = setupEditor();
+    t.click(4, 4); // b1 is 80 px on screen: too small for handles, the hint shows
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
+    const wrapper = screen.getByTestId('garden-plan-too-small').parentElement!;
+    expect(wrapper).toHaveStyle({ position: 'absolute', right: `${8 + PANEL_WIDTH_PX}px` });
+    // Collapsed, the hint has the canvas's width again.
+    fireEvent.click(screen.getByTestId('garden-plan-panel-close'));
+    act(() => t.rerender());
+    expect(screen.getByTestId('garden-plan-too-small').parentElement).toHaveStyle({ right: '8px' });
+  });
+
+  /** 160 px per metre: the 20 x 20 m garden exceeds four viewports, so the mini-map shows (GP-UX-014). */
+  const zoomed = (widthPx: number) => ({ originM: [4, 12] as [number, number], pxPerM: 160, widthPx, heightPx: 400 });
+
+  it('moves the mini-map left of the drawer where the strip beside it holds the map (#3034)', () => {
+    restores.push(stubWidth(900));
+    // A 640 px row (a window of about 910 px) leaves a canvas of 512 px: docked it would keep 160 px, a drawer.
+    stubCanvasRow(640);
+    setupEditor({ viewport: zoomed(512) });
+    expect(screen.getByTestId('garden-plan-minimap')).toHaveStyle({ right: '8px' });
+    fireEvent.click(toggle());
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
+    // 512 px canvas, 344 px under the drawer: 168 px stay free, the map moves into them.
+    expect(screen.getByTestId('garden-plan-minimap')).toHaveStyle({ right: `${8 + PANEL_WIDTH_PX}px` });
+  });
+
+  it('hides the mini-map while the drawer is open where the strip beside it is narrower than the map (#3034)', () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    setupEditor({ viewport: zoomed(400) });
+    expect(screen.getByTestId('garden-plan-minimap')).toBeInTheDocument();
+    fireEvent.click(toggle());
+    expect(screen.getByTestId('garden-plan-side-panel')).toHaveAttribute('data-variant', 'drawer');
+    // 400 px canvas, 344 px under the drawer: 56 px stay free, less than the 120 px map.
+    expect(screen.queryByTestId('garden-plan-minimap')).toBeNull();
+    fireEvent.click(screen.getByTestId('garden-plan-panel-close'));
+    expect(screen.getByTestId('garden-plan-minimap')).toBeInTheDocument();
+  });
+
+  it('docks in the list view however narrow the row: a drawer would cover the list (#3034)', async () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    setupEditor();
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
+    expect(screen.queryByTestId('garden-plan-canvas-area')).toBeNull();
+    fireEvent.click(toggle());
+    expect(panel()).toHaveAttribute('data-variant', 'docked');
+    expect(screen.getByTestId('garden-plan-side-panel-dock')).toBeInTheDocument();
+    expect(screen.queryByTestId('garden-plan-side-panel-drawer')).toBeNull();
+    // The close button gives the focus back to the switch, as for the docked panel on the plan.
+    fireEvent.click(screen.getByTestId('garden-plan-panel-close'));
+    await waitFor(() => expect(panel()).toBeNull());
+    await waitFor(() => expect(toggle()).toHaveFocus());
+  });
+
+  it('keeps the panel content mounted switching list <-> plan at a narrow row: docked <-> drawer (#3034)', () => {
+    restores.push(stubWidth(900));
+    stubCanvasRow(548);
+    const t = setupEditor();
+    t.click(4, 4);
+    const content = screen.getByTestId('garden-plan-panel-form');
+    expect(panel()).toHaveAttribute('data-variant', 'drawer');
+    fireEvent.click(screen.getByTestId('garden-plan-skip-list'));
+    expect(panel()).toHaveAttribute('data-variant', 'docked');
+    expect(screen.getByTestId('garden-plan-panel-form')).toBe(content);
+    fireEvent.click(screen.getByTestId('garden-plan-skip-plan'));
+    expect(panel()).toHaveAttribute('data-variant', 'drawer');
+    expect(screen.getByTestId('garden-plan-panel-form')).toBe(content);
+  });
+
   it('below md: a bottom sheet in the dock, half or full of the visible height, following visualViewport', () => {
     const viewport = Object.assign(new EventTarget(), { height: 700 });
     const original = Object.getOwnPropertyDescriptor(window, 'visualViewport');

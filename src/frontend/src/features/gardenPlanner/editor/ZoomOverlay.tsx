@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add';
 import FitScreenIcon from '@mui/icons-material/FitScreen';
 import RemoveIcon from '@mui/icons-material/Remove';
 import { pxPerMToPercent } from '../model/units';
+import { ZOOM_OVERLAY_INSET_PX } from './layout';
 import { unavailableProps } from './unavailable';
 
 const PREFIX = 'pages.gardenPlan.editor';
@@ -41,8 +42,9 @@ export function ZoomOverlay({ pxPerM, minPxPerM, onZoomIn, onZoomOut, onFit }: Z
       data-testid="garden-plan-zoom-overlay"
       sx={{
         position: 'absolute',
-        top: 8,
-        right: 8,
+        // The side panel's drawer starts below this inset and row (`DRAWER_TOP_PX`, #3034).
+        top: ZOOM_OVERLAY_INSET_PX,
+        right: ZOOM_OVERLAY_INSET_PX,
         zIndex: 1,
         display: 'flex',
         alignItems: 'center',

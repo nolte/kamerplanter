@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.26"
+version: "1.27"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,12 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.27 (2026-11-20, #3034)** — TC-053-102 auf den Drawer bei 820 × 1180 umgestellt (REQ-053 v1.54,
+Betreiberentscheidung 2026-11-20): Das Panel öffnet über dem rechten Rand der Zeichenfläche, die ihre Breite behält
+(≥ 320 px); der Drawer beginnt unter der Zoom-Steuerung, ein ausgewähltes Beet schwenkt links neben ihn. TC-053-103:
+bei 1024 × 768 ist das Panel ebenfalls ein Drawer. TC-053-104: Werkzeuge in einer scrollenden Zeile. `test_count`
+unverändert.
 
 **Version 1.26 (2026-11-13, #2857)** — TC-053-114: Vorbedingung „nur Phasen mit belegter Lichtdauer“ (Hanf vegetativ
 18 h und Blüte 12 h aus dem Steckbrief); der Zelt-Hinweis zählt nur belegte Lichtdauern (REQ-053 §9.2a).
@@ -3114,7 +3120,9 @@ automatisiert in `tests/e2e/test_req053_wave10_workspace.py`. Jeder Fall legt se
 Die Fälle zu den drei Breiten setzen das Browserfenster selbst auf genau die genannte Größe (CSS-Pixel des Viewports):
 Desktop 1366 × 768 (≥ lg, Panel angedockt), Tablet 820 × 1180 (md, Panel als Drawer), Smartphone 390 × 844 (unter md,
 `TouchBar` und Bottom Sheet). Maßgeblich sind die Breakpoints des App-Themes (`theme/tokens.ts`): md ab 768 px, lg ab
-1024 px — 1024 × 768 ist damit bereits lg mit angedocktem Panel. Gemessen wird bei 100 % Browser-Zoom im echten
+1024 px. Ab md folgt die Panelform der gemessenen Breite der Zeichenzeile (REQ-053 v1.54, GP-UX-069, #3034): angedockt,
+wo die Zeichenfläche neben dem Panel mindestens 320 px behält, sonst Drawer — mit der App-Seitenleiste auch bei
+1024 × 768. Gemessen wird bei 100 % Browser-Zoom im echten
 App-Shell (App-Bar, Brotkrumen, Seitentitel); den Warnhinweis des Light-Modus hat der Nutzer vorher geschlossen (er
 erscheint nur im Light-Modus auf einem nicht privaten Host und gehört nicht zur App-Shell aus §17.3).
 
@@ -3278,7 +3286,7 @@ AC-14 (Teil)
 
 ---
 
-### TC-053-102: Tablet 820 × 1180 — Panel angedockt neben der Zeichenfläche, Werkzeuge links, kein horizontales Scrollen
+### TC-053-102: Tablet 820 × 1180 — Panel als Drawer über der Zeichenfläche, Werkzeuge links, kein horizontales Scrollen
 
 **Requirement**: REQ-053 §17.3 GP-UX-069, GP-UX-068
 **Gerät**: Tablet 820 × 1180 (md, 768–1023 px)
@@ -3294,18 +3302,20 @@ AC-14 (Teil)
 
 **Erwartete Ergebnisse**:
 - Die Werkzeuge stehen in der vertikalen Leiste links der Zeichenfläche; die Kopfleiste liegt auf einer Zeile
-- Das Panel öffnet angedockt rechts neben der Zeichenfläche; die Zeichenfläche wird schmaler, das Panel überdeckt sie
-  nicht, und die Zoom-Steuerung liegt sichtbar auf ihr (WCAG 2.2 SC 2.4.11, #2885)
-- Die Auswahl von „Beet B“ öffnet das Panel auf „Eigenschaften“; der Plan schwenkt, bis das Beet im sichtbaren Teil
-  der Zeichenfläche liegt
+- Das Panel öffnet als Drawer über dem rechten Rand der Zeichenfläche (`data-variant="drawer"`): angedockt blieben
+  der Zeichenfläche hier weniger als 320 px (#3034). Die Zeichenfläche behält ihre Breite und ist mindestens 320 px
+  breit
+- Der Drawer beginnt unterhalb der Zoom-Steuerung; sie bleibt sichtbar und bedienbar (WCAG 2.2 SC 2.4.11, #2885)
+- Die Auswahl von „Beet B“ öffnet das Panel auf „Eigenschaften“; der Plan schwenkt, bis das Beet links neben dem
+  Drawer liegt, nicht unter ihm
 - Die Seite scrollt weder vor noch nach dem Öffnen horizontal
 - Screenshot-Checkpoints ohne und mit Panel
 
 **Nachbedingungen**:
 - Keine Änderung am Plan
 
-**Hinweis**: Dieser Fall prüft das Layout der Breite md. Er ist **nicht** der Nachweis von AC-2 („jede
-Editor-Funktion erreichbar“), siehe TC-053-103.
+**Hinweis**: Dieser Fall prüft das Layout der Breite md. Seit REQ-053 v1.47 (#2884 Pkt. 1) führt er zusätzlich die
+AC-2-Prüfschritte aus TC-053-103 bei 820 × 1180 aus.
 
 **Tags**: [req-053, welle-10, arbeitsflaeche, layout, tablet-820, seitenpanel, gp-ux-069]
 
@@ -3318,7 +3328,8 @@ Editor-Funktion erreichbar“), siehe TC-053-103.
 zurückgestellten Werkzeuge aus GP-UX-071 (#2913) erweitern diesen Fall, sobald sie gebaut sind — Messen (Schritt 5),
 Bereich (Schritt 6), Pflanze setzen (Schritt 7) und Text (Schritt 8) sind gebaut; damit sind alle acht Werkzeuge
 abgedeckt.
-**Gerät**: 1024 × 768 (nach den Theme-Breakpoints bereits lg, Panel angedockt)
+**Gerät**: 1024 × 768 (nach den Theme-Breakpoints lg; mit der App-Seitenleiste blieben der Zeichenfläche angedockt
+unter 320 px, das Panel ist ein Drawer — REQ-053 v1.54, #3034)
 **Priority**: High
 **Category**: Layout
 **Preconditions**:
@@ -3351,7 +3362,8 @@ abgedeckt.
   Viewport-Höhe begrenzt und scrollt). Ein abgeschnittener Eintrag ohne Scrollmöglichkeit gilt als nicht erreichbar.
   Jeder Eintrag ist mindestens 48 px hoch. Dasselbe gilt für die Untermenü-Einträge der Werkzeuge
 - Die Seitenbreite übersteigt zu keinem Zeitpunkt die Viewport-Breite (kein horizontales Scrollen)
-- Screenshot-Checkpoints mit der Werkzeug-Leiste und mit dem angedockten Panel
+- Das Panel ist ein Drawer über dem rechten Rand der Zeichenfläche (`data-variant="drawer"`, #3034)
+- Screenshot-Checkpoints mit der Werkzeug-Leiste und mit dem offenen Panel
 - Messen (Schritt 5): die Zeichenfläche zeigt je Abschnitt „3,00 m“ und „2,00 m“ und die Summe „Gesamt 5,00 m“; der
   Statustext (`garden-plan-measure-status`) nennt „5,00 m“ und „2 Abschnitte“, nach Enter „Messung fertig: 5,00 m“;
   Esc löscht die Messung; es entsteht keine zu speichernde Änderung
@@ -3398,6 +3410,8 @@ abgedeckt.
 
 **Erwartete Ergebnisse**:
 - `TouchBar` und Werkzeug-Leiste stehen unten, unter der Zeichenfläche; die Werkzeug-Leiste ist waagerecht
+- Die Werkzeuge stehen in einer Zeile, die sich seitlich wischen lässt, statt in zwei Zeilen umzubrechen (#3034;
+  automatisiert im Komponententest `EditorToolbar.test.tsx`, nicht im E2E-Fall)
 - Undo/Redo stehen in der `TouchBar`
 - Die Kopfleiste liegt auf einer Zeile; die Tabs Plan · Liste · Beete und der Panel-Umschalter stehen nicht in ihr,
   sondern im Überlauf — jeder dieser Einträge ist mindestens 48 px hoch und mit Text beschriftet
@@ -3896,7 +3910,7 @@ Bildschirmfoto; der Befund ist gemeldet.
 | (abgeleitet aus AC-8, AC-16, GP-UX-065) | Welle 10 Teil A: Tab-Wechsel behält Änderung, Auswahl und Zoom, kein Dialog (Verlassen: TC-053-007) | TC-053-099 |
 | (abgeleitet aus AC-4, AC-5, AC-6, AC-17, GP-UX-068) | Welle 10 Teil A: Seitenpanel, Zustandsregel, Panel-Tabs per Tastatur | TC-053-100 |
 | (abgeleitet aus AC-1, AC-3, AC-14, GP-UX-067/069) | Welle 10 Teil A: Desktop 1366 × 768, Zeichenfläche ≥ 60 %, Panel angedockt | TC-053-101 |
-| (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel angedockt (#2885) | TC-053-102 |
+| (abgeleitet aus GP-UX-069) | Welle 10 Teil A: Tablet 820 × 1180 (md), Panel als Drawer, Zoom und Auswahl frei (#2885, #3034) | TC-053-102 |
 | (abgeleitet aus AC-2, GP-UX-001/069) | Welle 10 Teil A: jede Editor-Funktion bei 1024 px (GP-UX-001 eingegrenzt, #2868) | TC-053-103 |
 | (abgeleitet aus AC-9, AC-15, GP-UX-063/069) | Welle 10 Teil A: Smartphone 390 × 844, `TouchBar`, Bottom Sheet, Überlauf | TC-053-104 |
 | (abgeleitet aus GP-FR-180, §9.5) | Welle 10 Teil A: Fenster- und Lampen-Eigenschaften, Objekt-Legende, „Außerhalb des Grundstücks“ | TC-053-105 |
