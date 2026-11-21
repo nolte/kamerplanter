@@ -731,7 +731,7 @@ _DECLARED_CULTIVAR_READERS: dict[str, str] = {
     ),
     "domain/services/species_service.py": "Owns the reader API these entries call; the surface itself is pinned above.",
     "api/v1/planting_runs/tenant_router.py": (
-        "anchored dereference — ``_cultivar_summary`` resolves the ``cultivar_key`` "
+        "anchored dereference — ``list_plants`` (via ``PlantRowLabels``, #3032) resolves the ``cultivar_key`` "
         "of a run entry the tenant-scoped run query already returned, to render its name."
     ),
     "domain/services/care_reminder_service.py": (

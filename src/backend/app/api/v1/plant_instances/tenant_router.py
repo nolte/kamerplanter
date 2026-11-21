@@ -3,11 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query
 
 from app.api.mapping import to_response
+from app.api.v1.plant_instances.row_labels import PlantRowLabels
 from app.api.v1.plant_instances.schemas import (
     ActiveChannelResponse,
     AssignNutrientPlanRequest,
     AssignNutrientPlanStatusResponse,
-    CultivarSummary,
     PlantCreate,
     PlantInstanceInPhaseResponse,
     PlantInstancesInPhaseResponse,
@@ -15,7 +15,6 @@ from app.api.v1.plant_instances.schemas import (
     PlantResponse,
     PlantRunSummaryResponse,
     RemovePlantRequest,
-    SpeciesSummary,
     SurvivalStatsResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
@@ -34,26 +33,35 @@ from app.domain.services.planting_run_service import PlantingRunService
 router = APIRouter(prefix="/plant-instances", tags=["plant-instances"], responses=NOT_FOUND_RESPONSE)
 
 
-def _to_response(p: PlantInstance, service: PlantInstanceService, tenant_key: str) -> PlantResponse:
+def _row_labels(service: PlantInstanceService, tenant_key: str) -> PlantRowLabels:
+    """Per-request label memo resolving through the service under ``tenant_key`` (#3032)."""
+    return PlantRowLabels(
+        resolve_species=lambda species_key: service.resolve_species(species_key, tenant_key=tenant_key),
+        resolve_cultivar=service.resolve_cultivar,
+        resolve_phase_name=service.resolve_phase_name,
+    )
+
+
+def _to_response(
+    p: PlantInstance,
+    service: PlantInstanceService,
+    tenant_key: str,
+    labels: PlantRowLabels | None = None,
+) -> PlantResponse:
     """Convert PlantInstance to PlantResponse, resolving phase name and
-    denormalized species/cultivar labels from their keys."""
-    phase_name = service.resolve_phase_name(p.current_phase_key) if p.current_phase_key else ""
-    species = service.resolve_species(p.species_key, tenant_key=tenant_key)
-    cultivar = service.resolve_cultivar(p.cultivar_key)
+    denormalized species/cultivar labels from their keys.
+
+    A list route passes one shared ``labels`` memo for all its rows (#3032); a
+    single-plant route gets a fresh one.
+    """
+    if labels is None:
+        labels = _row_labels(service, tenant_key)
     return to_response(
         p,
         PlantResponse,
-        current_phase=phase_name,
-        species=(
-            SpeciesSummary(
-                scientific_name=species.scientific_name,
-                common_names=species.common_names,
-                common_names_i18n=species.common_names_i18n,
-            )
-            if species
-            else None
-        ),
-        cultivar=CultivarSummary(name=cultivar.name) if cultivar else None,
+        current_phase=labels.phase_name(p.current_phase_key),
+        species=labels.species(p.species_key),
+        cultivar=labels.cultivar(p.cultivar_key),
     )
 
 
@@ -67,7 +75,8 @@ def list_plants(
     items = service.list_plants_window(
         tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
     )
-    return [_to_response(p, service, ctx.tenant_key) for p in items]
+    labels = _row_labels(service, ctx.tenant_key)
+    return [_to_response(p, service, ctx.tenant_key, labels) for p in items]
 
 
 @router.get("/survival-stats", response_model=SurvivalStatsResponse)
