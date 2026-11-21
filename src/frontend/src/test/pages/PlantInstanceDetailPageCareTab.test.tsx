@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { act, screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -174,5 +174,38 @@ describe('PlantInstanceDetailPage — Care tab (#577)', () => {
       () => expect(screen.getAllByText(i18n.t('enums.careStyle.succulent')).length).toBeGreaterThan(0),
       QUERY_TIMEOUT,
     );
+  });
+
+  // #3065: every entry to the Care tab re-reads the profile, and the form
+  // re-seeds its fields from each new profile object. Showing the previous
+  // answer while the re-read runs let the user type into a form that the
+  // arriving answer then reset.
+  it('shows no form while a re-entry read runs, so the answer cannot reset an edit', async () => {
+    seedPlant(makePlant());
+    const releases: Array<() => void> = [];
+    server.use(
+      http.get('/api/v1/care-reminders/plants/:key/profile', async () => {
+        await new Promise<void>((resolve) => releases.push(resolve));
+        return HttpResponse.json(makeCareProfile());
+      }),
+    );
+
+    renderWithProviders(<PlantInstanceDetailPage />, { route: CARE_ROUTE });
+
+    await waitFor(() => expect(releases).toHaveLength(1), QUERY_TIMEOUT);
+    act(() => releases[0]());
+    await screen.findByTestId('care-profile-form', {}, QUERY_TIMEOUT);
+
+    // Leave the tab and come back: a second read starts.
+    const tabs = screen.getAllByRole('tab');
+    fireEvent.click(tabs[0]);
+    fireEvent.click(screen.getAllByRole('tab')[4]);
+    await waitFor(() => expect(releases).toHaveLength(2), QUERY_TIMEOUT);
+    expect(screen.queryByTestId('care-profile-form')).toBeNull();
+
+    act(() => releases[1]());
+    await screen.findByTestId('care-profile-form', {}, QUERY_TIMEOUT);
+    fireEvent.click(screen.getByTestId('fertilizing-month-10'));
+    expect(screen.getByTestId('fertilizing-month-10')).toHaveAttribute('aria-pressed', 'true');
   });
 });

@@ -11,7 +11,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import (
+    NoAlertPresentException,
+    NoSuchElementException,
+    UnexpectedAlertPresentException,
+)
 
 
 class FakeElement:
@@ -38,7 +42,7 @@ class FakeElement:
 
     def click(self) -> None:
         if self._driver is not None:
-            self._driver.record_click(self.selector)
+            self._driver.record_click(self.selector, native=True)
 
     def get_attribute(self, name: str) -> str | None:
         return self._text if name == "textContent" else None
@@ -65,6 +69,9 @@ class FakeDriver:
         hidden: Iterable[str] = (),
         current_url: str = "http://app.invalid/",
         nav_targets: dict[str, str] | None = None,
+        press_lands_outside: Iterable[str] = (),
+        moves_after_scroll: Iterable[str] = (),
+        opens_prompt_on_click: Iterable[str] = (),
     ) -> None:
         self.states: list[frozenset[str]] = [frozenset(s) for s in states] or [frozenset()]
         self.polls = 0
@@ -79,9 +86,31 @@ class FakeDriver:
         #: click-driven navigation is observable exactly as it is in the browser.
         self.nav_targets = nav_targets or {}
         self.clicked: list[str] = []
+        #: Selectors whose *native* click presses something else -- the layout
+        #: moved between the driver's hit-test and the press (#3065).
+        self.press_lands_outside = frozenset(press_lands_outside)
+        #: Selectors whose first frame-settled hit-test after a scroll misses,
+        #: as when the scroll itself re-laid-out the content around them.
+        self.moves_after_scroll = set(moves_after_scroll)
+        self.scrolls = 0
+        self.settled_hit_checks = 0
+        self._armed: str | None = None
+        self._pressed: str | None = None
+        #: Selectors whose click opens a native ``window.confirm``.
+        self.opens_prompt_on_click = frozenset(opens_prompt_on_click)
+        #: The text of the open user prompt, ``None`` when none is open.
+        self.prompt: str | None = None
+        #: Scripts that reached the driver while a prompt was open. WebDriver's
+        #: default unhandled-prompt behaviour dismisses the prompt on each one.
+        self.scripts_while_prompt: list[str] = []
+        self.switch_to = _FakeSwitchTo(self)
 
-    def record_click(self, selector: str) -> None:
+    def record_click(self, selector: str, *, native: bool = False) -> None:
         self.clicked.append(selector)
+        if native and self._armed == selector:
+            self._pressed = selector
+        if selector in self.opens_prompt_on_click:
+            self.prompt = "confirm"
         if selector in self.nav_targets:
             self.current_url = self.nav_targets[selector]
 
@@ -94,7 +123,15 @@ class FakeDriver:
         self.polls += 1
 
     # ── WebDriver surface ──
+    def _unhandled_prompt(self, script: str) -> None:
+        """WebDriver's default for a command sent while a prompt is open: dismiss, then raise."""
+        if self.prompt is not None:
+            self.scripts_while_prompt.append(script)
+            self.prompt = None
+            raise UnexpectedAlertPresentException("unexpected alert open: dismissed")
+
     def execute_script(self, script: str, *args: object) -> object:
+        self._unhandled_prompt(script)
         self.script_calls += 1
         if "querySelector" in script and args:
             selectors = args[0]
@@ -103,13 +140,42 @@ class FakeDriver:
             self._advance()
             return [i for i, sel in enumerate(selectors) if sel in snapshot]
         if "scrollIntoView" in script:
+            self.scrolls += 1
             return None
+        if script.startswith("/* armPressProbe */") and args and isinstance(args[0], FakeElement):
+            self._armed, self._pressed = args[0].selector, None
+            return None
+        if script.startswith("/* readPressProbe */"):
+            armed, pressed = self._armed, self._pressed
+            self._armed = self._pressed = None
+            if armed is None:
+                return None
+            if pressed is None:
+                return {"pressed": False, "inside": None, "at": None, "element": armed}
+            outside = pressed in self.press_lands_outside
+            return {
+                "pressed": True,
+                "inside": not outside,
+                "at": "div.MuiDialogContent-root" if outside else pressed,
+                "element": pressed,
+            }
         if ".click()" in script and args and isinstance(args[0], FakeElement):
             self.record_click(args[0].selector)
             return None
         if ".matches(" in script:
             return False
         raise AssertionError(f"FakeDriver got an unexpected script: {script[:60]!r}")
+
+    def execute_async_script(self, script: str, *args: object) -> object:
+        self._unhandled_prompt(script)
+        if script.startswith("/* settledHit */") and args and isinstance(args[0], FakeElement):
+            self.settled_hit_checks += 1
+            selector = args[0].selector
+            if selector in self.moves_after_scroll:
+                self.moves_after_scroll.discard(selector)
+                return {"hit": False, "at": "div.MuiDialogContent-root"}
+            return {"hit": True, "at": selector}
+        raise AssertionError(f"FakeDriver got an unexpected async script: {script[:60]!r}")
 
     def find_elements(self, _by: str, value: str) -> list[FakeElement]:
         self.find_elements_calls += 1
@@ -131,3 +197,21 @@ class FakeDriver:
         if not found:
             raise NoSuchElementException(value)
         return found[0]
+
+
+class _FakeAlert:
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+class _FakeSwitchTo:
+    """``driver.switch_to``: only ``alert``, which -- as in WebDriver -- never dismisses."""
+
+    def __init__(self, driver: FakeDriver) -> None:
+        self._driver = driver
+
+    @property
+    def alert(self) -> _FakeAlert:
+        if self._driver.prompt is None:
+            raise NoAlertPresentException("no such alert")
+        return _FakeAlert(self._driver.prompt)

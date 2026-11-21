@@ -12,9 +12,11 @@ from pathlib import Path
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     ElementNotInteractableException,
+    NoAlertPresentException,
     NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
+    WebDriverException,
 )
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -1598,15 +1600,192 @@ class BasePage:
         :meth:`dispatch_menu_trigger_open`. Menu *options* never belong here:
         they are clicked coordinate-independently via
         :meth:`click_menu_option`.
+
+        **A missed native click is reported, not swallowed (#3065).** A native
+        ``element.click()`` hit-tests the element's centre and only then sends
+        the press and the release at those coordinates. When the layout moves
+        in between, the press lands on whatever is there now, nothing raises,
+        and the caller's next wait times out with a message about the
+        *control* ("Cancel was clicked but the dialog neither closed nor asked
+        …") — indistinguishable from a dead button. Two checks separate the two:
+
+        * Before the click, one frame after the scroll, the element's centre is
+          hit-tested (:data:`_SETTLED_HIT_JS`). If the element is not there any
+          more -- the scroll itself changed the layout, e.g. a classic
+          scrollbar appearing and re-wrapping the content above it -- it is
+          scrolled into view **once** more. This is not a retry of the click:
+          no click has been sent yet, and the native click's own hit-test still
+          decides between clicking and the JS fallback.
+        * Around the click a one-shot ``pointerdown`` probe on ``window``
+          (:data:`_ARM_PRESS_PROBE_JS`) records what the press actually landed
+          on. If it landed outside the element, an ``AssertionError`` names
+          both, so a moving layout is diagnosed as a missed click instead of
+          being read as a dead control. The click is **not** repeated: which
+          layout change moved the target is the defect to find.
+
+        Both are passive when they cannot look (a page that navigated away, a
+        stub driver): no verdict means no assertion.
+
+        **Neither may touch an open user prompt.** A click can open a native
+        ``window.confirm`` (the expertise-level downgrade on the account
+        settings page). Any script sent while it is open makes WebDriver apply
+        its unhandled-prompt behaviour -- by default *dismiss* -- and raise
+        ``UnexpectedAlertPresentException``: the app would read "Cancel" and the
+        caller would find no prompt to accept. So every probe step first asks
+        the alert endpoint (which does not dismiss) and, if a prompt is open,
+        sends no script and gives no verdict. The armed listener then stays on
+        the page until the next arm replaces it; it only records, never acts.
         """
         self.scroll_into_view(element)
+        if self._settled_hit(element) is False:
+            self.scroll_into_view(element)
+            self._settled_hit(element)
+        self._arm_press_probe(element)
         try:
             element.click()
         except ElementNotInteractableException, ElementClickInterceptedException:
+            # No pointer event went out: the driver refused before dispatching.
+            self._read_press_probe()
             if self.opens_on_mousedown(element):
                 self.dispatch_menu_trigger_open(element)
             else:
                 self._dispatch_click(element)
+            return
+        except BaseException:
+            self._read_press_probe()
+            raise
+        probe = self._read_press_probe()
+        if probe is not None and probe.get("pressed") and probe.get("inside") is False:
+            raise AssertionError(
+                f"scroll_and_click(): the native click on {probe.get('element')} pressed "
+                f"{probe.get('at')} instead -- the layout moved between the driver's "
+                f"hit-test and the press. This is a missed click, not a control that "
+                f"ignored it; find what changes the layout around the target (#3065)."
+            )
+
+    #: Frame-settled hit-test of an element's centre, for :meth:`scroll_and_click`.
+    #: Two nested ``requestAnimationFrame`` callbacks let work the scroll
+    #: scheduled (scroll listeners, resize observers, the re-render they post)
+    #: commit first; the ``setTimeout`` bound keeps a throttled page from
+    #: stalling the call. Answers ``{hit, at}``; ``hit`` is ``null`` for an
+    #: element that is no longer attached.
+    _SETTLED_HIT_JS = """/* settledHit */
+var el = arguments[0];
+var done = arguments[arguments.length - 1];
+var finished = false;
+function describe(n) {
+  if (!n || n.nodeType !== 1) return String(n);
+  var s = n.tagName.toLowerCase();
+  var testid = n.getAttribute('data-testid');
+  if (testid) return s + "[data-testid='" + testid + "']";
+  return n.id ? s + '#' + n.id : s;
+}
+function verdict() {
+  if (!el.isConnected) return {hit: null, at: 'detached'};
+  var r = el.getBoundingClientRect();
+  var at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  return {hit: !!at && (at === el || el.contains(at)), at: describe(at)};
+}
+function finish() { if (!finished) { finished = true; done(verdict()); } }
+window.setTimeout(finish, 250);
+window.requestAnimationFrame(function () { window.requestAnimationFrame(finish); });
+"""
+
+    #: Arms the one-shot press probe of :meth:`scroll_and_click`. Listens on
+    #: ``window`` in the capture phase, the first stop of every pointer event, so
+    #: no page handler can stop it from being seen. ``pointerdown`` rather than
+    #: ``mousedown``: a page may cancel the compatibility mouse events, never the
+    #: pointer event itself.
+    _ARM_PRESS_PROBE_JS = """/* armPressProbe */
+var el = arguments[0];
+function describe(n) {
+  if (!n || n.nodeType !== 1) return String(n);
+  var s = n.tagName.toLowerCase();
+  var testid = n.getAttribute('data-testid');
+  if (testid) return s + "[data-testid='" + testid + "']";
+  return n.id ? s + '#' + n.id : s;
+}
+if (window.__e2ePressProbe) window.__e2ePressProbe.stop();
+var probe = {pressed: false, inside: null, at: null, element: describe(el)};
+function onDown(e) {
+  if (probe.pressed) return;
+  probe.pressed = true;
+  probe.inside = el.isConnected && el.contains(e.target);
+  probe.at = describe(e.target);
+}
+window.addEventListener('pointerdown', onDown, true);
+window.__e2ePressProbe = {
+  probe: probe,
+  stop: function () { window.removeEventListener('pointerdown', onDown, true); }
+};
+"""
+
+    #: Disarms the press probe and answers what it saw (``null`` if none is armed,
+    #: e.g. because the click navigated to a new document).
+    _READ_PRESS_PROBE_JS = """/* readPressProbe */
+var p = window.__e2ePressProbe;
+if (!p) return null;
+p.stop();
+delete window.__e2ePressProbe;
+return p.probe;
+"""
+
+    def _prompt_is_open(self) -> bool:
+        """Whether a user prompt (alert/confirm/prompt) is open, asked without dismissing it.
+
+        The alert-text endpoint is the one call that does not trigger WebDriver's
+        unhandled-prompt behaviour. An answer other than "no such alert" is read
+        as "open": not knowing must not lead to a script that dismisses it.
+        """
+        try:
+            _ = self.driver.switch_to.alert
+        except NoAlertPresentException:
+            return False
+        except WebDriverException:
+            return True
+        return True
+
+    def _settled_hit(self, element: WebElement) -> bool | None:
+        """Whether *element*'s centre hits it, one frame after the last scroll.
+
+        ``None`` when the question cannot be answered (a detached element, a
+        script the driver could not run, a dead session, an open prompt) --
+        never guessed.
+        """
+        if self._prompt_is_open():
+            return None
+        try:
+            verdict = self.driver.execute_async_script(self._SETTLED_HIT_JS, element)
+        except WebDriverException:
+            return None
+        if not isinstance(verdict, dict):
+            return None
+        hit = verdict.get("hit")
+        return hit if isinstance(hit, bool) else None
+
+    def _arm_press_probe(self, element: WebElement) -> None:
+        """Arm the one-shot ``pointerdown`` probe; a failure to arm only loses the verdict."""
+        if self._prompt_is_open():
+            return
+        try:
+            self.driver.execute_script(self._ARM_PRESS_PROBE_JS, element)
+        except WebDriverException:
+            pass
+
+    def _read_press_probe(self) -> dict | None:
+        """Disarm the probe and return what it recorded, or ``None`` if it cannot tell.
+
+        Asked right after the click, which is exactly when a ``window.confirm``
+        the click opened is on screen: then nothing is read (see
+        :meth:`scroll_and_click`).
+        """
+        if self._prompt_is_open():
+            return None
+        try:
+            probe = self.driver.execute_script(self._READ_PRESS_PROBE_JS)
+        except WebDriverException:
+            return None
+        return probe if isinstance(probe, dict) else None
 
     def wait_and_click(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until *locator* is clickable, scroll it into view, then click it.
@@ -1771,6 +1950,13 @@ class BasePage:
         Fails loudly by design: a helper that reports success without having
         opened anything pushes the failure to a later, unrelated line (the
         option lookup) and hides the real cause.
+
+        The mousedown fallback below covers exactly one case: the press **hit
+        the trigger** and the menu still did not open. A press that landed
+        somewhere else because the trigger moved is not retried here --
+        :meth:`scroll_and_click` raises on it (#3065), deliberately: that press
+        may have activated whatever was under the pointer, and opening the
+        menu on top of that would hide it.
         """
         trigger: WebElement | None = None
         for sub in self.SELECT_TRIGGER_SUBSELECTORS:
@@ -1785,8 +1971,8 @@ class BasePage:
         if self._wait_until_select_open(trigger):
             self._settle_listbox()
             return
-        # The click did not open the menu (e.g. it was swallowed while the
-        # trigger was still moving). Retry with the explicit mousedown pair.
+        # The press reached the trigger (scroll_and_click raises when it did
+        # not) but the menu did not open. Retry with the explicit mousedown pair.
         self.dispatch_menu_trigger_open(trigger)
         if self._wait_until_select_open(trigger):
             self._settle_listbox()
