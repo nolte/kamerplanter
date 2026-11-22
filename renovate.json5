@@ -100,7 +100,10 @@
   // references (GHCR publishes no timestamps): `ghcr.io/astral-sh/uv` (16),
   // `ghcr.io/hadolint/hadolint` (8), `ghcr.io/zaproxy/zaproxy` (5),
   // `ghcr.io/valkey-io/valkey-helm` (1). THE TRADE, stated: those four get no
-  // time-based protection at all; the check set is their only net.
+  // time-based protection at all; the check set is their only net. Renovate
+  // reports each such release as a `WARN: Some release(s) did not have a
+  // releaseTimestamp …` repository problem; the renovate-health check expects
+  // that one line while this value is set, and only then (#3076).
   //
   // A GROUP DOES NOT WAIT AS ONE (#1762). Renovate judges the age per UPDATE:
   // a pending member is left out of the group's branch while the others go
