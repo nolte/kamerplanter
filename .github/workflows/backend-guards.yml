@@ -268,17 +268,24 @@ jobs:
         # would leave the required lane green. The failure names every skip
         # reason; raising the number belongs in the commit that justifies it.
         #
-        # `-m 'not advisory'` deselects the guards not promoted to this lane —
-        # today exactly `test_lane_filters_cover_measured_inputs.py` (#1596);
-        # promoting it is #1683's decision. Its rules that hold the committed
-        # manifests against the live workflows need a recording and run in NO
-        # pull-request lane (#1794): tests/conftest.py deselects the
-        # `lane_inputs_drift` marker unless `--lane-inputs-drift` is given, which
-        # only lane-inputs.yml (weekly/dispatch on develop) passes. The rest of the
-        # file runs in `task test:backend:unit` (`pytest tests/unit/`). The markers
-        # are registered in pyproject.toml; `grep -rn "mark.advisory" tests/` names
-        # every file the flag excludes. Deselected is not skipped: `--max-skipped 0`
-        # still counts every skip.
+        # THE LANE-INPUT GUARDS RUN HERE SINCE 2026-11-22 (#1683). Until then
+        # `-m 'not advisory'` deselected the two files carrying that marker —
+        # test_lane_filters_cover_measured_inputs.py (#1596) and
+        # test_record_legs_provide_the_measured_jobs_environment.py — and both ran
+        # only in the advisory unit tier of backend.yml. PROMOTED ON MEASURED
+        # HISTORY (NFR-018 §4): the last 200 develop runs of backend.yml since
+        # 2026-11-02 were 183 success, 6 failure, 11 cancelled, and the log of
+        # every failure was searched — none came from either file. With no file
+        # left on it, the marker and the `-m` are gone. What still stays out of
+        # this lane: the rules that hold the committed manifests against the live
+        # workflows need a recording and run in NO pull-request lane (#1794) —
+        # they drifted every week for six weeks (bot pull requests #2459, #2554,
+        # #2633, #2837, #2988, #3031), which would block feature pull requests.
+        # tests/conftest.py deselects the `lane_inputs_drift` marker unless
+        # `--lane-inputs-drift` is given, which only lane-inputs.yml
+        # (weekly/dispatch on develop) passes; test_lane_inputs_drift_runs_only_in_its_lane.py
+        # holds both halves. Deselected is not skipped: `--max-skipped 0` still
+        # counts every skip.
         #
         # THE NAMED FILES AFTER THE TWO DIRECTORIES (#1741) are the tests of the
         # unit, contract and API tiers that read the frontend tree or the e2e
@@ -321,7 +328,7 @@ jobs:
           tests/contracts/test_dashboard_widgets_contract.py
           tests/contracts/test_notification_channels_contract.py
           tests/api/test_notification_act_role_gate.py
-          -q --max-skipped 0 -m 'not advisory'
+          -q --max-skipped 0
 
   # THE SECOND REQUIRED CHECK IN THIS LANE, AND WHY A 2–3-MINUTE JOB WITH A
   # SERVICE CONTAINER SITS IN THE "FAST" LANE (#1432).
