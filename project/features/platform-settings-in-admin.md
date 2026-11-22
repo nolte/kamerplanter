@@ -1,7 +1,7 @@
 ---
 id: F-12
 title: Plattform-Einstellungen im Admin-Bereich
-status: ready
+status: in_progress
 roadmap_item: R-17
 sprint: 3
 created: 2026-11-17

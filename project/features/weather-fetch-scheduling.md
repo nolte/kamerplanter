@@ -1,7 +1,7 @@
 ---
 id: F-13
 title: Intervallgesteuerter Wetterabruf mit manuellem Start
-status: ready
+status: in_progress
 roadmap_item: R-18
 sprint: 3
 created: 2026-11-17

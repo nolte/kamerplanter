@@ -1,7 +1,7 @@
 ---
 number: 3
-status: planned
-started: null
+status: active
+started: 2026-11-22
 ended: null
 value_statement: Nutzer finden jede Einstellung in einer von sechs Gruppen statt in einer Leiste mit 14 Tabs, und Betreiber stellen dort das Intervall für den Wetterabruf ein und starten einen Abruf von Hand.
 artifact_ref: null
@@ -32,10 +32,10 @@ Freigabe des Zuschnitts durch den Betreiber am 2026-11-17.
 
 ## Features
 
-- [F-12](`../features/platform-settings-in-admin.md`) — status: ready
-- [F-11](`../features/settings-grouped-navigation.md`) — status: ready
-- [F-13](`../features/weather-fetch-scheduling.md`) — status: ready
-- [F-14](`../features/weather-fetch-settings-ui.md`) — status: ready
+- [F-12](../features/platform-settings-in-admin.md) — status: in_progress
+- [F-11](../features/settings-grouped-navigation.md) — status: ready
+- [F-13](../features/weather-fetch-scheduling.md) — status: in_progress
+- [F-14](../features/weather-fetch-settings-ui.md) — status: ready
 
 ## Out of scope
 
