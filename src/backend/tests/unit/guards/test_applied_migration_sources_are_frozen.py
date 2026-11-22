@@ -146,7 +146,11 @@ _VERSION_FILENAME_RE = re.compile(r"^v(?P<number>\d{4})_[a-z0-9_]+$")
 #: carries v0001 … v0092. Measured before raising: `git diff v0.4.2 origin/develop --
 #: src/backend/app/migrations/versions/` is empty, so the rows below record the same
 #: class source the tag shipped — no second v0050 case.
-_PINNED_THROUGH = "0092"
+#: Raised 0092 → 0114 on 2026-11-22 for release v0.5.0 (published 2026-11-22), whose tree
+#: carries v0001 … v0114. Measured before raising: `git diff v0.5.0 origin/develop --
+#: src/backend/app/migrations/versions/` is empty, so the rows below record the same
+#: class source the tag shipped.
+_PINNED_THROUGH = "0114"
 
 #: A RATCHET over the size of the table below, independent of `_PINNED_THROUGH`.
 #: Set equality against the directory (`test_pins_cover_exactly_the_shipped_versions`)
@@ -154,8 +158,9 @@ _PINNED_THROUGH = "0092"
 #: pin table can shrink to a single row, or to none, and every derived expectation
 #: shrinks with it. This floor is the one statement that does not: it can only ever
 #: be raised. 54 = the number of version modules on `develop` on 2026-09-19;
-#: 92 = the number release v0.4.2 shipped (raised 2026-10-15).
-_PINNED_COUNT_FLOOR = 92
+#: 92 = the number release v0.4.2 shipped (raised 2026-10-15); 114 = the number release
+#: v0.5.0 shipped (raised 2026-11-22).
+_PINNED_COUNT_FLOOR = 114
 
 #: ``sha256(inspect.getsource(<migration class>))`` per shipped version — the exact
 #: expression ``Migration.checksum()`` computes and the runner compares.
@@ -261,6 +266,28 @@ _PINNED_CLASS_CHECKSUMS: dict[str, str] = {
     "0090": "1ebe64818bb7c5ca2e2c9fe251c5a7df9b55a53a09c42084fec61a5b037238d8",
     "0091": "2eef2b3e4209ff3fc452b30016eb43206c290081f898b810e2eb1ce3713b36fd",
     "0092": "c3664ea47fa9f05009722b8d242138f4f72f15f671d2794a3c405af7a041ea8a",
+    "0093": "4e917ee06a3188cd450f66eec005d9e4853d9a8fb8ea5f52f54e6c7eb32e4510",
+    "0094": "35740a8bc3e048dc7150ded01cc9885efd37c0f9f61c80057b4ad4a06a225da0",
+    "0095": "69a5f9a3b2fab6ca46f0dec5f110fafa664737897377356dd12e0112bcf0c412",
+    "0096": "77429e1d53c6d6a40492e71a1713b0842aae2c3b185623bb36e88e5de437cebe",
+    "0097": "ab43f589a063430c19bb8244638f886397b53278f3c99dc0e12c9e02277c5f56",
+    "0098": "48a2a580cdcbd6c4dfe7b6e82325d1e0357b0c942ff171410d822ac875932255",
+    "0099": "aec92cc638022ea390fd14738405ceaf46246ef5b69da9f223fc1e7d2b4464aa",
+    "0100": "68cc4dc78cd8f333e56ca4ad0da4d38d99f11299e2147c507a5a8342eed59692",
+    "0101": "ff854a0dd7ea65a0b6fa5821e3c78d4889595ec642f61067e8ffe9232f1b86b9",
+    "0102": "f430a89fa4af0e8fee4563998f3b0ad46298601d31b9b3113eb36fe6b8996a04",
+    "0103": "352cd1911c9741d032d0973c176e2c044866257d84669acd2da6087e9fd44e77",
+    "0104": "bcf4bf02ab6e34e204355ba1e2b7be92c21e2688681d4b413a2e84a3738941e6",
+    "0105": "894d2eeef6b177852325ba9c9ddaf4b8ca3a34c964ba06d0deed27a348b29c64",
+    "0106": "2d9ce403a633d0d898c5a93aee5329bc0a369dd882e05b840e0aa87a668a5ed5",
+    "0107": "2c8b6895f654e91036712fdfa9ff2691d50d4dcd2879e475b885e15cd0b60169",
+    "0108": "61db8957a6fc32da6b792086ba8cec1b413956846e180d7badbdea6788c441c1",
+    "0109": "467e39aaca7106b5ad7796b87866b212e7498dc6df4b5350f8c189c9d4ca0622",
+    "0110": "c2826239cd84656ac979565c9df2e2c72fb7197ec06d7fd60dfcfc2141c6ba88",
+    "0111": "c77a77918d9d3d41c8e72f51497cc8851b75700ea44537d92dc2c59740f0d14f",
+    "0112": "6326996c6bc1addf13d5b627b8f370eb09407511de8cd401a625d2ddd7a7e8ae",
+    "0113": "d2abf15265264d6b26e4c7f879cd0f2c9f1e1ae37fdcc45d96b76d67b44de076",
+    "0114": "45e6f05d24c7871bac47be09b6351b91ad9524a1e2acf2975648baf308741c76",
 }
 
 
