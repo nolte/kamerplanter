@@ -24,7 +24,7 @@ expected:
   - member-in-records/0
   - record-unreached/0
   - record/account_erasure/completed
-derived_from: blob:0367a5efd2a96388e33a2d2b4e4ec9a8ae2bfa11
+derived_from: "blob:b2fc629a069d2e3f94a1346b5a59180bd8f71798"
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -41,7 +41,7 @@ observe:
   - --records
   timeout_seconds: 120
 approval:
-  approved_at: '2026-10-04T09:50:14Z'
-  approved_by: nolte
-  observation_digest: a6845ddd0605ee872b59e8fd937e274a2da4bc8d4f661a8575c30fd75b442bfe
-  mode: derived
+  approved_at: "2026-11-22T18:07:40Z"
+  approved_by: "nolte"
+  observation_digest: "a6845ddd0605ee872b59e8fd937e274a2da4bc8d4f661a8575c30fd75b442bfe"
+  mode: reconfirmed

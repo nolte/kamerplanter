@@ -21,7 +21,7 @@ expected:
   kind: count
   value: 1
   unit: ranking endpoints answering
-derived_from: b32c0f7bca79785b1bc4850e56d590bea48a2ee1
+derived_from: "blob:07c33d4da5a83311cb5747fb92647484e7687655"
 environment:
 - reach:ranking:up
 teardown:
@@ -32,6 +32,7 @@ observe:
   - scripts/reach/observe_ranking_order.py
   timeout_seconds: 420
 approval:
-  approved_at: '2026-09-24T04:46:06Z'
-  approved_by: nolte
-  observation_digest: 12c35d5d7bb7896f504b8d0d9df8b61872d6f443e8d8616c2463f57305527fd6
+  approved_at: "2026-11-22T18:07:40Z"
+  approved_by: "nolte"
+  observation_digest: "12c35d5d7bb7896f504b8d0d9df8b61872d6f443e8d8616c2463f57305527fd6"
+  mode: reconfirmed

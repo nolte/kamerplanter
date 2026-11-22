@@ -28,7 +28,7 @@ expected:
   kind: count
   value: 300
   unit: runs executed
-derived_from: blob:569027fde61a00c5b23b419451099e80c38c85e0
+derived_from: "blob:ce225babc17f12be9830f8008337780dc92bf0f4"
 observe:
   argv:
   - python3
@@ -43,7 +43,7 @@ observe:
   - '300'
   timeout_seconds: 120
 approval:
-  approved_at: '2026-10-04T09:50:14Z'
-  approved_by: nolte
-  observation_digest: ca67bcb0acb5b92bc268fc09796d4372150af938b1098d49bfe6c055f4cb33bf
-  mode: derived
+  approved_at: "2026-11-22T18:07:40Z"
+  approved_by: "nolte"
+  observation_digest: "ca67bcb0acb5b92bc268fc09796d4372150af938b1098d49bfe6c055f4cb33bf"
+  mode: reconfirmed
