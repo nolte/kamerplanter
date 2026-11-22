@@ -29,6 +29,8 @@ Selenium's ``Remote`` driver has no ``execute_cdp_cmd``; chromedriver (behind th
 
 from __future__ import annotations
 
+import json
+
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
@@ -118,6 +120,125 @@ indexedDB.databases().then(function (list) {
 }, function (e) { done({error: String(e)}); });
 """
 
+#: The app databases whose requests :func:`install_indexeddb_trace` records (``pwa/storageWipe.ts``).
+TRACED_DATABASES = (PLAN_CACHE_DB, WRITE_QUEUE_DB)
+#: How many trace entries a page keeps (the oldest go first) and how many a failure message quotes.
+TRACE_LIMIT = 200
+TRACE_QUOTED = 40
+
+#: Diagnostic for #3082 (an open of ``kp-plan-cache`` stays queued behind a request another connection blocks):
+#: records every ``indexedDB.open`` / ``indexedDB.deleteDatabase`` of the traced databases with the version asked
+#: for, the time, the first stack frames and what happened to it - ``upgradeneeded``, ``blocked``, ``success``,
+#: ``error`` on the request, ``versionchange``, ``close()`` and a forced ``close`` on the connection it opened.
+#: PASS-THROUGH: the original methods run with the original arguments, the app's own handlers still run (listeners
+#: only record and never throw), and the trace opens no connection of its own. The probe below uses the saved
+#: original ``open``, so its own polling never floods the window.
+_IDB_TRACE = r"""
+(function () {
+  if (window.__kpIdbTrace || typeof IDBFactory === 'undefined') return;
+  var NAMES = %(names)s, LIMIT = %(limit)d, entries = [], seq = 0;
+  var proto = IDBFactory.prototype, originalOpen = proto.open, originalDelete = proto.deleteDatabase;
+  window.__kpIdbTrace = {entries: entries, open: originalOpen, deleteDatabase: originalDelete};
+  function now() { return Math.round(performance.now()); }
+  function add(entry) { entries.push(entry); if (entries.length > LIMIT) entries.shift(); }
+  function event(id, name, what) { add({id: id, db: name, ev: what, t: now()}); }
+  function frames() {
+    var lines = String(new Error().stack || '').split('\n').slice(4, 9);
+    return lines.map(function (line) { return line.trim().replace(/^at /, ''); }).join(' < ');
+  }
+  function traceConnection(id, name, db) {
+    if (!db || db.__kpIdbTraced) return;
+    db.__kpIdbTraced = true;
+    db.addEventListener('versionchange', function (e) {
+      event(id, name, 'versionchange ' + e.oldVersion + '->' + e.newVersion);
+    });
+    db.addEventListener('close', function () { event(id, name, 'forced close'); });
+    var close = db.close;
+    db.close = function () { event(id, name, 'close()'); return close.apply(this, arguments); };
+  }
+  function watch(id, name, request, opens) {
+    ['upgradeneeded', 'blocked', 'success', 'error'].forEach(function (type) {
+      request.addEventListener(type, function (e) {
+        try {
+          var detail = type === 'upgradeneeded' || type === 'blocked' ? ' ' + e.oldVersion + '->' + e.newVersion : '';
+          if (type === 'error') detail = ' ' + (request.error && request.error.name);
+          event(id, name, type + detail);
+          if (opens && (type === 'upgradeneeded' || type === 'success')) traceConnection(id, name, request.result);
+        } catch (ignored) { /* a trace never breaks the app */ }
+      });
+    });
+  }
+  function begin(op, name, version) {
+    var id = ++seq;
+    add({id: id, db: name, op: op, version: version, t: now(), wall: Date.now(), stack: frames()});
+    return id;
+  }
+  proto.open = function (name) {
+    var request = originalOpen.apply(this, arguments);
+    if (NAMES.indexOf(name) >= 0) {
+      try { watch(begin('open', name, arguments.length > 1 ? arguments[1] : null), name, request, true); }
+      catch (ignored) { /* pass-through */ }
+    }
+    return request;
+  };
+  proto.deleteDatabase = function (name) {
+    var request = originalDelete.apply(this, arguments);
+    if (NAMES.indexOf(name) >= 0) {
+      try { watch(begin('delete', name, null), name, request, false); } catch (ignored) { /* pass-through */ }
+    }
+    return request;
+  };
+})();
+""" % {"names": json.dumps(list(TRACED_DATABASES)), "limit": TRACE_LIMIT}
+
+_TRACE_ENTRIES = """
+var done = arguments[arguments.length - 1];
+done(window.__kpIdbTrace ? {entries: window.__kpIdbTrace.entries.slice()} : {entries: null});
+"""
+
+
+def install_indexeddb_trace(driver: WebDriver) -> None:
+    """Record the app's IndexedDB requests in every document this session loads from now on (#3082 diagnostic).
+
+    Registered with CDP ``Page.addScriptToEvaluateOnNewDocument``, so it runs before the app's own code in each
+    later navigation; the document already open (the login) is not traced. Raises when the browser takes no CDP.
+    """
+    cdp(driver, "Page.addScriptToEvaluateOnNewDocument", {"source": _IDB_TRACE})
+
+
+def format_indexeddb_trace(entries: list[dict] | None, limit: int = TRACE_QUOTED) -> str:
+    """The last *limit* trace entries, one per line; says so when the document was not traced."""
+    if entries is None:
+        return "IndexedDB trace: none in this document (install_indexeddb_trace was not registered before it loaded)"
+    if not entries:
+        return "IndexedDB trace: no open or deletion of the traced databases in this document"
+    shown = entries[-limit:]
+    lines = [
+        f"IndexedDB trace (last {len(shown)} of {len(entries)} entries, t = ms since the document started):"
+    ]
+    for entry in shown:
+        head = f"  #{entry.get('id')} {entry.get('db')} t={entry.get('t')}"
+        if "op" in entry:
+            version = entry.get("version")
+            asked = "no version" if version is None else f"version {version}"
+            lines.append(
+                f"{head} {entry['op']} ({asked}) from {str(entry.get('stack') or '?')[:240]}"
+            )
+        else:
+            lines.append(f"{head} -> {entry.get('ev')}")
+    return "\n".join(lines)
+
+
+def indexeddb_trace(driver: WebDriver) -> str:
+    """The formatted trace of the current document; a diagnostic, so a failure to read it is named, not raised."""
+    try:
+        answer = driver.execute_async_script(_TRACE_ENTRIES)
+    except Exception as exc:  # diagnostic text for a failure message that is already being raised
+        return f"IndexedDB trace: could not be read ({exc.__class__.__name__}: {exc})"
+    entries = answer.get("entries") if isinstance(answer, dict) else None
+    return format_indexeddb_trace(entries)
+
+
 #: How long the probe's ``indexedDB.open`` may stay pending before it reports that instead of answering. Below the
 #: driver's 30 s script timeout on purpose: an open request queued behind a version change or deletion that another
 #: connection blocks never completes, and Selenium would only say "script timeout" (TC-053-086/087/088 nightlies).
@@ -132,13 +253,17 @@ STORE_OPEN_PENDING_MS = 10_000
 #: ``{pending: ...}`` with the origin's databases and versions, a request that succeeds after that closes its
 #: connection at once (left open it would itself block the app's next upgrade or deletion), and an exception in a
 #: callback answers ``{error: ...}`` instead of leaving the script to time out.
+#: The open goes through the original ``IDBFactory.open`` saved by :data:`_IDB_TRACE` (so the probe is not traced),
+#: and a pending answer carries the page's trace, which :func:`indexeddb_record_keys` appends to its error.
 _STORE_KEYS = """
 var name = arguments[0], store = arguments[1], pendingMs = arguments[2], done = arguments[arguments.length - 1];
 var answered = false;
 function finish(value) { if (!answered) { answered = true; clearTimeout(watchdog); done(value); } }
-var request = indexedDB.open(name);
+var trace = window.__kpIdbTrace;
+var request = (trace ? trace.open : IDBFactory.prototype.open).call(indexedDB, name);
 var watchdog = setTimeout(function () {
-  var state = {pending: true, readyState: request.readyState, waitedMs: pendingMs};
+  var state = {pending: true, readyState: request.readyState, waitedMs: pendingMs,
+               trace: trace ? trace.entries.slice() : null};
   // databases() can stall like the open itself; answer without the list rather than run into the script timeout.
   setTimeout(function () { finish(state); }, 2000);
   indexedDB.databases().then(function (list) {
@@ -185,7 +310,8 @@ def indexeddb_record_keys(driver: WebDriver, database: str, store: str) -> list[
         raise OfflineProbeError(
             f"opening {database!r} did not complete within {answer.get('waitedMs')} ms "
             f"(request readyState {answer.get('readyState')!r}; databases {answer.get('databases')}): "
-            "the open is queued behind a version change or deletion that another connection blocks"
+            "the open is queued behind a version change or deletion that another connection blocks\n"
+            + format_indexeddb_trace(answer.get("trace"))
         )
     if not isinstance(answer, dict) or "error" in answer:
         raise OfflineProbeError(f"reading {database}/{store} failed: {answer!r}")
@@ -218,7 +344,7 @@ def wait_for_cached_record(
     except TimeoutException as exc:
         raise AssertionError(
             f"{what}: {database}/{store} holds no record for {fragment!r}; keys: "
-            f"{indexeddb_record_keys(driver, database, store)}"
+            f"{indexeddb_record_keys(driver, database, store)}\n{indexeddb_trace(driver)}"
         ) from exc
     return found[0]
 
@@ -368,7 +494,10 @@ __all__ = [
     "cache_names",
     "cdp",
     "indexeddb_database_names",
+    "format_indexeddb_trace",
     "indexeddb_record_keys",
+    "indexeddb_trace",
+    "install_indexeddb_trace",
     "navigation_entry",
     "navigator_online",
     "response_headers",
