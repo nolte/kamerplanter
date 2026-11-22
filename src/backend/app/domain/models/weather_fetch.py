@@ -19,6 +19,10 @@ MIN_FETCH_INTERVAL_HOURS = 6
 MAX_FETCH_INTERVAL_HOURS = 168
 #: How long a manual fetch blocks the next one (R6).
 MANUAL_FETCH_COOLDOWN_SECONDS = 600
+#: After this many failed runs in a row the fetch logs ``weather_fetch_outage`` at
+#: ``error`` level. Three hourly retries: one failed run is a provider hiccup, three in
+#: a row are an outage an operator should see (security review 2026-11-22).
+OUTAGE_ALERT_AFTER_FAILURES = 3
 
 
 class WeatherFetchRun(BaseModel):
@@ -47,6 +51,8 @@ class WeatherFetchStatus(BaseModel):
 
     last_run: WeatherFetchRun | None = None
     last_success: WeatherFetchRun | None = None
+    #: Failed runs since the last successful one.
+    consecutive_failures: int = Field(default=0, ge=0)
 
 
 def is_successful_run(*, aborted: bool, sites: int, sites_written: int) -> bool:

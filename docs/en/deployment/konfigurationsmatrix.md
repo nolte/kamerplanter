@@ -168,7 +168,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 | Reactive frost warning (current reading) | Backend | Always active, no switch — only `FROST_WARNING_THRESHOLD_CELSIUS` is configurable | — | — | No |
 | Climate normals (NASA POWER) <!-- REQ-041 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `NASA_POWER_CLIMATE_ENABLED=true` (default) | — | monthly Celery task | No |
 | Hardiness zone refresh (USDA) <!-- REQ-039 --> | Celery Beat | Requires climate normals (see above) **and** `HARDINESS_ZONE_REFRESH_ENABLED=true` (default) | — | quarterly Celery task | No |
-| Irrigation demand (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `IRRIGATION_DEMAND_ENABLED=true` (default) | — | Celery task after every successful weather fetch | No |
+| Irrigation demand (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `IRRIGATION_DEMAND_ENABLED=true` (default) | — | Celery task after every successful weather fetch and daily | No |
 | Season & overwintering automation <!-- REQ-047 --> | Celery Beat | `SEASON_STATE_EVAL_ENABLED=true` (default) — additionally uses the live frost forecast when `WEATHER_ENABLED=true` is set | — | daily Celery task | No |
 
 ---

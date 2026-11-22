@@ -7,7 +7,7 @@ Kategorie: Monitoring / Integration
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, httpx, ArangoDB, Celery, Home Assistant REST API, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
 Status: Entwurf
-Version: 1.4 (Abrufintervall, manueller Abruf, Frost und Bewässerung nach jedem erfolgreichen Abruf; #2934); 1.3 (Quellenauswahl je Standort und Verbindungstest: Nur Leitung, REQ-049 §2.10; #2181); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
+Version: 1.4 (Abrufintervall, manueller Abruf, Frost und Bewässerung nach jedem erfolgreichen Abruf und täglich als Sicherheitsnetz; #2934); 1.3 (Quellenauswahl je Standort und Verbindungstest: Nur Leitung, REQ-049 §2.10; #2181); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
 Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (Standort), REQ-018 (HA-Aktorik/REST — geteilter HA-Client), REQ-023 (Secret-Storage für API-Keys), REQ-024 (Mandanten-Scoping), REQ-037 (ET — Konsument), REQ-039 (Winterhärte — Konsument), REQ-041 (NASA POWER — registriert Adapter hier)
 ```
 
@@ -15,7 +15,7 @@ Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
-| 1.4 | 2026-11-22 | **#2934 (Betreiberentscheidungen 2026-11-17):** Neuer §3.6a. Der Abruf läuft nicht mehr fest um 06:00, sondern in einem **Abrufintervall** `fetch_interval_hours` (Plattform-Admin, DB vor `WEATHER_FETCH_INTERVAL_HOURS`, Minimum und Default 6 h, Maximum 168 h; kleinere Werte → `422`). Ein stündlicher Beat startet `fetch_weather_forecasts`, das selbst prüft, ob seit dem letzten **erfolgreichen** Abruf das Intervall vergangen ist; ein geändertes Intervall gilt ohne Neustart. Erfolg = kein Laufzeitfehler und mindestens ein Standort geschrieben (oder kein Standort zu holen). Nur nach Erfolg laufen Frost-Frühwarnung und Bewässerungsbedarf (REQ-037) — beide ohne eigenen Beat. Manueller Abruf `POST /api/v1/admin/weather-providers/fetch` (`202`; `409` während eines Laufs, `429` + `Retry-After` 10 Minuten nach dem letzten manuellen Abruf), Status `GET /api/v1/admin/weather-providers/fetch-status`. |
+| 1.4 | 2026-11-22 | **#2934 (Betreiberentscheidungen 2026-11-17):** Neuer §3.6a. Der Abruf läuft nicht mehr fest um 06:00, sondern in einem **Abrufintervall** `fetch_interval_hours` (Plattform-Admin, DB vor `WEATHER_FETCH_INTERVAL_HOURS`, Minimum und Default 6 h, Maximum 168 h; kleinere Werte → `422`). Ein stündlicher Beat startet `fetch_weather_forecasts`, das selbst prüft, ob seit dem letzten **erfolgreichen** Abruf das Intervall vergangen ist; ein geändertes Intervall gilt ohne Neustart. Erfolg = kein Laufzeitfehler und mindestens ein Standort geschrieben (oder kein Standort zu holen). Nach jedem erfolgreichen Abruf laufen Frost-Frühwarnung und Bewässerungsbedarf (REQ-037); zusätzlich behalten beide ihren täglichen Beat (06:10/06:15 UTC) als Sicherheitsnetz (Betreiberentscheidung 2026-11-22 nach Security-Review). Nach drei fehlgeschlagenen Läufen in Folge ein `error`-Log `weather_fetch_outage`. Manueller Abruf `POST /api/v1/admin/weather-providers/fetch` (`202`; `409 WEATHER_FETCH_DISABLED` bei `WEATHER_ENABLED=false`, `409` während eines Laufs, `429` + `Retry-After` 10 Minuten nach dem letzten manuellen Abruf, `503` bei nicht erreichbarem Valkey oder Broker), Status `GET /api/v1/admin/weather-providers/fetch-status`. Laufzeitgrenzen des Tasks (45/50 Minuten) liegen unter der Sperrdauer (55 Minuten). |
 | 1.3 | 2026-10-09 | **#2181 (Entscheidung nach Spec-Hierarchie, keine Betreiberentscheidung — überstimmbar):** Die in v1.2 markierte Abweichung ist zugunsten von REQ-049 §2.10/§4.4 aufgelöst. `PUT /sites/{key}/weather-source` und `POST /sites/{key}/weather-sources/test` verlangen jetzt `lead` (`require_tenant_role(TenantRole.LEAD)`); Gärtner und Beobachter lesen die Auswahl weiter (`403` beim Schreiben). Der Verbindungstest folgt der Auswahl, weil er Teil des Auswählens ist und einen ausgehenden Abruf im Namen des Mandanten auslöst. Die Oberfläche zeigt Nicht-Leitungen die Liste schreibgeschützt. |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen. **Abweichung markiert:** die Quellenauswahl je Standort verlangt im Code `grower`, REQ-049 §2.10 sagt Leitung — Entscheidung offen (#2181). HA-Entitäten-Listen verlangen `technical` (#2112). |
 | 1.1 | 2026-10-03 | **#1871 B8 (Betreiberentscheidung):** Ein fremder Mandantenschlüssel bzw. eine fremde Site wird mit **404** beantwortet (AC-11), nicht mit 403. |
@@ -399,35 +399,52 @@ Task liest das Intervall bei jedem Lauf und kehrt ohne Abruf zurück, solange se
 erfolgreichen** Abrufs weniger als das Intervall vergangen ist (5 Minuten Toleranz, damit der Takt nicht um eine
 Stunde je Intervall wandert). Ein geändertes Intervall gilt damit ab der nächsten vollen Stunde, ohne Neustart. Ein
 fehlgeschlagener Abruf setzt das Intervall nicht neu; die nächste stündliche Prüfung versucht es erneut. Celery
-wiederholt den Task nicht selbst.
+wiederholt den Task nicht selbst. Das Statusdokument zählt die fehlgeschlagenen Läufe in Folge; ab dem dritten loggt
+der Task `weather_fetch_outage` auf Stufe `error`, damit ein Ausfall des Dienstes sichtbar wird.
+
+**Laufzeit.** Ein Lauf hält die Sperre höchstens 55 Minuten. Der Task hat ein weiches Zeitlimit von 45 und ein hartes
+von 50 Minuten — beide unter der Sperrdauer, damit die Sperre nie unter einem noch laufenden Abruf abläuft. Beim
+weichen Limit bricht der Lauf ab, gilt als fehlgeschlagen und gibt die Sperre frei.
 
 **Erfolg.** Ein Abruf gilt als erfolgreich, wenn er ohne Laufzeitfehler endet und mindestens einen Standort
 geschrieben hat — oder kein Standort zu holen war (aktive Konfiguration, Standort mit GPS, Mandant `active`). Schlägt
 die Quellenkette jedes Standorts fehl, ist der Abruf fehlgeschlagen.
 
-**Kopplung.** Nur nach einem erfolgreichen Abruf reiht der Task die Frost-Frühwarnung
-(`evaluate_forecast_frost_warnings`, #392) und den Bewässerungsbedarf (`compute_irrigation_demand`, REQ-037) ein. Beide
-haben keinen eigenen Beat mehr; beide sind je Standort und Tag idempotent und fragen den Mandantenzustand selbst
-(REQ-056 §5.2). Die Saison-Auswertung (REQ-047) behält ihren täglichen Termin und liest die zuletzt gespeicherte
+**Kopplung.** Nach jedem erfolgreichen Abruf reiht der Task die Frost-Frühwarnung
+(`evaluate_forecast_frost_warnings`, #392) und den Bewässerungsbedarf (`compute_irrigation_demand`, REQ-037) ein; ein
+fehlgeschlagener Abruf reiht sie nicht ein. **Zusätzlich** behalten beide ihren täglichen Beat
+(`frost-forecast-evaluate-daily` 06:10 UTC, `irrigation-demand-compute-daily` 06:15 UTC) als Sicherheitsnetz
+(Betreiberentscheidung 2026-11-22): Bei einem Intervall über 24 Stunden oder einem längeren Ausfall der Dienste wird
+eine Frostnacht, die zwischen zwei Abrufen in den Vorhersagezeitraum rückt, trotzdem gegen die zuletzt gespeicherte
+Vorhersage geprüft, und der Tag erhält einen Bewässerungsbedarf. Beide sind je Standort und Tag idempotent und fragen
+den Mandantenzustand selbst (REQ-056 §5.2). Die Saison-Auswertung (REQ-047) behält ihren täglichen Termin und liest die zuletzt gespeicherte
 Vorhersage.
 
 **Manueller Abruf.** `POST /api/v1/admin/weather-providers/fetch` (Plattform-Admin) reiht einen Abruf über alle
 Standorte ein und antwortet sofort mit `202` und der Task-ID. Er überspringt die Fälligkeitsprüfung, zählt sonst wie
 ein geplanter Abruf und setzt bei Erfolg das Intervall neu. Abgelehnt wird er
 
+- mit `409 WEATHER_FETCH_DISABLED`, solange die Wetterfunktion abgeschaltet ist (`WEATHER_ENABLED=false`); die
+  Wartezeit wird dabei nicht verbraucht;
 - mit `409 WEATHER_FETCH_RUNNING`, solange ein Abruf läuft — die Sperre hält der Task selbst, also blockiert auch ein
   laufender geplanter Abruf;
 - mit `429 WEATHER_FETCH_COOLDOWN` samt `Retry-After` (Sekunden), solange seit dem letzten manuellen Abruf keine
   10 Minuten vergangen sind (NFR-006, NFR-007);
 - mit `503 WEATHER_FETCH_UNAVAILABLE`, wenn Sperre und Wartezeit nicht geprüft werden können (Valkey nicht erreichbar).
-  Der geplante Abruf läuft in diesem Fall ohne Sperre weiter.
+  Der geplante Abruf läuft in diesem Fall ohne Sperre weiter. Ebenso `503`, wenn der Task-Broker den Abruf nicht
+  annimmt; die Wartezeit wird dann zurückgegeben.
+
+Findet der eingereihte manuelle Abruf beim Start die Sperre belegt (ein geplanter Abruf kam ihm zuvor), läuft er nicht
+und gibt seine Wartezeit zurück, damit der Admin nicht 10 Minuten auf einen Abruf wartet, der keinen Status hinterließ.
 
 Sperre und Wartezeit liegen in Valkey (`SET NX EX`), damit API und Worker denselben Zustand sehen.
 
 **Status.** `GET /api/v1/admin/weather-providers/fetch-status` (Plattform-Admin) liefert `last_run` (letzter Lauf) und
 `last_success` (letzter erfolgreicher Lauf) mit Auslöser (`scheduled`/`manual`), Start- und Endzeit, Erfolg, Zahl der
 Standorte, der geschriebenen und der fehlgeschlagenen Standorte, dazu `interval_hours`, `next_scheduled_at` (volle
-Stunde des nächsten geplanten Abrufs), `running` und `manual_fetch_available_in_s`. Der Status steht in einem eigenen
+Stunde des nächsten geplanten Abrufs; `null`, solange die Wetterfunktion abgeschaltet ist), `running` und
+`manual_fetch_available_in_s`. Ein Statusdokument, das nicht gelesen werden kann, gilt als „kein Status“ (der Abruf ist
+damit fällig und der nächste Lauf überschreibt es). Der Status steht in einem eigenen
 Dokument (`system_settings/weather_fetch_status`), das nur der Abruf-Task schreibt — nicht im Einstellungs-Singleton,
 das ein Admin-`PUT` als Ganzes neu schreibt.
 
@@ -543,6 +560,6 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - [ ] **AC-14 (i18n):** Alle neuen UI-Strings liegen in DE und EN vor; DE ist Default/Fallback.
 - [ ] **AC-15 (Attribution):** DWD/Open-Meteo/OWM-Attributionen werden in der UI angezeigt und in der NOTICE-Datei geführt.
 - [x] **AC-16 (Abrufintervall, #2934):** Ein Plattform-Admin setzt `fetch_interval_hours` (≥ 6, sonst `422`); der stündliche Beat holt nur, wenn seit dem letzten erfolgreichen Abruf das Intervall vergangen ist; ein geänderter Wert gilt ohne Neustart; nach einem fehlgeschlagenen Abruf versucht es die nächste Stunde erneut.
-- [x] **AC-17 (Erfolg und Kopplung, #2934):** Nur ein erfolgreicher Abruf (kein Laufzeitfehler, ≥ 1 Standort geschrieben oder keiner zu holen) reiht Frost-Frühwarnung und Bewässerungsbedarf ein.
-- [x] **AC-18 (Manueller Abruf, #2934):** `POST /admin/weather-providers/fetch` antwortet `202`; `409` während eines Laufs, `429` + `Retry-After` innerhalb von 10 Minuten nach dem letzten manuellen Abruf; `GET /admin/weather-providers/fetch-status` nennt letzten Lauf, letzten Erfolg und nächsten geplanten Abruf.
+- [x] **AC-17 (Erfolg und Kopplung, #2934):** Nur ein erfolgreicher Abruf (kein Laufzeitfehler, ≥ 1 Standort geschrieben oder keiner zu holen) reiht Frost-Frühwarnung und Bewässerungsbedarf ein; beide laufen zusätzlich täglich (06:10/06:15 UTC). Drei fehlgeschlagene Läufe in Folge loggen `weather_fetch_outage` (`error`).
+- [x] **AC-18 (Manueller Abruf, #2934):** `POST /admin/weather-providers/fetch` antwortet `202`; `409` bei abgeschalteter Wetterfunktion (`WEATHER_FETCH_DISABLED`) und während eines Laufs, `503` bei nicht erreichbarem Valkey oder Broker, `429` + `Retry-After` innerhalb von 10 Minuten nach dem letzten manuellen Abruf; `GET /admin/weather-providers/fetch-status` nennt letzten Lauf, letzten Erfolg und nächsten geplanten Abruf.
 ```

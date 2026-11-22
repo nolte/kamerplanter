@@ -1474,6 +1474,18 @@ class WeatherFetchRunningError(KamerplanterError):
         )
 
 
+class WeatherFetchDisabledError(KamerplanterError):
+    """REQ-046 §3.6a (#2934) — a manual fetch while the weather fetch is switched off (HTTP 409)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The weather fetch is switched off on this instance (WEATHER_ENABLED).",
+            error_code="WEATHER_FETCH_DISABLED",
+            status_code=409,
+            details=[{"field": "weather_fetch", "reason": "Weather is disabled.", "code": "WEATHER_FETCH_DISABLED"}],
+        )
+
+
 class WeatherFetchCooldownError(RateLimitError):
     """REQ-046 §3.6a (#2934) — a manual fetch inside the cooldown (HTTP 429 + ``Retry-After``, NFR-007).
 

@@ -24,14 +24,17 @@ class IWeatherFetchStatusRepository(ABC):
 
     @abstractmethod
     def get_status(self) -> WeatherFetchStatus:
-        """The stored status; an empty one when no run was ever recorded."""
+        """The stored status; an empty one when no run was recorded or the document is unreadable."""
         ...
 
     @abstractmethod
-    def record_run(self, run: WeatherFetchRun) -> None:
+    def record_run(self, run: WeatherFetchRun) -> int:
         """Store ``run`` as the newest run, and as the newest success when it succeeded.
 
         One statement, so a concurrent reader never sees a half-written document.
+
+        Returns:
+            The failed runs in a row after this one (``0`` after a success).
         """
         ...
 

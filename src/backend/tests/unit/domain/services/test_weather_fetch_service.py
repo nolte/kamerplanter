@@ -12,14 +12,25 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.common.enums import WeatherFetchTrigger
-from app.common.exceptions import WeatherFetchCooldownError, WeatherFetchRunningError, WeatherFetchUnavailableError
+from app.common.exceptions import (
+    WeatherFetchCooldownError,
+    WeatherFetchDisabledError,
+    WeatherFetchRunningError,
+    WeatherFetchUnavailableError,
+)
 from app.domain.models.weather_fetch import (
     MANUAL_FETCH_COOLDOWN_SECONDS,
     WeatherFetchRun,
     WeatherFetchStatus,
     is_successful_run,
 )
-from app.domain.services.weather_fetch_service import LOCK_UNAVAILABLE, RUN_LOCK_TTL_SECONDS, WeatherFetchService
+from app.domain.services.weather_fetch_service import (
+    LOCK_UNAVAILABLE,
+    RUN_LOCK_TTL_SECONDS,
+    RUN_SOFT_TIME_LIMIT_SECONDS,
+    RUN_TIME_LIMIT_SECONDS,
+    WeatherFetchService,
+)
 from tests.support.weather_fetch_doubles import FakeWeatherFetchGate as _Gate
 from tests.support.weather_fetch_doubles import InMemoryWeatherFetchStatusRepo as _StatusRepo
 
@@ -39,11 +50,18 @@ def _run(started_at: datetime, *, success: bool = True) -> WeatherFetchRun:
 
 
 def _service(
-    status: WeatherFetchStatus | None = None, gate: _Gate | None = None, interval: list[int] | None = None
+    status: WeatherFetchStatus | None = None,
+    gate: _Gate | None = None,
+    interval: list[int] | None = None,
+    *,
+    enabled: bool = True,
 ) -> tuple[WeatherFetchService, _StatusRepo, _Gate]:
     repo, gate = _StatusRepo(status), gate or _Gate()
     hours = interval if interval is not None else [6]
-    return WeatherFetchService(repo, gate, interval_hours=lambda: hours[0], clock=lambda: NOW), repo, gate
+    service = WeatherFetchService(
+        repo, gate, interval_hours=lambda: hours[0], weather_enabled=lambda: enabled, clock=lambda: NOW
+    )
+    return service, repo, gate
 
 
 # ── acceptance-2: due-check ──────────────────────────────────────────────
@@ -193,10 +211,36 @@ def test_run_lock_is_taken_with_a_ttl_below_the_next_tick() -> None:
 
     token = service.acquire_run_lock()
 
-    assert token == "token"
+    assert token == "token-1"
     assert gate.lock_ttls == [RUN_LOCK_TTL_SECONDS]
     assert RUN_LOCK_TTL_SECONDS < 3600
     assert service.acquire_run_lock() is None
+
+
+def test_the_task_time_limits_end_a_run_before_its_lock_expires() -> None:
+    """S1: the lock must never lapse under a run that is still going."""
+    from app.tasks.weather_tasks import fetch_weather_forecasts
+
+    assert RUN_SOFT_TIME_LIMIT_SECONDS < RUN_TIME_LIMIT_SECONDS < RUN_LOCK_TTL_SECONDS
+    # The production task carries them — not just the constants.
+    assert fetch_weather_forecasts.soft_time_limit == RUN_SOFT_TIME_LIMIT_SECONDS
+    assert fetch_weather_forecasts.time_limit == RUN_TIME_LIMIT_SECONDS
+
+
+def test_manual_fetch_is_refused_while_weather_is_disabled_without_taking_the_cooldown() -> None:
+    service, _, gate = _service(enabled=False)
+
+    with pytest.raises(WeatherFetchDisabledError) as info:
+        service.reserve_manual_fetch()
+
+    assert (info.value.status_code, info.value.error_code) == (409, "WEATHER_FETCH_DISABLED")
+    assert gate.claimed == []
+
+
+def test_overview_names_no_next_fetch_while_weather_is_disabled() -> None:
+    service, _, _ = _service(enabled=False)
+
+    assert service.get_overview().next_scheduled_at is None
 
 
 def test_unreachable_lock_store_yields_the_unlocked_sentinel_and_release_skips_it() -> None:

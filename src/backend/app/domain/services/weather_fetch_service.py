@@ -21,7 +21,12 @@ import structlog
 from pydantic import BaseModel
 
 from app.common.datetimes import now_utc
-from app.common.exceptions import WeatherFetchCooldownError, WeatherFetchRunningError, WeatherFetchUnavailableError
+from app.common.exceptions import (
+    WeatherFetchCooldownError,
+    WeatherFetchDisabledError,
+    WeatherFetchRunningError,
+    WeatherFetchUnavailableError,
+)
 from app.domain.interfaces.weather_fetch import (
     IWeatherFetchGate,
     IWeatherFetchStatusRepository,
@@ -39,6 +44,13 @@ DUE_TOLERANCE = timedelta(minutes=5)
 #: How long a run may hold the running lock. A run normally ends within minutes; the
 #: expiry only matters for a worker that died mid-run, and stays below the next tick.
 RUN_LOCK_TTL_SECONDS = 55 * 60
+#: Celery time limits of the fetch task, both below the lock TTL so the lock never
+#: expires under a run that is still going (security review S1, 2026-11-22). The soft
+#: limit raises ``SoftTimeLimitExceeded`` in the task, which records the run as failed
+#: and releases the lock; the hard limit kills a run that ignores it — the lock then
+#: expires on its own, still before another run could start next to a live one.
+RUN_SOFT_TIME_LIMIT_SECONDS = 45 * 60
+RUN_TIME_LIMIT_SECONDS = 50 * 60
 
 #: Sentinel of :meth:`WeatherFetchService.acquire_run_lock` — the lock store is down.
 LOCK_UNAVAILABLE = ""
@@ -50,7 +62,8 @@ class WeatherFetchOverview(BaseModel):
     interval_hours: int
     last_run: WeatherFetchRun | None = None
     last_success: WeatherFetchRun | None = None
-    next_scheduled_at: datetime
+    #: ``None`` while the weather fetch is switched off — nothing is scheduled.
+    next_scheduled_at: datetime | None = None
     #: ``None`` when the lock store cannot be reached.
     running: bool | None = None
     #: Seconds until a manual fetch is allowed again; ``None`` when unknown.
@@ -70,11 +83,14 @@ class WeatherFetchService:
         status_repo: IWeatherFetchStatusRepository,
         gate: IWeatherFetchGate,
         interval_hours: Callable[[], int],
+        *,
+        weather_enabled: Callable[[], bool],
         clock: Callable[[], datetime] = now_utc,
     ) -> None:
         self._status_repo = status_repo
         self._gate = gate
         self._interval_hours = interval_hours
+        self._weather_enabled = weather_enabled
         self._clock = clock
 
     # ── Schedule ──────────────────────────────────────────────────────
@@ -110,8 +126,9 @@ class WeatherFetchService:
         if token != LOCK_UNAVAILABLE:
             self._gate.release_run_lock(token)
 
-    def record_run(self, run: WeatherFetchRun) -> None:
-        self._status_repo.record_run(run)
+    def record_run(self, run: WeatherFetchRun) -> int:
+        """Store the run; returns the failed runs in a row after it."""
+        return self._status_repo.record_run(run)
 
     # ── Manual fetch (API) ────────────────────────────────────────────
 
@@ -119,10 +136,13 @@ class WeatherFetchService:
         """Admit one manual fetch or refuse it.
 
         Raises:
+            WeatherFetchDisabledError: the weather fetch is switched off (409); no cooldown is taken.
             WeatherFetchRunningError: a run holds the lock (409).
             WeatherFetchCooldownError: the cooldown after the previous manual fetch runs (429).
             WeatherFetchUnavailableError: the lock store cannot be reached (503).
         """
+        if not self._weather_enabled():
+            raise WeatherFetchDisabledError
         try:
             if self._gate.is_running():
                 raise WeatherFetchRunningError
@@ -152,7 +172,7 @@ class WeatherFetchService:
             interval_hours=interval_hours,
             last_run=status.last_run,
             last_success=status.last_success,
-            next_scheduled_at=self.next_scheduled_at(status, interval_hours),
+            next_scheduled_at=self.next_scheduled_at(status, interval_hours) if self._weather_enabled() else None,
             running=running,
             manual_fetch_available_in_s=available_in,
         )

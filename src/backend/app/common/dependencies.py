@@ -2193,6 +2193,7 @@ def get_weather_fetch_service() -> WeatherFetchService:
         ArangoWeatherFetchStatusRepository(get_db()),
         RedisWeatherFetchGate(_get_redis_client()),
         interval_hours=lambda: settings_service.get_effective_weather_settings().fetch_interval_hours,
+        weather_enabled=lambda: settings.weather_enabled,
     )
 
 

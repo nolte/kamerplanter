@@ -13,8 +13,9 @@ via :class:`WeatherSettingsService`. Mirrors the storage / HA admin endpoints:
   (base URL, timeout, and the global key for OpenWeatherMap) and maps any error
   to ``reachable=False`` instead of a 500.
 * ``POST /fetch`` queues a manual weather fetch over all sites (202); refused with
-  409 while a fetch runs and 429 + ``Retry-After`` within 10 minutes after the
-  previous manual fetch (REQ-046 §3.6a, #2934).
+  409 while weather is switched off or a fetch runs, 429 + ``Retry-After`` within 10
+  minutes after the previous manual fetch, 503 when lock or broker are unreachable
+  (REQ-046 §3.6a, #2934).
 * ``GET /fetch-status`` reports the newest run, the newest successful run and the
   next scheduled run.
 
@@ -26,6 +27,7 @@ registered once for both.
 
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Path
 
 from app.api.v1.admin.weather_providers.schemas import (
@@ -39,7 +41,8 @@ from app.api.v1.admin.weather_providers.schemas import (
 from app.common.auth import require_platform_admin
 from app.common.dependencies import get_weather_fetch_service, get_weather_settings_service
 from app.common.enums import WeatherFetchTrigger
-from app.common.exceptions import ValidationError
+from app.common.exceptions import ValidationError, WeatherFetchUnavailableError
+from app.common.log_privacy import loggable_error
 from app.common.openapi_responses import AUTH_RESPONSES
 from app.common.url_safety import validate_server_side_url
 from app.data_access.external.weather_attributions import WEATHER_ATTRIBUTIONS
@@ -49,6 +52,8 @@ from app.domain.services.weather_settings_service import (
     WEATHER_PROVIDER_NAMES,
     WeatherSettingsService,
 )
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/admin/weather-providers", tags=["admin-weather"], responses=AUTH_RESPONSES)
 
@@ -124,9 +129,9 @@ def update_weather_providers(
     response_model=WeatherFetchTriggerResponse,
     status_code=202,
     responses={
-        409: {"description": "A weather fetch is running."},
+        409: {"description": "A weather fetch is running, or weather is switched off (WEATHER_FETCH_DISABLED)."},
         429: {"description": "Cooldown after the previous manual fetch; see the Retry-After header."},
-        503: {"description": "The fetch lock cannot be checked."},
+        503: {"description": "The fetch lock cannot be checked or the task broker is unreachable."},
     },
 )
 def trigger_weather_fetch(
@@ -139,10 +144,12 @@ def trigger_weather_fetch(
     service.reserve_manual_fetch()
     try:
         task = fetch_weather_forecasts.delay(trigger=WeatherFetchTrigger.MANUAL.value)
-    except Exception:
-        # Not queued: the cooldown must not block the admin's next attempt.
+    except Exception as exc:  # noqa: BLE001 — any broker failure means "not queued"
+        # Not queued: the cooldown must not block the admin's next attempt, and an
+        # unreachable broker is a 503, not the generic 500 (security review N1).
         service.cancel_manual_fetch()
-        raise
+        logger.warning("weather_fetch_dispatch_failed", error=loggable_error(exc))
+        raise WeatherFetchUnavailableError from exc
     return WeatherFetchTriggerResponse(task_id=getattr(task, "id", None))
 
 

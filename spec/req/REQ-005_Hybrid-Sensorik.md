@@ -7,14 +7,14 @@ Kategorie: Monitoring
 Fokus: Beides
 Technologie: Python, Home Assistant API, MQTT, TimescaleDB
 Status: Entwurf
-Version: 2.11 (#2934: Wetterabruf im Abrufintervall, Frost und Bewässerung nach jedem erfolgreichen Abruf); 2.10 (#2112 / MT-015: Single-Household-Instanz, HA-Entity-Freigaben je Mandant); 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.11 (#2934: Wetterabruf im Abrufintervall, Frost und Bewässerung nach jedem erfolgreichen Abruf und täglich); 2.10 (#2112 / MT-015: Single-Household-Instanz, HA-Entity-Freigaben je Mandant); 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
-| 2.11 | 2026-11-22 | **#2934:** `fetch_weather_forecasts` läuft nicht mehr täglich um 06:00, sondern im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h, stündliche Fälligkeitsprüfung) und auf Anstoß des Plattform-Admins; Frost-Frühwarnung und Bewässerungsbedarf folgen jedem erfolgreichen Abruf. Maßgeblich ist REQ-046 §3.6a. |
+| 2.11 | 2026-11-22 | **#2934:** `fetch_weather_forecasts` läuft nicht mehr täglich um 06:00, sondern im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h, stündliche Fälligkeitsprüfung) und auf Anstoß des Plattform-Admins; Frost-Frühwarnung und Bewässerungsbedarf folgen jedem erfolgreichen Abruf und laufen zusätzlich täglich als Sicherheitsnetz. Maßgeblich ist REQ-046 §3.6a. |
 | 2.10 | 2026-10-05 | **#2112 / MT-015 umgesetzt (Betreiberentscheidung Modell A, 2026-10-04).** Neuer §4c: Kamerplanter ist mit **einer** Home-Assistant-Instanz verbunden (Single-Household-Instanz, ein Token des Betreibers für alle Mandanten). Welche Entitäten dieser Instanz ein Mandant nutzen darf, legt der Plattform-Admin je Mandant fest (`tenant_ha_entity_grants`). Anlegen/Ändern von Sensor, Aktor (REQ-018), Wetterquelle (REQ-046) und HA-Benachrichtigungsziel (REQ-030) mit nicht freigegebener Entität → `422 HA_ENTITY_NOT_GRANTED` (wertfrei). Live-Lesen, Ingest, Tank-Sync, Regelkreis und Wetterabruf überspringen nicht freigegebene Entitäten (Zähler im Log, nie Entity-ID oder Wert). Die Entity-Listen der Instanz (`/ha/weather-entities`, `/ha/sensor-entities`, `/tanks/ha-entities`) verlangen jetzt `technical` und enthalten nur freigegebene Entitäten. Bestand: Migration v0084 gibt jede vorher referenzierte Entität dem referenzierenden Mandanten frei. Im Light-Modus gibt das Binden die Entität frei (kein Admin-Bereich). §4a korrigiert: die HA-Verbindung ist installationsweit und wird vom Plattform-Admin eingerichtet, nicht von jedem Nutzer für sich. Rechte-Tabelle §4 um Entity-Liste und Freigaben ergänzt. |
 | 2.7 | 2026-04-27 | **ADR-003 (W-014 Sensor-Retention für Perennials):** Klassifizierungs-getriebener Drop-Chunks-Job `enforce_classified_sensor_retention` ergänzt — differenzierte Retention pro `Location.data_classification` (REQ-002). Default 5y Stufe 3, Opt-in-Verlängerungen für `greenhouse` (10y) und `outdoor_open` (20y, Stufe 2 = 5y). Forward-only-Klassifizierungs-Wechsel-Semantik. Saison-Aggregat (REQ-003 §2 `sensor_aggregates`) als 4. Datenebene ergänzt. |
 | 2.6 | (vorher) | Smart-Home-Gesamtdeaktivierung über UserPreference. |
@@ -120,7 +120,7 @@ Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **
 
 **Celery-Tasks:**
 - `fetch_weather_forecasts`: Im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h; ein stündlicher Beat prüft die Fälligkeit) sowie auf manuellen Anstoß des Plattform-Admins, für alle Outdoor-Sites mit GPS-Koordinaten — Details REQ-046 §3.6a (#2934)
-- `check_frost_warnings`: Nach jedem **erfolgreichen** Wetterabruf — prüft alle Sites auf Frost und generiert Warnungen (umgesetzt als `evaluate_forecast_frost_warnings`, #392)
+- `check_frost_warnings`: Nach jedem **erfolgreichen** Wetterabruf und zusätzlich täglich um 06:10 UTC (Sicherheitsnetz bei langem Intervall oder Ausfall) — prüft alle Sites auf Frost und generiert Warnungen (umgesetzt als `evaluate_forecast_frost_warnings`, #392)
 - `adjust_watering_reminders`: Nach Wetter-Update — verschiebt Gieß-Erinnerungen bei Regen
 
 **Integration mit bestehenden Modulen:**

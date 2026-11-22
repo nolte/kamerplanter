@@ -36,7 +36,7 @@ def task_module(monkeypatch):
     mock_deps.status_repo = InMemoryWeatherFetchStatusRepo()  # type: ignore[attr-defined]
     mock_deps.gate = FakeWeatherFetchGate()  # type: ignore[attr-defined]
     mock_deps.get_weather_fetch_service = lambda: WeatherFetchService(  # type: ignore[attr-defined]
-        mock_deps.status_repo, mock_deps.gate, interval_hours=lambda: 6
+        mock_deps.status_repo, mock_deps.gate, interval_hours=lambda: 6, weather_enabled=lambda: True
     )
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
@@ -276,7 +276,7 @@ class TestDueCheck:
     def test_a_held_lock_skips_the_run(self, task_module, monkeypatch):
         module, deps = task_module
         monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
-        deps.gate.running = True
+        deps.gate.holder = "someone-else"
 
         result = module.fetch_weather_forecasts(trigger="manual")
 
@@ -371,3 +371,106 @@ def test_followups_queue_frost_and_irrigation(monkeypatch):
 
     assert frost.call_count == 2
     assert irrigation.call_count == 1
+
+
+class TestLockAndCooldown:
+    """Security review 2026-11-22: own-token release, fail-open, soft time limit, cooldown give-back."""
+
+    def test_only_the_own_lock_is_released(self, task_module, monkeypatch):
+        """The lock expired mid-run and another run took it: our release must not free theirs."""
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        repo = _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": [_forecast()]})
+
+        def _taken_over(_record):
+            deps.gate.holder = "other-run"
+
+        repo.upsert_daily.side_effect = _taken_over
+
+        module.fetch_weather_forecasts()
+
+        assert deps.gate.released_tokens == ["token-1"]
+        assert deps.gate.holder == "other-run"
+
+    def test_an_unreachable_gate_runs_unlocked_and_releases_nothing(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.gate.down = True
+        _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": [_forecast()]})
+
+        result = module.fetch_weather_forecasts()
+
+        assert result["status"] == "ok"
+        assert deps.status_repo.recorded[-1].success
+        assert deps.gate.released_tokens == []
+        deps.followups.assert_called_once_with()
+
+    def test_the_soft_time_limit_aborts_the_run_records_it_and_frees_the_lock(self, task_module, monkeypatch):
+        from celery.exceptions import SoftTimeLimitExceeded
+
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        forecast_repo = _two_sites(deps, monkeypatch, {"site1": SoftTimeLimitExceeded(), "site2": [_forecast()]})
+
+        with pytest.raises(SoftTimeLimitExceeded):
+            module.fetch_weather_forecasts()
+
+        run = deps.status_repo.recorded[-1]
+        assert (run.success, run.error_type) == (False, "SoftTimeLimitExceeded")
+        forecast_repo.upsert_daily.assert_not_called()  # site2 was not fetched after the limit
+        assert deps.gate.holder is None
+        deps.followups.assert_not_called()
+
+    def test_a_manual_run_that_finds_the_lock_held_gives_its_cooldown_back(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.gate.holder = "scheduled-run"
+        deps.gate.cooldown = 600  # claimed by the API when it admitted this manual fetch
+
+        result = module.fetch_weather_forecasts(trigger="manual")
+
+        assert result == {"status": "skipped", "reason": "already_running"}
+        assert deps.gate.released_cooldown
+        assert deps.gate.cooldown == 0
+
+    def test_a_scheduled_run_that_finds_the_lock_held_leaves_the_cooldown(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.gate.holder = "manual-run"
+        deps.gate.cooldown = 600
+
+        module.fetch_weather_forecasts()
+
+        assert not deps.gate.released_cooldown
+        assert deps.gate.cooldown == 600
+
+
+class TestOutageAlert:
+    """Item 1: three failed runs in a row are an outage, logged at ``error`` level."""
+
+    def test_the_third_failed_run_in_a_row_logs_the_outage(self, task_module, monkeypatch):
+        from structlog.testing import capture_logs
+
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+
+        events: list[list[str]] = []
+        for _ in range(3):
+            _two_sites(deps, monkeypatch, {"site1": RuntimeError("a"), "site2": RuntimeError("b")})
+            with capture_logs() as logs:
+                module.fetch_weather_forecasts(trigger="manual")
+            events.append([e["event"] for e in logs if e["log_level"] == "error"])
+
+        assert events[0] == [] and events[1] == []
+        assert events[2] == ["weather_fetch_outage"]
+        assert deps.status_repo.status.consecutive_failures == 3
+
+    def test_a_success_resets_the_count(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.status_repo.status = WeatherFetchStatus(consecutive_failures=5)
+        _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": RuntimeError("b")})
+
+        module.fetch_weather_forecasts(trigger="manual")
+
+        assert deps.status_repo.status.consecutive_failures == 0

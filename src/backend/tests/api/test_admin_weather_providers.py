@@ -306,14 +306,17 @@ def test_put_rejects_an_interval_below_six_hours_with_422():
 
 
 def _fetch_app(
-    gate: FakeWeatherFetchGate | None = None, status_repo: InMemoryWeatherFetchStatusRepo | None = None
+    gate: FakeWeatherFetchGate | None = None,
+    status_repo: InMemoryWeatherFetchStatusRepo | None = None,
+    *,
+    enabled: bool = True,
 ) -> tuple[TestClient, FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo]:
     gate = gate or FakeWeatherFetchGate()
     status_repo = status_repo or InMemoryWeatherFetchStatusRepo()
     service, _ = _service(stored=None)
     app = _build_app(service)
     app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
-        status_repo, gate, interval_hours=lambda: 6
+        status_repo, gate, interval_hours=lambda: 6, weather_enabled=lambda: enabled
     )
     return TestClient(app), gate, status_repo
 
@@ -363,12 +366,36 @@ def test_manual_fetch_answers_503_when_the_lock_cannot_be_checked():
     delay.assert_not_called()
 
 
-def test_a_manual_fetch_that_cannot_be_queued_gives_the_cooldown_back():
+def test_a_manual_fetch_that_cannot_be_queued_answers_503_and_gives_the_cooldown_back():
+    """N1: a broker failure is 503 WEATHER_FETCH_UNAVAILABLE, not the generic 500."""
+    from kombu.exceptions import OperationalError
+
     client, gate, _ = _fetch_app()
-    with _patch_delay(side_effect=ConnectionError("broker down")), pytest.raises(ConnectionError):
-        client.post("/api/v1/admin/weather-providers/fetch")
+    with _patch_delay(side_effect=OperationalError("broker down")):
+        resp = client.post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 503
+    assert resp.json()["error_code"] == "WEATHER_FETCH_UNAVAILABLE"
+    assert "broker" not in resp.json()["message"].lower()
     assert gate.released_cooldown
     assert gate.cooldown == 0
+
+
+def test_manual_fetch_is_refused_with_409_while_weather_is_disabled():
+    """S2: no task, no cooldown when the weather fetch is switched off."""
+    client, gate, _ = _fetch_app(enabled=False)
+    with _patch_delay() as delay:
+        resp = client.post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 409
+    assert resp.json()["error_code"] == "WEATHER_FETCH_DISABLED"
+    delay.assert_not_called()
+    assert gate.claimed == []
+
+
+def test_fetch_status_names_no_next_fetch_while_weather_is_disabled():
+    client, _, _ = _fetch_app(enabled=False)
+    resp = client.get("/api/v1/admin/weather-providers/fetch-status")
+    assert resp.status_code == 200
+    assert resp.json()["next_scheduled_at"] is None
 
 
 def test_fetch_status_reflects_the_recorded_runs():
@@ -414,9 +441,24 @@ def _real_gating_fetch_app(tenant_service: MagicMock) -> TestClient:
     service, _ = _service(stored=None)
     app = _build_app_with_real_gating(service, tenant_service)
     app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
-        InMemoryWeatherFetchStatusRepo(), FakeWeatherFetchGate(), interval_hours=lambda: 6
+        InMemoryWeatherFetchStatusRepo(), FakeWeatherFetchGate(), interval_hours=lambda: 6, weather_enabled=lambda: True
     )
     return TestClient(app)
+
+
+def test_manual_fetch_is_queued_for_a_platform_lead_through_the_real_gating(monkeypatch):
+    """Positive control of the 403 tests: a ``lead`` membership in ``platform`` passes the real chain."""
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
+    tenant_service = MagicMock()
+    platform_lead = SimpleNamespace(role=TenantRole.LEAD, is_active=True)
+    tenant_service.get_membership.side_effect = lambda _user, tenant: platform_lead if tenant == "platform" else None
+    with _patch_env() as env, _patch_delay(return_value=SimpleNamespace(id="task-7")) as delay:
+        _set_env(env)
+        resp = _real_gating_fetch_app(tenant_service).post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 202
+    assert resp.json()["task_id"] == "task-7"
+    delay.assert_called_once_with(trigger="manual")
+    tenant_service.get_membership.assert_any_call("user_admin", "platform")
 
 
 @pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER])

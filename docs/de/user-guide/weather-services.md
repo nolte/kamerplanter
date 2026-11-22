@@ -77,8 +77,9 @@ Kamerplanter holt die Wetterdaten aller Standorte in einem festen **Abrufinterva
 
 - **Wann abgerufen wird:** Kamerplanter prüft zu jeder vollen Stunde, ob seit dem letzten erfolgreichen Abruf das Intervall vergangen ist, und ruft dann ab. Ein geändertes Intervall gilt ab der nächsten vollen Stunde, ohne Neustart.
 - **Wenn ein Abruf fehlschlägt:** Ein Abruf gilt als erfolgreich, wenn er mindestens einen Standort mit Wetterdaten versorgt hat. Liefert kein einziger Standort Daten, versucht Kamerplanter es zur nächsten vollen Stunde erneut.
-- **Was danach passiert:** Nach jedem erfolgreichen Abruf berechnet Kamerplanter sofort die [Frost-Frühwarnung](notifications.md#frost-fruehwarnung) und den [Bewässerungsbedarf](watering-log.md#vorgeschlagene-giessmenge) neu.
-- **Manueller Abruf:** Du kannst einen Abruf über alle Standorte auch sofort anstoßen. Er läuft im Hintergrund; das Ergebnis (Erfolg oder Fehler, Zeitpunkt, Zahl der Standorte und der Standorte mit Fehler) steht danach im Abrufstatus. Ein erfolgreicher manueller Abruf startet das Intervall neu. Läuft gerade ein Abruf, wird ein weiterer abgelehnt; nach einem manuellen Abruf musst du 10 Minuten warten, bevor du den nächsten startest.
+- **Was danach passiert:** Nach jedem erfolgreichen Abruf berechnet Kamerplanter sofort die [Frost-Frühwarnung](notifications.md#frost-fruehwarnung) und den [Bewässerungsbedarf](watering-log.md#vorgeschlagene-giessmenge) neu. Zusätzlich laufen beide einmal täglich am Morgen mit den zuletzt geholten Daten — so bleibt eine nahende Frostnacht auch bei einem langen Intervall oder einem Ausfall der Wetterdienste nicht unbemerkt.
+- **Bei einem längeren Ausfall:** Schlagen drei Abrufe hintereinander fehl, schreibt das Backend eine Fehlermeldung (`weather_fetch_outage`) ins Protokoll.
+- **Manueller Abruf:** Du kannst einen Abruf über alle Standorte auch sofort anstoßen. Er läuft im Hintergrund; das Ergebnis (Erfolg oder Fehler, Zeitpunkt, Zahl der Standorte und der Standorte mit Fehler) steht danach im Abrufstatus. Ein erfolgreicher manueller Abruf startet das Intervall neu. Läuft gerade ein Abruf, wird ein weiterer abgelehnt; nach einem manuellen Abruf musst du 10 Minuten warten, bevor du den nächsten startest. Ist die Wetterfunktion abgeschaltet, ist auch kein manueller Abruf möglich.
 - **Abrufstatus:** Er nennt Zeitpunkt und Ergebnis des letzten erfolgreichen Abrufs und den nächsten geplanten Abruf.
 
 !!! warning "Noch nicht implementiert"
@@ -112,8 +113,8 @@ Ein per Oberfläche gesetzter Wert wirkt sofort, ohne Backend-Neustart. Eine üb
 | Aufruf | Wirkung |
 |---|---|
 | `PUT /api/v1/admin/weather-providers` mit `{"fetch_interval_hours": 12}` | Setzt das Abrufintervall; Werte unter `6` oder über `168` lehnt das Backend mit `422` ab. |
-| `POST /api/v1/admin/weather-providers/fetch` | Stößt einen Abruf über alle Standorte an und antwortet sofort mit `202`. `409`, solange ein Abruf läuft; `429` mit `Retry-After` (Sekunden), solange seit dem letzten manuellen Abruf keine 10 Minuten vergangen sind; `503`, wenn Valkey nicht erreichbar ist. |
-| `GET /api/v1/admin/weather-providers/fetch-status` | Letzter Lauf, letzter erfolgreicher Lauf (Auslöser, Zeitpunkte, Standorte, Standorte mit Fehler), nächster geplanter Abruf, ob gerade ein Abruf läuft und in wie vielen Sekunden ein manueller Abruf wieder möglich ist. |
+| `POST /api/v1/admin/weather-providers/fetch` | Stößt einen Abruf über alle Standorte an und antwortet sofort mit `202`. `409 WEATHER_FETCH_DISABLED` bei `WEATHER_ENABLED=false`; `409`, solange ein Abruf läuft; `429` mit `Retry-After` (Sekunden), solange seit dem letzten manuellen Abruf keine 10 Minuten vergangen sind; `503`, wenn Valkey oder der Task-Broker nicht erreichbar ist. |
+| `GET /api/v1/admin/weather-providers/fetch-status` | Letzter Lauf, letzter erfolgreicher Lauf (Auslöser, Zeitpunkte, Standorte, Standorte mit Fehler), nächster geplanter Abruf (leer bei abgeschalteter Wetterfunktion), ob gerade ein Abruf läuft und in wie vielen Sekunden ein manueller Abruf wieder möglich ist. |
 
 ---
 

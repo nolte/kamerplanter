@@ -126,6 +126,7 @@ class WeatherFetchStatusResponse(BaseModel):
     interval_hours: int
     last_run: WeatherFetchRun | None = None
     last_success: WeatherFetchRun | None = None
-    next_scheduled_at: datetime
+    #: ``None`` while the weather fetch is switched off (``WEATHER_ENABLED=false``).
+    next_scheduled_at: datetime | None = None
     running: bool | None = None
     manual_fetch_available_in_s: int | None = None

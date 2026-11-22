@@ -11,8 +11,17 @@ unless ``fetch_interval_hours`` have passed since the newest successful run
 (:meth:`WeatherFetchService.is_due`). A manual run (platform admin) skips that
 check. Every run holds the running lock, records its result in the status document
 and — only when it succeeded (:func:`is_successful_run`) — queues the frost
-early-warning and the irrigation demand, which no longer have beat slots of their
-own. A failed run is not retried by Celery: the next hourly tick is the retry.
+early-warning and the irrigation demand. A failed run is not retried by Celery: the next hourly tick is the retry.
+
+Both follow-up tasks also keep a daily beat slot of their own as a safety net
+(operator decision 2026-11-22): with a long interval or a provider outage, a frost
+night that enters the forecast horizon between two fetches is still reported, and
+the irrigation demand still has a value for the day. Three failed runs in a row log
+``weather_fetch_outage`` at ``error`` level.
+
+The run lock expires after ``RUN_LOCK_TTL_SECONDS``; the task's soft and hard time
+limits sit below it, so the lock never lapses under a run that is still going. The
+soft limit is handled: the run is recorded as failed and the lock released.
 """
 
 from __future__ import annotations
@@ -21,13 +30,15 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
+from celery.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]  # celery ships no stubs
 
 from app.common.async_bridge import run_async
 from app.common.datetimes import now_utc
 from app.common.enums import WeatherFetchTrigger
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
-from app.domain.models.weather_fetch import WeatherFetchRun, is_successful_run
+from app.domain.models.weather_fetch import OUTAGE_ALERT_AFTER_FAILURES, WeatherFetchRun, is_successful_run
+from app.domain.services.weather_fetch_service import RUN_SOFT_TIME_LIMIT_SECONDS, RUN_TIME_LIMIT_SECONDS
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +54,9 @@ class _FetchOutcome:
 
 
 # No Celery retry (#2934): a failed run is retried by the next hourly due-check.
-@celery_app.task(bind=True, max_retries=0)
+@celery_app.task(
+    bind=True, max_retries=0, soft_time_limit=RUN_SOFT_TIME_LIMIT_SECONDS, time_limit=RUN_TIME_LIMIT_SECONDS
+)
 def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.value) -> dict:  # noqa: ANN001 — Celery bound-task self
     """Fetch and store daily weather for every configured, enabled site when a fetch is due."""
     if not settings.weather_enabled:
@@ -59,6 +72,10 @@ def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.v
     token = fetch_service.acquire_run_lock()
     if token is None:
         logger.info("weather_fetch_already_running", trigger=run_trigger.value)
+        if run_trigger is WeatherFetchTrigger.MANUAL:
+            # The admitted manual fetch did not run: give its cooldown back, so the
+            # admin is not blocked for 10 minutes by a fetch that left no status.
+            fetch_service.cancel_manual_fetch()
         return {"status": "skipped", "reason": "already_running"}
     if not token:
         # Valkey is down: fetch unlocked rather than leave every site without weather.
@@ -68,8 +85,8 @@ def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.v
     try:
         try:
             outcome = _fetch_all_sites()
-        except Exception as exc:
-            fetch_service.record_run(
+        except Exception as exc:  # incl. SoftTimeLimitExceeded: recorded, lock released, re-raised
+            failures = fetch_service.record_run(
                 WeatherFetchRun(
                     trigger=run_trigger,
                     started_at=started_at,
@@ -79,9 +96,10 @@ def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.v
                 )
             )
             logger.error("weather_fetch_aborted", trigger=run_trigger.value, error=loggable_error(exc))
+            _report_outage(failures)
             raise
         success = is_successful_run(aborted=False, sites=outcome.sites, sites_written=outcome.sites_written)
-        fetch_service.record_run(
+        failures = fetch_service.record_run(
             WeatherFetchRun(
                 trigger=run_trigger,
                 started_at=started_at,
@@ -99,6 +117,8 @@ def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.v
 
     if success:
         _dispatch_followups()
+    else:
+        _report_outage(failures)
     logger.info(
         "weather_fetch_complete",
         trigger=run_trigger.value,
@@ -115,11 +135,20 @@ def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.v
     }
 
 
+def _report_outage(failures: int) -> None:
+    """Log the outage at ``error`` level once ``OUTAGE_ALERT_AFTER_FAILURES`` runs failed in a row."""
+    if isinstance(failures, int) and failures >= OUTAGE_ALERT_AFTER_FAILURES:
+        logger.error("weather_fetch_outage", consecutive_failures=failures, threshold=OUTAGE_ALERT_AFTER_FAILURES)
+
+
 def _dispatch_followups() -> None:
     """Queue the frost early-warning and the irrigation demand after a successful fetch (R4).
 
-    Both are idempotent per site and day, so up to four fetches a day duplicate
-    nothing. Each task keeps its own kill-switch and ``ActiveTenants`` gate.
+    Both are idempotent per site and day, so up to four fetches a day plus their daily
+    safety-net beat duplicate nothing. Each task keeps its own kill-switch and
+    ``ActiveTenants`` gate. ``tests/unit/guards/test_beats_skip_inactive_tenants.py``
+    reads the tasks this function imports and holds them to
+    ``TENANT_WRITING_CHAINED_TASKS``.
     """
     from app.tasks.frost_forecast_tasks import evaluate_forecast_frost_warnings
     from app.tasks.irrigation_tasks import compute_irrigation_demand
@@ -192,6 +221,8 @@ def _fetch_all_sites() -> _FetchOutcome:
         outcome.sites += 1
         try:
             forecasts: list[Any] = run_async(resolver.resolve_daily(site, config))
+        except SoftTimeLimitExceeded:
+            raise  # the run's time is up: abort it, do not count it as one bad site
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
             logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=loggable_error(exc))
             outcome.errors.append({"site_key": config.site_key, "error": type(exc).__name__})

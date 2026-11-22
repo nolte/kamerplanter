@@ -77,8 +77,9 @@ Kamerplanter fetches the weather data of all sites at a fixed **fetch interval**
 
 - **When it fetches:** At every full hour, Kamerplanter checks whether the interval has passed since the last successful fetch, and fetches if so. A changed interval applies from the next full hour, without a restart.
 - **When a fetch fails:** A fetch counts as successful when it supplied at least one site with weather data. If not a single site gets data, Kamerplanter tries again at the next full hour.
-- **What happens next:** After every successful fetch, Kamerplanter immediately recalculates the [frost early-warning](notifications.md#frost-early-warning) and the [irrigation demand](watering-log.md#suggested-watering-volume).
-- **Manual fetch:** You can also start a fetch for all sites right away. It runs in the background; its result (success or failure, time, number of sites and of sites with errors) then appears in the fetch status. A successful manual fetch restarts the interval. While a fetch is running, another one is refused; after a manual fetch you have to wait 10 minutes before you start the next one.
+- **What happens next:** After every successful fetch, Kamerplanter immediately recalculates the [frost early-warning](notifications.md#frost-early-warning) and the [irrigation demand](watering-log.md#suggested-watering-volume). In addition, both run once a day in the morning on the most recently fetched data — so an approaching frost night is not missed even with a long interval or a weather-service outage.
+- **During a longer outage:** When three fetches in a row fail, the backend writes an error entry (`weather_fetch_outage`) to its log.
+- **Manual fetch:** You can also start a fetch for all sites right away. It runs in the background; its result (success or failure, time, number of sites and of sites with errors) then appears in the fetch status. A successful manual fetch restarts the interval. While a fetch is running, another one is refused; after a manual fetch you have to wait 10 minutes before you start the next one. While the weather feature is switched off, no manual fetch is possible either.
 - **Fetch status:** It shows the time and result of the last successful fetch and the next scheduled fetch.
 
 !!! warning "Not yet implemented"
@@ -112,8 +113,8 @@ A value set via the UI takes effect immediately, without a backend restart. Rese
 | Call | Effect |
 |---|---|
 | `PUT /api/v1/admin/weather-providers` with `{"fetch_interval_hours": 12}` | Sets the fetch interval; the backend rejects values below `6` or above `168` with `422`. |
-| `POST /api/v1/admin/weather-providers/fetch` | Starts a fetch for all sites and answers immediately with `202`. `409` while a fetch is running; `429` with `Retry-After` (seconds) while fewer than 10 minutes have passed since the last manual fetch; `503` when Valkey cannot be reached. |
-| `GET /api/v1/admin/weather-providers/fetch-status` | Last run, last successful run (trigger, times, sites, sites with errors), next scheduled fetch, whether a fetch is running right now and in how many seconds a manual fetch is possible again. |
+| `POST /api/v1/admin/weather-providers/fetch` | Starts a fetch for all sites and answers immediately with `202`. `409 WEATHER_FETCH_DISABLED` with `WEATHER_ENABLED=false`; `409` while a fetch is running; `429` with `Retry-After` (seconds) while fewer than 10 minutes have passed since the last manual fetch; `503` when Valkey or the task broker cannot be reached. |
+| `GET /api/v1/admin/weather-providers/fetch-status` | Last run, last successful run (trigger, times, sites, sites with errors), next scheduled fetch (empty while the weather feature is switched off), whether a fetch is running right now and in how many seconds a manual fetch is possible again. |
 
 ---
 

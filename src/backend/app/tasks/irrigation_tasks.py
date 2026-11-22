@@ -1,7 +1,7 @@
 """REQ-037 §7 — Celery task that materialises the daily irrigation demand.
 
 Queued by ``fetch_weather_forecasts`` after every successful weather fetch
-(#2934; no beat slot of its own). For every **outdoor or greenhouse**
+(#2934) and, as a safety net, by its daily beat at 06:15 UTC. For every **outdoor or greenhouse**
 site with GPS it takes the most relevant :class:`WeatherForecast`, computes the
 FAO-56 reference evapotranspiration ET₀ (Penman-Monteith when humidity+wind are
 present, Hargreaves otherwise) and, for each active planting run at the site,

@@ -126,7 +126,7 @@ def test_the_schedule_read_covers_the_flagged_beats_too() -> None:
         "app.tasks.actuator_tasks.evaluate_control_rules",
         "app.tasks.season_tasks.evaluate_quarter_climate",
     } <= scheduled
-    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 53
+    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 55
 
 
 def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
@@ -139,20 +139,42 @@ def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
     assert ungated == [], "a tenant-writing beat that never asks ActiveTenants (REQ-056 §5.2)"
 
 
-def test_the_chained_tenant_writers_stay_off_the_schedule_and_ask_the_tenant_state() -> None:
-    """#2934: frost and irrigation lost their beat slots; the weather fetch queues them instead.
+def _tasks_the_weather_fetch_chains() -> set[str]:
+    """The Celery names ``weather_tasks._dispatch_followups`` imports — read from the source.
 
-    The schedule-driven sweep above no longer sees them, so they are held here: still
-    gated (REQ-056 §5.2), and not scheduled — a beat entry belongs in ``TENANT_WRITING_BEATS``.
+    Every ``from app.tasks.<module> import <task>`` inside the function is a task the
+    fetch queues after a successful run; the default registered name is
+    ``app.tasks.<module>.<task>`` (none of them sets ``name=``, which ``_task_index``
+    would expose as an unresolved entry below).
+    """
+    tree = ast.parse((TASKS / "weather_tasks.py").read_text(encoding="utf-8"))
+    (func,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_dispatch_followups"]
+    return {
+        f"{node.module}.{alias.name}"
+        for node in ast.walk(func)
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app.tasks.")
+        for alias in node.names
+    }
+
+
+def test_the_tasks_the_weather_fetch_chains_are_classified_scheduled_and_gated() -> None:
+    """#2934: frost and irrigation run after every successful fetch *and* on a daily beat.
+
+    The chained set is read from ``_dispatch_followups`` and must equal
+    ``TENANT_WRITING_CHAINED_TASKS``; each one also has its daily safety-net beat
+    (operator decision 2026-11-22), so it is a ``TENANT_WRITING_BEATS`` entry and the
+    sweep above holds it to ``ActiveTenants`` on both paths.
     """
     index = _task_index()
+    chained = _tasks_the_weather_fetch_chains()
 
-    assert {
+    assert chained == {
         "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
         "app.tasks.irrigation_tasks.compute_irrigation_demand",
-    } == TENANT_WRITING_CHAINED_TASKS
-    assert TENANT_WRITING_CHAINED_TASKS.isdisjoint(_scheduled_task_names())
-    assert TENANT_WRITING_CHAINED_TASKS.isdisjoint(TENANT_WRITING_BEATS | set(TENANT_AGNOSTIC_BEATS))
+    }, "the source read found other follow-ups than the two this guard was written for"
+    assert chained == TENANT_WRITING_CHAINED_TASKS
+    assert TENANT_WRITING_CHAINED_TASKS <= TENANT_WRITING_BEATS
+    assert _scheduled_task_names() >= TENANT_WRITING_CHAINED_TASKS, "a chained task lost its daily safety-net beat"
     assert sorted(TENANT_WRITING_CHAINED_TASKS - set(index)) == []
     assert sorted(name for name in TENANT_WRITING_CHAINED_TASKS if not _asks_the_tenant_state(*index[name])) == []
 

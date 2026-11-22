@@ -108,3 +108,30 @@ def test_the_status_document_leaves_the_settings_singleton_alone(db) -> None:
     assert stored.weather_providers.fetch_interval_hours == 8
     assert status_repo.get_status().last_success is not None
     assert db.collection(col.SYSTEM_SETTINGS).has(STATUS_KEY)
+
+
+def test_failed_runs_are_counted_in_a_row_and_a_success_resets_them(db) -> None:
+    repo = ArangoWeatherFetchStatusRepository(db)
+    start = datetime(2026, 11, 22, 6, 0, tzinfo=UTC)
+
+    counts = [repo.record_run(_run(start + timedelta(hours=i), success=False)) for i in range(3)]
+    after_success = repo.record_run(_run(start + timedelta(hours=3), success=True))
+    after_next_failure = repo.record_run(_run(start + timedelta(hours=4), success=False))
+
+    assert counts == [1, 2, 3]
+    assert after_success == 0
+    assert after_next_failure == 1
+    assert repo.get_status().consecutive_failures == 1
+
+
+def test_a_corrupt_stored_document_reads_as_no_status_and_the_next_run_repairs_it(db) -> None:
+    db.collection(col.SYSTEM_SETTINGS).insert(
+        {"_key": STATUS_KEY, "last_success": {"started_at": "not-a-date"}, "consecutive_failures": "x"}
+    )
+    repo = ArangoWeatherFetchStatusRepository(db)
+
+    assert repo.get_status().last_success is None
+
+    succeeded = _run(datetime(2026, 11, 22, 6, 0, tzinfo=UTC), success=True)
+    assert repo.record_run(succeeded) == 0
+    assert repo.get_status().last_success == succeeded

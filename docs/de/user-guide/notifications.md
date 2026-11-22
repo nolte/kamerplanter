@@ -186,7 +186,7 @@ Diese Eskalationstage sind fest vorgegeben und aktuell nicht individuell einstel
 
 ## Frost-Frühwarnung {#frost-fruehwarnung}
 
-Für deine Freiland- und Gewächshaus-Standorte prüft Kamerplanter nach jedem Abruf neuer Wetterdaten die aktuelle Vorhersage — standardmäßig alle sechs Stunden, je nach dem vom Betreiber eingestellten [Abrufintervall](weather-services.md#abrufintervall-und-manueller-abruf) — und informiert dich proaktiv, wenn eine Frostnacht bevorsteht — bevor die Temperatur tatsächlich fällt. Die Benachrichtigung nennt den Standort, das erwartete Datum und die voraussichtliche Minimaltemperatur.
+Für deine Freiland- und Gewächshaus-Standorte prüft Kamerplanter nach jedem Abruf neuer Wetterdaten — standardmäßig alle sechs Stunden, je nach dem vom Betreiber eingestellten [Abrufintervall](weather-services.md#abrufintervall-und-manueller-abruf) — und zusätzlich einmal täglich am Morgen die aktuelle Vorhersage und informiert dich proaktiv, wenn eine Frostnacht bevorsteht — bevor die Temperatur tatsächlich fällt. Die Benachrichtigung nennt den Standort, das erwartete Datum und die voraussichtliche Minimaltemperatur.
 
 - **Dringlichkeit:** Hoch (orange) — sie erscheint wie jede andere Benachrichtigung im [Benachrichtigungs-Center](#das-benachrichtigungs-center) und wird über alle deine aktivierten Zustellkanäle zugestellt.
 - **Keine Wiederholungs-Spam:** Für dieselbe Frostnacht an einem Standort erhältst du die Warnung genau **einmal**. Erst ein neuer oder ein noch früherer erwarteter Frosttermin löst eine neue Benachrichtigung aus.

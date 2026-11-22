@@ -7,7 +7,7 @@ Kategorie: Bewässerung & Düngung
 Fokus: Beides
 Technologie: Python 3.14+, PyETo, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 1.3 (Bewässerungsbedarf nach jedem erfolgreichen Wetterabruf statt täglich um 06:15; #2934); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1
+Version: 1.3 (Bewässerungsbedarf nach jedem erfolgreichen Wetterabruf und täglich um 06:15; #2934); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1
 Abhängigkeit: REQ-004 (Dünge-Logik), REQ-005 (Hybrid-Sensorik/Wetter), REQ-022 (Pflegeerinnerungen), REQ-002 (Standort), REQ-019 (Substrat)
 ```
 
@@ -17,7 +17,7 @@ Abhängigkeit: REQ-004 (Dünge-Logik), REQ-005 (Hybrid-Sensorik/Wetter), REQ-022
 |---------|-------|----------|
 | 1.0 | 2026-06-19 | Initialer Entwurf — Integration von PyETo (awesome-agriculture). Berechnung der Referenz-Evapotranspiration ET₀ → ETc → Netto-Gießbedarf für Freiland- und Gewächshaus-Standorte. |
 | 1.1 | 2026-06-20 | Lizenz-Schärfung: aquacropeto (BSD-3) als Dependency, pyTSEB (GPL-3.0) als Dependency ausgeschlossen |
-| 1.3 | 2026-11-22 | **#2934:** `compute_irrigation_demand` hat keinen eigenen Beat mehr; der Wetterabruf (REQ-046 §3.6a) reiht ihn nach jedem erfolgreichen Abruf ein — im Abrufintervall (Minimum 6 h) also bis zu viermal am Tag. Der Upsert je Standort, Durchlauf und Tag hält das idempotent. |
+| 1.3 | 2026-11-22 | **#2934:** Der Wetterabruf (REQ-046 §3.6a) reiht `compute_irrigation_demand` nach jedem erfolgreichen Abruf ein — im Abrufintervall (Minimum 6 h) also bis zu viermal am Tag. Der tägliche Beat um 06:15 UTC bleibt als Sicherheitsnetz (Betreiberentscheidung 2026-11-22): `DEMAND_LOOKBACK_DAYS = 1` braucht für jeden Tag einen Wert, auch wenn das Intervall über 24 Stunden liegt oder die Dienste ausfallen. Der Upsert je Standort, Durchlauf und Tag hält das idempotent. |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen: `irrigation_demands` hat keinen Endpunkt, schreibt nur der Celery-Task, gelesen wird über die Pflegeerinnerungen. |
 
 ## 1. Business Case
@@ -335,7 +335,7 @@ Prioritäts-Kaskade für den effektiven Kc je Run/Phase:
 
 ### 3.3 Celery-Task `compute_irrigation_demand`
 
-Läuft **nach jedem erfolgreichen** Lauf des REQ-005-Tasks `fetch_weather_forecasts`, der die `weather_forecasts` im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h) aktualisiert und den Task danach selbst einreiht (REQ-046 §3.6a, #2934). Ein fehlgeschlagener Abruf reiht ihn nicht ein.
+Läuft **nach jedem erfolgreichen** Lauf des REQ-005-Tasks `fetch_weather_forecasts`, der die `weather_forecasts` im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h) aktualisiert und den Task danach selbst einreiht (REQ-046 §3.6a, #2934). Ein fehlgeschlagener Abruf reiht ihn nicht ein. Zusätzlich läuft er täglich um 06:15 UTC über den eigenen Beat und rechnet mit der zuletzt gespeicherten Vorhersage.
 
 ```python
 @celery_app.task(name="irrigation.compute_irrigation_demand")
@@ -384,7 +384,7 @@ def compute_irrigation_demand() -> dict:
     return {"demands_written": written}
 ```
 
-**Kein eigener Beat** (#2934): Der frühere Eintrag `irrigation-demand-compute-daily` (06:15) ist entfallen. Bis zu vier Läufe am Tag schreiben je Standort, Durchlauf und Tag denselben Datensatz neu (Upsert).
+**Beat-Schedule (Sicherheitsnetz, #2934):** `irrigation-demand-compute-daily` um **06:15 UTC** bleibt, damit jeder Tag einen Bedarf erhält, auch ohne Abruf an diesem Tag. Zusammen mit den Läufen nach jedem erfolgreichen Abruf schreiben bis zu fünf Läufe am Tag je Standort, Durchlauf und Tag denselben Datensatz neu (Upsert).
 
 ### 3.4 Service-Einbindung in REQ-022 (`CareReminderEngine`)
 
@@ -506,7 +506,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - [ ] `EvapotranspirationCalculator` mit `calculate_et0` (PM + Hargreaves-Fallback) und `calculate_water_balance` implementiert und unit-getestet (deterministisch, keine I/O).
 - [ ] `IrrigationDemand`-Modell + Collection `irrigation_demands` + Edges `has_irrigation_demand`/`demand_for_run` im named graph.
 - [ ] `GrowthPhase.crop_coefficient_kc` + `Species.default_crop_coefficient_kc` + `KC_DEFAULTS`-Tabelle + `resolve_kc`-Kaskade.
-- [ ] Celery-Task `compute_irrigation_demand` wird nach jedem erfolgreichen Wetterabruf eingereiht (REQ-046 §3.6a, #2934), läuft nur für `outdoor`/`greenhouse` mit GPS.
+- [ ] Celery-Task `compute_irrigation_demand` wird nach jedem erfolgreichen Wetterabruf eingereiht (REQ-046 §3.6a, #2934) und läuft täglich um 06:15 UTC, läuft nur für `outdoor`/`greenhouse` mit GPS.
 - [ ] `CareReminderEngine` (REQ-022) nutzt `IrrigationDemand` zur Unterdrückung/Schärfung der Gieß-Erinnerung.
 - [ ] Frontend: Wasserbilanz-Widget (Standort + Pflege-Dashboard), Kc-Feld im Expertenmodus, DE/EN-i18n vollständig.
 - [ ] Alle 7 Akzeptanz-Szenarien als Tests grün; ruff/ESLint/TypeScript clean.
