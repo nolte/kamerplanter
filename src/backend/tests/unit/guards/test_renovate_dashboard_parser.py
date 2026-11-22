@@ -1290,6 +1290,103 @@ class TestInjectedRepositoryProblems:
         assert _report(body)["alert"] is False
 
 
+#: The line that opened #3076 on 2026-11-21, verbatim from the dashboard (#12).
+_UNDATED_RELEASE_LINE = (
+    "⚠️ WARN: Some release(s) did not have a releaseTimestamp, but as we're running with "
+    "minimumReleaseAgeBehaviour=timestamp-optional, proceeding. See debug logs for more information"
+)
+
+
+class TestTheUndatedReleaseWarningIsExpectedOnlyWhileConfigured:
+    """#3076 — Renovate's warning for ``timestamp-optional`` is the config's own consequence.
+
+    ``renovate.json5`` sets ``minimumReleaseAgeBehaviour: 'timestamp-optional'``
+    by operator decision (2026-09-24), and Renovate reports every undated
+    release it meets under ``## Repository problems``. The line is excused ONLY
+    while that value is configured, and nothing else is excused with it.
+    """
+
+    @staticmethod
+    def _with_problems(body: str, *lines: str) -> str:
+        return TestInjectedRepositoryProblems._with_problems(body, *lines)
+
+    @staticmethod
+    def _tree_with_config(tmp_path: Path, config: str) -> Path:
+        (tmp_path / "renovate.json5").write_text(config)
+        return tmp_path
+
+    @staticmethod
+    def _undated_findings(report: dict) -> list[str]:
+        return [finding for finding in report["findings"] if "releaseTimestamp" in finding]
+
+    def test_the_checkout_really_configures_timestamp_optional(self) -> None:
+        """The premise of the green case below, measured on the real config."""
+        assert check._timestamp_optional_configured(_REPO_ROOT) is True
+
+    def test_the_line_from_3076_does_not_alert_with_the_real_config(self, healthy_body: str) -> None:
+        body = self._with_problems(healthy_body, _UNDATED_RELEASE_LINE)
+        report = _report(body)
+
+        assert report["alert"] is False, report["findings"]
+        assert report["repository_problems"] == [f"-   {_UNDATED_RELEASE_LINE}"]
+        assert report["expected_repository_warnings"] == report["repository_problems"]
+        assert "#3076" in check.render(report)
+
+    def test_timestamp_optional_in_a_scratch_tree_excuses_it(self, healthy_body: str, tmp_path: Path) -> None:
+        """Positive control for the scratch-tree cases: the same tree shape, only the value differs."""
+        root = self._tree_with_config(tmp_path, "{\n  minimumReleaseAgeBehaviour: 'timestamp-optional',\n}\n")
+        report = check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=root)
+
+        assert self._undated_findings(report) == []
+        assert len(report["expected_repository_warnings"]) == 1
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            pytest.param("{\n  minimumReleaseAgeBehaviour: 'timestamp-required',\n}\n", id="timestamp-required"),
+            pytest.param("{\n  minimumReleaseAge: '3 days',\n}\n", id="key-absent"),
+            pytest.param(
+                "{\n  // minimumReleaseAgeBehaviour: 'timestamp-optional',\n  minimumReleaseAge: '3 days',\n}\n",
+                id="commented-out",
+            ),
+        ],
+    )
+    def test_without_timestamp_optional_the_line_is_a_finding(
+        self, healthy_body: str, tmp_path: Path, config: str
+    ) -> None:
+        root = self._tree_with_config(tmp_path, config)
+        report = check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=root)
+
+        assert report["alert"] is True
+        assert report["expected_repository_warnings"] == []
+        assert self._undated_findings(report) == [
+            f"Repository problem reported by Renovate: -   {_UNDATED_RELEASE_LINE}"
+        ]
+
+    def test_another_warn_beside_it_still_alerts(self, healthy_body: str) -> None:
+        body = self._with_problems(healthy_body, _UNDATED_RELEASE_LINE, "`WARN: pip-compile error`")
+        report = _report(body)
+
+        assert report["alert"] is True
+        assert report["findings"] == ["Repository problem reported by Renovate: -   `WARN: pip-compile error`"]
+        assert len(report["expected_repository_warnings"]) == 1
+
+    def test_a_different_timestamp_warning_is_still_a_finding(self, healthy_body: str) -> None:
+        """Not a keyword match on `releaseTimestamp`: only the timestamp-optional wording is excused."""
+        other = (
+            "⚠️ WARN: Some release(s) did not have a releaseTimestamp, and as we're running with "
+            "minimumReleaseAgeBehaviour=timestamp-required, they are held"
+        )
+        report = _report(self._with_problems(healthy_body, other))
+
+        assert report["alert"] is True
+        assert report["expected_repository_warnings"] == []
+
+    def test_a_missing_config_is_undetermined_not_clean(self, healthy_body: str, tmp_path: Path) -> None:
+        with pytest.raises(check.DashboardError, match="renovate.json5 could not be read"):
+            check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=tmp_path)
+
+
 class TestInjectedInventoryDrift:
     """One injected defect at a time, each red for its own reason."""
 
