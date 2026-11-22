@@ -1,0 +1,63 @@
+# Reach probe DRAFT; derived for #2448 (REQ-053 WP 6.4) via the capability-reach-audit method.
+# Never edit in place once approved: any later commit to this file is reported as weakened. Re-derive instead.
+# Approval: NOT given. The approval block below holds placeholders only; the main session fills it after the
+# operator explicitly approves this derivation. Until then the runner reports the probe not probed.
+#
+# Declaration: REQ-053 §21.1, table row GP-API-001 (`GET /sites/{key}/plan`): the whole plan of a site in one
+# request — site plan (§20.2), locations with geometry (§20.3), garden objects (§20.4), slots in plan
+# coordinates (§20.5), plant short info {key, instance_id, species_key, phase_key, slot_key}, task counters
+# per location and zones; default include = all parts. Anchored on that row's content (sections anchor,
+# survives a squash merge; the row is byte-identical on develop 1738dbc19).
+#
+# Environment (T2): the reach stack, then reach:seed:garden-plan builds one plan through the write routes as
+# a freshly registered account in its personal tenant — boundary 10 x 10 m, one bed `reach-bed` and one
+# compost heap `reach-compost` in one plan batch, three tomato plants on their own slots by quick planting,
+# one open task on the bed, one zone `reach-zone` holding the bed. The observation signs in as that account,
+# calls GET /api/v1/t/{slug}/sites/{key}/plan and prints the facts of the body, one per line
+# (scripts/reach/observe_garden_plan.py); a non-200 answer prints http-status=<code>.
+#
+# Expected set: one member per declared part, with the values the build made. A part the read model drops,
+# a zero task counter, a plant without a phase or a slot, or a zone without its bed reads as a different
+# member and the probe as partially reached.
+id: endpoint-sites-plan-read-model-answers
+summary: the garden plan read model returns every declared part of a plan built through the write routes
+declaration:
+  source: endpoint
+  path: spec/req/REQ-053_Grafische-Garten-Beetplanung.md
+  location: '§21.1, table row GP-API-001 (line 1460 as of spec v1.7): GET /sites/{key}/plan — full plan incl. plant short info, task counters per location and zones; include=plants,tasks,zones by default'
+  sections:
+  - row: GP-API-001
+    digest: 9f7658dbb3df642ae49eb7ac870fe90212bc9abb795e183f6f76191744d0e4e9
+tier: T2
+expected:
+  kind: set
+  unit: facts of the GET /plan answer for the built plan (part/object=value)
+  values:
+  - garden-object/compost/reach-compost/geometry=rect
+  - location/reach-bed/geometry=rect
+  - open-tasks/reach-bed=1
+  - plan/boundary=rect
+  - plant-field/instance_id=3
+  - plant-field/key=3
+  - plant-field/phase_key=3
+  - plant-field/slot_key=3
+  - plant-field/species_key=3
+  - plants/reach-bed=3
+  - slots/reach-bed=3
+  - zone/reach-zone=reach-bed
+derived_from: sections:69ef06a2b31cdcddce0a59870a8f719aea1d470e2569df10db6893404131d4fa
+environment:
+- reach:stack:up
+- reach:seed:garden-plan
+teardown:
+- reach:stack:down
+observe:
+  argv:
+  - python3
+  - scripts/reach/observe_garden_plan.py
+  timeout_seconds: 120
+approval:
+  approved_at: TO_BE_SET_BY_MAIN_SESSION
+  approved_by: TO_BE_SET_BY_MAIN_SESSION
+  observation_digest: TO_BE_SET_BY_MAIN_SESSION
+  mode: TO_BE_SET_BY_MAIN_SESSION
