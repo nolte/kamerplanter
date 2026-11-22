@@ -108,11 +108,13 @@ the recording is made: the ``guard`` job of ``lane-inputs.yml`` passes
 ``--lane-inputs-drift``, and ``tests/conftest.py`` deselects them in every other
 run (``test_lane_inputs_drift_runs_only_in_its_lane.py`` holds both halves).
 Rule 4, the planted trees and the matcher need no recording and run wherever
-this file runs. The file as a whole still carries ``pytestmark =
-pytest.mark.advisory``, which the required ``Write-route and tree guards`` lane
-deselects with ``-m 'not advisory'``; whether any of it becomes required is
-#1683's decision on measured history (NFR-018 §4), not an edit of this
-paragraph.
+this file runs — since 2026-11-22 that includes the required ``Write-route and
+tree guards`` lane (backend-guards.yml), promoted by #1683 on measured history
+(NFR-018 §4): over the last 200 ``backend.yml`` runs on ``develop`` since
+2026-11-02 (183 success, 6 failure, 11 cancelled) none of the failures came
+from this file. The drift rules stay out of every pull-request lane: they
+drifted every week for six weeks (bot pull requests #2459, #2554, #2633,
+#2837, #2988, #3031), so they run only in ``lane-inputs.yml`` (#1794).
 
 THE MATCHER, AND WHY IT IS ALLOWED TO EXIST HERE.
 
@@ -147,10 +149,6 @@ import pytest
 import yaml
 
 from tests.support.repo_scripts import find_repo_root, load_repo_script
-
-#: Deselected by the required lane (`-m 'not advisory'` in backend-guards.yml); promotion
-#: is #1683's decision. `pytest tests/unit/` runs the rules that need no recording (#1794).
-pytestmark = pytest.mark.advisory
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — unreachable inside a checkout

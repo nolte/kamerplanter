@@ -291,7 +291,8 @@ _ARGV_ITEM = re.compile(r'"((?:[^"\\]|\\.)*)"')
 # a process per module (~2–3 s of interpreter and app import each, over ~860
 # modules of the unit suite), which the recording legs do not pay. Coverage is
 # also per MODULE: a module that runs in the covering lane counts for all its
-# tests, including one that lane deselects (`-m 'not advisory'`).
+# tests, including one that lane deselects (the `lane_inputs_drift` rules,
+# deselected by tests/conftest.py outside lane-inputs.yml).
 
 #: Where the marker plugin lives; put on PYTHONPATH for a recording, and its own
 #: reads (the import, the directory listing) are the instrument's, not the job's.
@@ -1685,8 +1686,8 @@ def replay_env(document: dict[str, Any], job_id: str, invocation: dict[str, Any]
 #: The guard holds the COMMITTED manifests against the live tree — exactly the
 #: manifests a replay produces successors for. Run inside the replay of the
 #: unit-suite legs (backend--lint-test: ``pytest tests/unit/``, and until #1741
-#: backend--coverage; backend-guards--guards already leaves it out with
-#: ``-m 'not advisory'``),
+#: backend--coverage; backend-guards--guards too since #1683 promoted the file
+#: into that lane on 2026-11-22 — it had left it out with ``-m 'not advisory'``),
 #: it failed whenever a change had staled one of them (as any change to a
 #: recorded job does), those legs recorded nothing, and every such change cost
 #: two recordings (#1683, 2026-09-24). The real CI lanes still run it; only the

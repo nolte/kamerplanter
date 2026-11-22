@@ -49,10 +49,11 @@ WHAT THIS GUARD DOES NOT SEE:
 * env the runner itself provides (``CI``, ``GITHUB_*``): the record job runs on
   the same runner image, so they are present without being declared.
 
-Advisory like every lane-inputs rule (``pytestmark``): the required guards lane
-deselects it with ``-m 'not advisory'``; promotion is #1683's decision on
-measured history (NFR-018 §4). Traces to #1683 (no TC-ID: CI configuration is
-not a user-facing case).
+It needs no recording, so it runs in the required ``Write-route and tree
+guards`` lane (backend-guards.yml) since 2026-11-22 — promoted by #1683 on
+measured history (NFR-018 §4: 0 of the 6 failures in the last 200 ``develop``
+runs of ``backend.yml`` came from it). Traces to #1683 (no TC-ID: CI
+configuration is not a user-facing case).
 """
 
 from __future__ import annotations
@@ -61,13 +62,9 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-import pytest
 import yaml
 
 from tests.support.repo_scripts import find_repo_root, load_repo_script
-
-#: Deselected by the required lane (`-m 'not advisory'` in backend-guards.yml); promotion is #1683's.
-pytestmark = pytest.mark.advisory
 
 _REPO_ROOT = find_repo_root(Path(__file__).resolve())
 if _REPO_ROOT is None:  # pragma: no cover — unreachable inside a checkout

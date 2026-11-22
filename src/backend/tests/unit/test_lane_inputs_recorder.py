@@ -514,7 +514,7 @@ class TestBootstrap:
                     " tests/contracts/test_dashboard_widgets_contract.py"
                     " tests/contracts/test_notification_channels_contract.py"
                     " tests/api/test_notification_act_role_gate.py"
-                    " -q --max-skipped 0 -m 'not advisory'"
+                    " -q --max-skipped 0"
                 ),
                 "cwd": "src/backend",
                 "env": ["KAMERPLANTER_MODE=full"],
