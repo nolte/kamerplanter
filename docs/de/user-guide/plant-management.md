@@ -39,7 +39,8 @@ Die Feldnamen in der Oberfläche sind deutsch beschriftet; in Klammern findest d
 | Wuchsform (`growth_habit`) | Kraut, Strauch, Baum, Kletterpflanze, ... | Kraut |
 | Wurzeltyp (`root_type`) | Faserwurzel, Pfahlwurzel, Knollig, Zwiebel, Rhizom | Faserwurzel |
 | Frostempfindlichkeit (`frost_sensitivity`) | Empfindlich, Moderat, Hardy, Sehr hardy | Sehr hardy |
-| Nährstoffbedarf (`nutrient_demand_level`) | Starkzehrer, Mittelzehrer, Schwachzehrer, Stickstoffsammler | Starkzehrer |
+| Zehrerstufe (`nutrient_demand`) | Starkzehrer, Mittelzehrer, Schwachzehrer — steuert Hinweise und Fruchtfolge, keine EC-Zahl | Starkzehrer |
+| Stickstofffixierung (`nitrogen_fixing`) | Ja/Nein, getrennt von der Zehrerstufe: eine Erbse ist Schwachzehrer *und* bindet Stickstoff | Ja (Erbse) |
 | Photoperiodismus (`photoperiod_type`, Teil der Lebenszyklus-Konfiguration) | Kurztagspflanze, Langtagspflanze, Tagneutral | Tagneutral |
 | Toxizität (`toxicity_severity`) | Giftigkeit für Katzen/Hunde (ASPCA-Daten, ASPCA = American Society for the Prevention of Cruelty to Animals) | Giftig für Katzen |
 | **Vermehrungsarten** (`propagation_methods`) | Eine oder mehrere übliche Vermehrungsmethoden (Mehrfachauswahl) | Aussaat, Steckling |
@@ -144,6 +145,17 @@ Alle mitgelieferten Arten mit gepflegten Vermehrungsmethoden haben bereits einen
 1. Klicke auf eine Art in der Liste
 2. Auf der Detailseite kannst du alle Felder bearbeiten
 3. Die Detailseite zeigt auch zugehörige Sorten, Wachstumsphasen und Nährstoffpläne
+
+### Namen in mehreren Sprachen
+
+Der mitgelieferte Artenkatalog enthält für die Arten deutsche und englische Namen. Beim Bearbeiten einer Art bleiben sie erhalten, auch wenn du nur die Liste der umgangssprachlichen Namen änderst. Entfernst du einen Namen aus der Liste, verschwindet er auch aus der Sprachzuordnung. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+Die Oberfläche zeigt den Namen in deiner Oberflächensprache, ersatzweise den deutschen und zuletzt den wissenschaftlichen Namen. Die Suche findet eine Art weiterhin über jeden ihrer Namen, egal in welcher Sprache; in Auswahllisten stehen die übrigen Namen in einer zweiten Zeile. Eine Art, die du selbst angelegt hast, hat keine Sprachzuordnung und erscheint mit dem ersten Namen, den du eingetragen hast.
+
+Dieselbe Regel gilt für Namen, die Kamerplanter selbst zusammenstellt: in der Pflegeübersicht, im Pflanzenraster des Dashboards, im Aussaatkalender, im Beetplan, in der Fruchtfolge-Empfehlung, in der Winterhärte-Übersicht, in den Workflow-Listen und in Ausdrucken. Wechselst du die Oberflächensprache, lädt die geöffnete Ansicht ihre Namen in der neuen Sprache nach.
+
+!!! note "Namen aus dem Hintergrund"
+    Texte, die Kamerplanter ohne deine Anfrage schreibt, entstehen auf Deutsch, zum Beispiel Erinnerungen, Benachrichtigungen und die Namen automatisch erzeugter Workflow-Vorlagen. Was einmal gespeichert ist, etwa der Titel einer Aufgabe, behält die Sprache, in der es entstanden ist. Im Feldmodus ohne Verbindung zeigt ein Beet nach einem Sprachwechsel erst wieder Pflanzen, wenn du es einmal online in der neuen Sprache geöffnet hast.
 
 ---
 

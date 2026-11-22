@@ -38,8 +38,8 @@ class FakeSiteRepo:
     def get_slot_by_key(self, key):  # pragma: no cover - unused in these tests
         return None
 
-    def update_slot(self, key, slot):  # pragma: no cover - unused in these tests
-        return slot
+    def set_slot_occupied(self, key, occupied):  # pragma: no cover - unused in these tests
+        pass
 
 
 def _site(key: str, tenant: str = TENANT, site_type: SiteType = SiteType.INDOOR) -> Site:

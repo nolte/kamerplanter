@@ -19,7 +19,19 @@ class SiteListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='site-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
+    #: The accordion cards the page actually renders (`SiteCard`, one per site).
+    SITE_CARDS = (By.CSS_SELECTOR, "[data-testid^='site-card-']")
+    OFFLINE_MISS = (By.CSS_SELECTOR, "[data-testid='site-list-offline-miss']")
+
+    #: The three terminal states of `SiteListPage.tsx` once `fetchSites`
+    #: resolved: site cards, the "no sites" `EmptyState`, or the offline
+    #: cache miss.
+    SITES_BRANCHES = {
+        "site-cards": SITE_CARDS,
+        BasePage.BRANCH_EMPTY: BasePage.EMPTY_STATE,
+        "offline-miss": OFFLINE_MISS,
+    }
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -54,6 +66,18 @@ class SiteListPage(BasePage):
                 "site list content",
                 timeout=timeout,
             )
+
+    def wait_for_sites_settled(self, timeout: int = IMPLICIT_WAIT_EQUIVALENT) -> None:
+        """Wait until site cards, the empty state or the offline miss rendered; raise otherwise.
+
+        A gate, unlike :meth:`wait_for_list_content` (whose ``TABLE_ROWS`` this
+        card layout never renders): the axe dark pass (TC-UINFR002-003) must
+        measure the settled list, not the `LoadingSkeleton` frame `open()` can
+        return in; the skeleton must be gone as well. Not closed by this gate:
+        the single commit before the mount effect dispatches `fetchSites`
+        (`loading` starts ``false``) can already show the empty state.
+        """
+        self.wait_for_settled(self.SITES_BRANCHES, "site list content", timeout=timeout)
 
     def get_row_count(self) -> int:
         """Return the number of visible data rows.

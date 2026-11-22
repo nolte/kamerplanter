@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import CheckIcon from '@mui/icons-material/Check';
 import GroupsIcon from '@mui/icons-material/Groups';
+import { TOUCH_TARGET_MIN } from '@/theme/theme';
 import PersonIcon from '@mui/icons-material/Person';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -16,6 +17,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { switchTenant } from '@/store/slices/tenantSlice';
+import { clearOfflineData } from '@/pwa/offlineData';
 
 export default function TenantSwitcher() {
   const { t } = useTranslation();
@@ -36,7 +38,7 @@ export default function TenantSwitcher() {
     setAnchorEl(null);
   };
 
-  const handleSwitch = (slug: string) => {
+  const handleSwitch = async (slug: string) => {
     if (slug === activeTenant?.slug) {
       handleClose();
       return;
@@ -53,6 +55,14 @@ export default function TenantSwitcher() {
     // sources (Redux and `setActiveTenantSlug`), so a full reload re-issues every
     // request under the new tenant with no invalidation list to keep in sync — a
     // list that would silently rot each time a new tenant-aware slice is added.
+    //
+    // REQ-053 WP 9.1 (G-W9 b): the service worker's API cache and IndexedDB are
+    // emptied completely BEFORE the reload, so the next tenant never reads the
+    // previous one's answers offline. Pinned by
+    // test/guards/offlineDataClearedOnSessionChange.test.ts. The offline write buffer (WP 9.4) is the
+    // exception: the previous garden's unsent entries stay bound to it and are sent when the user returns
+    // there (UI-NFR-012 R-050/R-051) — nothing is lost, nothing is shown in the new garden.
+    await clearOfflineData();
     window.location.reload();
   };
 
@@ -74,7 +84,18 @@ export default function TenantSwitcher() {
         color="inherit"
         onClick={handleOpen}
         endIcon={<ArrowDropDownIcon />}
-        sx={{ textTransform: 'none', mr: 1 }}
+        // #3032 (#2815 follow-up): below sm the button gives up MUI's 64 px minimum width
+        // for the touch-target floor and a smaller margin (20 px together), so the
+        // full-mode app bar still fits 390 px while the offline indicators show. With the
+        // 64 px minimum it overflowed by 18 px at 393 px (bar 411 px, nightly 44706366400,
+        // TC-053-087/088). It never goes below the touch target: the theme holds only
+        // icon buttons to it, so this small text button carries the floor itself.
+        sx={{
+          textTransform: 'none',
+          mr: { xs: 0.5, sm: 1 },
+          minWidth: { xs: TOUCH_TARGET_MIN, sm: 64 },
+          minHeight: { xs: TOUCH_TARGET_MIN, sm: 'auto' },
+        }}
         size="small"
       >
         {/* `data-tenant-selected` distinguishes the two things this label can
@@ -108,7 +129,7 @@ export default function TenantSwitcher() {
           <MenuItem
             key={tenant.key}
             selected={tenant.slug === activeTenant?.slug}
-            onClick={() => handleSwitch(tenant.slug)}
+            onClick={() => void handleSwitch(tenant.slug)}
             data-testid={`tenant-switcher-item-${tenant.slug}`}
           >
             <ListItemIcon>

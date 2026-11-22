@@ -40,15 +40,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -68,7 +68,7 @@ jobs:
         # Pinned to an exact version rather than the `@6` major: a floating
         # major means a new minor can add a rule and turn an unchanged document
         # red, so the same commit stops producing the same verdict.
-        run: npx --yes @stoplight/spectral-cli@6.17.0 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
+        run: npx --yes @stoplight/spectral-cli@6.17.1 lint --ruleset ../../.spectral.yaml --fail-severity error openapi.json
 
       - name: Upload OpenAPI artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -311,7 +311,7 @@ describe('OverwinteringProfileDialog', () => {
     // The toast is the floor; the English reason is never rendered on the field.
     expect(
       await screen.findByText(
-        i18n.t('errors.validationWithDetail', { detail: 'invalid' }),
+        i18n.t('errors.validation'),
       ),
     ).toBeTruthy();
     expect(onSaved).not.toHaveBeenCalled();

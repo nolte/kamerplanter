@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -16,6 +17,8 @@ import FormTextField from '@/components/form/FormTextField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as harvestApi from '@/api/endpoints/harvest';
 import { startDrying } from '@/api/endpoints/postHarvest';
 import type { HarvestBatch } from '@/api/types';
@@ -47,8 +50,11 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [batches, setBatches] = useState<HarvestBatch[]>([]);
-  const [loadingBatches, setLoadingBatches] = useState(false);
+  // A failed read is shown with a retry, never as "no harvest batches" (#3037).
+  const loadBatches = useCallback((): Promise<HarvestBatch[]> => harvestApi.getBatches(), []);
+  const batchesLoad = useAsyncOptions(loadBatches, { enabled: open });
+  const batches = batchesLoad.options;
+  const loadingBatches = batchesLoad.loading;
 
   const defaults: FormData = {
     harvest_batch_key: '',
@@ -59,20 +65,15 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
     notes: null,
   };
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open) {
       reset(defaults);
-      setLoadingBatches(true);
-      harvestApi
-        .getBatches()
-        .then(setBatches)
-        .catch(() => setBatches([]))
-        .finally(() => setLoadingBatches(false));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, reset]);
@@ -92,14 +93,15 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
       reset(defaults);
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -123,7 +125,7 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
             required
             disabled={loadingBatches || batches.length === 0}
             helperText={
-              !loadingBatches && batches.length === 0
+              !loadingBatches && !batchesLoad.error && batches.length === 0
                 ? t('pages.postHarvest.noHarvestBatches')
                 : t('pages.postHarvest.harvestBatchHelper')
             }
@@ -132,6 +134,9 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
               label: b.batch_id || b.key,
             }))}
           />
+          {batchesLoad.error && (
+            <OptionsLoadError onRetry={batchesLoad.reload} data-testid="drying-batches-load-error" />
+          )}
           <FormSelectField
             name="species_type"
             control={control}
@@ -186,6 +191,6 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

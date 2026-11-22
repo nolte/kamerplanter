@@ -1,8 +1,17 @@
 from datetime import date, timedelta
 
 from app.common.enums import PlantingRunStatus, PlantingRunType
+from app.common.exceptions import PlanError
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
-from app.domain.models.succession_plan import SuccessionPlan
+from app.domain.models.succession_plan import (
+    ERROR_SUCCESSION_QUOTA,
+    MAX_SUCCESSION_BATCHES,
+    SuccessionPlan,
+    succession_batch_count,
+)
+
+#: ``PlantingRun.source`` of a batch run (REQ-013 §2, ``RUN_SOURCES``).
+SOURCE_SUCCESSION = "succession"
 
 
 class SuccessionPlanEngine:
@@ -21,10 +30,7 @@ class SuccessionPlanEngine:
         (and including) ``end_date``: ``floor((end - start) / interval) + 1``.
         The window always contains at least the first batch.
         """
-        span_days = (end_date - start_date).days
-        if span_days < 0:
-            return 0
-        return span_days // interval_days + 1
+        return succession_batch_count(start_date, end_date, interval_days)
 
     def build_entry(self, plan: SuccessionPlan) -> PlantingRunEntry:
         """Build the single species entry each generated (monoculture) run carries."""
@@ -44,6 +50,18 @@ class SuccessionPlanEngine:
         count the result is empty (no-op).
         """
         total = self.compute_total_batches(plan.start_date, plan.end_date, plan.interval_days)
+        # Defensive: the model refuses such a schedule, but a stored legacy row is not re-validated on every path —
+        # no generation builds more runs than the quota, whatever the plan says.
+        if total > MAX_SUCCESSION_BATCHES:
+            raise PlanError(
+                ERROR_SUCCESSION_QUOTA,
+                f"A succession plan may hold at most {MAX_SUCCESSION_BATCHES} batches.",
+                status_code=422,
+                field="interval_days",
+                quota="batches",
+                limit=MAX_SUCCESSION_BATCHES,
+                current=total,
+            )
         start = max(start_sequence, 1)
         return [self.generate_batch_run(plan, sequence, total=total) for sequence in range(start, total + 1)]
 
@@ -63,7 +81,22 @@ class SuccessionPlanEngine:
             succession_plan_key=plan.key,
             succession_sequence=sequence,
             succession_total=total,
+            source=SOURCE_SUCCESSION,
+            # The batch's reservation window (GP-FR-065/074): from its sowing date for the plan's batch duration.
+            planned_from=planned_start,
+            planned_until=self.batch_until(plan, planned_start),
         )
+
+    @staticmethod
+    def batch_until(plan: SuccessionPlan, planned_start: date) -> date | None:
+        """The last day a batch sown on ``planned_start`` holds its slots; ``None`` without a batch duration.
+
+        Windows are closed (V-08): a batch of 60 days sown on 1 April holds through 30 May, and the next batch
+        may take the same slots from 31 May on.
+        """
+        if plan.batch_duration_days is None:
+            return None
+        return planned_start + timedelta(days=plan.batch_duration_days - 1)
 
     def next_batch_to_generate(self, plan: SuccessionPlan) -> int | None:
         """Return the next 1-based batch sequence to generate, or ``None`` when done.

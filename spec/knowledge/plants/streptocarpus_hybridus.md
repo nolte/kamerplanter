@@ -110,6 +110,22 @@
 > Hinweis: Der LCP-Bereich nennt ausschließlich den Lichtkompensationspunkt (Netto-Photosynthese = 0) und ist mit einer schattentoleranten C3-Waldbodenpflanze konsistent (typischer LCP schattenadaptierter Arten 10–25 µmol/m²/s). Lichtsättigung liegt deutlich höher und ist nicht in diesem Feld abgebildet. Streptocarpus toleriert laut NCSU „deep shade“ bis „partial shade“; gewählt wurde die Hauptklasse `shade`. Salzempfindlichkeit erfordert regelmäßiges Durchspülen (Leaching) des Substrats; Bezugsgröße der (fehlenden) Schwelle wäre Substrat-ECe, nicht Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Streptocarpus (Gattung, Growing guide; keine Artseite für S. x hybridus gelesen)“ (Aspect: "Bright filtered or indirect light"; "Keep in good light but do not expose to hot sun" (Gruppenquelle Gattung)), https://www.rhs.org.uk/plants/streptocarpus/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -359,4 +375,5 @@ Streptocarpus hybridus,Kap-Primel;Drehfrucht;Cape Primrose,Gesneriaceae,Streptoc
 9. [Clemson HGIC – Cape Primrose (Streptocarpus saxorum)](https://hgic.clemson.edu/cape-primrose-streptocarpus-saxorum-how-to-grow-this-easy-houseplant/) — Salzempfindlichkeit (Fertilizer-Salt-Build-up, Leaching), perennierende Kultur
 10. [FEBS Letters / Wiley – Photosynthesis under far-red light (Amelii 2026)](https://febs.onlinelibrary.wiley.com/doi/10.1002/1873-3468.70191) — R:FR-Abfall im Unterwuchs (Kronendach 1.2 → Boden 0.1), FR-Anreicherung im Schatten als Grundlage der Far-Red-Fraction
 11. [frillfree – Flowering Streptocarpus](https://www.frillfree.com/flowering-streptocarpus.html) — Blühverhalten, Tageslängen-/Lichtmengen-Hinweis (Hobbyquelle, nur einfach belegt)
+RHS -- Streptocarpus (Position/Aspect: "Bright filtered or indirect light"; Lichtanspruch): https://www.rhs.org.uk/plants/streptocarpus/growing-guide
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

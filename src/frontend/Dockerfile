@@ -4,7 +4,7 @@
 #   dev  (built by skaffold):      docker build --target dev .
 
 # ── Shared node base: install dependencies once ──
-FROM node:26-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS base
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS base
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -37,14 +37,17 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # `tsc --noEmit` in CI (.github/workflows/frontend.yml) and pre-commit.
 # NOTE: this is an allow-list — if a new non-test build input appears, add it.
 FROM base AS build
-COPY tsconfig.json tsconfig.build.json tsconfig.node.json vite.config.ts index.html ./
+COPY tsconfig.json tsconfig.build.json tsconfig.node.json tsconfig.sw.json vite.config.ts index.html ./
 COPY public ./public
 COPY src ./src
 RUN npm run build
 
 # ── Production target (default; last stage): non-root nginx-unprivileged ──
 # Runs as UID 101, listens on 8080 — no root, no privileged port.
-FROM nginxinc/nginx-unprivileged:1.31-alpine@sha256:b9241c6e7b8e9a862f129d8d4199ab64b10390949a78bdd5603379b32c844083 AS prod
+# Upstream publishes this image as `nginx/nginx-unprivileged`. The former
+# `nginxinc/nginx-unprivileged` repository still resolves but stopped receiving
+# tags at 1.31.7, so a pin on it never gets a security release.
+FROM nginx/nginx-unprivileged:1.31-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6 AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \

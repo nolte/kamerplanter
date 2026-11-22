@@ -59,12 +59,18 @@ def _bundle_source() -> str:
     )
 
 
-def run_axe(driver: Any, *, tags: tuple[str, ...] = DEFAULT_TAGS) -> list[dict]:
+def run_axe(
+    driver: Any, *, tags: tuple[str, ...] = DEFAULT_TAGS, context: str | None = None
+) -> list[dict]:
     """Scan the page currently open in ``driver`` and return its violations.
 
     Args:
         driver: A Selenium WebDriver on the page to scan.
         tags: axe rule tags to run. Defaults to :data:`DEFAULT_TAGS`.
+        context: CSS selector of the part of the page to scan (axe's ``include``
+            context); ``None`` scans the whole document. A selector that matches
+            nothing makes ``axe.run`` reject, which raises below — a scan of
+            nothing is never a clean result.
 
     Returns:
         The raw ``violations`` array, most severe first as axe orders it.
@@ -93,11 +99,13 @@ def run_axe(driver: Any, *, tags: tuple[str, ...] = DEFAULT_TAGS) -> list[dict]:
     result = driver.execute_async_script(
         """
         const done = arguments[arguments.length - 1];
-        axe.run(document, {runOnly: {type: 'tag', values: arguments[0]}})
+        axe.run(arguments[1] === null ? document : arguments[1],
+                {runOnly: {type: 'tag', values: arguments[0]}})
            .then(r => done({ok: true, violations: r.violations}))
            .catch(e => done({ok: false, error: String(e)}));
         """,
         list(tags),
+        context,
     )
     if not result or not result.get("ok"):
         raise AxeUnavailableError(

@@ -1,0 +1,196 @@
+import axios from 'axios';
+import i18n from '@/i18n/i18n';
+import { tenantClient } from '@/api/client';
+import { bedListCsvParams, type BedListCsvOptions } from './bedListCsv';
+import type {
+  BedCsvImportReport,
+  ExportOptions,
+  PlanImportReport,
+  PlanImportRequest,
+  PlanSnapshot,
+  SnapshotRestoreRequest,
+} from './types';
+
+/**
+ * REST access to the plan export and import (REQ-053 §23) through the tenant-scoped client. The three exports are
+ * blobs; the import is one JSON call that answers the same report for a dry run and an applied import.
+ */
+
+export interface PlanDownload {
+  blob: Blob;
+  filename: string;
+  /** `1:50` and so on, when the server drew a scaled plan (SVG, PDF). */
+  scale: string | null;
+  /** The server suggests A3 when A4 would need a scale coarser than 1:200. */
+  suggestA3: boolean;
+}
+
+function exportUrl(siteKey: string, format: ExportOptions['format']): string {
+  if (format === 'json') return `/sites/${siteKey}/plan/export`;
+  if (format === 'svg') return `/sites/${siteKey}/plan/render.svg`;
+  return `/print/garden-plan/${siteKey}`;
+}
+
+/** The query of the SVG and the PDF; the JSON backup takes `scope` and `keys` when it is partial (GP-FR-172). */
+export function exportParams(options: ExportOptions, locale: string): Record<string, string> {
+  if (options.format === 'json') {
+    return options.scope === 'site' ? {} : { scope: options.scope, keys: options.keys.join(',') };
+  }
+  const params: Record<string, string> = {
+    scale: options.scale,
+    paper: options.paper,
+    orientation: options.orientation,
+    layers: options.layers.join(','),
+    locale: locale.startsWith('en') ? 'en' : 'de',
+  };
+  if (options.format === 'pdf') {
+    params.bed_list = String(options.bedList);
+    if (options.parcelList) {
+      params.parcel_list = 'true';
+      // The member names are asked for only together with the parcel list (SR-024 opt-in).
+      if (options.includeAssignment) params.include_assignment = 'true';
+    }
+    // The underlay is printed only when asked for (GP-FR-033); without the parameter the PDF never carries it.
+    if (options.underlay) params.underlay = 'true';
+  }
+  return params;
+}
+
+function filenameOf(disposition: unknown, fallback: string): string {
+  if (typeof disposition !== 'string') return fallback;
+  const match = /filename="([A-Za-z0-9._-]+)"/.exec(disposition);
+  return match?.[1] ?? fallback;
+}
+
+/** GP-API-004/006/007: the plan as JSON, SVG or PDF. */
+export async function fetchPlanExport(
+  siteKey: string,
+  options: ExportOptions,
+  signal?: AbortSignal,
+): Promise<PlanDownload> {
+  const response = await tenantClient.get<Blob>(exportUrl(siteKey, options.format), {
+    params: exportParams(options, i18n.language ?? 'de'),
+    responseType: 'blob',
+    signal,
+  });
+  const headers = response.headers as Record<string, unknown>;
+  const scale = headers['x-plan-scale'];
+  return {
+    blob: response.data,
+    filename: filenameOf(
+      headers['content-disposition'],
+      `garden-plan-${siteKey}.${options.format}`,
+    ),
+    scale: typeof scale === 'string' ? scale : null,
+    suggestA3: headers['x-plan-suggested-paper'] === 'a3',
+  };
+}
+
+/** GP-FR-145/175: the site's bed list as a CSV download (`GET /locations?format=csv`). */
+export async function fetchBedListCsv(
+  siteKey: string,
+  options: BedListCsvOptions,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; filename: string }> {
+  const response = await tenantClient.get<Blob>('/locations', {
+    params: bedListCsvParams(siteKey, options, i18n.language ?? 'de'),
+    responseType: 'blob',
+    signal,
+  });
+  const headers = response.headers as Record<string, unknown>;
+  return {
+    blob: response.data,
+    filename: filenameOf(headers['content-disposition'], 'bed-list.csv'),
+  };
+}
+
+/** GP-API-005: check (`dry_run`) or write a backup file. */
+export async function importPlan(
+  siteKey: string,
+  request: PlanImportRequest,
+): Promise<PlanImportReport> {
+  const { data } = await tenantClient.post<PlanImportReport>(
+    `/sites/${siteKey}/plan/import`,
+    request,
+  );
+  return data;
+}
+
+/**
+ * GP-FR-174: check (`dry_run`) or write a CSV bed list. The body is the file itself (`text/csv`), sent as the
+ * bytes it holds: the server decides the encoding, so a decoded-and-re-encoded copy could not hide a wrong one.
+ * The confirmation sends the dry run's `plan_revision`; a plan changed in between is a 409.
+ */
+export async function importBedCsv(
+  siteKey: string,
+  file: Blob,
+  options: { dryRun: boolean; expectedRevision?: number | null },
+): Promise<BedCsvImportReport> {
+  const params: Record<string, string> = { dry_run: String(options.dryRun) };
+  if (options.expectedRevision !== undefined && options.expectedRevision !== null) {
+    params.expected_revision = String(options.expectedRevision);
+  }
+  const { data } = await tenantClient.post<BedCsvImportReport>(
+    `/sites/${encodeURIComponent(siteKey)}/beds/import-csv`,
+    file,
+    { params, headers: { 'Content-Type': 'text/csv' } },
+  );
+  return data;
+}
+
+/** GP-FR-148: the plans earlier `replace` imports overwrote, newest first (lead only). */
+export async function listPlanSnapshots(siteKey: string): Promise<PlanSnapshot[]> {
+  const { data } = await tenantClient.get<PlanSnapshot[]>(
+    `/sites/${encodeURIComponent(siteKey)}/plan/snapshots`,
+  );
+  return data;
+}
+
+/** GP-FR-170: check (`dry_run`) or write a snapshot back; the same report as an import. */
+export async function restorePlanSnapshot(
+  siteKey: string,
+  auditKey: string,
+  request: SnapshotRestoreRequest,
+): Promise<PlanImportReport> {
+  const { data } = await tenantClient.post<PlanImportReport>(
+    `/sites/${encodeURIComponent(siteKey)}/plan/snapshots/${encodeURIComponent(auditKey)}/restore`,
+    request,
+  );
+  return data;
+}
+
+/** Hand a blob to the browser as a download. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/** What a failed export request says, when the body (a JSON envelope inside a blob) can be read. */
+export interface ExportFailure {
+  status: number | null;
+  code: string | null;
+}
+
+/**
+ * Blob requests do not reach the client's envelope parser (the error body is a blob, not an object), so the
+ * published code of a refusal (`plan.empty`, `plan.does_not_fit`, ...) is read from the blob here.
+ */
+export async function describeExportFailure(error: unknown): Promise<ExportFailure> {
+  if (!axios.isAxiosError(error)) return { status: null, code: null };
+  const status = error.response?.status ?? null;
+  const body: unknown = error.response?.data;
+  if (typeof Blob !== 'undefined' && body instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await body.text()) as { error_code?: unknown };
+      return { status, code: typeof parsed.error_code === 'string' ? parsed.error_code : null };
+    } catch {
+      return { status, code: null };
+    }
+  }
+  const code = (body as { error_code?: unknown } | undefined)?.error_code;
+  return { status, code: typeof code === 'string' ? code : null };
+}

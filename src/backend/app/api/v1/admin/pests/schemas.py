@@ -10,6 +10,8 @@ from app.common.enums import PestImageStatus
 class PestCoverageEntry(BaseModel):
     label: str
     common_name: str
+    #: The taxon's names per language (REQ-010 v1.9, #2955); ``common_name`` is the German one.
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     category: str
     scientific_name: str
     gbif_taxon_key: str | None = None

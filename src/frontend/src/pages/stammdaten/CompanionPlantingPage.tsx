@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import MenuItem from '@mui/material/MenuItem';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import { visuallyHidden } from '@mui/utils';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -40,21 +40,28 @@ import type {
   IncompatibleSpecies,
   CompanionCountsMap,
 } from '@/api/types';
-import { getPrimaryCommonName } from '@/utils/plantDisplay';
+import { getAlternativeCommonNames, getLocalizedCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /**
  * Combined dropdown label "common name · scientific name" (e.g. "Lauch · Allium
- * porrum"). Leading with the layperson-facing common name (REQ-567/A) while
- * keeping the scientific name in the same string so MUI's built-in Autocomplete
- * filter still matches when the user types either one.
+ * porrum"), the common name in the UI language (REQ-567/A, #2902).
  */
-function speciesOptionLabel(species: Species): string {
-  const common = getPrimaryCommonName(species.common_names, species.scientific_name);
+function speciesOptionLabel(species: Species, language: string): string {
+  const common = getLocalizedCommonName(species, language);
   const scientific = species.scientific_name;
   if (common && scientific && common !== scientific) return `${common} · ${scientific}`;
   return common ?? scientific ?? '';
 }
+
+/**
+ * The species search matches every name in every language plus the scientific
+ * name — the label shows one language, the user may type another (#2902).
+ */
+const filterSpeciesOptions = createFilterOptions<Species>({
+  stringify: (species) => [species.scientific_name, ...(species.common_names ?? [])].join(' '),
+});
 
 /**
  * Card header that wraps its action button onto its own line when title and
@@ -73,13 +80,14 @@ const cardHeaderSx = {
 export default function CompanionPlantingPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   // The complete species catalogue through the shared reader (#1560): this site
   // asked for one page of 200 against 207 seeded species, and every filter here
   // runs client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species');
+  const speciesSelectId = useId();
   const [companionCounts, setCompanionCounts] = useState<CompanionCountsMap>({});
   const [selectedKey, setSelectedKey] = useState('');
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
@@ -123,7 +131,10 @@ export default function CompanionPlantingPage() {
     companionApi
       .getCompanionCounts()
       .then((c) => { if (!cancelled) setCompanionCounts(c); })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        // Badge enrichment only: the options show no companion count.
+        captureHandledError(err, { source: 'CompanionPlantingPage.counts' });
+      })
       .finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -178,7 +189,7 @@ export default function CompanionPlantingPage() {
   };
 
   return (
-    <>
+    <Box data-testid="companion-planting-page">
       <PageTitle title={t('pages.companionPlanting.title')} />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -186,11 +197,13 @@ export default function CompanionPlantingPage() {
       </Typography>
 
       <Autocomplete
+        id={speciesSelectId}
         fullWidth
         options={speciesCatalogue.items}
         value={selectedSpecies}
         onChange={(_e, option) => setSelectedKey(option?.key ?? '')}
-        getOptionLabel={speciesOptionLabel}
+        getOptionLabel={(option) => speciesOptionLabel(option, i18n.language)}
+        filterOptions={filterSpeciesOptions}
         isOptionEqualToValue={(option, value) => option.key === value.key}
         loading={catalogueLoading}
         disabled={speciesCatalogue.status === 'failed'}
@@ -210,8 +223,15 @@ export default function CompanionPlantingPage() {
           // scientific name follows as secondary context — only rendered when it
           // actually differs from the shown common name (species without a curated
           // common name fall back to the scientific name as the primary line).
-          const commonName = getPrimaryCommonName(option.common_names, option.scientific_name);
-          const showScientific = !!option.scientific_name && option.scientific_name !== commonName;
+          const commonName = getLocalizedCommonName(option, i18n.language);
+          // Other-language names follow, so an English search term in the German UI
+          // visibly matches (#2902).
+          const secondaryLine = [
+            option.scientific_name && option.scientific_name !== commonName ? option.scientific_name : '',
+            ...getAlternativeCommonNames(option, i18n.language),
+          ]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <Box
               component="li"
@@ -235,20 +255,19 @@ export default function CompanionPlantingPage() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography
                   variant="body2"
-                  noWrap
+                  sx={{ overflowWrap: 'anywhere' }}
                   color={hasRelations ? 'text.primary' : 'text.secondary'}
                 >
                   {commonName ?? option.scientific_name}
                 </Typography>
-                {showScientific && (
+                {secondaryLine && (
                   <Typography
                     variant="caption"
-                    noWrap
                     component="span"
                     color="text.secondary"
-                    sx={{ display: 'block', fontStyle: 'italic' }}
+                    sx={{ display: 'block', fontStyle: 'italic', overflowWrap: 'anywhere' }}
                   >
-                    {option.scientific_name}
+                    {secondaryLine}
                   </Typography>
                 )}
               </Box>
@@ -298,7 +317,7 @@ export default function CompanionPlantingPage() {
       */}
       <CatalogueLoadError
         reader={speciesCatalogue}
-        focusSelector="[data-testid='species-select'] input"
+        focusTargetId={speciesSelectId}
       />
 
       {/* Persistent legend (not hover-dependent, so it works on touch too) mapping
@@ -372,7 +391,7 @@ export default function CompanionPlantingPage() {
                 <List dense disablePadding>
                   {compatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (
@@ -446,7 +465,7 @@ export default function CompanionPlantingPage() {
                 <List dense disablePadding>
                   {incompatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (
@@ -511,8 +530,9 @@ export default function CompanionPlantingPage() {
         maxWidth="sm"
         fullWidth
         data-testid="companion-planting-dialog"
+        aria-labelledby="companion-planting-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="companion-planting-dialog-title">
           {dialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')
             : t('pages.companionPlanting.addIncompatible')}
@@ -534,7 +554,7 @@ export default function CompanionPlantingPage() {
             data-testid="target-species-select"
           >
             {speciesCatalogue.items.filter((s) => s.key !== selectedKey).map((s) => (
-              <MenuItem key={s.key} value={s.key}>{speciesOptionLabel(s)}</MenuItem>
+              <MenuItem key={s.key} value={s.key}>{speciesOptionLabel(s, i18n.language)}</MenuItem>
             ))}
           </TextField>
           {dialogType === 'compatible' && (
@@ -569,6 +589,6 @@ export default function CompanionPlantingPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }

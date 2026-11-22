@@ -130,6 +130,22 @@
 Quellen (§1.8): [Johnny's Selected Seeds — Growing Greek Oregano From Seed](https://www.johnnyseeds.com/growers-library/herbs/oregano/oregano-greek-key-growing-information.html); [True Leaf Market — Oregano Herb Growing Guide](https://trueleafmarket.com/pages/oregano-herb-growing-guide); [Eden Brothers — How to Plant Oregano Seeds](https://grow.edenbrothers.com/planting-guides/oregano-seeds/); [Richters — Getting Oregano Right](https://www.richters.com/show.cgi?page=MagazineRack%2FArticles%2Foregano.html); [Wikifarmer — Origanum vulgare: Oregano seeds](https://wikifarmer.com/library/en/article/origanum-vulgare-oregano-seeds); [Gardener's Path — How to Plant and Grow Oregano](https://gardenerspath.com/plants/herbs/grow-oregano/)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 20–30 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt keinen Reihenabstand für Oregano; Staude/Kraut in freier Pflanzung --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow oregano“, https://www.rhs.org.uk/herbs/oregano/grow-your-own („space it at least 20–30cm (8–12in) from neighbouring plants“; Mindestabstand) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow oregano“, https://www.rhs.org.uk/herbs/oregano/grow-your-own („Oregano thrives in a warm, sunny location“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -284,6 +300,11 @@ Oregano ist sehr robust. Starke Aromastoffe (Carvacrol, Thymol) wirken als natü
 | Empfohlene Vorfrucht | Beliebig |
 | Empfohlene Nachfrucht | Beliebig |
 | Anbaupause (Jahre) | keine |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; Gruppenangabe: Schwachzehrer sind … Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; keine artspezifische Quelle gefunden |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Oregano als Nicht-Leguminose ausweist --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Lamiaceae; Bestand „keine“ nicht belegt) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -350,4 +371,6 @@ Origanum vulgare,"Oregano;Wilder Majoran;Dost;Wild Marjoram",Lamiaceae,Origanum,
 18. [Richters — Getting Oregano Right](https://www.richters.com/show.cgi?page=MagazineRack%2FArticles%2Foregano.html) — Anbau-/Vermehrungspraxis, Vorkultur vs. Direktsaat
 19. [Wikifarmer — Origanum vulgare: Oregano seeds](https://wikifarmer.com/library/en/article/origanum-vulgare-oregano-seeds) — Saatgutgewicht (~100 mg/1000 Samen), Keimfähigkeitsdauer 3–5 Jahre
 20. [Gardener's Path — How to Plant and Grow Oregano](https://gardenerspath.com/plants/herbs/grow-oregano/) — Lichtkeimer-Bestätigung, Keimdauer 7–14 Tage bei 21 °C
+21. [RHS — How to grow oregano](https://www.rhs.org.uk/herbs/oregano/grow-your-own) — Pflanzabstand mindestens 20–30 cm, warmer sonniger Standort
+22. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Zehrergruppen; Kräuter als Gruppe Schwachzehrer
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

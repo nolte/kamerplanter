@@ -22,7 +22,7 @@ import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
@@ -34,7 +34,7 @@ import {
   deletePlantPhoto,
   type PlantPhoto,
 } from '@/api/endpoints/plantPhotos';
-import PlantPhotoUploadDialog from './PlantPhotoUploadDialog';
+import PlantPhotoUploadDialog from '@/components/photos/PlantPhotoUploadDialog';
 import PlantPhotoLightbox from './PlantPhotoLightbox';
 import PlantPhotoEditDialog from './PlantPhotoEditDialog';
 import PlantPhotoAssessDialog from './PlantPhotoAssessDialog';
@@ -110,7 +110,7 @@ export default function PlantPhotoGallery({
       const result = await listPlantPhotos(plantInstanceKey);
       setPhotos(result.photos);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }

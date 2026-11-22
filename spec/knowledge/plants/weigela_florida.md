@@ -116,6 +116,22 @@
 **Hinweis:** Lichtkompensationspunkt als typische Spanne für laubabwerfende C3-Gehölze unter Halbschatten-Toleranz; der Lichtsättigungspunkt liegt deutlich höher (mehrere hundert µmol/m²/s), gehört aber nicht in das Kompensationspunkt-Feld. Schatten-/Sonnentoleranz `partial_shade`: gedeiht in voller Sonne bis lichtem Halbschatten, blüht in Vollschatten jedoch nicht (RHS, Missouri Botanical Garden). Staunässe `sensitive`: braucht durchlässigen Boden, reagiert empfindlich mit Wurzelfäule (RHS „won't flower well … in soils that are waterlogged"). Salztoleranz „lightly salt tolerant" (NC State, Missouri BG) → Klasse `moderately_sensitive`. pH-Spanne quellentreu auf 5.5–7.0 begrenzt und mit §1.6/§2.3 harmonisiert (RHS toleriert sauer/neutral/alkalisch, kann aber bei pH > 7,5 Eisen-/Mangan-Chlorose zeigen).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Ziergehölz, freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Weigela florida“ (Endgröße 2,5 m hoch und breit laut Beschreibung, kein Pflanzabstand), https://www.rhs.org.uk/plants/101006/wd/details | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle mit Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Weigela florida“ (Position: Full sun, Partial shade; Kulturtext „in sun or partial shade“, kein Vorzug genannt), https://www.rhs.org.uk/plants/101006/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -265,6 +281,11 @@ Einmalige organische Düngung im Frühjahr reicht. Keine Düngung nach August (T
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Ziersträucher |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Mittelzehrer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -301,4 +322,5 @@ Weigela florida,"Liebliche Weigelie;Weigelie;Weigela",Caprifoliaceae,Weigela,per
 9. [Clemson HGIC — Old-Fashioned Weigela](https://hgic.clemson.edu/how-to-grow-and-care-for-old-fashioned-weigela-weigela-florida/) — Sonne, durchlässiger Boden, Bodentypen, USDA-Zonen
 10. [Koppert — Aphidius colemani](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling gegen Blattläuse, Ausbringrate
 11. [Cornell NYSIPM — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Raubmilbe gegen Spinnmilben, Ausbringrate, Etablierungsbedingungen
+12. RHS -- Weigela florida (Position: Full sun, Partial shade; kein Vorzug; Endgröße): https://www.rhs.org.uk/plants/101006/wd/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

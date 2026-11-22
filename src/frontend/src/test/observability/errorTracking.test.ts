@@ -367,6 +367,7 @@ describe('errorTracking', () => {
         urlQueryParams: false,
         graphQL: { document: false, variables: false },
         genAI: { inputs: false, outputs: false },
+        mcp: { inputs: false, outputs: false },
         databaseQueryData: false,
         stackFrameVariables: false,
       });
@@ -429,6 +430,15 @@ describe('errorTracking', () => {
       expect(isSensitiveName('Authorization')).toBe(true);
       expect(isSensitiveName('refresh_token')).toBe(true);
       expect(isSensitiveName('plantName')).toBe(false);
+    });
+
+    it('treats coordinates as personal data (site GPS, own position GP-UX-026)', () => {
+      for (const name of ['latitude', 'longitude', 'gps_coordinates', 'coords', 'geolocation']) {
+        expect(isSensitiveName(name)).toBe(true);
+      }
+      expect(scrubUrl('https://kp.example/x?latitude=52.52&longitude=13.4&tab=map')).toBe(
+        'https://kp.example/x?latitude=[redacted]&longitude=[redacted]&tab=map',
+      );
     });
 
     it('redacts in place and keeps the key visible', () => {

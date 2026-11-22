@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,9 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -33,6 +35,10 @@ import type {
   Site,
   SuccessionPlan,
 } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const schema = z.object({
   name: z.string().min(1).max(200),
@@ -43,6 +49,7 @@ const schema = z.object({
   end_date: z.string().min(1),
   plants_per_batch: z.number().int().min(1),
   reminder_days_before: z.number().int().min(0),
+  batch_duration_days: z.number().int().min(1).max(1095).nullable().optional(),
   site_key: z.string().nullable().optional(),
   location_key: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
@@ -74,7 +81,7 @@ function estimateBatches(
 }
 
 function defaultsFor(plan?: SuccessionPlan | null): FormData {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalIsoDate();
   return {
     name: plan?.name ?? '',
     species_key: plan?.species_key ?? '',
@@ -84,11 +91,15 @@ function defaultsFor(plan?: SuccessionPlan | null): FormData {
     end_date: plan?.end_date ?? today,
     plants_per_batch: plan?.plants_per_batch ?? 1,
     reminder_days_before: plan?.reminder_days_before ?? 3,
+    batch_duration_days: plan?.batch_duration_days ?? null,
     site_key: null,
     location_key: plan?.location_key ?? null,
     notes: plan?.notes ?? null,
   };
 }
+
+/** Stable empty list while no species is chosen, so dependants keep their identity. */
+const NO_CULTIVARS: Cultivar[] = [];
 
 export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: Props) {
   const theme = useTheme();
@@ -101,8 +112,11 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   // asked for one page of 200 against 207 seeded species, and the picker filters
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
-  const [sitesList, setSitesList] = useState<Site[]>([]);
-  const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
+  const speciesFieldId = useId();
+  // Failed reads are shown with a retry, never as an empty picker (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
 
   const isEdit = Boolean(plan);
 
@@ -110,10 +124,11 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   // site_key backfill in edit mode) does not wipe a pre-selected location.
   const skipLocationReset = useRef(true);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: defaultsFor(plan),
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const speciesKey = useWatch({ control, name: 'species_key' });
   const siteKey = useWatch({ control, name: 'site_key' });
@@ -135,10 +150,6 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
     if (open) {
       skipLocationReset.current = true;
       reset(defaultsFor(plan));
-      sitesApi
-        .listSites(0, 200)
-        .then(setSitesList)
-        .catch(() => {});
       // In edit mode the plan carries only location_key. Resolve its parent
       // site so LocationTreeSelect can display and preserve the assignment.
       if (plan?.location_key) {
@@ -148,23 +159,21 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             skipLocationReset.current = true;
             setValue('site_key', loc.site_key);
           })
-          .catch(() => {});
+          .catch((err: unknown) => {
+            // Edit pre-fill only: the stored location stays; only its site is not pre-selected.
+            captureHandledError(err, { source: 'SuccessionPlanDialog.planLocation' });
+          });
       }
     }
   }, [open, plan, reset, setValue]);
 
   // Load cultivars whenever the selected species changes.
-  useEffect(() => {
-    if (!speciesKey) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset cultivars when species cleared
-      setCultivarList([]);
-      return;
-    }
-    speciesApi
-      .listCultivars(speciesKey)
-      .then(setCultivarList)
-      .catch(() => setCultivarList([]));
-  }, [speciesKey]);
+  const loadCultivars = useCallback(
+    (): Promise<Cultivar[]> => speciesApi.listCultivars(speciesKey),
+    [speciesKey],
+  );
+  const cultivarLoad = useAsyncOptions(loadCultivars, { enabled: Boolean(speciesKey) });
+  const cultivarList = speciesKey ? cultivarLoad.options : NO_CULTIVARS;
 
   // Clear the location only on a genuine user-driven site change — never on the
   // initial mount or the async site backfill, which would drop a saved location.
@@ -194,6 +203,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           end_date: data.end_date,
           plants_per_batch: data.plants_per_batch,
           reminder_days_before: data.reminder_days_before,
+          batch_duration_days: data.batch_duration_days ?? null,
           location_key: data.location_key || null,
           notes: data.notes || null,
         });
@@ -208,6 +218,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           end_date: data.end_date,
           plants_per_batch: data.plants_per_batch,
           reminder_days_before: data.reminder_days_before,
+          batch_duration_days: data.batch_duration_days ?? null,
           location_key: data.location_key || null,
           notes: data.notes || null,
         });
@@ -215,14 +226,15 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -252,6 +264,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             autoFocus
           />
           <SpeciesAutocompleteField
+            id={speciesFieldId}
             name="species_key"
             control={control}
             label={t('entities.species')}
@@ -270,12 +283,12 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             A failed load is its own state, not an empty picker (#1628). In edit
             mode the field is locked anyway, so the failure only costs the
             species' display name there — and there is no picker to return
-            focus to, so `focusSelector` is only wired for the create case.
+            focus to, so `focusTargetId` is only wired for the create case.
           */}
           <CatalogueLoadError
             reader={speciesCatalogue}
             impact={isEdit ? 'lookup' : 'picker'}
-            focusSelector={isEdit ? undefined : "[data-testid='form-field-species_key'] input"}
+            focusTargetId={isEdit ? undefined : speciesFieldId}
           />
           <FormSelectField
             name="cultivar_key"
@@ -287,6 +300,9 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
               ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
             ]}
           />
+          {speciesKey && cultivarLoad.error && (
+            <OptionsLoadError onRetry={cultivarLoad.reload} data-testid="succession-cultivars-load-error" />
+          )}
           <FormNumberField
             name="plants_per_batch"
             control={control}
@@ -336,6 +352,16 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
             suffix={t('pages.successionPlans.daysSuffix')}
             helperText={t('pages.successionPlans.reminderDaysBeforeHelper')}
           />
+          <FormNumberField
+            name="batch_duration_days"
+            control={control}
+            label={t('pages.successionPlans.batchDurationDays')}
+            min={1}
+            max={1095}
+            step={1}
+            suffix={t('pages.successionPlans.daysSuffix')}
+            helperText={t('pages.successionPlans.batchDurationDaysHelper')}
+          />
 
           <Alert
             severity={invalidRange ? 'error' : 'info'}
@@ -365,6 +391,9 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
+            {sitesLoad.error && (
+              <OptionsLoadError onRetry={sitesLoad.reload} data-testid="succession-sites-load-error" />
+            )}
             <LocationTreeSelect
               name="location_key"
               control={control}
@@ -396,6 +425,6 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

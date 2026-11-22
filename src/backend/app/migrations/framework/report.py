@@ -89,6 +89,13 @@ class MigrationReport:
         was absent (e.g. no default tenant resolvable while orphaned docs still
         exist).  The runner leaves such a migration *unrecorded* so a later boot
         retries it, and stops the pending loop to keep history linear (M-1).
+    incomplete:
+        ``True`` when the migration did part of its work but not all of it — a
+        tenant's transaction failed, or the after-check still found rows to correct
+        (spec/privacy PRIV-718 ``partial`` / ``verify_failed``).  Handled like
+        ``precondition_unmet``: the runner leaves it *unrecorded* and stops the
+        pending loop, so the next boot runs it again; the migration must therefore
+        be idempotent over what it already did (M-3).
     details:
         Free-form, migration-specific payload (e.g. changed keys, per-collection
         counts) preserved for logging and CLI output.
@@ -101,6 +108,7 @@ class MigrationReport:
     dry_run: bool = False
     duration_ms: float = 0.0
     precondition_unmet: bool = False
+    incomplete: bool = False
     details: dict[str, Any] = field(default_factory=dict)
 
     @property

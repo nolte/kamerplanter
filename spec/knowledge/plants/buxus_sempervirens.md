@@ -122,6 +122,22 @@
 **Hinweis (Salz):** Über alle Salzquellen hinweg (Sprühsalz, Bodensalz, Auftausalz) als salzempfindlich (sensitive) eingestuft — ungeeignet für Küstenlagen und straßennahe Pflanzungen mit Auftausalzeintrag. Bezugsgröße der (hier nicht quantifizierbaren) Schwelle wäre Substrat-ECe, nicht die Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–40 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow box" (o. J.), https://www.rhs.org.uk/plants/box/growing-guide (Hecke aus Buxus sempervirens: ca. 30–40 cm Abstand; kompakte Sorten wie 'Suffruticosa' 10–15 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: „plant box in sun or shade", toleriert sogar tiefen Schatten) --> | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -344,6 +360,11 @@ Kein Stickstoff nach Ende Juli — sonst bildet Buchsbaum weiche, frostempfindli
 | Empfohlene Vorfrucht | — (Dauergehölz) |
 | Empfohlene Nachfrucht | — (Dauergehölz) |
 | Anbaupause (Jahre) | Keine Neupflanzung in Buchsbaumboden (Cylindrocladium-Kontamination): 3–5 Jahre Pause |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze (Dauergehölz) — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (für Buxaceae kein Familienwert) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -411,3 +432,4 @@ Buxus sempervirens,"Buchsbaum;Gemeiner Buchsbaum;Common Box",Buxaceae,Buxus,pere
 19. [gartenjournal.net — Buchsbaum vermehren: So klappt es mit Stecklingen](https://www.gartenjournal.net/buchsbaum-vermehren) — Bewurzelungsdauer ca. 8 Wochen
 20. [RHS — How to grow box (Growing Guide)](https://www.rhs.org.uk/plants/box/growing-guide) — Stecklinge: ca. 8 Wochen (beheizter Vermehrungskasten) bzw. ca. 8 Monate (unbeheizt)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+21. [RHS — How to grow box (Growing Guide)](https://www.rhs.org.uk/plants/box/growing-guide) — Heckenpflanzabstand 30–40 cm; Standort „in sun or shade" (Lichtanspruch ohne Vorzug → nicht abgeleitet)

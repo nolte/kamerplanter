@@ -1,0 +1,113 @@
+/**
+ * The short completion dialog (REQ-053 GP-FR-084/085/088): asks only the fields of the task's
+ * category, all optional, and hands the payload to the caller. "Done" without any input is valid.
+ * Used for one task and, with a count, for several tasks of the same category on several beds.
+ */
+import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import { formKindOf } from './careCategories';
+import { buildCompletionPayload, defaultUnit, emptyForm, validateForm, type CareFormState } from './careForm';
+import CareFormFields from './CareFormFields';
+import type { CompletionPayload } from './careTypes';
+
+interface CareCompletionDialogProps {
+  category: string;
+  /** What is being completed: a task name, or "3 tasks on 3 beds". */
+  subject: string;
+  saving: boolean;
+  onSubmit: (payload: CompletionPayload) => void;
+  onClose: () => void;
+  /** Edge of the action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
+  touchTarget?: number;
+  /** Label of the submit button; field mode says "Finish" (§18.1 step 5). */
+  submitLabel?: string;
+  /** `area_m2` of the task's bed for the area doses (GP-FR-123); `null` or <= 0 disables g/m² and L/m². */
+  areaM2?: number | null;
+}
+
+export default function CareCompletionDialog({
+  category,
+  subject,
+  saving,
+  onSubmit,
+  onClose,
+  touchTarget = 48,
+  submitLabel,
+  areaM2,
+}: CareCompletionDialogProps) {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const now = useMemo(() => new Date(), []);
+  const [state, setState] = useState<CareFormState>(() => ({
+    ...emptyForm(now),
+    unit: defaultUnit(formKindOf(category), areaM2),
+  }));
+  const [showErrors, setShowErrors] = useState(false);
+  const errors = showErrors ? validateForm(state, new Date(), { category, areaM2 }) : {};
+
+  const submit = () => {
+    const found = validateForm(state, new Date(), { category, areaM2 });
+    if (Object.keys(found).length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    onSubmit(buildCompletionPayload(state, category));
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={saving ? undefined : onClose}
+      fullScreen={fullScreen}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="care-complete-title"
+      data-testid="care-complete-dialog"
+    >
+      <DialogTitle id="care-complete-title">
+        {t('pages.bed.care.complete.title', { category: t(`enums.taskCategory.${category}`) })}
+      </DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        <Typography variant="body2" color="text.secondary" data-testid="care-complete-subject">
+          {subject}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {t('pages.bed.care.complete.optionalHint')}
+        </Typography>
+        <CareFormFields
+          category={category}
+          state={state}
+          errors={errors}
+          onChange={(patch) => setState((current) => ({ ...current, ...patch }))}
+          now={now}
+          areaM2={areaM2}
+          testId="care-complete"
+          touchTarget={touchTarget}
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={submit}
+          loading={saving}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
+          data-testid="care-complete-submit"
+        >
+          {submitLabel ?? t('pages.bed.care.complete.submit')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

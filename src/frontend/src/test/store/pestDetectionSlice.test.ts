@@ -157,24 +157,24 @@ describe('pestDetectionSlice — reducers & actions', () => {
     expect(state.result).toBeNull();
   });
 
-  it('detectPests rejected falls back to action.error.message when no payload', () => {
+  it('detectPests rejected falls back to a key derived from action.error when no payload (#3013)', () => {
     const state = reducer(undefined, {
       type: detectPests.rejected.type,
       payload: undefined,
       error: { message: 'thrown thunk failure' },
     });
-    expect(state.error).toBe('thrown thunk failure');
+    expect(state.error).toBe('errors.generic');
     expect(state.errorCode).toBeNull();
     expect(state.detecting).toBe(false);
   });
 
-  it('detectPests rejected falls back to the literal message when nothing is present', () => {
+  it('detectPests rejected falls back to the generic key when nothing is present (#3013)', () => {
     const state = reducer(undefined, {
       type: detectPests.rejected.type,
       payload: undefined,
       error: {},
     });
-    expect(state.error).toBe('Detection failed');
+    expect(state.error).toBe('errors.generic');
   });
 });
 
@@ -244,12 +244,13 @@ describe('pestDetectionSlice — detectPests (plant-scoped) + error mapping', ()
     expect(state.detecting).toBe(false);
   });
 
-  it('falls back to the API message for an unmapped error code', async () => {
+  it('maps an unmapped error code to a translated key, not the API message (#3013)', async () => {
     server.use(http.post(DETECT_PLANT_URL, () => errorEnvelope('SOMETHING_ELSE', 'specific msg', 400)));
     const store = makeStore();
     await store.dispatch(detectPests({ plantKey: 'plant-1', image: jpg() }));
     const state = store.getState().pestDetection;
-    expect(state.error).toBe('specific msg');
+    // #3013: an unmapped code at 400 reads as a validation refusal.
+    expect(state.error).toBe('errors.validation');
     expect(state.errorCode).toBe('SOMETHING_ELSE');
   });
 

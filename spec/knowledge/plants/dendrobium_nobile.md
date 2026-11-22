@@ -120,6 +120,22 @@
 **Hinweis (Salz):** Die ECe-Schwelle bezieht sich auf die **Substrat-Leitfähigkeit (ECe)**, nicht auf die Gießwasser-EC. Empfindlichkeit gegen Versalzung ist hoch — bereits ab 2 dS/m sinken Blatt- und Blütenzahl; ab 4 dS/m leiden Pseudobulben/Infloreszenzen. Konsistent mit dem light_feeder-Status (§1.1) und der niedrigen Nährlösungs-EC (0.4–0.8 mS, §2.3).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Dendrobium nobile", https://www.rhs.org.uk/plants/5542/dendrobium-nobile/details (Position: Partial shade; Spätfrühling bis Sommer Halbschatten mit guter Belüftung, Herbst bis Frühjahr gut belichtet) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -359,3 +375,4 @@ Dendrobium nobile,"Dendrobium-Orchidee;Edle Dendrobie;Bambusorchidee;Noble Dendr
 21. [Gardening Know How — Orchid Keiki Care](https://www.gardeningknowhow.com/ornamental/flowers/orchids/orchid-keiki-care.htm) — Keiki-Entwicklung an Dendrobium-Bulben/-Canes, eigenständige Wurzelbildung vor Trennung
 22. [Biology Insights — How to Propagate and Care for Dendrobium Orchids](https://biologyinsights.com/how-to-propagate-and-care-for-dendrobium-orchids/) — Cane-Segment-Technik (blattlose Canes in knotenhaltige Abschnitte teilen, auf Sphagnum zur Keiki-Induktion), Beleg `cutting_stem` als eigenständige Zusatzmethode
 <!-- /Quelle: Growing-Phase-Audit 2026-07 -->
+23. [RHS — Dendrobium nobile](https://www.rhs.org.uk/plants/5542/dendrobium-nobile/details) — Position Partial shade, Standort Sommer/Winter (light_requirement)

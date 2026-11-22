@@ -7,13 +7,16 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.22 | 2026-11-15 | **#2857 Teil B:** `LifecycleConfig.photoperiod_type` und `PhaseSequence.photoperiod_type` haben den zusätzlichen Wert `unspecified` als Vorgabe (vorher `day_neutral`, das damit von „nie eingestuft“ nicht zu unterscheiden war). `unspecified` löst wie `day_neutral` keinen Photo-Trigger aus (E1) und greift in keiner Resolver-Regel (§D14). Migration v0113 überführt gespeicherte Vorgabewerte; der Saatlauf setzt einen Typ nur aus einer Quelle (`lifecycle_configs`, `lifecycles_outdoor.yaml`). Verbraucher: Zelt-Hinweis REQ-053 §9.2a v1.51 (tagneutrale Pflanzen ohne Konflikt, Datenfehler „Kurztagpflanze mit Langtag-Profil in der Blüte“). |
+| 2.21 | 2026-11-13 | **#2857 Teil A:** `RequirementProfile.photoperiod_source` (`sourced` / `generated` / `default` / leer) nennt die Herkunft von `photoperiod_hours`; der Server setzt sie, nie der Client: Speichern im Profil-Editor (POST/PUT) ergibt `sourced`, der Generator `generated` bzw. `default`, Saatdaten aus Steckbrief-Phasen `sourced`. Für Arten mit nur allgemeinen Phasen überträgt die Tabelle `species.yaml` `steckbrief_phase_photoperiods` Steckbrief-Lichtstunden je Phase (zuerst Hanf), gegen den Steckbrief geprüft (`seed_steckbrief_consistency`). Additiv, keine Migration. Verbraucher: Zelt-Hinweis REQ-053 §9.2a (v1.42). |
+| 2.20 | 2026-11-06 | **E8 an E-17 Variante A angeglichen (REQ-053 §32.3, Betreiberantwort #2643 Frage 1, #2685):** Die EC-Zielwerte je Phase werden **nicht** mehr nach Zehrerstufe skaliert — weder im Boden noch in Substrat/Nährlösung (die EC-Logik von REQ-004-A bleibt phasenbasiert und braucht kein `nutrient_demand`). Das Alt-Feld `species.nutrient_demand_level` (vier Werte inkl. `nitrogen_fixer`) ist abgelöst durch `nutrient_demand` (drei Stufen) + `nitrogen_fixing` (REQ-001 v4.11, REQ-053 §16.3); die Zehrerstufe steuert Hinweistext (REQ-053 GP-FR-125) und Fruchtfolge, nie eine Menge. Boden-EC ist nur ein Salz-Hinweis (REQ-053 §15.1). |
 | 2.18 | 2026-08-07 | **Resolver-Fallback, Zuweisungspunkt und MCP-Oberfläche (Issue #949):** (1) **§D14 Regel 6 aufgespalten:** Die bisherige Sammelregel „annuell / biennial / **unbekannt** → `indoor_default`" wertete *Abwesenheit einer Antwort* als die stärkstmögliche aus. Eine Art ohne LifecycleConfig (null-`cycle_type`) landete auf einem 126-Tage-Zyklus mit terminaler, ernte-erlaubender Schlussphase — eine _Yucca gigantea_ (immergrün, perennierend, polykarp) war dadurch 126 Tage nach dem Pflanzen als erntereif und lebenszyklus-beendet eingeplant. Neu: Regel 6 gilt nur für **bekannt** determinierte Zyklen (`annual`/`biennial`), Regel 7 schickt jeden unauflösbaren Fall auf `evergreen_foliage_perennial` — eine Sicherheits-, keine botanische Regel (die beiden Irrtümer kosten nicht gleich viel). `LifecycleCreate.cycle_type` verliert seinen `annual`-Default und wird Pflichtfeld. (2) **Null-Semantik dokumentiert:** neue Tabelle in §D14, die je Resolver-Input Quelle und Wirkung eines fehlenden Werts benennt — das Verhalten war aus keinem Schema ablesbar, obwohl `photosynthesis_type` innerhalb `indoor_houseplant` ein tragender Diskriminator ist. (3) **Neuer §D15:** der schreibbare Zuweisungspunkt (`phase_sequence_key` im Lifecycle-Schreib-Schema; `PhaseService.assign_phase_sequence` als einzige Stelle, die Kante **und** Feld schreibt; Auslassung löscht nie) — vorher quittierten beide Schreibwege mit `200`, ohne etwas Dauerhaftes zu ändern. Dazu die acht MCP-Werkzeuge der Phasen-Ebene inkl. `phase_state`, das `never_initialised` von `unresolved` trennt. Sequenz-Authoring bleibt außerhalb der Palette. Siehe REQ-033 §2.1/§2.2/§2.3. |
 | 2.17 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586 → #616):** Der in v2.15 nur als Changelog-Notiz geführte **attributgetriebene Sequenz-Resolver** wird zur **First-Class-Spezifikation** ausgebaut (neuer Abschnitt **§D14**): (1) explizite Präzedenz-Kaskade `flowering_strategy → photosynthesis_type → photoperiod_type → growth_habit → cycle_type` als geordnete Entscheidungsregel mit Zuordnungstabelle; (2) `indoor_default` verbindlich als **Last-Resort-Fallback** deklariert (nur annuell/biennial/unbekannt), nicht als Blankett; (3) die 8 Audit-Archetypen (`cam_succulent_rest`, `cam_double_rest`, `clonal_monocarp`, `photoperiodic_ornamental`, `palm_evergreen`, `fern_spore`, `geophyte_fine`, `evergreen_foliage_perennial`) als benannte First-Class-Sequenzen in den Katalog aufgenommen (Deckung geprüft gegen `phase_sequences.yaml`: 21 Sequenzen / 28 `phase_definitions` auf `develop`); (4) Faktenkorrektur der Migration-Referenz (v0025 → real **v0027**) und der Kohorten-Ausnahmen (Cannabis annuell, Herbst-Anemone + Allium via WP-8 outdoor). Verweis REQ-001 v4.7 (drei Lifecycle-Achsen als **Pflicht-Resolution-Inputs**), REQ-047 (Dormanz-Kopplung der neuen Rest-Phasen bestätigt). Reine Spec-Schärfung, keine Code-/Seed-Änderung — beschreibt den auf `develop` bereits gelandeten Zustand. |
 | 2.16 | 2026-07-19 | **ADR-006 E6 Umsetzung (Epic #565 Nachzügler, WP-6/#615 — `cultivation_flexible`-Flag):** Additives Boolean `Species.cultivation_flexible` (default `false`) macht die in v2.13 (E1/#605) eingeführte per-Instanz-Kulturführungs-Wahl **botanisch gated**: Der „Kulturführung"-Select im Plant-Instance-Create-Flow wird nur noch für **fakultative** Arten angeboten (die genuin annuell ODER perennial gezogen werden können), sonst versteckt + informativer Hinweis. Die Steckbrief-belegte Kohorte (Tomate, Paprika, Aubergine, Andenbeere, Basilikum, Geranie, Petunie, Verbene, Stiefmütterchen, Erdbeere, Wachsbegonie, Fleißiges Lieschen) ist in `species.yaml/lifecycle_overrides` geflaggt und wird per idempotentem Seed-Pass (`seed_cultivation_flexible`) auf die Species-Records angewendet; strikt einjährig gezogene botanische Perennials (Kartoffel, Kapuzinerkresse) bleiben bewusst ungeflaggt. `resolve_effective_cycle`-Semantik (v2.13) **unverändert** (non-flexible → Art-Default). Additiv/non-breaking, **keine Migration** (schemaloses Feld, default false). #297 unangetastet — das Flag drückt die *Fähigkeit* aus, nicht den Wert. Siehe REQ-001 v4.6. |
@@ -91,6 +94,12 @@ Zyklen statt eines einmaligen linearen Durchlaufs. Das System unterstützt:
     - `dli_target_mol: Optional[float]` (Daily Light Integral in mol/m²/Tag — DLI = PPFD × h × 3600 / 1.000.000; Zimmerpflanzen Niedriglicht: 2-5, Zimmerpflanzen Mittellicht: 5-12, Zimmerpflanzen Hochlicht: 12-20, Salate: 12-17, Kräuter: 15-20, Tomaten: 20-30, Cannabis: 35-45. Hinweis: Nordfenster Deutschland Winter ≈ 1-2 mol/m²/d — unter Minimum für fast alle Zimmerpflanzen.)
     - `dli_min_mol: Optional[float]` (Minimaler DLI unter dem die Pflanze langfristig Schaden nimmt. Zimmerpflanzen: Schattentolerante 1.5, Halbschatten 3.0, Helles Licht 5.0, Volle Sonne 10.0)
     - `photoperiod_hours: float`
+    - `photoperiod_source: Optional[Literal['sourced', 'generated', 'default']]` (Herkunft von `photoperiod_hours`, #2857 — additiv, vom Server gesetzt, nie vom Client:
+      - `sourced` — der Wert stammt aus einem Steckbrief (Phasenblock `growth_phases` der Saatdaten, `plant_info*.yaml`, `adventskalender.yaml`; für Arten, die nur die allgemeinen `default_phases` haben, die Tabelle `species.yaml` `steckbrief_phase_photoperiods` mit Verweis auf Steckbrief-Überschrift und -Zeile, abgeglichen durch `seed_steckbrief_consistency`) oder eine Person hat ihn im Profil-Editor eingetragen bzw. gespeichert (`POST`/`PUT /profiles/requirements`). Nur dieser Wert ist eine Aussage über die Pflanze.
+      - `generated` — der Profil-Generator hat ihn aus seiner Phasennamen-Tabelle genommen (eingebaute Tabelle oder `species.yaml` `default_phases`; eine Tabelle für alle Arten, z. B. vegetativ 18 h, Blüte 12 h). Auch `POST /profiles/generate-defaults/{phase_key}`.
+      - `default` — niemand hat ihn gewählt: Die Tabelle kennt den Phasennamen nicht oder nennt keine Lichtdauer, es gilt der Rückfallwert 18,0 h.
+      - `null` — Profil aus der Zeit vor diesem Feld, Herkunft unbekannt. Ohne Datenmigration: Der Saatlauf beim Start stempelt `sourced` überall dort, wo ein Steckbrief die Lichtdauer der Phase nennt (auch bei unverändertem Wert; `adventskalender.yaml` nur, wenn der gespeicherte Wert noch dem Steckbrief entspricht). Werte, die kein Steckbrief nennt, behalten ihre Herkunft — ein Generatorwert wird nie zu `sourced` umetikettiert.
+      Verbraucher: der Zelt-Hinweis (REQ-053 §9.2a, V-23) wertet nur `sourced` aus.)
     - `light_spectrum: dict` (z.B. {"blue": 0.25, "green": 0.20, "red": 0.45, "far_red": 0.10}. Zimmerpflanzen: Breitbandiges Weißlicht (2700–6500K CCT) empfohlen. Tropische Grünpflanzen: hoher Blauanteil (400–500nm) für kompakten Wuchs. Sukkulenten: hoher Rotanteil + UV für Stressfärbung. Kurztagspflanzen (Kalanchoe, Schlumbergera): R:FR > 1.5 für Kompaktheit, Far-Red (730nm) für Blüteninduktion.)
     - `temperature_day_c: float`
     - `temperature_night_c: float`
@@ -1816,6 +1825,7 @@ artspezifische kritische Tageslänge (`lifecycle_configs.critical_day_length_hou
 - **Kurztagpflanze** (`photoperiod_type='short_day'`): löst Blühinduktion aus, wenn Tageslänge < kritisch
   (Cannabis 12/12, Weihnachtsstern, Chrysantheme, Kalanchoe → `flowering`/`short_day_induction`).
 - **Langtagpflanze** (`long_day`): löst aus, wenn Tageslänge > kritisch. `day_neutral`: kein Photo-Trigger.
+  `unspecified` (Vorgabe seit #2857, Art nicht aus einer Quelle eingestuft): ebenfalls kein Photo-Trigger.
 - **Quelle der Tageslänge:** Indoor aus dem Licht-Aktor/Schaltplan (REQ-018); Outdoor aus astronomischer
   Tageslänge (Standort REQ-002 + Datum). Damit ist der Blüh-Umschlag automatisierbar statt nur `manual`.
 - **Abgrenzung:** Autoflower bleibt `time_based` (`autoflower_days_to_flower`, kein Photo-Trigger — G-009).
@@ -1908,8 +1918,9 @@ Phasen-Regelwerk:
 ### E8 — Nährstoffbedarf über den Lebenszyklus
 
 Nährstoffversorgung ist **phasengetrieben**: `nutrient_profiles.npk_ratio` + `target_ec_ms` + `target_ph` je
-Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
-(`heavy_feeder`/`medium_feeder`/`light_feeder`/`nitrogen_fixer`). Phasen-Regelwerk:
+Phase. Die EC-Zielwerte werden **nicht** nach Zehrerstufe skaliert (E-17 Variante A, REQ-053 §32.3): eine
+Zehrerstufe ohne Quelle als Faktor auf die EC drängt zur Überdüngung, und im Freilandboden ist EC ein Salz-Indikator,
+kein Dosierziel. Phasen-Regelwerk:
 
 | Phase(n) | NPK-Tendenz | EC | Hinweis |
 |---|---|---|---|
@@ -1920,9 +1931,13 @@ Phase, skaliert durch die Art-Basis `species.nutrient_demand_level`
 | `flushing` | **0:0:0** (Flush erlaubt, validiert) | ~0 | Rest-Salze austragen |
 | `dormancy`, `winter_rest`, `summer_rest` | **keine Düngung** | – | Ruhephasen: Stoffwechsel reduziert |
 
-- **Feeder-Skalierung:** `heavy_feeder` (Tomate, Kohl) → oberes EC-Band + organische Grunddüngung
-  (g/m², REQ-004); `light_feeder`/`nitrogen_fixer` (Kräuter, Hülsenfrüchte) → unteres Band, N-Fixierer brauchen
-  wenig/keinen N-Zusatz.
+- **Zehrerstufe und Stickstofffixierung:** `species.nutrient_demand` (`heavy_feeder`/`medium_feeder`/`light_feeder`)
+  und das getrennte Merkmal `species.nitrogen_fixing` (REQ-001, REQ-053 §16.3) verändern keine EC-Zahl. Sie steuern
+  im Freiland den Hinweistext des Nährstoff-Hinweises (REQ-053 GP-FR-125) und die Fruchtfolge; die organische
+  Grunddüngung dosiert nach Fläche (g/m², REQ-004). Für eine Art mit `nitrogen_fixing = true` warnt die
+  Flächendosierung vor stickstoffhaltigen Düngern.
+- **Boden-EC:** Die `ec_ms_cm` des Bodenprofils ist nur ein Salz-Grenzwert-Hinweis, gelesen je `ec_method`; die
+  Schwelle ist konfigurierbar und ohne Quelle `null` (kein Hinweis, E-10; REQ-053 §15.1).
 - **pH-Gating:** Mikronährstoff-Verfügbarkeit ist pH-abhängig (`soil_ph_preference`, REQ-001; die meisten
   Mikros bei pH 6.0–6.5, Mo invers) — `target_ph` je Phase steuert die Aufnahme.
 - **Cross-Ref:** Mischreihenfolge/EC-net/Produkte REQ-004; organische Freiland-Flächendosierung REQ-004

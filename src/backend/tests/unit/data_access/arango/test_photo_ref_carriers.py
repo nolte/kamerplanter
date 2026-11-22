@@ -42,6 +42,12 @@ _MODEL_TO_COLLECTION: dict[str, str] = {
     "HarvestObservation": col.HARVEST_OBSERVATIONS,
     "Inspection": col.INSPECTIONS,
     "StorageObservation": col.STORAGE_OBSERVATIONS,
+    "CareEvent": col.CARE_EVENTS,
+    # The request base of ``POST /care-events`` and its supersede (WP 4.1, #2400): the same carrier as it is
+    # sent, before it is stored as ``CareEvent``. Mapped (not excused) so a collection change moves both.
+    "_CareEventFields": col.CARE_EVENTS,
+    # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed.
+    "Location": col.LOCATIONS,
 }
 
 
@@ -138,11 +144,18 @@ def test_the_set_is_not_empty():
 #: Fields that look like an attachment reference and are not one. Each names why,
 #: so the list cannot quietly grow into "everything the scan complained about".
 _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
+    "CareEvent.product_ref": "{kind, key} of a fertilizer / product document (REQ-053 §20.10), not an attachment",
+    "CareEvent.source_ref": "{collection, key} of the specialist event it mirrors (§20.10), not an attachment",
+    "CareEventOrigin.source_ref": "the server-side form of CareEvent.source_ref (WP 4.1), not an attachment",
+    "_CareEventFields.product_ref": "{kind, key} of a fertilizer in the request (WP 4.1), not an attachment",
+    "TaskCompletionDetails.product_ref": "{kind, key} of a fertilizer in the completion request (WP 4.3)",
+    "CompletedTask.domain_ref": "{collection, key} of the specialist document a completion wrote (WP 4.3)",
     "Task.source_run_ref": "points at a PlantingRun, not an attachment",
     "Task.external_ref": "an external system's identifier (InvenTree et al.), not a document key",
     "WeatherSourcePublicConfig.api_key_ref": "names a secret in the key store, not an attachment",
     "McpAuditLog.api_key_ref": "a salted HMAC reference to an api_keys document (#2130), not an attachment",
     "McpAuditLog.client_ip_ref": "the client address truncated the R-03 way (#2130), not an attachment",
+    "LampProps.ppfd_ref": "a reference PPFD value of a lamp in µmol/m²/s (REQ-053 §9.8, #2326), a number",
     # Holds real attachment ids, and still adds no reference the sweep does not
     # already see: ``PlantDiaryService`` refuses an analysis whose
     # ``analyzed_photo_ids`` are not a subset of the entry's own ``photo_refs``
@@ -155,6 +168,13 @@ _NOT_AN_ATTACHMENT_REFERENCE: dict[str, str] = {
     "DiaryAnalysis.analyzed_photo_ids": (
         "validated to be a subset of the entry's photo_refs, which is already scanned"
     ),
+    # REQ-053 WP 8.18 (#2661): transient, never stored. The ids a committed bed delete read from the deleted beds'
+    # ``photo_refs`` in its transaction, handed to the discard - which asks the reference scan before anything goes.
+    "PlanBatchOutcome.released_photo_refs": "the deleted beds' photo_refs, read in the transaction; never stored",
+    "PlanBatchResult.released_photo_refs": "the same ids carried to the caller (excluded from the response)",
+    "PlanImportReport.released_photo_refs": "the same ids of a replace import or restore (excluded from the response)",
+    # The answer of ``GET /locations/{key}/photos``: a copy of ``Location.cover_photo_ref``, which is scanned.
+    "LocationPhotoGallery.cover_photo_ref": "a response projection of Location.cover_photo_ref; never stored",
 }
 
 #: Fields the sweep resolves through ``ATTACHMENT_REF_FIELDS`` rather than through
@@ -163,7 +183,13 @@ _RESOLVED_BY_FIELD_TUPLE = {
     "PlantInstance.cover_photo_ref",
     "PestImageContribution.attachment_id",
     "Pest.reference_image_refs",
+    "SiteUnderlay.attachment_key",
+    "Location.cover_photo_ref",
 }
+
+#: Where a field sits on its collection's document when that is not the field name itself: the underlay is
+#: nested in the site's embedded plan.
+_DOCUMENT_PATH: dict[str, str] = {"SiteUnderlay.attachment_key": "plan.underlay.attachment_key"}
 
 
 #: Word stems that make a field name *about* an attachment.
@@ -259,7 +285,7 @@ def test_every_reference_shaped_field_is_accounted_for():
 def test_the_field_tuple_and_the_expectation_agree():
     """The tuple the query uses matches what this file claims it covers."""
     declared = {field for _collection, field in ATTACHMENT_REF_FIELDS}
-    expected = {name.split(".", 1)[1] for name in _RESOLVED_BY_FIELD_TUPLE}
+    expected = {_DOCUMENT_PATH.get(name, name.split(".", 1)[1]) for name in _RESOLVED_BY_FIELD_TUPLE}
 
     assert declared == expected, (
         f"ATTACHMENT_REF_FIELDS covers {sorted(declared)} while this file expects "

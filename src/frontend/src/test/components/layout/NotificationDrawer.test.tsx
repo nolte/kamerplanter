@@ -1,6 +1,6 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -121,6 +121,70 @@ describe('NotificationDrawer', () => {
     await waitFor(() => expect(onCountChange).toHaveBeenCalledWith(0));
   });
 
+  it('shows a failed load with a retry instead of the empty state (#3037)', async () => {
+    let calls = 0;
+    server.use(
+      http.get(BASE, () => {
+        calls += 1;
+        return calls === 1
+          ? HttpResponse.json({ message: 'boom' }, { status: 500 })
+          : HttpResponse.json({ items: [makeNotif({ key: 'n1', title: 'Gießen' })], total: 1, unread_count: 1 });
+      }),
+    );
+    renderDrawer(<NotificationDrawer open onClose={noop} onCountChange={noop} />);
+
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    // A failed read is not "no notifications".
+    expect(screen.queryByText('Keine Benachrichtigungen')).toBeNull();
+
+    await userEvent.setup().click(retry);
+    expect(await screen.findByText('Gießen')).toBeInTheDocument();
+    expect(calls).toBe(2);
+  });
+
+  it('ignores a stale page that fails after the drawer was reopened (#3037)', async () => {
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let calls = 0;
+    server.use(
+      http.get(BASE, async () => {
+        calls += 1;
+        if (calls === 1) {
+          await firstGate;
+          return HttpResponse.json({ message: 'boom' }, { status: 500 });
+        }
+        return HttpResponse.json({ items: [makeNotif({ key: 'n1', title: 'Frisch' })], total: 1, unread_count: 1 });
+      }),
+    );
+    function Harness() {
+      const [open, setOpen] = useState(true);
+      return (
+        <>
+          <button type="button" data-testid="toggle-drawer" onClick={() => setOpen((o) => !o)} />
+          <NotificationDrawer open={open} onClose={noop} onCountChange={noop} />
+        </>
+      );
+    }
+    renderDrawer(<Harness />);
+    await waitFor(() => expect(calls).toBe(1));
+
+    // Close and reopen: the reopen's read supersedes the pending first one. `fireEvent`,
+    // because the open modal drawer marks the rest of the page aria-hidden.
+    fireEvent.click(screen.getByTestId('toggle-drawer'));
+    fireEvent.click(screen.getByTestId('toggle-drawer'));
+    expect(await screen.findByText('Frisch')).toBeInTheDocument();
+
+    // The superseded read now fails — its error must not cover the fresh list.
+    releaseFirst();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    });
+    expect(screen.getByText('Frisch')).toBeInTheDocument();
+    expect(screen.queryByTestId('error-display')).toBeNull();
+  });
+
   it('does not render drawer content while closed', () => {
     useList([makeNotif({ key: 'n1' })]);
     renderDrawer(
@@ -172,12 +236,85 @@ describe('NotificationDrawer', () => {
     ]);
     const onClose = vi.fn();
     const user = userEvent.setup();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    // A real link (#3047): it can be opened in a new tab and is announced as one.
+    const action = await screen.findByTestId('notification-action-n1');
+    expect(action.tagName).toBe('A');
+    expect(action).toHaveAttribute('href', '/dashboard');
+    await user.click(action);
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(router.state.location.pathname).toBe('/dashboard');
+  });
+
+  it('keeps the drawer open on a modified click, which opens the link in a new tab (#3047)', async () => {
+    useList([
+      makeNotif({ key: 'n1', title: 'Mit Link', read_at: null, action_url: '/dashboard' }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const action = await screen.findByTestId('notification-action-n1');
+    await user.keyboard('{Control>}');
+    await user.click(action);
+    await user.keyboard('{/Control}');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('ignores a right click: neither marks read nor closes (#3069 SCR-002)', async () => {
+    const items = [
+      makeNotif({ key: 'n1', title: 'Rechtsklick', read_at: null, action_url: '/dashboard' }),
+      makeNotif({ key: 'n2', title: 'Mittelklick', read_at: null, action_url: '/dashboard' }),
+    ];
+    useList(items);
+    const readKeys: string[] = [];
+    server.use(
+      http.post(`${BASE}/:key/read`, ({ params }) => {
+        readKeys.push(String(params.key));
+        const found = items.find((n) => n.key === params.key)!;
+        return HttpResponse.json({ ...found, read_at: new Date().toISOString() });
+      }),
+    );
+    const onClose = vi.fn();
+    const { router } = renderDrawer(
+      <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
+    );
+
+    const rightClicked = await screen.findByTestId('notification-action-n1');
+    fireEvent(rightClicked, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 2 }));
+    // Control: a middle click on the other card IS an activation — it marks read and keeps the drawer open.
+    // Its request is issued after any the right click would have issued, so once it arrived, n1's would have.
+    fireEvent(
+      screen.getByTestId('notification-action-n2'),
+      new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }),
+    );
+    await waitFor(() => expect(readKeys).toContain('n2'));
+    expect(readKeys).not.toContain('n1');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(router.state.location.pathname).toBe('/');
+  });
+
+  it('does not follow an action url that leaves the app (#3012)', async () => {
+    useList([
+      makeNotif({ key: 'n1', title: 'Fremder Link', read_at: '2024-01-01T00:00:00Z', action_url: '/\\evil.com' }),
+    ]);
+    const onClose = vi.fn();
+    const user = userEvent.setup();
     renderDrawer(
       <NotificationDrawer open onClose={onClose} onCountChange={noop} />,
     );
 
-    await user.click(await screen.findByTestId('notification-action-n1'));
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const action = await screen.findByTestId('notification-action-n1');
+    // `/\evil.com` is `//evil.com` to a browser: no link, no navigation, the drawer stays open.
+    expect(action).not.toHaveAttribute('href');
+    await user.click(action);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('does not close when a read notification without action url is clicked', async () => {

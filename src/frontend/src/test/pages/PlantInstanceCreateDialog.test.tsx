@@ -80,6 +80,28 @@ describe('PlantInstanceCreateDialog', () => {
     });
   });
 
+  /**
+   * #3016: `planted_on` defaulted to the UTC day (`toISOString()` cut to the date), so between 00:00 and
+   * 02:00 CEST a plant created "today" was planted yesterday. The default is the user's local date.
+   */
+  it('defaults planted_on to the local date at 00:30 CET, not the UTC day', async () => {
+    const zone = process.env.TZ;
+    process.env.TZ = 'Europe/Berlin';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-17T23:30:00Z')); // 2026-11-18 00:30 CET
+    try {
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      const field = await screen.findByTestId('form-field-planted_on');
+      expect((field.querySelector('input') as HTMLInputElement).value).toBe('2026-11-18');
+    } finally {
+      vi.useRealTimers();
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    }
+  });
+
   it('frames the current-phase field as actual-state capture via helper text', async () => {
     renderWithProviders(
       <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
@@ -605,6 +627,24 @@ describe('PlantInstanceCreateDialog', () => {
       expect(payloads[0].current_phase_key).toBe('seq-entry-germination');
     });
 
+    it('labels the PhaseSequence phases with the German catalogue name in the German UI (#2889)', async () => {
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () =>
+          HttpResponse.json(phaseSequenceWithEntries()),
+        ),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+      await waitForPhaseOptions();
+      const field = screen.getByTestId('form-field-current_phase_key');
+      // The pre-selected first entry is germination: `display_name_de` "Keimung", never the English "Germination".
+      expect(within(field).getByRole('combobox')).toHaveTextContent('Keimung');
+      expect(within(field).getByRole('combobox')).not.toHaveTextContent('Germination');
+    });
+
     it('falls back to LifecycleConfig growth phases when the species has no PhaseSequence (#626)', async () => {
       const payloads: Array<{ current_phase_key: string | null }> = [];
       server.use(
@@ -628,6 +668,54 @@ describe('PlantInstanceCreateDialog', () => {
       // (gp-veg, sequence_order 1) — unchanged behaviour for LifecycleConfig-only
       // species.
       expect(payloads[0].current_phase_key).toBe('gp-veg');
+    });
+
+    it('shows a failed phase read with a retry, and the retry offers the phases (#3037)', async () => {
+      let failed = false;
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () => {
+          if (failed) return HttpResponse.json(phaseSequenceWithEntries());
+          failed = true;
+          return HttpResponse.json(
+            { error_id: 'e', error_code: 'X', message: 'boom', details: [] },
+            { status: 500 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+
+      await user.click(await screen.findByTestId('plant-create-phases-load-error-retry'));
+      await waitForPhaseOptions();
+      expect(screen.queryByTestId('plant-create-phases-load-error')).toBeNull();
+      expect(
+        within(screen.getByTestId('form-field-current_phase_key')).getByRole('combobox'),
+      ).toHaveTextContent('Keimung');
+    });
+
+    it('treats a species without a lifecycle (404) as having no phases, not as a failure (#3037)', async () => {
+      let lifecycleCalls = 0;
+      server.use(
+        http.get('/api/v1/species/:key/phase-sequence', () => HttpResponse.json(null)),
+        http.get('/api/v1/species/:key/lifecycle', () => {
+          lifecycleCalls += 1;
+          return HttpResponse.json(
+            { error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'nope', details: [] },
+            { status: 404 },
+          );
+        }),
+      );
+      const user = userEvent.setup();
+      renderWithProviders(
+        <PlantInstanceCreateDialog open onClose={() => {}} onCreated={() => {}} />,
+      );
+      await selectTomato(user);
+
+      await waitFor(() => expect(lifecycleCalls).toBeGreaterThan(0));
+      expect(screen.queryByTestId('plant-create-phases-load-error')).toBeNull();
     });
   });
 

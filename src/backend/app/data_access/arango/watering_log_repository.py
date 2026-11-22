@@ -255,6 +255,10 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
         Structural twin of ``ArangoWateringRepository.get_last_watering_date_for_run``
         and closed for the same reason: the query selects logs by a slot-key
         intersection and named no tenant.
+
+        The run's slots are the ones its plants stand in now - their own ``slot_key``,
+        not their ``placed_in`` edges: those keep the slots a plant left, and a plant
+        moved before #2948 has none to its current slot (#2774).
         """
         self._require_tenant_key(tenant_key, "get_last_watering_date_for_run")
         query = """
@@ -262,9 +266,9 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
           FOR rc IN @@run_contains
             FILTER rc._from == @run_id
             FILTER rc.detached_at == null
-            FOR pi IN @@placed_in
-              FILTER pi._from == rc._to
-              RETURN PARSE_IDENTIFIER(pi._to).key
+            LET plant = DOCUMENT(rc._to)
+            FILTER plant != null AND plant.slot_key != null
+            RETURN plant.slot_key
         )
         FOR wl IN @@watering_logs
           FILTER wl.tenant_key == @tenant_key
@@ -278,7 +282,6 @@ class ArangoWateringLogRepository(BaseArangoRepository[WateringLog], IWateringLo
             query,
             bind_vars={
                 "@run_contains": col.RUN_CONTAINS,
-                "@placed_in": col.PLACED_IN,
                 "@watering_logs": col.WATERING_LOGS,
                 "run_id": run_id,
                 "tenant_key": tenant_key,

@@ -211,6 +211,171 @@
       "long": "Not every ripeness indicator is equally telling: reliability shows how dependable this indicator type is in practice (e.g. trichomes are more reliable than leaf colour). The contribution is the indicator's score multiplied by its reliability, showing how much it shaped the overall score.",
       "beginnerTip": "A high contribution means this indicator strongly determined the overall score.",
       "category": "lebenszyklus"
+    },
+    "fruchtfolge": {
+      "short": "Crop rotation — a different plant family in the bed each year",
+      "long": "With crop rotation you change from year to year which plant family grows in a bed. Species of the same family draw similar nutrients and share diseases and pests that survive in the soil. When you plant, the app checks when the same family last stood in this bed.",
+      "beginnerTip": "Do not put tomatoes, cabbage or onions into the same bed every year. A crop rotation hint is advice, not a ban."
+    },
+    "anbaupause": {
+      "short": "Rotation pause — how many years a family should skip",
+      "long": "The rotation pause is the number of years that should lie between two plantings of the same plant family in the same bed. It comes from the species, the family or a default value. If it has not passed yet, the app shows a crop rotation hint.",
+      "beginnerTip": "For cabbage this is often three to four years. Planting again sooner raises the risk of soil-borne diseases."
+    },
+    "mischkultur": {
+      "short": "Companion planting — which neighbours get along in the bed",
+      "long": "Companion planting means placing different species next to each other on purpose. Good neighbours help each other, for example by confusing pests or using the soil differently. Unfavourable neighbours hold each other back. When you plant, the app shows good and unfavourable neighbours in the bed.",
+      "beginnerTip": "An unfavourable neighbour is not a mistake you must avoid at all costs. With a little more distance it often still works."
+    },
+    "dauerkultur": {
+      "short": "Perennial crop — plants that stay in the same spot for many years",
+      "long": "Perennial crops such as rhubarb, asparagus, strawberries or berry bushes stand in the same bed for several years. No crop rotation applies to such a bed, so the app does not check a rotation pause there.",
+      "beginnerTip": "Mark a bed as a perennial crop when the same plants are meant to stay there year after year."
+    },
+    "zehrerklassen": {
+      "short": "Heavy, medium and light feeders — how many nutrients a plant needs",
+      "long": "Heavy feeders such as cabbage, tomatoes or squash need plenty of nutrients, medium feeders such as carrots, onions or lettuce a moderate supply, light feeders such as herbs little. Nitrogen fixers such as peas and beans bind nitrogen from the air and leave the soil richer. In a crop rotation the classes usually follow each other in this order.",
+      "beginnerTip": "Give heavy feeders the bed you just enriched with compost, and move medium or light feeders there the year after."
+    },
+    "gruenduengung": {
+      "short": "Green manure — plants that improve the soil instead of being harvested",
+      "long": "For green manure you sow plants such as phacelia, mustard or clover that cover the soil, loosen it and add humus. They are not harvested but dug in or left as mulch. In a crop rotation green manure counts as a step of its own and breaks disease cycles.",
+      "beginnerTip": "Sow a green manure after the harvest so the soil is not left bare over winter."
+    },
+    "pflanzabstand": {
+      "short": "Plant spacing — distance from plant to plant within a row",
+      "long": "Plant spacing is the distance between two neighbouring plants in centimetres. It follows the width a plant reaches when fully grown. If it is too small, the plants compete for light, water and nutrients and dry off poorly.",
+      "beginnerTip": "You usually find the spacing on the seed packet. The app suggests a value from the species data."
+    },
+    "reihenabstand": {
+      "short": "Row spacing — distance between two planting rows",
+      "long": "Row spacing is the distance between two planting rows in centimetres. It is often larger than the plant spacing so you can hoe, water and harvest between the rows. In a grid it equals the plant spacing, in a staggered pattern it follows from it.",
+      "beginnerTip": "Leave enough room between the rows to get through comfortably by hand or with a hoe."
+    },
+    "randabstand": {
+      "short": "Edge margin — distance of the outer plants from the bed edge",
+      "long": "The edge margin sets how far the outer plants stand from the edge of the bed, separately along and across the row. That way the plants do not grow over the edge into the path or the neighbouring bed.",
+      "beginnerTip": "About half the plant spacing is a good starting value for the edge."
+    },
+    "rh": {
+      "short": "Relative humidity — how much water vapour the air currently holds",
+      "long": "Relative humidity (rH) states, as a percentage, how much water vapour the air holds compared with the maximum it could hold at that temperature. Warm air can hold more water, so rH drops as the air warms up. Together with temperature it determines the VPD.",
+      "beginnerTip": "Indoor air usually sits at 40–60 %. Seedlings and cuttings like it more humid, flowering plants rather drier (risk of mould).",
+      "unit": "%",
+      "typicalRange": "40–70 %",
+      "category": "klima"
+    },
+    "dif": {
+      "short": "Temperature difference between day and night",
+      "long": "DIF is the difference between day and night temperature. A positive DIF (day warmer than night) promotes stretching, a negative DIF (night warmer) keeps plants compact. Greenhouses use DIF deliberately to steer growth.",
+      "beginnerTip": "For houseplants: 3–5 °C cooler at night than during the day is natural and good for the plant.",
+      "unit": "°C",
+      "category": "klima"
+    },
+    "hysterese": {
+      "short": "Gap between switching thresholds that stops devices from cycling",
+      "long": "Hysteresis means a device switches on at a different value than it switches off. Example: humidifier ON at 50 % rH, OFF only at 60 % rH. Without hysteresis the device would toggle on and off every few seconds around the set point.",
+      "beginnerTip": "The system handles this for you. It only matters once you create your own automation rules.",
+      "category": "klima"
+    },
+    "lux_vs_ppfd": {
+      "short": "Lux measures brightness for the eye, PPFD the light plants use",
+      "long": "Lux weights light by the sensitivity of the human eye, which peaks in green. PPFD counts the photons between 400 and 700 nm that plants use for photosynthesis. The conversion factor depends on the light source — lux readings from phone apps are only a rough estimate for plants.",
+      "beginnerTip": "Rule of thumb for sunlight: 1000 lux ≈ 18–19 µmol/m²/s. For LED grow lights the factor differs considerably.",
+      "category": "licht"
+    },
+    "flushing": {
+      "short": "Rinsing — plain water only, to wash fertiliser salts out of the substrate",
+      "long": "When flushing you water for a while with plain, pH-adjusted water if needed, and let plenty run off. This rinses accumulated fertiliser salts out of the substrate — for example when the runoff EC is too high, white salt crusts appear, or before harvest depending on the crop.",
+      "beginnerTip": "For potted plants in soil it is enough to water thoroughly now and then until clear water runs out at the bottom.",
+      "category": "naehrstoffe"
+    },
+    "runoff": {
+      "short": "Drain water — what runs out of the bottom of the pot after watering",
+      "long": "Runoff is the irrigation water that drains from the drainage holes. Around 10–20 % of the applied volume as runoff keeps salts from building up in the substrate. Measuring the runoff's EC and pH shows what happens in the root zone: if the runoff EC is well above the input EC, salts are accumulating.",
+      "beginnerTip": "Water until a little runs out at the bottom, then empty the saucer.",
+      "category": "naehrstoffe"
+    },
+    "mixing_priority": {
+      "short": "Order in which fertilisers are mixed into the water",
+      "long": "The order matters when mixing a nutrient solution. Kamerplanter sorts fertilisers by their mixing priority; the usual order is silicon → CalMag → base A → base B → pH correction last. A wrong order can cause precipitation (cloudiness or sediment), for example when calcium meets sulfate directly.",
+      "beginnerTip": "Mainly relevant for hydroponics and multi-part feeds. A single liquid fertiliser simply goes into the watering can.",
+      "category": "naehrstoffe"
+    },
+    "cec": {
+      "short": "Cation exchange capacity — how many nutrients a substrate can store",
+      "long": "CEC states how many positively charged nutrients (e.g. calcium, magnesium, potassium) a substrate can bind and gradually release to the roots. Soil and coco therefore buffer feeding mistakes; rockwool, perlite and clay pebbles store almost nothing — there only the nutrient solution counts.",
+      "beginnerTip": "Plants in soil are more forgiving. In rockwool or clay pebbles you need to dose the nutrient solution more precisely.",
+      "unit": "meq/100 g",
+      "category": "substrat"
+    },
+    "drainage": {
+      "short": "Outflow of excess water from a pot or bed",
+      "long": "Good drainage lets excess irrigation water run off quickly so the roots get air again. The pot needs drainage holes and the substrate enough coarse pores, for example from perlite or clay pebbles. Poor drainage leads to waterlogging.",
+      "beginnerTip": "Only use pots with a hole in the bottom — or put an inner pot with a hole into the decorative pot.",
+      "category": "substrat"
+    },
+    "air_porosity": {
+      "short": "Share of air in the substrate after the water has drained",
+      "long": "Air porosity states what percentage of the substrate volume is still filled with air after draining. Roots need oxygen; if the air share is too low (below about 10 %), root rot and stalled growth follow. Perlite, clay pebbles and coco chips raise the air share.",
+      "beginnerTip": "Mixing some perlite into the soil gives the roots more air — good for anyone who tends to overwater.",
+      "unit": "%",
+      "typicalRange": "10–30 %",
+      "category": "substrat"
+    },
+    "substrat": {
+      "short": "The material the roots grow in",
+      "long": "Substrate is the umbrella term for any root medium: soil, coco, rockwool, clay pebbles, perlite or mixtures of these. It determines how much water, air and nutrients are available to the roots — and so how often you water and how precisely you need to feed.",
+      "beginnerTip": "Good potting or vegetable soil is enough to start with. Special substrates pay off only for hydroponics or demanding plants.",
+      "category": "substrat"
+    },
+    "staunaesse": {
+      "short": "Waterlogging — water that stands in the root zone",
+      "long": "Waterlogging happens when water cannot drain — no drainage hole, a full saucer or compacted soil. The pores stay filled with water, the roots lack oxygen and start to rot. Typical signs: wilting leaves despite wet soil and a musty smell.",
+      "beginnerTip": "Empty the saucer after 15–30 minutes and water again only once the top layer of soil has dried.",
+      "category": "substrat"
+    },
+    "seneszenz": {
+      "short": "Senescence — the plant ages and dies back naturally",
+      "long": "Senescence is the natural ageing process at the end of a life cycle: in annuals after the seeds ripen, in perennials and woody plants as autumn yellowing and leaf drop. The plant withdraws nutrients from the leaves in the process.",
+      "beginnerTip": "Yellow lower leaves towards the end of the season are often entirely natural and no reason to feed more.",
+      "category": "wachstum"
+    },
+    "allelopathie": {
+      "short": "Allelopathy — biochemical interaction between plant species",
+      "long": "Some plants inhibit or promote the growth of neighbouring plants through substances released by their roots, leaves or residues. A well-known example: walnut trees inhibit tomatoes.",
+      "beginnerTip": "Only matters for companion planting in a bed. You can ignore it for single plants on a windowsill.",
+      "category": "wachstum"
+    },
+    "binomialnomenklatur": {
+      "short": "Binomial nomenclature — scientific name made of genus and species",
+      "long": "Every species has a worldwide unique Latin name in two parts: the genus (capitalised) and the specific epithet (lower case), e.g. Solanum lycopersicum for the tomato. It is written in italics and — unlike common names — is the same in every language.",
+      "beginnerTip": "If you cannot find a plant, search for its botanical name — it is often printed on the label.",
+      "category": "taxonomie"
+    },
+    "cultivar_varietaet": {
+      "short": "A cultivar is bred, a variety arose naturally",
+      "long": "A variety (var.) is a naturally occurring variant of a species. A cultivar (cv.) is a variety bred and deliberately maintained by people; its name follows the species name in single quotes, e.g. Solanum lycopersicum 'Moneymaker'.",
+      "beginnerTip": "The name on the seed packet (e.g. 'Moneymaker') is almost always the cultivar.",
+      "category": "taxonomie"
+    },
+    "standort_slot": {
+      "short": "Site → area → slot: where a plant stands",
+      "long": "Kamerplanter arranges places in a hierarchy: a site (e.g. flat or garden) contains areas such as rooms, grow tents or beds, which can contain further areas. A slot is the specific spot for one plant or container within them.",
+      "beginnerTip": "To start, one site with one area is enough, e.g. “Flat” → “Kitchen windowsill”.",
+      "category": "allgemein"
+    },
+    "pflanzdurchlauf": {
+      "short": "Planting run — one shared growing cycle of several plants",
+      "long": "A planting run groups plants that are started, cared for and harvested together — such as one cycle in a grow tent or one sowing of lettuce. Phases, nutrient plans, tasks and harvest then apply to all plants of the run at once.",
+      "beginnerTip": "Planting several identical plants at once? Create a run — then you care for all of them in one go.",
+      "category": "allgemein"
+    },
+    "umtopfen": {
+      "short": "Repotting — moving a plant into a bigger pot or fresh substrate",
+      "long": "Repotting gives the plant more root space and fresh substrate. It is due when roots grow out of the bottom of the pot, water runs straight through or the plant stops growing despite care. The new pot should usually be just one size larger.",
+      "beginnerTip": "Repot preferably in spring and do not feed for one to two weeks afterwards — fresh soil contains enough nutrients.",
+      "category": "allgemein"
     }
   }
 }

@@ -76,14 +76,25 @@ export const ENVIRONMENTS = ['development', 'e2e', 'staging', 'production'] as c
  * Substrings that mark a value as a credential or personal datum wherever it
  * appears *by name*. Matched case-insensitively against the name only, so no
  * secret has to be recognised by its shape.
+ *
+ * Coordinates are personal data too: a site's `gps_coordinates` is the home
+ * address of a personal garden, and the field map's own position (REQ-053
+ * GP-UX-026) must never leave the device (SR-019). The app puts neither into an
+ * event or breadcrumb; the names are here so a future `extra`/`contexts`/query
+ * parameter carrying one is redacted rather than shipped.
  */
 const SENSITIVE_NAME_PARTS = [
   'authorization',
   'api_key',
   'apikey',
   'cookie',
+  'coords',
   'credential',
   'email',
+  'geolocation',
+  'gps',
+  'latitude',
+  'longitude',
   'passwd',
   'password',
   'secret',
@@ -309,9 +320,11 @@ export function stopErrorTracking(): void {
     // trail this module lets the SDK keep (the user block is scrubbed).
     active.getCurrentScope().clearBreadcrumbs();
   } catch (error) {
+    // The tracker cannot report its own shutdown; the console is the only place left to say so.
     console.warn('[error-tracking] disabling the client failed', error);
   }
   active.close(CLOSE_TIMEOUT_MS).catch((error: unknown) => {
+    // Same as above: closing is best effort and must never throw into consent handling.
     console.warn('[error-tracking] closing the client failed', error);
   });
 }
@@ -385,6 +398,9 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
         urlQueryParams: false,
         graphQL: { document: false, variables: false },
         genAI: { inputs: false, outputs: false },
+        // `mcp` arrived with @sentry/core 9.16: tool-call inputs and outputs of
+        // MCP servers. Off like every other payload category.
+        mcp: { inputs: false, outputs: false },
         databaseQueryData: false,
         stackFrameVariables: false,
       } satisfies DecidedDataCollection,

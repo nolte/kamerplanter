@@ -54,7 +54,7 @@ flowchart TB
 | Component | Technology | Role |
 |-----------|-----------|------|
 | Web App | React 19, TypeScript 6, MUI 9 | User interface |
-| Backend API | Python 3.14+, FastAPI >= 0.115 | REST endpoints, JWT auth, OpenAPI |
+| Backend API | Python 3.15+, FastAPI >= 0.115 | REST endpoints, JWT auth, OpenAPI |
 | Celery Worker | Celery >= 5.4 | Background tasks (enrichment, reminders) |
 | Celery Beat | Celery Beat | Scheduled tasks (daily, hourly) |
 | ArangoDB | ArangoDB 3.11+ | Primary database — documents and graph |

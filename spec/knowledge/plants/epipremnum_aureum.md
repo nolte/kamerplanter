@@ -127,6 +127,22 @@
 - **Boden-pH:** 6.1–6.5 (leicht sauer) — quellentreu übernommen und konsistent mit §1.6 (pH 6.1–6.5) und §2.3 (6.0–6.5).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS Position: Full sun, Partial shade; Innenraum „full or bright filtered light" nicht auf Standortstufen abbildbar) --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Epipremnum aureum", https://www.rhs.org.uk/plants/91403/epipremnum-aureum/details, gelesen, aber ohne eindeutige Stufe) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -429,3 +445,4 @@ Pearls and Jade,Epipremnum aureum,"ornamental;variegated;compact",clone
 14. [Grokipedia — Compensation point](https://grokipedia.com/page/Compensation_point) — Lichtkompensationspunkt schattentoleranter Unterwuchspflanzen (10–50 µmol/m²/s)
 15. [Koppert — Encarsia formosa](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/encarsia-formosa/) — Ausbringrate/Etablierung Weiße-Fliege-Schlupfwespe
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. [RHS — Epipremnum aureum](https://www.rhs.org.uk/plants/91403/epipremnum-aureum/details) — Position (Full sun, Partial shade; ohne Vorzug), gelesen

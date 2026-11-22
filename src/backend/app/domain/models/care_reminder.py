@@ -80,6 +80,9 @@ class CareConfirmation(BaseModel):
     watering_log_key: str | None = None
     notes: str | None = None
     interval_at_time: int | None = None
+    #: The buffered completion of ``task_key`` this confirmation mirrors (REQ-053 WP 9.3); unique per plant, so a
+    #: replay of the completion confirms once. ``None`` for every other confirmation.
+    completion_client_event_id: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

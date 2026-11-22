@@ -163,6 +163,22 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 9. [Engineering properties of luffa (L. Cylindrica) seed relevant to the processing machineries](https://www.researchgate.net/publication/325284239_Engineering_properties_of_luffa_L_Cylindrica_seed_relevant_to_the_processing_machineries) — Einzelsamenmasse Ø 97,3 mg (≈ TKG 97,3 g), Gewichtsverteilung
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 40–100 | `species.spacing_cm` |
+| Reihenabstand (cm) | 150–200 | `species.row_spacing_cm` |
+| Quelle Abstände | OMAFRA (Ontario Ministry of Agriculture, Food and Rural Affairs), „Luffa" (Specialty Crops, Stand 2012): in der Reihe 40–100 cm, zwischen den Reihen 1,5–2,0 m (umgerechnet 150–200 cm); der in 1.6 genannte Reihenwert 60–100 cm wird nur teilweise bestätigt, https://www.omafra.gov.on.ca/CropOp/en/spec_veg/cucurbits/luffa.html | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Luffa aegyptiaca" (Position: Full sun; unter Glas Schatten nur gegen heiße Sommersonne), https://www.rhs.org.uk/plants/10550/luffa-aegyptiaca/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -496,6 +512,11 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Sehr fruehe 
 | Empfohlene Vorfrucht | Leguminosen (Bohnen; Erbsen); Gruenduengung; Salat |
 | Empfohlene Nachfrucht | Feldsalat; Moehren; Zwiebeln (Schwachzehrer) |
 | Anbaupause (Jahre) | 3--4 Jahre (Fusarium und Bodenpilze; gleiche Standorte vermeiden) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fachquelle nennt Luffa namentlich in einer Zehrerstufe (Südtiroler Bauernbund 2022 und Landwirtschaftskammer NRW 2020 führen Gurke, Zucchini, Kürbis als Starkzehrer, Luffa nicht); keine Ableitung aus der Familie --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cucurbitaceae 4; Südtiroler Bauernbund 2022 nennt für Kürbisgewächse 4–5 Jahre, Luffa nicht namentlich) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -580,4 +601,7 @@ Luffa aegyptiaca,Schwammgurke;Luffagurke;Luffa;Loofah;Sponge Gourd,Cucurbitaceae
 19. [Epic Gardening -- How to Plant, Grow, and Care for Luffa](https://www.epicgardening.com/growing-luffa/) -- Vollsonne; Boden 30--45 cm lockern (Wurzeltiefe)
 20. [Osceola CSA -- Growing and Caring for Luffa Gourds](https://www.osceolacsa.farm/post/climbing-to-new-heights-how-to-grow-and-care-for-luffa-gourds) -- Boden-pH 6.0--7.5; Vollsonne 6--10 h
 21. [Haifa Group -- Crop Guide: Nutrients for Cucumber](https://www.haifa-group.com/cucumber-0/crop-guide-nutrients-cucumber) -- Cucurbitaceae-Mikronaehrstoffbereiche Mn/Zn/Cu/Mo (ppm)
+22. [RHS -- Luffa aegyptiaca](https://www.rhs.org.uk/plants/10550/luffa-aegyptiaca/details) -- Position (Full sun), Kultur unter Glas
+23. [Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) -- Anbaupause Kuerbisgewaechse 4--5 Jahre; Luffa nicht namentlich genannt
+24. [Landwirtschaftskammer NRW -- Fruchtfolge im Gemuesegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) -- Zehrergruppen; Luffa nicht namentlich genannt
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

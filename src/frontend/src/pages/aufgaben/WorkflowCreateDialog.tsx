@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
@@ -12,7 +12,9 @@ import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -57,7 +59,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -69,6 +71,7 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
       tags: '',
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -92,14 +95,14 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="workflow-create-dialog-title" data-testid="workflow-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="workflow-create-dialog-title" data-testid="workflow-create-dialog">
       <DialogTitle id="workflow-create-dialog-title">{t('pages.tasks.createWorkflow')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -125,8 +128,9 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
             control={control}
             render={({ field }) => (
               <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                <InputLabel id="workflow-create-target-entity-types-label">{t('pages.tasks.targetEntityTypes')}</InputLabel>
                 <Select
+                  labelId="workflow-create-target-entity-types-label"
                   {...field}
                   multiple
                   label={t('pages.tasks.targetEntityTypes')}
@@ -152,6 +156,6 @@ export default function WorkflowCreateDialog({ open, onClose, onCreated }: Props
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

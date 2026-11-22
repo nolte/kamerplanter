@@ -25,6 +25,9 @@ import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import EmptyState from '@/components/common/EmptyState';
 import * as api from '@/api/endpoints/species';
 import type { GrowingPeriod, HarvestPattern, PropagationConfig, Species } from '@/api/types';
+import type { Translate } from '@/i18n/translate';
+import { getPhaseColor, type PhaseColorKey } from '@/theme/domainColors';
+import { speciesToUpdatePayload } from './species-detail/speciesDetailSchema';
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 const CELL_MIN_W = 40;
@@ -33,12 +36,13 @@ const ROW_H = 32;
 
 type BarKind = 'sow' | 'growth' | 'harvest' | 'bloom' | 'propagation';
 
-const BAR_COLORS: Record<BarKind, string> = {
-  propagation: '#26A69A',
-  sow: '#66BB6A',
-  growth: '#42A5F5',
-  harvest: '#FF8F00',
-  bloom: '#AB47BC',
+/** The growth phase whose theme colour a bar kind takes (single source: `@/theme/domainColors`, #3021). */
+const BAR_PHASES: Record<BarKind, PhaseColorKey> = {
+  propagation: 'cloning',
+  sow: 'outdoor_planting',
+  growth: 'vegetative',
+  harvest: 'harvest',
+  bloom: 'flowering',
 };
 
 function emptyPeriod(): GrowingPeriod {
@@ -235,11 +239,12 @@ export default function GrowingPeriodsSection({ speciesKey, species, onSaved }: 
   const handleSave = async () => {
     try {
       setSaving(true);
+      // The update replaces the species: send every stored field (common names,
+      // family, genus, description, ...) and override only the periods. Configs are
+      // read-only on this tab and round-trip from its own state as before.
       await api.updateSpecies(speciesKey, {
-        scientific_name: species.scientific_name,
+        ...speciesToUpdatePayload(species),
         growing_periods: periods,
-        // Configs are read-only on this tab — round-trip them so the update
-        // (which replaces the species) does not drop the propagation data.
         propagation_configs: propagationConfigs,
       });
       notification.success(t('common.save'));
@@ -625,7 +630,7 @@ interface PeriodGanttRowsProps {
   labelWidth: number;
   currentMonth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onChange: (index: number, period: GrowingPeriod) => void;
@@ -885,7 +890,7 @@ interface BarRowProps {
   labelWidth: number;
   currentMonth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   dragState: DragState | null;
   onDragStart: (state: DragState) => void;
   onDragMove: (
@@ -920,7 +925,7 @@ function BarRow({
   readOnly = false,
   harvestPattern = null,
 }: BarRowProps) {
-  const color = BAR_COLORS[kind];
+  const color = getPhaseColor(theme, BAR_PHASES[kind]);
   const gridRef = useRef<HTMLDivElement>(null);
   // aria-live announcement (R-044): the new month range after a drag/keyboard
   // edit, verbalised for screen-reader users via a visually-hidden polite region.

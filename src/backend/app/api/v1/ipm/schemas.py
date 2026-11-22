@@ -1,14 +1,18 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.common.enums import DataOrigin, PestImageStatus, PestSeverity, PlantPart
+from app.domain.models.species_names import normalize_names_i18n
 
 
 class PestCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    #: Language code -> names (REQ-010 v1.9, #2955), the shape diseases use.
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
+    #: Compatibility: becomes the map's ``de`` entry when the map names no German one.
     common_name_de: str | None = None
     pest_type: str = "insect"
     lifecycle_days: int | None = None
@@ -32,10 +36,20 @@ class PestCreate(BaseModel):
     detection_slug: str | None = None
     reference_image_refs: list[str] = Field(default_factory=list)
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return normalize_names_i18n(value)
+
 
 class PestUpdate(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
+    #: ``None`` (absent) keeps the stored map; ``{}`` clears it. Sent, it wins over
+    #: ``common_name_de`` (which is then derived from its ``de`` entry, #2955).
+    common_names_i18n: dict[str, list[str]] | None = None
+    #: Compatibility: sent without the map, it replaces the map's ``de`` entry.
     common_name_de: str | None = None
     pest_type: str | None = None
     lifecycle_days: int | None = None
@@ -59,11 +73,19 @@ class PestUpdate(BaseModel):
     detection_slug: str | None = None
     reference_image_refs: list[str] | None = None
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]] | None) -> dict[str, list[str]] | None:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return None if value is None else normalize_names_i18n(value)
+
 
 class PestResponse(BaseModel):
     key: str
     scientific_name: str
     common_name: str
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
+    #: Compatibility read: the first name of ``common_names_i18n["de"]`` (#2955).
     common_name_de: str | None = None
     pest_type: str
     lifecycle_days: int | None = None
@@ -100,27 +122,44 @@ class PestResponse(BaseModel):
 class DiseaseCreate(BaseModel):
     scientific_name: str = Field(min_length=1, max_length=200)
     common_name: str = Field(min_length=1, max_length=200)
+    #: Language code -> names (REQ-010 v1.8, #2936).
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     pathogen_type: str
     incubation_period_days: int | None = None
     environmental_triggers: list[str] = Field(default_factory=list)
     affected_plant_parts: list[str] = Field(default_factory=list)
     description: str | None = None
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]]) -> dict[str, list[str]]:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return normalize_names_i18n(value)
+
 
 class DiseaseUpdate(BaseModel):
     scientific_name: str | None = None
     common_name: str | None = None
+    #: ``None`` (absent) keeps the stored map; ``{}`` clears it.
+    common_names_i18n: dict[str, list[str]] | None = None
     pathogen_type: str | None = None
     incubation_period_days: int | None = None
     environmental_triggers: list[str] | None = None
     affected_plant_parts: list[str] | None = None
     description: str | None = None
 
+    @field_validator("common_names_i18n")
+    @classmethod
+    def _normalize_common_names_i18n(cls, value: dict[str, list[str]] | None) -> dict[str, list[str]] | None:
+        """An invalid language key or an empty name is a 422 here, not a 500 in the model."""
+        return None if value is None else normalize_names_i18n(value)
+
 
 class DiseaseResponse(BaseModel):
     key: str
     scientific_name: str
     common_name: str
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     pathogen_type: str
     incubation_period_days: int | None = None
     environmental_triggers: list[str]
@@ -327,6 +366,7 @@ class BeneficialResponse(BaseModel):
     key: str
     slug: str
     common_name: str
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     scientific_name: str
     description: str | None = None
     preys_on: list[str] = Field(default_factory=list)
@@ -351,7 +391,10 @@ class TreatmentTargetRef(BaseModel):
 
     key: str
     common_name: str
+    #: Compatibility read for pests (the first German name, #2955); ``None`` for diseases.
     common_name_de: str | None = None
+    #: Pests and diseases name their languages here (REQ-010 v1.8 #2936, v1.9 #2955).
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     scientific_name: str
 
 

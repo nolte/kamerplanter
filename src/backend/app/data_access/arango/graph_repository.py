@@ -1,12 +1,22 @@
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import SpeciesKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
-from app.domain.interfaces.graph_repository import IGraphRepository
+from app.domain.interfaces.graph_repository import (
+    ADJACENCY_SOURCE_DERIVED,
+    ADJACENCY_SOURCE_MANUAL,
+    AdjacencySync,
+    CompanionRelation,
+    CompanionRelations,
+    IGraphRepository,
+    SlotAdjacency,
+    SlotAdjacencyWindow,
+)
 
 
 class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
@@ -74,6 +84,66 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
             }
             for r in cursor
         ]
+
+    def load_companion_relations(self, species_keys: list[str], *, tenant_key: str, limit: int) -> CompanionRelations:
+        # One round trip for the whole bed (REQ-053 GP-FR-134): the readable species among the keys, then the edges
+        # of both collections whose two ends are among those. The far end is filtered exactly like the anchor - a
+        # species the tenant may not read contributes neither an edge nor a name (MT-054, #927). Edges are matched
+        # through the edge index on ``_from``. Each collection is cut at *limit* edges in the database (one more is
+        # read to tell a cut from an exact fit), in a fixed order, so the work and the answer are bounded.
+        if not tenant_key:
+            raise ValueError("load_companion_relations needs a tenant_key (an empty tenant is no tenant, #2107).")
+        keys = sorted({key for key in species_keys if key})
+        if not keys:
+            return CompanionRelations(relations=[], names={})
+        predicate, binds = tenant_union_with_grants_predicate(tenant_key, doc_var="sp")
+        query = f"""
+        LET visible = (
+          FOR sp IN @@species_col
+            FILTER sp._key IN @keys AND {predicate}
+            RETURN {{key: sp._key, name: sp.scientific_name}}
+        )
+        LET ids = (FOR v IN visible RETURN CONCAT(@species_prefix, v.key))
+        LET compatible = (
+          FOR e IN @@compatible_col
+            FILTER e._from IN ids AND e._to IN ids
+            SORT e._from, e._to
+            LIMIT @read_limit
+            RETURN {{from: PARSE_IDENTIFIER(e._from).key, to: PARSE_IDENTIFIER(e._to).key, score: e.score}}
+        )
+        LET incompatible = (
+          FOR e IN @@incompatible_col
+            FILTER e._from IN ids AND e._to IN ids
+            SORT e._from, e._to
+            LIMIT @read_limit
+            RETURN {{from: PARSE_IDENTIFIER(e._from).key, to: PARSE_IDENTIFIER(e._to).key, reason: e.reason}}
+        )
+        RETURN {{visible: visible, compatible: compatible, incompatible: incompatible}}
+        """
+        bind_vars: dict[str, Any] = {
+            "@species_col": col.SPECIES,
+            "@compatible_col": col.COMPATIBLE_WITH,
+            "@incompatible_col": col.INCOMPATIBLE_WITH,
+            "species_prefix": f"{col.SPECIES}/",
+            "keys": keys,
+            "read_limit": limit + 1,
+            **binds,
+        }
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+        result: dict[str, Any] = next(iter(cursor), {"visible": [], "compatible": [], "incompatible": []})
+        compatible: list[dict[str, Any]] = result.get("compatible", [])
+        incompatible: list[dict[str, Any]] = result.get("incompatible", [])
+        complete = len(compatible) <= limit and len(incompatible) <= limit
+        # The AQL objects always carry every key (``null`` when the edge stores none), so the rows are subscripted.
+        relations = [
+            CompanionRelation(from_key=row["from"], to_key=row["to"], incompatible=False, score=row["score"])
+            for row in compatible[:limit]
+        ] + [
+            CompanionRelation(from_key=row["from"], to_key=row["to"], incompatible=True, reason=row["reason"] or None)
+            for row in incompatible[:limit]
+        ]
+        names = {row["key"]: row["name"] for row in result.get("visible", []) if row["name"]}
+        return CompanionRelations(relations=relations, names=names, complete=complete)
 
     def get_companion_counts(self, *, tenant_key: str | None) -> dict[str, dict[str, int]]:
         # Single batch aggregation over BOTH edge collections in one round trip —
@@ -236,14 +306,157 @@ class ArangoGraphRepository(IGraphRepository, BaseArangoRepository):
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [{"slot": self._from_doc(r["slot"])} for r in cursor]
 
-    def set_adjacent_slots(self, slot_a_key: str, slot_b_key: str) -> None:
+    def get_slot_adjacency(
+        self, location_key: str, slot_keys: list[str], *, tenant_key: str, limit: int
+    ) -> SlotAdjacencyWindow:
+        # One read for all slots of a bed (GP-FR-134), not one traversal per slot. Anchored like
+        # ``load_slot_species_hints``: the bed's site must be the tenant's (a slot carries no ``tenant_key``,
+        # #706), and only slots of THIS bed among the keys count. The edges are stored in both directions; the
+        # database folds each pair to ``a < b`` (COLLECT), sorts and cuts it at *limit* (SEC-001: the work is
+        # bounded, not only the answer). ``total`` is a separate COLLECT ... COLLECT WITH COUNT over the same
+        # pairs, so it is exact whatever the limit.
+        if not tenant_key:
+            raise ValueError("get_slot_adjacency needs a tenant_key (an empty tenant is no tenant, #2107).")
+        keys = sorted({key for key in slot_keys if key})
+        if not keys or not location_key or limit < 1:
+            return SlotAdjacencyWindow(pairs=[], total=0)
+        bind_vars: dict[str, Any] = {
+            "locations": f"{col.LOCATIONS}/",
+            "sites": f"{col.SITES}/",
+            "@slots": col.SLOTS,
+            "@edges": col.ADJACENT_TO,
+            "location_key": location_key,
+            "tenant_key": tenant_key,
+            "keys": keys,
+            "limit": limit,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET l = DOCUMENT(CONCAT(@locations, @location_key))
+            FILTER l != null
+            LET site = DOCUMENT(CONCAT(@sites, l.site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key
+            LET ids = (FOR s IN @@slots FILTER s._key IN @keys AND s.location_key == @location_key RETURN s._id)
+            LET total = FIRST(
+                FOR e IN @@edges
+                    FILTER e._from IN ids AND e._to IN ids AND e._from != e._to
+                    LET ka = PARSE_IDENTIFIER(e._from).key
+                    LET kb = PARSE_IDENTIFIER(e._to).key
+                    COLLECT a = (ka < kb ? ka : kb), b = (ka < kb ? kb : ka)
+                    COLLECT WITH COUNT INTO n
+                    RETURN n
+            )
+            LET pairs = (
+                FOR e IN @@edges
+                    FILTER e._from IN ids AND e._to IN ids AND e._from != e._to
+                    LET ka = PARSE_IDENTIFIER(e._from).key
+                    LET kb = PARSE_IDENTIFIER(e._to).key
+                    COLLECT a = (ka < kb ? ka : kb), b = (ka < kb ? kb : ka) AGGREGATE distance_cm = MAX(e.distance_cm)
+                    SORT a, b
+                    LIMIT @limit
+                    RETURN {a: a, b: b, distance_cm: distance_cm}
+            )
+            RETURN {total: total == null ? 0 : total, pairs: pairs}
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        result: dict[str, Any] = next(iter(cursor), {"total": 0, "pairs": []})
+        rows: list[dict[str, Any]] = result["pairs"]
+        # The AQL objects always carry every key (``null`` when unset), so the rows are subscripted.
+        pairs = [
+            SlotAdjacency(slot_a_key=row["a"], slot_b_key=row["b"], distance_cm=row["distance_cm"]) for row in rows
+        ]
+        return SlotAdjacencyWindow(pairs=pairs[:limit], total=int(result["total"]))
+
+    def set_adjacent_slots(
+        self,
+        slot_a_key: str,
+        slot_b_key: str,
+        *,
+        distance_cm: float | None = None,
+        source: str = ADJACENCY_SOURCE_DERIVED,
+    ) -> None:
         a_id = f"{col.SLOTS}/{slot_a_key}"
         b_id = f"{col.SLOTS}/{slot_b_key}"
+        data: dict[str, Any] = {"source": source}
+        if distance_cm is not None:
+            data["distance_cm"] = distance_cm
         # Adjacency is bidirectional — create edges in both directions
         self.delete_edges(col.ADJACENT_TO, a_id, b_id)
         self.delete_edges(col.ADJACENT_TO, b_id, a_id)
-        self.create_edge(col.ADJACENT_TO, a_id, b_id)
-        self.create_edge(col.ADJACENT_TO, b_id, a_id)
+        self.create_edge(col.ADJACENT_TO, a_id, b_id, data)
+        self.create_edge(col.ADJACENT_TO, b_id, a_id, data)
+
+    def sync_derived_adjacency(self, slot_keys: list[str], pairs: list[tuple[str, str, float]]) -> AdjacencySync:
+        if not slot_keys:
+            return AdjacencySync()
+        ids = [f"{col.SLOTS}/{key}" for key in slot_keys]
+        existing = list(
+            cast(
+                "Cursor",
+                self._db.aql.execute(
+                    "FOR e IN @@edges FILTER e._from IN @ids AND e._to IN @ids RETURN e",
+                    bind_vars={"@edges": col.ADJACENT_TO, "ids": ids},
+                ),
+            )
+        )
+        unmanaged = {frozenset((e["_from"], e["_to"])) for e in existing if e.get("source") != ADJACENCY_SOURCE_DERIVED}
+        wanted: dict[tuple[str, str], float] = {}
+        for first, second, distance in pairs:
+            a_id, b_id = f"{col.SLOTS}/{first}", f"{col.SLOTS}/{second}"
+            if frozenset((a_id, b_id)) in unmanaged:
+                continue
+            wanted[(a_id, b_id)] = distance
+            wanted[(b_id, a_id)] = distance
+        edges = self._db.collection(col.ADJACENT_TO)
+        removed = updated = kept = 0
+        present: set[tuple[str, str]] = set()
+        for edge in existing:
+            # Only edges this derivation wrote are managed; a manual edge and a legacy edge without a
+            # ``source`` (set programmatically before GP-FR-130) are left exactly as they are.
+            if edge.get("source") != ADJACENCY_SOURCE_DERIVED:
+                continue
+            direction = (edge["_from"], edge["_to"])
+            if direction not in wanted or direction in present:
+                edges.delete(edge["_key"], ignore_missing=True)
+                removed += 1
+                continue
+            present.add(direction)
+            if edge.get("distance_cm") != wanted[direction]:
+                edges.update({"_key": edge["_key"], "distance_cm": wanted[direction]})
+                updated += 1
+            else:
+                kept += 1
+        created = 0
+        for (from_id, to_id), distance in sorted(wanted.items()):
+            if (from_id, to_id) in present:
+                continue
+            self.create_edge(
+                col.ADJACENT_TO, from_id, to_id, {"source": ADJACENCY_SOURCE_DERIVED, "distance_cm": distance}
+            )
+            created += 1
+        return AdjacencySync(created=created, updated=updated, removed=removed, kept=kept)
+
+    def remove_manual_adjacency(self, slot_a_key: str, slot_b_key: str) -> int:
+        a_id = f"{col.SLOTS}/{slot_a_key}"
+        b_id = f"{col.SLOTS}/{slot_b_key}"
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@edges
+                FILTER e.source == @manual
+                    AND ((e._from == @a AND e._to == @b) OR (e._from == @b AND e._to == @a))
+                REMOVE e IN @@edges
+                RETURN 1
+            """,
+                bind_vars={"@edges": col.ADJACENT_TO, "manual": ADJACENCY_SOURCE_MANUAL, "a": a_id, "b": b_id},
+            ),
+        )
+        return len(list(cursor))
 
     # ── Family-level edges ─────────────────────────────────────────────
 

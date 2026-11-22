@@ -243,6 +243,32 @@ def _gap(issue: int, item: str) -> str:
 #: ``internal`` = set only by server code; ``actor`` = the caller's own user key;
 #: ``not-persisted`` = query or projection model; ``gap:#<issue>:<item>`` = open.
 _REFERENCE_FIELDS: dict[str, str] = {
+    # REQ-053 §20.10 (WP 4.1, #2400): `CareEventService` resolves every key of a request under the tenant before it
+    # writes (GP-NFR-058) — the bed through `resolve_owned_location` (site_key is derived from it), `plant_keys`
+    # against the plants standing in the bed's subtree, `performed_for_user_key` against the tenant's active
+    # memberships, `supersedes_key` as the path key under the tenant. `task_key` and `source_ref` come from
+    # `CareEventOrigin`, which no request body can carry; `superseded_by_key` is set by the supersede itself.
+    "care_event.CareEvent.site_key": _V,
+    "care_event.CareEvent.location_key": _V,
+    "care_event.CareEvent.plant_keys": _V,
+    "care_event.CareEvent.task_key": _I,
+    "care_event.CareEvent.performed_by_user_key": _A,
+    "care_event.CareEvent.performed_for_user_key": _V,
+    "care_event.CareEvent.supersedes_key": _V,
+    "care_event.CareEvent.superseded_by_key": _I,
+    # REQ-053 §20.11 (WP 7.1, #2467): `IrrigationZoneService` takes the site from the path through `require_owned_site`
+    # (T-01) and resolves `water_source_key` to a `water_source` garden object of the zone's own site under the tenant
+    # (GP-NFR-058, GP-ACC-041). `actuator_key` is refused with 422 on every request until WP 7.4 (#2470) brings its
+    # resolution (an actuator of the tenant at a location of the same site) — no write path can store one today.
+    "irrigation_zone.IrrigationZone.site_key": _V,
+    "irrigation_zone.IrrigationZone.water_source_key": _V,
+    "irrigation_zone.IrrigationZone.actuator_key": _I,
+    # REQ-053 §20.12 / §21.7 (WP 7.8 / 7.9, #2474, #2475): a template's `location_type_key` is a global location type
+    # (`BedTemplateService` resolves it and refuses a type that is no bed type, 422); a bed's `template_key` is set only
+    # by `GardenPlanService.place_template` (the template must be a system one or the tenant's own, 422
+    # `reference.not_found` otherwise) and by the plan import (`visible_template_keys`: else dropped and reported).
+    "bed_template.BedTemplate.location_type_key": _G,
+    "site.Location.template_key": _V,
     "actuator.Actuator.location_key": _V,
     "actuator.ControlEvent.actuator_key": _I,
     "actuator.ControlEvent.location_key": _I,
@@ -274,6 +300,14 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "feeding_event.FeedingEvent.plant_key": _V,
     "feeding_event.FeedingEvent.tank_fill_event_key": _V,  # through the tank (#1872 C6)
     "feeding_event.FeedingEvent.watering_event_key": _I,
+    # REQ-053 WP 4.3: a feeding logged by a bed task completion. Every key is resolved under the tenant by the
+    # care-event service in the same write (build_event: the bed through location_ownership, the plants as a subset of
+    # the bed's, the product through the visible-fertilizer check — and again by the engine, #1713); the task is
+    # the one loaded by TaskService.get_task under the tenant.
+    "feeding_event.FeedingEvent.location_key": _V,
+    "feeding_event.FeedingEvent.plant_keys": _V,
+    "feeding_event.FeedingEvent.product_key": _V,
+    "feeding_event.FeedingEvent.task_key": _V,
     "fertilizer.FertilizerStock.fertilizer_key": _V,
     "ha_publish_setting.HaPublishSetting.entity_key": _V,  # #1872 C8
     "harvest.HarvestBatch.plant_key": _V,
@@ -314,6 +348,10 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "mode_switch.TakeoverReceipt.previous_owner_key": _I,
     "mode_switch.TakeoverReceipt.raised_membership_key": _I,
     "mode_switch.TakeoverReceipt.system_user_key": _I,
+    # REQ-053 SR-011 (WP 1.8): the plan change log; the site is the path site resolved under the tenant, the
+    # account is the caller — neither is read back as a reference.
+    "garden_plan.PlanAuditRecord.site_key": _I,
+    "garden_plan.PlanAuditRecord.user_key": _A,
     "security_audit.SecurityAuditEntry.actor_user_key": _A,  # #2111: proof of who acted, never read back as a reference
     "security_audit.SecurityAuditEntry.target_user_key": _A,
     "security_audit.SecurityAuditEntry.membership_key": _I,
@@ -327,6 +365,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "notification.Notification.parent_notification_key": _I,
     "nutrient_plan.NutrientPlan.species_keys": _V,
     "nutrient_plan.NutrientPlan.cloned_from_key": _V,
+    "nutrient_plan.NutrientPlan.author_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "observation.AggregatedReading.sensor_key": _N,
     "observation.SensorReading.sensor_key": _V,  # #1871 B6
     "overwintering_profile.OverwinteringProfile.plant_key": _V,
@@ -377,12 +416,16 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "propagation.PropagationEvent.protocol_key": _V,  # #1872 C2
     "propagation.PropagationEvent.batch_key": _V,  # #1872 C2
     "propagation.RootingProtocol.recommended_species_keys": _V,  # #1872 C12
+    "propagation.RootingProtocol.author_user_key": _A,  # #2976: server-set from ctx.user_key, no request carries it
     "season_state.SeasonState.site_key": _I,
     "season_state.SeasonState.trigger_reason_i18n_key": _I,
     "site.Location.site_key": _V,
     "site.Location.parent_location_key": _V,  # create (bundle A, L1) and update (#1872 C4)
     "site.Location.location_type_key": _G,
     "site.Location.tank_key": _V,  # #1872 C4
+    # REQ-053 §20.3: GardenResourceService.patch_location resolves the zone under the tenant and the location's site
+    # (GP-NFR-058, #2328 L1); the PATCH is its only write path.
+    "site.Location.irrigation_zone_key": _V,
     "site.Slot.location_key": _V,  # #1871 B1
     "species.Cultivar.species_key": _V,
     "species.Species.family_key": _G,
@@ -409,6 +452,7 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "task.WorkflowTemplate.lifecycle_key": _G,
     "task.WorkflowTemplate.phase_sequence_key": _I,
     "task.WorkflowTemplate.source_workflow_key": _I,
+    "task.WorkflowTemplate.created_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "tenant_context.TenantContext.user_key": _N,
     "tenant_erasure.TenantErasurePlan.known_parent_keys": _I,
     "tenant_erasure.TenantErasureRecord.parent_keys": _I,
@@ -416,12 +460,14 @@ _REFERENCE_FIELDS: dict[str, str] = {
     "watering_event.WateringEvent.plant_keys": _V,
     "watering_event.WateringEvent.tank_fill_event_key": _V,  # #1872 C6
     "watering_event.WateringEvent.nutrient_plan_key": _V,  # #1872 C7
+    "watering_event.WateringEvent.performed_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "watering_event.WateringEvent.task_key": _V,  # bundle A, L8
     "watering_log.WateringLog.plant_keys": _V,
     "watering_log.WateringLog.slot_keys": _V,  # #1871 B4
     "watering_log.WateringLog.tank_fill_event_key": _V,  # #1872 C6
     "watering_log.WateringLog.nutrient_plan_key": _V,  # #1872 C7
     "watering_log.WateringLog.task_key": _V,  # bundle A, L8
+    "watering_log.WateringLog.performed_by_user_key": _A,  # privacy 08 §3.4: server-set, no request carries it
     "weather.ClimateNormal.site_key": _I,
     "weather.WeatherForecast.site_key": _I,
     "weather.WeatherSourceConfig.site_key": _V,

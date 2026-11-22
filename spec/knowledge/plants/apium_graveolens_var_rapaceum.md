@@ -156,6 +156,22 @@ Hinweis: Ab Mitte Juli die aeusseren, aelteren Blaetter abbrechen (nicht schneid
 - Tausendkornmasse: [Wikifarmer — Apium graveolens Celery Rapaceum seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-rapaceum-seeds) (sortenspezifisch); [Wikifarmer — Apium graveolens Celery seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-seeds) (art-level 0.41–0.42 g/1000, Querbestätigung Größenordnung)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–35 | `species.spacing_cm` |
+| Reihenabstand (cm) | 40–50 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow celeriac" („Space the young celeriac plants 30cm (1ft) apart, in rows 40–45cm (16–18in) apart"), https://www.rhs.org.uk/vegetables/celeriac/grow-your-own; Bildungs- und Beratungszentrum Arenenberg (Kanton Thurgau), „Kulturblatt Sellerie" (2015), Knollensellerie Frischmarkt: Pflanzabstand „44 x 35 oder 50 x 30 cm" (Deutung als Reihe x In-Reihe-Abstand), https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Apium graveolens var. rapaceum", Position „Full sun", https://www.rhs.org.uk/plants/106053/wd/details; RHS, „How to grow celeriac" („Select a sunny or lightly shaded site"), https://www.rhs.org.uk/vegetables/celeriac/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -464,6 +480,11 @@ Knollensellerie wird vor dem Winter geerntet und eingelagert. Ausgewachsene Pfla
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) oder Gruenduengung |
 | Empfohlene Nachfrucht | Mittel- oder Schwachzehrer (Salat, Radieschen, Spinat) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Apiaceae auf gleicher Flaeche (inkl. Moehre, Petersilie, Fenchel, Pastinake, Dill) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Oktober 2022), Tabelle 2: Knollensellerie = Starkzehrer, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (April 2022), Sellerie im Starkzehrer-Beet, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; BBZ Arenenberg, „Kulturblatt Sellerie" (2015), „Sellerie ist ein starker Nährstoffzehrer", https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf; UMass Amherst, New England Vegetable Management Guide, „Celery and Celeriac" („heavy feeders"), https://nevegetable.org/crops/celery-and-celeriac |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Oktober 2022) führt Sellerie unter Doldenblütler und Schmetterlingsblütler als eigene Familie, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4) — SBB 2022 und BBZ Arenenberg 2015 nennen 4–5 Jahre (schließt den Familienwert ein) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -555,3 +576,9 @@ Knollensellerie (Pötschke Historisch),Apium graveolens var. rapaceum,Pötschke,
 21. MSU Extension -- Secondary and Micro-nutrients for Vegetable and Field Crops (Gemuese-Suffizienzbereiche Mn 30--200, Zn 30--100, Cu 8--20, Mo 0.8--5 ppm): https://www.canr.msu.edu/resources/secondary_and_micro_nutrients_for_vegetable_and_field_crops_e486
 22. ScienceDirect (2025) -- Base and upper temperature thresholds for GDD / FAO56rev (Sellerie Tbase 1--4 degC, gaengig 4 degC): https://www.sciencedirect.com/science/article/pii/S037837742500469X
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+23. RHS -- How to grow celeriac (Pflanzabstand 30 cm, Reihen 40--45 cm; sonniger oder leicht schattiger Standort): https://www.rhs.org.uk/vegetables/celeriac/grow-your-own
+24. RHS -- Apium graveolens var. rapaceum, Details (Position "Full sun"): https://www.rhs.org.uk/plants/106053/wd/details
+25. BBZ Arenenberg (Kanton Thurgau) -- Kulturblatt Sellerie (2015; Knollensellerie Pflanzabstand 44 x 35 oder 50 x 30 cm, Sellerie "starker Naehrstoffzehrer", Fruchtfolge 4--5 Jahre): https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf
+26. Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (Oktober 2022; Knollensellerie Starkzehrer, Doldenbluetler 4--5 Jahre, Schmetterlingsbluetler getrennt): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+27. Natur im Garten Burgenland -- Fruchtfolge im Gemuesegarten (April 2022; Sellerie im Starkzehrer-Beet): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+28. UMass Amherst -- Celery and Celeriac, NE Vegetable Management Guide ("heavy feeders"): https://nevegetable.org/crops/celery-and-celeriac

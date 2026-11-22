@@ -42,7 +42,7 @@ export default function NutrientPlanDetailPage() {
   const speciesCatalogue = useCatalogue('species', { enabled: c.tab === EDIT_TAB_INDEX });
 
   if (c.loading) return <LoadingSkeleton variant="form" />;
-  if (c.error) return <ErrorDisplay error={c.error} />;
+  if (c.error) return <ErrorDisplay error={c.error} onRetry={() => void c.load()} />;
   if (!plan) return <ErrorDisplay error={t('errors.notFound')} />;
 
   return (

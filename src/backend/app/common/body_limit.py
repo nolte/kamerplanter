@@ -56,6 +56,7 @@ global ceiling.
 from __future__ import annotations
 
 import asyncio
+import re
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -119,6 +120,36 @@ class RouteBodyCeiling:
     max_body_bytes: int
 
 
+@dataclass(frozen=True)
+class RoutePatternCeiling:
+    """A body ceiling of its own for one route whose path carries variables, for **any** content type.
+
+    ``pattern`` is matched with ``fullmatch`` against the request path, so a variant that does not match falls back to
+    the global ceiling (the safe direction). Unlike :class:`RouteBodyCeiling` it also lifts the 1 MiB limit of a JSON
+    body: the garden-plan import takes a 5 MB file (REQ-053 GP-NFR-051). Such a body is counted as it is read and
+    held in memory by the route, never spooled, and the route reads it only after authentication, its role gate and
+    its rate limit have passed.
+    """
+
+    method: str
+    pattern: re.Pattern[str]
+    max_body_bytes: int
+
+
+async def read_bounded_body(request: Request, limit_bytes: int) -> bytes:
+    """The request body, read in chunks and refused (413) the moment it passes ``limit_bytes``.
+
+    For a route that takes a JSON body above the global 1 MiB ceiling (``RoutePatternCeiling``) and reads it itself,
+    after authentication: the route states its own bound instead of buffering whatever the stream holds.
+    """
+    received = bytearray()
+    async for chunk in request.stream():
+        received.extend(chunk)
+        if len(received) > limit_bytes:
+            raise RequestBodyTooLargeError(limit_bytes)
+    return bytes(received)
+
+
 class _AbortBodyError(Exception):
     """Raised from the counting ``receive`` to stop the application's read."""
 
@@ -166,6 +197,7 @@ class RequestBodyLimitMiddleware:
         spool_wait_seconds: float,
         non_multipart_max_body_bytes: int = NON_MULTIPART_MAX_BODY_BYTES,
         route_ceilings: Iterable[RouteBodyCeiling] = (),
+        pattern_ceilings: Iterable[RoutePatternCeiling] = (),
     ) -> None:
         if max_body_bytes > spool_budget_bytes:
             msg = (
@@ -178,6 +210,7 @@ class RequestBodyLimitMiddleware:
         self.non_multipart_max_body_bytes = non_multipart_max_body_bytes
         self.budget = SpoolBudget(spool_budget_bytes)
         self.spool_wait_seconds = spool_wait_seconds
+        self.pattern_ceilings: tuple[RoutePatternCeiling, ...] = tuple(pattern_ceilings)
         self.route_ceilings: dict[tuple[str, str], int] = {}
         for route in route_ceilings:
             ceiling = route.max_body_bytes
@@ -194,10 +227,13 @@ class RequestBodyLimitMiddleware:
 
     def ceiling_for(self, scope: Scope, *, multipart: bool) -> int:
         """The body ceiling of this request: the route's own for a multipart body, else the global one."""
-        if not multipart:
-            return self.non_multipart_max_body_bytes
         method: str = scope.get("method", "")
         path: str = scope.get("path", "")
+        for route in self.pattern_ceilings:
+            if route.method.upper() == method.upper() and route.pattern.fullmatch(path):
+                return route.max_body_bytes
+        if not multipart:
+            return self.non_multipart_max_body_bytes
         own = self.route_ceilings.get((method.upper(), path))
         return own if own is not None else self.max_body_bytes
 
@@ -312,8 +348,10 @@ __all__ = [
     "NON_MULTIPART_MAX_BODY_BYTES",
     "RequestBodyLimitMiddleware",
     "RouteBodyCeiling",
+    "RoutePatternCeiling",
     "SpoolBudget",
     "declared_length",
     "is_multipart",
+    "read_bounded_body",
     "request_body_limit_bytes",
 ]

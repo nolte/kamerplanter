@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { configureStore } from '@reduxjs/toolkit';
 import reducer, {
+  fetchAllPlantInstances,
   fetchPlantInstances,
   fetchPlantInstance,
   clearCurrent,
@@ -64,7 +65,7 @@ describe('plantInstancesSlice', () => {
       type: fetchPlantInstances.rejected.type,
       error: { message: 'Fail' },
     });
-    expect(state.error).toBe('Fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchPlantInstance.fulfilled sets current', () => {
@@ -82,5 +83,41 @@ describe('plantInstancesSlice', () => {
     const state = store.getState().plantInstances;
     expect(state.items.length).toBe(1);
     expect(state.items[0].plant_name).toBe('Big Red');
+  });
+
+  describe('fetchAllPlantInstances', () => {
+    const plants = [{ key: 'a' }, { key: 'b' }] as never[];
+    const meta = { requestId: 'r1', requestStatus: 'pending', arg: undefined };
+
+    function afterPages() {
+      let state = reducer(undefined, { type: fetchAllPlantInstances.pending.type, meta });
+      state = reducer(state, {
+        type: 'plantInstances/pageLoaded',
+        payload: { requestId: 'r1', items: plants, first: true, done: true },
+      });
+      return state;
+    }
+
+    it('keeps the items the pages already delivered, so effects keyed on them do not re-run', () => {
+      const loaded = afterPages();
+      const done = reducer(loaded, {
+        type: fetchAllPlantInstances.fulfilled.type,
+        meta,
+        payload: [...plants],
+      });
+      expect(done.items).toBe(loaded.items);
+      expect(done.loading).toBe(false);
+    });
+
+    it('takes the payload when the pages did not deliver the complete set', () => {
+      const loaded = afterPages();
+      const complete = [...plants, { key: 'c' }] as never[];
+      const done = reducer(loaded, {
+        type: fetchAllPlantInstances.fulfilled.type,
+        meta,
+        payload: complete,
+      });
+      expect(done.items.map((p) => p.key)).toEqual(['a', 'b', 'c']);
+    });
   });
 });

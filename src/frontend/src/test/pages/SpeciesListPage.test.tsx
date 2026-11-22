@@ -62,10 +62,10 @@ describe('SpeciesListPage', () => {
     });
   });
 
-  it('displays species common names', async () => {
+  it('displays species common names, those of the UI language first (#2902)', async () => {
     renderWithProviders(<SpeciesListPage />);
     await waitFor(() => {
-      expect(screen.getByText('Tomato')).toBeTruthy();
+      expect(screen.getByText('Tomate, Tomato')).toBeTruthy();
     });
   });
 
@@ -235,6 +235,35 @@ describe('SpeciesListPage', () => {
         await waitFor(() => {
           expect(screen.getAllByText('Ocimum basilicum').length).toBeGreaterThan(0);
         });
+      });
+
+      // #3047 (L-13): the mobile card title was `variant="subtitle2"`, which MUI renders as an
+      // `<h6>` — the page went h1 → h6, once per species card.
+      it('keeps a valid heading order at phone width (#3047 L-13)', async () => {
+        vi.stubGlobal(
+          'matchMedia',
+          vi.fn().mockReturnValue({
+            matches: true,
+            addEventListener: vi.fn(),
+            removeEventListener: vi.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
+          } as unknown as MediaQueryList),
+        );
+        const { container } = renderWithProviders(<SpeciesListPage />);
+        await waitFor(() => {
+          expect(screen.getAllByTestId('card-title').length).toBeGreaterThan(0);
+        });
+
+        const levels = [...container.querySelectorAll('h1, h2, h3, h4, h5, h6')].map((h) =>
+          Number(h.tagName.slice(1)),
+        );
+        expect(levels[0]).toBe(1);
+        const jumps = levels.filter((level, i) => i > 0 && level > levels[i - 1] + 1);
+        expect(jumps).toEqual([]);
+        for (const title of screen.getAllByTestId('card-title')) {
+          expect(title.tagName).not.toMatch(/^H[1-6]$/);
+        }
       });
     });
   });

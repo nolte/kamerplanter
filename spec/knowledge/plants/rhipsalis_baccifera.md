@@ -142,6 +142,22 @@ Quellen (§1.8):
 4. [ForwardPlant — Optimal Soil for Mistletoe Cactus](https://www.forwardplant.com/care/soil/rhipsalis-baccifera/) — Aussaat 19–24 °C, Oberflächenaussaat ohne Bedeckung, Frischsaat empfohlen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Rhipsalis baccifera“ (Position: Full sun, Partial shade; Kulturtext „bright indirect light with high humidity“), https://www.rhs.org.uk/plants/14483/rhipsalis-baccifera/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -375,4 +391,5 @@ Rhipsalis baccifera,Mistelkaktus;Spaghetti-Kaktus;Mistletoe Cactus,Cactaceae,Rhi
 17. [Useful Tropical Plants (theferns.info) — Rhipsalis baccifera](https://tropical.theferns.info/viewtropical.php?id=Rhipsalis+baccifera) — Vermehrungsmethoden "Cuttings" und "Seed" gelistet
 18. [Smart Garden Guide — Rhipsalis Care](https://smartgardenguide.com/rhipsalis-care-mistletoe-cactus/) — Samenvermehrung aus Beeren (Keimung 2–6 Wochen), Steckling als bevorzugte Methode
 19. [RHS — Rhipsalis baccifera](https://www.rhs.org.uk/plants/14483/rhipsalis-baccifera/details) — Blüte "usually from winter to spring but sometimes year round"; nicht frosthart
+RHS -- Rhipsalis baccifera (Position: Full sun, Partial shade; Kulturtext „bright indirect light“ als ausdrücklicher Vorzug; Lichtanspruch): https://www.rhs.org.uk/plants/14483/rhipsalis-baccifera/details
 <!-- /Quelle: Growing-Phase-Audit 2026-07 -->

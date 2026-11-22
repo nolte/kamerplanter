@@ -34,7 +34,7 @@ class _FakeDashboardService:
         self._overdue = overdue
         self._active_plants = active_plants or []
 
-    def get_summary(self, tenant_key: str) -> DashboardSummary:
+    def get_summary(self, tenant_key: str, *, language: str = "de") -> DashboardSummary:
         counts = DashboardCounts(
             plants_total=3,
             plants_active=2,

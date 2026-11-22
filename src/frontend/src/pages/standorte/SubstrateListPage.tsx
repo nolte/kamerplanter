@@ -1,5 +1,4 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -25,7 +24,6 @@ import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
 export default function SubstrateListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.substrates);
   const [createOpen, setCreateOpen] = useState(false);
   const [mixOpen, setMixOpen] = useState(false);
@@ -77,8 +75,8 @@ export default function SubstrateListPage() {
       render: (r) => (lang === 'en' ? r.name_en : r.name_de) || r.brand || '—',
       searchValue: (r) => `${r.name_de} ${r.name_en} ${r.brand ?? ''}`,
     },
-    { id: 'ph', label: t('pages.substrates.phBase'), render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },
-    { id: 'ec', label: t('pages.substrates.ecBase'), render: (r) => r.ec_base_ms.toFixed(2), align: 'right', searchValue: (r) => r.ec_base_ms.toFixed(2) },
+    { id: 'ph', label: t('pages.substrates.phBase'), helpTerm: 'ph', render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },
+    { id: 'ec', label: t('pages.substrates.ecBase'), helpTerm: 'ec', render: (r) => r.ec_base_ms.toFixed(2), align: 'right', searchValue: (r) => r.ec_base_ms.toFixed(2) },
     {
       id: 'reusable',
       label: t('pages.substrates.reusable'),
@@ -90,7 +88,7 @@ export default function SubstrateListPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="substrate-list-page">
       <PageTitle
         title={t('pages.substrates.title')}
         action={
@@ -125,7 +123,7 @@ export default function SubstrateListPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/standorte/substrates/${r.key}`)}
+        getRowHref={(r) => `/standorte/substrates/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.substrates.create')}
         onEmptyAction={() => setCreateOpen(true)}
@@ -180,6 +178,6 @@ export default function SubstrateListPage() {
         onClose={() => setMixOpen(false)}
         onCreated={() => { setMixOpen(false); dispatch(fetchSubstrates({})); }}
       />
-    </>
+    </Box>
   );
 }

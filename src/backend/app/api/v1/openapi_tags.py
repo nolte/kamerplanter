@@ -51,6 +51,15 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "feeding-events", "description": "Fish feeding events (aquaponics)."},
     {"name": "fertilizers", "description": "Fertilizer master data incl. mixing priorities (REQ-004)."},
     {"name": "fish-species", "description": "Fish species master data (aquaponics)."},
+    {"name": "garden-objects", "description": "Paths, trees, fences, water sources on a site's plan (REQ-053)."},
+    {
+        "name": "care-events",
+        "description": "The append-only care log of the beds: log, correct, cancel, redact (REQ-053).",
+    },
+    {
+        "name": "garden-plan",
+        "description": "The garden plan of a site: read model, boundary and transactional batch (REQ-053).",
+    },
     {"name": "glossary", "description": "Glossary of horticultural terms."},
     {"name": "glossary-admin", "description": "Glossary administration."},
     {"name": "glossary-public", "description": "Public, unauthenticated glossary access."},
@@ -63,6 +72,11 @@ OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "import", "description": "Master-data import (REQ-012)."},
     {"name": "inventree", "description": "Optional InvenTree inventory integration (REQ-016)."},
     {"name": "ipm", "description": "Integrated pest management: pests, treatments, karenz periods (REQ-010)."},
+    {"name": "bed-templates", "description": "Bed templates: standard sizes and the tenant's own (REQ-053)."},
+    {
+        "name": "irrigation-zones",
+        "description": "Irrigation zones of a site and the beds they cover (REQ-053).",
+    },
     {"name": "ai-assistant", "description": "AI assistant (RAG) endpoints."},
     {"name": "ai-assistant-admin", "description": "AI assistant administration."},
     {"name": "ai-assistant-public", "description": "Public, unauthenticated AI assistant access."},

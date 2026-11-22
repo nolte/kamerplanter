@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -22,6 +23,7 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/sites';
 import type { Slot } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const schema = z.object({
   slot_id: z
@@ -56,17 +58,29 @@ export default function SlotDetailPage() {
     defaultValues: { slot_id: '', location_key: '', capacity_plants: 1 },
   });
 
-  useEffect(() => {
+  // Latest-wins (#3014); the retry re-runs this load instead of leaving the page (#3037).
+  const beginLoad = useAbortableLoad();
+  const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
     setLoading(true);
-    api.getSlot(key)
-      .then((s) => {
-        setSlot(s);
-        reset({ slot_id: s.slot_id, location_key: s.location_key, capacity_plants: s.capacity_plants });
-      })
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
-  }, [key, reset]);
+    setError(null);
+    try {
+      const s = await api.getSlot(key);
+      if (!ticket.isCurrent()) return;
+      setSlot(s);
+      reset({ slot_id: s.slot_id, location_key: s.location_key, capacity_plants: s.capacity_plants });
+    } catch (e) {
+      if (!ticket.isCurrent()) return;
+      setError(errorKey(e, 'errors.loadFailed'));
+    } finally {
+      if (ticket.isCurrent()) setLoading(false);
+    }
+  }, [key, reset, beginLoad]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;
@@ -97,7 +111,7 @@ export default function SlotDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="slot-detail-page">
@@ -106,7 +120,7 @@ export default function SlotDetailPage() {
         title={slot?.slot_id ?? t('entities.slot')}
         action={
           canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="slot-delete-button">
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="slot-delete-button">
               {t('common.delete')}
             </Button>
           ) : undefined

@@ -1,4 +1,4 @@
-import type { FormEventHandler } from 'react';
+import { useId, type FormEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -16,6 +16,7 @@ import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import FormTimeField from '@/components/form/FormTimeField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormChipInput from '@/components/form/FormChipInput';
 import FormActions from '@/components/form/FormActions';
@@ -68,6 +69,7 @@ export default function PlanEditTab({
   speciesCatalogue,
 }: PlanEditTabProps) {
   const { t } = useTranslation();
+  const speciesFieldId = useId();
 
   return (
     <Form onSubmit={onSubmit} sx={{ maxWidth: FORM_MAX_WIDTH, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -166,6 +168,7 @@ export default function PlanEditTab({
                 Disabled until the catalogue is complete, and a failed load is
                 shown as such rather than as an empty picker (#1628). */}
             <SpeciesMultiAutocompleteField
+              id={speciesFieldId}
               name="species_keys"
               control={control}
               label={t('pages.nutrientPlans.speciesKeys')}
@@ -175,7 +178,7 @@ export default function PlanEditTab({
             />
             <CatalogueLoadError
               reader={speciesCatalogue}
-              focusSelector="[data-testid='form-field-species_keys'] input"
+              focusTargetId={speciesFieldId}
             />
           </CardContent>
         </Card>
@@ -315,35 +318,12 @@ export default function PlanEditTab({
                 />
               )}
 
-              {/* Preferred Time */}
-              <Controller
+              {/* Preferred Time — the shared field: a bound label, the error tied to the input
+                  via aria-describedby, and theme colours that follow dark mode (#3017, A-08). */}
+              <FormTimeField
                 name="preferred_time"
                 control={control}
-                render={({ field, fieldState: { error } }) => (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                      {t('pages.wateringSchedule.preferredTime')}
-                    </Typography>
-                    <input
-                      type="time"
-                      value={field.value}
-                      onChange={field.onChange}
-                      onBlur={field.onBlur}
-                      style={{
-                        width: '100%',
-                        padding: '0.5rem',
-                        fontSize: '1rem',
-                        border: error ? '1px solid red' : '1px solid rgba(0,0,0,0.23)',
-                        borderRadius: '4px',
-                      }}
-                    />
-                    {error?.message && (
-                      <Typography variant="caption" color="error">
-                        {error.message}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
+                label={t('pages.wateringSchedule.preferredTime')}
               />
 
               {/* Application Method */}

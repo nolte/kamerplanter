@@ -16,8 +16,12 @@ from app.domain.models.actuator import ManualOverride
 from app.domain.models.ai_assistant import AiAuditLogEntry, AiConversation, AiTipCard
 from app.domain.models.attachment import Attachment
 from app.domain.models.auth import ApiKey, AuthProvider, RefreshToken
+from app.domain.models.bed_template import BedTemplate
 from app.domain.models.calendar import CalendarFeed
+from app.domain.models.care_event import ACCOUNT_FIELDS, CareEvent
 from app.domain.models.feeding_event import FeedingEvent
+from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.harvest import HarvestBatch, QualityAssessment, YieldMetric
 from app.domain.models.identification import IdentificationRequest
 from app.domain.models.import_job import ImportJob
@@ -44,6 +48,7 @@ from app.domain.models.privacy import (
     ErasureStep,
     ProcessingRestriction,
 )
+from app.domain.models.propagation import RootingProtocol
 from app.domain.models.security_audit import SecurityAuditEntry
 from app.domain.models.sensor import Sensor
 from app.domain.models.site import Location, Site, Slot
@@ -63,6 +68,7 @@ from app.domain.services.favorites_service import FavoritesService
 #: see :func:`_model_field_names`.
 COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "users": User,
+    "garden_plan_audit": PlanAuditRecord,
     "auth_providers": AuthProvider,
     "refresh_tokens": RefreshToken,
     "memberships": Membership,
@@ -77,6 +83,7 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "inspections": Inspection,
     "treatment_applications": TreatmentApplication,
     "plant_diary_entries": PlantDiaryEntry,
+    "rooting_protocols": RootingProtocol,
     "identification_requests": IdentificationRequest,
     # #1700 — categories the erasure inventory reaches since #1700, disclosed too.
     "ai_conversations": AiConversation,
@@ -107,6 +114,10 @@ COLLECTION_MODELS: dict[str, type[BaseModel]] = {
     "sites": Site,
     "locations": Location,
     "slots": Slot,
+    "garden_objects": GardenObject,
+    # REQ-053 WP 7.8 (#2474): the subject's own bed templates (``created_by``), Art. 15 and the account erasure.
+    "bed_templates": BedTemplate,
+    "care_events": CareEvent,
     "plant_instances": PlantInstance,
     "planting_runs": PlantingRun,
     # #2165 — tanks, watering and feeding logs, sensors (ArangoDB) and their readings (TimescaleDB).
@@ -186,6 +197,18 @@ EDGE_SOURCE_FIELDS: dict[str, set[str]] = {"user_favorites": _stored_favorite_ed
 #: document step whose collection is missing here fails the field-existence test
 #: by name instead of being skipped (#1663).
 ERASURE_COLLECTION_MODELS: dict[str, type[BaseModel]] = {**COLLECTION_MODELS}
+
+
+def _has_field(model: type[BaseModel], path: str) -> bool:
+    """Whether *path* (``a`` or ``a.b``: a field, or a field one object down) exists on *model*."""
+    head, _, rest = path.partition(".")
+    if head not in _model_field_names(model):
+        return False
+    if not rest:
+        return True
+    annotation = model.model_fields[head].annotation
+    candidates = [arg for arg in getattr(annotation, "__args__", ()) if isinstance(arg, type)] or [annotation]
+    return any(isinstance(c, type) and issubclass(c, BaseModel) and _has_field(c, rest) for c in candidates)
 
 
 def _model_field_names(model: type[BaseModel]) -> set[str]:
@@ -521,6 +544,27 @@ class TestErasureEngine:
         # possibly shared tenant. Anonymised, therefore never deleted.
         assert "plant_diary_entries" not in plan.delete
 
+    def test_care_event_free_texts_are_kept_exactly_like_the_diary_text(self):
+        """#2411 item 3 — free texts of an erased member in a shared tenant are treated as ``plant_diary_entries``.
+
+        The precedent (REQ-050 section 7.4): the document survives, every account reference becomes the shared
+        marker, **no free-text field is cleared** (the text stays in the tenant's history). The care log does the
+        same: five account references, the marker, no ``clear_fields``, never deleted. A rule that cleared a text
+        or used another marker would be a second policy for the same situation.
+        """
+        engine = ErasureEngine()
+        plan = engine.build_erasure_plan("u1")
+
+        care = [rule for rule in plan.anonymize if rule.collection == "care_events"]
+        diary = [rule for rule in plan.anonymize if rule.collection == "plant_diary_entries"]
+
+        assert {rule.user_field for rule in care} == set(ACCOUNT_FIELDS)
+        assert {(rule.replacement_strategy, rule.anonymized_value) for rule in care} == {
+            (rule.replacement_strategy, rule.anonymized_value) for rule in diary
+        }
+        assert all(rule.clear_fields == [] and rule.rename_fields == [] for rule in [*care, *diary])
+        assert "care_events" not in plan.delete
+
     def test_anonymisation_rules_address_fields_that_exist(self):
         """A rule pointing at a missing field silently anonymises nothing.
 
@@ -533,7 +577,7 @@ class TestErasureEngine:
             f"{rule.collection}.{field}"
             for rule in engine.ANONYMIZE_COLLECTIONS
             for field in (rule.user_field, *rule.clear_fields)
-            if field not in _model_field_names(COLLECTION_MODELS[rule.collection])
+            if not _has_field(COLLECTION_MODELS[rule.collection], field)
         ]
         assert unknown == []
 
@@ -638,7 +682,7 @@ class TestErasureStepUserField:
             f"{collection}.{field}"
             for collection, user_field, clear_fields in rules
             for field in (user_field, *clear_fields)
-            if field not in _model_field_names(ERASURE_COLLECTION_MODELS[collection])
+            if not _has_field(ERASURE_COLLECTION_MODELS[collection], field)
         ]
         assert unknown == []
 

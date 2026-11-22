@@ -157,6 +157,22 @@ Hinweis: Keimtemperatur min (15 degC), Saattiefe (2--3 cm) und Dunkelkeimer-Stat
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Zucchini: 2--10 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 100 | `species.spacing_cm` |
+| Reihenabstand (cm) | 100 | `species.row_spacing_cm` |
+| Quelle Abstände | Bingenheimer Saatgut AG, Sorte 'Solara' (gelbe, nicht rankende Buschzucchini; Herstellerangaben ueber Haendlerseite): Reihenabstand 100 cm, Abstand in der Reihe 100 cm, https://www.violey.com/en/bingenheimer-saatgut-seeds-of-organic-yellow-courgette_p_46189.html; Gartenakademie Rheinland-Pfalz (DLR Rheinpfalz), Merkblatt Zucchini (undatiert): Pflanzabstand 0,80 x 1,00 m (Reihenfolge nicht bezeichnet), https://www.gartenakademie.rlp.de/Internet/global/Themen.nsf/(Web_P_GA_XP_Kat_UKat)/0D3DAA71DEFE80FCC12576E2004F48F8/$FILE/Zucchin.pdf; RHS, "How to grow courgettes": mindestens 90 cm je Pflanze, https://www.rhs.org.uk/vegetables/courgettes/grow-your-own; Werte gelten fuer nicht rankende Buschsorten, fuer rankende Sorten (z. B. 'Black Forest') liegt keine Abstandsquelle vor | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, "How to grow courgettes" ("a warm, sunny, sheltered position"), https://www.rhs.org.uk/vegetables/courgettes/grow-your-own; Gartenakademie Rheinland-Pfalz (DLR Rheinpfalz), Merkblatt Zucchini: "warmer sonniger Standort", https://www.gartenakademie.rlp.de/Internet/global/Themen.nsf/(Web_P_GA_XP_Kat_UKat)/0D3DAA71DEFE80FCC12576E2004F48F8/$FILE/Zucchin.pdf | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -474,6 +490,11 @@ Nicht anwendbar -- Zucchini ist eine einjaehrige, frostempfindliche Nutzpflanze 
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae), Gruenduengung, oder Lauchgewaechse |
 | Empfohlene Nachfrucht | Mittel- oder Schwachzehrer (Salat, Moehren, Radieschen) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Cucurbitaceae auf gleicher Flaeche (inkl. Gurke, Kuerbis, Melone) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Suedtiroler Bauernbund, Merkblatt "Fruchtfolgen im Gemuesebau" (Stand Oktober 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer: Zucchini); Natur im Garten (Land NOe / Natur im Garten Burgenland), "Fruchtfolge im Gemuesegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer: Zucchini); Gartenakademie Rheinland-Pfalz (DLR Rheinpfalz), Merkblatt Zucchini (undatiert), https://www.gartenakademie.rlp.de/Internet/global/Themen.nsf/(Web_P_GA_XP_Kat_UKat)/0D3DAA71DEFE80FCC12576E2004F48F8/$FILE/Zucchin.pdf ("Starkzehrer!") |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; LKSH "Fruchtfolge im Garten" (2020) fuehrt Kuerbisgewaechse (Gurke, Kuerbis, Melone, Zucchini) und Huelsenfruechte als getrennte Pflanzenfamilien, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine belastbare Quelle fuer eine Abweichung vom Familienwert (Cucurbitaceae 4); Gartenakademie RLP nennt nur "frueuhestens nach 2 Jahren" als Mindestwert, Suedtiroler Bauernbund 4-5 Jahre fuer Kuerbisgewaechse --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -566,3 +587,9 @@ Zuboda (Pötschke Historisch),Cucurbita pepo,Pötschke,,heirloom;high_yield,55,,
 21. MSU Extension -- Phytophthora crown rot on cucurbits (Staunaesse-Empfindlichkeit): https://www.canr.msu.edu/news/phytophthora-crown-rot-on-cucurbits-and-peppers-requires-aggressive-approach
 22. UF/IFAS CV216 -- Nutrient Solution Formulation for Hydroponic Tomatoes (Mikronaehrstoffe Mn/Zn/Cu/Mo): https://ask.ifas.ufl.edu/publication/CV216
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+23. Gartenakademie Rheinland-Pfalz (DLR Rheinpfalz) -- Zucchini (Merkblatt): https://www.gartenakademie.rlp.de/Internet/global/Themen.nsf/(Web_P_GA_XP_Kat_UKat)/0D3DAA71DEFE80FCC12576E2004F48F8/$FILE/Zucchin.pdf
+24. Bingenheimer Saatgut AG -- Sorte 'Solara' (gelbe Buschzucchini), Herstellerangaben ueber Haendlerseite violey.com (Reihen-/Pflanzabstand): https://www.violey.com/en/bingenheimer-saatgut-seeds-of-organic-yellow-courgette_p_46189.html
+25. RHS -- How to grow courgettes (sonniger Standort, Pflanzabstand): https://www.rhs.org.uk/vegetables/courgettes/grow-your-own
+26. LKSH -- Fruchtfolge im Garten (2020): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+27. Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (2022): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+28. Natur im Garten (Land NOe) -- Fruchtfolge im Gemuesegarten (2022): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf

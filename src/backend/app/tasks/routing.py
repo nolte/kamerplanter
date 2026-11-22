@@ -60,11 +60,13 @@ CRITICAL_TASKS: Final = frozenset(
     {
         # NFR-011 retention and erasure
         "retention.anonymize_consent_ips",
+        "retention.anonymize_expired_care_events",
         "retention.execute_scheduled_erasures",
         "retention.expire_data_exports",
         "retention.expire_email_change_requests",
         "retention.purge_expired_consent_records",
         "retention.purge_expired_erasure_records",
+        "retention.purge_expired_garden_plan_audit",
         "retention.purge_expired_legal_retention_rows",
         "retention.purge_expired_tenant_erasure_records",
         "retention.redispatch_stale_pending_exports",
@@ -119,6 +121,7 @@ BULK_TASKS: Final = frozenset(
 #: Routed to ``celery`` — listed rather than implied, so a new task needs a decision.
 DEFAULT_TASKS: Final = frozenset(
     {
+        "app.tasks.adjacency.adjacency_recompute",
         "app.tasks.auth_tasks.rotate_oidc_discovery",
         "app.tasks.auth_tasks.send_duplicate_registration_notice",
         "app.tasks.care_tasks.generate_due_care_reminders",
@@ -128,7 +131,9 @@ DEFAULT_TASKS: Final = frozenset(
         "app.tasks.season_tasks.evaluate_quarter_climate",
         "app.tasks.season_tasks.evaluate_season_states",
         "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
+        "app.tasks.storage_tasks.cleanup_orphaned_location_photos",
         "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
+        "app.tasks.storage_tasks.cleanup_orphaned_underlays",
         "app.tasks.storage_tasks.generate_thumbnails",
         "app.tasks.storage_tasks.reconcile_orphaned_storage_objects",
         "app.tasks.tank_maintenance_tasks.check_runoff_trends",
@@ -137,6 +142,8 @@ DEFAULT_TASKS: Final = frozenset(
         "app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha",
         "app.tasks.watering_tasks.generate_watering_tasks",
         "app.tasks.weather_tasks.fetch_weather_forecasts",
+        "care_events.consistency",
+        "privacy.consistency",
         "check_auto_transitions",
         "check_dormancy_triggers",
         "update_vernalization_progress",
@@ -194,10 +201,12 @@ ACKS_LATE_TASKS: Final = frozenset(
     {
         # NFR-011 retention sweeps: delete / anonymise / flip rows past a cutoff
         "retention.anonymize_consent_ips",
+        "retention.anonymize_expired_care_events",
         "retention.expire_data_exports",
         "retention.expire_email_change_requests",
         "retention.purge_expired_consent_records",
         "retention.purge_expired_erasure_records",
+        "retention.purge_expired_garden_plan_audit",
         "retention.purge_expired_legal_retention_rows",
         "retention.purge_expired_tenant_erasure_records",
         "app.tasks.auth_tasks.anonymize_old_ips",
@@ -214,6 +223,8 @@ ACKS_LATE_TASKS: Final = frozenset(
         "pest_image.sweep_orphaned_prototypes",
         # deactivates overrides whose expiry has passed; switches nothing itself
         "app.tasks.actuator_tasks.expire_manual_overrides",
+        # re-derives adjacent_to from the stored slots and writes only the difference (REQ-053 GP-NFR-016)
+        "app.tasks.adjacency.adjacency_recompute",
     }
 )
 

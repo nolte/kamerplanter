@@ -129,3 +129,25 @@ describe('PlantingRunDetailPage — run-batch complete harvest (REQ-007/013)', (
     expect(screen.queryByTestId('complete-harvest-button')).toBeNull();
   });
 });
+
+describe('PlantingRunDetailPage — phase tab plant list (#3047)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('de');
+    setActiveTenantSlug('test-tenant');
+  });
+
+  it('lists each plant of a phase as a real link to its detail page', async () => {
+    seedRun({ status: 'active', activePlants: 2 });
+    const user = userEvent.setup();
+
+    const { router } = renderWithProviders(<PlantingRunDetailPage />, { route: '/#phases' });
+
+    const content = await screen.findByTestId('phases-tab-content', {}, { timeout: 5000 });
+    await user.click(await within(content).findByText(/flowering|Blüte/i, {}, { timeout: 5000 }));
+    const plant = await screen.findByTestId('phase-plant-p-0', {}, { timeout: 5000 });
+    expect(plant.tagName).toBe('A');
+    expect(plant).toHaveAttribute('href', '/pflanzen/plant-instances/p-0');
+    await user.click(plant);
+    expect(router.state.location.pathname).toBe('/pflanzen/plant-instances/p-0');
+  });
+});

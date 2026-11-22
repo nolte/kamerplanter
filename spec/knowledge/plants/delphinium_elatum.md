@@ -139,6 +139,22 @@
 - [Coohom — Do Delphiniums Need Light to Germinate?](https://www.coohom.com/article/do-delphiniums-need-light-to-germinate) und [Garden.org — Germinating Delphinium Seed](https://garden.org/frogs/view/16858/) — Dunkelkeim-Präferenz, leichtes Bedecken mit Substrat
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Growing-Guide nennt keinen Pflanzabstand, nur Ausbreitung (45–90 cm); kein Pflanzabstand aus Wuchsbreite abgeleitet --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow perennial delphiniums" (Growing Guide), https://www.rhs.org.uk/plants/delphinium/perennial/growing-guide („All delphiniums need full sun to perform well"; Blüte im Schatten schwach) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -316,6 +332,11 @@ Rittersporn ist Starkzehrer und braucht reiche Böden. Vor dem Einpflanzen Boden
 | Nährstoffbedarf | Starkzehrer (heavy_feeder) |
 | Fruchtfolge-Kategorie | Staude (Dauerkultur) |
 | Anbaupause (Jahre) | Alle 4–5 Jahre teilen und verjüngen |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Ranunculaceae: kein Familienwert; Dauerkultur Staude) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

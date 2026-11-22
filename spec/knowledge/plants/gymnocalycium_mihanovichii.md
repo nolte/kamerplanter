@@ -132,6 +132,22 @@ Hinweis zur Abgrenzung: Die chlorophyllhaltige **Wildform** (grüne Reinart) von
 Quellen (§1.8-Entscheidung): §1.1 und §1.3 dieses Dokuments (bereits oben zitiert); [Wikipedia — Gymnocalycium mihanovichii](https://en.wikipedia.org/wiki/Gymnocalycium_mihanovichii) (Pfropfung der Hibotan-Mutante, fehlendes Chlorophyll); [MasterClass — Moon Cactus Care Guide](https://www.masterclass.com/articles/moon-cactus-care-guide) (Vermehrung ausschließlich über Pfropfung/Kindel, keine Samenvermehrung des Handelsprodukts erwähnt)
 <!-- /SECTION MISSING -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite (Gymnocalycium mihanovichii) enthält keine Position-/Aspect-Angabe; keine weitere belastbare Standortstufe gelesen --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

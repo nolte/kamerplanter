@@ -1,7 +1,17 @@
 import { type ThemeOptions } from '@mui/material/styles';
 
+/**
+ * System font stack (operator decision 2026-11-18, #3021): no web font is
+ * loaded and no font dependency is added. Every platform renders its own UI
+ * font — San Francisco, Segoe UI, Roboto on Android, Cantarell/Noto on Linux.
+ * Before this, the theme named "Roboto" without ever loading it, so desktops
+ * without a local Roboto silently fell back to Helvetica/Arial.
+ */
+export const SYSTEM_FONT_STACK =
+  'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
+
 export const typography: ThemeOptions['typography'] = {
-  fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+  fontFamily: SYSTEM_FONT_STACK,
   h1: {
     fontSize: '2rem',
     fontWeight: 600,

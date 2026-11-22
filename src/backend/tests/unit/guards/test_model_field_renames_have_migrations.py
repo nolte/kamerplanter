@@ -158,8 +158,17 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # #2107 (MT-010) — never written; the site is the owner. v0087 unsets the stored "".
     ("site.py", "Location", "tenant_key"): _MigratedBy("0087"),
     ("site.py", "Slot", "tenant_key"): _MigratedBy("0087"),
+    # REQ-053 O-01/O-02 (#2323, #2324) — v0093 derived ``geometry``/``height_m`` from the
+    # extent triple and a bed-frame point with ``row_index``/``sequence`` from the grid
+    # cell; WP 1.5 removes the legacy fields from the model with their readers, no
+    # mirror (O-02). v0093 copies and does not unset: the stored attributes stay as
+    # the source for a catch-up run and the model ignores them (extra="ignore").
+    ("site.py", "Location", "dimensions"): _MigratedBy("0093"),
+    ("site.py", "Slot", "position"): _MigratedBy("0093"),
     # #2171 — the clear iCal token became its SHA-256 digest ``token_hash``; v0090 hashes and unsets it.
     ("calendar.py", "CalendarFeed", "token"): _MigratedBy("0090"),
+    # #2976 — the raw account key moved to ``author_user_key`` (R6 shape); v0114 moves it and unsets ``author``.
+    ("propagation.py", "RootingProtocol", "author"): _MigratedBy("0114"),
     ("calendar.py", "CalendarEventsQuery", "site_key"): _NoStoredDocuments(
         "A query object built per request and handed to the aggregation engine; never written to "
         "any collection. Removed in the #2226 review (SEC-003) that followed 31329837d, together with the "
@@ -200,6 +209,18 @@ _CLASSIFIED: dict[tuple[str, str, str], _MigratedBy | _NoStoredDocuments] = {
     # value and removes the legacy attribute.
     ("user.py", "User", "password_reset_token"): _MigratedBy("0086"),
     ("user.py", "User", "email_verification_token"): _MigratedBy("0086"),
+    # REQ-053 WP 9.13 review (PR #2811, item 8): the two request bodies of a zone round share their validated
+    # ``performed_at``/``summary`` through the base ``_ZoneRoundInput``; the fields moved up, none was dropped.
+    **{
+        ("irrigation_zone.py", "ZoneWateringInput", field_name): _NoStoredDocuments(
+            "Review item 8 of PR #2811 moved the body onto a base. A request body (POST "
+            "/irrigation-zones/{key}/log-watering), validated and turned into care events; never written as "
+            "such. The field is inherited from _ZoneRoundInput in the same module - this AST sweep reads class "
+            "bodies only, so it reports the move as a loss. ZoneRainSkippedInput is not listed: the squash "
+            "merge 59cc4751c brought it onto develop already on the base, so it never lost a field there."
+        )
+        for field_name in ("performed_at", "summary")
+    },
 }
 
 

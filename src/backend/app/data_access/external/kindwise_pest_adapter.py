@@ -74,11 +74,13 @@ class KindwisePestAdapter(PestDetectionAdapter):
             taxon = get_taxon(label)
             category = taxon.category if taxon else PestFindingCategory.SYMPTOM
             common_name = taxon.common_name_de if taxon else label
+            names_i18n = taxon.names_i18n() if taxon else {}
             findings.append(
                 PestFinding(
                     label=label,
                     category=category,
                     common_name=common_name,
+                    common_names_i18n=names_i18n,
                     confidence=float(raw.get("probability", 0.0)),
                     mode=PestFindingMode.SYMPTOM,
                 )

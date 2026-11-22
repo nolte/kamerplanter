@@ -31,6 +31,7 @@ import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { kamiTanks } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 // ── Plant resolution cache ─────────────────────────────────────────
 
@@ -54,7 +55,10 @@ function usePlantResolver(events: WateringEvent[]) {
       setKeyPlantMap(byKey);
     }
 
-    resolve().catch(() => {});
+    resolve().catch((err: unknown) => {
+      // Display enrichment only: rows show the plant key instead of its name.
+      captureHandledError(err, { source: 'WateringEventListPage.plantNames' });
+    });
     return () => { cancelled = true; };
   }, [hasEvents]);
 
@@ -95,15 +99,15 @@ interface DetailDialogProps {
 function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: DetailDialogProps) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (!event) return null;
 
   const plants = getPlantsForEvent(event);
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('pages.wateringEvents.detail')}</DialogTitle>
+    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="watering-event-detail-dialog" aria-labelledby="watering-event-detail-dialog-title">
+      <DialogTitle id="watering-event-detail-dialog-title">{t('pages.wateringEvents.detail')}</DialogTitle>
       <DialogContent dividers>
         {/* Plants linked via slots */}
         {plants.length > 0 && (
@@ -116,7 +120,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
                 <Chip
                   key={p.key}
                   icon={<SpaIcon />}
-                  label={getPlantLabel(p)}
+                  label={getPlantLabel(p, i18n.language)}
                   size="small"
                   component={RouterLink}
                   to={`/pflanzen/plant-instances/${p.key}`}
@@ -281,7 +285,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
 // ── Main Page ──────────────────────────────────────────────────────
 
 export default function WateringEventListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const { events, loading } = useAppSelector((s) => s.wateringEvents);
   const [createOpen, setCreateOpen] = useState(false);
@@ -317,7 +321,7 @@ export default function WateringEventListPage() {
               <Chip
                 key={p.key}
                 icon={<SpaIcon />}
-                label={getPlantLabel(p)}
+                label={getPlantLabel(p, i18n.language)}
                 size="small"
                 color="success"
                 variant="outlined"
@@ -333,7 +337,7 @@ export default function WateringEventListPage() {
           </Box>
         );
       },
-      searchValue: (r) => getPlantsForEvent(r).map((p) => getPlantLabel(p)).join(' '),
+      searchValue: (r) => getPlantsForEvent(r).map((p) => getPlantLabel(p, i18n.language)).join(' '),
     },
     {
       id: 'applicationMethod',
@@ -377,7 +381,7 @@ export default function WateringEventListPage() {
           : '—',
       searchValue: (r) => r.fertilizers_used.map((f) => f.product_name).join(' '),
     },
-  ], [t, getPlantsForEvent]);
+  ], [t, getPlantsForEvent, i18n.language]);
 
   return (
     <Box data-testid="watering-event-list-page">
@@ -416,7 +420,7 @@ export default function WateringEventListPage() {
             <MobileCard
               title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
               titleId="wateredAt"
-              subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p)).join(', ') : undefined}
+              subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p, i18n.language)).join(', ') : undefined}
               subtitleId="plants"
               chips={[
                 {

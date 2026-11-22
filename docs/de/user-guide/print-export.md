@@ -192,3 +192,4 @@ Im unteren Bereich des Dialogs siehst du eine schematische Vorschau einer Karte 
 - [Pflegeerinnerungen](care-reminders.md) — Pflegeprofile und fällige Aufgaben
 - [Pflanzdurchläufe](planting-runs.md) — Pflanzinstanzen verwalten
 - [Tankmanagement](tanks.md) — Nährlösungen anmischen
+- [Gartenplan](garden-plan.md#plan-export-import) — den maßstäblichen Plan als PDF oder SVG drucken und als Sicherung exportieren

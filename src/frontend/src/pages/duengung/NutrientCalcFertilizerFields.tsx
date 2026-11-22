@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -10,8 +10,10 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { fetchAllFertilizers } from '@/api/endpoints/fertilizers';
 import { listSites, listLocations } from '@/api/endpoints/sites';
+import { listAllSpecies } from '@/api/endpoints/species';
 import { useApiError } from '@/hooks/useApiError';
-import type { Fertilizer, Location } from '@/api/types';
+import type { Fertilizer, Location, Species } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 /**
  * Shared master-data selectors for the Nutrient Calculations page (#610).
@@ -22,7 +24,11 @@ import type { Fertilizer, Location } from '@/api/types';
  * location catalogues, showing product name + brand and submitting `f.key` —
  * matching the existing pattern in `ChannelFertilizerDialog`/`DosageCalculatorTab`.
  *
- * The fertilizer/location lists are fetched once via the hooks below and shared
+ * The species selector of the area dosing replaces the former feeder-class
+ * select (REQ-053 E-17 variant A): the N warning now reads the species'
+ * own `nitrogen_fixing` flag on the server.
+ *
+ * The fertilizer/location/species lists are fetched once via the hooks below and shared
  * across every panel, so the selectors themselves are pure presentational
  * components that receive the option list as a prop.
  */
@@ -99,6 +105,38 @@ export function useLocationOptions(): {
   }, [handleError]);
 
   return useMemo(() => ({ locations, loading }), [locations, loading]);
+}
+
+/**
+ * Loads the species the tenant may read (own, global, granted) once.
+ * Returns a memoised object (FRONTEND.md useMemo obligation).
+ */
+export function useSpeciesOptions(): {
+  species: Species[];
+  loading: boolean;
+} {
+  const [species, setSpecies] = useState<Species[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { handleError } = useApiError();
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const page = await listAllSpecies();
+        if (!cancelled) setSpecies(page.items);
+      } catch (err) {
+        if (!cancelled) handleError(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [handleError]);
+
+  return useMemo(() => ({ species, loading }), [species, loading]);
 }
 
 interface FertilizerMultiSelectProps {
@@ -337,5 +375,63 @@ export function EcBudgetFertilizerRows({
         {t('pages.nutrientCalc.fertilizerRowAdd')}
       </Button>
     </Box>
+  );
+}
+
+const speciesFilter = createFilterOptions<Species>({
+  stringify: (species) =>
+    [species.scientific_name, ...(species.common_names ?? []), species.genus, species.family_name ?? ''].join(' '),
+  matchFrom: 'any',
+  trim: true,
+});
+
+interface SpeciesSelectProps {
+  options: Species[];
+  /** Selected species key, or empty string when none. */
+  value: string;
+  onChange: (key: string) => void;
+  label: string;
+  helperText?: string;
+  loading?: boolean;
+}
+
+/** Single-select species picker submitting one `species.key` (clearable), searchable by any name. */
+export function SpeciesSelect({
+  options,
+  value,
+  onChange,
+  label,
+  helperText,
+  loading,
+}: SpeciesSelectProps) {
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
+  const sorted = useMemo(
+    () =>
+      [...options].sort((a, b) =>
+        getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language)),
+      ),
+    [options, language],
+  );
+  const selected = useMemo(
+    () => sorted.find((s) => s.key === value) ?? null,
+    [value, sorted],
+  );
+
+  return (
+    <Autocomplete
+      options={sorted}
+      value={selected}
+      onChange={(_, next) => onChange(next?.key ?? '')}
+      getOptionLabel={(option) => getSpeciesOptionLabel(option, language)}
+      isOptionEqualToValue={(o, v) => o.key === v.key}
+      filterOptions={speciesFilter}
+      loading={loading}
+      noOptionsText={t('pages.nutrientCalc.speciesNoResults')}
+      fullWidth
+      renderInput={(params) => (
+        <TextField {...params} label={label} helperText={helperText} />
+      )}
+    />
   );
 }

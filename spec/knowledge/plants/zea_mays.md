@@ -146,6 +146,22 @@ Angaben fuer Mitteleuropa (Zone 7–8).
 Quellen (§1.8): [Pioneer Seeds — Soil Temperature and Corn Emergence](https://www.pioneer.com/us/agronomy/soil_temp_corn_emergence.html); [Sungrowled — Do Seeds Need Light to Germinate? (Mais als non-photoblastic Referenzbeispiel)](https://www.sungrowled.com/News/113902.html); [Farmer and the Fish NYC — How Long Does Corn Seed Last Before It Loses Viability?](https://farmerandthefishnyc.com/how-long-does-corn-seed-last/); [University of Delaware Cooperative Extension — Seed Vigor in Sweet Corn Revisited](https://sites.udel.edu/weeklycropupdate/?p=10301); [Alberta Agriculture — Using 1,000 Kernel Weight for Calculating Seeding Rates, Grain Yield and Test Weight](https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/agdex81/$file/100_22-1.pdf); [Grainews — Thousand kernel weight](https://www.grainews.ca/features/thousand-kernel-weight/); [Bayer Vegetables — Understanding Sweet Corn Populations](https://www.vegetables.bayer.com/ca/en-ca/resources/agronomic-spotlights/understanding-sweet-corn-populations.html)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 34–45 (Raster in beide Richtungen) | `species.spacing_cm` |
+| Reihenabstand (cm) | 34–45 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Sweetcorn: Grow your own“ („in a grid not a row, spacing them 34–45cm (13–18in) apart in each direction“; Baby Corn 20 cm in Reihen), https://www.rhs.org.uk/vegetables/sweetcorn/grow-your-own; Feldanbau abweichend: FiBL, Merkblatt Mais („Der Reihenabstand beträgt in der Regel 75 cm“), https://www.fibl.org/fileadmin/documents/shop/1017-mais.pdf; Uni Göttingen, Info Mais (Einzelkornsaat, Reihenabstand 75 cm), https://uni-goettingen.de/de/document/download/fb4b5a85edac5e28772dc293430ab88d.pdf/Info%20Mais.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Sweetcorn: Grow your own“ („Choose a warm, sunny growing site … Cobs are unlikely to ripen if they’re not in full sun“), https://www.rhs.org.uk/vegetables/sweetcorn/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -433,6 +449,11 @@ Mais ist ein klassischer Starkzehrer. Der hohe N-Bedarf wird am besten mit organ
 | Empfohlene Vorfrucht | Huelsenfrüchte (Leguminosen: Bohne, Erbse, Luzerne) |
 | Empfohlene Nachfrucht | Schwachzehrer oder Gruenduengung (Phacelia, Senf) |
 | Anbaupause (Jahre) | 2–3 Jahre (Fusarium, Beulenbrand-Sporen im Boden) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | FiBL, Merkblatt Mais (1017) („wärmeliebend, ein grosser Nährstoffzehrer“; „wegen seines hohen Stickstoffbedarfs an bevorzugter Stelle“ in der Fruchtfolge), https://www.fibl.org/fileadmin/documents/shop/1017-mais.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Liste: „Zuckermais“), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | medium (2 gelesene Quellen übereinstimmend; FiBL bezieht sich auf Feldmais) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine belastbare Art-Angabe. FiBL, Merkblatt Mais: „weitgehend selbstverträglich“, Anbaupause von einem Jahr nur als Bio-Suisse-Vorgabe zwingend, im Biolandbau in der Regel nur einmal in 6–8 Jahren auf derselben Parzelle, https://www.fibl.org/fileadmin/documents/shop/1017-mais.pdf; Uni Göttingen: Monokultur möglich (hohe Selbstverträglichkeit), https://uni-goettingen.de/de/document/download/fb4b5a85edac5e28772dc293430ab88d.pdf/Info%20Mais.pdf; KONFLIKT mit Bestandswert 6.1 (2–3 Jahre); Wert bleibt null --> |
 
 ### 6.2 Drei-Schwestern-Mischkultur (Milpa)
 
@@ -536,4 +557,8 @@ Noa (suedtirol),Zea mays,85–95,yellow;field_corn;regional,open_pollinated,Regi
 16. PMC166765 — Sensitivity of Photosynthesis in a C4 Plant, Maize, to Heat Stress (Photosynthese-Optimum warm, Hemmung > ~38°C) — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC166765/
 17. Frontiers in Plant Science 2020 (fpls.2020.581156) — Far-Red und PAR-Definition (FR-Fraction ~0.46 direkte Sonne bei R:FR ~1.2) — https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.581156/full
 18. Envirevo Agritech — Optimizing Hydroponic Nutrient Requirements (Mikronaehrstoff-Zielwerte Mn/Zn/Cu/Mo) — https://envirevoagritech.com/optimizing-hydroponic-nutrients-requirements/
+19. RHS — Sweetcorn: Grow your own (Raster 34–45 cm; volle Sonne): https://www.rhs.org.uk/vegetables/sweetcorn/grow-your-own
+20. FiBL — Merkblatt Mais (1017) (grosser Nährstoffzehrer, Selbstverträglichkeit, Reihenabstand 75 cm): https://www.fibl.org/fileadmin/documents/shop/1017-mais.pdf
+21. Uni Göttingen — Info Maisanbau (Selbstverträglichkeit, Reihenabstand 75 cm): https://uni-goettingen.de/de/document/download/fb4b5a85edac5e28772dc293430ab88d.pdf/Info%20Mais.pdf
+22. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete; Zuckermais Starkzehrer): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

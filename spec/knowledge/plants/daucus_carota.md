@@ -157,6 +157,22 @@ Hinweis: Keimtemperatur min/max (5/30 degC), Saattiefe (1--2 cm) und Dunkelkeime
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Carrot: 400--1200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 3–5 | `species.spacing_cm` |
+| Reihenabstand (cm) | 25–30 | `species.row_spacing_cm` |
+| Quelle Abstände | Reihenabstand: Bayerische Gartenakademie (LWG Bayern), „Sä- und Pflanztermine auf einen Blick" (Möhren 25 cm; Abstand in der Reihe dort nicht angegeben), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf; Sperli, „Kulturanleitung Möhren" (Reihenabstand etwa 30 cm, Übersicht 25 x 30 cm), https://www.sperli.de/kulturanleitung-moehren/. Abstand in der Reihe: Bingenheimer Saatgut, „Möhren/Karotten selbst anbauen" (Reihen 30–50 cm, in der Reihe etwa 3 cm), https://blog.bingenheimersaatgut.de/moehren-bunte-vielfalt; University of Illinois Extension, „How to Grow Carrots" (2020; Ausdünnen auf etwa 2 inch ≈ 5 cm, Reihen 12–18 inch), https://extension.illinois.edu/blogs/good-growing/2020-04-20-how-grow-carrots | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Sperli, „Kulturanleitung Möhren", https://www.sperli.de/kulturanleitung-moehren/ („Ein sonniger Platz im Garten fördert das Wachstum"; schattige Bereiche vermeiden) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -482,6 +498,11 @@ Moehren haben je nach Cultivar unterschiedliche Resistenzen, besonders gegen Alt
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Kartoffel, Tomate) oder Huelsenfruechte (N-Anreicherung) |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Radieschen, Krauter) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--5 Jahre fuer Apiaceae (Sellerie, Petersilie, Dill, Fenchel, Pastinake) auf gleicher Flaeche |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten" (2020; Möhre = Mittelzehrer), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Sächsische Gartenakademie, „Gemüse-Aussaat - Folge 04" (Möhre = Mittelzehrer), https://www.gartenakademie.sachsen.de/gemuese-aussaat-folge-04-4786.html; abweichend oekolandbau.de, „Möhren" (führt Möhren als Schwachzehrer, geringer Nährstoffbedarf pro Hektar), https://www.oekolandbau.de/index.php?id=6901 |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Doldenblütler, Hülsenfrüchte als eigene Gruppe: LKSH „Fruchtfolge im Garten" 2020, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | 5 |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -581,3 +602,11 @@ Rodelika,Daucus carota,Bingenheim,,high_yield;heirloom,100,,open_pollinated
 23. Wikipedia (DE) -- Moehre (Pflanzenart): https://de.wikipedia.org/wiki/M%C3%B6hre_(Pflanzenart) -- "Die Bluetezeit reicht von Mai bis Juli" (unterstuetzende Drittquelle, nicht alleinige Quelle)
 <!-- Hinweis: agrarraum.info nennt abweichend "Bluetezeit beginnt im Juni" (https://www.agrarraum.info/lexikon/karotte) und Cornell/MSU Extension nennen fuer die nordamerikanische Wildform Juli-September (https://blogs.cornell.edu/weedid/wild-carrot/, https://www.canr.msu.edu/weeds/extension/wild-carrot) -- als abweichende Einzelquellen fuer den Bluetebeginn im Report dokumentiert, aber durch die 3 uebereinstimmenden Mitteleuropa-Kulturmoehre-Quellen 21-23 fuer den Start Mai nicht entkraeftet. -->
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+24. Landwirtschaftskammer Schleswig-Holstein -- Fruchtfolge im Garten (2020): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf -- Möhre als Mittelzehrer, Doldenblütler und Hülsenfrüchte als getrennte Familiengruppen
+25. Sächsische Gartenakademie -- Gemüse-Aussaat Folge 04: https://www.gartenakademie.sachsen.de/gemuese-aussaat-folge-04-4786.html -- Möhre als Mittelzehrer
+26. oekolandbau.de (BLE) -- Möhren: https://www.oekolandbau.de/index.php?id=6901 -- Möhren als Schwachzehrer (abweichend), Anbaupause zu Doldenblütlern mindestens 4 Jahre
+27. Landwirtschaftskammer Schleswig-Holstein -- Möhren: https://www.lksh.de/landwirtschaft/ackerkulturen-von-ackerbohnen-bis-zwischenfruechte/moehren -- Anbaupause von fünf Jahren (rotation_pause_years 5)
+28. Bayerische Gartenakademie (LWG) -- Sä- und Pflanztermine auf einen Blick: https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf -- Reihenabstand Möhren 25 cm
+29. Sperli -- Kulturanleitung Möhren: https://www.sperli.de/kulturanleitung-moehren/ -- Reihenabstand ca. 30 cm, sonniger Standort
+30. Bingenheimer Saatgut -- Möhren/Karotten selbst anbauen: https://blog.bingenheimersaatgut.de/moehren-bunte-vielfalt -- Reihenabstand 30–50 cm, in der Reihe etwa 3 cm
+31. University of Illinois Extension -- How to Grow Carrots (2020): https://extension.illinois.edu/blogs/good-growing/2020-04-20-how-grow-carrots -- Ausdünnen auf ca. 2 inch, Reihenabstand 12–18 inch

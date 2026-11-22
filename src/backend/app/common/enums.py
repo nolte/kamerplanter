@@ -135,9 +135,19 @@ class PropagationDifficulty(StrEnum):
 
 
 class PhotoperiodType(StrEnum):
+    """How day length triggers a species' flowering (REQ-001 ``LifecycleConfig.photoperiod_type``, REQ-003).
+
+    ``unspecified`` (#2857, additive, M-9) is the default: nobody classified the species from a source (E-10). It is
+    not ``day_neutral`` - that is a statement about the plant ("flowers regardless of day length") which the tent rule
+    acts on (REQ-053 §9.2a: a day-neutral plant takes no part in the photoperiod conflict). Before #2857
+    ``day_neutral`` was the default, so a stored ``day_neutral`` could not be told from "never classified"; v0113
+    converted the stored defaults.
+    """
+
     SHORT_DAY = "short_day"
     LONG_DAY = "long_day"
     DAY_NEUTRAL = "day_neutral"
+    UNSPECIFIED = "unspecified"
 
 
 class CycleType(StrEnum):
@@ -363,6 +373,11 @@ OVERWINTERING_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, Sit
 #: INDOOR / WINDOWSILL / GROW_TENT stay excluded (climate-controlled, no weather).
 WEATHER_RELEVANT_SITE_TYPES = frozenset({SiteType.OUTDOOR, SiteType.GREENHOUSE, SiteType.BALCONY})
 
+#: REQ-053 §9.8 (GP-FR-182, WP 10.8) - the site types whose garden plan is an indoor plan: a flat, a windowsill,
+#: a grow tent. Derived from ``WEATHER_RELEVANT_SITE_TYPES`` rather than listed a second time: a site without
+#: outdoor weather is exactly one whose plan hides weather, frost and wind and starts on the finer indoor grid.
+INDOOR_PLAN_SITE_TYPES = frozenset(SiteType) - WEATHER_RELEVANT_SITE_TYPES
+
 
 class LightType(StrEnum):
     NATURAL = "natural"
@@ -406,9 +421,31 @@ class IrrigationStrategy(StrEnum):
 
 
 class NutrientDemand(StrEnum):
-    LIGHT = "light"
-    MEDIUM = "medium"
-    HEAVY = "heavy"
+    """Feeder level (Zehrerstufe) — REQ-053 GP-FR-138, REQ-001 v4.12, REQ-002 v4.6.
+
+    Carried by ``Species.nutrient_demand``, ``BotanicalFamily.typical_nutrient_demand``
+    and ``CropRotationPlan.nutrient_demand``. Until migration M6 (v0096, #2325) the
+    values were ``light`` / ``medium`` / ``heavy``; M6 rewrites the stored family rows
+    and the seeds in the same change (``light → light_feeder`` …). Nitrogen fixation is
+    **not** a level (K-001) — it is the boolean ``nitrogen_fixing`` next to it.
+    """
+
+    HEAVY_FEEDER = "heavy_feeder"
+    MEDIUM_FEEDER = "medium_feeder"
+    LIGHT_FEEDER = "light_feeder"
+
+
+class PlanRole(StrEnum):
+    """Role of a planting run or a rotation-plan year — REQ-053 GP-FR-138.
+
+    ``PlantingRun.plan_role`` (REQ-013) and ``CropRotationPlan.plan_role`` (REQ-002).
+    ``fallow`` is the only value without a planting run; ``green_manure`` on a run
+    requires ``Species.green_manure_suitable``. Never carried by a species or a family.
+    """
+
+    MAIN_CROP = "main_crop"
+    GREEN_MANURE = "green_manure"
+    FALLOW = "fallow"
 
 
 class RootDepth(StrEnum):
@@ -431,6 +468,15 @@ class Suitability(StrEnum):
 
 
 class NutrientDemandLevel(StrEnum):
+    """Legacy four-value feeder class (REQ-053 GP-FR-139: superseded on ``Species`` by
+    ``nutrient_demand`` + ``nitrogen_fixing`` since M6, v0096). It scales nothing: the
+    EC target is not scaled by feeder class (REQ-053 E-17 variant A), and the only
+    code that derives anything from ``Species.nutrient_demand_level`` is migration M6
+    (v0096). The value is still stored and passed through (species edit, MCP
+    readout), and ``nitrogen_fixer`` is accepted as the deprecated ``demand_level``
+    input of the area-dosing request. Kept because a retirement would crash the start
+    on an alt volume. Never a source for ``nutrient_demand`` (E-10)."""
+
     HEAVY_FEEDER = "heavy_feeder"
     MEDIUM_FEEDER = "medium_feeder"
     LIGHT_FEEDER = "light_feeder"
@@ -456,10 +502,16 @@ class BufferCapacity(StrEnum):
 
 
 class Orientation(StrEnum):
+    """Compass orientation of a location; the four intercardinal values are additive (REQ-053 GP-FR-168, #2667)."""
+
     NORTH = "north"
     SOUTH = "south"
     EAST = "east"
     WEST = "west"
+    NORTHEAST = "northeast"
+    SOUTHEAST = "southeast"
+    SOUTHWEST = "southwest"
+    NORTHWEST = "northwest"
 
 
 class SyncStatus(StrEnum):
@@ -506,6 +558,50 @@ class PlantingRunStatus(StrEnum):
     HARVESTING = "harvesting"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
+
+class LayoutStrategy(StrEnum):
+    """REQ-053 GP-FR-060 — how planting positions are laid out inside a bed.
+
+    ``grid`` sets ``row_spacing = spacing``; ``rows`` carries its own row spacing;
+    ``triangular`` derives ``row_spacing = spacing × 0.866`` (staggered rows);
+    ``zone`` is one area with a capacity (direct sowing); ``free`` is manually
+    placed positions (woody plants). The capacity calculator (GP-FR-073) knows the
+    first three; ``zone``/``free`` carry no per-plant geometry of their own.
+    """
+
+    GRID = "grid"
+    ROWS = "rows"
+    TRIANGULAR = "triangular"
+    ZONE = "zone"
+    FREE = "free"
+
+
+class RowDirection(StrEnum):
+    """REQ-053 GP-FR-060 — which side of the bed the planting rows run along.
+
+    ``along_length`` follows the **longer** side of the bed's bounding box in the
+    bed frame, ``along_width`` the shorter one (a square bed: ``along_length`` is
+    the bed-frame x axis). Additive — a stored value is never retired.
+    """
+
+    ALONG_LENGTH = "along_length"
+    ALONG_WIDTH = "along_width"
+
+
+class DepthKind(StrEnum):
+    """REQ-053 GP-FR-060 — what ``depth_cm`` of a planting-run entry measures."""
+
+    SOWING = "sowing"
+    PLANTING = "planting"
+
+
+class PlacementHint(StrEnum):
+    """REQ-053 GP-FR-071 (COULD) — where in the bed an entry prefers to stand."""
+
+    INTERIOR = "interior"
+    EDGE = "edge"
+    CORNER = "corner"
 
 
 class SuccessionPlanStatus(StrEnum):
@@ -947,6 +1043,29 @@ class TaskCategory(StrEnum):
     PEST_CONTROL = "pest_control"
     MONITORING = "monitoring"
     CLEANING = "cleaning"
+    # REQ-053 §12.1 bed-care catalogue (migration M3, #2325). Additive — an enum
+    # retirement crashes startup on an alt volume. i18n keys enums.taskCategory.*
+    # exist for each in DE and EN; the spec Literal lives in REQ-006 §Datenmodell.
+    MULCHING = "mulching"
+    WEEDING = "weeding"
+    SOIL_LOOSENING = "soil_loosening"
+    SOWING = "sowing"
+    PRICKING_OUT = "pricking_out"
+    SOIL_AMENDMENT = "soil_amendment"
+    LIMING = "liming"
+    PH_ADJUSTMENT = "ph_adjustment"
+    EC_CHECK = "ec_check"
+    FLUSH = "flush"
+    THINNING = "thinning"
+    HILLING = "hilling"
+    TILLAGE = "tillage"
+    COVERING = "covering"
+    UNCOVERING = "uncovering"
+    VENTILATING = "ventilating"
+    CLEARING = "clearing"
+    SOIL_ANALYSIS = "soil_analysis"
+    RAINFALL = "rainfall"
+    POLLINATING = "pollinating"
 
 
 class ActivityCategory(StrEnum):
@@ -1073,6 +1192,43 @@ class TenantStatus(StrEnum):
     ORPHANED = "orphaned"
     DELETED = "deleted"
     IMPORTING = "importing"
+
+
+class RecordKeeping(StrEnum):
+    """Which statutory record-keeping duty a tenant declares (spec/privacy/06 PRIV-401, PRIV-409; ``08`` §3.2).
+
+    Stored as ``Tenant.settings.record_keeping``; ``None`` there is the state ``undeclared``
+    (DEC-30: no model default — a new tenant stays undeclared until its creation path asks).
+
+    * ``LEGACY`` — only for tenants that existed before the classification (stamped by v0110);
+      retention behaves as it did before (every legal rule for every tenant).
+    * ``NONE`` — no statutory record keeping; the value of a personal tenant (L-07: private
+      home growing carries no documentation duty).
+    * ``PFLSCHG_PROFESSIONAL`` — professional user under PflSchG § 11 (L-01, L-02).
+    * ``KCANG_ASSOCIATION`` — cultivation association under KCanG § 26 (L-05).
+    * ``BOTH`` — both duties.
+    """
+
+    LEGACY = "legacy"
+    NONE = "none"
+    PFLSCHG_PROFESSIONAL = "pflschg_professional"
+    KCANG_ASSOCIATION = "kcang_association"
+    BOTH = "both"
+
+
+class OrganizationKind(StrEnum):
+    """What kind of organisation an ``organization`` tenant is (spec/privacy/06 PRIV-409; ``08`` §3.2).
+
+    Stored as ``Tenant.settings.organization_kind``; it classifies organisation tenants only — a
+    personal tenant carries none. ``UNKNOWN_LEGACY`` marks an organisation tenant that existed
+    before the classification (stamped by v0110); it is never a choice at creation.
+    """
+
+    ASSOCIATION = "association"
+    COMMERCIAL = "commercial"
+    COMMUNITY = "community"
+    OTHER = "other"
+    UNKNOWN_LEGACY = "unknown_legacy"
 
 
 class EntitlementDimension(StrEnum):
@@ -1422,6 +1578,14 @@ class AttachmentCategory(StrEnum):
     # REQ-010 — user-contributed reference photos for a global pest (Phase 1:
     # tenant-private gallery; Phase 2 may promote selected images globally).
     PEST_REFERENCE = "pest_reference"
+    # REQ-053 GP-FR-033 - the background picture (photo, sketch, aerial view) a garden plan is traced over.
+    # One per site; never part of the plan's JSON export. An aerial view can reveal where someone lives,
+    # so the EXIF strip applies and the erasure treats it like the other tenant-record photos.
+    GARDEN_PLAN_UNDERLAY = "garden_plan_underlay"
+    # REQ-053 GP-FR-051 (WP 8.18) - the photos of a bed (``Location.photo_refs``, ``cover_photo_ref``). A garden photo
+    # can show people or a home, so the EXIF strip applies and the erasure treats it like the other tenant-record
+    # photos; never part of the plan's JSON export.
+    LOCATION = "location"
 
 
 class PestImageStatus(StrEnum):
@@ -1894,6 +2058,362 @@ class SecurityAuditVia(StrEnum):
     #: REQ-027 §7a.2 (#1855): the first account of a full-mode instance took the light-mode data over
     #: (or declined it) through ``POST /system/takeover``.
     LIGHT_MODE_TAKEOVER = "light_mode_takeover"
+
+
+class GeometryKind(StrEnum):
+    """Shape of a garden-plan geometry (REQ-053 §20.1, GP-FR-005).
+
+    Area shapes (``rect``, ``circle``, ``polygon``) carry an ``area_m2``; line
+    objects (``polyline``) and positions (``point``) do not.
+    """
+
+    RECT = "rect"
+    CIRCLE = "circle"
+    POLYGON = "polygon"
+    POLYLINE = "polyline"
+    POINT = "point"
+
+
+class GeometrySource(StrEnum):
+    """Where a slot's geometry came from (REQ-053 §20.5, R-08).
+
+    ``migrated_grid`` marks a point migration M1 (v0093) derived from the legacy
+    ``(row, col)`` grid cell — removed in WP 1.5 (#2324) — with the ``pitch_m``
+    assumption; the editor shows
+    it as *estimated* until the location is saved once. ``season_copy`` marks a slot the
+    "new season from the previous year" action re-created from an archived slot of that
+    year (GP-FR-171, WP 7.16). Additive — a stored value is never retired (M-9).
+    """
+
+    EDITOR = "editor"
+    LAYOUT = "layout"
+    MIGRATED_GRID = "migrated_grid"
+    SEASON_COPY = "season_copy"
+
+
+class SlotRole(StrEnum):
+    """What a slot's geometry stands for (REQ-053 §20.5).
+
+    ``position`` is a single plant place (``point``), ``row`` a sowing row
+    (``polyline``), ``zone`` a broadcast-sown area (``polygon``).
+    """
+
+    POSITION = "position"
+    ROW = "row"
+    ZONE = "zone"
+
+
+class BedStatus(StrEnum):
+    """Lifecycle of a bed location (REQ-053 §7.4, W-014); ``active`` is the default."""
+
+    PLANNED = "planned"
+    ACTIVE = "active"
+    RETIRED = "retired"
+
+
+class SunExposure(StrEnum):
+    """Coarse sun exposure of a location (REQ-053 §10.1, GP-FR-157).
+
+    Five values so that the scale matches ``Species.shade_tolerance`` (O-16);
+    ``unknown`` is the default for a location nobody has classified yet.
+    """
+
+    FULL_SUN = "full_sun"
+    PARTIAL_SHADE = "partial_shade"
+    SHADE = "shade"
+    DEEP_SHADE = "deep_shade"
+    UNKNOWN = "unknown"
+
+
+class SunWindow(StrEnum):
+    """When the direct sun reaches a bed (REQ-053 §10.2, GP-FR-158)."""
+
+    MORNING = "morning"
+    MIDDAY = "midday"
+    AFTERNOON = "afternoon"
+    ALL_DAY = "all_day"
+    MIXED = "mixed"
+    UNKNOWN = "unknown"
+
+
+class SunProfileSource(StrEnum):
+    """Where a sun profile comes from (§10.2); ``computed`` arrives with the shading work of §29."""
+
+    MANUAL = "manual"
+    COMPUTED = "computed"
+
+
+class FrostRisk(StrEnum):
+    """Frost risk of one bed (REQ-053 §10.2, GP-FR-162); replaces the boolean ``Location.frost_exposed``."""
+
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+
+
+class HeatRetention(StrEnum):
+    """Stored heat at a bed: a wall or a building gives it back at night (REQ-053 §10.2)."""
+
+    NONE = "none"
+    WALL = "wall"
+    BUILDING = "building"
+    UNKNOWN = "unknown"
+
+
+class WindExposure(StrEnum):
+    """Wind load on a bed (REQ-053 §10.2, GP-FR-163); entered by hand, nothing is derived yet."""
+
+    SHELTERED = "sheltered"
+    NORMAL = "normal"
+    EXPOSED = "exposed"
+    UNKNOWN = "unknown"
+
+
+class AccessSide(StrEnum):
+    """Side of a bed from which it is tended (REQ-053 §10.2)."""
+
+    NORTH = "N"
+    EAST = "E"
+    SOUTH = "S"
+    WEST = "W"
+
+
+class SiteFlag(StrEnum):
+    """Competition hints for a bed under woody plants (REQ-053 §10.2, GP-FR-165); no calculation."""
+
+    ROOT_COMPETITION = "root_competition"
+    ALLELOPATHY_RISK = "allelopathy_risk"
+
+
+class SiteFit(StrEnum):
+    """Traffic light of a bed against a species' light requirement (REQ-053 GP-FR-160)."""
+
+    OK = "ok"
+    MARGINAL = "marginal"
+    POOR = "poor"
+    UNKNOWN = "unknown"
+
+
+class GrowingMediumKind(StrEnum):
+    """What fills a bed (REQ-053 §15.1, K-002) — one of three soil axes."""
+
+    NATIVE_SOIL = "native_soil"
+    RAISED_BED_MIX = "raised_bed_mix"
+    POTTING_MIX = "potting_mix"
+    MINERAL_SUBSTRATE = "mineral_substrate"
+    OTHER = "other"
+
+
+class SoilTexture(StrEnum):
+    """Grain-size class of a bed's soil (REQ-053 §15.1, K-002)."""
+
+    SAND = "sand"
+    LOAMY_SAND = "loamy_sand"
+    SANDY_LOAM = "sandy_loam"
+    LOAM = "loam"
+    SILT_LOAM = "silt_loam"
+    CLAY_LOAM = "clay_loam"
+    CLAY = "clay"
+    UNKNOWN = "unknown"
+
+
+class SoilDrainage(StrEnum):
+    """How well a bed drains (REQ-053 §15.1)."""
+
+    POOR = "poor"
+    MODERATE = "moderate"
+    GOOD = "good"
+    UNKNOWN = "unknown"
+
+
+class SiteWaterRegime(StrEnum):
+    """Site-level moisture class of a bed — a site description, not a sensor state (REQ-053 §15.1, H-002)."""
+
+    DRY = "dry"
+    FRESH = "fresh"
+    MOIST = "moist"
+    WET = "wet"
+    UNKNOWN = "unknown"
+
+
+class SoilConditionFlag(StrEnum):
+    """Observed soil condition of a bed (REQ-053 §15.1 ``conditions[]``)."""
+
+    COMPACTED = "compacted"
+    DEPLETED = "depleted"
+    WATERLOGGED = "waterlogged"
+    CRUSTING = "crusting"
+    STONY = "stony"
+
+
+class PhMethod(StrEnum):
+    """How a stored soil pH was measured (REQ-053 §15.1)."""
+
+    CACL2 = "cacl2"
+    H2O = "h2o"
+    PROBE_UNKNOWN = "probe_unknown"
+
+
+class EcMethod(StrEnum):
+    """How a stored soil electrical conductivity was measured (REQ-053 §15.1, U-002).
+
+    A conductivity is only readable with its extraction method: salt thresholds hold for the saturated paste (ECe),
+    hobby values are mostly 1:2, 1:5 or a probe, and no lossless conversion exists. ``unknown`` is comparable with
+    nothing, not even with itself across measurements.
+    """
+
+    SATURATED_PASTE = "saturated_paste"
+    RATIO_1_2 = "ratio_1_2"
+    RATIO_1_5 = "ratio_1_5"
+    SENSOR = "sensor"
+    UNKNOWN = "unknown"
+
+
+class StoneContentClass(StrEnum):
+    """How stony a bed is (REQ-053 §15.1 v2 field; stored as stated, never derived)."""
+
+    NONE = "none"
+    FEW = "few"
+    MANY = "many"
+    UNKNOWN = "unknown"
+
+
+class GardenObjectType(StrEnum):
+    """Class of a non-plantable plan object (REQ-053 §20.4, §9.5, §9.8).
+
+    The outdoor classes come from §9.5, the indoor classes (``window``, ``door``,
+    ``furniture``, ``lamp``) from §9.8, ``text_label`` from GP-UX-071 (a caption, no
+    physical object). The value selects the ``props`` model of a
+    :class:`~app.domain.models.garden_object.GardenObject`. Additive (M-9).
+    """
+
+    PATH = "path"
+    LAWN = "lawn"
+    TREE = "tree"
+    SHRUB = "shrub"
+    BUILDING = "building"
+    WALL = "wall"
+    FENCE = "fence"
+    TRELLIS = "trellis"
+    WATER_SOURCE = "water_source"
+    COMPOST = "compost"
+    STORAGE = "storage"
+    OTHER = "other"
+    WINDOW = "window"
+    DOOR = "door"
+    FURNITURE = "furniture"
+    LAMP = "lamp"
+    #: A free caption on the plan (GP-UX-071, #2913): its text is ``label``, its box the rect geometry. Not a physical
+    #: object - no height, no shade, no task, no legend entry.
+    TEXT_LABEL = "text_label"
+
+
+class WaterSourceKind(StrEnum):
+    """Kind of a ``water_source`` garden object (REQ-053 §9.5)."""
+
+    TAP = "tap"
+    RAIN_BARREL = "rain_barrel"
+    WELL = "well"
+    POND = "pond"
+    CISTERN = "cistern"
+    HOSE_REEL = "hose_reel"
+
+
+class IrrigationZoneType(StrEnum):
+    """How the beds of an irrigation zone are watered (REQ-053 §14.1, §20.11). Additive (M-9).
+
+    A separate value set from :class:`IrrigationSystem` (a bed's own property, §14.1): the zone groups
+    beds for one watering round, the bed keeps how it is equipped. Only ``manual`` and ``drip`` occur in
+    both; the conflict hint between the two (GP-FR-119) is WP 7.5.
+    """
+
+    MANUAL = "manual"
+    DRIP = "drip"
+    SPRINKLER = "sprinkler"
+    SOAKER_HOSE = "soaker_hose"
+    SUB_IRRIGATION = "sub_irrigation"
+
+
+class CareEventAllocation(StrEnum):
+    """How the quantity of a care event came about (REQ-053 GP-FR-117, WP 7.3). Additive (M-9).
+
+    ``measured`` is the default: the person measured what this bed received. ``by_area``, ``equal`` and
+    ``by_demand`` mark a quantity that a zone round divided over its beds - an allocated value is never shown as a
+    measured one. ``by_demand`` (WP 9.13, #2753) divides by each bed's REQ-037 net demand of the round's day.
+    """
+
+    MEASURED = "measured"
+    BY_AREA = "by_area"
+    EQUAL = "equal"
+    BY_DEMAND = "by_demand"
+
+
+class FlowRateSource(StrEnum):
+    """Where an irrigation zone's flow rate comes from (REQ-053 §14.1, O-13). Additive (M-9).
+
+    ``ha_entity`` is written from WP 7.4 on (SR-014: Technik scope, granted entity); until then only
+    ``manual`` is accepted.
+    """
+
+    MANUAL = "manual"
+    HA_ENTITY = "ha_entity"
+
+
+class PhotoperiodSource(StrEnum):
+    """Where a requirement profile's ``photoperiod_hours`` came from (REQ-003, REQ-053 §9.2a, #2857). Additive (M-9).
+
+    ``sourced``: the value comes from a Steckbrief / species seed profile, or a person entered it in the profile
+    editor. ``generated``: the resource-profile generator took it from its phase-name table (one table for every
+    species). ``default``: nobody chose it - the generator found no value for the phase and the model fallback
+    (18.0 h) stands. A stored profile without the field predates this provenance; its origin is unknown. Only a
+    ``sourced`` value is a statement about the plant: the tent rule (V-23) groups no other value.
+    """
+
+    SOURCED = "sourced"
+    GENERATED = "generated"
+    DEFAULT = "default"
+
+
+class PathSurface(StrEnum):
+    """Surface of a ``path`` garden object (REQ-053 §20.4)."""
+
+    GRAVEL = "gravel"
+    PAVING = "paving"
+    BARK = "bark"
+    GRASS = "grass"
+    OTHER = "other"
+
+
+class FoliageType(StrEnum):
+    """Foliage of a ``tree`` garden object — the shade preparation of §29 (REQ-053 §9.5)."""
+
+    DECIDUOUS = "deciduous"
+    EVERGREEN = "evergreen"
+
+
+class ObstacleOpacity(StrEnum):
+    """How much a wall, fence or shrub blocks light and wind (REQ-053 §9.5, GP-FR-163)."""
+
+    OPAQUE = "opaque"
+    SEMI = "semi"
+    OPEN = "open"
+
+
+class WindowGlazing(StrEnum):
+    """Glazing of a ``window`` garden object (REQ-053 §9.8)."""
+
+    SINGLE = "single"
+    DOUBLE = "double"
+    UNKNOWN = "unknown"
+
+
+class LampKind(StrEnum):
+    """Kind of a ``lamp`` garden object (REQ-053 §9.8)."""
+
+    GROW_LIGHT = "grow_light"
+    CEILING = "ceiling"
+    FLOOR = "floor"
 
 
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {

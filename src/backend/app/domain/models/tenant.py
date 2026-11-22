@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.common.enums import AdminScope, TenantRole, TenantStatus, TenantType
+from app.common.enums import AdminScope, OrganizationKind, RecordKeeping, TenantRole, TenantStatus, TenantType
 from app.domain.models.plan import DEFAULT_PLAN_KEY
 
 
@@ -28,6 +28,14 @@ class TenantSettings(BaseModel):
     ai_default_provider_key: str | None = None
     ai_allow_cloud_providers: bool = False
     ai_daily_tip_enabled: bool = True
+    #: spec/privacy/08 §3.2, PRIV-401/PRIV-409 — the tenant's statutory record-keeping duty.
+    #: ``None`` is ``undeclared``: deliberately no default (DEC-30, W-03), so a new tenant is never
+    #: silently classified. v0110 stamps the tenants that existed before (``legacy``, personal ``none``).
+    #: In no request or response schema yet; the declaration at creation is the rest of PRIV-E09.
+    record_keeping: RecordKeeping | None = None
+    #: spec/privacy/08 §3.2, PRIV-409 — the kind of an organisation tenant; ``None`` for a personal
+    #: tenant and for an undeclared one. v0110 stamps existing organisation tenants ``unknown_legacy``.
+    organization_kind: OrganizationKind | None = None
 
 
 class Tenant(BaseModel):

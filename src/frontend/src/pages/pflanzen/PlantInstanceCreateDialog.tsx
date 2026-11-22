@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useId } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -18,7 +18,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import { Link as RouterLink } from 'react-router-dom';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -33,6 +35,8 @@ import LocationAssignmentSection from '@/components/form/LocationAssignmentSecti
 import FavoriteToggle from '@/components/common/FavoriteToggle';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { useServerConsentGrant } from '@/hooks/useServerConsentGrant';
 import { isLightMode } from '@/config/mode';
@@ -45,6 +49,10 @@ import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { Cultivar, SubstrateType, Site, Slot } from '@/api/types';
 import { generateInstanceId } from '@/utils/idGenerator';
+import { captureHandledError } from '@/observability/errorTracking';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { isApiError } from '@/api/errors';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 /** REQ-025 / #2174 — the consent the "use as reference" switch grants. */
 const REFERENCE_CONSENT_PURPOSE = 'reference_contribution';
@@ -75,6 +83,8 @@ type FormData = z.infer<typeof schema>;
 interface PhaseOptionSource {
   key: string;
   displayName: string | null;
+  /** German catalogue name of a phase definition (sequence path only; legacy growth phases have none). */
+  displayNameDe?: string | null;
   name: string;
 }
 
@@ -122,7 +132,7 @@ export default function PlantInstanceCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const { isFavorite, toggleFavorite } = useSowingFavorites();
@@ -135,13 +145,21 @@ export default function PlantInstanceCreateDialog({
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
   const substrateCatalogue = useCatalogue('substrates', { enabled: open });
+  const speciesFieldId = useId();
+  const substrateFieldId = useId();
   // Normalized start-phase options for the "Current Phase" select. The source
   // (PhaseSequence entries vs LifecycleConfig growth phases) is resolved the
   // same way the backend validates (issue #626), so the stored keys are always
   // members of the backend's `_valid_phase_keys` set.
   const [phaseOptionSources, setPhaseOptionSources] = useState<PhaseOptionSource[]>([]);
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  // Failed option reads are shown with a retry, never as empty pickers (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
+  const [slotsLoadError, setSlotsLoadError] = useState<string | null>(null);
+  const [cultivarsLoadError, setCultivarsLoadError] = useState(false);
+  const [phaseSourcesLoadError, setPhaseSourcesLoadError] = useState(false);
 
   // ── Identification photo carry-over (issue #447) ─────────────────────
   const [saveAsGalleryPhoto, setSaveAsGalleryPhoto] = useState(true);
@@ -191,14 +209,14 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open, referenceConsent]);
 
-  const { control, handleSubmit, reset, setValue, getValues } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue, getValues } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       instance_id: '',
       species_key: '',
       cultivar_key: null,
       plant_name: null,
-      planted_on: new Date().toISOString().split('T')[0],
+      planted_on: toLocalIsoDate(),
       current_phase_key: null,
       cultivation_cycle_type: '',
       substrate_key: null,
@@ -207,6 +225,7 @@ export default function PlantInstanceCreateDialog({
       slot_key: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const speciesKey = useWatch({ control, name: 'species_key' });
   const siteKey = useWatch({ control, name: 'site_key' });
@@ -235,8 +254,10 @@ export default function PlantInstanceCreateDialog({
         instance_id: generateInstanceId(''),
         species_key: effectiveSpeciesKey,
         cultivar_key: duplicateFrom?.cultivar_key ?? null,
-        plant_name: duplicateFrom?.plant_name ? `${duplicateFrom.plant_name} (Kopie)` : null,
-        planted_on: new Date().toISOString().split('T')[0],
+        plant_name: duplicateFrom?.plant_name
+          ? i18n.t('pages.plantInstances.copyName', { name: duplicateFrom.plant_name })
+          : null,
+        planted_on: toLocalIsoDate(),
         current_phase_key: duplicateFrom?.current_phase_key ?? null,
         cultivation_cycle_type: '',
         substrate_key: substrateVal,
@@ -244,13 +265,18 @@ export default function PlantInstanceCreateDialog({
         location_key: null,
         slot_key: null,
       });
-      sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
       // Resolve slot → location → site for duplicate
       if (duplicateFrom?.slot_key) {
         sitesApi.getSlot(duplicateFrom.slot_key).then(async (slot) => {
           const loc = await sitesApi.getLocation(slot.location_key);
           // Load slots for the location so the dropdown is populated
-          const slots = await sitesApi.listSlots(loc.key).catch(() => [] as Slot[]);
+          let slots: Slot[] = [];
+          try {
+            slots = await sitesApi.listSlots(loc.key);
+          } catch (err) {
+            captureHandledError(err, { source: 'PlantInstanceCreateDialog.duplicateSlots' });
+            setSlotsLoadError(loc.key);
+          }
           setSlotsList(slots);
           // Set values without triggering cascade resets
           skipLocationReset.current = true;
@@ -258,10 +284,13 @@ export default function PlantInstanceCreateDialog({
           setValue('site_key', loc.site_key);
           setValue('location_key', loc.key);
           setValue('slot_key', slot.key);
-        }).catch(() => {});
+        }).catch((err: unknown) => {
+          // Duplicate pre-fill only: the user picks site, location and slot by hand instead.
+          captureHandledError(err, { source: 'PlantInstanceCreateDialog.duplicateSlot' });
+        });
       }
     }
-  }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom]);
+  }, [open, reset, effectiveSpeciesKey, setValue, duplicateFrom, i18n]);
 
   // The instance-id prefix for a preselected species used to be derived inside
   // the species request's `.then`. It is not derived here at all now: the effect
@@ -290,32 +319,34 @@ export default function PlantInstanceCreateDialog({
     }
   }, [open]);
 
-  useEffect(() => {
-    if (!speciesKey) {
-      setCultivarList([]);
-      setPhaseOptionSources([]);
-      return;
-    }
-    const isInitialDuplicate = duplicateFrom && !initialLoadDone;
+  const fetchCultivars = useCallback((key: string) => {
     setCultivarsLoading(true);
-    if (!isInitialDuplicate) {
-      setValue('cultivar_key', null);
-      setValue('current_phase_key', null);
-    }
+    setCultivarsLoadError(false);
     speciesApi
-      .listCultivars(speciesKey)
+      .listCultivars(key)
       .then((cultivars) => setCultivarList(cultivars))
-      .catch(() => setCultivarList([]))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'PlantInstanceCreateDialog.cultivars' });
+        setCultivarList([]);
+        setCultivarsLoadError(true);
+      })
       .finally(() => setCultivarsLoading(false));
+  }, []);
 
+  // The start-phase options of a species. Its own latest-wins run, so the retry
+  // re-reads only the phases — not the cultivars and not the chosen values (#3037).
+  const beginPhaseSourcesLoad = useAbortableLoad();
+  const loadPhaseSources = useCallback((forSpeciesKey: string, keepCarriedPhase: boolean) => {
     // Resolve the start-phase options the SAME way the backend validates them
     // (issue #626): a species' PhaseSequence entry keys are authoritative; only a
     // species without a sequence falls back to the LifecycleConfig growth phases.
     // This guarantees the auto-selected default `current_phase_key` is always a
     // member of the backend's `_valid_phase_keys` set, so an unchanged form no
     // longer 422s with PHASE_NOT_IN_SEQUENCE.
+    const ticket = beginPhaseSourcesLoad();
+    setPhaseSourcesLoadError(false);
     phaseSequenceApi
-      .getSpeciesPhaseSequence(speciesKey)
+      .getSpeciesPhaseSequence(forSpeciesKey)
       .then(async (seq): Promise<PhaseOptionSource[]> => {
         if (seq && seq.entries.length > 0) {
           return [...seq.entries]
@@ -323,12 +354,13 @@ export default function PlantInstanceCreateDialog({
             .map((entry) => ({
               key: entry.key,
               displayName: entry.phase_definition?.display_name || null,
+              displayNameDe: entry.phase_definition?.display_name_de || null,
               name: entry.phase_definition?.name ?? entry.key,
             }));
         }
         // No PhaseSequence → fall back to the LifecycleConfig growth phases
         // (unchanged behaviour for LifecycleConfig-only species).
-        const lifecycle = await phaseApi.getLifecycleConfig(speciesKey);
+        const lifecycle = await phaseApi.getLifecycleConfig(forSpeciesKey);
         const phases = await phaseApi.listGrowthPhases(lifecycle.key);
         return [...phases]
           .sort((a, b) => a.sequence_order - b.sequence_order)
@@ -339,19 +371,46 @@ export default function PlantInstanceCreateDialog({
           }));
       })
       .then((sources) => {
+        if (!ticket.isCurrent()) return;
         setPhaseOptionSources(sources);
         // Auto-select the first phase only when the caller did not carry one over
         // (the duplicate path preserves its explicit `current_phase_key`).
-        if (!isInitialDuplicate && sources.length > 0) {
+        if (!keepCarriedPhase && sources.length > 0) {
           setValue('current_phase_key', sources[0].key);
         }
         setInitialLoadDone(true);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        if (!ticket.isCurrent()) return;
         setPhaseOptionSources([]);
-        setInitialLoadDone(true);
+        // A species without a lifecycle answers 404: no start phases to offer, not a failure.
+        if (isApiError(err) && err.statusCode === 404) {
+          setInitialLoadDone(true);
+          return;
+        }
+        // Otherwise shown with a retry, never as "this species has no phases" (#3037). The
+        // initial load stays open, so the retry still keeps a duplicate's carried phase.
+        captureHandledError(err, { source: 'PlantInstanceCreateDialog.phaseSources' });
+        setPhaseSourcesLoadError(true);
       });
-  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open]);
+  }, [beginPhaseSourcesLoad, setValue]);
+
+  useEffect(() => {
+    if (!speciesKey) {
+      setCultivarList([]);
+      setPhaseOptionSources([]);
+      setPhaseSourcesLoadError(false);
+      return;
+    }
+    const isInitialDuplicate = duplicateFrom && !initialLoadDone;
+    if (!isInitialDuplicate) {
+      setValue('cultivar_key', null);
+      setValue('current_phase_key', null);
+    }
+    fetchCultivars(speciesKey);
+
+    loadPhaseSources(speciesKey, Boolean(isInitialDuplicate));
+  }, [speciesKey, setValue, duplicateFrom, initialLoadDone, open, fetchCultivars, loadPhaseSources]);
 
   // Human-readable, i18n-aware option list for the "Current Phase" select. Both
   // sources are normalized to `{ value, label }` so the dropdown renders
@@ -360,9 +419,16 @@ export default function PlantInstanceCreateDialog({
     () =>
       phaseOptionSources.map((src) => ({
         value: src.key,
-        label: src.displayName || t(`enums.phaseName.${src.name}`, { defaultValue: src.name }),
+        // German UI: the catalogue's German name first (#2889 class sweep), else the enum translation of the
+        // internal name, which a legacy English `display_name` must not mask.
+        label: i18n.language.startsWith('de')
+          ? src.displayNameDe ||
+            t(`enums.phaseName.${src.name}`, { defaultValue: '' }) ||
+            src.displayName ||
+            src.name
+          : src.displayName || t(`enums.phaseName.${src.name}`, { defaultValue: src.name }),
       })),
-    [phaseOptionSources, t],
+    [phaseOptionSources, t, i18n.language],
   );
 
   // Keep the per-instance cultivation-cycle override consistent with the gate: a
@@ -388,17 +454,25 @@ export default function PlantInstanceCreateDialog({
     setValue('slot_key', null);
   }, [siteKey, setValue]);
 
+  const fetchSlots = useCallback((key: string) => {
+    setSlotsLoadError(null);
+    sitesApi.listSlots(key).then(setSlotsList).catch((err: unknown) => {
+      captureHandledError(err, { source: 'PlantInstanceCreateDialog.slots' });
+      setSlotsList([]);
+      setSlotsLoadError(key);
+    });
+  }, []);
+
   useEffect(() => {
     if (skipSlotReset.current) {
       skipSlotReset.current = false;
       return;
     }
     setSlotsList([]);
+    setSlotsLoadError(null);
     setValue('slot_key', null);
-    if (locationKey) {
-      sitesApi.listSlots(locationKey).then(setSlotsList).catch(() => setSlotsList([]));
-    }
-  }, [locationKey, setValue]);
+    if (locationKey) fetchSlots(locationKey);
+  }, [locationKey, setValue, fetchSlots]);
 
   const onSubmit = async (data: FormData) => {
     const contributeReference = !!identificationPhoto && referenceToggleAvailable && useAsReference;
@@ -472,14 +546,14 @@ export default function PlantInstanceCreateDialog({
       reset();
       onCreated(result.key);
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="plant-instance-create-dialog-title" data-testid="plant-instance-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="plant-instance-create-dialog-title" data-testid="plant-instance-create-dialog">
       <DialogTitle id="plant-instance-create-dialog-title">{duplicateFrom ? t('pages.plantInstances.duplicateTitle') : t('pages.plantInstances.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -487,6 +561,7 @@ export default function PlantInstanceCreateDialog({
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
             <Box sx={{ flexGrow: 1, minWidth: 0 }}>
               <SpeciesAutocompleteField
+                id={speciesFieldId}
                 name="species_key"
                 control={control}
                 label={t('entities.species')}
@@ -525,11 +600,7 @@ export default function PlantInstanceCreateDialog({
           <CatalogueLoadError
             reader={speciesCatalogue}
             impact={initialSpeciesKey || duplicateFrom ? 'lookup' : 'picker'}
-            focusSelector={
-              initialSpeciesKey || duplicateFrom
-                ? undefined
-                : "[data-testid='form-field-species_key'] input"
-            }
+            focusTargetId={initialSpeciesKey || duplicateFrom ? undefined : speciesFieldId}
           />
           <FormRow>
             <FormSelectField
@@ -543,6 +614,12 @@ export default function PlantInstanceCreateDialog({
                 ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
               ]}
             />
+            {speciesKey && cultivarsLoadError && (
+              <OptionsLoadError
+                onRetry={() => fetchCultivars(speciesKey)}
+                data-testid="plant-create-cultivars-load-error"
+              />
+            )}
             <FormTextField
               name="plant_name"
               control={control}
@@ -712,6 +789,12 @@ export default function PlantInstanceCreateDialog({
               options={phaseOptions}
             />
           </FormRow>
+          {phaseSourcesLoadError && speciesKey && (
+            <OptionsLoadError
+              onRetry={() => loadPhaseSources(speciesKey, Boolean(duplicateFrom) && !initialLoadDone)}
+              data-testid="plant-create-phases-load-error"
+            />
+          )}
           {/* ADR-006 E1 (#565) — per-instance cultivation cycle. Optional: leaving it
               on "same as the species" keeps the existing species-driven behaviour, so
               the flow is unchanged when the grower does not decide per plant.
@@ -743,6 +826,7 @@ export default function PlantInstanceCreateDialog({
           ) : null}
           <FormTextField name="instance_id" control={control} label={t('pages.plantInstances.instanceId')} required helperText={t('pages.plantInstances.instanceIdHelper')} />
           <SubstrateSelectField
+            id={substrateFieldId}
             name="substrate_key"
             control={control}
             label={t('pages.plantInstances.substrate')}
@@ -752,7 +836,7 @@ export default function PlantInstanceCreateDialog({
           />
           <CatalogueLoadError
             reader={substrateCatalogue}
-            focusSelector="[data-testid='form-field-substrate_key'] input"
+            focusTargetId={substrateFieldId}
           />
 
           <LocationAssignmentSection
@@ -761,9 +845,18 @@ export default function PlantInstanceCreateDialog({
             slots={slotsList}
             variant="inline"
           />
+          {sitesLoad.error && (
+            <OptionsLoadError onRetry={sitesLoad.reload} data-testid="plant-create-sites-load-error" />
+          )}
+          {slotsLoadError && (
+            <OptionsLoadError
+              onRetry={() => fetchSlots(slotsLoadError)}
+              data-testid="plant-create-slots-load-error"
+            />
+          )}
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

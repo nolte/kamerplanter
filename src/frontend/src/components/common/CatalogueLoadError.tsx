@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
@@ -27,27 +27,30 @@ interface CatalogueLoadErrorProps {
   /** Called before `reader.reload()`, e.g. to arm a focus restore. */
   onRetry?: () => void;
   /**
-   * CSS selector, resolved against the whole document, for the control to
-   * refocus once a user-initiated retry succeeds — normally the picker this
-   * failure sits next to. Wires this element's own retry button into
-   * {@link useRetryFocus} (the mechanism `WorkflowDetailPage` and
-   * `SpeciesCreateDialog` established for #1568) so every call site gets a
-   * focus restore for free instead of wiring the hook fourteen times.
+   * Element id of the control to refocus once a user-initiated retry succeeds —
+   * normally the picker this failure sits next to. The caller creates it with
+   * `useId` and passes it to the field's `id` prop as well. Wires this
+   * element's own retry button into {@link useRetryFocus} (the mechanism
+   * `WorkflowDetailPage` and `SpeciesCreateDialog` established for #1568) so
+   * every call site gets a focus restore for free instead of wiring the hook
+   * fourteen times.
    *
    * `useRetryFocus` normally takes a ref to a container that holds both the
    * failure branch and its success target, because the two are usually
    * siblings under one parent a caller can `ref`. Here they are two elements
    * this component does not share a convenient common ancestor with (the
    * field is rendered by the caller, this alert by `CatalogueLoadError`), so
-   * the container is `document.body` instead — safe because exactly one
-   * dialog or page is ever mid-retry at a time, and every selector passed in
-   * is scoped to a `data-testid` unique to that surface.
+   * the container is `document.body` instead — safe because element ids are
+   * unique in the document.
+   *
+   * Not a `data-testid` selector: that is a test contract, and renaming one for
+   * a page object must not break focus management (UI-NFR-022 R-004, #3024).
    *
    * Omit for a `lookup`-only site: there is no specific control to return
    * focus to, so losing it to `<body>` outside a dialog's focus trap is the
    * lesser defect.
    */
-  focusSelector?: string;
+  focusTargetId?: string;
   /** Defaults to `catalogue-load-error-<name>`. */
   'data-testid'?: string;
 }
@@ -68,7 +71,7 @@ interface CatalogueLoadErrorProps {
  * announced when it appears; severity is conveyed by the title text and icon,
  * not colour alone; the retry is a real `<button>` (keyboard-reachable) with a
  * 48 px minimum hit area (UI-NFR-001 R-011). The action wraps below the message
- * on narrow screens instead of squeezing it. Passing `focusSelector` also
+ * on narrow screens instead of squeezing it. Passing `focusTargetId` also
  * returns keyboard focus to the field this failure blocks once a retry
  * succeeds, instead of losing it to `<body>` (#1628 UI review).
  */
@@ -76,16 +79,17 @@ export default function CatalogueLoadError({
   reader,
   impact = 'picker',
   onRetry,
-  focusSelector,
+  focusTargetId,
   'data-testid': testId,
 }: CatalogueLoadErrorProps) {
   const { t } = useTranslation();
   // Computed unconditionally (used by the hook below too), not only once
   // `status === 'failed'` is known, since hooks must run every render.
   const id = testId ?? `catalogue-load-error-${reader.name}`;
-  const { attachRegion, beginRetry } = useRetryFocus(reader.status, focusSelector ?? '', {
-    enabled: !!focusSelector,
-    failureSelector: `[data-testid="${id}-retry"]`,
+  const retryButtonId = useId();
+  const { attachRegion, beginRetry } = useRetryFocus(reader.status, focusTargetId ?? '', {
+    enabled: !!focusTargetId,
+    failureId: retryButtonId,
   });
 
   // Attaches the region once a selector is given, rather than only while
@@ -93,8 +97,8 @@ export default function CatalogueLoadError({
   // across the failed -> loading -> ready transition, so the same effect
   // instance is present for the whole retry and needs to attach only once.
   useEffect(() => {
-    if (focusSelector) attachRegion(document.body);
-  }, [attachRegion, focusSelector]);
+    if (focusTargetId) attachRegion(document.body);
+  }, [attachRegion, focusTargetId]);
 
   if (reader.status !== 'failed') return null;
 
@@ -117,6 +121,7 @@ export default function CatalogueLoadError({
               beginRetry();
               reader.reload();
             }}
+            id={retryButtonId}
             data-testid={`${id}-retry`}
             sx={{ minHeight: 48, minWidth: 48 }}
           >

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -28,7 +27,6 @@ interface Props {
 
 export default function SiteRunsSection({ siteKey }: Props) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { handleError } = useApiError();
   const [runs, setRuns] = useState<PlantingRun[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
@@ -122,7 +120,7 @@ export default function SiteRunsSection({ siteKey }: Props) {
           columns={columns}
           rows={runs}
           loading={loading}
-          onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
+          getRowHref={(r) => `/durchlaeufe/planting-runs/${r.key}`}
           getRowKey={(r) => r.key}
           tableState={tableState}
           ariaLabel={t('entities.plantingRuns')}

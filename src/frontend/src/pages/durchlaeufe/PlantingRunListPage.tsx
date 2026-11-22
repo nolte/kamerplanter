@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -28,7 +27,6 @@ const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
 export default function PlantingRunListPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { runs, loading } = useAppSelector((s) => s.plantingRuns);
   const [createOpen, setCreateOpen] = useState(false);
   const tableState = useTableUrlState({ defaultSort: { column: 'name', direction: 'asc' } });
@@ -115,7 +113,7 @@ export default function PlantingRunListPage() {
         columns={columns}
         rows={runs}
         loading={loading}
-        onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
+        getRowHref={(r) => `/durchlaeufe/planting-runs/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantingRuns.create')}
         onEmptyAction={() => setCreateOpen(true)}

@@ -55,6 +55,11 @@ protocol plugin relocates the finished file — controller-only under the
 xdist-parallel runners (`-n 4 --dist=loadfile`), via an `atexit` hook — into
 the run's timestamped report dir, so it ends up at
 `test-reports/e2e/<timestamp>/junit-<profile>.xml` alongside `protokoll.md`.
+The six parallel profile runners call `two_pass_entrypoint.sh` (#3032): pass 1 runs
+`-m "not bulk_seed"` on the xdist workers, pass 2 then runs the `bulk_seed` tests
+(bulk provisioning into the shared tenant) serially and resumes pass 1's report
+dir, so those profiles leave two files there: `junit-<profile>.xml` and
+`junit-<profile>-bulk-seed.xml`.
 Locally, `scripts/run-e2e.sh` prints the resulting filename in its final
 "Reports:" summary. Each `<testcase>` carries the `tc_id` `user_property`
 described below.

@@ -15,7 +15,7 @@ join, enrichment or export dereferences that edge, a latent reference becomes a
 real cross-tenant path.
 
 **Which types are checked, and why exactly those.** The set is taken from
-:data:`~app.data_access.arango.task_repository.ENTITY_TYPE_TO_COLLECTION`, the
+:data:`~app.data_access.arango.task_repository.TASK_ENTITY_TYPE_TO_COLLECTION`, the
 same map the repository consults when deciding whether to write the edge at all.
 So the verified set and the edge-writing set are the *same* set by construction,
 rather than two lists that agree today. A binding with an unrecognised
@@ -36,6 +36,9 @@ unresolved, a latent reference the next reader would trust.
   already does it. Anchoring on the field instead of the site would look like a
   security fix and would in fact 404 **every** location-bound task — an
   over-rejecting guard, which is the more expensive failure of the two.
+* ``garden_object`` (REQ-053 §20.9, R-7.2) — like a location, carries no ``tenant_key`` (E-01); the site is the
+  owner, which the garden-object read already joins. Only a ``compost``, ``water_source`` or ``storage`` object
+  takes care tasks (:data:`TASK_GARDEN_OBJECT_TYPES`): any other class is a 422.
 """
 
 from __future__ import annotations
@@ -43,9 +46,15 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from app.common.enums import GardenObjectType
 from app.common.exceptions import NotFoundError, ValidationError
 from app.data_access.arango.collection_entity_names import entity_name_for_collection
-from app.data_access.arango.task_repository import ENTITY_TYPE_TO_COLLECTION
+from app.data_access.arango.task_repository import TASK_ENTITY_TYPE_TO_COLLECTION
+
+#: The object classes a care task may hang off (REQ-053 R-7.2: turn the compost, winterise the barrel).
+TASK_GARDEN_OBJECT_TYPES: frozenset[GardenObjectType] = frozenset(
+    {GardenObjectType.COMPOST, GardenObjectType.WATER_SOURCE, GardenObjectType.STORAGE}
+)
 
 
 class TaskEntityGuard:
@@ -65,11 +74,13 @@ class TaskEntityGuard:
         planting_run_service: Callable[[], Any],
         tank_service: Callable[[], Any],
         site_service: Callable[[], Any],
+        garden_object_service: Callable[[], Any],
     ) -> None:
         self._plants = plant_service
         self._runs = planting_run_service
         self._tanks = tank_service
         self._sites = site_service
+        self._garden_objects = garden_object_service
 
     def verify(self, entity_type: str | None, entity_key: str | None, *, tenant_key: str) -> None:
         """Raise :class:`NotFoundError` when the binding is not the caller's to make.
@@ -88,12 +99,17 @@ class TaskEntityGuard:
         refused for a tenant caller (#1872 C10): it used to be stored as given,
         a key nobody had resolved that the next reader keyed on it would trust.
         """
-        if not entity_key or not tenant_key:
+        if not tenant_key:
             return
-        if not entity_type or entity_type not in ENTITY_TYPE_TO_COLLECTION:
-            raise ValidationError(
-                "entity_key needs an entity_type of " + ", ".join(sorted(ENTITY_TYPE_TO_COLLECTION)) + ".",
-            )
+        allowed = ", ".join(sorted(TASK_ENTITY_TYPE_TO_COLLECTION))
+        # The service allowlist of REQ-053 §20.9 / K-5: ``Task.entity_type`` stays a free string, so the closed set
+        # is enforced here for a tenant caller — with or without a key. A value outside it is a 422.
+        if entity_type and entity_type not in TASK_ENTITY_TYPE_TO_COLLECTION:
+            raise ValidationError(f"entity_type must be one of {allowed}.")
+        if not entity_key:
+            return
+        if not entity_type:
+            raise ValidationError(f"entity_key needs an entity_type of {allowed}.")
 
         if entity_type == "plant_instance":
             self._plants().get_plant(entity_key, tenant_key=tenant_key)
@@ -108,9 +124,14 @@ class TaskEntityGuard:
             # a foreign location as "No Site <its site key>", an unknown one as
             # "No Location" — an oracle that echoed the other tenant's site.
             self._sites().get_location(entity_key, tenant_key=tenant_key)
+        elif entity_type == "garden_object":
+            garden_object = self._garden_objects().get_garden_object(entity_key, tenant_key=tenant_key)
+            if garden_object.object_type not in TASK_GARDEN_OBJECT_TYPES:
+                allowed = ", ".join(sorted(t.value for t in TASK_GARDEN_OBJECT_TYPES))
+                raise ValidationError(f"A task can only hang off a garden object of class {allowed}.")
         else:
-            # A type was added to ENTITY_TYPE_TO_COLLECTION without an anchor here.
+            # A type was added to TASK_ENTITY_TYPE_TO_COLLECTION without an anchor here.
             # Fail closed: the repository *will* write an edge for it, and nobody
             # has said whose entity it is. Not marked unreachable — it is one map
             # entry away, and a test drives it precisely so this stays honest.
-            raise NotFoundError(entity_name_for_collection(ENTITY_TYPE_TO_COLLECTION[entity_type]), entity_key)
+            raise NotFoundError(entity_name_for_collection(TASK_ENTITY_TYPE_TO_COLLECTION[entity_type]), entity_key)

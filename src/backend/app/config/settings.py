@@ -96,6 +96,10 @@ class GBIFSettings(BaseModel):
 #: value the NFR fixes; a larger value stops ``Settings`` from loading, so API and
 #: worker (both import it) refuse to start. ``RetentionService`` re-checks the same
 #: table for a caller that builds it with explicit values.
+#: NFR-011 §4 (SR-005, operator decision): the floor of ``RETENTION_CARE_EVENT_RETENTION_YEARS`` — not a statutory
+#: period but the crop-rotation look-back of REQ-053 GP-FR-103 (Art. 17 para. 3); floor and ceiling are both five.
+CARE_EVENT_MIN_RETENTION_YEARS = 5
+
 RETENTION_CEILINGS: dict[str, int] = {
     "retention_soft_delete_retention_days": 90,  # R-01
     "retention_unverified_account_days": 7,  # R-02
@@ -116,6 +120,10 @@ RETENTION_CEILINGS: dict[str, int] = {
     # #2123 (MT-027) — the cancellable grace between a tenant deletion being accepted and the
     # erasure running. Operator decision 2026-10-04: as long as an account's (R-01), never longer.
     "retention_tenant_erasure_grace_days": 90,  # R-01b
+    # REQ-053 GP-NFR-055 — the care log is kept for the crop-rotation look-back (5 years from
+    # ``performed_at``) and the plan change log for one year; the NFR's own periods are the ceilings.
+    "retention_care_event_retention_years": 5,  # R-25
+    "retention_garden_plan_audit_retention_days": 365,  # R-26
 }
 
 
@@ -914,6 +922,64 @@ class Settings(BaseSettings):
     #: below ``rate_limit_auth`` (an interactive retry surface): a download is
     #: neither.
     rate_limit_export_download: str = "10/hour"
+    #: The garden-plan writes — ``POST /sites/{key}/plan/batch`` and ``PUT /sites/{key}/plan/boundary``
+    #: (REQ-053 GP-NFR-056, SR-017), per account. A save is one Arango transaction of up to 500
+    #: operations plus an O(n·m) containment check, and a grower who drags objects around saves
+    #: in bursts, not in a stream: 10 a minute is the spec's figure and covers an editor that
+    #: saves on every pause with room for a retry after a revision conflict.
+    rate_limit_plan_batch: str = "10/minute"
+    #: ``POST /irrigation-zones/{key}/log-watering`` (GP-API-053): a watering round writes one event per bed.
+    rate_limit_zone_log_watering: str = "20/minute"
+    #: ``POST /irrigation-zones/{key}/rain-skipped`` (GP-FR-117, WP 9.13): the same cost as a round - one event per
+    #: bed in one transaction - so the same figure, in a bucket of its own so either can be tuned alone.
+    rate_limit_zone_rain_skipped: str = "20/minute"
+    #: The garden-plan exports — ``GET /t/{slug}/sites/{key}/plan/render.svg``, ``…/plan/export`` and
+    #: ``GET /t/{slug}/print/garden-plan/{site_key}`` (REQ-053 GP-NFR-056, SR-017), **per account** and per route. A
+    #: PDF is a WeasyPrint render of a full-size plan and the SVG and the JSON read every document of the site, so
+    #: the cost is the same kind as ``rate_limit_export``; the spec's 10 a minute is the figure. A person who
+    #: exports a few formats of one plan and retries a size stays well inside it. The bed list CSV
+    #: (``GET /t/{slug}/locations?format=csv``, GP-FR-145, WP 8.25) is metered by it too, in a bucket of its own; the
+    #: JSON list of that route is not.
+    rate_limit_plan_export: str = "10/minute"
+    #: The same three routes, per **tenant** (GP-NFR-056): 30 a minute across all members *and* all three routes
+    #: (one bucket), so a club of thirty parcel holders cannot together keep the renderer busy while each stays
+    #: inside the per-account budget. The bed list CSV (``GET /t/{slug}/locations?format=csv``, WP 8.25) draws on the
+    #: same bucket.
+    rate_limit_plan_export_tenant: str = "30/minute"
+    #: ``POST /t/{slug}/sites/{key}/plan/import`` (REQ-053 GP-NFR-056, SR-017), per **tenant**: an import reads up to
+    #: 5 MB, checks every entity against the plan and, applied, rewrites the whole structure in one transaction. The
+    #: assistant needs two requests (the dry run, then the write) and a retry after a refused file; three a minute
+    #: covers that for one person and keeps a club's members from queueing imports behind each other.
+    rate_limit_plan_import: str = "3/minute"
+    #: ``POST /t/{slug}/bed-templates/import`` (REQ-053 GP-API-071, WP 9.9), per **tenant**: one document of at most
+    #: 256 KB, cheap to check - but the dialog needs several requests (the dry run, a 409 with a proposed name, the
+    #: check again, the confirmation). The plan import's 3 a minute would answer 429 inside that normal flow.
+    rate_limit_bed_template_import: str = "10/minute"
+    #: ``POST /t/{slug}/sites/{key}/beds/import-csv`` (REQ-053 GP-FR-174, WP 8.26), per **account**: a bed list is at
+    #: most 1 MiB and 500 rows, and the wizard needs a dry run, the confirmation and a few correction loops (the user
+    #: fixes the sheet and checks again). 10 a minute covers that for one person.
+    rate_limit_plan_csv_import: str = "10/minute"
+    #: The same route per **tenant** (GP-NFR-056, #2669 SEC-003): 30 a minute across all members, so a club cannot
+    #: together keep the placement and the plan rules busy while each member stays inside the per-account budget.
+    rate_limit_plan_csv_import_tenant: str = "30/minute"
+    #: ``POST /t/{slug}/care-events`` and its supersede / void / redact siblings (REQ-053 GP-NFR-056, SR-017),
+    #: per account. A care log entry is one small document; 60 a minute covers a round of quick-log chips in
+    #: the field with room for a retry, and bounds a runaway client.
+    rate_limit_care_events: str = "60/minute"
+    #: ``GET /t/{slug}/care-events?format=csv`` (REQ-053 GP-FR-104, WP 8.4), per account; the JSON list is not
+    #: limited by it. A download reads up to 50 000 rows and resolves every name, so it is the expensive form of the
+    #: list: ten a minute covers a person who tries a few filters and retries.
+    rate_limit_care_events_export: str = "10/minute"
+    #: ``POST /t/{slug}/tasks/{key}/complete``, ``POST …/tasks/batch/status`` and ``POST …/tasks/{key}/reopen``
+    #: (REQ-053 GP-FR-083/088/149, WP 4.3), per account. Each call is one Arango transaction over the task, its
+    #: care-log line and its specialist document; a batch carries up to 200 tasks. 120 a minute covers a round of
+    #: "Erledigt" taps and undo snackbars in the field (the UI debounces at 300 ms) and bounds a runaway client.
+    rate_limit_task_completion: str = "120/minute"
+    #: ``POST /t/{slug}/locations/{key}/quick-planting`` and ``…/clear`` (REQ-053 GP-NFR-056, SR-017), per account.
+    #: Each call is one transaction that writes up to ``QUICK_PLANTING_MAX_QUANTITY`` plants (quick-planting) or
+    #: ends every run of a bed (clear); a grower in the garden taps through a few beds, not a stream, and a
+    #: retry after a dropped connection must fit. 20 a minute is the spec's figure.
+    rate_limit_bed_actions: str = "20/minute"
     #: ``POST /api/v1/admin/platform/tenant-imports`` (REQ-056 §8.4, #2138), per account: each call reads,
     #: verifies and stores an archive of up to ``TENANT_IMPORT_MAX_UPLOAD_MB``.
     rate_limit_tenant_import: str = "10/hour"
@@ -1200,6 +1266,25 @@ class Settings(BaseSettings):
     #: NFR-011 R-18 / §4 ``INSPECTION_MIN_RETENTION_YEARS`` (#1789) — the same for
     #: inspections, counted from ``inspected_at``; floor PflSchG §11.
     retention_inspection_min_retention_years: int = Field(default=3, ge=3)
+    #: NFR-011 R-25 / REQ-053 GP-NFR-055 (SR-005) — a care event keeps its person fields, free texts and
+    #: photos this many years after ``performed_at`` (the crop-rotation look-back, GP-FR-103); then
+    #: ``retention.anonymize_expired_care_events`` anonymises them. Floor and ceiling are both five (SR-005). For
+    #: ``pest_control`` / ``ipm`` the longer of this and ``retention_treatment_min_retention_years`` (PflSchG §11)
+    #: applies.
+    retention_care_event_retention_years: int = Field(
+        default=5,
+        ge=CARE_EVENT_MIN_RETENTION_YEARS,
+        le=RETENTION_CEILINGS["retention_care_event_retention_years"],
+    )
+    #: NFR-011 R-26 / REQ-053 GP-NFR-055 (SR-011) — a ``garden_plan_audit`` row is hard-deleted this many
+    #: days after ``at`` (``retention.purge_expired_garden_plan_audit``).
+    retention_garden_plan_audit_retention_days: int = Field(
+        default=365, ge=1, le=RETENTION_CEILINGS["retention_garden_plan_audit_retention_days"]
+    )
+
+    #: REQ-053 GP-FR-105 / WP 8.2 — the daily ``care_events.consistency`` job closes the gaps of the last this many
+    #: days (a technical window, not an agronomic value). A gap older than the window is not repaired by the job.
+    care_events_consistency_window_days: int = Field(default=7, ge=1, le=365)
 
     # REQ-030 Notifications
     vapid_private_key: str = ""
@@ -1276,6 +1361,20 @@ class Settings(BaseSettings):
     # plausible form-filling session, never a tuning knob — 48 was the figure this
     # change was built and tested around.
     storage_task_photo_orphan_hours: int = 0
+    # REQ-053 GP-FR-051 — how long a bed photo (category ``location``) may sit unreferenced before its nightly sweep
+    # **deletes** it. ``0`` disables the sweep; 48 ships, ON, unlike the task-photo sweep above. The upload and the
+    # link to the bed are two requests of one client flow (``POST /attachments`` then
+    # ``POST /locations/{key}/photos``), so a never-linked upload is minutes old at most when it is legitimate, and
+    # a bed photo is only ever referenced by the bed's ``photo_refs`` / ``cover_photo_ref`` under its attachment
+    # id. The same task catches a photo whose post-commit discard failed (``LocationPhotoService`` only logs it).
+    storage_location_photo_orphan_hours: int = Field(default=48, ge=0)
+    # #2715 item 1 — the same two-step gap for the background picture of a garden plan (category
+    # ``garden_plan_underlay``): uploaded through ``POST /attachments``, then named by
+    # ``PUT /sites/{key}/plan/underlay``.
+    # A refused or never-sent PUT leaves the upload unreferenced, counted against the quota, holding an aerial photo.
+    # Its only carrier is ``sites.plan.underlay.attachment_key`` (written by one service, under the attachment id), so
+    # the location sweep's reasoning holds: ON by default with a 48 h floor, ``0`` disables.
+    storage_garden_plan_underlay_orphan_hours: int = Field(default=48, ge=0)
     # #1834 — periodic reconciliation of the object store against the attachment
     # catalogue: objects under ``t/{tenant}/`` that no record holds any more.
     #
@@ -1320,6 +1419,8 @@ class Settings(BaseSettings):
     storage_allowed_mime_types_post_harvest: str = ""
     storage_allowed_mime_types_plant: str = ""
     storage_allowed_mime_types_pest_reference: str = ""
+    storage_allowed_mime_types_garden_plan_underlay: str = ""
+    storage_allowed_mime_types_location: str = ""
     storage_allowed_mime_types_id_recognition: str = ""
     storage_allowed_mime_types_task: str = ""
     storage_allowed_mime_types_import: str = "text/csv,application/zip"
@@ -1418,7 +1519,18 @@ class Settings(BaseSettings):
 # Categories that semantically only accept images (NFR-013 §5.2). Without an
 # explicit override these fall back to the image-only subset of the whitelist.
 _PHOTO_CATEGORIES: frozenset[str] = frozenset(
-    {"diary", "ipm", "harvest", "post_harvest", "plant", "pest_reference", "id_recognition", "task"}
+    {
+        "diary",
+        "ipm",
+        "harvest",
+        "post_harvest",
+        "plant",
+        "pest_reference",
+        "id_recognition",
+        "task",
+        "garden_plan_underlay",
+        "location",
+    }
 )
 # #2139 — only the types the EXIF strip can re-encode (``exif_stripper``).
 _PHOTO_MIME_TYPES: frozenset[str] = frozenset({"image/jpeg", "image/png", "image/webp"})

@@ -140,6 +140,22 @@
 - [Wilson Garden Pots — A Gardener's Guide to Growing Clivias from Seeds](https://www.wilsongardenpots.com/a/growing-clivias-from-seeds) — Optimale Keimtemperatur 20–25°C, Frischsaat-Empfehlung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow clivias": „Place clivias in bright, filtered or indirect light. Avoid direct sun in summer"; im Sommer im Freien „in light shade" (Standortstufe Halbschatten), https://www.rhs.org.uk/plants/clivia/how-to-grow; RHS Plant Finder, Clivia miniata, Position „Full sun, Partial shade" (Spanne; Anspruch nach dem RHS-Kulturtext gewählt), https://www.rhs.org.uk/plants/4036/clivia-miniata/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -345,6 +361,11 @@ Clivia ist ein Schwachzehrer. Zu viel Dünger verhindert die Blütenbildung. Die
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt (Zimmerpflanze, in keiner Fruchtfolgetabelle geführt) --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Zimmerpflanze, keine Beetkultur) --> |
 
 ---
 

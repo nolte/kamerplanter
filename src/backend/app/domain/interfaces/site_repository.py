@@ -1,7 +1,25 @@
 from abc import ABC, abstractmethod
+from collections.abc import Collection
+from dataclasses import dataclass
 
+from app.common.enums import FrostRisk
 from app.common.types import LocationKey, PlantInstanceKey, SiteKey, SlotKey
 from app.domain.models.site import Location, Site, Slot
+
+
+@dataclass(frozen=True)
+class SiteDeletion:
+    """What a committed site delete leaves for its caller (#2545).
+
+    ``underlay_attachment_key`` is the underlay picture the deleted plan named, read inside the delete's
+    transaction: the attachment outlives the site document and is discarded by the service afterwards (when no
+    other carrier names it). ``location_photo_refs`` are the bed photos of the deleted locations, the same way.
+    """
+
+    underlay_attachment_key: str | None = None
+    #: The photos the deleted locations held (REQ-053 GP-FR-051, WP 8.18), read inside the transaction; the
+    #: service discards them after the commit unless another carrier names them.
+    location_photo_refs: tuple[str, ...] = ()
 
 
 class ISiteRepository(ABC):
@@ -40,7 +58,7 @@ class ISiteRepository(ABC):
     def update_site(self, key: SiteKey, site: Site) -> Site: ...
 
     @abstractmethod
-    def delete_site(self, key: SiteKey) -> bool: ...
+    def delete_site(self, key: SiteKey, *, tenant_key: str, user_key: str) -> SiteDeletion: ...
 
     @abstractmethod
     def get_locations_by_site(self, site_key: SiteKey) -> list[Location]: ...
@@ -49,13 +67,33 @@ class ISiteRepository(ABC):
     def get_location_by_key(self, key: LocationKey) -> Location | None: ...
 
     @abstractmethod
+    def get_locations_by_keys(self, keys: list[LocationKey]) -> list[Location]:
+        """The locations behind ``keys`` in one read; absent keys are left out. No tenant: the caller anchors them
+        on their site (``location_ownership.find_owned_locations``)."""
+
+    @abstractmethod
     def get_location_or_raise(self, key: LocationKey) -> Location: ...
 
     @abstractmethod
     def create_location(self, location: Location) -> Location: ...
 
     @abstractmethod
-    def update_location(self, key: LocationKey, location: Location) -> Location: ...
+    def update_location(
+        self,
+        key: LocationKey,
+        location: Location,
+        *,
+        untouched: Collection[str],
+        frost_risk: FrostRisk | None = None,
+    ) -> Location:
+        """Rewrite a location from *location* without writing the ``untouched`` columns (#2623).
+
+        The ``untouched`` columns keep the values stored at write time, not the ones the caller read: a column
+        another path (the plan batch, ``PATCH /locations``) wrote after the caller's read is not reverted.
+        ``frost_risk``, when given, is merged into the stored ``site_conditions`` as the one sub-path
+        ``microclimate.frost_risk`` (the legacy ``frost_exposed`` mirror, WP 3.9); every sibling part stays.
+        Returns the location as stored after the write.
+        """
 
     @abstractmethod
     def delete_location(self, key: LocationKey) -> bool: ...
@@ -75,13 +113,26 @@ class ISiteRepository(ABC):
     def get_slot_by_key(self, key: SlotKey) -> Slot | None: ...
 
     @abstractmethod
-    def get_slot_or_raise(self, key: SlotKey) -> Slot: ...
-
-    @abstractmethod
     def create_slot(self, slot: Slot) -> Slot: ...
 
     @abstractmethod
-    def update_slot(self, key: SlotKey, slot: Slot) -> Slot: ...
+    def update_slot(self, key: SlotKey, slot: Slot, *, untouched: Collection[str] = ()) -> Slot:
+        """Rewrite a slot from *slot* without writing the ``untouched`` columns (#2639).
+
+        The ``untouched`` columns keep the values stored at write time, not the ones the caller read: a column
+        another path (``PATCH /slots``, a plant or planting run occupying the slot) wrote after the caller's
+        read is not reverted. Returns the slot as stored after the write.
+        """
+
+    @abstractmethod
+    def set_slot_occupied(self, key: SlotKey, occupied: bool) -> None:
+        """Write only ``currently_occupied`` of a slot — no read-modify-write of the rest (#2727).
+
+        The occupation writers (placing or removing a plant, a planting run creating or moving its plants)
+        change one flag. Writing the whole slot they had read reverted a ``PATCH /slots`` (role, geometry,
+        capacity) that landed between their read and their write. The caller has resolved the slot under its
+        tenant; a missing slot raises :class:`~app.common.exceptions.NotFoundError`.
+        """
 
     @abstractmethod
     def delete_slot(self, key: SlotKey) -> bool: ...

@@ -117,6 +117,22 @@
 **Hinweis:** Tropische Unterwuchs-Aroide; gedeiht in dappligem Halbschatten (partial shade) bis tiefem Schatten (deep shade), Vollsonne (full sun) verbrennt/bleicht das Laub. Salzempfindlich — Salzakkumulation aus Über­düngung führt zu braunen Blattspitzen; regelmäßiges Durchspülen (Flushing) und halbierte Düngerdosis empfohlen, Regen-/destilliertes Wasser ideal. Boden-pH 5.5–6.5 ist konsistent mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährstoffprofile).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Syngonium podophyllum“ (Position: Partial shade; Kulturtext: "bright indirect light for green leaved cultivars and bright filtered light for variegated cultivars"), https://www.rhs.org.uk/plants/17899/syngonium-podophyllum/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -335,4 +351,5 @@ Albo-Variegatum,Syngonium podophyllum,"ornamental;variegated;white_splashed",clo
 16. [Koppert — *Phytoseiulus persimilis*](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate 2–50/m², Etablierung/Klimabedingungen Spinnmilbe
 17. [Koppert — *Cryptolaemus montrouzieri*](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate Schmierlaus-Räuber
 18. [Koppert — *Aphidius colemani*](https://www.koppertus.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate/Temperaturoptimum Blattlaus-Parasitoid
+RHS -- Syngonium podophyllum (Position/Aspect: Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/17899/syngonium-podophyllum/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

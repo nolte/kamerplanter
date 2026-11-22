@@ -14,7 +14,9 @@ from app.api.v1.activity_plans.tenant_router import router as tenant_activity_pl
 from app.api.v1.actuators.tenant_router import router as tenant_actuators_router
 from app.api.v1.aquaponik.tenant_router import router as tenant_aquaponics_router
 from app.api.v1.attachments.tenant_router import router as tenant_attachments_router
+from app.api.v1.bed_templates.tenant_router import router as tenant_bed_templates_router
 from app.api.v1.calendar.tenant_router import router as tenant_calendar_router
+from app.api.v1.care_events.tenant_router import router as tenant_care_events_router
 from app.api.v1.care_reminders.tenant_router import router as tenant_care_reminders_router
 from app.api.v1.dashboard.tenant_router import router as tenant_dashboard_router
 from app.api.v1.diagnose.tenant_router import router as tenant_diagnosis_router
@@ -23,11 +25,14 @@ from app.api.v1.equipment.tenant_router import router as tenant_equipment_router
 from app.api.v1.favorites.tenant_router import router as tenant_favorites_router
 from app.api.v1.feeding_events.tenant_router import router as tenant_feeding_events_router
 from app.api.v1.fertilizers.tenant_router import router as tenant_fertilizers_router
+from app.api.v1.garden_objects.tenant_router import router as tenant_garden_objects_router
+from app.api.v1.garden_plan.tenant_router import router as tenant_garden_plan_router
 from app.api.v1.glossar.router import router as tenant_glossary_router
 from app.api.v1.ha_publish.tenant_router import router as tenant_ha_publish_router
 from app.api.v1.harvest.tenant_router import router as tenant_harvest_router
 from app.api.v1.inventree.tenant_router import router as tenant_inventree_router
 from app.api.v1.ipm.tenant_router import router as tenant_ipm_router
+from app.api.v1.irrigation_zones.tenant_router import router as tenant_irrigation_zones_router
 from app.api.v1.ki_assistent.tenant_router import router as tenant_ai_router
 from app.api.v1.locations.tenant_router import router as tenant_locations_router
 from app.api.v1.notifications.tenant_router import router as tenant_notifications_router
@@ -73,6 +78,16 @@ tenant_scoped_router = APIRouter(
 # Mount tenant-scoped resource routers
 # These routers enforce tenant isolation via get_current_tenant() dependency.
 tenant_scoped_router.include_router(tenant_sites_router)
+# REQ-053 WP 1.8 — the garden plan of a site (/sites/{key}/plan, /plan/boundary, /plan/batch, /plan/audit).
+tenant_scoped_router.include_router(tenant_garden_plan_router)
+# REQ-053 WP 1.9 — garden-object CRUD (/sites/{key}/garden-objects, /garden-objects/{key}).
+tenant_scoped_router.include_router(tenant_garden_objects_router)
+# REQ-053 WP 7.1 — irrigation zones (/sites/{key}/irrigation-zones, /irrigation-zones/{key}[/locations]).
+tenant_scoped_router.include_router(tenant_irrigation_zones_router)
+# REQ-053 WP 7.8 — bed templates (/bed-templates, /bed-templates/{key}).
+tenant_scoped_router.include_router(tenant_bed_templates_router)
+# REQ-053 WP 4.1 — the care log (/care-events).
+tenant_scoped_router.include_router(tenant_care_events_router)
 # REQ-023 §5b (#2137) — the tenant's service accounts (lead ∧ technical, step-up on every write).
 tenant_scoped_router.include_router(tenant_service_accounts_router)
 tenant_scoped_router.include_router(tenant_locations_router)

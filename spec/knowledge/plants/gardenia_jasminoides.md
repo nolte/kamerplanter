@@ -113,6 +113,22 @@
 > Hinweis: Lichtsättigung/Optimum liegt klar oberhalb des Kompensationspunkts; Gardenie braucht helles indirektes Licht bzw. lichten Halbschatten (Morgensonne + Nachmittagsschatten), verträgt aber weder pralle Mittagssonne noch tiefen Schatten. Staunässe wird nur kurzzeitig toleriert ("occasionally wet"), dauerhaft nasse Wurzeln führen zu Wurzelfäule — daher `moderate` statt `tolerant`.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Gardenia jasminoides" (Position: Partial shade), https://www.rhs.org.uk/plants/7605/gardenia-jasminoides/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -327,6 +343,11 @@ Gardenien sind **pH-Spezialisten** — der pH muss zwingend bei 5.0–6.0 liegen
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Zimmerpflanze |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Rubiaceae: kein Familienwert) --> |
 
 ---
 
@@ -373,3 +394,4 @@ Gardenia jasminoides,Gardenie;Cape Jasmine,Rubiaceae,Gardenia,perennial,short_da
 16. [Missouri Botanical Garden – Gardenia jasminoides Plant Finder](https://www.missouribotanicalgarden.org/PlantFinder/PlantFinderDetails.aspx?kempercode=b555) — Blütezeit "spätes Frühjahr bis Frühsommer" in kühleren Klimazonen, Zone 8–11
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [RHS – Gardenia jasminoides (Plant Details)](https://www.rhs.org.uk/plants/7605/gardenia-jasminoides/details) — Position: Partial shade

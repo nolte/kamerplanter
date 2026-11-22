@@ -179,9 +179,18 @@ Das Dampfdruckdefizit (VPD) beschreibt, wie stark die Luft Feuchtigkeit von den 
 | Vegetativ | 0,8–1,2 kPa |
 | Blüte | 1,0–1,5 kPa |
 
-### Photoperiode
+### Photoperiode {#photoperiode}
 
 Die Tageslichtlänge (Stunden Licht pro Tag) steuert bei vielen Pflanzen den Übergang in die Blüte.
+
+Neben der Photoperiode steht im Profil, woher der Wert stammt:
+
+- **aus dem Steckbrief oder eingetragen**: Der Wert steht im Steckbrief der Art, oder jemand hat ihn im Profil eingetragen.
+- **aus der Phasenvorlage erzeugt**: Kamerplanter hat ihn aus einer allgemeinen Vorlage übernommen, die für alle Arten gleich ist (zum Beispiel 18 Stunden für die vegetative Phase, 12 Stunden für die Blüte).
+- **Standardwert**: Niemand hat ihn gewählt; es gilt der Rückfallwert von 18 Stunden.
+- **Herkunft unbekannt**: Das Profil stammt aus der Zeit, bevor Kamerplanter die Herkunft festgehalten hat. Beim nächsten Start bekommen Profile, deren Lichtdauer ein Steckbrief nennt, die Herkunft „aus dem Steckbrief“.
+
+Nur ein Wert **aus dem Steckbrief oder eingetragen** zählt beim Hinweis auf unterschiedlichen Lichtbedarf im Zelt (siehe [Zelt-Regeln](garden-plan.md)). Speicherst du das Profil über **Bearbeiten**, gilt die Lichtdauer als eingetragen, auch wenn du sie nicht änderst. Prüfe sie deshalb vor dem Speichern.
 
 | Phase | Typische Photoperiode (Kurztagspflanzen) |
 |-------|----------------------------------------|

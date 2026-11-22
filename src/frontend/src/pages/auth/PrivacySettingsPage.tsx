@@ -129,11 +129,11 @@ export default function PrivacySettingsPage() {
       const res = await client.get<ConsentItem[]>('/privacy/consents');
       setConsents(res.data);
     } catch (err) {
-      setConsentsError(parseApiError(err));
+      setConsentsError(parseApiError(err, t));
     } finally {
       setConsentsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     // Load consents from the backend whenever the consents tab becomes active.
@@ -175,7 +175,7 @@ export default function PrivacySettingsPage() {
       const res = await client.post<ExportItem>('/privacy/export');
       setExportRequest(res.data);
     } catch (err) {
-      setExportError(parseApiError(err));
+      setExportError(parseApiError(err, t));
     } finally {
       setExportPending(false);
     }
@@ -189,7 +189,7 @@ export default function PrivacySettingsPage() {
       const res = await client.get<ExportItem>(`/privacy/export/${exportRequest.key}`);
       setExportRequest(res.data);
     } catch (err) {
-      setExportError(parseApiError(err));
+      setExportError(parseApiError(err, t));
     } finally {
       setExportPending(false);
     }
@@ -213,7 +213,7 @@ export default function PrivacySettingsPage() {
       anchor.click();
       URL.revokeObjectURL(url);
     } catch (err) {
-      setExportError(parseApiError(err));
+      setExportError(parseApiError(err, t));
     } finally {
       setExportPending(false);
     }
@@ -246,7 +246,7 @@ export default function PrivacySettingsPage() {
       setRestrictScope('');
       setRestrictNotes('');
     } catch (err) {
-      setRestrictError(parseApiError(err));
+      setRestrictError(parseApiError(err, t));
     } finally {
       setRestrictPending(false);
     }

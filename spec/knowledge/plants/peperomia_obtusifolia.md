@@ -128,6 +128,25 @@
 **Hinweis (Standortqualität):** Als immergrüne Unterwuchs-/Epiphytenart (understory) toleriert P. obtusifolia mittlere bis schattige Lichtverhältnisse (`shade`), wächst dort aber deutlich langsamer; direkte Vollsonne führt zu Blattverbrennung. Die flache, faserige Wurzel (8–15 cm, passend zur empfohlenen Min-Topftiefe 10 cm in §1.6) ist staunässeempfindlich (`sensitive`) — Hauptverlustursache ist Wurzelfäule durch stehendes Wasser. Salzempfindlich (`sensitive`): Düngersalze verursachen Blattrand-/Wurzelverbrennung; jährliches Durchspülen (Leaching) des Substrats empfohlen. Der pH-Vorzug 6.0–6.5 (leicht sauer) ist quellenbelegt; die in §1.6/§2.3 genannte Kultur-Toleranzspanne 6.0–7.0 bleibt als breiterer tolerierter Bereich gültig, der Optimum-Vorzug liegt im sauren Teil.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Peperomia obtusifolia“ (Position: Partial shade; Kulturtext „Grow under glass or in frost-free enviroment in partial shade“), https://www.rhs.org.uk/plants/106212/peperomia-obtusifolia/details | — |
+
+
+---
+
 ## 2. Wachstumsphasen
 
 ### 2.1 Phasenübersicht
@@ -351,4 +370,5 @@ Gold Tip,Peperomia obtusifolia,"ornamental;variegated;yellow_green",clone
 22. [The Sill — Peperomia obtusifolia Care Guide](https://www.thesill.com/blogs/plants-101/how-to-care-for-baby-rubber-plant-peperomia-obtusifolia) — Lebenszyklus (perennial), Vermehrung (Stecklinge, Blatt, Wasser)
 23. [beetfreunde.de — Fleischige Peperomie/Zwergpfeffer](https://www.beetfreunde.de/magazin/fleischige-peperomie-zwergpfeffer/) — Vermehrung (Blatt-/Kopfstecklinge)
 24. [peperomiaobtusifolia.com — Dividing Peperomia Obtusifolia](https://peperomiaobtusifolia.com/blog/divide-peperomia-obtusifolia-guide/) — Teilung (division) als Vermehrungsmethode
+25. [RHS — Peperomia obtusifolia](https://www.rhs.org.uk/plants/106212/peperomia-obtusifolia/details) — Position „Partial shade“; Kulturtext „Grow under glass or in frost-free enviroment in partial shade“
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

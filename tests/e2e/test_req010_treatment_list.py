@@ -147,7 +147,11 @@ class TestTreatmentListPage:
         """
         treatment_list.open()
         treatment_list.search("XYZUnbekannt99")
-        treatment_list.wait_for_loading_complete()
+        # The filter is client-side behind a 300 ms debounce, so no skeleton
+        # mounts and `wait_for_loading_complete()` returned while the table still
+        # showed the unfiltered first page -- the 25 rows the full profile of
+        # run 44494160149 counted. Wait for the filter itself instead.
+        treatment_list.wait_for_search_applied("XYZUnbekannt99", what="treatment list")
         screenshot("TC-REQ-010-028_treatment-no-results", "Treatment search with no results")
 
         assert treatment_list.get_row_count() == 0, (

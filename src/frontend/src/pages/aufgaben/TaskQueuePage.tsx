@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -81,7 +81,7 @@ import {
   EMPTY_QUEUE_SCOPE,
 } from '@/store/slices/tasksSlice';
 import type { OriginFilter, QueueScope } from '@/store/slices/tasksSlice';
-import { fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
+import { clearCurrentProfile, fetchDashboard, fetchProfile } from '@/store/slices/careRemindersSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
@@ -94,6 +94,7 @@ import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import { kamiTasks } from '@/assets/brand/illustrations';
 import TaskCreateDialog from './TaskCreateDialog';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 
@@ -211,7 +212,8 @@ function formatRelativeDate(dateStr: string, t: (key: string) => string): string
 export default function TaskQueuePage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  // Server-worded species names (care dashboard) follow the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const notification = useNotification();
   const { handleError } = useApiError();
   // `POST /tasks/batch/delete` carries `require_permission(TASK, DELETE)` — lead
@@ -262,6 +264,7 @@ export default function TaskQueuePage() {
     loading: careLoading,
     dashboardLoaded: careDashboardLoaded,
     currentProfile,
+    profileError: careProfileError,
   } = useAppSelector((s) => s.careReminders);
   const [careActionLoading, setCareActionLoading] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -357,7 +360,7 @@ export default function TaskQueuePage() {
   useEffect(() => {
     dispatch(fetchOverdueTasks());
     dispatch(fetchDashboard());
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   useEffect(() => {
     loadPlants();
@@ -497,6 +500,10 @@ export default function TaskQueuePage() {
     [dispatch, notification, handleError, t],
   );
 
+  // The dialog opens at once and shows a loading state until the profile of
+  // *this* plant is in the store (#3065). It used to render whatever profile
+  // was there — the previously edited plant's — and re-seed every field when
+  // the right one arrived, discarding the user's input in between.
   const handleEditProfile = useCallback(
     (plantKey: string) => {
       setEditPlantKey(plantKey);
@@ -506,14 +513,26 @@ export default function TaskQueuePage() {
     [dispatch],
   );
 
+  const closeEditProfile = useCallback(() => {
+    setEditDialogOpen(false);
+    setEditPlantKey(null);
+    dispatch(clearCurrentProfile());
+  }, [dispatch]);
+
   const handleProfileUpdated = useCallback(
     (_profile: CareProfile) => {
-      setEditDialogOpen(false);
-      setEditPlantKey(null);
+      closeEditProfile();
       dispatch(fetchDashboard());
     },
-    [dispatch],
+    [closeEditProfile, dispatch],
   );
+
+  const retryEditProfile = useCallback(() => {
+    if (editPlantKey) dispatch(fetchProfile({ plantKey: editPlantKey }));
+  }, [dispatch, editPlantKey]);
+
+  const editProfile =
+    currentProfile && currentProfile.plant_key === editPlantKey ? currentProfile : null;
 
   // ── Bulk actions ─────────────────────────────────────────────────────
 
@@ -615,10 +634,10 @@ export default function TaskQueuePage() {
   const plantNameMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const p of plants) {
-      map.set(p.key, getPlantDisplayName(p));
+      map.set(p.key, getPlantDisplayName(p, i18n.language));
     }
     return map;
-  }, [plants]);
+  }, [plants, i18n.language]);
 
   // Build unified items from both sources
   const unifiedItems = useMemo(() => {
@@ -891,8 +910,12 @@ export default function TaskQueuePage() {
             )}
 
             <Box sx={{ flex: 1, minWidth: 0 }}>
+              {/* Outside bulk mode the card is a real link to the task (#3047): it opens in a new tab
+                  and is announced as a link. In bulk mode the same surface toggles the selection. */}
               <CardActionArea
-                onClick={bulkMode ? () => toggleSelection(task.key) : () => navigate(`/aufgaben/tasks/${task.key}`)}
+                {...(bulkMode
+                  ? { onClick: () => toggleSelection(task.key) }
+                  : { component: RouterLink, to: `/aufgaben/tasks/${task.key}` })}
                 data-testid={`task-card-${task.key}`}
                 sx={{ minHeight: 56 }}
               >
@@ -1016,7 +1039,7 @@ export default function TaskQueuePage() {
         </Card>
       );
     },
-    [actionLoading, navigate, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection, isCompactCard],
+    [actionLoading, handleStart, handleComplete, handleSkip, t, i18n.language, plantNameMap, bulkMode, selectedKeys, toggleSelection, isCompactCard],
   );
 
   const renderCareCard = useCallback(
@@ -1548,8 +1571,9 @@ export default function TaskQueuePage() {
 
           {sourceFilter !== 'care' && (
             <FormControl size="small" sx={{ minWidth: 160, flex: '1 1 160px', maxWidth: 240 }}>
-              <InputLabel>{t('pages.tasks.filterByCategory')}</InputLabel>
+              <InputLabel id="task-queue-category-filter-label">{t('pages.tasks.filterByCategory')}</InputLabel>
               <Select
+                labelId="task-queue-category-filter-label"
                 value={filterCategory ?? ''}
                 label={t('pages.tasks.filterByCategory')}
                 onChange={(e) => setFilterCategory(e.target.value)}
@@ -1612,7 +1636,7 @@ export default function TaskQueuePage() {
               size="small"
               sx={{ minWidth: 200, flex: '1 1 200px', maxWidth: 320 }}
               options={plants}
-              getOptionLabel={(p) => getPlantLabel(p)}
+              getOptionLabel={(p) => getPlantLabel(p, i18n.language)}
               value={plants.find((p) => p.key === filterPlantKey) ?? null}
               onChange={(_, value) => setFilterPlantKey(value?.key ?? null)}
               renderInput={(params) => (
@@ -1778,11 +1802,13 @@ export default function TaskQueuePage() {
         }}
       />
 
-      {currentProfile && editPlantKey && (
+      {editPlantKey && (
         <CareProfileEditDialog
           open={editDialogOpen}
-          onClose={() => { setEditDialogOpen(false); setEditPlantKey(null); }}
-          profile={currentProfile}
+          onClose={closeEditProfile}
+          profile={editProfile}
+          error={editProfile ? null : careProfileError}
+          onRetry={retryEditProfile}
           onUpdated={handleProfileUpdated}
         />
       )}

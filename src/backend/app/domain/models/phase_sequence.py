@@ -39,7 +39,7 @@ class PhaseSequence(BaseModel):
     dormancy_required: bool = False
     vernalization_required: bool = False
     vernalization_min_days: int | None = Field(default=None, ge=1)
-    photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
+    photoperiod_type: PhotoperiodType = PhotoperiodType.UNSPECIFIED
     critical_day_length_hours: float | None = Field(default=None, ge=0, le=24)
     is_system: bool = False
     tags: list[str] = Field(default_factory=list)

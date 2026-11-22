@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -12,14 +12,14 @@ import { useAppDispatch } from '@/store/hooks';
 import { createOrganization, type CreateOrganizationRejection } from '@/store/slices/tenantSlice';
 import { quotaErrorKeyForCode } from '@/utils/entitlements';
 import PageTitle from '@/components/layout/PageTitle';
-import { parseApiError } from '@/api/errors';
+import { errorKey } from '@/api/errors';
 import Form from '@/components/form/Form';
 
 export default function TenantCreatePage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,20 +32,20 @@ export default function TenantCreatePage() {
     setError(null);
     try {
       await dispatch(createOrganization({ name, description: description || undefined })).unwrap();
-      enqueueSnackbar(t('pages.tenants.created'), { variant: 'success' });
+      notification.success(t('pages.tenants.created'));
       navigate('/dashboard');
     } catch (err) {
       // REQ-056 §6.2 — the organisation limit has its own code; say it in the reader's language.
-      const code = (err as Partial<CreateOrganizationRejection> | null)?.errorCode ?? null;
-      const quotaKey = quotaErrorKeyForCode(code);
-      setError(quotaKey ? t(quotaKey) : parseApiError(err));
+      const rejection = err as Partial<CreateOrganizationRejection> | null;
+      const quotaKey = quotaErrorKeyForCode(rejection?.errorCode ?? null);
+      setError(t(quotaKey ?? errorKey(rejection?.message)));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }}>
+    <Box sx={{ maxWidth: 600, mx: 'auto', mt: 4 }} data-testid="tenant-create-page">
       <PageTitle title={t('pages.tenants.createOrganization')} />
       <Card>
         <CardContent>

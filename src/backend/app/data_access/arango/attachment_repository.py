@@ -1,22 +1,29 @@
 """NFR-013 §2.2 — ArangoDB repository for the ``attachments`` collection."""
 
+import re
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError
 
 from app.common.enums import AttachmentCategory
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.client_event_tombstones import record_tombstone, record_tombstone_in, tombstoned_ids
+from app.data_access.arango.conflicts import conflict_error_for
 from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.attachment_repository import UNSET, IAttachmentRepository, _Unset
 from app.domain.models.attachment import Attachment, QualityAssessment
+from app.domain.models.privacy import ANONYMIZED_MARKER as ANONYMIZED_MARKER
 
-# REQ-025 §3.1 — value written to ``created_by`` when a user is erased but the
-# attachment must stay attached to the tenant record (Scope
-# ``user_diary_attachments``). Must match the spec marker exactly (AK-OS-02).
-ANONYMIZED_MARKER = "_anonymized"
+# REQ-025 §3.1 — ``ANONYMIZED_MARKER`` (imported above, defined once in
+# ``app.domain.models.privacy``, PRIV-201) is written to ``created_by`` when a user
+# is erased but the attachment must stay attached to the tenant record (Scope
+# ``user_diary_attachments``, AK-OS-02).
 
 #: Every collection whose documents can reference an attachment through
 #: ``photo_refs``.
@@ -38,6 +45,12 @@ PHOTO_REF_COLLECTIONS: tuple[str, ...] = (
     col.HARVEST_OBSERVATIONS,
     col.INSPECTIONS,
     col.STORAGE_OBSERVATIONS,
+    # REQ-053 §20.10 (WP 1.9): a care event can carry photos (GP-FR-091); the bed-status change writes none, the
+    # care-event API of WP 4.1 does — and a destructive sweep must know the carrier before the first one is written.
+    col.CARE_EVENTS,
+    # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed. A photo another bed (or a gallery, a task …) still names
+    # stays when one bed lets go of it or is deleted - the scan below is what ``LocationPhotoService`` asks.
+    col.LOCATIONS,
 )
 
 #: Every other field anywhere that holds an attachment id, with the collection it
@@ -55,6 +68,13 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
     (col.PLANT_INSTANCES, "cover_photo_ref"),
     (col.PEST_IMAGE_CONTRIBUTIONS, "attachment_id"),
     (col.PESTS, "reference_image_refs"),
+    # REQ-053 GP-FR-033 (WP 7.14): the background picture of a site plan. Two sites can name one attachment (the
+    # upload dedupes per sha256), so the picture of a replaced or removed underlay is deleted only when no site
+    # still names it - the sweep and ``delete_if_unreferenced`` see it through this entry. A dotted path.
+    (col.SITES, "plan.underlay.attachment_key"),
+    # REQ-053 GP-FR-051 (WP 8.18): the bed's cover photo. Always one of its ``photo_refs`` (the model refuses
+    # anything else), listed anyway: a destructive query does not rest on that invariant holding.
+    (col.LOCATIONS, "cover_photo_ref"),
 )
 
 #: Which of the collections above are tenant-scoped, and may therefore have their
@@ -76,9 +96,11 @@ ATTACHMENT_REF_FIELDS: tuple[tuple[str, str], ...] = (
 #: ``test_tenant_scoped_ref_collections_match_the_models`` reads the field off the
 #: models, so that mistake fails the lane instead of deleting a photo.
 #:
-#: ``harvest_observations``, ``storage_observations`` and ``pests`` are absent
-#: because they genuinely have no ``tenant_key`` — they stay unfiltered and keep
-#: protecting across the whole installation, which is the safe direction.
+#: ``harvest_observations``, ``storage_observations`` and ``pests`` are absent because
+#: they genuinely have no ``tenant_key`` — they stay unfiltered and keep protecting
+#: across the whole installation, which is the safe direction. ``locations`` has no
+#: ``tenant_key`` either (a bed's tenant is its site's, #2107) and is narrowed through
+#: its site instead: :data:`SITE_SCOPED_REF_COLLECTIONS`.
 TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
     {
         col.TASKS,
@@ -86,7 +108,32 @@ TENANT_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset(
         col.PLANT_DIARY_ENTRIES,
         col.INSPECTIONS,
         col.PEST_IMAGE_CONTRIBUTIONS,
+        col.CARE_EVENTS,  # CareEvent.tenant_key is required (REQ-053 §20.13)
+        col.SITES,  # Site.tenant_key (the underlay of a site plan, REQ-053 GP-FR-033)
     }
+)
+
+#: The tenantless carriers whose reference scan is narrowed **through the site** they sit on (#2715 item 2).
+#:
+#: A ``Location`` has no ``tenant_key``; its tenant is its site's (#2107). Scanned unfiltered, the interactive delete
+#: read the ``photo_refs`` of every bed of every tenant inside its transaction. Narrowed, it reads the beds whose
+#: ``site_key`` is one of the tenant's sites (the ``(site_key, bed_status)`` index leads with ``site_key``).
+#:
+#: **What keeps protecting**, because the narrowing gives up its saving rather than a photo: a bed with no
+#: ``site_key`` (``null`` or ``""``), and a bed on a site without a tenant stamp (``tenant_key`` ``null`` or ``""``)
+#: - the same rule as the unstamped rows of :data:`TENANT_SCOPED_REF_COLLECTIONS`. What is no longer read is a bed
+#: on another tenant's site, and a bed whose ``site_key`` names a site that is gone. Neither can protect a photo of
+#: this tenant: a bed photo is linked only through ``ILocationPhotoRepository.add_photo``, which resolves the bed
+#: through a site of the photo's own tenant, and a bed on a vanished site is reachable by no route (every read
+#: resolves the bed through its site) - so a reference it holds names a picture nobody can be shown.
+#:
+#: ``test_site_scoped_ref_collections_carry_a_site_key`` pins that every collection here declares ``site_key`` and
+#: no ``tenant_key`` - a tenant-stamped collection belongs in the other set.
+SITE_SCOPED_REF_COLLECTIONS: frozenset[str] = frozenset({col.LOCATIONS})
+
+#: The carriers :meth:`ArangoAttachmentRepository.remove_if_unreferenced` reads inside its transaction.
+_REFERENCE_READ: tuple[str, ...] = tuple(
+    dict.fromkeys((*PHOTO_REF_COLLECTIONS, *(collection for collection, _field in ATTACHMENT_REF_FIELDS)))
 )
 
 
@@ -200,11 +247,38 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             return None
         return attachment
 
+    def get_many(self, keys: Sequence[str], *, tenant_key: str) -> dict[str, Attachment]:
+        """One query for the tenant's records among *keys* (#2715 item 7; was one ``get`` per photo of a gallery)."""
+        unique = list(dict.fromkeys(keys))
+        if not unique or not tenant_key:
+            # Like :meth:`get`: an empty tenant owns no record (no attachment carries ``tenant_key == ""``), so it
+            # reads as absent rather than raising - and never as a query across every tenant.
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR att IN @@collection
+              FILTER att._key IN @keys AND att.tenant_key == @tenant_key
+              RETURN att
+            """,
+                bind_vars={"@collection": self._collection_name, "keys": unique, "tenant_key": tenant_key},
+            ),
+        )
+        found = [Attachment(**self._from_doc(doc)) for doc in cursor]
+        return {attachment.key: attachment for attachment in found if attachment.key}
+
     def delete(self, key: str, tenant_key: str) -> bool:
         existing = self.get(key, tenant_key)
         if existing is None:
             return False
-        return super().delete(key)
+        deleted = super().delete(key)
+        if deleted and existing.client_event_id:
+            # A late replay of the buffered upload must not store the photo again (REQ-053 WP 9.3).
+            record_tombstone(
+                self._db, tenant_key=tenant_key, client_event_id=existing.client_event_id, kind="attachment"
+            )
+        return deleted
 
     def update_metadata(
         self,
@@ -338,13 +412,19 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         Only touches documents that still carry the user's ``created_by`` (so a
         re-run after a partial failure is idempotent and stays a no-op once
         everything is anonymised). Returns the number of documents updated.
+
+        ``original_filename`` is emptied in the same write (spec/privacy PRIV-211):
+        a camera or phone file name often carries its owner's name. This phase runs
+        before the ``attachments`` anonymisation rule, whose ``clear_fields`` say the
+        same — a row this phase marked is no longer matched by that rule, so the rule
+        alone would never reach it.
         """
         category_values = [c.value for c in categories] if categories else None
         query = """
         FOR att IN @@collection
           FILTER att.tenant_key == @tenant_key AND att.created_by == @user_key
           FILTER @categories == null OR att.category IN @categories
-          UPDATE att WITH { created_by: @marker } IN @@collection
+          UPDATE att WITH { created_by: @marker, original_filename: "" } IN @@collection
           COLLECT WITH COUNT INTO updated
           RETURN updated
         """
@@ -398,6 +478,59 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         if doc is None:
             return None
         return Attachment(**self._from_doc(doc))
+
+    def find_by_client_event_id(self, *, tenant_key: str, client_event_id: str) -> Attachment | None:
+        self._require_tenant_key(tenant_key, "find_by_client_event_id")
+        # ``SORT`` keeps the answer deterministic where v0106 could not create the unique index.
+        query = """
+        FOR att IN @@collection
+          FILTER att.tenant_key == @tenant_key AND att.client_event_id == @client_event_id
+          SORT att._key
+          LIMIT 1
+          RETURN att
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+        }
+        doc = next(cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars)), None)
+        if doc is None:
+            return None
+        return Attachment(**self._from_doc(doc))
+
+    def stamp_client_event(self, key: str, *, tenant_key: str, client_event_id: str, digest: str) -> bool:
+        """Put a buffered upload's id on an existing record that carries none (the #1770 own-record dedup).
+
+        One statement: only a record of ``tenant_key`` without an id is stamped, so two attempts cannot both claim
+        it. ``True`` when this call stamped it. A taken id raises the unique index's ``DuplicateError``.
+        """
+        self._require_tenant_key(tenant_key, "stamp_client_event")
+        query = """
+        FOR att IN @@collection
+          FILTER att._key == @key AND att.tenant_key == @tenant_key AND att.client_event_id == null
+          UPDATE att WITH { client_event_id: @client_event_id, client_event_digest: @digest } IN @@collection
+          RETURN 1
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "key": key,
+            "tenant_key": tenant_key,
+            "client_event_id": client_event_id,
+            "digest": digest,
+        }
+        try:
+            cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+            return next(cursor, None) is not None
+        except AQLQueryExecuteError as exc:
+            mapped = conflict_error_for(exc, entity=self._collection_name, data={"client_event_id": client_event_id})
+            if mapped is not None:
+                raise mapped from exc
+            raise
+
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        self._require_tenant_key(tenant_key, "client_event_tombstones")
+        return tombstoned_ids(self._db, client_event_ids, tenant_key=tenant_key)
 
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
@@ -512,7 +645,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         total = int(next(count_cursor, 0) or 0)
         return items, total
 
-    def _aql_referenced_prelude(self, *, ignore_task_key: bool = False, tenant_scoped: bool = False) -> str:
+    def _aql_referenced_prelude(
+        self, *, ignore_task_key: bool = False, tenant_scoped: bool = False, ignore_location_keys: bool = False
+    ) -> str:
         """AQL that binds ``referenced`` to every id anything in the tenant links.
 
         Shared by the orphan sweep and :meth:`unreferenced_among`, because the two
@@ -537,6 +672,14 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # that deletes a photo *from* that task. Applied to the tasks collection
         # only; every other carrier still protects the photo.
         skip = " FILTER d._key != @ignored_task_key" if ignore_task_key else ""
+        # ``@ignored_location_keys`` discounts the beds a pending delete removes (#2715 review F): what the photos
+        # are named by once those beds are gone. Applied to the locations collection only (both carriers on it).
+        skip_beds = " FILTER d._key NOT IN @ignored_location_keys" if ignore_location_keys else ""
+
+        def skipped(collection: str) -> str:
+            if collection == col.TASKS:
+                return skip
+            return skip_beds if collection == col.LOCATIONS else ""
 
         def tenant(collection: str) -> str:
             """The tenant narrowing, for the collections that can carry it.
@@ -546,7 +689,13 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             keeps reading every tenant's references — it has no tenant to narrow to
             and no interactive latency to answer for.
             """
-            if not tenant_scoped or collection not in TENANT_SCOPED_REF_COLLECTIONS:
+            if not tenant_scoped:
+                return ""
+            if collection in SITE_SCOPED_REF_COLLECTIONS:
+                # The bed through its site (#2715 item 2): ``ref_site_keys`` below holds the tenant's sites, the
+                # unstamped ones, and ``null`` / ``""`` for a bed without a site - those keep protecting.
+                return " FILTER d.site_key IN ref_site_keys"
+            if collection not in TENANT_SCOPED_REF_COLLECTIONS:
                 return ""
             # An *unstamped* row still protects. ``tenant_key`` defaults to ``""`` on
             # ``Task``, ``PlantDiaryEntry`` and ``Inspection``, so a legacy or imported
@@ -560,7 +709,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         parts = [
             f"          (FOR d IN @@ref_col_{index}"
             f"{tenant(PHOTO_REF_COLLECTIONS[index])}"
-            f"{skip if PHOTO_REF_COLLECTIONS[index] == col.TASKS else ''}"
+            f"{skipped(PHOTO_REF_COLLECTIONS[index])}"
             f" RETURN d.photo_refs || [])"
             for index in range(len(PHOTO_REF_COLLECTIONS))
         ]
@@ -569,13 +718,29 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         # collections (``@@``) and values (``@``), not attribute names; every name
         # comes from the module-level tuple above, never from a caller.
         parts += [
-            f"          (FOR d IN @@extra_col_{index}{tenant(collection)} "
+            f"          (FOR d IN @@extra_col_{index}{tenant(collection)}{skipped(collection)} "
             f"RETURN IS_ARRAY(d.{aql_field(field)}) ? d.{aql_field(field)} "
             f": (d.{aql_field(field)} == null ? [] : [d.{aql_field(field)}]))"
             for index, (collection, field) in enumerate(ATTACHMENT_REF_FIELDS)
         ]
+        # One loop variable per carrier (``ref0``, ``ref1`` …), not a shared ``d``: a scan that reads one carrier's
+        # ``tenant_key`` must not look like it reads one off a tenantless collection (``locations``) - the
+        # tenantless-collection scanner (``test_garden_plan_tenant_isolation``) judges by alias (#2715 review).
+        parts = [re.sub(r"\bd\b", f"ref{index}", part) for index, part in enumerate(parts)]
         collected = ",\n".join(parts)
-        return f"""        LET raw_refs = UNIQUE(FLATTEN([
+        # The tenant's sites, read once per scan; the anchor of every site-scoped carrier (a bed has no tenant_key).
+        site_anchor = (
+            """        LET ref_site_keys = APPEND(
+          (FOR ref_site IN @@ref_sites
+            FILTER ref_site.tenant_key == @ref_tenant_key OR ref_site.tenant_key == null OR ref_site.tenant_key == ""
+            RETURN ref_site._key),
+          [null, ""]
+        )
+"""
+            if tenant_scoped
+            else ""
+        )
+        return f"""{site_anchor}        LET raw_refs = UNIQUE(FLATTEN([
 {collected}
         ], 2))
         LET referenced = UNIQUE(FLATTEN([
@@ -622,9 +787,9 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             f" OR {storage_stem} NOT IN {candidates_expression})"
         )
 
-    def _reference_bind_vars(self) -> dict[str, Any]:
-        """The collection bindings :meth:`_aql_referenced_prelude` needs."""
-        bind_vars: dict[str, Any] = {}
+    def _reference_bind_vars(self, *, tenant_scoped: bool = False) -> dict[str, Any]:
+        """The collection bindings :meth:`_aql_referenced_prelude` needs (with the site anchor when tenant-scoped)."""
+        bind_vars: dict[str, Any] = {"@ref_sites": col.SITES} if tenant_scoped else {}
         for index, collection in enumerate(PHOTO_REF_COLLECTIONS):
             bind_vars[f"@ref_col_{index}"] = collection
         for index, (collection, _field) in enumerate(ATTACHMENT_REF_FIELDS):
@@ -689,15 +854,185 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
             "tenant_key": tenant_key,
             "ref_tenant_key": tenant_key,
             "ignored_task_key": task_key,
-            **self._reference_bind_vars(),
+            **self._reference_bind_vars(tenant_scoped=True),
         }
         row = next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), None)
         if row is None:
             return "missing", None
         return str(row["state"]), row.get("created_by")
 
+    def remove_if_unreferenced(self, attachment_id: str, tenant_key: str) -> Attachment | None:
+        """Remove the record when no carrier names it: the reference scan and the remove are one transaction (#2545).
+
+        Asked as two calls (scan, then delete) a carrier written between them was not seen: a site setting this
+        picture as its underlay while another site let go of it lost the picture and pointed at nothing. Inside one
+        stream transaction the scan reads the snapshot the remove writes on, and a writer that names the record
+        **touches** it in its own transaction (``set_site_underlay``): whichever commits second meets the other's
+        write and fails with ``1200`` (:class:`~app.common.exceptions.WriteConflictError`), nothing half-done.
+
+        Returns the removed record (its stored object is the caller's next step), or ``None`` when it is absent,
+        another tenant's or still referenced. The scan is the tenant-scoped one of :meth:`task_photo_delete_state`.
+
+        A record a buffered upload created leaves its tombstone in the same transaction (REQ-053 WP 9.3): a late
+        replay of ``POST /attachments`` must not store the photo again (and the client re-link it) - the bed-photo
+        removal comes this way.
+        """
+        with stream_transaction(
+            self._db,
+            write=(self._collection_name, col.CLIENT_EVENT_TOMBSTONES),
+            read=_REFERENCE_READ,
+            entity=self._collection_name,
+        ) as txn:
+            if not self._unreferenced_in(txn, attachment_id, tenant_key):
+                return None
+            removed = list(
+                txn.aql.execute(
+                    """
+                FOR att IN @@collection
+                  FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
+                  REMOVE att IN @@collection
+                  RETURN OLD
+                """,
+                    bind_vars={
+                        "@collection": self._collection_name,
+                        "attachment_id": attachment_id,
+                        "tenant_key": tenant_key,
+                    },
+                )
+            )
+            if removed and removed[0].get("client_event_id"):
+                record_tombstone_in(
+                    txn, tenant_key=tenant_key, client_event_id=str(removed[0]["client_event_id"]), kind="attachment"
+                )
+        return Attachment(**self._from_doc(removed[0])) if removed else None
+
+    def remove_unreferenced(
+        self, attachment_ids: Sequence[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[Attachment]:
+        """:meth:`remove_if_unreferenced` for many records at once: one reference scan, one transaction (#2715 item 6).
+
+        A committed bed or site delete hands back up to 50 photos per bed. Asked one by one, every photo re-ran the
+        whole reference scan in its own transaction inside the DELETE request; here the scan runs once and every
+        tenant's record of *category* among *attachment_ids* that no carrier names is removed with it. The
+        transaction semantics are the single remove's: a writer that names one of the records touches it, so a
+        concurrent link conflicts (``WriteConflictError``) and **nothing** is removed - the caller decides whether to
+        ask again. Tombstones of buffered uploads are written in the same transaction.
+
+        Returns the removed records (their stored objects are the caller's next step); an empty tenant removes nothing.
+        """
+        unique = list({attachment_id: None for attachment_id in attachment_ids})
+        if not unique or not tenant_key:
+            return []
+        with stream_transaction(
+            self._db,
+            write=(self._collection_name, col.CLIENT_EVENT_TOMBSTONES),
+            read=_REFERENCE_READ,
+            entity=self._collection_name,
+        ) as txn:
+            releasable = self._unreferenced_among_in(txn, unique, tenant_key, category=category)
+            if not releasable:
+                return []
+            removed: list[dict[str, Any]] = list(
+                txn.aql.execute(
+                    """
+                FOR att IN @@collection
+                  FILTER att._key IN @ids AND att.tenant_key == @tenant_key
+                  REMOVE att IN @@collection
+                  RETURN OLD
+                """,
+                    bind_vars={"@collection": self._collection_name, "ids": releasable, "tenant_key": tenant_key},
+                )
+            )
+            for client_event_id in [row["client_event_id"] for row in removed if "client_event_id" in row]:
+                if client_event_id:
+                    record_tombstone_in(
+                        txn, tenant_key=tenant_key, client_event_id=str(client_event_id), kind="attachment"
+                    )
+        return [Attachment(**self._from_doc(row)) for row in removed]
+
+    def _unreferenced_among_in(
+        self, txn: StreamTransaction, attachment_ids: list[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[str]:
+        """The tenant's records of *category* among *attachment_ids* that no carrier names, read inside *txn*."""
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True)}
+        FOR att IN @@collection
+          FILTER att._key IN @ids AND att.tenant_key == @tenant_key AND att.category == @category
+            AND {self._aql_unreferenced("referenced", "att")}
+          RETURN att._key
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "ids": attachment_ids,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            "category": AttachmentCategory(category).value,
+            **self._reference_bind_vars(tenant_scoped=True),
+        }
+        return [str(key) for key in txn.aql.execute(query, bind_vars=bind_vars)]
+
+    def releasable_after_location_delete(
+        self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
+    ) -> list[str]:
+        """The ids a delete of *location_keys* would let :meth:`remove_if_unreferenced` remove (#2715 review F).
+
+        The tenant's own ``location`` records among *attachment_ids* that no carrier names once those beds are gone:
+        the rule ``LocationPhotoService.discard_released`` applies after the commit, asked before it, so a dry run
+        counts what the import will delete - not a photo a kept bed, another bed or a gallery still names, and not a
+        stale reference whose record is gone. Read-only; an empty tenant reads nothing.
+        """
+        unique = list({attachment_id: None for attachment_id in attachment_ids})
+        if not unique or not tenant_key:
+            return []
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True, ignore_location_keys=True)}
+        FOR att IN @@collection
+          FILTER att._key IN @ids AND att.tenant_key == @tenant_key AND att.category == @category
+            AND {self._aql_unreferenced("referenced", "att")}
+          RETURN att._key
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "ids": unique,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            "category": AttachmentCategory.LOCATION.value,
+            "ignored_location_keys": list(location_keys),
+            **self._reference_bind_vars(tenant_scoped=True),
+        }
+        return [str(key) for key in cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))]
+
+    def _unreferenced_in(self, txn: StreamTransaction, attachment_id: str, tenant_key: str) -> bool:
+        """Whether the tenant's record *attachment_id* exists and no carrier names it, read inside *txn*."""
+        query = f"""
+{self._aql_referenced_prelude(tenant_scoped=True)}
+        FOR att IN @@collection
+          FILTER att._key == @attachment_id AND att.tenant_key == @tenant_key
+          RETURN {self._aql_unreferenced("referenced", "att")}
+        """
+        bind_vars: dict[str, Any] = {
+            "@collection": self._collection_name,
+            "attachment_id": attachment_id,
+            "tenant_key": tenant_key,
+            "ref_tenant_key": tenant_key,
+            **self._reference_bind_vars(tenant_scoped=True),
+        }
+        return next(iter(txn.aql.execute(query, bind_vars=bind_vars)), False) is True
+
     def find_orphaned_task_photos(self, *, older_than: datetime, limit: int = 500) -> list[Attachment]:
-        """Task-category attachments older than *older_than* that nothing references.
+        """Task-category attachments older than *older_than* that nothing references (#1393).
+
+        :meth:`find_orphaned_photos` with ``category=task``; the reasoning below is that query's.
+        """
+        return self.find_orphaned_photos(AttachmentCategory.TASK, older_than=older_than, limit=limit)
+
+    def find_orphaned_photos(
+        self, category: AttachmentCategory, *, older_than: datetime, limit: int = 500
+    ) -> list[Attachment]:
+        """Attachments of *category* older than *older_than* that nothing references.
+
+        One query per sweep: ``task`` (#1393) and ``location`` (REQ-053 GP-FR-051, bed photos uploaded but never
+        linked, or left behind by a discard that failed after its bed write committed) differ only in the category.
 
         The three ways a task photo is orphaned (#1393), all of which this covers:
         an upload whose form was never submitted, a photo removed from the staging
@@ -743,7 +1078,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         """
         bind_vars: dict[str, Any] = {
             "@collection": self._collection_name,
-            "category": AttachmentCategory.TASK.value,
+            "category": AttachmentCategory(category).value,
             "cutoff": older_than.isoformat(),
             "limit": int(limit),
         }
@@ -753,7 +1088,11 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         return [Attachment(**self._from_doc(doc)) for doc in cursor]
 
     def count_undated_orphaned_task_photos(self) -> int:
-        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003).
+        """Unreferenced task photos :meth:`find_orphaned_task_photos` can never select (#1806 GDPR-003)."""
+        return self.count_undated_orphaned_photos(AttachmentCategory.TASK)
+
+    def count_undated_orphaned_photos(self, category: AttachmentCategory) -> int:
+        """Unreferenced attachments of *category* :meth:`find_orphaned_photos` can never select (#1806 GDPR-003).
 
         The sweep needs ``created_at`` to apply its age floor, so a task photo
         without a readable one is held for ever, silently. Same reference test as
@@ -770,7 +1109,7 @@ class ArangoAttachmentRepository(BaseArangoRepository[Attachment], IAttachmentRe
         """
         bind_vars: dict[str, Any] = {
             "@collection": self._collection_name,
-            "category": AttachmentCategory.TASK.value,
+            "category": AttachmentCategory(category).value,
         }
         bind_vars.update(self._reference_bind_vars())
         return int(next(iter(self._db.aql.execute(query, bind_vars=bind_vars)), 0))

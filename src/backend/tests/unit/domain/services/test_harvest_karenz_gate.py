@@ -180,3 +180,54 @@ def test_a_batch_without_a_harvest_date_is_stored_with_the_date_the_gate_checked
     stored = repo.created[0].harvest_date
     assert stored is not None
     assert before <= stored <= datetime.now(UTC)
+
+
+# ── REQ-053 WP 4.3 (#2413): the gate and the batch id for a harvest written by the task completion ──────────────
+
+
+def test_require_karenz_clear_blocks_a_bed_harvest_when_one_plant_is_in_its_interval():
+    karenz_periods = [
+        {
+            "active_ingredient": "Spinosad",
+            "applied_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+            "safety_interval_days": 21,
+        }
+    ]
+    service, _ = _build_harvest_service(karenz_periods)
+
+    with pytest.raises(KarenzViolationError):
+        service.require_karenz_clear(["plant-1"], datetime.now(UTC), tenant_key=TENANT_KEY)
+
+
+def test_require_karenz_clear_passes_when_no_interval_runs_and_an_empty_bed_is_nothing_to_check():
+    service, _ = _build_harvest_service([])
+
+    service.require_karenz_clear(["plant-1"], datetime.now(UTC), tenant_key=TENANT_KEY)
+    service.require_karenz_clear([], datetime.now(UTC), tenant_key=TENANT_KEY)
+
+
+def test_require_karenz_clear_answers_404_for_another_tenants_plant():
+    service, _ = _build_harvest_service([])
+
+    with pytest.raises(NotFoundError):
+        service.require_karenz_clear(["plant-1"], datetime.now(UTC), tenant_key="tenant-b")
+
+
+def test_require_karenz_clear_refuses_an_empty_tenant():
+    service, _ = _build_harvest_service([])
+
+    with pytest.raises(ValueError, match="tenant"):
+        service.require_karenz_clear(["plant-1"], datetime.now(UTC), tenant_key="")
+
+
+def test_next_batch_id_keeps_the_batches_of_one_write_apart_before_any_is_stored():
+    service, _ = _build_harvest_service([])
+    when = datetime(2026, 7, 24, 10, 0, tzinfo=UTC)
+    taken: set[str] = set()
+
+    first = service.next_batch_id("plant-1", when, tenant_key=TENANT_KEY, taken=taken)
+    second = service.next_batch_id("plant-1", when, tenant_key=TENANT_KEY, taken=taken)
+
+    assert first == "HARVEST-20260724-plant-1"
+    assert second != first and second.startswith("HARVEST-20260724-plant-1-")
+    assert taken == {first, second}

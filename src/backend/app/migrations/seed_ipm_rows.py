@@ -32,7 +32,17 @@ name their ends by common name; a file may call an existing pest differently tha
 row that created it (``Cabbage White Butterfly`` for the stored ``Large Cabbage
 White``), so the file's own common name of such a row is mapped onto the existing key.
 An edge whose end resolves to nothing is logged (``ipm_seed_edge_unresolved``) and
-skipped. Edges are written with ``create_edge_if_absent`` over the unique vertex-pair
+skipped.
+
+Names per language
+==================
+
+An existing row is not written again — except its ``common_names_i18n`` (REQ-010 v1.9,
+#2955): a map the file declares reaches an installation seeded before the map existed
+through this sync, not through a migration, like ``ipm.yaml`` does for its rows. Only a
+``system`` disease (a pest has no tenant origin) is touched, and only when the file names a map; a row ``ipm.yaml`` owns
+carries no map in these files (``test_seed_ipm_names_i18n.py`` pins that), so the two
+seeds never overwrite each other's names. Edges are written with ``create_edge_if_absent`` over the unique vertex-pair
 index (#2001). The seed registry runs under the migration lock (#2028), so two replicas
 never interleave here.
 """
@@ -46,6 +56,7 @@ from typing import Any, Final
 import structlog
 from pydantic import BaseModel, ValidationError
 
+from app.common.enums import DataOrigin
 from app.data_access.arango.base_repository import read_all_pages
 from app.domain.interfaces.ipm_repository import IIpmRepository
 from app.domain.models.ipm import Disease, Pest, Treatment
@@ -138,13 +149,15 @@ def build_target_edges(data: dict[str, Any], *, source: str) -> tuple[list[tuple
 
 @dataclass(frozen=True)
 class IpmSeedCounts:
-    """What one file's IPM rows did: created rows, edges linked (created or already there), unresolved."""
+    """What one file's IPM rows did: created rows, synced names, edges linked (created or already there), unresolved."""
 
     pests_created: int
     diseases_created: int
     treatments_created: int
     edges_linked: int
     edges_unresolved: int
+    #: Existing pests and diseases whose ``common_names_i18n`` the file updated (#2955).
+    names_synced: int = 0
 
 
 def _key_map(stored: Iterable[Any], name_of: Callable[[Any], str]) -> dict[str, str]:
@@ -182,6 +195,19 @@ def _link_edges(
     return linked, unresolved
 
 
+def _with_names[M: (Pest, Disease)](found: M, seeded: M, *, owned_by_the_seed: bool) -> M | None:
+    """``found`` carrying ``seeded``'s name map, or ``None`` when nothing is to sync."""
+    if not (seeded.common_names_i18n and owned_by_the_seed):
+        return None
+    if found.common_names_i18n == seeded.common_names_i18n:
+        return None
+    # Validated again, not copied: a pest derives ``common_name_de`` from the map.
+    row: dict[str, Any] = found.model_dump(by_alias=True)
+    row["common_names_i18n"] = seeded.common_names_i18n
+    synced: M = found.model_validate(row)
+    return synced
+
+
 def seed_ipm_rows(ipm_repo: IIpmRepository, data: dict[str, Any], *, source: str) -> IpmSeedCounts:
     """Create the file's absent pests, diseases and treatments, then their target edges.
 
@@ -201,12 +227,17 @@ def seed_ipm_rows(ipm_repo: IIpmRepository, data: dict[str, Any], *, source: str
     stored_pests = {p.scientific_name: p for p in read_all_pages(ipm_repo.get_all_pests)}
     pest_keys = _key_map(stored_pests.values(), lambda p: p.common_name)
     pests_created = 0
+    names_synced = 0
     for pest in pests:
         found = stored_pests.get(pest.scientific_name)
         if found is None:
             found = ipm_repo.create_pest(pest)
             stored_pests[pest.scientific_name] = found
             pests_created += 1
+        # A pest has no ``origin``: every pest row is a global catalogue row.
+        elif (renamed_pest := _with_names(found, pest, owned_by_the_seed=True)) is not None:
+            ipm_repo.update_pest(found.key or "", renamed_pest)
+            names_synced += 1
         pest_keys[pest.common_name] = found.key or ""
 
     stored_diseases = {d.scientific_name: d for d in read_all_pages(ipm_repo.get_all_diseases)}
@@ -218,6 +249,13 @@ def seed_ipm_rows(ipm_repo: IIpmRepository, data: dict[str, Any], *, source: str
             found_disease = ipm_repo.create_disease(disease)
             stored_diseases[disease.scientific_name] = found_disease
             diseases_created += 1
+        elif (
+            renamed_disease := _with_names(
+                found_disease, disease, owned_by_the_seed=found_disease.origin == DataOrigin.SYSTEM
+            )
+        ) is not None:
+            ipm_repo.update_disease(found_disease.key or "", renamed_disease)
+            names_synced += 1
         disease_keys[disease.common_name] = found_disease.key or ""
 
     stored_treatments = {t.name: t for t in read_all_pages(ipm_repo.get_all_treatments)}
@@ -248,6 +286,7 @@ def seed_ipm_rows(ipm_repo: IIpmRepository, data: dict[str, Any], *, source: str
         treatments_created=treatments_created,
         edges_linked=linked,
         edges_unresolved=unresolved,
+        names_synced=names_synced,
     )
     logger.info("ipm_seed_rows", source=source, **asdict(counts))
     return counts

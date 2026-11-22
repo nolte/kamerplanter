@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -8,7 +8,8 @@ import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -60,7 +61,7 @@ export default function WateringConfirmDialog({
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<WateringConfirmResponse | null>(null);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       measured_ec: null,
@@ -68,6 +69,7 @@ export default function WateringConfirmDialog({
       volume_liters: suggestedVolumeLiters ?? null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   // Reset form with suggested volume when dialog opens
   useEffect(() => {
@@ -102,14 +104,14 @@ export default function WateringConfirmDialog({
       notification.success(t('pages.wateringSchedule.confirm'));
       onConfirmed();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open}
+    <FormDialog control={control} fullScreen={fullScreen} open={open}
       onClose={handleClose}
       maxWidth="sm"
       fullWidth
@@ -192,6 +194,6 @@ export default function WateringConfirmDialog({
           </Form>
         )}
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

@@ -10,10 +10,10 @@ gate:
   kind: paths-filter
   filter: knowledge-service
 status: derived
-measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
 replay_seconds: 1
-job_spec_sha256: a033c9b855103c9c15bef2d2f73df4e4ac78bffc245b34a2eb554a27b5fd8029
+job_spec_sha256: 09d3213e35a19dc3bcd5e15bf5e7cb2047fbe69ca2fe2b0796414c5eb729ea52
 invocations:
 - command: derive-docker --context src/knowledge-service --dockerfile src/knowledge-service/Dockerfile
   cwd: .

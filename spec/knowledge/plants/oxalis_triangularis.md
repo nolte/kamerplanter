@@ -116,6 +116,22 @@
 **Hinweis:** Als tropische Waldbodenstaude (forest understory) hat *Oxalis triangularis* einen niedrigen Lichtkompensationspunkt typischer Schattenpflanzen (10–50 µmol/m²/s; hier konservativ 10–30) und behält dennoch eine hohe Plastizität — bei hellem indirektem Licht intensiviert sich die Blattfärbung. Die Salzempfindlichkeit (salt sensitivity) zeigt sich praktisch in Blattspitzenverbrennung (tip burn) bei Düngersalz-Anreicherung oder hartem/chlor-/fluoridhaltigem Leitungswasser; Regen-, Filter- oder destilliertes Wasser wird bevorzugt. Der pH-Vorzug 6.0–7.0 ist konsistent mit den Angaben in §1.6 und §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite widerspricht sich selbst — Position „Partial shade“, Kulturtext „full sun in a sheltered position“ --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -325,4 +341,5 @@ Oxalis triangularis,"Lila Sauerklee;Glücksklee;Purple Shamrock;False Shamrock",
 18. [PFAF — Oxalis triangularis](https://pfaf.org/user/Plant.aspx?LatinName=Oxalis+triangularis) — USDA 10–11, frostempfindlich, toleriert kurzfristig bis ca. -3°C, Vermehrung (Teilung/Knollen)
 19. [RHS — Oxalis triangularis subsp. papilionacea](https://www.rhs.org.uk/plants/63222/i-oxalis-triangularis-i-subsp-i-papilionacea-i/details) — Härtegrad H3 (-5 bis 1°C), Dormanz winters
 20. [Epic Gardening — Oxalis Triangularis](https://www.epicgardening.com/oxalis-triangularis/) — Zonen 8–11 (optimal 8–9), Dormanz-Häufigkeit (jährlich, ggf. 2× bei Hitzestress), Dauer ca. 2–3 Monate
+21. [RHS — Oxalis triangularis](https://www.rhs.org.uk/plants/50979/oxalis-triangularis/details) — Position „Partial shade“ vs. Kulturtext „full sun in a sheltered position“ (widersprüchlich)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

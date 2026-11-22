@@ -36,7 +36,7 @@
 services:
   # ── ArangoDB ──────────────────────────────────────────────
   arangodb:
-    image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+    image: arangodb:3.12@sha256:e48adfc58986a10e0316aa23ccae95ca580d880a41c76a8f0df68f9c29b470f2
     environment:
       ARANGO_ROOT_PASSWORD: e2e-test-password
     healthcheck:
@@ -48,7 +48,7 @@ services:
 
   # ── Valkey (Redis-compatible) ────────────────────────────
   valkey:
-    image: valkey/valkey:9-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+    image: valkey/valkey:9-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -57,7 +57,7 @@ services:
 
   # ── TimescaleDB (optional) ─────────────────────────────────
   timescaledb:
-    image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
+    image: timescale/timescaledb:2.32.0-pg16@sha256:2f87efeaec6fbdd3ba4a6993b921c05d069cd8e980792cb23c7c5f32a6fe68a7
     profiles: ["timescaledb"]
     environment:
       POSTGRES_DB: kamerplanter_sensors_e2e
@@ -93,6 +93,35 @@ services:
       ERASURE_TOMBSTONE_SALT: e2e-test-tombstone-salt-not-for-production-32chars
       LOG_PSEUDONYM_SALT: e2e-test-log-pseudonym-salt-not-for-production-32c
       KAMERPLANTER_MODE: light
+      # REQ-053 WP 2.9: the garden plan editor tests (test_req053_*.py) save through
+      # `POST /plan/batch` and arrange each plan with one `PUT /plan/boundary` and one
+      # batch. Production allows 10 a minute per account (GP-NFR-056) — a grower's
+      # pace; here the whole suite is one account, and the first local run of the
+      # editor file alone was refused with 429 after ~14 writes in its first minute.
+      # Ten times the production budget, as for the other per-account limits.
+      RATE_LIMIT_PLAN_BATCH: "100/minute"
+      # REQ-053 WP 4.1 care-log writes (`POST /care-events`, supersede, void, redact), per account. The suite is
+      # one account (light mode: one user) and the Protokoll/Schnellprotokoll journeys of waves 4+ log in
+      # bursts; ten times the production 60/minute, as for the other per-account limits.
+      RATE_LIMIT_CARE_EVENTS: "600/minute"
+      # REQ-053 WP 4.3 task completion (`complete`, `batch/status`, `reopen`), per account. The suite is one
+      # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
+      # times the production 120/minute, as for the other per-account limits.
+      RATE_LIMIT_TASK_COMPLETION: "1200/minute"
+      # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
+      # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
+      RATE_LIMIT_BED_ACTIONS: "200/minute"
+      # REQ-053 WP 5.2 garden-plan exports (SVG, JSON backup, PDF), per account and per tenant. The suite is one
+      # account in one tenant and the export journeys render several formats of a plan in a minute; ten times the
+      # production 10/minute (account) and 30/minute (tenant), as for the other per-account limits.
+      RATE_LIMIT_PLAN_EXPORT: "100/minute"
+      RATE_LIMIT_PLAN_EXPORT_TENANT: "300/minute"
+      # REQ-053 WP 5.3 plan import, per tenant: the wizard is two requests and the journeys import more than once.
+      RATE_LIMIT_PLAN_IMPORT: "30/minute"
+      # REQ-053 GP-FR-174 CSV bed list import: the wizard checks and confirms, the journeys correct and re-check;
+      # ten times the production 10/minute (account) and 30/minute (tenant), as for the plan exports.
+      RATE_LIMIT_PLAN_CSV_IMPORT: "100/minute"
+      RATE_LIMIT_PLAN_CSV_IMPORT_TENANT: "300/minute"
     depends_on:
       arangodb:
         condition: service_healthy
@@ -114,8 +143,21 @@ services:
 
   # ── Celery Worker ────────────────────────────────────────
   celery-worker:
-    build:
-      context: ./src/backend
+    # One image with `backend` (#2998): the worker runs the identical build
+    # (same context, Dockerfile, no args, no target) and differs only in
+    # `command:` and the disabled healthcheck. Building it as its own service
+    # cost a second image export and a second gha cache export per run — the
+    # Compose/Bake path makes one bake target per service with a `build:`, each
+    # with its own outputs and cache-to, so only the solve was shared.
+    #  * `image:` is Compose's default tag for `backend`
+    #    (`<project>-<service>`); `backend` itself keeps no `image:`, so
+    #    Compose never tries a registry pull for it.
+    #  * `pull_policy: never`: this tag only ever comes from the local build —
+    #    a missing image fails loudly instead of resolving from a registry.
+    #  * `depends_on: backend` puts the builder into every service set that
+    #    starts this worker, so `up --build` rebuilds the tag in the same call.
+    image: ${COMPOSE_PROJECT_NAME}-backend
+    pull_policy: never
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -137,6 +179,9 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      # Builds this service's image, see `image:` above.
+      backend:
+        condition: service_started
     command: celery -A app.tasks worker --loglevel=info
     # The worker runs no HTTP server, so the backend image's inherited
     # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing
@@ -162,7 +207,7 @@ services:
 
   # ── Selenium Hub ─────────────────────────────────────────
   selenium-hub:
-    image: selenium/hub:4.49@sha256:178c2a330deb5c674c74ca63028737954106372ff66785244c16dfd66276654e
+    image: selenium/hub:4.52@sha256:454867753dae49cdaeaccc398bc648e9817ba29178b459cf004bd84fb60d6e93
     environment:
       SE_SESSION_REQUEST_TIMEOUT: "300"
       SE_NODE_SESSION_TIMEOUT: "300"
@@ -170,7 +215,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:153.0@sha256:4aa889737f48621278192ea09e9c83b96c8beb8a865d8daa8dfabff4c9c068cc
+    image: selenium/node-chrome:157.0@sha256:faf10f796364a535fdb4e5aa5101c9300482788ccc0935258fc76f92f21b4196
     depends_on:
       - selenium-hub
     environment:
@@ -189,6 +234,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -198,14 +246,14 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./test-reports:/app/test-reports
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-default
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-default.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
 
@@ -216,6 +264,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -243,6 +294,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: light
     depends_on:
       frontend:
@@ -346,6 +400,31 @@ services:
       RATE_LIMIT_UPLOAD: "300/minute"
       RATE_LIMIT_INFERENCE: "200/minute"
       RATE_LIMIT_EXPORT: "200/minute"
+      # REQ-053 WP 2.9 garden plan writes (`/plan/batch`, `/plan/boundary`); see the
+      # light backend for the reason. Ten times the production 10/minute.
+      RATE_LIMIT_PLAN_BATCH: "100/minute"
+      # REQ-053 WP 4.1 care-log writes (`POST /care-events`, supersede, void, redact), per account. The suite is
+      # one account (light mode: one user) and the Protokoll/Schnellprotokoll journeys of waves 4+ log in
+      # bursts; ten times the production 60/minute, as for the other per-account limits.
+      RATE_LIMIT_CARE_EVENTS: "600/minute"
+      # REQ-053 WP 4.3 task completion (`complete`, `batch/status`, `reopen`), per account. The suite is one
+      # account (light mode: one user) and the Erledigen / Rückgängig journeys of wave 4 complete in bursts; ten
+      # times the production 120/minute, as for the other per-account limits.
+      RATE_LIMIT_TASK_COMPLETION: "1200/minute"
+      # REQ-053 WP 3.2 bed actions (`POST /locations/{key}/quick-planting` and `…/clear`), per account. The suite
+      # is one account and plants and clears many beds in a minute; ten times the production 20/minute.
+      RATE_LIMIT_BED_ACTIONS: "200/minute"
+      # REQ-053 WP 5.2 garden-plan exports (SVG, JSON backup, PDF), per account and per tenant. The suite is one
+      # account in one tenant and the export journeys render several formats of a plan in a minute; ten times the
+      # production 10/minute (account) and 30/minute (tenant), as for the other per-account limits.
+      RATE_LIMIT_PLAN_EXPORT: "100/minute"
+      RATE_LIMIT_PLAN_EXPORT_TENANT: "300/minute"
+      # REQ-053 WP 5.3 plan import, per tenant: the wizard is two requests and the journeys import more than once.
+      RATE_LIMIT_PLAN_IMPORT: "30/minute"
+      # REQ-053 GP-FR-174 CSV bed list import: the wizard checks and confirms, the journeys correct and re-check;
+      # ten times the production 10/minute (account) and 30/minute (tenant), as for the plan exports.
+      RATE_LIMIT_PLAN_CSV_IMPORT: "100/minute"
+      RATE_LIMIT_PLAN_CSV_IMPORT_TENANT: "300/minute"
       # #1855 R3 W-5 — the take-over probe (`GET /system/takeover-status`) runs on every
       # full-mode app bootstrap (`LightModeTakeoverDialog` in `MainLayout`), so for this suite
       # it is as busy as the refresh path: every `page.open()` of one account. A refusal only
@@ -380,8 +459,10 @@ services:
 
   # ── Celery Worker (full mode) ────────────────────────────────
   celery-worker-full:
-    build:
-      context: ./src/backend
+    # Same construction as `celery-worker` (#2998): runs the image built by
+    # `backend-full`, never pulled, with the builder in `depends_on`.
+    image: ${COMPOSE_PROJECT_NAME}-backend-full
+    pull_policy: never
     environment:
       ARANGODB_HOST: arangodb
       ARANGODB_PORT: "8529"
@@ -410,6 +491,9 @@ services:
         condition: service_healthy
       valkey:
         condition: service_healthy
+      # Builds this service's image, see `image:` above.
+      backend-full:
+        condition: service_started
     command: celery -A app.tasks worker --loglevel=info
     # The worker runs no HTTP server, so the backend image's inherited
     # HTTP healthcheck (curl :8000) can never pass. Disable it — nothing
@@ -442,6 +526,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       KAMERPLANTER_MODE: full
     depends_on:
       frontend-full:
@@ -452,14 +539,14 @@ services:
     volumes:
       - ./test-reports:/app/test-reports
     profiles: ["full"]
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-full
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-full.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
 
@@ -486,6 +573,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: light
     depends_on:
@@ -497,14 +587,14 @@ services:
     volumes:
       - ./test-reports:/app/test-reports
     profiles: ["mobile"]
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-mobile
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-mobile.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=mobile
@@ -516,6 +606,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: light
     depends_on:
@@ -527,14 +620,14 @@ services:
     volumes:
       - ./test-reports:/app/test-reports
     profiles: ["tablet"]
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-tablet
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-tablet.xml
       - --base-url=http://frontend:8080
       - --app-mode=light
       - --device=tablet
@@ -546,6 +639,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: mobile
       KAMERPLANTER_MODE: full
     depends_on:
@@ -557,14 +653,14 @@ services:
     volumes:
       - ./test-reports:/app/test-reports
     profiles: ["full-mobile"]
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-full-mobile
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-full-mobile.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=mobile
@@ -576,6 +672,9 @@ services:
     environment:
       SELENIUM_REMOTE_URL: http://selenium-hub:4444/wd/hub
       E2E_BASE_URL: http://frontend-full:8080
+      # The protocol header names the commit and branch under test; the image has no .git (run-e2e.sh sets them).
+      E2E_GIT_SHA: ${E2E_GIT_SHA:-}
+      E2E_GIT_BRANCH: ${E2E_GIT_BRANCH:-}
       E2E_DEVICE: tablet
       KAMERPLANTER_MODE: full
     depends_on:
@@ -587,14 +686,14 @@ services:
     volumes:
       - ./test-reports:/app/test-reports
     profiles: ["full-tablet"]
+    # Two passes (#3032): the suite on 4 xdist workers without the bulk_seed
+    # tests, then those alone and serially - see two_pass_entrypoint.sh.
     entrypoint:
-      - pytest
-      - -n
-      - "4"
-      - --dist=loadfile
+      - bash
+      - /app/two_pass_entrypoint.sh
+      - junit-full-tablet
       - --tb=short
       - --generate-protocol
-      - --junitxml=test-reports/e2e/junit-full-tablet.xml
       - --base-url=http://frontend-full:8080
       - --app-mode=full
       - --device=tablet

@@ -141,15 +141,21 @@ _VERSION_FILENAME_RE = re.compile(r"^v(?P<number>\d{4})_[a-z0-9_]+$")
 #: #1521 → #1536 sequence one number higher. That class is the one statement that is
 #: NOT derived from it: it reads each release tag's own `versions/` tree out of git
 #: and refuses a boundary that sits below what a release shipped.
-_PINNED_THROUGH = "0054"
+#:
+#: Raised 0054 → 0092 on 2026-10-15 for release v0.4.2 (cut 2026-10-13), whose tree
+#: carries v0001 … v0092. Measured before raising: `git diff v0.4.2 origin/develop --
+#: src/backend/app/migrations/versions/` is empty, so the rows below record the same
+#: class source the tag shipped — no second v0050 case.
+_PINNED_THROUGH = "0092"
 
 #: A RATCHET over the size of the table below, independent of `_PINNED_THROUGH`.
 #: Set equality against the directory (`test_pins_cover_exactly_the_shipped_versions`)
 #: is satisfied by *lowering* `_PINNED_THROUGH` and deleting the rows above it — the
 #: pin table can shrink to a single row, or to none, and every derived expectation
 #: shrinks with it. This floor is the one statement that does not: it can only ever
-#: be raised. 54 = the number of version modules on `develop` on 2026-09-19.
-_PINNED_COUNT_FLOOR = 54
+#: be raised. 54 = the number of version modules on `develop` on 2026-09-19;
+#: 92 = the number release v0.4.2 shipped (raised 2026-10-15).
+_PINNED_COUNT_FLOOR = 92
 
 #: ``sha256(inspect.getsource(<migration class>))`` per shipped version — the exact
 #: expression ``Migration.checksum()`` computes and the runner compares.
@@ -216,6 +222,45 @@ _PINNED_CLASS_CHECKSUMS: dict[str, str] = {
     "0052": "19d07b7e823278b6548d6a8a121e189a6c1018a4a4999481fc2021b73419035f",
     "0053": "38a0d78661da3e0e3b1ff20aef388539c466f44752af784b7b5ff1847d8c975d",
     "0054": "cd346e49926930705b8a102c034776a6620edeae93a954e1e15791c416669dad",
+    # v0055 … v0092 shipped in v0.4.2; rows added 2026-10-15 (see _PINNED_THROUGH).
+    "0055": "6cdf880fb94094187db30de711a89205468978cbf90c4875ba8376dcb4438a81",
+    "0056": "b66e18d51ccdcc67b1776716416a65143d0213b42b9ff601c723e21ce463e8f6",
+    "0057": "42c5085c6be1614112ff247ee42fd29516a88002e2f572ad3d446d05e3ecc348",
+    "0058": "9e2f47eea60616fa4ad63511928185e6a2b63b21642d3f0e4558810e8b5889d5",
+    "0059": "e9d4ab67c5a471c62b1341bd57d8e0a1d6ffc6744b6b7cc12de19e8f0d69efec",
+    "0060": "70c15a38edd3f739dfb1b356d866f7f716641846d5d4dfc5ac41c85953e69414",
+    "0061": "26ac152f2a7e2f43e3159cc01fdce46e920bd7306fe9e9889bcee5cec27e25da",
+    "0062": "9737e248d8038540c879818340fe50fdfcda41146b2089270ac6d5a55bbc0bfb",
+    "0063": "f54fa657165bd9796f20e823c48377d162be78a18cda51f0356cc7421626cb65",
+    "0064": "3008e7f0200ea16b1aab49d01a99b29ce3bd9876b8e76567ef0e240b2f25f804",
+    "0065": "9147eff77c1eb053519ab978d1fa56ffd5598ae137a72d4f223ce335f1034aef",
+    "0066": "57d839dd8edf0c40e2690d17f9a92ed70371de3b3309f4a85bd0a5ca76562090",
+    "0067": "5c55fa5b5d85379aa49349b0522b4fe5b92015d7bcb05986f9eba5d8e847f0eb",
+    "0068": "995c87e852aadf9438d985527a6980d411f1a2f065ef4ae21588d4e29c57e84d",
+    "0069": "160dd85d1a0f2d302233f88882406be8eb663741c74ab630a74b216005272420",
+    "0070": "c458e6662e523e49771137256a0949ae2d9f0e5f36be7fa4d48137fc002a83e1",
+    "0071": "d50ee069669f28716bc09b62cf86985225c149a9f4142265767fbcf5f1221a0c",
+    "0072": "0fca7a4715a15291d8105e251e76d85305a1bfe5f1c4f2375d73f2b2bd61faf8",
+    "0073": "6038037c402c870b0ae1ba6345bdccbbbaa815e4b20c4f124caf76978115af42",
+    "0074": "5b574a9c1ed861a1a1292a2a53883292823e0b7953213481c0418090dae6ff1e",
+    "0075": "04d2441812d23aafe868ee72423f4ed7d0ef569da635e10b18f3eb744baafc25",
+    "0076": "cead407ae6aee8604589de481c658398d729e45a9efb4e46aca9741f679e3d8c",
+    "0077": "82f21e1f08693f7ee6131cb54eb5fa255f50a45abdad4c68efa765ddf21c8c0b",
+    "0078": "daec95768b93779553f4dd63e5f906f8302dfc834e5e94970d84600ac324a38d",
+    "0079": "3c6431b29dc8da541841ff8a5058939e9d38fd5d14e10e85bcebe3bef70e2ee8",
+    "0080": "a9d845713a6a2867ec8d2a271a1d2c355560e8abb67b1c937374e43799f503ad",
+    "0081": "b5fe7dcfdd67037bd25753638bf59c0eeca8e1c488ac00d47bc10705da3e25e3",
+    "0082": "fbac9d0cc4fe51b4788c6c707a4435d7671746d3b91ea7f4b3c730219926d159",
+    "0083": "89d14e4b847fcb55d96ac85db06567f1b59f51f4d7464dd12709f7776bfce6c9",
+    "0084": "bb9c93d6048fe051fdf3e89b1ca0487e61e4f2a531b53955afb1a56393bb7778",
+    "0085": "446b0ac562b90257421f24f5c34a97c18561d52d1277890dfdd278dfa61872e6",
+    "0086": "33bef8a7ff71070e61403150ba560da8e127608772e6db5c2669ad158359bc76",
+    "0087": "aac025f20f342abdcc5214968ef4d3f778bb924e9abaf872cc80e92567d1067a",
+    "0088": "f679b526153a5f47ca4507aa4a402fa8450766c0e0b80168843ae50065f302a3",
+    "0089": "54d80086cabc1e0fda3c395a2ca4dc86cbd16c541204e276b9926a078e22346c",
+    "0090": "1ebe64818bb7c5ca2e2c9fe251c5a7df9b55a53a09c42084fec61a5b037238d8",
+    "0091": "2eef2b3e4209ff3fc452b30016eb43206c290081f898b810e2eb1ce3713b36fd",
+    "0092": "c3664ea47fa9f05009722b8d242138f4f72f15f671d2794a3c405af7a041ea8a",
 }
 
 

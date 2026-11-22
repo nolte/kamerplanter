@@ -1,0 +1,1202 @@
+"""The single resources of the garden plan: beds, garden objects and slots (REQ-053 WP 1.9, #2328).
+
+GP-API-010…015 and GP-API-018 are the per-resource counterpart of the plan batch (GP-API-003). They
+share its rules instead of copying them:
+
+* **Structure goes through the batch.** A geometry change of a location, every garden-object write and the
+  delete of a location run as a one-operation batch of :class:`GardenPlanService` — containment (V-03),
+  overlap (V-05), the lock (GP-FR-032), the active-plant refusal (V-09), the audit row (SR-011) and the
+  ``plan_revision`` bump are one implementation, not two. The route has no client revision to send, so the
+  batch expects the revision it validated against: a writer that lost the race still gets 409.
+* **Everything else is outside the revision** (GP-NFR-007): notes, soil, sun, the irrigation zone, slots.
+  A bed-status change is the exception — it changes what the plan shows (``retired`` hides the bed) and
+  writes a care event in the same transaction, so it travels as a write set of its own.
+
+**Ownership is resolved here, never in the router** (T-01…T-04, #2107). Every public method takes
+``*, tenant_key: str`` without a default and resolves the site through
+:mod:`app.domain.services.location_ownership` before it reads or computes anything else; no key of a
+request body is trusted for the site. A foreign and an absent resource answer identically (404).
+
+**Role rules the router gate cannot express** (§21.8): the gate lets a grower in; this service refuses
+``retired`` and the reactivation of a retired bed unless the caller is a lead, and the delete of anything
+unless the caller is a lead.
+
+**Logs carry no user text** (GP-NFR-060): keys, counts, codes.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable, Collection, Sequence
+from datetime import UTC, datetime
+from typing import Any
+
+import structlog
+from pydantic import ValidationError as PydanticValidationError
+
+from app.common.datetimes import ensure_aware_utc
+from app.common.enums import BedStatus, FrostRisk, GardenObjectType, TenantRole
+from app.common.exceptions import ForbiddenError, NotFoundError, PlanError, PlanValidationError
+from app.common.types import GardenObjectKey, LocationKey, SiteKey, SlotKey
+from app.domain.calculators.geometry_distance import (
+    WATER_SOURCE_OBJECT_TYPE,
+    WATER_SOURCES_ON_SITE_ONLY,
+    nearest_water_source_m,
+    water_source_geometries,
+)
+from app.domain.calculators.orientation_calculator import derived_orientation
+from app.domain.calculators.planting_layout_calculator import EntryLayout, LayoutResult, compute_layout
+from app.domain.calculators.reach_calculator import path_access
+from app.domain.engines.bed_list_csv_engine import (
+    ASSIGNMENT_COLUMN,
+    COLUMN_ACTIVE_PLANTS,
+    COLUMN_IRRIGATION_ZONE,
+    COLUMN_NEAREST_WATER_SOURCE,
+    COLUMN_TYPE,
+)
+from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
+from app.domain.engines.garden_plan_engine import (
+    ERROR_INVALID_BED_TRANSITION,
+    ERROR_REFERENCE_NOT_FOUND,
+    ERROR_SLOT_OUTSIDE_BED,
+    ERROR_SLOT_OVERLAP,
+    bed_status_transition_allowed,
+    overlapping_zones,
+    slots_outside_bed,
+)
+from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.site_conditions_merge import merge_site_conditions, sent_site_parts
+from app.domain.engines.tent_rules_engine import has_own_light_schedule, photoperiod_hints
+from app.domain.interfaces.garden_object_repository import IGardenObjectRepository
+from app.domain.interfaces.garden_plan_repository import IGardenPlanRepository, SoilProfileEdit
+from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.models.bed_list_export import (
+    BedListExportRow,
+    LocationTypeName,
+)
+from app.domain.models.care_event import CATEGORY_BED_STATUS_CHANGE, CareEvent
+from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import (
+    MAX_SLOTS_PER_BATCH,
+    MAX_SLOTS_PER_SITE,
+    BedCounters,
+    BedListRow,
+    BedSummaryView,
+    CreateGardenObjectData,
+    GardenObjectPatch,
+    LocationPatch,
+    PlanBatchWrite,
+    SlotBatchItem,
+    SlotBatchRequest,
+    SlotBatchResult,
+    SlotBatchWrite,
+    SlotPatch,
+)
+from app.domain.models.geometry import Geometry
+from app.domain.models.nutrient_hint import NutrientHint
+from app.domain.models.site import Location, Site, Slot
+from app.domain.models.tent_hint import TentHint
+from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
+from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.location_ownership import (
+    require_owned_site,
+    resolve_owned_location,
+    resolve_owned_slot,
+)
+from app.domain.services.nutrient_hint_service import NutrientHintService
+from app.domain.services.site_service import place_in_tree
+
+logger = structlog.get_logger()
+
+#: The temp key a one-object create uses; the answer's ``key_map`` maps it to the stored key.
+_NEW = "new"
+
+_ENTITY_LOCATION = "location"
+_ENTITY_OBJECT = "garden_object"
+
+
+#: What ``PATCH /locations`` writes without the plan revision (GP-NFR-007): the document's own columns.
+#: ``geometry``, ``locked`` and ``z_order`` are structure — they go through the plan batch and raise the revision,
+#: as ``set_locked`` / ``set_z_order`` do there, so a client holding the plan sees the change as one.
+#: ``orientation`` is no body field: it is derived from ``site_conditions.aspect_deg`` (GP-FR-168, WP 8.24) and, without
+#: an aspect, from the geometry and the site's north angle (GP-FR-017); listing it here writes the derived value when
+#: an aspect change moves the bed into another sector or clears the aspect of a placed bed.
+_PATCH_COLUMNS: tuple[str, ...] = (
+    "name",
+    "path",
+    "depth",
+    "description",
+    "parcel_label",
+    "notes",
+    "height_m",
+    "sun_exposure",
+    "soil_profile",
+    "site_conditions",
+    "orientation",
+    "irrigation_zone_key",
+    "frost_exposed",
+    "rotation_exempt",
+    "rotation_enabled",
+    "adjacency_factor",
+    "lighting",
+)
+
+
+#: What ``PATCH /slots/{key}`` writes (GP-API-014).
+_SLOT_PATCH_COLUMNS: tuple[str, ...] = ("slot_role", "geometry", "capacity_plants", "geometry_source")
+
+
+def _dump(model: Any, **options: Any) -> dict[str, Any]:
+    """``model_dump`` through an untyped receiver (see the write-route sweep's blind-spot ceiling)."""
+    return dict(model.model_dump(**options))
+
+
+def _not_found(field: str) -> PlanValidationError:
+    """422 ``reference.not_found`` — one text for a missing and for another tenant's key (GP-NFR-058)."""
+    return PlanValidationError([(None, field, ERROR_REFERENCE_NOT_FOUND, {})])
+
+
+def _name_order(location: Location) -> tuple[str, str]:
+    """The download's row order: by name, case-insensitive, the key breaking a tie."""
+    return location.name.casefold(), location.key or ""
+
+
+def _type_label(name: LocationTypeName | None, locale: str) -> str | None:
+    """The type's name in ``locale``; ``None`` when the type does not resolve (the CSV then writes its key)."""
+    return name.for_locale(locale) if name is not None else None
+
+
+class GardenResourceService:
+    def __init__(
+        self,
+        site_repo: ISiteRepository,
+        plan_repo: IGardenPlanRepository,
+        object_repo: IGardenObjectRepository,
+        plan_service: GardenPlanService,
+        dispatch_adjacency: AdjacencyDispatch | None = None,
+        *,
+        nutrient_hint: Callable[[], NutrientHintService] | None = None,
+    ) -> None:
+        self._sites = site_repo
+        self._plan = plan_repo
+        self._objects = object_repo
+        self._plan_service = plan_service
+        self._dispatch_adjacency = dispatch_adjacency
+        # WP 8.10: the nutrient hint of the bed summary (GP-FR-125). A provider, built only by a summary of a bed.
+        self._nutrient_hint = nutrient_hint
+
+    # ── Anchor and roles ──────────────────────────────────────────────────────
+
+    def _owned_site(self, site_key: SiteKey, *, tenant_key: str) -> Site:
+        return require_owned_site(self._sites, site_key, tenant_key, "Site", site_key)
+
+    def _owned_location(self, key: LocationKey, *, tenant_key: str) -> Location:
+        return resolve_owned_location(self._sites, key, tenant_key)
+
+    @staticmethod
+    def _require_editor(role: TenantRole) -> None:
+        if not MembershipEngine.can_edit_resource(role):
+            raise ForbiddenError("Requires at least grower role.")
+
+    @staticmethod
+    def _require_lead(role: TenantRole) -> None:
+        if not MembershipEngine.can_delete_resource(role):
+            raise ForbiddenError("Requires lead role.")
+
+    @staticmethod
+    def _revision_of(site: Site) -> int:
+        return site.plan.plan_revision if site.plan is not None else 0
+
+    def _water_sources(self, site_key: SiteKey, *, tenant_key: str) -> list[Geometry]:
+        """The water-source geometries of an **owned** site (GP-FR-167), read through the tenant-anchored object query.
+
+        The query keeps only on-site ``water_source`` objects (the rule of :mod:`geometry_distance`); the caller has
+        resolved the site's ownership already, and the repository anchors the read on the site's tenant once more, so
+        a foreign site's objects never enter a distance. Bounded by the plan quota of a site.
+        """
+        objects = self._objects.get_garden_objects_by_site(
+            site_key,
+            tenant_key=tenant_key,
+            object_type=WATER_SOURCE_OBJECT_TYPE,
+            on_site_only=WATER_SOURCES_ON_SITE_ONLY,
+        )
+        return water_source_geometries(objects)
+
+    def _path_access(self, location: Location, *, tenant_key: str) -> str:
+        """The access the site's paths give the bed (GP-FR-166, #2703): ``both`` | ``one`` | ``none``.
+
+        The paths are the site's on-site ``path`` objects, read through the same tenant-anchored object query as the
+        water sources (``off_site`` scenery - the neighbour's path behind the fence - is no place to tend a bed from);
+        the distance is the site's ``path_access_max_distance_m``. The caller resolved the location's ownership, and
+        the site read is anchored on the tenant once more. Bounded by the plan quota of a site.
+        """
+        site = self._owned_site(location.site_key, tenant_key=tenant_key)
+        objects = self._objects.get_garden_objects_by_site(
+            location.site_key,
+            tenant_key=tenant_key,
+            object_type=GardenObjectType.PATH,
+            on_site_only=True,
+        )
+        distance = site.effective_reach_thresholds.path_access_max_distance_m
+        return path_access(location.geometry, [item.geometry for item in objects], max_distance_m=distance).access
+
+    # ── GP-API-011: the bed list ──────────────────────────────────────────────
+
+    def list_beds(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        is_bed: bool | None,
+        bed_status: BedStatus | None,
+        supports_layout: bool | None = None,
+    ) -> list[BedListRow]:
+        """A site's locations, filtered; with counters when a bed or layout filter is given (GP-API-011).
+
+        ``is_bed`` is the ``is_bed`` flag of the location's type, ``supports_layout`` its layout flag (W-016.1: every
+        bed type plus tent and shelf) - the planting spots of an indoor plan (GP-FR-183, WP 10.8). Counters cost
+        three queries over the listed keys, so a plain listing (no filter) stays as cheap as before and carries none.
+        When **beds** are listed (``is_bed=true``, or a ``bed_status`` alone) each row also carries
+        ``nearest_water_source_m`` (GP-FR-167) - the value the summary and the CSV compute, from one read of the
+        site's water sources per call. A layout listing carries it on its bed rows only, as the summary does: a tent
+        or a shelf is no bed and has no distance to a garden tap.
+        """
+        with_counters = is_bed is not None or bed_status is not None or supports_layout is not None
+        beds_listed = is_bed is True or (is_bed is None and bed_status is not None and supports_layout is None)
+        locations = self._filtered_locations(
+            site_key, tenant_key=tenant_key, is_bed=is_bed, bed_status=bed_status, supports_layout=supports_layout
+        )
+        counters: dict[str, BedCounters] = {}
+        if with_counters and locations:
+            counters = self._plan.load_bed_counters([loc.key for loc in locations if loc.key], tenant_key=tenant_key)
+        measured = locations
+        if not beds_listed and supports_layout is True:
+            flags = self._plan.bed_type_flags(self._type_keys(locations))
+            measured = [loc for loc in locations if flags.get(loc.location_type_key, False)]
+        sources: list[Geometry] = []
+        if (beds_listed or supports_layout is True) and any(loc.geometry is not None for loc in measured):
+            sources = self._water_sources(site_key, tenant_key=tenant_key)
+        measured_keys = {loc.key for loc in measured}
+        return [
+            BedListRow(
+                location=loc,
+                counters=counters.get(loc.key or "", BedCounters()) if with_counters else None,
+                nearest_water_source_m=(
+                    nearest_water_source_m(loc.geometry, sources) if loc.key in measured_keys and sources else None
+                ),
+            )
+            for loc in locations
+        ]
+
+    @staticmethod
+    def _type_keys(locations: list[Location]) -> list[str]:
+        return sorted({loc.location_type_key for loc in locations if loc.location_type_key})
+
+    def _filtered_locations(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        is_bed: bool | None,
+        bed_status: BedStatus | None,
+        supports_layout: bool | None = None,
+    ) -> list[Location]:
+        """The owned site's locations, filtered by their type's ``is_bed`` / ``supports_layout`` flag and by status."""
+        self._owned_site(site_key, tenant_key=tenant_key)
+        locations = self._sites.get_locations_by_site(site_key)
+        if bed_status is not None and is_bed is None and supports_layout is None:
+            is_bed = True  # a status is a bed's property: ``bed_status=`` alone lists beds, not every location
+        if is_bed is not None:
+            flags = self._plan.bed_type_flags(self._type_keys(locations))
+            locations = [loc for loc in locations if flags.get(loc.location_type_key, False) is is_bed]
+        if supports_layout is not None:
+            layout = self._plan.layout_type_flags(self._type_keys(locations))
+            locations = [loc for loc in locations if layout.get(loc.location_type_key, False) is supports_layout]
+        if bed_status is not None:
+            locations = [loc for loc in locations if loc.bed_status is bed_status]
+        return locations
+
+    def export_bed_list(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        columns: Collection[str],
+        bed_status: BedStatus | None = None,
+        parent_location_key: LocationKey | None = None,
+        locale: str = "de",
+    ) -> list[BedListExportRow]:
+        """The beds of a site as the CSV download reads them (GP-FR-145/175, WP 8.25), sorted by name.
+
+        **Beds only**: the locations whose type has ``is_bed``, optionally of one ``bed_status``, behind the same
+        ownership step as :meth:`list_beds`. ``columns`` is the resolved selection (``resolve_bed_list_columns``):
+        only what a selected column needs is read - the counters for ``active_plants``, the type names for ``type``,
+        the zone names for ``irrigation_zone``, the site's water sources for ``nearest_water_source_m`` (GP-FR-167)
+        and, **only for** ``assigned_to`` (the SR-024 opt-in), the display names of the members a bed is assigned to
+        (``anonymisiert`` for an erased account; no account key leaves this method). More than
+        :data:`MAX_BED_LIST_EXPORT_ROWS` beds is 422 ``export.too_many_rows`` - checked before any of those reads, and
+        never a cut file.
+        """
+        listed = self._filtered_locations(site_key, tenant_key=tenant_key, is_bed=True, bed_status=bed_status)
+        if parent_location_key:
+            listed = [loc for loc in listed if loc.parent_location_key == parent_location_key]
+        require_bed_list_size(len(listed))
+        keys = [loc.key for loc in listed if loc.key]
+        wanted = set(columns)
+        counters: dict[str, BedCounters] = {}
+        if COLUMN_ACTIVE_PLANTS in wanted and keys:
+            counters = self._plan.load_bed_counters(keys, tenant_key=tenant_key)
+        type_names: dict[str, LocationTypeName] = {}
+        if COLUMN_TYPE in wanted and listed:
+            type_names = self._plan.location_type_names(
+                sorted({loc.location_type_key for loc in listed if loc.location_type_key})
+            )
+        zone_names: dict[str, str] = {}
+        if COLUMN_IRRIGATION_ZONE in wanted:
+            zone_names = irrigation_zone_names(self._plan, site_key, listed, tenant_key=tenant_key)
+        include_water = COLUMN_NEAREST_WATER_SOURCE in wanted
+        sources: list[Geometry] = []
+        if include_water and any(loc.geometry is not None for loc in listed):
+            sources = self._water_sources(site_key, tenant_key=tenant_key)
+        include_assignment = ASSIGNMENT_COLUMN in wanted
+        assignees: dict[str, list[str]] = {}
+        if include_assignment:
+            assignees = bed_assignee_names(self._plan, keys, tenant_key=tenant_key)
+        rows = [
+            BedListExportRow(
+                location=loc,
+                counters=counters.get(loc.key or "", BedCounters()) if COLUMN_ACTIVE_PLANTS in wanted else None,
+                type_name=_type_label(type_names.get(loc.location_type_key), locale),
+                zone_name=zone_names.get(loc.irrigation_zone_key) if loc.irrigation_zone_key else None,
+                assignees=assignees.get(loc.key or "", []) if include_assignment else None,
+                nearest_water_source_m=nearest_water_source_m(loc.geometry, sources) if include_water else None,
+            )
+            for loc in sorted(listed, key=_name_order)
+        ]
+        logger.info(
+            "garden_resource.bed_list_exported",
+            site_key=site_key,
+            rows=len(rows),
+            include_assignment=include_assignment,
+        )
+        return rows
+
+    # ── GP-API-012: the bed summary ───────────────────────────────────────────
+
+    def get_summary(self, key: LocationKey, *, tenant_key: str) -> BedSummaryView:
+        location = self._owned_location(key, tenant_key=tenant_key)
+        counters = self._plan.load_bed_counters([key], tenant_key=tenant_key).get(key, BedCounters())
+        type_key = location.location_type_key
+        flags = self._plan.bed_type_flags([type_key]) if type_key else {}
+        is_bed = flags.get(type_key, False)
+        layout_flags: dict[str, bool] = self._plan.layout_type_flags([type_key]) if type_key else {}
+        supports_layout = layout_flags.get(type_key, False)
+        tent_hints: list[TentHint] = []
+        lamp_height_cm = location.lighting.lamp_height_cm if location.lighting is not None else None
+        if has_own_light_schedule(type_key, lamp_height_cm) and counters.active_plant_count >= 2:
+            # W-016.6 (V-23): read only where one light schedule serves several plants - a tent, a lit shelf level.
+            plants = self._plan.load_location_photoperiods(key, tenant_key=tenant_key)
+            tent_hints = photoperiod_hints(type_key, plants, lamp_height_cm=lamp_height_cm)
+        hint: NutrientHint | None = None
+        provider = self._nutrient_hint
+        if is_bed and provider is not None:
+            hints: NutrientHintService = provider()
+            hint = hints.assess(location, counters.species_keys, tenant_key=tenant_key)
+        water: float | None = None
+        access: str | None = None
+        if is_bed and location.geometry is not None:  # GP-FR-167 is a bed's value, as the nutrient hint
+            water = nearest_water_source_m(
+                location.geometry, self._water_sources(location.site_key, tenant_key=tenant_key)
+            )
+            access = self._path_access(location, tenant_key=tenant_key)  # GP-FR-166, #2703
+        return BedSummaryView(
+            location=location,
+            counters=counters,
+            season_state="planted" if counters.active_plant_count else "empty",
+            is_bed=is_bed,
+            nutrient_hint=hint,
+            nearest_water_source_m=water,
+            path_access=access,
+            supports_layout=supports_layout,
+            tent_hints=tent_hints,
+        )
+
+    # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────
+
+    def patch_location(
+        self,
+        key: LocationKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        patch: LocationPatch,
+    ) -> tuple[Location, int]:
+        """Change the fields present; returns the stored location and the site's ``plan_revision``.
+
+        Order: anchor (404) → role (403) → references (422) → status rules → structure (geometry, lock,
+        drawing order) through one plan batch, which can still refuse, so it runs first → status → the
+        remaining columns. Everything that can be refused is refused before the first write; what runs after
+        the structure batch is a status change (refused up front when combined with a geometry, see below) or a
+        plain column update of a document just read, which fails only if the document vanished meanwhile - or,
+        with a ``soil_profile`` in the body (#2706), on the soil write's in-transaction checks: a soil analysis
+        stored between the up-front ``soil_profile.stale`` check and the write (409 ``soil_profile.stale`` or
+        ``WRITE_CONFLICT``) or a stored profile the derivation refuses (422). A geometry or status change of the
+        same request is then already committed; the client reloads and sends the soil edit again.
+        A status change and a geometry change are two structural writes, each with its own revision step, and
+        cannot be one transaction here — they are refused together (422 ``patch.status_with_geometry``).
+        """
+        location = self._owned_location(key, tenant_key=tenant_key)
+        self._require_editor(role)
+        target_status = self._status_target(location, patch, role)
+        self._resolve_references(location, patch, tenant_key=tenant_key)
+        self._check_rotation_switch(location, patch)
+
+        north_angle_deg = (
+            self._north_angle_deg(location.site_key, tenant_key=tenant_key)
+            if patch.site_conditions is not None
+            else None
+        )
+        fields = self._field_changes(location, patch, north_angle_deg=north_angle_deg)
+        soil = self._soil_edit(patch, tenant_key=tenant_key)
+        self._refuse_stale_soil(location, soil)
+        operations = self._structure_operations(location, patch)
+        if target_status is not None:
+            if any(op["op"] == "update_geometry" for op in operations):
+                raise PlanError(
+                    "patch.status_with_geometry",
+                    "A status change and a geometry change are separate structural writes; send one after the other.",
+                    status_code=422,
+                    field="bed_status",
+                )
+            self._check_status_change(location, target_status, patch.status_reason, tenant_key=tenant_key)
+
+        if operations:
+            self._plan_service.apply_batch(
+                location.site_key,
+                tenant_key=tenant_key,
+                user_key=user_key,
+                role=role,
+                expected_revision=None,
+                operations=operations,
+                body_bytes=0,
+            )
+        if target_status is not None:
+            self._write_status(location, target_status, patch.status_reason, tenant_key=tenant_key, user_key=user_key)
+        if fields or soil is not None:
+            self._plan.update_location_fields(key, fields, soil=soil)
+        if "adjacency_factor" in fields:
+            # W-016.8: the location's own factor decides its slots' neighbourhood from now on (GP-FR-130).
+            self._recompute_adjacency(key)
+
+        stored = self._owned_location(key, tenant_key=tenant_key)
+        site = self._owned_site(stored.site_key, tenant_key=tenant_key)
+        return stored, self._revision_of(site)
+
+    @staticmethod
+    def _check_rotation_switch(location: Location, patch: LocationPatch) -> None:
+        """GP-FR-137 (#2544): a permanent crop cannot be switched on - refused before anything is written.
+
+        Only a PATCH that sends ``rotation_exempt`` or ``rotation_enabled`` is judged, so a pair stored before
+        this guard (or by an older import) never blocks an unrelated change. The state after the PATCH counts
+        (sent value, else the stored one): ``rotation_exempt`` would win anyway, so storing both would keep a
+        switch that does nothing. Exempting a switched-on bed sends ``rotation_enabled: null`` (or ``false``) in
+        the same body.
+        """
+        provided = patch.model_fields_set
+        if "rotation_exempt" not in provided and "rotation_enabled" not in provided:
+            # A PATCH that does not touch the flags never fails on a pair stored before the guard (SCR-002).
+            return
+        exempt = patch.rotation_exempt if "rotation_exempt" in provided else location.rotation_exempt
+        enabled = patch.rotation_enabled if "rotation_enabled" in provided else location.rotation_enabled
+        if exempt is True and enabled is True:
+            raise PlanError(
+                "patch.rotation_exempt_and_enabled",
+                "A bed exempt from crop rotation cannot have the rotation check switched on.",
+                status_code=422,
+                field="rotation_enabled",
+            )
+
+    @staticmethod
+    def _structure_operations(location: Location, patch: LocationPatch) -> list[dict[str, Any]]:
+        """The batch operations for the structural fields that differ from the stored ones.
+
+        A lock that is lifted comes first and one that is set comes last, so ``{locked: false, geometry}``
+        moves a locked bed and ``{locked: true, geometry}`` moves it and then locks it.
+        """
+        provided = patch.model_fields_set
+        key = location.key or ""
+        lift = patch.locked is False and "locked" in provided and location.locked
+        lock = patch.locked is True and "locked" in provided and not location.locked
+        operations: list[dict[str, Any]] = []
+        if lift:
+            operations.append({"op": "set_locked", "entity": _ENTITY_LOCATION, "key": key, "locked": False})
+        if "geometry" in provided and patch.geometry != location.geometry:
+            operations.append(
+                {
+                    "op": "update_geometry",
+                    "entity": _ENTITY_LOCATION,
+                    "key": key,
+                    "geometry": _dump(patch.geometry, mode="json"),
+                }
+            )
+        if "z_order" in provided and patch.z_order != location.z_order:
+            operations.append({"op": "set_z_order", "entity": _ENTITY_LOCATION, "key": key, "z_order": patch.z_order})
+        if lock:
+            operations.append({"op": "set_locked", "entity": _ENTITY_LOCATION, "key": key, "locked": True})
+        return operations
+
+    def _status_target(self, location: Location, patch: LocationPatch, role: TenantRole) -> BedStatus | None:
+        """The status the PATCH asks for, or ``None`` when it asks for none or for the one the bed has."""
+        if "bed_status" not in patch.model_fields_set or patch.bed_status is None:
+            return None
+        if patch.bed_status is location.bed_status:
+            return None
+        self._require_status_role(location.bed_status, patch.bed_status, role)
+        return patch.bed_status
+
+    @staticmethod
+    def _require_status_role(current: BedStatus, target: BedStatus, role: TenantRole) -> None:
+        """§21.8: ``retired`` and the way back are the lead's (§7.4 "Reaktivierung durch Leitung")."""
+        if (target is BedStatus.RETIRED or current is BedStatus.RETIRED) and not MembershipEngine.can_delete_resource(
+            role
+        ):
+            raise ForbiddenError("Retiring or reactivating a bed requires the lead role.")
+
+    def _resolve_references(self, location: Location, patch: LocationPatch, *, tenant_key: str) -> None:
+        """GP-NFR-058: the zone must be one of this site (L1 of #2326), the substrate a catalogue or own one.
+
+        The zone's ``zone_covers`` edge follows the field in the same transaction as the column write
+        (``update_location_fields``, WP 7.1): the bed leaves the zone that held it, so it is in at most one.
+        """
+        if patch.irrigation_zone_key is not None:
+            zone_site = self._plan.irrigation_zone_site_key(patch.irrigation_zone_key, tenant_key=tenant_key)
+            if zone_site is None or zone_site != location.site_key:
+                raise _not_found("irrigation_zone_key")
+        substrate = patch.soil_profile.substrate_key if patch.soil_profile is not None else None
+        if substrate and not self._plan.substrate_visible(substrate, tenant_key=tenant_key):
+            raise _not_found("soil_profile.substrate_key")
+
+    @staticmethod
+    def _mirror_frost_risk(location: Location, provided: dict[str, Any]) -> None:
+        """A changed ``microclimate.frost_risk`` moves the legacy ``frost_exposed`` with it (WP 3.9, #2512).
+
+        Only a *change* counts: a patch that sends other site conditions with an untouched risk must not
+        reset an override somebody set on the old field. Clearing the whole value (``site_conditions:
+        null``) is a change to ``unknown`` when a risk was stored. On a change, ``high`` sets ``True``,
+        ``low`` sets ``False`` and ``unknown`` ("no information") clears the boolean. ``normal`` clears only
+        a stored ``True`` - the exposure the risk no longer claims - and leaves a forced ``False`` (v0098
+        maps it to ``normal``, #2464) and ``None`` untouched (operator decision 2026-10-19, #2512).
+        """
+        if "site_conditions" not in provided:
+            return
+        sent = provided["site_conditions"]
+        sent_risk = sent.microclimate.frost_risk if sent is not None else FrostRisk.UNKNOWN
+        stored = location.site_conditions.microclimate.frost_risk if location.site_conditions else FrostRisk.UNKNOWN
+        if sent_risk is stored:
+            return
+        if sent_risk is FrostRisk.NORMAL and location.frost_exposed is not True:
+            return
+        provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
+
+    @staticmethod
+    def _soil_edit(patch: LocationPatch, *, tenant_key: str) -> SoilProfileEdit | None:
+        """The ``soil_profile`` of the PATCH as an edit the repository writes through the derivation (#2706).
+
+        The service writes no derived soil field itself: the repository records the hand entries of the edited
+        measured fields, takes the other soil fields as sent, checks the ``last_analysis_at`` precondition and runs
+        the one derivation, all in the column write's transaction. ``None`` when the PATCH does not send the profile.
+        """
+        if "soil_profile" not in patch.model_fields_set:
+            return None
+        sent = patch.soil_profile
+        if sent is None:
+            return SoilProfileEdit(tenant_key=tenant_key, profile=None)
+        return SoilProfileEdit(
+            tenant_key=tenant_key,
+            profile=_dump(sent, mode="json"),
+            check_last_analysis_at="last_analysis_at" in sent.model_fields_set,
+            expected_last_analysis_at=sent.last_analysis_at,
+        )
+
+    @staticmethod
+    def _refuse_stale_soil(location: Location, soil: SoilProfileEdit | None) -> None:
+        """The ``last_analysis_at`` precondition before the first write (#2706); the repository checks it again
+        inside its transaction, against what it reads there, for an analysis stored in between."""
+        if soil is None or not soil.check_last_analysis_at:
+            return
+        stored = location.soil_profile.last_analysis_at if location.soil_profile is not None else None
+        if ensure_aware_utc(stored) != ensure_aware_utc(soil.expected_last_analysis_at):
+            raise PlanError(
+                "soil_profile.stale",
+                "The soil profile changed since it was read (a soil analysis was stored); reload and try again.",
+                status_code=409,
+                field="soil_profile.last_analysis_at",
+            )
+
+    def _north_angle_deg(self, site_key: SiteKey, *, tenant_key: str) -> float:
+        """The site's north angle (GP-FR-015); 0 for a site without a plan."""
+        site = self._owned_site(site_key, tenant_key=tenant_key)
+        return site.plan.north_angle_deg if site.plan is not None else 0.0
+
+    def _field_changes(
+        self, location: Location, patch: LocationPatch, *, north_angle_deg: float | None = None
+    ) -> dict[str, Any]:
+        """The document columns the PATCH changes, JSON-shaped; ``None`` removes a stored value.
+
+        With *north_angle_deg* (sent when the body carries ``site_conditions``) the orientation is derived again
+        (GP-FR-017): a cleared aspect hands it back to the long axis of the geometry the request leaves - the sent
+        one when the same body moves the bed, so this write agrees with the plan batch that ran before it.
+        """
+        provided = {name: getattr(patch, name) for name in patch.model_fields_set if name in set(_PATCH_COLUMNS)}
+        if not provided:
+            return {}
+        if patch.site_conditions is not None:
+            provided["site_conditions"] = merge_site_conditions(location.site_conditions, patch.site_conditions)
+        # ``soil_profile`` is not a plain column: the repository writes it through the derivation (``_soil_edit``).
+        provided.pop("soil_profile", None)
+        if not provided:
+            return {}
+        self._mirror_frost_risk(location, provided)
+        try:
+            updated = Location.model_validate({**_dump(location, by_alias=True), **provided})
+        except PydanticValidationError as exc:
+            raise PlanValidationError(
+                [
+                    (None, ".".join(str(part) for part in e["loc"]) or "request", "validation.invalid", {})
+                    for e in exc.errors()
+                ]
+            ) from exc
+        if north_angle_deg is not None:
+            geometry = patch.geometry if "geometry" in patch.model_fields_set else updated.geometry
+            aspect = updated.site_conditions.aspect_deg if updated.site_conditions is not None else None
+            oriented = derived_orientation(aspect, geometry, north_angle_deg)
+            if oriented is not None:
+                updated.orientation = oriented
+        if "name" in provided:
+            parent = (
+                self._sites.get_location_by_key(updated.parent_location_key) if updated.parent_location_key else None
+            )
+            place_in_tree(updated, parent)
+        now = _dump(updated, by_alias=True, mode="json")
+        before = _dump(location, by_alias=True, mode="json")
+        changes = {column: now.get(column) for column in _PATCH_COLUMNS if now.get(column) != before.get(column)}
+        if "site_conditions" in changes and patch.site_conditions is not None:
+            # Only the sent parts, merged into the stored value by the repository (#2569): the whole value read
+            # above would revert a sun profile the plan batch wrote after this read.
+            changes["site_conditions"] = sent_site_parts(now["site_conditions"], patch.site_conditions)
+        lighting = changes.get("lighting")
+        if isinstance(lighting, dict):
+            # Replaced whole (``merge=False``), which keeps a nested ``null``: only the values set are stored (W-016).
+            changes["lighting"] = {name: value for name, value in lighting.items() if value is not None}
+        return changes
+
+    # ── GP-API-018: the status transition ─────────────────────────────────────
+
+    def change_bed_status(
+        self,
+        key: LocationKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        bed_status: BedStatus,
+        reason: str | None,
+    ) -> tuple[Location, int]:
+        """``planned → active → retired → active`` and ``planned → retired`` (V-10), with a care event (GP-FR-046)."""
+        location = self._owned_location(key, tenant_key=tenant_key)
+        self._require_editor(role)
+        self._require_status_role(location.bed_status, bed_status, role)
+        self._check_status_change(location, bed_status, reason, tenant_key=tenant_key)
+        self._write_status(location, bed_status, reason, tenant_key=tenant_key, user_key=user_key)
+        stored = self._owned_location(key, tenant_key=tenant_key)
+        site = self._owned_site(stored.site_key, tenant_key=tenant_key)
+        return stored, self._revision_of(site)
+
+    def _check_status_change(
+        self, location: Location, target: BedStatus, reason: str | None, *, tenant_key: str
+    ) -> None:
+        key = location.key or ""
+        flags = self._plan.bed_type_flags([location.location_type_key]) if location.location_type_key else {}
+        if not flags.get(location.location_type_key, False):
+            raise PlanError(
+                "bed_status.not_a_bed",
+                "Only a location of a bed type has a bed status.",
+                status_code=422,
+                field="bed_status",
+            )
+        if not bed_status_transition_allowed(location.bed_status, target):
+            raise PlanError(
+                ERROR_INVALID_BED_TRANSITION,
+                "This status change is not allowed.",
+                status_code=422,
+                field="bed_status",
+                current=location.bed_status.value,
+                requested=target.value,
+            )
+        if target is BedStatus.RETIRED:
+            if not reason or not reason.strip():
+                raise PlanError(
+                    "bed_status.reason_required",
+                    "Retiring a bed needs a reason.",
+                    status_code=422,
+                    field="reason",
+                )
+            count = self._plan.count_active_plants([key], tenant_key=tenant_key)
+            if count:
+                raise PlanError(
+                    "location.has_active_plants",
+                    "A location with active plants cannot be deleted or retired.",
+                    status_code=409,
+                    active_plant_count=count,
+                )
+
+    def _write_status(
+        self,
+        location: Location,
+        target: BedStatus,
+        reason: str | None,
+        *,
+        tenant_key: str,
+        user_key: str,
+    ) -> None:
+        """One transaction: the new status, the care event, the revision and — for ``retired`` — the audit row."""
+        key = location.key or ""
+        site = self._owned_site(location.site_key, tenant_key=tenant_key)
+        basis = self._revision_of(site)
+        event = CareEvent(
+            tenant_key=tenant_key,
+            site_key=location.site_key,
+            location_key=key,
+            category=CATEGORY_BED_STATUS_CHANGE,
+            summary=f"{location.bed_status.value} -> {target.value}",
+            performed_at=datetime.now(UTC),
+            performed_by_user_key=user_key,
+            trigger="manual",
+            reason=reason.strip() if reason else None,
+            created_by=user_key,
+        )
+        audit_op = (
+            "retire"
+            if target is BedStatus.RETIRED
+            else "reactivate"
+            if location.bed_status is BedStatus.RETIRED
+            else ""
+        )
+        write = PlanBatchWrite(
+            site_key=location.site_key,
+            tenant_key=tenant_key,
+            editor_key=user_key,
+            expected_revision=basis,
+            basis_revision=basis,
+            location_updates=[(key, {"bed_status": target.value})],
+            status_from={key: location.bed_status.value},
+            audit=[{"op": audit_op, "entity": _ENTITY_LOCATION, "key": key, "summary": location.name[:200]}]
+            if audit_op
+            else [],
+            care_events=[event],
+        )
+        outcome = self._plan.apply_plan_batch(write)
+        logger.info(
+            "garden_resource.bed_status_changed",
+            location_key=key,
+            status=target.value,
+            revision=outcome.plan_revision,
+        )
+
+    # ── DELETE /locations/{key} (V-09) ────────────────────────────────────────
+
+    async def delete_bed(self, key: LocationKey, *, tenant_key: str, user_key: str, role: TenantRole) -> None:
+        """Delete the location and what is below it; 409 ``location.has_active_plants`` while a plant stands in it.
+
+        Goes through :meth:`GardenPlanService.apply_batch_async`, the one path that commits a bed delete **and**
+        discards the photos the deleted beds held unless another carrier names them (WP 8.18, #2715 item 5). There is
+        no synchronous variant that hands the photo ids back to its caller to remember: that was how a caller could
+        drop them (``tests/unit/guards/test_released_bed_photos_are_released.py``).
+
+        The ownership and role reads are synchronous (python-arango) and run in a worker thread, off the event loop.
+        """
+        location = await asyncio.to_thread(self._owned_location, key, tenant_key=tenant_key)
+        self._require_lead(role)
+        await self._plan_service.apply_batch_async(
+            location.site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            expected_revision=None,
+            operations=[{"op": "delete", "entity": _ENTITY_LOCATION, "key": key}],
+            body_bytes=0,
+        )
+
+    # ── GP-API-013: garden objects ────────────────────────────────────────────
+
+    def list_garden_objects(self, site_key: SiteKey, *, tenant_key: str) -> list[GardenObject]:
+        self._owned_site(site_key, tenant_key=tenant_key)
+        return self._objects.get_garden_objects_by_site(site_key, tenant_key=tenant_key)
+
+    def get_garden_object(self, key: GardenObjectKey, *, tenant_key: str) -> GardenObject:
+        return self._objects.get_garden_object_or_raise(key, tenant_key=tenant_key)
+
+    def create_garden_object(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        data: CreateGardenObjectData,
+    ) -> GardenObject:
+        """Create an object on the path site (T-01: ``site_key`` is never read from the body)."""
+        self._owned_site(site_key, tenant_key=tenant_key)
+        self._require_editor(role)
+        result = self._plan_service.apply_batch(
+            site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            expected_revision=None,
+            operations=[{"op": "create_garden_object", "temp_key": _NEW, "data": _dump(data, mode="json")}],
+            body_bytes=0,
+        )
+        return self._objects.get_garden_object_or_raise(result.key_map[_NEW], tenant_key=tenant_key)
+
+    def patch_garden_object(
+        self,
+        key: GardenObjectKey,
+        *,
+        tenant_key: str,
+        user_key: str,
+        role: TenantRole,
+        patch: GardenObjectPatch,
+    ) -> GardenObject:
+        stored = self._objects.get_garden_object_or_raise(key, tenant_key=tenant_key)
+        self._require_editor(role)
+        operations = self._object_operations(key, patch)
+        self._plan_service.apply_batch(
+            stored.site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            expected_revision=None,
+            operations=operations,
+            body_bytes=0,
+        )
+        return self._objects.get_garden_object_or_raise(key, tenant_key=tenant_key)
+
+    @staticmethod
+    def _object_operations(key: str, patch: GardenObjectPatch) -> list[dict[str, Any]]:
+        """The batch operations of a PATCH. The lock is set first when it is lifted and last when it is set,
+        so ``{locked: false, geometry}`` moves the object and ``{locked: true, geometry}`` does too."""
+        provided = patch.model_fields_set
+        operations: list[dict[str, Any]] = []
+        lock = (
+            {"op": "set_locked", "entity": _ENTITY_OBJECT, "key": key, "locked": patch.locked}
+            if "locked" in provided
+            else None
+        )
+        if lock is not None and patch.locked is False:
+            operations.append(lock)
+        fields = {name: getattr(patch, name) for name in ("label", "notes", "props", "off_site") if name in provided}
+        if fields:
+            operations.append({"op": "update_fields", "entity": _ENTITY_OBJECT, "key": key, "fields": fields})
+        if "geometry" in provided and patch.geometry is not None:
+            operations.append(
+                {
+                    "op": "update_geometry",
+                    "entity": _ENTITY_OBJECT,
+                    "key": key,
+                    "geometry": _dump(patch.geometry, mode="json"),
+                }
+            )
+        if "z_order" in provided:
+            operations.append({"op": "set_z_order", "entity": _ENTITY_OBJECT, "key": key, "z_order": patch.z_order})
+        if lock is not None and patch.locked is not False:
+            operations.append(lock)
+        return operations
+
+    def delete_garden_object(self, key: GardenObjectKey, *, tenant_key: str, user_key: str, role: TenantRole) -> None:
+        stored = self._objects.get_garden_object_or_raise(key, tenant_key=tenant_key)
+        self._require_lead(role)
+        self._plan_service.apply_batch(
+            stored.site_key,
+            tenant_key=tenant_key,
+            user_key=user_key,
+            role=role,
+            expected_revision=None,
+            operations=[{"op": "delete", "entity": _ENTITY_OBJECT, "key": key}],
+            body_bytes=0,
+        )
+
+    # ── GP-API-014: PATCH /slots/{key} ────────────────────────────────────────
+
+    def get_owned_slot(self, key: SlotKey, *, tenant_key: str) -> Slot:
+        """The slot ``key`` if its bed belongs to the tenant, else 404 - what a caller reads before it patches."""
+        return resolve_owned_slot(self._sites, key, tenant_key)[0]
+
+    def patch_slot(self, key: SlotKey, *, tenant_key: str, role: TenantRole, patch: SlotPatch) -> Slot:
+        """Correct a slot's geometry, role or capacity — outside the plan revision (GP-NFR-007).
+
+        V-04 (inside the bed) and V-06 (zones may not overlap, archived slots excepted) are checked on the
+        slot as it will be, against the bed's frame and slots read with its ``slot_rules_revision``; the write
+        takes that fence in its transaction, so a concurrent slot or frame write of the bed that committed after
+        the read makes this one a 409 ``WRITE_CONFLICT`` (#2773) instead of two zones that overlap. A slot that is
+        occupied can be corrected: moving a plant's place is the point of GP-FR-068.
+        """
+        slot, location = resolve_owned_slot(self._sites, key, tenant_key)
+        self._require_editor(role)
+        provided = patch.model_fields_set
+        role_after = patch.slot_role if "slot_role" in provided and patch.slot_role is not None else slot.slot_role
+        geometry_after = patch.geometry if "geometry" in provided and patch.geometry is not None else slot.geometry
+        try:
+            updated = Slot.model_validate(
+                {
+                    **_dump(slot, by_alias=True),
+                    "slot_role": role_after,
+                    "geometry": geometry_after,
+                    "capacity_plants": patch.capacity_plants
+                    if "capacity_plants" in provided and patch.capacity_plants is not None
+                    else slot.capacity_plants,
+                    "geometry_source": "editor" if "geometry" in provided else slot.geometry_source,
+                }
+            )
+        except PydanticValidationError as exc:
+            raise PlanValidationError(
+                [
+                    (None, ".".join(str(part) for part in e["loc"]) or "request", "geometry.invalid", {})
+                    for e in exc.errors()
+                ]
+            ) from exc
+
+        slot_rules = (
+            self._checked_bed_rules(location, key, updated.geometry, tenant_key=tenant_key)
+            if updated.geometry is not None and ("geometry" in provided or "slot_role" in provided)
+            else None
+        )
+        # Only the columns that changed, the geometry replaced whole: a document merge would keep the keys of
+        # the old geometry kind (``origin`` beside ``points``) and make the slot unreadable.
+        now, before = _dump(updated, by_alias=True, mode="json"), _dump(slot, by_alias=True, mode="json")
+        fields = {name: now.get(name) for name in _SLOT_PATCH_COLUMNS if now.get(name) != before.get(name)}
+        if fields:
+            # Conditional on the role, capacity and geometry kind it was validated against (#2727): a 409, not a
+            # slot neither write validated, when another PATCH changed one of them since the read.
+            self._plan.update_slot_fields(key, fields, read=slot, slot_rules=slot_rules)
+            self._recompute_adjacency(location.key or "")
+        return resolve_owned_slot(self._sites, key, tenant_key)[0]
+
+    def _checked_bed_rules(
+        self, location: Location, key: SlotKey, geometry: Geometry, *, tenant_key: str
+    ) -> tuple[str, int]:
+        """V-04/V-06 for the slot ``key`` at ``geometry``; returns the fence ``(bed key, slot_rules_revision)``.
+
+        The bed's frame, its slots and its fence are read in one snapshot (#2773): the write that hands the fence to
+        its transaction is refused when another slot or frame write of the bed lands after this read, so V-04/V-06
+        hold for what is stored.
+        """
+        bed_key = location.key or ""
+        basis = self._plan.load_slot_rule_basis(location.site_key, [bed_key], tenant_key=tenant_key)
+        bed = basis.locations.get(bed_key)
+        if bed is None:
+            raise NotFoundError("Location", bed_key)
+        self._check_slot_rules(
+            bed,
+            [(key, geometry)],
+            others=[
+                (other.key, other.geometry)
+                for other in basis.slots
+                if other.key and other.key != key and other.geometry is not None
+            ],
+        )
+        return bed_key, basis.revisions[bed_key]
+
+    # ── GP-API-016: POST /locations/{key}/planting-layout/preview ─────────────
+
+    def preview_planting_layout(
+        self,
+        key: LocationKey,
+        *,
+        tenant_key: str,
+        entry: EntryLayout,
+        max_count: int | None,
+    ) -> LayoutResult:
+        """The layout an entry would get in the bed, without persisting anything (GP-FR-063).
+
+        Pure compute over the bed's geometry: ownership is resolved first, nothing is written, so a
+        reader may call it (all roles, §21.8). The pre-estimate of :func:`compute_layout` refuses an
+        oversized request (422 ``layout.too_many_positions``) before a single point is generated.
+        """
+        location = self._owned_location(key, tenant_key=tenant_key)
+        if location.geometry is None:
+            raise PlanError(
+                "layout.bed_without_geometry",
+                "The bed has no geometry yet; draw it on the plan before planning a layout.",
+                status_code=422,
+                field="geometry",
+            )
+        result = compute_layout(location.geometry, entry, max_count)
+        logger.info(
+            "garden_resource.layout_previewed",
+            location_key=key,
+            strategy=entry.layout_strategy.value,
+            count=result.count,
+            capacity_max=result.capacity_max,
+        )
+        return result
+
+    # ── GP-API-015: POST /locations/{key}/slots/batch ─────────────────────────
+
+    def replace_slots(
+        self,
+        key: LocationKey,
+        *,
+        tenant_key: str,
+        role: TenantRole,
+        request: SlotBatchRequest,
+    ) -> SlotBatchResult:
+        """Replace the unoccupied slots of a bed, or append to them — one transaction, outside the revision.
+
+        ``replace_unoccupied`` removes the slots that are not occupied, not reserved by a run and not
+        archived (history); occupied and reserved slots stay and take part in the V-04/V-06 checks as
+        neighbours. V-20: a ``slot_id`` may appear once per bed — in the request and against what stays.
+        """
+        location = self._owned_location(key, tenant_key=tenant_key)
+        self._require_editor(role)
+        items = request.slots
+        if len(items) > MAX_SLOTS_PER_BATCH:
+            raise PlanError(
+                "layout.too_many_positions",
+                f"A slot batch holds at most {MAX_SLOTS_PER_BATCH} positions.",
+                status_code=422,
+                limit=MAX_SLOTS_PER_BATCH,
+                current=len(items),
+            )
+        # The frame, the slots and the fence in one snapshot; the transaction refuses (409) when another slot or
+        # frame write of the bed lands after this read (#2773).
+        basis = self._plan.load_slot_rule_basis(location.site_key, [key], tenant_key=tenant_key, include_archived=True)
+        if key not in basis.locations:
+            raise NotFoundError("Location", key)
+        location = basis.locations[key]
+        existing = basis.slots
+        active = [slot for slot in existing if slot.archived_at is None and slot.key]
+        delete_keys: list[str] = []
+        if request.mode == "replace_unoccupied":
+            reserved = self._plan.reserved_among([slot.key or "" for slot in active], tenant_key=tenant_key)
+            delete_keys = [
+                slot.key or "" for slot in active if not slot.currently_occupied and (slot.key or "") not in reserved
+            ]
+        kept = [slot for slot in existing if (slot.key or "") not in set(delete_keys)]
+
+        findings = self._slot_item_findings(location, items, kept)
+        if findings:
+            raise PlanValidationError(findings[:50])
+        site_slots = self._plan.count_active_slots(location.site_key, tenant_key=tenant_key)
+        if site_slots - len(delete_keys) + len(items) > MAX_SLOTS_PER_SITE:
+            raise PlanError(
+                "plan.quota_exceeded",
+                f"A site holds at most {MAX_SLOTS_PER_SITE} slots.",
+                status_code=422,
+                limit=MAX_SLOTS_PER_SITE,
+            )
+
+        inserts = [self._slot_of(key, item) for item in items]
+        outcome = self._plan.replace_slots(
+            SlotBatchWrite(
+                location_key=key,
+                delete_keys=delete_keys,
+                inserts=inserts,
+                slot_rules_revision=basis.revisions[key],
+            )
+        )
+        self._recompute_adjacency(key)
+        logger.info(
+            "garden_resource.slots_replaced",
+            location_key=key,
+            mode=request.mode,
+            created=len(outcome.created_keys),
+            deleted=outcome.deleted_count,
+        )
+        return SlotBatchResult(
+            created_keys=outcome.created_keys,
+            deleted_count=outcome.deleted_count,
+            kept_count=len(kept),
+        )
+
+    @staticmethod
+    def _slot_of(location_key: str, item: SlotBatchItem) -> Slot:
+        return Slot(
+            slot_id=item.slot_id,
+            location_key=location_key,
+            capacity_plants=item.capacity_plants,
+            slot_role=item.slot_role,
+            geometry=item.geometry,
+            row_index=item.row_index,
+            sequence=item.sequence,
+            geometry_source=item.geometry_source,
+            container_volume_l=item.container_volume_l,
+            planned_spacing_cm=item.planned_spacing_cm,
+        )
+
+    def _slot_item_findings(
+        self, location: Location, items: list[SlotBatchItem], kept: list[Slot]
+    ) -> list[tuple[int | None, str, str, dict[str, Any]]]:
+        """V-20, shape of each slot, V-04 and V-06 for the whole batch against what stays."""
+        findings: list[tuple[int | None, str, str, dict[str, Any]]] = []
+        taken = {slot.slot_id for slot in kept}
+        seen: set[str] = set()
+        for index, item in enumerate(items):
+            if item.slot_id in taken or item.slot_id in seen:
+                findings.append((None, f"slots[{index}].slot_id", "slot.duplicate_id", {"index": index}))
+            seen.add(item.slot_id)
+            try:
+                self._slot_of(location.key or "", item)
+            except PydanticValidationError:
+                findings.append((None, f"slots[{index}].geometry", "geometry.invalid", {"index": index}))
+        if findings:
+            return findings
+        keyed = [(f"#{index}", item.geometry) for index, item in enumerate(items)]
+        neighbours = [(slot.key or "", slot.geometry) for slot in kept if slot.archived_at is None and slot.geometry]
+        try:
+            self._check_slot_rules(location, keyed, others=neighbours)
+        except PlanValidationError as exc:
+            for detail in exc.details or []:
+                subject = str(detail.get("key", ""))
+                slot_index = int(subject[1:]) if subject.startswith("#") and subject[1:].isdigit() else None
+                findings.append(
+                    (
+                        None,
+                        f"slots[{slot_index}].geometry" if slot_index is not None else "slots",
+                        str(detail["code"]),
+                        {"index": slot_index} if slot_index is not None else {"key": subject},
+                    )
+                )
+        return findings
+
+    @staticmethod
+    def _check_slot_rules(
+        location: Location,
+        subjects: list[tuple[str, Geometry]],
+        *,
+        others: Sequence[tuple[str | None, Geometry | None]],
+    ) -> None:
+        """V-04 and V-06 for ``subjects`` (key, bed-frame geometry) against the bed and the slots that stay.
+
+        A bed without a geometry has no frame to be outside of (it is unplaced): V-04 is skipped there and
+        applies once the bed is drawn — the batch of the plan then checks the slots it holds (V-04 in WP 1.8).
+        """
+        findings: list[tuple[int | None, str, str, dict[str, Any]]] = []
+        if location.geometry is not None:
+            for key in slots_outside_bed(location.geometry, subjects):
+                findings.append((None, "geometry", ERROR_SLOT_OUTSIDE_BED, {"key": key}))
+        neighbours = [(key, geometry) for key, geometry in others if key and geometry is not None]
+        subject_keys = {key for key, _ in subjects}
+        for first, second in overlapping_zones([*subjects, *neighbours]):
+            if first in subject_keys or second in subject_keys:
+                findings.append(
+                    (None, "geometry", ERROR_SLOT_OVERLAP, {"key": first if first in subject_keys else second})
+                )
+        if findings:
+            raise PlanValidationError(findings)
+
+    def _recompute_adjacency(self, location_key: str) -> None:
+        """The adjacency recompute a slot change or a changed location factor triggers (GP-API-014, GP-NFR-016)."""
+        request_adjacency_recompute(self._dispatch_adjacency, location_key)

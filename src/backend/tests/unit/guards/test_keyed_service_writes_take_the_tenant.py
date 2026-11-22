@@ -335,6 +335,88 @@ def test_the_inventory_is_not_vacuous() -> None:
     } <= names
 
 
+# ── REQ-053 WP 4.3 (#2413): the atomic completion transition takes the tenant strictly ──────────────
+#
+# ``complete_task``, ``reopen_task`` and ``batch_status_change`` load by key (``get_task``) and, since WP 4.3, write the
+# task, the care-log line and the specialist document in one stream transaction. The selector derives them already;
+# this pins that it keeps seeing them — a refactor that moved the load behind a differently named helper would drop
+# them from the inventory and the rule would pass by finding nothing — and that each takes the tenant keyword-only
+# without a default, never positionally next to the task key.
+
+_COMPLETION_TRANSITION = (
+    "TaskService.complete_task",
+    # REQ-053 WP 9.3: the route's entry point, the completion with the replay rule of a buffered write.
+    "TaskService.complete_task_once",
+    "TaskService.reopen_task",
+    "TaskService.batch_status_change",
+)
+
+
+def test_the_task_completion_transition_is_a_keyed_write_and_takes_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert set(_COMPLETION_TRANSITION) <= set(shapes), sorted(set(_COMPLETION_TRANSITION) - set(shapes))
+    assert {name: shapes[name] for name in _COMPLETION_TRANSITION} == dict.fromkeys(_COMPLETION_TRANSITION, "strict")
+    assert not set(_COMPLETION_TRANSITION) & _REMAINING
+
+
+# REQ-053 WP 8.17 (#2660): the two suggestion decisions load by key (``get_task``) and write through the conditional
+# ``resolve_suggestion`` statement. Pinned for the same reason as the completion transition: a refactor that moved the
+# load behind a differently named helper would drop them from the inventory and the rule would pass by finding nothing.
+_SUGGESTION_DECISIONS = (
+    "TaskService.accept_suggestion",
+    "TaskService.dismiss_suggestion",
+)
+
+
+def test_the_suggestion_decisions_are_keyed_writes_and_take_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert set(_SUGGESTION_DECISIONS) <= set(shapes), sorted(set(_SUGGESTION_DECISIONS) - set(shapes))
+    assert {name: shapes[name] for name in _SUGGESTION_DECISIONS} == dict.fromkeys(_SUGGESTION_DECISIONS, "strict")
+    assert not set(_SUGGESTION_DECISIONS) & _REMAINING
+
+
+def test_the_completion_repository_takes_the_tenant_in_every_method() -> None:
+    """The port's methods are keyword-only on the tenant too: a transposed pair of keys is invisible to mypy."""
+    tree = ast.parse((_APP / "domain" / "interfaces" / "task_completion_repository.py").read_text(encoding="utf-8"))
+    (port,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "ITaskCompletionRepository"]
+    methods = [n for n in port.body if isinstance(n, ast.FunctionDef)]
+    assert {m.name for m in methods} >= {"complete", "reopen", "task_event", "plant_location", "plants_in_locations"}
+    assert [m.name for m in methods if not _takes_tenant_strictly(m)] == []
+
+
+# ── #2462: the "for each plant" batch create takes the tenant strictly ──────────────────────────────
+#
+# ``create_tasks_for_each_plant`` resolves a bed through ``location_scope`` and the plants through the completion
+# repository, neither of which the keyed-load selector above names (``get…by_key`` / ``get…or_raise``), so the
+# inventory cannot see it. The bed key it addresses is the caller's, so the tenant is pinned here by name: keyword-only,
+# no default, and checked non-empty inside the method.
+
+
+def test_the_for_each_plant_create_takes_the_tenant_keyword_only_without_a_default() -> None:
+    tree = ast.parse((_SERVICES / "task_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "TaskService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_tasks_for_each_plant"]
+    assert _shape(method) == "strict"
+    assert "_require_tenant_key" in ast.unparse(method)
+
+
+# ── #2463: the mixed-culture create takes the tenant strictly ───────────────────────────────────────
+#
+# ``create_mixed_culture`` resolves the bed through ``location_ownership`` and loads the created runs by key, so the
+# selector above derives it; this pins that it keeps seeing it (a refactor that moved the load behind a differently
+# named helper would drop it from the inventory and the rule would pass by finding nothing) and that the tenant and
+# the role are keyword-only, with the non-empty check inside the method.
+
+
+def test_the_mixed_culture_create_is_a_keyed_write_and_takes_the_tenant_strictly() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+    assert shapes.get("PlantingRunService.create_mixed_culture") == "strict"
+    tree = ast.parse((_SERVICES / "planting_run_service.py").read_text(encoding="utf-8"))
+    (klass,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "PlantingRunService"]
+    (method,) = [n for n in klass.body if isinstance(n, ast.FunctionDef) and n.name == "create_mixed_culture"]
+    assert "not tenant_key" in ast.unparse(method)
+
+
 # ── Whole classes: no method takes the tenant positionally ───────────────────────────────────────────
 #
 # The rule above sees only keyed writes. In a service whose every signature read
@@ -350,11 +432,76 @@ _WHOLE_CLASS_KEYWORD_ONLY: dict[str, str] = {
     "AquaponikService": "aquaponik_service.py",
     "InvenTreeService": "inventree_service.py",
     "PlantPhotoService": "plant_photo_service.py",
+    "GardenPlanService": "garden_plan_service.py",
+    "GardenResourceService": "garden_resource_service.py",
+    "CareEventService": "care_event_service.py",
+    "PlantingReservationService": "planting_reservation_service.py",
+    # REQ-053 WP 5.2 (#2431): the JSON backup, the SVG and the PDF read a whole site and resolve it through
+    # ``require_owned_site`` — no ``get…_by_key``, so the keyed-write selector is blind to them, and an export that
+    # lost its ``tenant_key`` would hand out another tenant's plan. Read-only, hence no entry among the writers.
+    "GardenPlanExportService": "garden_plan_export_service.py",
+    "AdjacencyService": "adjacency_service.py",
+    # REQ-053 WP 5.3 (#2432): the plan import resolves the site through ``require_owned_site`` and walks the
+    # structure through the repository's site join - no ``get…_by_key`` - while it deletes and inserts a whole plan.
+    "GardenPlanImportService": "garden_plan_import_service.py",
+    # REQ-053 WP 7.16 (#2482): the new season resolves the site through ``require_owned_site`` and inserts slots into
+    # its beds in one write set - no ``get…_by_key``, so the keyed-write selector is blind to it.
+    "GardenPlanSeasonService": "garden_plan_season_service.py",
+    "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 3.7 (#2397): the plant states of a bed. Read-only and resolved through ``resolve_owned_location`` —
+    # no ``get…_by_key`` — so a ``list_plant_states`` that lost its ``tenant_key`` would hand out the plants, tasks
+    # and findings of another tenant's bed and no selector above would notice.
+    "PlantStateService": "plant_state_service.py",
+    # REQ-053 WP 4.5 (#2423): the combined history of a bed. Read-only; it takes the tenant like the other readers.
+    "BedHistoryService": "bed_history_service.py",
+    # REQ-053 WP 7.1 (#2467, GP-ACC-046): the irrigation zones. The zone carries its tenant; the site, the beds and the
+    # water source of a body are resolved under it inside the service, never in the router.
+    "IrrigationZoneService": "irrigation_zone_service.py",
+    # REQ-053 WP 7.8 (#2474): the bed-template catalogue. A template is a system (global) row or the tenant's own;
+    # every read admits exactly those two arms and every write names the row's owner, resolved inside the service.
+    "BedTemplateService": "bed_template_service.py",
+    # REQ-053 WP 8.12 (#2655): the rotation matrix of a site. Read-only; it resolves the site through
+    # ``require_owned_site`` and reads every bed's history under the tenant.
+    "RotationMatrixService": "rotation_matrix_service.py",
+    # REQ-053 WP 8.15 (#2658): the companion layer of a bed. Read-only; it resolves the bed through
+    # ``resolve_owned_location`` - no ``get…_by_key`` - and names the species standing in the bed's slots.
+    "CompanionOverlayService": "companion_overlay_service.py",
+    # REQ-053 WP 8.18 (#2661): the photos of a bed, resolved through ``resolve_owned_location``; the attachment is read
+    # under the same tenant. A ``tenant_key`` transposed with the bed or attachment key would link another tenant's.
+    "LocationPhotoService": "location_photo_service.py",
+    # REQ-053 WP 8.26 (#2669): the CSV bed list. It resolves the site through ``require_owned_site`` and the zones of
+    # the file under the same tenant and site - no ``get…_by_key``, so the keyed-write selector is blind to it - and
+    # writes through ``GardenPlanService.create_beds``. A ``tenant_key`` transposed with the site key would place
+    # beds in another tenant's garden.
+    "BedCsvImportService": "bed_csv_import_service.py",
 }
 
 #: Anti-vacuity floor per class: how many methods take a tenant at least. The large services carry
 #: twenty and more; a smaller class is pinned at its measured count so an emptied match still fails.
-_MIN_TENANT_METHODS: dict[str, int] = {"PlantPhotoService": 10}
+_MIN_TENANT_METHODS: dict[str, int] = {
+    "PlantPhotoService": 10,
+    "GardenPlanService": 7,
+    "GardenResourceService": 12,
+    "CareEventService": 7,
+    "PlantingReservationService": 6,
+    # #2489: measured 9 — the private helpers count too (``_tenant_taking_methods`` walks every method).
+    "GardenPlanExportService": 9,
+    "AdjacencyService": 3,
+    "GardenPlanImportService": 5,
+    "GardenPlanSeasonService": 2,
+    "BedRotationService": 4,
+    "PlantStateService": 1,
+    "BedHistoryService": 1,
+    "IrrigationZoneService": 11,
+    "BedTemplateService": 5,
+    "RotationMatrixService": 1,
+    # #2658: measured 2 - ``companion_edges`` and the private ``_positions``.
+    "CompanionOverlayService": 2,
+    # REQ-053 WP 8.18 (#2661): measured 9 (five public methods, four private helpers).
+    "LocationPhotoService": 9,
+    # REQ-053 WP 8.26 (#2669): measured 4 (``import_beds``, ``_check_lines``, ``_zone_index``, ``_place``).
+    "BedCsvImportService": 4,
+}
 _DEFAULT_MIN_TENANT_METHODS = 20
 
 
@@ -418,6 +565,195 @@ def test_the_whole_class_rule_finds_a_planted_positional_tenant(tmp_path: Path) 
         encoding="utf-8",
     )
     assert _loose_in_whole_classes(services) == ["AquaponikService.update_system"]
+
+
+# ── REQ-053 WP 1.10 (#2329): the garden-plan services resolve ownership through the anchor ───────────
+#
+# ``GardenPlanService`` and ``GardenResourceService`` (and with them the slot and garden-object
+# writes, which have no service of their own) load by walking ``location_ownership`` — ``_owned_site``,
+# ``resolve_owned_location`` — and never name a ``get…_by_key``. The keyed-write selector above is
+# therefore blind to them: ``apply_batch``, ``set_boundary``, ``change_bed_status``, ``delete_location``,
+# ``patch_slot`` and ``replace_slots`` are writers (call graph) that it does not list, and a method that
+# lost its ``tenant_key`` altogether would escape the whole-class rule too, which only looks at methods
+# that still take one. This rule closes both holes for the two classes: **every public method takes the
+# tenant strictly**, and **every public writer of these modules is among them**. A third class of the
+# slice joins by being added to the dict.
+
+_ANCHORED_SERVICES: dict[str, str] = {
+    "GardenPlanService": "garden_plan_service.py",
+    "GardenResourceService": "garden_resource_service.py",
+    # REQ-053 WP 4.1 (#2400): the care log resolves the bed through ``resolve_owned_location`` and loads its own
+    # events through ``repo.get`` — no ``get…_by_key`` — so the keyed-write selector above is blind to
+    # create / supersede / void / redact too. ``build_event`` is no writer but is public API for the callers that
+    # write in their own transaction, and it resolves the bed: it takes the tenant like the rest.
+    "CareEventService": "care_event_service.py",
+    # REQ-053 WP 3.2 (#2392): reservations resolve the bed through ``resolve_owned_location`` and the run through
+    # ``verify_tenant_ownership`` on a run the service loaded with ``get_or_raise`` — the keyed-write selector sees
+    # the load but not the layout / clearing writers, which reach the repository through write sets. Every public
+    # method takes the tenant strictly.
+    "PlantingReservationService": "planting_reservation_service.py",
+    "GardenPlanExportService": "garden_plan_export_service.py",
+    # REQ-053 WP 3.3 (#2393): the neighbourhood of a bed's slots. ``recompute`` resolves the bed through
+    # ``resolve_owned_location`` and the manual edges resolve both slots through ``resolve_owned_slot`` — no
+    # ``get…_by_key`` on a repository, so the keyed-write selector is blind to all three. The Celery task that
+    # triggers ``recompute`` finds the tenant on the stored site and passes it in; nothing in the message does.
+    "AdjacencyService": "adjacency_service.py",
+    # REQ-053 WP 5.3 (#2432): ``import_plan`` anchors on ``require_owned_site`` and deletes/inserts a whole plan.
+    "GardenPlanImportService": "garden_plan_import_service.py",
+    # REQ-053 WP 7.16 (#2482): ``new_season`` anchors on ``require_owned_site`` and inserts slots into the site's beds.
+    "GardenPlanSeasonService": "garden_plan_season_service.py",
+    # REQ-053 WP 3.4 (#2394): bed-level rotation hints and the history backfill. ``backfill`` resolves the bed through
+    # ``resolve_owned_location`` and writes through ``CareEventService.create``, ``cancel_backfill`` loads the event
+    # with ``repo.get`` and voids it — neither names a ``get…_by_key``, so the keyed-write selector is blind to both.
+    # The reads (``validate_planting``, ``rotation_timeline``) take the tenant like the writers: the history of a bed
+    # names the families a tenant grew.
+    "BedRotationService": "bed_rotation_service.py",
+    # REQ-053 WP 3.7 (#2397): ``list_plant_states`` resolves the bed through ``resolve_owned_location``; the class
+    # has no writer, so it adds nothing to the expected set below, but its one public method takes the tenant strictly.
+    "PlantStateService": "plant_state_service.py",
+    # REQ-053 WP 8.12 (#2655): ``rotation_matrix`` anchors on ``require_owned_site``; read-only, so it adds nothing to
+    # the expected writers, but its one public method takes the tenant strictly.
+    "RotationMatrixService": "rotation_matrix_service.py",
+    # REQ-053 WP 8.15 (#2658): ``companion_edges`` anchors on ``resolve_owned_location``; read-only, so it adds
+    # nothing to the expected writers, but its one public method takes the tenant strictly.
+    "CompanionOverlayService": "companion_overlay_service.py",
+    # REQ-053 WP 8.18 (#2661): the photos of a bed. Every method resolves the bed through ``resolve_owned_location``
+    # and the repository re-reads it under the site's tenant in its transaction; the photo writes go through
+    # ``ILocationPhotoRepository`` (no ``get…_by_key``), so the keyed-write selector is blind to them.
+    "LocationPhotoService": "location_photo_service.py",
+    # REQ-053 WP 8.26 (#2669): the CSV bed list. It resolves the site through ``require_owned_site`` and the zones of
+    # the file under the same tenant and site - no ``get…_by_key``, so the keyed-write selector is blind to it - and
+    # writes through ``GardenPlanService.create_beds``. A ``tenant_key`` transposed with the site key would place
+    # beds in another tenant's garden.
+    "BedCsvImportService": "bed_csv_import_service.py",
+}
+_EXPECTED_ANCHORED_WRITERS = frozenset(
+    {
+        "GardenPlanService.apply_batch",
+        "GardenPlanService.set_boundary",
+        "GardenPlanService.place_template",
+        "GardenResourceService.patch_location",
+        "GardenResourceService.change_bed_status",
+        "GardenResourceService.create_garden_object",
+        "GardenResourceService.patch_garden_object",
+        "GardenResourceService.delete_garden_object",
+        "GardenResourceService.patch_slot",
+        "GardenResourceService.replace_slots",
+        "CareEventService.create",
+        # REQ-053 WP 9.3: ``POST /care-events`` with the replay rule of a buffered write; resolves the bed through
+        # ``build_event`` like ``create``; a replay is read through the tenant-anchored client-id lookup.
+        "CareEventService.log",
+        "CareEventService.supersede",
+        "CareEventService.void",
+        "CareEventService.redact",
+        "PlantingReservationService.place_layout",
+        "PlantingReservationService.place_mixed_runs",
+        "PlantingReservationService.plan_slots",
+        # REQ-053 GP-FR-074 (#2896): ``plan_slots`` without its role check, for the succession batches; it loads the
+        # run through ``_owned_run`` under the tenant like ``plan_slots``.
+        "PlantingReservationService.reserve_slots",
+        # REQ-053 GP-FR-074 (#2896): a plan change releases a planned batch; the run is loaded through ``_owned_run``.
+        "PlantingReservationService.release_run_reservations",
+        "PlantingReservationService.release_slot",
+        "PlantingReservationService.clear_bed",
+        "PlantingReservationService.record_position_correction",
+        "AdjacencyService.recompute",
+        "AdjacencyService.set_manual_edge",
+        "AdjacencyService.remove_manual_edge",
+        "GardenPlanImportService.import_plan",
+        # REQ-053 WP 7.19 (#2485): the restore of a snapshot is an ``import_plan`` whose file is a stored plan; it
+        # anchors on ``require_owned_site`` and loads the snapshot row under the tenant and the site.
+        "GardenPlanImportService.restore_snapshot",
+        # REQ-053 WP 7.16 (#2482): last year's slot places as free slots; anchors on ``require_owned_site``.
+        "GardenPlanSeasonService.new_season",
+        "BedRotationService.backfill",
+        "BedRotationService.cancel_backfill",
+        # REQ-053 WP 8.18 (#2661): the async forms of the bed delete and the batch, which discard the released
+        # photos after the commit; they take the tenant like the synchronous writers they wrap.
+        "GardenPlanService.apply_batch_async",
+        "GardenResourceService.delete_bed",
+        # The call graph reaches the photo repository's write through ``add_photo``; ``set_cover`` and
+        # ``remove_photo`` write through the same interface and take the tenant the same way (whole-class rule).
+        "LocationPhotoService.add_photo",
+        # REQ-053 WP 8.26 (#2669): the CSV bed list writes its valid lines through ``create_beds`` - the batch path
+        # (``_apply``), anchored on ``require_owned_site`` like ``place_template``.
+        "GardenPlanService.create_beds",
+        "BedCsvImportService.import_beds",
+    }
+)
+
+
+def _public_methods(services: Path, klass: str, filename: str) -> dict[str, ast.FunctionDef | ast.AsyncFunctionDef]:
+    tree = ast.parse((services / filename).read_text(encoding="utf-8"))
+    (cls,) = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == klass]
+    return {
+        fn.name: fn
+        for fn in cls.body
+        if isinstance(fn, ast.FunctionDef | ast.AsyncFunctionDef) and not fn.name.startswith("_")
+    }
+
+
+def _anchored_without_the_tenant(services: Path) -> list[str]:
+    return sorted(
+        f"{klass}.{name}"
+        for klass, filename in _ANCHORED_SERVICES.items()
+        for name, fn in _public_methods(services, klass, filename).items()
+        if not _takes_tenant_strictly(fn)
+    )
+
+
+def _anchored_writers() -> set[str]:
+    modules = {
+        f"app.domain.services.{filename.removesuffix('.py')}": klass for klass, filename in _ANCHORED_SERVICES.items()
+    }
+    found: set[str] = set()
+    for writer in call_graph().writers():
+        module, _, qualname = writer.partition("::")
+        owner, _, name = qualname.partition(".")
+        if modules.get(module) == owner and not name.startswith("_"):
+            found.add(qualname)
+    return found
+
+
+def test_every_public_method_of_an_anchored_service_takes_the_tenant_keyword_only() -> None:
+    loose = _anchored_without_the_tenant(_SERVICES)
+    assert loose == [], (
+        "These public methods of a garden-plan service lack `*, tenant_key: str` (no default); the ownership "
+        f"walk cannot run without it (#2107, #2329): {loose}"
+    )
+
+
+def test_every_public_writer_of_the_anchored_services_is_covered_and_none_is_missing() -> None:
+    writers = _anchored_writers()
+    assert writers == set(_EXPECTED_ANCHORED_WRITERS), sorted(writers ^ set(_EXPECTED_ANCHORED_WRITERS))
+    covered = {
+        f"{klass}.{name}"
+        for klass, filename in _ANCHORED_SERVICES.items()
+        for name in _public_methods(_SERVICES, klass, filename)
+    }
+    assert writers <= covered
+
+
+def test_the_anchored_rule_finds_a_planted_missing_tenant(tmp_path: Path) -> None:
+    """End to end on a copy: ``apply_batch`` put back to a tenant-less signature is reported by name."""
+    import shutil
+
+    services = tmp_path / "services"
+    shutil.copytree(_SERVICES, services, ignore=shutil.ignore_patterns("__pycache__"))
+    assert _anchored_without_the_tenant(services) == []
+    target = services / "garden_plan_service.py"
+    original = target.read_text(encoding="utf-8")
+    head = "        *,\n"
+    tail = "        user_key: str,\n        role: TenantRole,\n        expected_revision"
+    signature = head + "        tenant_key: str,\n" + tail
+    planted = original.replace(signature, head + tail)
+    assert planted != original, "the planted replacement did not apply"
+    target.write_text(planted, encoding="utf-8")
+    # The async form (WP 8.18) shares the signature text, so the planted replacement reaches it too.
+    assert _anchored_without_the_tenant(services) == [
+        "GardenPlanService.apply_batch",
+        "GardenPlanService.apply_batch_async",
+    ]
 
 
 class TestTheRuleSeesTheShapes:
@@ -533,3 +869,59 @@ def test_the_strictness_check_tells_the_shapes_apart() -> None:
     assert not _takes_tenant_strictly(fn("def f(self, tenant_key, key): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key, *, tenant_key=''): ..."))
     assert not _takes_tenant_strictly(fn("def f(self, key): ..."))
+
+
+# ── REQ-053 GP-ACC-046: the guard lists the garden-plan services ──────────────────────────────────────────
+#
+# GP-ACC-046 (spec v1.6) names ``garden_plan_service``, ``care_event_service`` and ``irrigation_zone_service``. The
+# first two resolve their beds through ``location_ownership`` (no ``get…_by_key``), so the keyed-write selector does
+# not see them and the whole-class rule above holds them; the zone service loads its zone by key, so it is held by
+# both. Pinned by name, so a refactor that hid a load behind a helper the selector does not follow fails here
+# instead of passing by finding nothing; each write takes the tenant keyword-only without a default.
+
+_GP_ACC_046_SERVICES = ("GardenPlanService", "CareEventService", "IrrigationZoneService")
+_ZONE_KEYED_WRITES = (
+    "IrrigationZoneService.create_zone",
+    "IrrigationZoneService.patch_zone",
+    "IrrigationZoneService.delete_zone",
+    "IrrigationZoneService.replace_locations",
+    # WP 7.3 (#2469): the watering round loads the zone by key and writes care events for its beds.
+    "IrrigationZoneService.log_watering",
+    # WP 9.13 (#2753): "rain - skipped" loads the zone by key and writes one rainfall event per bed.
+    "IrrigationZoneService.log_rain_skipped",
+)
+
+
+def test_gp_acc_046_the_garden_plan_services_are_listed() -> None:
+    assert set(_GP_ACC_046_SERVICES) <= set(_WHOLE_CLASS_KEYWORD_ONLY)
+
+
+def test_gp_acc_046_the_zone_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_ZONE_KEYED_WRITES) <= set(shapes), sorted(set(_ZONE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _ZONE_KEYED_WRITES} == dict.fromkeys(_ZONE_KEYED_WRITES, "strict")
+    assert not set(_ZONE_KEYED_WRITES) & _REMAINING
+
+
+# ── REQ-053 WP 7.8 (#2474): the bed-template service's keyed writes ────────────────────────────────────────
+#
+# ``patch_template`` and ``delete_template`` load a template by key (a system row or the tenant's own) and write it.
+# Pinned by name so a refactor that hid the load behind a helper the selector does not follow fails here instead of
+# passing by finding nothing; each takes the tenant keyword-only without a default. ``place_template`` (WP 7.9) is
+# held by the anchored list above.
+
+_BED_TEMPLATE_KEYED_WRITES = (
+    "BedTemplateService.patch_template",
+    "BedTemplateService.delete_template",
+)
+
+
+def test_the_bed_template_services_keyed_writes_are_seen_and_strict() -> None:
+    shapes = {w.qualname: w.shape for w in _inventory()}
+
+    assert set(_BED_TEMPLATE_KEYED_WRITES) <= set(shapes), sorted(set(_BED_TEMPLATE_KEYED_WRITES) - set(shapes))
+    assert {name: shapes[name] for name in _BED_TEMPLATE_KEYED_WRITES} == dict.fromkeys(
+        _BED_TEMPLATE_KEYED_WRITES, "strict"
+    )
+    assert not set(_BED_TEMPLATE_KEYED_WRITES) & _REMAINING

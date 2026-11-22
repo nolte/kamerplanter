@@ -1,0 +1,329 @@
+"""In-memory doubles of the care-event service's collaborators (REQ-053 WP 4.1, #2400).
+
+``FakeCareEventRepo`` holds the documents the way ``ArangoCareEventRepository`` does — tenant-filtered reads,
+the supersede / void sequence rules inside the write — and records what was handed to it, so a test asserts both
+what the service decided and that a refusal wrote nothing. The rest are the narrow reads the service resolves
+references through. Shared by the unit tier and the API tier.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+
+from app.common.exceptions import DuplicateError, NotFoundError, PlanError
+from app.domain.interfaces.care_event_repository import (
+    AnonymizedBatch,
+    CareEventFilter,
+    CareEventRow,
+    ICareEventRepository,
+)
+from app.domain.models.attachment import Attachment
+from app.domain.models.care_event import (
+    FREE_TEXT_FIELDS,
+    REDACTED,
+    CareEvent,
+    owns_its_source_document,
+)
+from app.domain.models.membership import Membership
+from app.domain.models.task_completion import DomainDocument
+from tests.support.garden_plan_fakes import OTHER_TENANT, TENANT, USER
+
+NAMES = {USER: "Sabine", "u_tom": "Tom", "u_lead": "Lena"}
+
+
+class FakeCareEventRepo(ICareEventRepository):
+    def __init__(self) -> None:
+        self.events: dict[str, CareEvent] = {}
+        #: ``plant_key`` → (tenant, location) of the plants that exist.
+        self.plants: dict[str, tuple[str, str]] = {}
+        self.inserted: list[CareEvent] = []
+        #: The ``feeding_events`` documents written beside an event (``insert_with_feeding_event``, #2833).
+        self.feedings: list[DomainDocument] = []
+        #: Keys (``fe_<n>``) of the feeding events a void or a correction withdrew again.
+        self.withdrawn: list[str] = []
+        #: The ``limit`` each ``plant_keys_standing_in`` read was bounded by.
+        self.standing_limits: list[int] = []
+        self.audit: list[dict] = []
+        self.photos_held: dict[str, list[str]] = {}
+        self._next = 0
+        #: A transaction that aborts: ``insert_many`` raises and stores nothing.
+        self.fail_insert_many = False
+
+    def _store(self, event: CareEvent) -> CareEvent:
+        self._next += 1
+        stored = event.model_copy(update={"key": f"ce_{self._next}", "created_at": datetime.now(UTC)})
+        self.events[stored.key or ""] = stored
+        return stored
+
+    # reads ---------------------------------------------------------------
+    def get(self, key, *, tenant_key):
+        event = self.events.get(key)
+        return event if event is not None and event.tenant_key == tenant_key else None
+
+    def get_row(self, key, *, tenant_key):
+        event = self.get(key, tenant_key=tenant_key)
+        if event is None:
+            return None
+        return CareEventRow(
+            event=event,
+            performed_by_name=NAMES.get(event.performed_by_user_key or ""),
+            performed_for_name=NAMES.get(event.performed_for_user_key or ""),
+        )
+
+    def find_key_by_client_event_id(self, client_event_id, *, tenant_key):
+        return next(
+            (
+                key
+                for key, event in self.events.items()
+                if event.tenant_key == tenant_key and event.client_event_id == client_event_id
+            ),
+            None,
+        )
+
+    def find_client_round(self, client_round_id, *, tenant_key, limit):
+        return [
+            event
+            for event in self.events.values()
+            if event.tenant_key == tenant_key and event.client_round_id == client_round_id
+        ][:limit]
+
+    def chain(self, key, *, tenant_key):
+        event = self.get(key, tenant_key=tenant_key)
+        if event is None:
+            return []
+        older: list[CareEvent] = []
+        cursor = event
+        while cursor.supersedes_key and (previous := self.get(cursor.supersedes_key, tenant_key=tenant_key)):
+            older.append(previous)
+            cursor = previous
+        newer: list[CareEvent] = []
+        cursor = event
+        while cursor.superseded_by_key and (following := self.get(cursor.superseded_by_key, tenant_key=tenant_key)):
+            newer.append(following)
+            cursor = following
+        return [*reversed(older), event, *newer]
+
+    def list_events(self, criteria: CareEventFilter, *, tenant_key, offset, limit):
+        rows = []
+        for event in sorted(self.events.values(), key=lambda e: e.performed_at, reverse=True):
+            if event.tenant_key != tenant_key:
+                continue
+            if criteria.location_key and event.location_key != criteria.location_key:
+                continue
+            if criteria.plant_key and criteria.plant_key not in event.plant_keys:
+                continue
+            if criteria.category and event.category != criteria.category:
+                continue
+            if criteria.performed_by and event.performed_by_user_key != criteria.performed_by:
+                continue
+            if criteria.exclude_voided and event.voided_at:
+                continue
+            if not criteria.include_superseded and event.superseded_by_key:
+                continue
+            if criteria.performed_from and event.performed_at < criteria.performed_from:
+                continue
+            if criteria.performed_to and event.performed_at > criteria.performed_to:
+                continue
+            rows.append(self.get_row(event.key or "", tenant_key=tenant_key))
+        return rows[offset : offset + limit]
+
+    def plants_in_locations(self, plant_keys, location_keys, *, tenant_key):
+        return {
+            key
+            for key in plant_keys
+            if key in self.plants and self.plants[key][0] == tenant_key and self.plants[key][1] in location_keys
+        }
+
+    def plant_keys_standing_in(self, location_keys, *, tenant_key, limit):
+        self.standing_limits.append(limit)
+        return sorted(
+            key for key, (tenant, location) in self.plants.items() if tenant == tenant_key and location in location_keys
+        )[:limit]
+
+    def live_feedings(self) -> list[str]:
+        """The keys of the feeding events written and not withdrawn."""
+        return [f"fe_{n}" for n in range(1, len(self.feedings) + 1) if f"fe_{n}" not in self.withdrawn]
+
+    def _withdraw_owned(self, event: CareEvent) -> None:
+        reference = event.source_ref or {}
+        if owns_its_source_document(event.trigger) and reference.get("collection") == "feeding_events":
+            key = str(reference.get("key"))
+            if key not in self.withdrawn:  # a second withdrawal is no error, and no second effect
+                self.withdrawn.append(key)
+
+    # writes --------------------------------------------------------------
+    def insert_with_feeding_event(self, event, feeding, *, tenant_key):
+        assert event.tenant_key == tenant_key and feeding.document["tenant_key"] == tenant_key
+        assert feeding.collection == "feeding_events"
+        if event.source_ref is not None:
+            raise ValueError("insert_with_feeding_event: the event names a source document already.")
+        if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
+            # one transaction: the refused event takes its feeding event with it
+            raise DuplicateError("care_events", "client_event_id", event.client_event_id)
+        self.feedings.append(feeding)
+        reference = {"collection": "feeding_events", "key": f"fe_{len(self.feedings)}"}
+        return self.insert(event.model_copy(update={"source_ref": reference}), tenant_key=tenant_key)
+
+    def insert(self, event, *, tenant_key):
+        assert event.tenant_key == tenant_key
+        if event.client_event_id and self.find_key_by_client_event_id(event.client_event_id, tenant_key=tenant_key):
+            # the unique (tenant_key, client_event_id) index of v0106
+            raise DuplicateError("care_events", "client_event_id", event.client_event_id)
+        self.inserted.append(event)
+        return self._store(event)
+
+    def insert_many(self, events, *, tenant_key):
+        assert all(event.tenant_key == tenant_key for event in events)
+        if self.fail_insert_many:
+            raise RuntimeError("the transaction aborted")
+        return [self.insert(event, tenant_key=tenant_key) for event in events]
+
+    def insert_backfilled(self, events, *, tenant_key):
+        if not tenant_key or any(e.tenant_key != tenant_key for e in events):
+            raise ValueError("insert_backfilled: tenant mismatch")
+        if any(e.trigger != "backfill" or not e.source_ref for e in events):
+            raise ValueError("insert_backfilled: backfill with source_ref only")
+        present = {
+            (e.tenant_key, (e.source_ref or {}).get("collection"), (e.source_ref or {}).get("key"))
+            for e in self.events.values()
+        }
+        written = 0
+        for event in events:
+            ref = event.source_ref or {}
+            if (event.tenant_key, ref.get("collection"), ref.get("key")) in present:
+                continue
+            self.insert(event, tenant_key=tenant_key)
+            present.add((event.tenant_key, ref.get("collection"), ref.get("key")))
+            written += 1
+        return written, len(events) - written
+
+    @staticmethod
+    def _refuse_if_closed(event: CareEvent) -> None:
+        if event.superseded_by_key or event.voided_at:
+            raise PlanError("care_event.sequence", "closed", status_code=422, field="supersedes_key")
+
+    def supersede(self, predecessor_key, event, *, tenant_key):
+        old = self.get(predecessor_key, tenant_key=tenant_key)
+        if old is None:
+            raise NotFoundError("CareEvent", predecessor_key)
+        self._refuse_if_closed(old)
+        self._withdraw_owned(old)
+        self.inserted.append(event)
+        stored = self._store(event)
+        self.events[predecessor_key] = old.model_copy(update={"superseded_by_key": stored.key})
+        return stored
+
+    def supersede_with_feeding_event(self, predecessor_key, event, feeding, *, tenant_key):
+        assert feeding.document["tenant_key"] == tenant_key and feeding.collection == "feeding_events"
+        old = self.get(predecessor_key, tenant_key=tenant_key)
+        if old is None:
+            raise NotFoundError("CareEvent", predecessor_key)
+        self._refuse_if_closed(old)  # refused before anything is written: one transaction
+        self.feedings.append(feeding)
+        reference = {"collection": "feeding_events", "key": f"fe_{len(self.feedings)}"}
+        successor = event.model_copy(update={"source_ref": reference})
+        return self.supersede(predecessor_key, successor, tenant_key=tenant_key)
+
+    def void(self, key, *, tenant_key, voided_by, reason, at):
+        event = self.get(key, tenant_key=tenant_key)
+        if event is None:
+            raise NotFoundError("CareEvent", key)
+        self._refuse_if_closed(event)
+        self._withdraw_owned(event)
+        voided = event.model_copy(update={"voided_at": at, "voided_by": voided_by, "void_reason": reason})
+        self.events[key] = voided
+        return voided
+
+    def redact(self, key, *, tenant_key, redacted_by, reason, at):
+        chain = self.chain(key, tenant_key=tenant_key)
+        if not chain:
+            raise NotFoundError("CareEvent", key)
+        detached: list[str] = []
+        redacted = []
+        for event in chain:
+            detached.extend(event.photo_refs)
+            patch = {
+                name: REDACTED for name in FREE_TEXT_FIELDS if getattr(event, name) is not None or name == "summary"
+            }
+            if event.void_reason not in (None, "undo"):
+                patch["void_reason"] = REDACTED
+            updated = event.model_copy(
+                update={
+                    **patch,
+                    "photo_refs": [],
+                    "redacted_at": at,
+                    "redacted_by": redacted_by,
+                    "redaction_reason": reason,
+                }
+            )
+            self.events[event.key or ""] = updated
+            redacted.append(updated)
+        self.audit.append({"op": "redact", "entity": "care_event", "key": key, "user_key": redacted_by})
+        return redacted, list(dict.fromkeys(detached))
+
+    def anonymize_expired(self, *, cutoff, pflschg_cutoff, now, batch):  # pragma: no cover - the sweep has its own test
+        return AnonymizedBatch()
+
+    def clear_photo_refs(self, event_keys):  # pragma: no cover - the sweep has its own test
+        return len(event_keys)
+
+
+class FakeMemberships:
+    def __init__(self) -> None:
+        self.members = {(USER, TENANT), ("u_tom", TENANT), ("u_lead", TENANT), ("u_foreign", OTHER_TENANT)}
+        self.inactive: set[tuple[str, str]] = set()
+
+    def get_by_user_and_tenant(self, user_key, tenant_key):
+        if (user_key, tenant_key) not in self.members:
+            return None
+        return Membership(
+            user_key=user_key,
+            tenant_key=tenant_key,
+            role="grower",
+            is_active=(user_key, tenant_key) not in self.inactive,
+        )
+
+
+class FakeFertilizers:
+    def __init__(self) -> None:
+        #: key → owning tenant ("" = global catalogue).
+        self.owners = {"fert_global": "", "fert_own": TENANT, "fert_foreign": OTHER_TENANT}
+
+    def list_visible_keys(self, keys, *, tenant_key):
+        return {key for key in keys if key in self.owners and self.owners[key] in ("", tenant_key)}
+
+
+class FakeAttachmentRepo:
+    def __init__(self) -> None:
+        self.rows: dict[str, Attachment] = {}
+
+    def add(self, key: str, *, tenant_key: str = TENANT, created_by: str = USER) -> None:
+        self.rows[key] = Attachment(
+            _key=key,
+            tenant_key=tenant_key,
+            mime_type="image/jpeg",
+            byte_size=10,
+            sha256="0" * 64,
+            original_filename="p.jpg",
+            created_by=created_by,
+            category="plant",
+            storage_key=f"t/{tenant_key}/plant/{key}.jpg",
+        )
+
+    def get(self, key, tenant_key):
+        row = self.rows.get(key)
+        return row if row is not None and row.tenant_key == tenant_key else None
+
+
+class FakeAttachmentService:
+    """Records the deletes the redaction asks for; a photo another carrier holds is kept."""
+
+    def __init__(self) -> None:
+        self.deleted: list[tuple[str, str]] = []
+        self.still_referenced: set[str] = set()
+
+    async def delete_if_unreferenced(self, attachment_id, tenant_key):
+        if attachment_id in self.still_referenced:
+            return False
+        self.deleted.append((tenant_key, attachment_id))
+        return True

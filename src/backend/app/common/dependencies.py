@@ -8,7 +8,11 @@ from arango.database import StandardDatabase
 
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
+from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_event_gap_repository import ArangoCareEventGapReader
+from app.data_access.arango.care_event_repository import ArangoCareEventRepository
 from app.data_access.arango.care_reminder_repository import ArangoCareReminderRepository
 from app.data_access.arango.connection import ArangoConnection
 from app.data_access.arango.enrichment_repository import (
@@ -18,12 +22,16 @@ from app.data_access.arango.enrichment_repository import (
 )
 from app.data_access.arango.feeding_repository import ArangoFeedingRepository
 from app.data_access.arango.fertilizer_repository import ArangoFertilizerRepository
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
 from app.data_access.arango.graph_repository import ArangoGraphRepository
 from app.data_access.arango.harvest_repository import ArangoHarvestRepository
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.ipm_repository import ArangoIpmRepository
+from app.data_access.arango.irrigation_zone_repository import ArangoIrrigationZoneRepository
 from app.data_access.arango.lifecycle_repository import ArangoLifecycleRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
+from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
 from app.data_access.arango.nutrient_plan_repository import ArangoNutrientPlanRepository
 from app.data_access.arango.oidc_config_repository import ArangoOidcConfigRepository
@@ -32,20 +40,26 @@ from app.data_access.arango.overwintering_profile_template_repository import (
     ArangoOverwinteringProfileTemplateRepository,
 )
 from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
+from app.data_access.arango.planting_reservation_repository import ArangoPlantingReservationRepository
 from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
 from app.data_access.arango.post_harvest_repository import ArangoPostHarvestRepository
 from app.data_access.arango.refresh_token_repository import ArangoRefreshTokenRepository
+from app.data_access.arango.rotation_history_repository import ArangoRotationHistoryRepository
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.substrate_repository import ArangoSubstrateRepository
 from app.data_access.arango.succession_plan_repository import ArangoSuccessionPlanRepository
 from app.data_access.arango.tank_repository import ArangoTankRepository
+from app.data_access.arango.task_completion_repository import ArangoTaskCompletionRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
 from app.data_access.arango.tenant_repository import ArangoTenantRepository
+from app.data_access.arango.tombstone_census import ArangoTombstoneCensus
 from app.data_access.arango.user_repository import ArangoUserRepository
 from app.data_access.arango.watering_log_repository import ArangoWateringLogRepository
 from app.data_access.arango.watering_repository import ArangoWateringRepository
 from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
+from app.data_access.external.ha_flow_rate_sensor import HaFlowRateSensor
 from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
 from app.data_access.repositories.propagation_repository import PropagationRepository
@@ -81,23 +95,46 @@ from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
+from app.domain.interfaces.storage_release_retry_repository import IStorageReleaseRetryRepository
+from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
 from app.domain.services.auth_service import AuthService
+from app.domain.services.bed_csv_import_service import BedCsvImportService
+from app.domain.services.bed_history_service import BedHistoryService
+from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_template_service import BedTemplateService
+from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.companion_edge_service import CompanionEdgeService
+from app.domain.services.companion_overlay_service import CompanionOverlayService
 from app.domain.services.enrichment_service import EnrichmentService
 from app.domain.services.feeding_service import FeedingService
 from app.domain.services.fertilizer_service import FertilizerService
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
+from app.domain.services.garden_plan_retention_service import GardenPlanRetentionService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
+from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.harvest_service import HarvestService
 from app.domain.services.ipm_service import IpmService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
+from app.domain.services.location_photo_service import LocationPhotoService
+from app.domain.services.nutrient_hint_service import NutrientHintService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.observation_service import ObservationService
 from app.domain.services.overwintering_profile_service import OverwinteringProfileService
 from app.domain.services.phase_service import PhaseService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.plant_state_service import PlantStateService
+from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.post_harvest_service import PostHarvestService
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
 from app.domain.services.site_service import SiteService
+from app.domain.services.slot_thinning_service import SlotThinningService
+from app.domain.services.soil_analysis_service import SoilAnalysisService
 from app.domain.services.species_service import SpeciesService
 from app.domain.services.substrate_service import SubstrateService
 from app.domain.services.succession_plan_service import SuccessionPlanService
@@ -415,7 +452,242 @@ def get_companion_edge_service() -> CompanionEdgeService:
 
 
 def get_site_service() -> SiteService:
-    return SiteService(get_site_repo(), tank_repo=get_tank_repo())
+    # #2545: a site delete discards its plan's underlay picture through the underlay service's rule.
+    return SiteService(
+        get_site_repo(),
+        tank_repo=get_tank_repo(),
+        underlay=get_garden_plan_underlay_service,
+        # REQ-053 WP 8.18: the bed photos of a deleted site go with it (unless another carrier names them).
+        photos=get_location_photo_service,
+    )
+
+
+def get_garden_plan_repo() -> ArangoGardenPlanRepository:
+    return ArangoGardenPlanRepository(get_db())
+
+
+def get_bed_template_service() -> BedTemplateService:
+    """REQ-053 WP 7.8 — the bed-template catalogue (system templates and the tenant's own)."""
+    return BedTemplateService(ArangoBedTemplateRepository(get_db()))
+
+
+def get_garden_plan_service() -> GardenPlanService:
+    """REQ-053 WP 1.8 — the site's garden plan: read model, boundary, transactional batch, place-template."""
+    return GardenPlanService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        ArangoIrrigationZoneRepository(get_db()),
+        ArangoBedTemplateRepository(get_db()),
+        photos=get_location_photo_service,
+        # GP-FR-087 (#2897): the recurring tasks a template brings, opt-in at placing time, through the task path.
+        tasks=get_task_service,
+    )
+
+
+def get_garden_plan_export_service() -> GardenPlanExportService:
+    """REQ-053 WP 5.2 — the JSON backup, the SVG and the PDF of a site's plan (with plant states, #2489)."""
+    return GardenPlanExportService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        attachment_service=get_attachment_service(),
+        # #2489 — plant states and phase names for the printed markers and legend.
+        plant_state_repo=ArangoPlantStateRepository(get_db()),
+        phase_repo=get_lifecycle_repo(),
+        forecast_repo=get_weather_forecast_repo(),
+    )
+
+
+def get_garden_plan_underlay_service() -> GardenPlanUnderlayService:
+    """REQ-053 WP 7.14 — the background picture of a site's plan (set, replace, remove)."""
+    return GardenPlanUnderlayService(
+        get_site_repo(), get_garden_plan_repo(), get_attachment_repo(), get_attachment_service()
+    )
+
+
+def get_location_photo_service() -> LocationPhotoService:
+    """REQ-053 WP 8.18 — the photos of a bed (list, add, remove, cover; discarded with a deleted bed or site).
+
+    The attachment service is handed over as a provider: only a removal that has a photo to delete builds it.
+    """
+    return LocationPhotoService(
+        get_site_repo(),
+        ArangoLocationPhotoRepository(get_db()),
+        get_attachment_repo(),
+        get_attachment_service,
+    )
+
+
+def dispatch_adjacency_recompute(location_key: str) -> None:
+    """Queue ``adjacency_recompute`` for one bed (REQ-053 GP-NFR-016); the message carries only the bed key.
+
+    Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task object is not. The task
+    resolves site and tenant from the stored bed itself.
+    """
+    from app.tasks import celery_app
+
+    celery_app.send_task(
+        "app.tasks.adjacency.adjacency_recompute",
+        args=(location_key,),
+        retry=True,
+        retry_policy={"max_retries": 1, "interval_start": 0, "interval_max": 1},
+    )
+
+
+def get_garden_plan_import_service() -> GardenPlanImportService:
+    """REQ-053 WP 5.3 - the JSON import of a site's plan (dry run, snapshot, replace/merge)."""
+    return GardenPlanImportService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        get_garden_plan_export_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
+        photos=get_location_photo_service,
+    )
+
+
+def get_bed_csv_import_service() -> BedCsvImportService:
+    """REQ-053 WP 8.26 - the CSV bed list import of a site (dry run, then the valid lines through the batch path)."""
+    return BedCsvImportService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_garden_plan_service(),
+        get_location_type_repo(),
+        ArangoIrrigationZoneRepository(get_db()),
+    )
+
+
+def get_garden_plan_season_service() -> GardenPlanSeasonService:
+    """REQ-053 WP 7.16 - the structure of last year's runs as free slots of the new season."""
+    return GardenPlanSeasonService(
+        get_site_repo(), get_garden_plan_repo(), dispatch_adjacency=dispatch_adjacency_recompute
+    )
+
+
+def get_adjacency_dispatch() -> AdjacencyDispatch:
+    """The dispatcher a router hands to ``request_adjacency_recompute`` (looked up at call time)."""
+    return dispatch_adjacency_recompute
+
+
+def get_adjacency_service() -> AdjacencyService:
+    """REQ-053 WP 3.3 — derived and manual ``adjacent_to`` edges of a bed's slots."""
+    return AdjacencyService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
+
+
+def _bed_rotation_validator() -> CropRotationValidator:
+    """The crop-rotation validator wired for the bed level (site, family and history repositories)."""
+    return CropRotationValidator(
+        get_plant_repo(),
+        get_species_repo(),
+        get_graph_repo(),
+        site_repo=get_site_repo(),
+        family_repo=get_family_repo(),
+        history_repo=ArangoRotationHistoryRepository(get_db()),
+    )
+
+
+def get_bed_rotation_service() -> BedRotationService:
+    """REQ-053 WP 3.4 — bed-level crop rotation, companion hints and the history backfill."""
+    return BedRotationService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_graph_repo(),
+        get_species_repo(),
+        get_family_repo(),
+        get_care_event_service(),
+        _bed_rotation_validator(),
+    )
+
+
+def get_companion_overlay_service() -> CompanionOverlayService:
+    """REQ-053 WP 8.15 — the companion-planting layer of a bed (judged ``adjacent_to`` pairs, GP-FR-134)."""
+    return CompanionOverlayService(get_site_repo(), get_garden_plan_repo(), get_graph_repo())
+
+
+def get_rotation_matrix_service() -> RotationMatrixService:
+    """REQ-053 WP 8.12 — the rotation matrix of a site (beds x years x season), read through the bed validator."""
+    return RotationMatrixService(get_site_repo(), get_garden_plan_repo(), _bed_rotation_validator())
+
+
+def get_plant_state_service() -> PlantStateService:
+    """REQ-053 WP 3.7 — the visual state and the info-bubble facts of the plants of a bed."""
+    return PlantStateService(get_site_repo(), ArangoPlantStateRepository(get_db()), get_weather_forecast_repo())
+
+
+def get_bed_history_service() -> BedHistoryService:
+    """REQ-053 WP 4.5 — the combined history of a bed: care events and derived planting events."""
+    return BedHistoryService(get_site_repo(), ArangoBedHistoryRepository(get_db()))
+
+
+def get_soil_analysis_service() -> SoilAnalysisService:
+    """REQ-053 WP 8.7 — the soil analyses of a bed as series per method."""
+    return SoilAnalysisService(get_site_repo(), get_care_event_repo())
+
+
+def get_garden_resource_service() -> GardenResourceService:
+    """REQ-053 WP 1.9 — beds, garden objects and slots as single resources."""
+    return GardenResourceService(
+        get_site_repo(),
+        get_garden_plan_repo(),
+        ArangoGardenObjectRepository(get_db()),
+        get_garden_plan_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
+        nutrient_hint=get_nutrient_hint_service,
+    )
+
+
+def get_nutrient_hint_service() -> NutrientHintService:
+    """REQ-053 WP 8.10 — the nutrient hint of the bed summary (GP-FR-125); thresholds ``null`` until sourced."""
+    return NutrientHintService(get_species_repo(), get_care_event_repo(), _bed_rotation_validator())
+
+
+def get_irrigation_zone_service() -> IrrigationZoneService:
+    """REQ-053 WP 7.1 — the irrigation zones of a site and the beds they cover."""
+    return IrrigationZoneService(
+        ArangoIrrigationZoneRepository(get_db()),
+        get_site_repo(),
+        ArangoGardenObjectRepository(get_db()),
+        ArangoCareEventRepository(get_db()),
+        # SR-014 / MT-015: a flow entity is bound only when it is granted to the tenant and is a flow sensor.
+        ha_entity_gate=get_ha_entity_grant_service(),
+        flow_sensor=HaFlowRateSensor(get_ha_client),
+    )
+
+
+def get_care_event_repo() -> ArangoCareEventRepository:
+    """REQ-053 WP 4.1 — the care log (``care_events``)."""
+    return ArangoCareEventRepository(get_db())
+
+
+def get_care_event_gap_reader() -> ArangoCareEventGapReader:
+    """REQ-053 WP 8.2 — the domain events that lack a care event (the daily consistency job)."""
+    return ArangoCareEventGapReader(get_db())
+
+
+def get_tombstone_census() -> ArangoTombstoneCensus:
+    """spec/privacy PRIV-206 / DEC-28 — the tombstone count of the daily ``privacy.consistency`` beat."""
+    return ArangoTombstoneCensus(get_db())
+
+
+def get_care_event_service() -> CareEventService:
+    """REQ-053 WP 4.1 — create, supersede, void and redact the care events of a bed."""
+    return CareEventService(
+        get_care_event_repo(),
+        get_site_repo(),
+        get_membership_repo(),
+        get_fertilizer_repo(),
+        get_attachment_repo(),
+        get_attachment_service(),
+    )
+
+
+def get_garden_plan_retention_service() -> GardenPlanRetentionService:
+    """REQ-053 GP-NFR-055 — the R-25 / R-26 retention sweeps of the care log and the plan audit."""
+    from app.domain.services.retention_service import RetentionService
+
+    return GardenPlanRetentionService(
+        get_care_event_repo(), get_garden_plan_repo(), get_attachment_service(), RetentionService()
+    )
 
 
 def get_substrate_service() -> SubstrateService:
@@ -451,7 +723,10 @@ def get_propagation_service() -> PropagationService:
 
 
 def get_plant_instance_service() -> PlantInstanceService:
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantInstanceService(
         get_plant_repo(),
@@ -474,6 +749,8 @@ def get_plant_instance_service() -> PlantInstanceService:
         # production, and an absence check reads this call to keep it that way.
         substrate_service=get_substrate_service(),
         species_service=get_species_service(),
+        # REQ-053 GP-UX-071 (#2913): a reserved position refuses a single plant (409 `slot.already_planned`).
+        reservation_repo=get_planting_reservation_repo(),
     )
 
 
@@ -670,10 +947,30 @@ def _resolve_substrate_batch(key: str, *, tenant_key: str) -> SubstrateBatch:
     return get_substrate_service().get_batch(key, tenant_key=tenant_key)
 
 
+def get_planting_reservation_repo() -> ArangoPlantingReservationRepository:
+    """REQ-053 WP 3.2 — reservations of slots by planting runs (``run_planned_at``) and their transactions."""
+    return ArangoPlantingReservationRepository(get_db())
+
+
+def get_planting_reservation_service() -> PlantingReservationService:
+    """REQ-053 WP 3.2 — plan-slots, planting states, bed clearing and the layout a run gets on a bed."""
+    return PlantingReservationService(
+        get_planting_reservation_repo(),
+        get_planting_run_repo(),
+        get_site_repo(),
+        get_garden_plan_repo(),
+        get_care_event_service(),
+        dispatch_adjacency=dispatch_adjacency_recompute,
+    )
+
+
 def get_planting_run_service() -> PlantingRunService:
     from app.domain.engines.watering_schedule_engine import WateringScheduleEngine
 
-    rotation_validator = CropRotationValidator(get_plant_repo(), get_species_repo(), get_graph_repo())
+    # site_repo: the slot check reads the bed's rotation switch first (GP-FR-137, #2544).
+    rotation_validator = CropRotationValidator(
+        get_plant_repo(), get_species_repo(), get_graph_repo(), site_repo=get_site_repo()
+    )
     companion_engine = CompanionPlantingEngine(get_graph_repo(), get_plant_repo(), get_species_repo())
     return PlantingRunService(
         get_planting_run_repo(),
@@ -692,6 +989,21 @@ def get_planting_run_service() -> PlantingRunService:
         substrate_batch_resolver=_resolve_substrate_batch,
         # #1871 B11 — an entry's species must be one the tenant may read.
         species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
+        # REQ-053 WP 3.2 — the layout of a run on a bed, planned slots at create-plants, quick planting.
+        reservations=get_planting_reservation_service(),
+        reservation_repo=get_planting_reservation_repo(),
+    )
+
+
+def get_slot_thinning_service() -> SlotThinningService:
+    """REQ-053 W-015 — sowing a row/zone slot and thinning it into plants of its run."""
+    return SlotThinningService(
+        get_site_repo(),
+        get_planting_reservation_repo(),
+        get_planting_run_repo(),
+        get_planting_run_service(),
+        get_care_event_service(),
+        get_species_repo(),
     )
 
 
@@ -705,6 +1017,8 @@ def get_succession_plan_service() -> SuccessionPlanService:
         get_planting_run_service(),
         site_repo=get_site_repo(),
         species_resolver=lambda key, *, tenant_key: get_species_service().get_species(key, tenant_key=tenant_key),
+        # GP-FR-074: each batch reserves its slots through the same service as ``plan-slots``.
+        reservations=get_planting_reservation_service(),
     )
 
 
@@ -738,6 +1052,8 @@ def get_task_entity_guard() -> TaskEntityGuard:
         get_planting_run_service,
         get_tank_service,
         get_site_service,
+        # REQ-053 §20.9 / R-7.2: a compost heap, water source or storage object takes care tasks.
+        get_garden_resource_service,
     )
 
 
@@ -754,7 +1070,7 @@ def get_feeding_repo() -> ArangoFeedingRepository:
 
 
 def get_fertilizer_service() -> FertilizerService:
-    return FertilizerService(get_fertilizer_repo(), site_repo=get_site_repo())
+    return FertilizerService(get_fertilizer_repo(), site_repo=get_site_repo(), species_repo=get_species_repo())
 
 
 def get_nutrient_plan_service() -> NutrientPlanService:
@@ -904,6 +1220,11 @@ def get_notification_propagation_service() -> NotificationPropagationService:
     return NotificationPropagationService(get_notification_repo())
 
 
+def get_task_completion_repo() -> ArangoTaskCompletionRepository:
+    """REQ-053 WP 4.3 — the stream transactions of the task completion and its undo."""
+    return ArangoTaskCompletionRepository(get_db())
+
+
 def get_task_service() -> TaskService:
     return TaskService(
         get_task_repo(),
@@ -918,6 +1239,14 @@ def get_task_service() -> TaskService:
         membership_lookup=lambda user_key, tenant_key: get_membership_repo().get_by_user_and_tenant(
             user_key, tenant_key
         ),
+        # REQ-053 WP 4.3 (ADR-008 phase 3 for tasks): the atomic completion over the task, the care-log line and the
+        # specialist document. Without these three a completion closes the task alone.
+        completion=get_task_completion_repo(),
+        care_events=get_care_event_service(),
+        harvests=get_harvest_service(),
+        fertilizers=get_fertilizer_repo(),
+        # Built lazily, only for a care-reminder task: every completing or skipping path mirrors it (#2960).
+        care_mirror=get_care_reminder_service,
     )
 
 
@@ -1373,6 +1702,7 @@ def get_tenant_export_service() -> TenantExportService:
         ArangoTenantExportRequestRepository,
         ArangoTenantImportRequestRepository,
     )
+    from app.domain.services.attachment_service import imported_object_body
     from app.domain.services.tenant_export_service import TenantExportService, resolve_export_signing_key
 
     # Dispatched by task name: ``celery_app`` is typed (Celery), the decorated task objects are not, and
@@ -1419,7 +1749,11 @@ def get_tenant_export_service() -> TenantExportService:
         signing_key=resolve_export_signing_key(
             dedicated_secret=settings.tenant_export_signing_secret, jwt_secret=settings.jwt_secret_key
         ),
+        # The category whitelist as before #2715: an archive may hold a type stored lawfully before #2139 (HEIC, GIF)
+        # that an upload no longer admits while stripping is on - kept unchanged, not refused.
         allowed_mime_types=settings.allowed_mime_types_for_category,
+        # #2715 item 3 — strippable images are stripped (strictly, under the stored-object ceiling).
+        stored_body=functools.partial(imported_object_body, settings),
         max_object_bytes=settings.storage_max_file_size_mb * 1024 * 1024,
         # REQ-056 §8.3 (#2138) — readings travel as timeseries/readings.csv only with TimescaleDB.
         readings=get_observation_repo() if settings.timescaledb_enabled else None,
@@ -1626,6 +1960,7 @@ def get_care_reminder_service() -> CareReminderService:
         notification_propagation=get_notification_propagation_service(),
         family_name_resolver=get_family_name_resolver(),
         fertilizer_repo=get_fertilizer_repo(),
+        site_repo=get_site_repo(),
     )
 
 
@@ -1719,6 +2054,7 @@ def get_print_service() -> PrintService:
         species_repo=get_species_repo(),
         site_repo=get_site_repo(),
         app_base_url=settings.app_base_url,
+        location_type_repo=get_location_type_repo(),
     )
 
 
@@ -2651,7 +2987,15 @@ def get_attachment_service() -> AttachmentService:
         rendition_claims=get_rendition_dispatch_claims(),
         # REQ-056 §7.4 (#2142) — the storage quota is the tenant's plan's (``null`` = STORAGE_TENANT_QUOTA_MB).
         entitlements=get_entitlement_service(),
+        # #2630 — a delete that fails after the record is gone is owed and retried by the reconciliation run.
+        release_retries=get_storage_release_retry_repo(),
     )
+
+
+def get_storage_release_retry_repo() -> IStorageReleaseRetryRepository:
+    from app.data_access.arango.storage_release_retry_repository import ArangoStorageReleaseRetryRepository
+
+    return ArangoStorageReleaseRetryRepository(get_db())
 
 
 def get_rendition_dispatch_claims() -> IRenditionDispatchClaims:

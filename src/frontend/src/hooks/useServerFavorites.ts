@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import * as favoritesApi from '@/api/endpoints/favorites';
 import { mayAdoptLocalData } from '@/lib/localDataOwner';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useSignedInUserKey } from '@/hooks/useSignedInUserKey';
 
 /**
@@ -25,15 +26,29 @@ import { useSignedInUserKey } from '@/hooks/useSignedInUserKey';
  */
 export function useServerFavorites(entityType: string, legacyStorageKey?: string) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const loaded = useRef(false);
+  // The set the next toggle decides on. A toggle reads it instead of deciding
+  // inside a state updater: React may run an updater twice (StrictMode,
+  // concurrent rendering), and a request fired from one would be sent twice (#3022).
+  const favoritesRef = useRef(favorites);
+  // Whose favourites are loaded (`<entityType>|<userKey>`): a sign-out or a switch
+  // to another account in the same SPA session loads again instead of keeping the
+  // previous user's set (#3022).
+  const loadedFor = useRef<string | null>(null);
   const userKey = useSignedInUserKey();
 
+  const replaceFavorites = useCallback((next: Set<string>) => {
+    favoritesRef.current = next;
+    setFavorites(next);
+  }, []);
+
   useEffect(() => {
-    if (loaded.current) return;
     // The carry-over needs to know whose profile it would write into (#2117): with
     // a legacy key, the first load waits for the signed-in account.
     if (legacyStorageKey && !userKey) return;
-    loaded.current = true;
+    const owner = `${entityType}|${userKey ?? ''}`;
+    if (loadedFor.current === owner) return;
+    if (loadedFor.current !== null) replaceFavorites(new Set());
+    loadedFor.current = owner;
 
     favoritesApi
       .listFavorites(entityType)
@@ -42,34 +57,35 @@ export function useServerFavorites(entityType: string, legacyStorageKey?: string
         const carried = legacyStorageKey
           ? await carryOverLegacyFavorites(legacyStorageKey, server, userKey)
           : new Set<string>();
-        setFavorites(new Set([...server, ...carried]));
+        // A response for an account that is no longer signed in is dropped.
+        if (loadedFor.current !== owner) return;
+        replaceFavorites(new Set([...server, ...carried]));
       })
-      .catch(() => {
-        // Silently fall back to an empty set (e.g. not authenticated).
+      .catch((err: unknown) => {
+        // Favourites only mark rows in a list that loaded on its own; without them
+        // the list is complete, merely unstarred, and the next mount reads again.
+        // Reported so a failing favourites endpoint does not go unnoticed.
+        captureHandledError(err, { source: 'useServerFavorites', entityType });
       });
-  }, [entityType, legacyStorageKey, userKey]);
+  }, [entityType, legacyStorageKey, userKey, replaceFavorites]);
 
-  const toggleFavorite = useCallback((key: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-        favoritesApi.removeFavorite(key).catch(() => {
-          setFavorites((p) => new Set([...p, key]));
-        });
-      } else {
-        next.add(key);
-        favoritesApi.addFavorite(key, 'manual').catch(() => {
-          setFavorites((p) => {
-            const reverted = new Set(p);
-            reverted.delete(key);
-            return reverted;
-          });
-        });
-      }
-      return next;
-    });
-  }, []);
+  const toggleFavorite = useCallback(
+    (key: string) => {
+      const removing = favoritesRef.current.has(key);
+      const withKey = (present: boolean) => {
+        const next = new Set(favoritesRef.current);
+        if (present) next.add(key);
+        else next.delete(key);
+        return next;
+      };
+      replaceFavorites(withKey(!removing));
+      const request = removing
+        ? favoritesApi.removeFavorite(key)
+        : favoritesApi.addFavorite(key, 'manual');
+      request.catch(() => replaceFavorites(withKey(removing)));
+    },
+    [replaceFavorites],
+  );
 
   const isFavorite = useCallback((key: string) => favorites.has(key), [favorites]);
 

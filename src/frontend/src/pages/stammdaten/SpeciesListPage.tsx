@@ -44,6 +44,7 @@ import { LOCAL_EMBEDDING_ADAPTER_KEY } from '@/api/endpoints/identification';
 import SpeciesCreateDialog from './SpeciesCreateDialog';
 import SpeciesThumbnail from './SpeciesThumbnail';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 type ToggleFilter =
   | 'favoritesOnly'
@@ -142,7 +143,7 @@ function matchesToggleFilter(
 }
 
 export default function SpeciesListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { items, loading } = useAppSelector((s) => s.species);
@@ -342,7 +343,7 @@ export default function SpeciesListPage() {
     {
       id: 'commonNames',
       label: t('pages.species.commonNames'),
-      render: (r) => r.common_names.join(', ') || '—',
+      render: (r) => orderCommonNamesForLanguage(r, i18n.language).join(', ') || '—',
     },
     {
       id: 'family',
@@ -422,8 +423,8 @@ export default function SpeciesListPage() {
           mb: 2,
         }}
       >
-        <Box sx={{ '& [data-testid="page-title"]': { mb: 0 } }}>
-          <PageTitle title={t('pages.species.title')} />
+        <Box>
+          <PageTitle title={t('pages.species.title')} sx={{ mb: 0 }} />
         </Box>
 
         <Tooltip title={t('pages.species.filters')}>
@@ -582,7 +583,7 @@ export default function SpeciesListPage() {
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/stammdaten/species/${r.key}`)}
+        getRowHref={(r) => `/stammdaten/species/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={canCreate ? t('pages.species.create') : undefined}
         onEmptyAction={canCreate ? () => setCreateOpen(true) : undefined}
@@ -600,7 +601,7 @@ export default function SpeciesListPage() {
           <MobileCard
             title={r.scientific_name}
             titleId="scientificName"
-            subtitle={r.common_names.join(', ') || undefined}
+            subtitle={orderCommonNamesForLanguage(r, i18n.language).join(', ') || undefined}
             subtitleId="commonNames"
             trailing={
               <SpeciesThumbnail

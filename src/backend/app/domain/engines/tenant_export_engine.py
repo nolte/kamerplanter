@@ -58,9 +58,11 @@ from typing import IO, Any, Literal
 from pydantic import BaseModel, Field
 from pydantic import ValidationError as PydanticValidationError
 
+from app.common.csv_export import csv_number, csv_text
 from app.domain.engines.erasure_engine import ErasureEngine
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
 from app.domain.models.observation import ArchivedReading
+from app.domain.models.privacy import ANONYMIZED_MARKER, is_tombstone
 from app.domain.models.tenant_erasure import TenantErasureEntry
 from app.domain.models.tenant_export import TenantArchive, TenantArchiveMember
 
@@ -99,9 +101,6 @@ READINGS_COLUMNS: tuple[str, ...] = (
     "sample_count",
 )
 
-#: The first characters a spreadsheet reads as the start of a formula (CSV injection).
-_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
-
 #: The storage category the archives are kept under (``t/<tenant>/tenant_export/<export_key>.zip``).
 ARCHIVE_STORAGE_CATEGORY = "tenant_export"
 
@@ -114,11 +113,9 @@ _COLLECTION_NAME = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 #: An object path inside ``objects/`` — the tail of a ``t/<tenant>/…`` key, never climbing out.
 _OBJECT_PATH = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./-]{0,511}$")
 
-#: An account value that is no account: the pseudonym, the account-erasure tombstone, or nothing.
-_TOMBSTONE = re.compile(r"^anon_[0-9a-f]{16}$")
-
-#: The pseudonym an unmapped member's account references become (REQ-056 §8.4 step 4).
-ANONYMIZED_ACCOUNT = "_anonymized"
+#: The pseudonym an unmapped member's account references become (REQ-056 §8.4 step 4): the erasure
+#: marker, defined once in ``app.domain.models.privacy`` (PRIV-201).
+ANONYMIZED_ACCOUNT = ANONYMIZED_MARKER
 
 type ReferenceKind = Literal[
     "internal",  # a row of the archive (mapped), else a global catalogue row when a target is a catalogue
@@ -143,10 +140,18 @@ class TenantReference(BaseModel):
     discriminator: str | None = None
     by_value: dict[str, str] = Field(default_factory=dict)
     reason: str | None = None
+    #: ``internal`` into a hybrid catalogue only: the key records where a copy came from (#2528). The import still
+    #: resolves it against the archive and the target's catalogue, but a key found in neither is cleared and counted
+    #: (``nulled_references``) instead of refusing the archive (REQ-056 §8.4 step 1).
+    provenance: bool = False
 
 
 def _internal(*targets: str) -> TenantReference:
     return TenantReference(kind="internal", targets=targets)
+
+
+def _provenance(*targets: str) -> TenantReference:
+    return TenantReference(kind="internal", targets=targets, provenance=True)
 
 
 def _global(*targets: str) -> TenantReference:
@@ -208,9 +213,14 @@ class TenantExportEngine:
         "ai_tip_cache": "a cache, regenerated on demand",
         "import_jobs": "short-lived CSV upload jobs of this installation",
         "mcp_idempotency_record": "short-lived MCP replay protection of this installation",
+        # REQ-053 WP 9.3: random ids of deleted buffered writes; replay protection of this installation, aged out by
+        # a TTL index - meaningless in another installation, and no content of the tenant.
+        "client_event_tombstones": "replay protection of buffered writes in this installation (TTL), no tenant content",
+        "storage_release_retries": "owed deletes of this installation's object store (#2630), no tenant content",
         "ai_audit_log": _AUDIT,
         "mcp_audit_log": _AUDIT,
         "security_audit_log": _AUDIT,
+        "garden_plan_audit": _AUDIT,  # REQ-053 SR-011: the plan change log names this installation's accounts
         "tenant_erasure_records": "the proof of a tenant deletion in this installation",
         "tenant_export_requests": "export requests are not exported (§8.3)",
     }
@@ -286,6 +296,7 @@ class TenantExportEngine:
             "assessed_by_quality",
             "belongs_to_family",
             "belongs_to_tenant",
+            "care_event_at",  # REQ-053 M1 (#2323): care_events → locations
             "care_event_for",
             "cloned_from",
             "compatible_fish_plant",
@@ -328,8 +339,10 @@ class TenantExportEngine:
             "has_fill_event",
             "has_fish_stock",
             "has_forecast",
+            "has_garden_object",  # REQ-053 M1 (#2323): sites → garden_objects
             "has_harvest_indicator",
             "has_irrigation_demand",
+            "has_irrigation_zone",  # REQ-053 M1 (#2323): sites → irrigation_zones
             "has_lifecycle",
             "has_maintenance",
             "has_overwintering_profile",
@@ -377,6 +390,7 @@ class TenantExportEngine:
             "run_at_location",
             "run_contains",
             "run_follows_plan",
+            "run_planned_at",  # REQ-053 M1 (#2323): planting_runs → slots
             "run_uses_substrate",
             "stock_of_species",
             "succession_at",
@@ -388,6 +402,7 @@ class TenantExportEngine:
             "task_cloned_from",
             "task_has_audit",
             "task_has_comment",
+            "task_logged_as",  # REQ-053 M1 (#2323): tasks → care_events
             "task_recurs_from",
             "task_uses_activity",
             "to_run",
@@ -403,6 +418,9 @@ class TenantExportEngine:
             "wf_executing",
             "wf_generated",
             "wf_has_phase",
+            "zone_actuated_by",  # REQ-053 M1 (#2323): irrigation_zones → actuators
+            "zone_covers",  # REQ-053 M1 (#2323): irrigation_zones → locations
+            "zone_supplied_by",  # REQ-053 M1 (#2323): irrigation_zones → garden_objects
         }
     )
 
@@ -420,6 +438,9 @@ class TenantExportEngine:
         "cover_photo_ref": "the attachment id of the cover photo (rewritten on import)",
         "external_ref": "a machine producer's idempotency key of a task (#1082), not a credential",
         "source_run_ref": "the id of the producer run (pipeline) that emitted a task, shown for traceability",
+        "ppfd_ref": "a reference PPFD value of a lamp in µmol/m²/s (REQ-053 §9.8), a number, not an id",
+        "product_ref": "{kind, key} of a product document of a care event (REQ-053 §20.10), not a credential",
+        "source_ref": "{collection, key} of the event a care event mirrors (REQ-053 §20.10), not a credential",
     }
 
     #: Inventory collections whose global rows carry an empty ``tenant_key`` beside tenant-owned rows:
@@ -436,6 +457,7 @@ class TenantExportEngine:
             "workflow_templates",
             "workflow_phases",
             "task_templates",
+            "bed_templates",  # REQ-053 §20.12: system templates (no tenant_key) beside the tenant's own
         }
     )
 
@@ -451,6 +473,7 @@ class TenantExportEngine:
         "parent_location_key": _internal("locations"),
         "sensor_location_key": _internal("locations"),
         "winter_quarter_key": _internal("locations"),
+        "irrigation_zone_key": _internal("irrigation_zones"),  # REQ-053 §20.3 (WP 1.7, #2326)
         "slot_key": _internal("slots"),
         "slot_keys": _internal("slots"),
         "tank_key": _internal("tanks"),
@@ -530,13 +553,44 @@ class TenantExportEngine:
 
     #: Per-collection overrides and additions (paths are dot-separated; lists are walked transparently).
     COLLECTION_REFERENCES: dict[str, dict[str, TenantReference]] = {
-        "nutrient_plans": {"cloned_from_key": _internal("nutrient_plans")},
+        # spec/privacy 08 §3.4 / 09 §5 (v0111): the keyed performer/author fields are account keys. Declared by
+        # hand while ErasureEngine.EXCLUDED_USER_REFERENCES (not a rule) holds them: account_fields() reads the
+        # rules only. A null — every stored value until PRIV-E13 — passes the import unchanged.
+        "nutrient_plans": {"cloned_from_key": _internal("nutrient_plans"), "author_user_key": _ACCOUNT_REF},
         "nutrient_plan_phase_entries": {
             "plan_key": _internal("nutrient_plans"),
             "delivery_channels.fertilizer_dosages.fertilizer_key": _internal("fertilizers"),
         },
         "substrates": {"mix_components.substrate_key": _internal("substrates")},
+        # REQ-053 §15.1 (WP 1.7, #2326): the bed's substrate (GP-FR-121) — a tenant row or a global one.
+        # WP 7.9 (#2475): `template_key` of a bed is a bed template (a system one stays by its fixed key); elsewhere the
+        # name means a task template (FIELD_REFERENCES). Both only record where the bed's values came from (#2528):
+        # provenance — kept when the archive or the target's catalogue has the row, cleared and counted otherwise.
+        "locations": {
+            "soil_profile.substrate_key": _provenance("substrates"),
+            "template_key": _provenance("bed_templates"),
+        },
         "task_templates": {"source_template_key": _internal("task_templates")},
+        # REQ-053 §20.10 (WP 1.9): the supersede chain of the care log points within the collection.
+        "care_events": {
+            "supersedes_key": _internal("care_events"),
+            "superseded_by_key": _internal("care_events"),
+            # WP 3.4 (#2394): a backfilled year names the family (global catalogue) and, optionally, the species.
+            "rotation_entry.family_key": _global("botanical_families"),
+            "rotation_entry.species_key": _internal("species"),
+        },
+        # REQ-053 §20.11 (WP 7.1, #2467): a zone's water source is a garden object of the same site.
+        "irrigation_zones": {"water_source_key": _internal("garden_objects")},
+        # REQ-053 GP-FR-033 (WP 7.14): the site plan's underlay names one of the tenant's own attachments, which
+        # the import maps to the restored attachment.
+        "sites": {
+            "plan.underlay.attachment_key": _ATTACHMENT_REF,
+            # No stored site has a top-level ``underlay``: declared only because the export-coverage guard binds
+            # ``SitePlan`` to ``sites`` and reads its key paths unprefixed (test_tenant_export_covers_the_inventory).
+            "underlay.attachment_key": _ATTACHMENT_REF,
+        },
+        # REQ-053 §20.12 (WP 7.8, #2474): a template names the task templates it would bring (stored only).
+        "bed_templates": {"recurring_task_templates": _internal("task_templates")},
         "overwintering_profiles": {"source_template_key": _global("overwintering_profile_templates")},
         "fish_stocks": {"species_key": _global("fish_species")},
         "phase_histories": {"phase_key": _global("growth_phases", "phase_definitions")},
@@ -547,10 +601,21 @@ class TenantExportEngine:
         "mold_alerts": {"batch_key": _internal("post_harvest_batches")},
         "burping_events": {"batch_key": _internal("post_harvest_batches")},
         "propagation_events": {"batch_key": _internal("propagation_batches")},
-        "tank_fill_events": {"fertilizers_used.product_key": _internal("fertilizers")},
-        "watering_events": {"fertilizers_used.product_key": _internal("fertilizers")},
+        "tank_fill_events": {
+            "fertilizers_used.product_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "watering_events": {
+            "fertilizers_used.product_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "maintenance_logs": {"performed_by_user_key": _ACCOUNT_REF},
         "feeding_events": {"fertilizers_used.fertilizer_key": _internal("fertilizers")},
-        "watering_logs": {"fertilizers_used.fertilizer_key": _internal("fertilizers")},
+        "watering_logs": {
+            "fertilizers_used.fertilizer_key": _internal("fertilizers"),
+            "performed_by_user_key": _ACCOUNT_REF,
+        },
+        "workflow_templates": {"created_by_user_key": _ACCOUNT_REF},
         "plant_diary_entries": {"environment.sensor_key": _internal("sensors")},
         "inspections": {"findings.disease_key": _global("diseases"), "findings.pest_key": _global("pests")},
         "pest_detections": {
@@ -627,6 +692,7 @@ class TenantExportEngine:
             for path, ref in declared.items():
                 reference: TenantReference = ref
                 by_value: dict[str, str] = reference.by_value
+                cls._require_provenance_contract(f"{collection}.{path}", reference)
                 for target in reference.targets:
                     if reference.kind == "global" and target not in catalogues:
                         raise ValueError(f"{collection}.{path}: '{target}' is not a global catalogue")
@@ -635,6 +701,18 @@ class TenantExportEngine:
                 for target in by_value.values():
                     if target not in exported:
                         raise ValueError(f"{collection}.{path}: '{target}' is not carried by the archive")
+
+    @classmethod
+    def _require_provenance_contract(cls, where: str, reference: TenantReference) -> None:
+        """A provenance reference (cleared, never refusing - REQ-056 §8.4 step 1, #2528) is an ``internal`` one into
+        hybrid catalogues only: elsewhere a key found nowhere is a broken archive, not a copy's lost origin."""
+        if not reference.provenance:
+            return
+        if reference.kind != "internal":
+            raise ValueError(f"{where}: provenance needs kind 'internal', not '{reference.kind}'")
+        outside = sorted(set(reference.targets) - cls.HYBRID_CATALOGUES)
+        if outside or not reference.targets:
+            raise ValueError(f"{where}: provenance into {outside or 'no target'} - only hybrid catalogues qualify")
 
     # ── which fields are references ───────────────────────────────────
 
@@ -751,16 +829,6 @@ def _without(node: Any, segments: list[str]) -> Any:
     return copy
 
 
-def _csv_text(value: str | None) -> str:
-    if not value:
-        return ""
-    return f"'{value}" if value.startswith(_FORMULA_PREFIXES) else value
-
-
-def _csv_number(value: float | None) -> str:
-    return "" if value is None else repr(value)
-
-
 def readings_csv_rows(readings: Iterable[ArchivedReading]) -> list[list[str]]:
     """The cells of ``timeseries/readings.csv`` for *readings*, in :data:`READINGS_COLUMNS` order."""
     rows: list[list[str]] = []
@@ -774,17 +842,17 @@ def readings_csv_rows(readings: Iterable[ArchivedReading]) -> list[list[str]]:
             [
                 reading.series,
                 reading.time.isoformat(),
-                _csv_text(reading.sensor_key),
-                _csv_text(reading.sensor_type),
-                _csv_number(reading.value),
-                _csv_text(reading.unit),
-                _csv_text(reading.source),
-                _csv_number(reading.quality_score),
-                _csv_number(reading.raw_value),
-                _csv_text(metadata),
-                _csv_number(reading.avg_value),
-                _csv_number(reading.min_value),
-                _csv_number(reading.max_value),
+                csv_text(reading.sensor_key),
+                csv_text(reading.sensor_type),
+                csv_number(reading.value),
+                csv_text(reading.unit),
+                csv_text(reading.source),
+                csv_number(reading.quality_score),
+                csv_number(reading.raw_value),
+                csv_text(metadata),
+                csv_number(reading.avg_value),
+                csv_number(reading.min_value),
+                csv_number(reading.max_value),
                 "" if reading.sample_count is None else str(reading.sample_count),
             ]
         )
@@ -1252,4 +1320,4 @@ def _require_name(collection: str, part: str) -> None:
 
 def is_tombstone_or_pseudonym(value: str) -> bool:
     """Whether an account value is no live account key (the pseudonym or an erasure tombstone)."""
-    return value == ANONYMIZED_ACCOUNT or bool(_TOMBSTONE.match(value))
+    return value == ANONYMIZED_ACCOUNT or is_tombstone(value)

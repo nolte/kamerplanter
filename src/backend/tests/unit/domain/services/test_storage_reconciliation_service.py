@@ -223,3 +223,109 @@ async def test_a_resume_token_the_backend_rejects_is_dropped_so_the_next_run_sta
 )
 def test_a_key_the_local_adapter_would_resolve_elsewhere_is_never_judged(key):
     assert is_reconcilable(key) is False
+
+
+# ── #2630: owed releases ──────────────────────────────────────────────
+
+
+class _Owed:
+    def __init__(self, rows):
+        self.rows = {row.key: row for row in rows}
+        self.resolved: list[str] = []
+        self.failed: list[str] = []
+
+    def due(self, limit):
+        return list(self.rows.values())[:limit]
+
+    def settle_release(self, key):
+        self.resolved.append(key)
+        self.rows.pop(key, None)
+
+    def release_failed_again(self, key):
+        self.failed.append(key)
+
+
+def _owed(key=KEY, *, created_at=None):
+    from app.domain.interfaces.storage_release_retry_repository import StorageReleaseRetry
+
+    return StorageReleaseRetry(
+        key="r1",
+        tenant_key=SECRET_TENANT,
+        object_keys=(key,),
+        attempts=0,
+        created_at=(created_at or NOW - timedelta(hours=1)).isoformat(),
+    )
+
+
+def _with_owed(store, repo, owed, *, delete=False):
+    return StorageReconciliationService(
+        storage=store,
+        attachment_repo=repo,
+        min_age=timedelta(hours=24),
+        delete_enabled=delete,
+        max_objects_per_run=1000,
+        clock=lambda: NOW,
+        release_retries=owed,
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_owed_release_is_deleted_even_in_report_only_mode():
+    store, owed = _Store([KEY], age_hours=72), _Owed([_owed()])
+
+    report = await _with_owed(store, _Repo(), owed, delete=False).run()
+
+    assert store.deleted == [KEY]
+    assert owed.resolved == ["r1"] and report.released == 1
+    # the general sweep stays report-only: nothing else is deleted
+    assert report.deleted == 0
+
+
+@pytest.mark.asyncio
+async def test_an_owed_object_a_record_holds_again_is_kept_and_forgotten():
+    store, owed = _Store([KEY], age_hours=72), _Owed([_owed()])
+
+    report = await _with_owed(store, _Repo(held=holder_candidates(KEY)), owed).run()
+
+    assert store.deleted == []
+    assert owed.resolved == ["r1"] and report.release_held_again == 1
+
+
+@pytest.mark.asyncio
+async def test_an_object_rewritten_after_the_release_was_owed_is_a_new_upload_and_stays():
+    # owed two days ago, the object was written 1 h ago: an upload of the same bytes is in flight
+    store = _Store([KEY], age_hours=1)
+    owed = _Owed([_owed(created_at=NOW - timedelta(days=2))])
+
+    report = await _with_owed(store, _Repo(), owed).run()
+
+    assert store.deleted == []
+    assert report.release_held_again == 1
+
+
+@pytest.mark.asyncio
+async def test_a_release_that_fails_again_is_kept_for_the_next_run():
+    store, owed = _Store([KEY], age_hours=72, fail_delete=True), _Owed([_owed()])
+
+    report = await _with_owed(store, _Repo(), owed).run()
+
+    assert owed.failed == ["r1"] and owed.resolved == [] and report.release_failed == 1
+
+
+@pytest.mark.asyncio
+async def test_an_owed_object_already_gone_is_resolved():
+    store, owed = _Store([]), _Owed([_owed()])
+
+    report = await _with_owed(store, _Repo(), owed).run()
+
+    assert owed.resolved == ["r1"] and report.released == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unanswered_catalogue_question_aborts_before_an_owed_delete():
+    store, owed = _Store([KEY], age_hours=72), _Owed([_owed()])
+
+    with pytest.raises(RuntimeError):
+        await _with_owed(store, _Repo(fail=True), owed).run()
+
+    assert store.deleted == [] and owed.resolved == []

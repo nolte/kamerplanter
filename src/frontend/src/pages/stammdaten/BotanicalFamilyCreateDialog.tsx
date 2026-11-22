@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import i18next from 'i18next';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -43,13 +45,14 @@ const schema = z.object({
     .string()
     .min(1)
     .refine((v) => v.endsWith('aceae'), {
-      message: "Muss auf '-aceae' enden",
+      // Resolved at validation time so the message follows the active language.
+      error: () => i18next.t('validation.botanicalFamilySuffix'),
     }),
   common_name_de: z.string(),
   common_name_en: z.string(),
   order: z.string(),
   description: z.string(),
-  typical_nutrient_demand: z.enum(['light', 'medium', 'heavy']),
+  typical_nutrient_demand: z.enum(['light_feeder', 'medium_feeder', 'heavy_feeder']),
   nitrogen_fixing: z.boolean(),
   typical_root_depth: z.enum(['shallow', 'medium', 'deep']),
   soil_ph_min: z.union([z.number().min(3).max(9), z.literal('')]).nullable(),
@@ -78,7 +81,7 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -86,7 +89,7 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
       common_name_en: '',
       order: '',
       description: '',
-      typical_nutrient_demand: 'medium',
+      typical_nutrient_demand: 'medium_feeder',
       nitrogen_fixing: false,
       typical_root_depth: 'medium',
       soil_ph_min: '',
@@ -99,6 +102,7 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
       rotation_category: '',
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (!open) {
@@ -123,16 +127,16 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   const nutrientDemandOptions = [
-    { value: 'light', label: t('enums.nutrientDemand.light') },
-    { value: 'medium', label: t('enums.nutrientDemand.medium') },
-    { value: 'heavy', label: t('enums.nutrientDemand.heavy') },
+    { value: 'light_feeder', label: t('enums.nutrientDemand.light_feeder') },
+    { value: 'medium_feeder', label: t('enums.nutrientDemand.medium_feeder') },
+    { value: 'heavy_feeder', label: t('enums.nutrientDemand.heavy_feeder') },
   ];
 
   const rootDepthOptions = [
@@ -160,7 +164,8 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
   ];
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -321,6 +326,6 @@ export default function BotanicalFamilyCreateDialog({ open, onClose, onCreated }
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

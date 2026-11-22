@@ -215,12 +215,22 @@ export default function CareConfirmDialog({
               <Typography variant="subtitle2" color="text.secondary">
                 {t('pages.pflege.feedingDetails')}
               </Typography>
-              <IconButton size="small">
+              <IconButton
+                size="small"
+                aria-label={
+                  feedingExpanded
+                    ? t('pages.pflege.collapseFeedingDetails')
+                    : t('pages.pflege.expandFeedingDetails')
+                }
+                aria-expanded={feedingExpanded}
+                aria-controls="care-confirm-feeding-details"
+                data-testid="care-confirm-feeding-toggle"
+              >
                 {feedingExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
             </Box>
 
-            <Collapse in={feedingExpanded}>
+            <Collapse in={feedingExpanded} id="care-confirm-feeding-details">
               {hasPresets && phaseName && (
                 <Alert severity="info" sx={{ mb: 1.5 }}>
                   {t('pages.pflege.presetFromPlan', { phase: t(`enums.phaseName.${phaseName}`) })}

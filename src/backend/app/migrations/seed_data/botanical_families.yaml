@@ -4,7 +4,7 @@ families:
     common_name_de: "Nachtschattengewächse"
     common_name_en: Nightshade family
     order: Solanales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -14,12 +14,16 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Große Familie mit vielen Nutzpflanzen wie Tomate, Paprika, Kartoffel und Aubergine."
     rotation_category: fruit
+    # REQ-053 K-004/E-10 (WP 0.5b batch 2): SBB 2022 "mindestens vier Jahren zwischen
+    # Kartoffelkulturen oder anderen Nachtschattengewächsen", AGES (PCN) "höchstens alle vier
+    # Jahre", ÖLN 2025 max. 3/7 a; thresholds-req-053.md §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Cannabaceae
     common_name_de: "Hanfgewächse"
     common_name_en: Hemp family
     order: Rosales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: deep
     typical_growth_forms: [herb, vine]
@@ -29,12 +33,15 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Enthält Cannabis und Hopfen. Meist windbestäubt, hoher Nährstoffbedarf."
     rotation_category: fiber
+    # MISSING: rotation_pause_years — no family-level source (Cannabis 3 is a species
+    # override; no hop source read). Stays null per E-10, operator decision #2371 (2026-10-18).
+    rotation_pause_years: null
 
   - name: Lamiaceae
     common_name_de: "Lippenblütler"
     common_name_en: Mint family
     order: Lamiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -44,12 +51,16 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Aromatische Kräuter wie Basilikum, Minze, Thymian und Rosmarin. Ätherische Öle."
     rotation_category: herb
+    # REQ-053 K-004/E-10, operator decision #2371 (2026-10-18): LfL Bayern, Kulturanleitungen
+    # Zitronenmelisse (p_20116.pdf) and Pfefferminze: "vier- bis fünfjährige Anbaupause für
+    # alle Lippenblütler" -> lower bound 4 of the sourced range 4-5.
+    rotation_pause_years: 4
 
   - name: Verbenaceae
     common_name_de: "Eisenkrautgewächse"
     common_name_en: Verbena family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -64,7 +75,7 @@ families:
     common_name_de: "Doldenblütler"
     common_name_en: Carrot family
     order: Apiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -74,12 +85,15 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Doldenblütler mit Karotten, Fenchel, Dill, Petersilie und Sellerie."
     rotation_category: root
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB 2022 4–5 a, ÖLN 2025 max. 3/7 a,
+    # LKSH Gemüsefliegen (Möhrenfliege); thresholds-req-053.md §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Brassicaceae
     common_name_de: "Kreuzblütler"
     common_name_en: Cabbage family
     order: Brassicales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -89,12 +103,15 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Kreuzblütler mit Kohl, Brokkoli, Rettich und Rucola. Biofumigations-Potential."
     rotation_category: brassica
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): LKSH "Fruchtfolge im Garten" (2020) "nur alle
+    # 4 Jahre", SBB 2022 4–5 a, ÖLN 2025 max. 3/7 a (Kohlhernie); thresholds §C (confirmed 4).
+    rotation_pause_years: 4
 
   - name: Fabaceae
     common_name_de: "Hülsenfrüchtler"
     common_name_en: Legume family
     order: Fabales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     nitrogen_fixing: true
     frost_tolerance: moderate
     typical_root_depth: deep
@@ -105,12 +122,16 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.5}
     description: "Stickstofffixierende Hülsenfrüchtler. Wichtige Gründünger und Vorfrüchte."
     rotation_category: legume
+    # REQ-053 K-004/E-10, operator decision #2371 (2026-10-18): family value 3 = lower bound of
+    # the species range 3-5 (SBB 2022 Tab. 1 Busch-/Stangenbohne 3-4; Pisum 5, Vicia 4 and
+    # Trifolium 4 stay as species overrides).
+    rotation_pause_years: 3
 
   - name: Cucurbitaceae
     common_name_de: "Kürbisgewächse"
     common_name_en: Gourd family
     order: Cucurbitales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: sensitive
     typical_root_depth: medium
     typical_growth_forms: [vine]
@@ -120,12 +141,15 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Kürbisgewächse wie Gurke, Zucchini, Kürbis und Melone. Insektenbestäubt."
     rotation_category: cucurbit
+    # REQ-053 K-004/E-10 (WP 0.5b batch 2): SBB 2022 4–5 a, ÖLN 2025 max. 2/7 a;
+    # thresholds-req-053.md §C (confirmed 4, Spanne 3–5).
+    rotation_pause_years: 4
 
   - name: Asteraceae
     common_name_de: "Korbblütler"
     common_name_en: Daisy family
     order: Asterales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -135,12 +159,15 @@ families:
     soil_ph_preference: {min_ph: 6.0, max_ph: 7.0}
     description: "Größte Pflanzenfamilie. Salat, Sonnenblume, Tagetes und Kamille."
     rotation_category: composite
+    # REQ-053 K-004/E-10 (WP 0.5b batch 1): SBB 2022 3 a, ÖLN 2025 max. 3/7 a;
+    # thresholds-req-053.md §C (confirmed 3).
+    rotation_pause_years: 3
 
   - name: Poaceae
     common_name_de: "Süßgräser"
     common_name_en: Grass family
     order: Poales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -150,12 +177,16 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Gräser und Getreide wie Mais, Weizen und Reis. Windbestäubt, tiefwurzelnd."
     rotation_category: grain
+    # MISSING: rotation_pause_years — no primary source (LKSH 2020 names no pause for
+    # grasses, SBB 2022 has no entry; only tertiary sources say 3). Stays null per E-10;
+    # thresholds-req-053.md §C "unverified" → fallback rotation_window_years.
+    rotation_pause_years: null
 
   - name: Araceae
     common_name_de: "Aronstabgewächse"
     common_name_en: Arum family
     order: Alismatales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, vine]
@@ -170,7 +201,7 @@ families:
     common_name_de: "Spargelgewächse"
     common_name_en: Asparagus family
     order: Asparagales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -189,7 +220,7 @@ families:
     common_name_de: "Bromeliengewächse"
     common_name_en: Bromeliad family
     order: Poales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -204,7 +235,7 @@ families:
     common_name_de: "Rosengewächse"
     common_name_en: Rose family
     order: Rosales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb, shrub]
@@ -214,12 +245,16 @@ families:
     soil_ph_preference: {min_ph: 5.5, max_ph: 7.0}
     description: "Große Familie mit Erdbeere, Rose, Apfel, Kirsche, Himbeere. Viele Obst- und Zierpflanzen."
     rotation_category: fruit
+    # MISSING: rotation_pause_years — no family-level source (Fragaria 4 is a species
+    # override; garden-advice sites only, no extension service). Stays null per E-10,
+    # operator decision #2371 (2026-10-18).
+    rotation_pause_years: null
 
   - name: Violaceae
     common_name_de: "Veilchengewächse"
     common_name_en: Violet family
     order: Malpighiales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -234,7 +269,7 @@ families:
     common_name_de: "Storchschnabelgewächse"
     common_name_en: Geranium family
     order: Geraniales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, shrub]
@@ -253,7 +288,7 @@ families:
     common_name_de: "Brennnesselgewächse"
     common_name_en: Nettle family
     order: Rosales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -268,7 +303,7 @@ families:
     common_name_de: "Seerosengewaechse"
     common_name_en: Water Lily family
     order: Nymphaeales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]

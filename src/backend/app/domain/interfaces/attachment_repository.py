@@ -1,6 +1,7 @@
 """NFR-013 §2.2 — repository interface for the ``attachments`` collection."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from datetime import date, datetime
 from typing import Final
 
@@ -32,6 +33,29 @@ class IAttachmentRepository(ABC):
 
     @abstractmethod
     def get(self, key: str, tenant_key: str) -> Attachment | None: ...
+
+    def get_many(self, keys: Sequence[str], *, tenant_key: str) -> dict[str, Attachment]:
+        """The tenant's records among *keys*, by key; an absent or another tenant's key is missing from the map.
+
+        #2715 item 7: a gallery read names up to 50 photos, so a store answers them in one round trip. This default
+        asks :meth:`get` per key (a fake, a tool); the ArangoDB repository overrides it with one query.
+        """
+        found: dict[str, Attachment] = {}
+        for key in dict.fromkeys(keys):
+            attachment = self.get(key, tenant_key)
+            if attachment is not None:
+                found[key] = attachment
+        return found
+
+    def releasable_after_location_delete(
+        self, attachment_ids: Sequence[str], *, tenant_key: str, location_keys: Sequence[str]
+    ) -> list[str]:
+        """The tenant's ``location`` records among *attachment_ids* that nothing names once *location_keys* are gone.
+
+        #2715 review F: what a bed delete's discard would remove, asked before the delete (the import dry run). The
+        ArangoDB repository answers it with the reference scan; a store without one does not guess.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def delete(self, key: str, tenant_key: str) -> bool: ...
@@ -132,6 +156,18 @@ class IAttachmentRepository(ABC):
         """
 
     @abstractmethod
+    def find_by_client_event_id(self, *, tenant_key: str, client_event_id: str) -> Attachment | None:
+        """The tenant's record a buffered upload with ``client_event_id`` created (REQ-053 WP 9.3), else ``None``."""
+
+    @abstractmethod
+    def stamp_client_event(self, key: str, *, tenant_key: str, client_event_id: str, digest: str) -> bool:
+        """Stamp a buffered upload's id on an existing record without one; ``True`` when this call did (WP 9.3)."""
+
+    @abstractmethod
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        """The ids among ``client_event_ids`` whose record was deleted since (WP 9.3 tombstones)."""
+
+    @abstractmethod
     def storage_keys_held_elsewhere(
         self, *, tenant_key: str, storage_keys: list[str], excluding: list[str]
     ) -> set[str]:
@@ -189,6 +225,35 @@ class IAttachmentRepository(ABC):
         Implementations MUST check every collection that can carry ``photo_refs``,
         not only ``tasks`` — the result feeds a deletion, and a reference missed is
         a photo destroyed.
+        """
+
+    @abstractmethod
+    def find_orphaned_photos(
+        self, category: AttachmentCategory, *, older_than: datetime, limit: int = 500
+    ) -> list[Attachment]:
+        """Attachments of *category* older than *older_than* that nothing references.
+
+        The generalisation of :meth:`find_orphaned_task_photos` (same contract, every carrier checked), used by the
+        ``location`` sweep for bed photos that were uploaded but never linked (REQ-053 GP-FR-051).
+        """
+
+    @abstractmethod
+    def remove_if_unreferenced(self, attachment_id: str, tenant_key: str) -> Attachment | None:
+        """Remove the tenant's record *attachment_id* unless a carrier still names it; the removed record, or ``None``.
+
+        The reference check and the remove MUST be one transaction (#2545): a carrier written between a separate
+        scan and delete would be left pointing at nothing. The stored object is not touched here.
+        """
+
+    @abstractmethod
+    def remove_unreferenced(
+        self, attachment_ids: Sequence[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> list[Attachment]:
+        """Remove every tenant's record of *category* among *attachment_ids* that no carrier names; the removed ones.
+
+        :meth:`remove_if_unreferenced` for a batch (#2715 item 6): ONE reference scan and the removes in ONE
+        transaction, so a carrier written meanwhile conflicts the whole batch instead of being left pointing at
+        nothing. The stored objects are not touched here.
         """
 
     @abstractmethod

@@ -153,9 +153,12 @@ class TestLoadMigrations:
     def test_only_the_baseline_is_reversible(self):
         migrations = load_migrations()
 
-        # Baseline is the only reversible migration.
+        # Baseline is reversible; so is v0104 (REQ-053 M4), which marks every line it writes (trigger = backfill +
+        # source_ref) and deletes exactly those in ``down`` (M-6). Any other reversible version must be declared here:
+        # v0110 removes the values only it writes, v0111 the null keys and unchanged label copies (spec/privacy 09 §11).
+        # v0112 removes the placed_in edges it marked backfilled_by = "v0112" (#2952).
         assert migrations[0].reversible is True
-        assert all(m.reversible is False for m in migrations[1:])
+        assert {m.version for m in migrations[1:] if m.reversible} == {"0104", "0110", "0111", "0112"}
 
 
 class TestValidateSequence:

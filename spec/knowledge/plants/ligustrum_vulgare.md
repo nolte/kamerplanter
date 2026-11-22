@@ -122,6 +122,22 @@
 **Hinweis:** Lichtkompensationspunkt (light compensation point, LCP) ist für *L. vulgare* nicht artspezifisch publiziert; der Wert 10–20 µmol/m²/s ist aus dem Literaturbereich schattentoleranter Laubgehölz-Blätter abgeleitet (1–13 µmol/m²/s nach Craine & Reich 2005, oberer Rand für die sonnen- bis halbschattentauglichen Blätter dieser Art). Der Lichtsättigungspunkt liegt deutlich höher und gehört nicht in dieses Feld. *L. vulgare* wächst in Halbschatten bis Sonne (partial_shade), blüht/fruchtet aber nur in sonniger Lage zuverlässig. Boden-pH-Vorzug quellentreu von schwach sauer über neutral bis (sehr) alkalisch; harmonisiert mit §1.6/§2.3 (dort 5.5–7.5 für Topfsubstrat, hier inkl. der toleriertem alkalischen Freilandböden bis pH 8.0). Salztoleranz: toleriert Seewind/Salzsprühnebel und kalkige Böden (moderately_tolerant), reagiert aber empfindlich auf konzentriertes Auftausalz direkt an Straßen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Artseite und RHS-Hecken-Auswahlliste („Hedges: Selection Tips") nennen für Ligustrum vulgare keinen Pflanzabstand (der Wert 37,5 cm dort gilt nur für Ligustrum ovalifolium); Endbreite ist kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: Position „Full sun, Partial shade"; Kulturtext „Grow in any well-drained soil in sun or partial shade") --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -288,6 +304,11 @@ Etablierte Ligusterhecken brauchen kaum Düngung — Mulchen reicht oft. Nur fü
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Gehölze / Heckenpflanzen |
 | Anbaupause (Jahre) | Mehrjährig; Standort dauerhaft |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Oleaceae: kein Familienwert; Dauerkultur Hecke) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -340,4 +361,6 @@ Ligustrum vulgare,"Gewöhnlicher Liguster;Rainweide;Common Privet",Oleaceae,Ligu
 8. [Craine & Reich (2005), New Phytologist — Leaf-level light compensation points in shade-tolerant woody seedlings](https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.2005.01420.x) — Lichtkompensationspunkt schattentoleranter Laubgehölze (1–13 µmol/m²/s)
 9. [Frontiers in Forests and Global Change (2022) — Spring phenological sensitivity of temperate woody species](https://www.frontiersin.org/journals/forests-and-global-change/articles/10.3389/ffgc.2022.1063127/full) — GDD-Basis 0/5°C für Austrieb temperater Laubgehölze; Chilling/Forcing
 10. [Frontiers in Plant Science (2020) — Chilling, Photoperiod and Forcing on Flowering Phenology of Temperate Woody Plants](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.00443/full) — Endodormanz/Chilling-Bedarf temperater Gehölze (Bestätigung dormancy_required/chilling)
+11. [RHS — Ligustrum vulgare](https://www.rhs.org.uk/plants/10108/ligustrum-vulgare/details) — Position „Full sun, Partial shade"; kein Pflanzabstand angegeben
+12. [RHS — Hedges: Selection Tips](https://www.rhs.org.uk/plants/types/hedges/choosing) — Abstandsschlüssel; für Ligustrum vulgare keine Abstandszahl
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

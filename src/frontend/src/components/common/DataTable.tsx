@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { type KeyboardEvent, type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Table from '@mui/material/Table';
@@ -21,8 +21,10 @@ import SearchIcon from '@mui/icons-material/Search';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import LoadingSkeleton from './LoadingSkeleton';
 import EmptyState from './EmptyState';
+import HelpTooltip from './HelpTooltip';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { TableState } from '@/hooks/useTableState';
+import { LinkedCard, LinkedTableRow, RowCellLink } from './DataTableRowLink';
 
 export interface Column<T> {
   id: string;
@@ -35,7 +37,19 @@ export interface Column<T> {
   sortFn?: (a: T, b: T) => number;
   searchable?: boolean;
   searchValue?: (row: T) => string;
+  /**
+   * Several values the search matches one by one (e.g. a name in every language,
+   * #2936): a query must sit inside ONE of them, never across two. Wins over
+   * `searchValue` for the search; sorting still uses `sortFn` / `searchValue`.
+   */
+  searchValues?: (row: T) => readonly string[];
   hideBelowBreakpoint?: 'md' | 'lg';
+  /**
+   * Glossary key of the domain term this column shows (e.g. "ec", "ppfd") — renders the shared
+   * `HelpTooltip` trigger next to the header label (#3020, UI-NFR-011 §6.2). The trigger is a sibling
+   * of the sort control, not inside it, so a click or Enter on it never sorts.
+   */
+  helpTerm?: string;
 }
 
 interface DataTableProps<T> {
@@ -48,6 +62,13 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
   onRowClick?: (row: T) => void;
+  /**
+   * The detail URL a row leads to (#3017). Prefer it over `onRowClick` for navigation: the row then
+   * carries a real link (named by its first visible cell) that keyboard and screen-reader users can
+   * reach, and Ctrl/Cmd/Shift/middle click open it in a new tab. Wins over `onRowClick` when both are set.
+   * `null` for a row that has no detail page (#3047): that row falls back to `onRowClick`, if any.
+   */
+  getRowHref?: (row: T) => string | null;
   emptyMessage?: string;
   /** Optional secondary sentence shown below `emptyMessage` (e.g. how to create the first entry). */
   emptyDescription?: string;
@@ -88,6 +109,21 @@ interface DataTableProps<T> {
   onResetColumnFilters?: () => void;
 }
 
+/**
+ * Puts a column's help trigger next to its header label (#3020). `TableSortLabel` is itself a
+ * button, and a button inside a button is invalid HTML whose inner control screen readers flatten
+ * away — so the trigger sits beside it, and `HelpTooltip` already swallows its own activation.
+ */
+function HeaderLabelWithHelp({ helpTerm, children }: { helpTerm?: string; children: ReactNode }) {
+  if (!helpTerm) return <>{children}</>;
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
+      {children}
+      <HelpTooltip term={helpTerm} iconOnly placement="bottom" />
+    </Box>
+  );
+}
+
 function defaultSearchExtractor<T>(row: T, col: Column<T>): string {
   if (col.searchValue) return col.searchValue(row);
   const rendered = col.render(row);
@@ -105,6 +141,32 @@ function defaultComparator<T>(a: T, b: T, col: Column<T>): number {
   return aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
 }
 
+/**
+ * Keyboard activation for a clickable row/card (WCAG 2.1.1): Enter and Space
+ * activate it, but only when the row itself has focus — a key pressed on a
+ * nested control (row action button, link) must not also trigger the row.
+ */
+function activateRowOnKey(e: KeyboardEvent<HTMLElement>, activate: () => void): void {
+  if (e.target !== e.currentTarget || e.repeat) return;
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    activate();
+  }
+}
+
+const NESTED_FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
+
+/**
+ * A clickable card without a URL (it opens a dialog or panel) is announced as a button (#3017, W-01).
+ * A button's children are presentational, so a card that holds its own link or control (diary entry,
+ * garden bed) would turn into an invalid nested-interactive button; such a card becomes a named `group`
+ * instead — still a role, and its inner controls stay reachable.
+ */
+function assignActionCardRole(el: HTMLElement | null): void {
+  if (!el) return;
+  el.setAttribute('role', el.querySelector(NESTED_FOCUSABLE) ? 'group' : 'button');
+}
+
 export default function DataTable<T>({
   columns,
   rows,
@@ -115,6 +177,7 @@ export default function DataTable<T>({
   onPageChange,
   onRowsPerPageChange,
   onRowClick,
+  getRowHref,
   emptyMessage,
   emptyDescription,
   emptyActionLabel,
@@ -195,6 +258,7 @@ export default function DataTable<T>({
       filtered = filtered.filter((row) =>
         columns.some((col) => {
           if (col.searchable === false) return false;
+          if (col.searchValues) return col.searchValues(row).some((value) => value.toLowerCase().includes(lower));
           return defaultSearchExtractor(row, col).toLowerCase().includes(lower);
         }),
       );
@@ -296,6 +360,8 @@ export default function DataTable<T>({
   };
 
   const displayRows = tableState ? processedData.rows : rows;
+  // The cell that carries a row's link: the first one visible at every width and not an action column.
+  const linkColumnId = columns.find((c) => !c.hideBelowBreakpoint && c.id !== 'actions')?.id;
   const totalCount = tableState ? processedData.totalFiltered : (total ?? rows.length);
 
   // Column labels for sort chip
@@ -332,6 +398,7 @@ export default function DataTable<T>({
                   </InputAdornment>
                 ),
               },
+              htmlInput: { 'aria-label': t('table.searchPlaceholder') },
             }}
             sx={{ minWidth: 200, maxWidth: 300 }}
             data-testid="table-search-input"
@@ -376,16 +443,21 @@ export default function DataTable<T>({
           sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1 }}
           data-testid="data-table-cards"
         >
-          {displayRows.map((row) => (
+          {displayRows.map((row) => {
+            const href = getRowHref?.(row) ?? null;
+            return href !== null ? (
+              <LinkedCard key={getRowKey(row)} href={href} rowKey={getRowKey(row)}>
+                {mobileCardRenderer(row)}
+              </LinkedCard>
+            ) : (
             <Box
               key={getRowKey(row)}
               onClick={() => onRowClick?.(row)}
               onKeyDown={
-                onRowClick
-                  ? (e) => { if (e.key === 'Enter') onRowClick(row); }
-                  : undefined
+                onRowClick ? (e) => activateRowOnKey(e, () => onRowClick(row)) : undefined
               }
               tabIndex={onRowClick ? 0 : undefined}
+              ref={onRowClick ? assignActionCardRole : undefined}
               sx={{
                 ...(onRowClick && {
                   cursor: 'pointer',
@@ -397,10 +469,12 @@ export default function DataTable<T>({
                 }),
               }}
               data-testid="data-table-row"
+              data-row-key={getRowKey(row)}
             >
               {mobileCardRenderer(row)}
             </Box>
-          ))}
+            );
+          })}
         </Box>
       ) : (
         /* Desktop table view */
@@ -441,42 +515,68 @@ export default function DataTable<T>({
                             : undefined
                         }
                       >
-                        {isSortable ? (
-                          // `data-testid` belongs on the label, not on the surrounding
-                          // cell: the click handler lives here, and a click that lands on
-                          // the cell beside this label never reaches it — DOM events
-                          // bubble up, not down. The E2E suite clicked the `<th>` and so
-                          // sorted nothing whenever a column was wider than its label,
-                          // which stayed invisible because the sort chip is already
-                          // rendered by `defaultSort` (#802).
-                          <TableSortLabel
-                            data-testid={`sort-${col.id}`}
-                            active={isSorted}
-                            direction={isSorted ? tableState!.sort!.direction : 'asc'}
-                            onClick={() => tableState!.setSort(col.id)}
-                          >
-                            {col.label}
-                          </TableSortLabel>
-                        ) : (
-                          col.label
-                        )}
+                        <HeaderLabelWithHelp helpTerm={col.helpTerm}>
+                          {isSortable ? (
+                            // `data-testid` belongs on the label, not on the surrounding
+                            // cell: the click handler lives here, and a click that lands on
+                            // the cell beside this label never reaches it — DOM events
+                            // bubble up, not down. The E2E suite clicked the `<th>` and so
+                            // sorted nothing whenever a column was wider than its label,
+                            // which stayed invisible because the sort chip is already
+                            // rendered by `defaultSort` (#802).
+                            <TableSortLabel
+                              data-testid={`sort-${col.id}`}
+                              active={isSorted}
+                              direction={isSorted ? tableState!.sort!.direction : 'asc'}
+                              onClick={() => tableState!.setSort(col.id)}
+                            >
+                              {col.label}
+                            </TableSortLabel>
+                          ) : (
+                            col.label
+                          )}
+                        </HeaderLabelWithHelp>
                       </TableCell>
                     );
                   })}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {displayRows.map((row) => (
+                {displayRows.map((row) => {
+                  const href = getRowHref?.(row) ?? null;
+                  const cells = columns.map((col) => {
+                    const responsiveSx = col.hideBelowBreakpoint
+                      ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
+                      : undefined;
+                    return (
+                      <TableCell
+                        key={col.id}
+                        align={col.align}
+                        sx={responsiveSx}
+                        data-testid={`cell-${col.id}`}
+                      >
+                        {href !== null && col.id === linkColumnId ? (
+                          <RowCellLink href={href}>{col.render(row)}</RowCellLink>
+                        ) : (
+                          col.render(row)
+                        )}
+                      </TableCell>
+                    );
+                  });
+                  if (href !== null) {
+                    return (
+                      <LinkedTableRow key={getRowKey(row)} href={href} rowKey={getRowKey(row)}>
+                        {cells}
+                      </LinkedTableRow>
+                    );
+                  }
+                  return (
                   <TableRow
                     key={getRowKey(row)}
                     hover
                     onClick={() => onRowClick?.(row)}
                     onKeyDown={
-                      onRowClick
-                        ? (e) => {
-                            if (e.key === 'Enter') onRowClick(row);
-                          }
-                        : undefined
+                      onRowClick ? (e) => activateRowOnKey(e, () => onRowClick(row)) : undefined
                     }
                     tabIndex={onRowClick ? 0 : undefined}
                     sx={{
@@ -490,24 +590,12 @@ export default function DataTable<T>({
                       }),
                     }}
                     data-testid="data-table-row"
+                    data-row-key={getRowKey(row)}
                   >
-                    {columns.map((col) => {
-                      const responsiveSx = col.hideBelowBreakpoint
-                        ? { display: { xs: 'none', [col.hideBelowBreakpoint]: 'table-cell' } }
-                        : undefined;
-                      return (
-                        <TableCell
-                          key={col.id}
-                          align={col.align}
-                          sx={responsiveSx}
-                          data-testid={`cell-${col.id}`}
-                        >
-                          {col.render(row)}
-                        </TableCell>
-                      );
-                    })}
+                    {cells}
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </TableContainer>

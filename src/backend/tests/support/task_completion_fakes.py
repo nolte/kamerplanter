@@ -1,0 +1,216 @@
+"""In-memory doubles of the task-completion transition's collaborators (REQ-053 WP 4.3, #2413).
+
+``FakeCompletionRepo`` is all-or-nothing like the transaction (every task is checked before any is changed) and
+records what it was handed, so a test asserts both what the service decided and that a refusal wrote nothing.
+Shared by the unit tier and the API tier.
+"""
+
+from __future__ import annotations
+
+from app.common.enums import TaskCategory, TaskStatus
+from app.common.exceptions import (
+    DuplicateError,
+    KarenzViolationError,
+    NotFoundError,
+    TaskAlreadyClosedError,
+    TaskMissingError,
+    ValidationError,
+)
+from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
+from app.domain.models.care_event import CareEvent
+from app.domain.models.task import Task
+from app.domain.models.task_completion import CompletedTask, CompletionWrite, UndoWrite
+from tests.support.garden_plan_fakes import TENANT
+
+
+class FakeTaskRepo:
+    """The slice of ``ITaskRepository`` a completion and a reopen read and write."""
+
+    def __init__(self, *tasks: Task) -> None:
+        self.store = {task.key: task for task in tasks}
+        self.created: list[Task] = []
+        self.atomic_batches: list[int] = []
+        self.cloned_from: list[tuple[str, str]] = []
+        self.cleared_parked: list[str] = []
+        #: ``plant key -> (tenant, location)``: what the location queue needs to find a plant's tasks.
+        self.plants: dict[str, tuple[str, str]] = {}
+        #: ``(tenant, client_event_id)`` of deleted tasks a buffered completion closed (WP 9.3).
+        self.tombstones: set[tuple[str, str]] = set()
+        #: Every batched client-id lookup, to pin "one query per batch".
+        self.client_id_lookups: list[list[str]] = []
+
+    def get_task_or_raise(self, key: str) -> Task:
+        if key not in self.store:
+            raise NotFoundError("Task", key)
+        return self.store[key].model_copy(deep=True)
+
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids, *, tenant_key: str) -> list[Task]:
+        self.client_id_lookups.append(list(client_event_ids))
+        return [
+            task.model_copy(deep=True)
+            for task in self.store.values()
+            if task.tenant_key == tenant_key and task.completion_client_event_id in client_event_ids
+        ]
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key: str) -> set[str]:
+        return {i for (t, i) in self.tombstones if t == tenant_key and i in client_event_ids}
+
+    def delete_task(self, key: str) -> bool:
+        task = self.store.pop(key, None)
+        if task is not None and task.completion_client_event_id:
+            self.tombstones.add((task.tenant_key, task.completion_client_event_id))
+        return task is not None
+
+    def update_task(self, key: str, task: Task) -> Task:
+        self.store[key] = task.model_copy(deep=True)
+        return self.store[key].model_copy(deep=True)
+
+    def clear_parked_recurrence(self, key: str) -> None:
+        self.cleared_parked.append(key)
+
+    def resolve_suggestion(self, key, *, tenant_key, changes, open_statuses=None) -> Task | None:
+        """The predicate of the AQL statement: same tenant, still a suggestion, and (if given) still open."""
+        task = self.store.get(key)
+        if task is None or task.tenant_key != tenant_key or task.suggested is not True:
+            return None
+        if open_statuses is not None and task.status not in open_statuses:
+            return None
+        merged = Task.model_validate({**task.model_dump(by_alias=True), **changes})
+        self.store[key] = merged
+        return merged.model_copy(deep=True)
+
+    def get_tasks_for_entity(self, *_args, **_kwargs) -> list[Task]:
+        return []
+
+    def get_blocking_tasks(self, _key: str) -> list[dict]:
+        return []
+
+    def create_task(self, task: Task) -> Task:
+        if task.key is None:
+            task = task.model_copy(update={"key": f"new_{len(self.created) + 1}"})
+        self.created.append(task)
+        self.store[task.key] = task
+        return task
+
+    def create_tasks_atomic(self, tasks, *, tenant_key):
+        """All or nothing, like the stream transaction: a foreign task writes none of the batch."""
+        if any(task.tenant_key != tenant_key for task in tasks):
+            raise ValueError("create_tasks_atomic writes only tasks of the given tenant.")
+        self.atomic_batches.append(len(tasks))
+        return [self.create_task(task) for task in tasks]
+
+    def get_clone_entity_keys(self, source_key, *, tenant_key):
+        clones = {clone for clone, source in self.cloned_from if source == source_key}
+        return {t.entity_key for k, t in self.store.items() if k in clones and t.tenant_key == tenant_key}
+
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        self.cloned_from.append((clone_key, source_key))
+
+    def get_pending_tasks_in_locations(self, location_keys, limit, *, tenant_key, category=None, origins=None):
+        found = []
+        for task in self.store.values():
+            if task.tenant_key != tenant_key or task.status != TaskStatus.PENDING:
+                continue
+            on_bed = task.entity_type == "location" and task.entity_key in location_keys
+            owner, where = self.plants.get(task.entity_key or "", (None, None))
+            on_plant = task.entity_type == "plant_instance" and owner == tenant_key and where in location_keys
+            if not (on_bed or on_plant):
+                continue
+            if category and task.category != category:
+                continue
+            if origins is not None and task.origin not in origins:
+                continue
+            found.append(task.model_copy(deep=True))
+        return found[:limit]
+
+
+class FakeCompletionRepo(ITaskCompletionRepository):
+    """All-or-nothing like the transaction: every task is checked before any is changed."""
+
+    def __init__(self, tasks: FakeTaskRepo, plants: dict[str, tuple[str, str]]) -> None:
+        self._tasks = tasks
+        self.plants = plants
+        self.completed: list[CompletionWrite] = []
+        self.calls = 0
+        self.reopened: list[UndoWrite] = []
+        self.open_event: CareEvent | None = None
+        self.fail_with: Exception | None = None
+
+    def plant_location(self, plant_key, *, tenant_key):
+        owner, location = self.plants.get(plant_key, (None, None))
+        return location if owner == tenant_key else None
+
+    def plants_in_locations(self, location_keys, *, tenant_key):
+        return sorted(k for k, (t, loc) in self.plants.items() if t == tenant_key and loc in location_keys)
+
+    def task_event(self, task_key, *, tenant_key):
+        return self.open_event if self.open_event and self.open_event.task_key == task_key else None
+
+    def complete(self, writes, *, tenant_key):
+        self.calls += 1
+        if self.fail_with is not None:
+            raise self.fail_with
+        for write in writes:
+            stored = self._tasks.store.get(write.task_key)
+            if stored is None or stored.tenant_key != tenant_key:
+                raise TaskMissingError(write.task_key)
+            if stored.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED):
+                raise TaskAlreadyClosedError(stored.status)
+            if stored.status not in (TaskStatus.PENDING, TaskStatus.IN_PROGRESS):
+                raise ValidationError(f"Cannot complete task in status '{stored.status}'.")
+            client_id = write.task_patch.get("completion_client_event_id")
+            if client_id:
+                holders = [
+                    t
+                    for t in self._tasks.store.values()
+                    if t.tenant_key == tenant_key and t.completion_client_event_id == client_id
+                ]
+                if any(holder.key != write.task_key for holder in holders):  # the unique index of v0106
+                    raise DuplicateError("tasks", "completion_client_event_id", client_id)
+        for write in writes:
+            stored = self._tasks.store[write.task_key]
+            ids = {
+                field: write.task_patch[field]
+                for field in ("completion_client_event_id", "completion_client_event_digest")
+                if field in write.task_patch
+            }
+            self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.COMPLETED, **ids})
+            self.completed.append(write)
+        return [CompletedTask(w.task_key, "ce_x" if w.event else None, None) for w in writes]
+
+    def reopen(self, write, *, tenant_key):
+        if self.fail_with is not None:
+            raise self.fail_with
+        self.reopened.append(write)
+        stored = self._tasks.store[write.task_key]
+        self._tasks.store[write.task_key] = stored.model_copy(update={"status": TaskStatus.PENDING})
+
+
+class FakeHarvests:
+    def __init__(self) -> None:
+        self.refuse = False
+        self.checked: list[list[str]] = []
+
+    def require_karenz_clear(self, plant_keys, harvest_date, *, tenant_key):
+        self.checked.append(list(plant_keys))
+        if self.refuse:
+            raise KarenzViolationError("pyrethrum", 3)
+
+    def next_batch_id(self, plant_key, harvest_date, *, tenant_key, taken=None):
+        taken = taken if taken is not None else set()
+        candidate = f"HARVEST-{plant_key or 'unassigned'}-{len(taken) + 1}"
+        taken.add(candidate)
+        return candidate
+
+
+def bed_task(key: str = "t1", category: TaskCategory = TaskCategory.WATERING, **overrides) -> Task:
+    data = {
+        "_key": key,
+        "tenant_key": TENANT,
+        "name": "Bed 3",
+        "category": category,
+        "entity_type": "location",
+        "entity_key": "bed",
+        "status": TaskStatus.PENDING,
+    }
+    return Task(**{**data, **overrides})

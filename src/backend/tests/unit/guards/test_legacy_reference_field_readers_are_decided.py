@@ -73,6 +73,7 @@ _I = "app/domain/services/inventree_service.py"
 _T = "app/domain/services/tenant_service.py"
 _W = "app/domain/services/watering_log_service.py"
 _WR = "app/data_access/arango/watering_log_repository.py"
+_WQ = "app/data_access/arango/watering_queries.py"
 _TK = "app/data_access/arango/tank_repository.py"
 
 #: ``(field, "path:qualified name")`` → ``(verdict, reason)``.
@@ -113,6 +114,10 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
         _ECHO,
         "compares the plant's species key with the entries' keys",
     ),
+    (_ENTRY, "app/domain/services/slot_thinning_service.py:SlotThinningService._run_and_entry"): (
+        _RESOLVES,
+        "thinning (W-015) resolves the reserving entry's species under the tenant before stamping plants with it",
+    ),
     (_ENTRY, "app/data_access/arango/planting_run_repository.py:ArangoPlantingRunRepository.delete"): (
         _ECHO,
         "removes the entries with the run",
@@ -136,13 +141,49 @@ _READERS: dict[tuple[str, str], tuple[str, str]] = {
     # -- watering_logs.slot_keys ------------------------------------------------------------
     (_SLOTS, "app/api/v1/watering_logs/schemas.py:WateringLogCreate.check_domain_rules"): (_ECHO, "request validation"),
     (_SLOTS, "app/data_access/arango/collections.py:ensure_collections"): (_ECHO, "declares the index"),
+    # REQ-053 WP 8.15 (#2658, SEC-001): a bind variable of the same name, not the field. It narrows the slot read to
+    # slots of the tenant's bed by their own ``_key``; no watering log is read and no species is looked up.
+    # #2773: the bind variable moved into the shared builder of load_active_slots / load_slot_rule_basis.
+    (
+        "watering_logs.slot_keys",
+        "app/data_access/arango/garden_plan_repository.py:_slot_read_binds",
+    ): (
+        _ECHO,
+        "builds the slot_keys bind variable of the bed's own slot read (load_active_slots); reads no watering log",
+    ),
+    # #2774: the occupancy read selects the tenant's plants by their own ``slot_key`` - a bind variable of the same
+    # name, not the field; no watering log is read.
+    (
+        "watering_logs.slot_keys",
+        "app/data_access/arango/planting_reservation_repository.py:_Reads.active_plants_in",
+    ): (
+        _ECHO,
+        "a slot_keys bind variable selecting the tenant's plants by their slot_key; reads no watering log",
+    ),
     (_SLOTS, f"{_WR}:ArangoWateringLogRepository.create"): (_ECHO, "writes the edges of the verified slots"),
     (_SLOTS, f"{_WR}:ArangoWateringLogRepository.get_last_watering_date_for_run"): (
         _ECHO,
         "intersects the tenant's own logs with the run's slots; no slot is loaded",
     ),
+    # REQ-053 WP 7.3: the zone status and the plan's "last watered". The slot keys are the owned beds' own slots
+    # (read by their bed keys, which came from an owned zone or plan); they are compared with the tenant's own
+    # ``watering_events`` rows inside the query and no slot is loaded from a key stored on an event.
+    (_SLOTS, f"{_WQ}:last_waterings"): (_ECHO, "intersects the tenant's watering events with the owned beds' slots"),
+    (_SLOTS, f"{_WQ}:_consumption_liters"): (_ECHO, "sums the tenant's watering events that touch the owned slots"),
     (_SLOTS, f"{_W}:WateringLogService.create_log"): (_ECHO, "resolves every slot under the log's tenant first"),
     (_SLOTS, f"{_W}:WateringLogService.update_log"): (_ECHO, "passes the stored keys to the domain-rule check"),
+    (_SLOTS, "app/api/v1/planting_runs/tenant_router.py:plan_slots"): (
+        _ECHO,
+        "hands the body's slot list of the reservation route on; no watering log is read, and the service resolves "
+        "every key under the run's tenant (GP-NFR-058)",
+    ),
+    # REQ-053 #2513: the site delete refuses while a plant stands on one of the site's own slots. The bind
+    # variable carries the removed slots' keys collected inside the delete transaction; no watering log is
+    # read and no slot is loaded from a key stored on another row.
+    (_SLOTS, "app/data_access/arango/site_repository.py:ArangoSiteRepository._refuse_active_plants"): (
+        _ECHO,
+        "compares plant_instances.slot_key with the site's own removed slots; no watering log is read",
+    ),
     # -- feeds_from: no mirrored field, only the edge ---------------------------------------
     (_FEEDS, f"{_TK}:ArangoTankRepository.delete"): (_ECHO, "removes the edges with the tank"),
     (_FEEDS, f"{_TK}:ArangoTankRepository.link_feeds_from"): (
@@ -295,7 +336,10 @@ def test_every_write_path_of_an_entry_species_resolves_it() -> None:
     service = next(n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == "PlantingRunService")
     methods = {n.name: n for n in service.body if isinstance(n, ast.FunctionDef)}
 
-    for writer in ("create_run", "add_entry", "update_entry", "create_plants"):
+    # ``create_run`` and its dry-run twin ``preview_run`` check a new run's entries in ``_checked_new_run`` (#2775).
+    for creator in ("create_run", "preview_run"):
+        assert "_checked_new_run" in _call_names(methods[creator]), creator
+    for writer in ("_checked_new_run", "add_entry", "update_entry", "create_plants"):
         assert _call_names(methods[writer]) & _RESOLVERS, writer
 
 

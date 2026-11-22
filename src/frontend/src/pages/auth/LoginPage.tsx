@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -22,9 +22,14 @@ import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useRegistrationMode } from '@/hooks/useRegistrationMode';
 import Form from '@/components/form/Form';
 import { forgetPendingInvitation, pendingInvitationToken, postLoginPath } from '@/utils/pendingInvitation';
+import { forgetLoginReturn, rememberLoginReturn, returnToFromSearch } from '@/utils/loginReturn';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+
+const LOGIN_ERROR_ID = 'login-error';
 
 export default function LoginPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.login'));
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { isLoading, error, isAuthenticated } = useAppSelector((s) => s.auth);
@@ -53,12 +58,25 @@ export default function LoginPage() {
     dispatch(clearError());
   }, [dispatch]);
 
+  // UI-NFR-014 R-009/R-010 — the page a visitor without a session was sent away from (`?returnTo=`, validated). It
+  // is remembered for a sign-in with an identity provider, which leaves the app; without one, a stale path is dropped.
+  const { search } = useLocation();
+  const returnTo = returnToFromSearch(search);
+  useEffect(() => {
+    if (returnTo) rememberLoginReturn(returnTo);
+    else forgetLoginReturn();
+  }, [returnTo]);
+
   useEffect(() => {
     if (isAuthenticated) {
-      // #2162 — back to the invitation the visitor opened before signing in, if any.
-      navigate(postLoginPath(), { replace: true });
+      // #2162 — back to the invitation the visitor opened before signing in, else the page asked for (UI-NFR-014).
+      navigate(postLoginPath(search), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, search]);
+
+  // The refusal names no single field (it must not say which of the two was wrong), so it is bound to
+  // both: each is marked invalid and points at the message via aria-describedby (UI-NFR-002 R-014).
+  const credentialsRefused = Boolean(error) && !unverifiedEmail;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +92,16 @@ export default function LoginPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    // `main` + `h1` (#3017, W-06): the page renders outside MainLayout, so it brings its own landmark
+    // and top-level heading.
+    <Box
+      component="main"
+      sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}
+      data-testid="login-page"
+    >
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4 }}>
-          <Typography variant="h5" gutterBottom align="center">
+          <Typography variant="h5" component="h1" gutterBottom align="center">
             {t('pages.auth.login')}
           </Typography>
 
@@ -94,7 +118,11 @@ export default function LoginPage() {
               <ResendVerificationAction email={unverifiedEmail} />
             </Box>
           ) : (
-            error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+            error && (
+              <Alert severity="error" sx={{ mb: 2 }} id={LOGIN_ERROR_ID} data-testid="login-error">
+                {t(error)}
+              </Alert>
+            )
           )}
 
           {invitationToken && (
@@ -112,6 +140,12 @@ export default function LoginPage() {
             </Alert>
           )}
 
+          {returnTo && !invitationToken && (
+            <Alert severity="info" sx={{ mb: 2 }} data-testid="login-return-hint">
+              {t('pages.auth.returnAfterLogin')}
+            </Alert>
+          )}
+
           <Form onSubmit={handleSubmit}>
             <TextField
               label={t('pages.auth.email')}
@@ -122,6 +156,8 @@ export default function LoginPage() {
               onChange={(e) => setEmail(e.target.value)}
               sx={{ mb: 2 }}
               autoComplete="email"
+              error={credentialsRefused}
+              slotProps={{ htmlInput: { 'aria-describedby': credentialsRefused ? LOGIN_ERROR_ID : undefined } }}
             />
             <TextField
               label={t('pages.auth.password')}
@@ -132,6 +168,8 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               sx={{ mb: 1 }}
               autoComplete="current-password"
+              error={credentialsRefused}
+              slotProps={{ htmlInput: { 'aria-describedby': credentialsRefused ? LOGIN_ERROR_ID : undefined } }}
             />
             {/* `top`, not `right`: measured on the 393px mobile profile, the
                 right-placed popper started at x=208 and is ~316px wide, so it

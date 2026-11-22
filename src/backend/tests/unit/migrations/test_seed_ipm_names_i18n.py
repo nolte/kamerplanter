@@ -1,0 +1,229 @@
+"""Every seeded disease and beneficial says which of its names is German and which English (#2936).
+
+Diseases carried one English ``common_name`` and beneficials one German ``common_name``, so
+the German UI showed "Powdery Mildew" and the English UI "Raubmilben". Both now carry
+``common_names_i18n`` (REQ-010 v1.8). A translation is only seeded with a source (E-10);
+a language without one stays absent and the UI shows the stored name instead.
+
+Pinned here, over the committed seed data:
+
+(a) every seeded disease names its stored ``common_name`` as its English name;
+(b) every seeded disease has a German name, or is in the explicit gap list below — and
+    every gap-list entry is a real disease that still has none;
+(c) every seeded German disease name carries its source on the same line;
+(d) every beneficial taxon has its German name, and an English one or a gap-list entry;
+    every English name sits under a ``# Source:`` comment in ``pest_taxonomy.py``;
+(e) every pest taxon of the detection taxonomy has a sourced English name (#2955), so a
+    finding (``PestFinding.common_names_i18n``) follows the UI language;
+(f) the pests and diseases ``seed_ipm_rows`` creates from ``plant_info.yaml`` and
+    ``adventskalender.yaml`` carry the same map (#2955): ``en`` is the stored name, ``de``
+    is sourced on its line or the row is a listed gap; a row ``ipm.yaml`` owns carries no
+    map there, so the two seeds never overwrite each other's names.
+"""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+from typing import Any
+
+import pytest
+import yaml
+
+from app.domain.models.beneficial import Beneficial
+from app.domain.models.ipm import Disease, Pest
+from app.domain.models.pest_taxonomy import PEST_TAXONOMY, beneficial_taxa, pest_taxa
+from app.migrations.seed_ipm_rows import DISEASES_KEY, PESTS_KEY, build_diseases, build_pests
+
+_APP = Path(__file__).resolve().parents[3] / "app"
+_IPM_SEED = _APP / "migrations" / "seed_data" / "ipm.yaml"
+_TAXONOMY = _APP / "domain" / "models" / "pest_taxonomy.py"
+
+#: Seeded diseases for which no German name was found in a source (checked 2026-11-13).
+#: Each shows its stored English ``common_name`` in the German UI until a sourced name is added.
+DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME: frozenset[str] = frozenset(
+    {
+        "Xanthomonas campestris",
+        "Puccinia spp.",
+        "Septoria lycopersici",
+        "Pseudoperonospora cubensis",
+        "Rhizoctonia solani",
+        "Fusarium solani",
+        "Erwinia carotovora",
+        "Fluoride Toxicity (Abiotic)",
+        "Ramularia nymphaearum",
+        "Erwinia spp. / Pythium spp.",
+    }
+)
+
+#: Beneficial taxa (slug) without a sourced English name: the English UI shows the German one.
+BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME: frozenset[str] = frozenset({"parasitoid_wasp"})
+
+#: Pests and diseases ``seed_ipm_rows`` creates without a sourced German name (checked 2026-11-15).
+SEED_IPM_ROWS_WITHOUT_A_SOURCED_GERMAN_NAME: frozenset[str] = frozenset({"Dahlia mosaic virus"})
+
+#: The files ``seed_ipm_rows`` reads (``test_seed_ipm_rows.py`` pins that list against the loaders).
+_IPM_ROW_FILES = ("plant_info.yaml", "adventskalender.yaml")
+
+_SOURCE_COMMENT = re.compile(r"#\s*Source:\s*https://\S+")
+
+
+def _seeded_diseases() -> list[dict[str, Any]]:
+    data = yaml.safe_load(_IPM_SEED.read_text(encoding="utf-8"))
+    return list(data["diseases"])
+
+
+def _ids(rows: list[dict[str, Any]]) -> list[str]:
+    return [row["scientific_name"] for row in rows]
+
+
+@pytest.mark.parametrize("row", _seeded_diseases(), ids=_ids(_seeded_diseases()))
+def test_a_seeded_disease_names_its_stored_name_as_english(row: dict[str, Any]) -> None:
+    disease = Disease.model_validate(row)
+
+    assert disease.common_names_i18n.get("en") == [disease.common_name]
+
+
+@pytest.mark.parametrize("row", _seeded_diseases(), ids=_ids(_seeded_diseases()))
+def test_a_seeded_disease_has_a_german_name_or_is_a_listed_gap(row: dict[str, Any]) -> None:
+    disease = Disease.model_validate(row)
+    has_german = bool(disease.common_names_i18n.get("de"))
+
+    if disease.scientific_name in DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME:
+        assert not has_german, f"{disease.scientific_name} has a German name now: drop it from the gap list"
+    else:
+        assert has_german, f"{disease.scientific_name} has no German name and is not in the gap list"
+
+
+def test_the_gap_list_names_only_seeded_diseases() -> None:
+    assert set(_ids(_seeded_diseases())) >= DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME
+
+
+def test_every_seeded_german_disease_name_carries_its_source() -> None:
+    lines = _IPM_SEED.read_text(encoding="utf-8").splitlines()
+    start, end = lines.index("diseases:"), lines.index("treatments:")
+    german_lines = [line for line in lines[start:end] if line.strip().startswith("de: [")]
+
+    assert len(german_lines) == len(_seeded_diseases()) - len(DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME)
+    assert [line for line in german_lines if not _SOURCE_COMMENT.search(line)] == []
+
+
+@pytest.mark.parametrize("taxon", beneficial_taxa(), ids=[t.slug for t in beneficial_taxa()])
+def test_a_beneficial_carries_its_german_name_and_a_sourced_english_one_or_a_listed_gap(taxon: Any) -> None:
+    names = Beneficial(
+        slug=taxon.slug,
+        common_name=taxon.common_name_de,
+        common_names_i18n=taxon.names_i18n(),
+        scientific_name=taxon.scientific_name,
+    ).common_names_i18n
+
+    assert names["de"] == [taxon.common_name_de]
+    if taxon.slug in BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME:
+        assert "en" not in names, f"{taxon.slug} has an English name now: drop it from the gap list"
+    else:
+        assert names.get("en"), f"{taxon.slug} has no English name and is not in the gap list"
+
+
+def test_every_english_taxon_name_sits_under_its_source() -> None:
+    lines = _TAXONOMY.read_text(encoding="utf-8").splitlines()
+    english = [i for i, line in enumerate(lines) if line.strip().startswith("common_name_en=")]
+
+    assert len(english) == len(PEST_TAXONOMY) - len(BENEFICIALS_WITHOUT_A_SOURCED_ENGLISH_NAME)
+    assert [lines[i] for i in english if not _SOURCE_COMMENT.search(lines[i - 1])] == []
+
+
+@pytest.mark.parametrize("taxon", pest_taxa(), ids=[t.slug for t in pest_taxa()])
+def test_a_pest_taxon_names_itself_in_german_and_english(taxon: Any) -> None:
+    names = taxon.names_i18n()
+
+    assert names["de"] == [taxon.common_name_de]
+    assert names.get("en"), f"{taxon.slug} has no sourced English name"
+
+
+def _ipm_yaml_names() -> set[str]:
+    data = yaml.safe_load(_IPM_SEED.read_text(encoding="utf-8"))
+    return {row["scientific_name"] for row in [*data["pests"], *data["diseases"]]}
+
+
+def _ipm_rows() -> list[tuple[str, Any]]:
+    """``(file, model)`` of every valid pest and disease the two files hand to ``seed_ipm_rows``."""
+    rows: list[tuple[str, Any]] = []
+    for name in _IPM_ROW_FILES:
+        data = yaml.safe_load((_APP / "migrations" / "seed_data" / name).read_text(encoding="utf-8"))
+        rows += [(name, row) for row in [*build_pests(data, source=name), *build_diseases(data, source=name)]]
+    return rows
+
+
+def _row_id(entry: tuple[str, Any]) -> str:
+    return f"{entry[0]}:{entry[1].scientific_name}"
+
+
+def _rows_the_seed_creates() -> list[tuple[str, Any]]:
+    owned = _ipm_yaml_names()
+    return [entry for entry in _ipm_rows() if entry[1].scientific_name not in owned]
+
+
+def test_the_two_files_create_the_measured_rows() -> None:
+    """Seven pests and seven diseases on 2026-11-15 — a scan that finds none is broken, not clean."""
+    assert len(_rows_the_seed_creates()) == 14
+
+
+@pytest.mark.parametrize("entry", _rows_the_seed_creates(), ids=_row_id)
+def test_a_row_the_seed_creates_names_its_stored_name_as_english(entry: tuple[str, Any]) -> None:
+    _, row = entry
+
+    assert row.common_names_i18n.get("en") == [row.common_name]
+
+
+@pytest.mark.parametrize("entry", _rows_the_seed_creates(), ids=_row_id)
+def test_a_row_the_seed_creates_has_a_german_name_or_is_a_listed_gap(entry: tuple[str, Any]) -> None:
+    _, row = entry
+    has_german = bool(row.common_names_i18n.get("de"))
+
+    if row.scientific_name in SEED_IPM_ROWS_WITHOUT_A_SOURCED_GERMAN_NAME:
+        assert not has_german, f"{row.scientific_name} has a German name now: drop it from the gap list"
+    else:
+        assert has_german, f"{row.scientific_name} has no German name and is not in the gap list"
+
+
+@pytest.mark.parametrize("entry", [e for e in _ipm_rows() if e[1].scientific_name in _ipm_yaml_names()], ids=_row_id)
+def test_a_row_ipm_yaml_owns_carries_no_map_in_the_other_files(entry: tuple[str, Any]) -> None:
+    # seed_ipm_rows syncs a declared map onto the existing row; ipm.yaml's map would lose.
+    assert entry[1].common_names_i18n == {}
+
+
+def test_every_german_name_in_the_two_files_carries_its_source() -> None:
+    offenders: list[str] = []
+    for name in _IPM_ROW_FILES:
+        lines = (_APP / "migrations" / "seed_data" / name).read_text(encoding="utf-8").splitlines()
+        sections = [i for i, line in enumerate(lines) if line.split(":")[0] in (PESTS_KEY, DISEASES_KEY)]
+        for start in sections:
+            end = next((i for i in range(start + 1, len(lines)) if lines[i][:1].strip()), len(lines))
+            german = [line for line in lines[start:end] if line.strip().startswith("de: [")]
+            offenders += [f"{name}: {line.strip()}" for line in german if not _SOURCE_COMMENT.search(line)]
+
+    assert offenders == []
+
+
+# ── Pests (#2955): the same language map, filled from the seed's former ``common_name_de`` ──
+
+
+def _seeded_pests() -> list[dict[str, Any]]:
+    data = yaml.safe_load(_IPM_SEED.read_text(encoding="utf-8"))
+    return list(data["pests"])
+
+
+@pytest.mark.parametrize("row", _seeded_pests(), ids=_ids(_seeded_pests()))
+def test_a_seeded_pest_names_its_stored_name_as_english_and_has_its_german_name(row: dict[str, Any]) -> None:
+    pest = Pest.model_validate(row)
+
+    assert pest.common_names_i18n.get("en") == [pest.common_name]
+    assert pest.common_names_i18n.get("de"), f"{pest.scientific_name} has no German name"
+    # The compatibility field is derived from the map, never seeded on its own.
+    assert pest.common_name_de == pest.common_names_i18n["de"][0]
+
+
+def test_no_seeded_pest_carries_a_second_german_name() -> None:
+    # One German name per pest: ``common_names_i18n.de``. A ``common_name_de`` next to
+    # it would be a second truth the model silently overrides (#2955).
+    assert [row["scientific_name"] for row in _seeded_pests() if "common_name_de" in row] == []

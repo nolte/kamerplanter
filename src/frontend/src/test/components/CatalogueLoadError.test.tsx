@@ -181,7 +181,7 @@ describe('CatalogueLoadError with the real useCatalogue', () => {
    * #1628 UI review: pressing retry unmounts the `failed` branch (this
    * component's own `<Alert>`, including the button focus was just on) in the
    * same tick the status flips. With no explicit focus management the browser
-   * falls back to `<body>`. `focusSelector` wires `CatalogueLoadError` into
+   * falls back to `<body>`. `focusTargetId` wires `CatalogueLoadError` into
    * the same `useRetryFocus` mechanism `WorkflowDetailPage`/
    * `SpeciesCreateDialog` use for #1568, resolved against `document` rather
    * than a caller-supplied container ref (see the prop's own doc comment for
@@ -194,11 +194,8 @@ describe('CatalogueLoadError with the real useCatalogue', () => {
       <>
         <span data-testid="status">{families.status}</span>
         {/* Stands in for the picker this failure would otherwise be next to. */}
-        <input data-testid="family-field" aria-label="family" />
-        <CatalogueLoadError
-          reader={families}
-          focusSelector="[data-testid='family-field']"
-        />
+        <input id="family-field-input" data-testid="family-field" aria-label="family" />
+        <CatalogueLoadError reader={families} focusTargetId="family-field-input" />
       </>
     );
   }

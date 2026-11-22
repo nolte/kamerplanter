@@ -141,7 +141,7 @@ export default function GenericWidget({ widgetKey, editMode = false }: WidgetCom
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
           <Typography
             variant="subtitle1"
-            component="h3"
+            component="h2"
             sx={{
               display: 'flex',
               alignItems: 'center',

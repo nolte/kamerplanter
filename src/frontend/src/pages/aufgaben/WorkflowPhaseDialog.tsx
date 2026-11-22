@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
@@ -15,7 +15,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -25,12 +26,26 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
+import { isApiError } from '@/api/errors';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
 import * as phasesApi from '@/api/endpoints/phases';
-import type { WorkflowPhase, WorkflowPhaseSuggestion, GrowthPhase } from '@/api/types';
+import type { WorkflowPhase, WorkflowPhaseSuggestion, GrowthPhase, CommonNamesI18n } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
-type SpeciesOption = { key: string; scientific_name: string; common_names: string[] };
+type SpeciesOption = {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  common_names_i18n?: CommonNamesI18n;
+};
+
+/** The label shows one language; the species search matches every name in every language (#2902). */
+const filterSpeciesOptions = createFilterOptions<SpeciesOption>({
+  stringify: (option) => [option.scientific_name, ...(option.common_names ?? [])].join(' '),
+});
 
 const stressLevels = ['none', 'low', 'medium', 'high'] as const;
 const lifecyclePhases = [
@@ -59,7 +74,7 @@ interface Props {
 export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase, onSaved }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -77,6 +92,14 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
   // Existing phase suggestions
   const [suggestions, setSuggestions] = useState<WorkflowPhaseSuggestion[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  // A failed read of the fill-in helpers (species, suggestions, growth phases) is shown
+  // with a retry, never as "nothing to pick from" (#3037).
+  const [assistLoadError, setAssistLoadError] = useState(false);
+  const [assistAttempt, setAssistAttempt] = useState(0);
+  // The growth-phase leg has its own flag and retry: re-running the species leg
+  // would clear the selected species and with it the phases to reload.
+  const [growthPhasesLoadError, setGrowthPhasesLoadError] = useState(false);
+  const [growthPhasesAttempt, setGrowthPhasesAttempt] = useState(0);
 
   const defaultValues: FormData = {
     name: '',
@@ -86,10 +109,11 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
     trigger_phase: null,
   };
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues,
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open && phase) {
@@ -115,6 +139,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
       setGrowthPhases([]);
       setSpeciesLoading(true);
       setSuggestionsLoading(true);
+      setAssistLoadError(false);
       try {
         // The complete catalogue (#1560); one leg of an imperative sequence
         // whose surrounding loading state already covers it.
@@ -125,19 +150,28 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               key: s.key,
               scientific_name: s.scientific_name,
               common_names: s.common_names,
+              common_names_i18n: s.common_names_i18n,
             })),
           );
         }
-      } catch {
-        if (!cancelled) setSpeciesOptions([]);
+      } catch (err) {
+        captureHandledError(err, { source: 'WorkflowPhaseDialog.species' });
+        if (!cancelled) {
+          setSpeciesOptions([]);
+          setAssistLoadError(true);
+        }
       } finally {
         if (!cancelled) setSpeciesLoading(false);
       }
       try {
         const sugg = await taskApi.listPhaseSuggestions();
         if (!cancelled) setSuggestions(sugg);
-      } catch {
-        if (!cancelled) setSuggestions([]);
+      } catch (err) {
+        captureHandledError(err, { source: 'WorkflowPhaseDialog.suggestions' });
+        if (!cancelled) {
+          setSuggestions([]);
+          setAssistLoadError(true);
+        }
       } finally {
         if (!cancelled) setSuggestionsLoading(false);
       }
@@ -145,12 +179,13 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
     return () => {
       cancelled = true;
     };
-  }, [open, isEdit]);
+  }, [open, isEdit, assistAttempt]);
 
   // Load growth phases when species changes
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      setGrowthPhasesLoadError(false);
       if (!selectedSpecies) {
         setGrowthPhases([]);
         return;
@@ -162,8 +197,14 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         if (cancelled) return;
         const sorted = [...gphases].sort((a, b) => a.sequence_order - b.sequence_order);
         setGrowthPhases(sorted);
-      } catch {
-        if (!cancelled) setGrowthPhases([]);
+      } catch (err) {
+        // A species without a lifecycle answers 404: nothing to fill in, not a failure.
+        const absent = isApiError(err) && err.statusCode === 404;
+        if (!absent) captureHandledError(err, { source: 'WorkflowPhaseDialog.growthPhases' });
+        if (!cancelled) {
+          setGrowthPhases([]);
+          if (!absent) setGrowthPhasesLoadError(true);
+        }
       } finally {
         if (!cancelled) setGrowthPhasesLoading(false);
       }
@@ -171,7 +212,7 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
     return () => {
       cancelled = true;
     };
-  }, [selectedSpecies]);
+  }, [selectedSpecies, growthPhasesAttempt]);
 
   const fillFromGrowthPhase = useCallback(
     (gp: GrowthPhase) => {
@@ -219,14 +260,15 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -242,6 +284,15 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
         {/* Species selector and suggestions — only in create mode */}
         {!isEdit && (
           <>
+            {(assistLoadError || growthPhasesLoadError) && (
+              <OptionsLoadError
+                onRetry={() => {
+                  if (assistLoadError) setAssistAttempt((n) => n + 1);
+                  if (growthPhasesLoadError) setGrowthPhasesAttempt((n) => n + 1);
+                }}
+                data-testid="workflow-phase-assist-load-error"
+              />
+            )}
             {/* Species-based phase loading */}
             <Typography variant="subtitle2" sx={{ mt: 1, mb: 1 }}>
               {t('pages.tasks.loadFromSpecies')}
@@ -251,13 +302,8 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
               loading={speciesLoading}
               value={selectedSpecies}
               onChange={(_e, value) => setSelectedSpecies(value)}
-              getOptionLabel={(option) => {
-                if (!option) return '';
-                const sn = option.scientific_name ?? '';
-                const cn = Array.isArray(option.common_names) ? option.common_names : [];
-                const firstCn = cn.find((n) => typeof n === 'string' && n.length > 0);
-                return firstCn ? `${sn} (${firstCn})` : sn;
-              }}
+              getOptionLabel={(option) => (option ? getSpeciesOptionLabel(option, i18n.language) : '')}
+              filterOptions={filterSpeciesOptions}
               isOptionEqualToValue={(option, value) =>
                 option != null && value != null && option.key === value.key
               }
@@ -420,6 +466,6 @@ export default function WorkflowPhaseDialog({ open, onClose, workflowKey, phase,
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

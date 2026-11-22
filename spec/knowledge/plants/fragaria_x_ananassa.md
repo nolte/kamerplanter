@@ -143,6 +143,22 @@ Entfällt für den Regelfall dieses Steckbriefs. Fragaria x ananassa wird gärtn
 
 Quellen (§1.8-Entscheidung): §1.3 dieses Dokuments (bereits oben zitiert); [PFAF — Fragaria x ananassa](https://pfaf.org/user/Plant.aspx?LatinName=Fragaria+x+ananassa) (vegetative Standardvermehrung); [Gardenia — Echinacea… nicht zutreffend, siehe stattdessen: RHS — Strawberries: Propagating from runners](https://www.rhs.org.uk/fruit/strawberries/grow-your-own) (Ausläufer als gärtnerischer Standard, keine Samenvermehrung für Sorten)
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 25–30 | `species.spacing_cm` |
+| Reihenabstand (cm) | 40 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern, Merkblatt 3182 „Erdbeeren" (aktualisiert Oktober 2014), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/erdbeeren_infoschrift_3182.pdf (abweichend RHS, „Strawberries – Grow your own", https://www.rhs.org.uk/fruit/strawberries/grow-your-own: 35–40 cm in der Reihe, Reihen ca. 75 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Strawberries – Grow your own" („sheltered position in full sun but will tolerate some shade"), https://www.rhs.org.uk/fruit/strawberries/grow-your-own; LWG Bayern, Merkblatt 3182 (2014) („sonnigen, nicht zu windigen Standort"), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/erdbeeren_infoschrift_3182.pdf | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -538,6 +554,11 @@ Fragaria x ananassa als Art hat keine ausgepraegten Resistenzen. Resistenzen wer
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) -- Stickstoff-Fixierung, gute Bodenstruktur; Salat/Spinat (Schwachzehrer) -- keine gemeinsamen Krankheiten |
 | Empfohlene Nachfrucht | Gruenduengung (Phacelia, Senf) -- Bodenregeneration; Huelsenfruechte (Fabaceae) -- N-Fixierung; Lauch/Zwiebel (Alliaceae) -- keine gemeinsamen Krankheiten |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Erdbeeren und andere Rosaceae (Himbeere, Brombeere, Rose) auf gleicher Flaeche (Verticillium, Phytophthora, Bodenmuedigkeit/Autotoxizitaet) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Natur im Garten (Land NÖ), „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Erdbeere im Mittelzehrer-Beet) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Natur im Garten 2022 führt Erdbeere unter Mittelzehrer, Schmetterlingsblütler als eigene Familie, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | 4 |
 
 Hinweis: Erdbeeren sind stark selbstunvertraeglich (Replant Disease). Phenolische Saeuren aus Wurzelausscheidungen hemmen das Wachstum nachfolgender Erdbeerpflanzen. Kartoffeln, Tomaten und andere Solanaceae sind als Vorfrucht ungeeignet, da sie Verticillium-Befall foerdern.
 
@@ -653,3 +674,6 @@ Mara des Bois,Fragaria x ananassa,Andre Marionnet,1991,everbearing;day_neutral;w
 32. Springer BMC Plant Biology -- Physiological and morphological responses of strawberry seedlings to end-of-day far-red light (EOD-FR 8--15 umol/m2/s): https://link.springer.com/article/10.1186/s12870-025-08092-3
 33. fruitandgarden.com -- Are Strawberry Plants Perennials? Lifespan and Regrowth Facts (Lebensdauer 3--5, bis 5--6 Jahre): https://fruitandgarden.com/are-strawberry-plants-perennials/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+34. LWG Bayern (Bayerische Gartenakademie) -- Merkblatt 3182 Erdbeeren (aktualisiert Oktober 2014; Pflanz-/Reihenabstand, Anbaupause 4--5 Jahre, sonniger Standort): https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/erdbeeren_infoschrift_3182.pdf
+35. RHS -- Strawberries, Grow your own (Position full sun, Abstände 35--40 cm / Reihen 75 cm): https://www.rhs.org.uk/fruit/strawberries/grow-your-own
+36. Natur im Garten (Land NÖ) -- Fruchtfolge im Gemüsegarten (April 2022; Zehrerstufen-Tabelle, Familienliste): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf

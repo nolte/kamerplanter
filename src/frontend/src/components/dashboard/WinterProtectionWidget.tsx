@@ -1,6 +1,6 @@
 import { usePendingWidget } from '@/components/dashboard/DashboardDataContext';
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -23,6 +23,7 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchHardinessOverview } from '@/store/slices/overwinteringProfilesSlice';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import SeasonOverviewPanel from './SeasonOverviewPanel';
 import type {
   WinterHardinessLight,
@@ -116,7 +117,8 @@ const TILE_ORDER: WinterHardinessLight[] = ['green', 'yellow', 'red'];
 export default function WinterProtectionWidget() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  // The red entries' species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   // Self-fetching like the weather widget, and outside the aggregate flag for the
   // same reason (#1373).
   const { overview, overviewLoading, overviewError } = useAppSelector(
@@ -125,7 +127,7 @@ export default function WinterProtectionWidget() {
 
   useEffect(() => {
     dispatch(fetchHardinessOverview());
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   const tiles = useMemo(
     () =>
@@ -192,7 +194,8 @@ export default function WinterProtectionWidget() {
                 return (
                   <Grid size={4} key={light}>
                     <CardActionArea
-                      onClick={() => navigate('/ueberwinterung/profile')}
+                      component={RouterLink}
+                      to="/ueberwinterung/profile"
                       sx={{ borderRadius: 1 }}
                       aria-label={`${t(
                         `pages.dashboard.winterProtection.tile.${light}`,

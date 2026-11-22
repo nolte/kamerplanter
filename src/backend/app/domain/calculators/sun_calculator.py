@@ -1,7 +1,9 @@
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import date, timedelta, tzinfo
+from decimal import ROUND_HALF_UP, Decimal
 
-from astral import LocationInfo
-from astral.sun import sun
+from astral import LocationInfo, Observer
+from astral.sun import azimuth, sun, sunrise, sunset
 
 
 def calculate_sun_times(
@@ -65,3 +67,46 @@ def calculate_sun_times_range(
         results.append(calculate_sun_times(latitude, longitude, current, timezone))
         current += timedelta(days=1)
     return results
+
+
+@dataclass(frozen=True)
+class SunDirection:
+    """Where the sun stands at one moment: compass azimuth (0 = north, clockwise, 0.1 degree) and local ``HH:MM``."""
+
+    azimuth_deg: float
+    time: str
+
+
+@dataclass(frozen=True)
+class SunDirections:
+    """Sunrise and sunset of one day as directions - what the garden plan's compass shows (REQ-053 GP-FR-016)."""
+
+    day: date
+    sunrise: SunDirection
+    sunset: SunDirection
+
+
+def _azimuth_tenth(value: float) -> float:
+    """Wrap into ``[0, 360)`` and round to 0.1 degree like ``north_angle_deg`` (ties away from zero)."""
+    rounded = float(Decimal(value % 360.0).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)) + 0.0
+    return 0.0 if rounded >= 360.0 else rounded
+
+
+def calculate_sun_directions(latitude: float, longitude: float, calc_date: date, tz: tzinfo) -> SunDirections | None:
+    """The azimuths of sunrise and sunset on *calc_date* (REQ-053 GP-FR-016), times in *tz*.
+
+    Sunrise and sunset are the moments the upper limb crosses the horizon with standard refraction (astral's
+    definition, the same as :func:`calculate_sun_times`); the azimuth is the sun's direction at that moment. No
+    shading, no horizon profile (§29). ``None`` on a day without sunrise or sunset - polar day or polar night.
+    """
+    observer = Observer(latitude=latitude, longitude=longitude)
+    try:
+        rise = sunrise(observer, date=calc_date, tzinfo=tz)
+        set_ = sunset(observer, date=calc_date, tzinfo=tz)
+    except ValueError:
+        return None
+    return SunDirections(
+        day=calc_date,
+        sunrise=SunDirection(azimuth_deg=_azimuth_tenth(azimuth(observer, rise)), time=rise.strftime("%H:%M")),
+        sunset=SunDirection(azimuth_deg=_azimuth_tenth(azimuth(observer, set_)), time=set_.strftime("%H:%M")),
+    )

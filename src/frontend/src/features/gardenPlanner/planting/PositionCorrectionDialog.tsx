@@ -1,0 +1,328 @@
+/**
+ * "Correct position" (REQ-053 GP-FR-068, GP-ACC-022): one plant's slot gets a new geometry. Drag the
+ * marker on the bed or - the default in the field (F-13) - move it with the stepper buttons or type the
+ * coordinates. The stepper moves 10 cm per press (§18.1 step 9, #2514); a step-size choice below the arrows
+ * switches it to the fine steps 5 cm and 1 cm everywhere except field mode, which turns the choice off
+ * (`showFineSteps`). Dragged with the pointer the marker snaps to the site plan's grid in the bed frame (`gridStepM`,
+ * GP-FR-154; `Alt` drags freely); the stepper is not snapped. The server logs
+ * `care_event(position_corrected)` with the plant; nothing here writes it. A plant in a zone has no single
+ * position and cannot be moved (the panel says so).
+ */
+import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import TextField from '@mui/material/TextField';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Typography from '@mui/material/Typography';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { useApiError } from '@/hooks/useApiError';
+import type { Geometry, Point } from '../model/types';
+import { formatDecimal } from '../model/units';
+import LayoutCanvas from './LayoutCanvas';
+import { correctSlotPosition, getSlot, listBedSlots } from './plantingApi';
+import { insideBed } from './plantingLogic';
+import { captureHandledError } from '@/observability/errorTracking';
+
+/** Stepper step in centimetres (§18.1 step 9: "Stepper als Standard (±10 cm ...)"). */
+export const STEP_CM = 10;
+/** The finer steps offered next to {@link STEP_CM} outside field mode, coarse to fine. */
+export const FINE_STEPS_CM: readonly number[] = [5, 1];
+const CM = 100;
+
+interface PositionCorrectionDialogProps {
+  bedName: string;
+  bedGeometry: Geometry;
+  bedKey: string;
+  slotKey: string;
+  /** Instance id of the plant, for the title. */
+  plantLabel: string;
+  onClose: () => void;
+  onCorrected: () => void;
+  /** The stepper's default step in cm (§18.1 step 9, F-16). */
+  stepCm?: number;
+  /** Edge of the stepper and action buttons in px; field mode passes the kiosk target (64 px, GP-UX-020). */
+  touchTarget?: number;
+  /** Hold time before the marker can be dragged; field mode needs a 500 ms long press (GP-UX-023). */
+  dragHoldMs?: number;
+  /** The site plan's grid step in metres (`default_grid_m`): a dragged marker snaps to it in the bed frame. */
+  gridStepM: number;
+  /**
+   * Offer the step-size choice {@link stepCm} / {@link FINE_STEPS_CM} below the stepper (default on). Every
+   * caller but field mode leaves it on, whatever the viewport - the plant action host passes nothing. Field mode
+   * turns it off: there the 10 cm step is the whole stepper (§18.1 step 9).
+   */
+  showFineSteps?: boolean;
+}
+
+type Loaded =
+  | { status: 'loading' }
+  | { status: 'zone' }
+  | { status: 'error' }
+  | { status: 'ready'; origin: Point };
+
+/** A position in metres as the field's text: centimetres to 1 mm, with the separator of `language`. */
+function cmText(value: number, language: string): string {
+  return formatDecimal(Math.round(value * CM * 10) / 10, language);
+}
+
+export default function PositionCorrectionDialog({
+  bedName,
+  bedGeometry,
+  bedKey,
+  slotKey,
+  plantLabel,
+  onClose,
+  onCorrected,
+  stepCm = STEP_CM,
+  touchTarget = 48,
+  dragHoldMs,
+  gridStepM,
+  showFineSteps = true,
+}: PositionCorrectionDialogProps) {
+  const { t, i18n } = useTranslation();
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
+  const { handleError } = useApiError();
+  const [loaded, setLoaded] = useState<Loaded>({ status: 'loading' });
+  const [others, setOthers] = useState<Point[]>([]);
+  const [xText, setXText] = useState('');
+  const [yText, setYText] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [activeStepCm, setActiveStepCm] = useState(stepCm);
+  const stepOptions = useMemo(() => [stepCm, ...FINE_STEPS_CM.filter((fine) => fine < stepCm)], [stepCm]);
+  const offerFineSteps = showFineSteps && stepOptions.length > 1;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getSlot(slotKey), listBedSlots(bedKey).catch((err: unknown) => {
+      // The neighbouring slots only add snap targets; the slot itself is corrected without them.
+      captureHandledError(err, { source: 'PositionCorrectionDialog.bedSlots' });
+      return [];
+    })])
+      .then(([slot, slots]) => {
+        if (cancelled) return;
+        if (slot.geometry?.kind === 'point') {
+          setLoaded({ status: 'ready', origin: slot.geometry.origin });
+          setXText(cmText(slot.geometry.origin[0], i18n.language));
+          setYText(cmText(slot.geometry.origin[1], i18n.language));
+          setOthers(
+            slots.flatMap((other) =>
+              other.key !== slotKey && !other.archived_at && other.geometry?.kind === 'point'
+                ? [other.geometry.origin]
+                : [],
+            ),
+          );
+        } else {
+          setLoaded({ status: 'zone' });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ status: 'error' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slotKey, bedKey, i18n.language]);
+
+  // The two fields are the truth: what they say is what is saved. A text that is not a number has no position.
+  const parsed = useMemo<Point | null>(() => {
+    const x = Number(xText.trim().replace(',', '.'));
+    const y = Number(yText.trim().replace(',', '.'));
+    return xText.trim() !== '' && yText.trim() !== '' && Number.isFinite(x) && Number.isFinite(y)
+      ? [x / CM, y / CM]
+      : null;
+  }, [xText, yText]);
+  const inside = parsed !== null && insideBed(bedGeometry, parsed);
+  const shown: Point | null = parsed ?? (loaded.status === 'ready' ? loaded.origin : null);
+
+  const moveTo = useCallback((next: Point) => {
+    setXText(cmText(next[0], i18n.language));
+    setYText(cmText(next[1], i18n.language));
+  }, [i18n.language]);
+
+  const step = (dxCm: number, dyCm: number) => {
+    if (!shown) return;
+    moveTo([Math.round((shown[0] + dxCm / CM) * CM) / CM, Math.round((shown[1] + dyCm / CM) * CM) / CM]);
+  };
+
+  const changed =
+    loaded.status === 'ready' &&
+    parsed !== null &&
+    inside &&
+    (Math.abs(parsed[0] - loaded.origin[0]) > 1e-9 || Math.abs(parsed[1] - loaded.origin[1]) > 1e-9);
+  const layers = useMemo(
+    () => (shown ? [{ id: 'plant', shape: 'circle' as const, color: theme.palette.success.dark, positions: [shown] }] : []),
+    [shown, theme],
+  );
+
+  const save = async () => {
+    if (!parsed || !changed) return;
+    setSaving(true);
+    try {
+      await correctSlotPosition(slotKey, { kind: 'point', origin: [Math.round(parsed[0] * CM) / CM, Math.round(parsed[1] * CM) / CM] });
+      onCorrected();
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const stepButton = (label: string, dx: number, dy: number, icon: ReactElement, testId: string) => (
+    <IconButton
+      aria-label={label}
+      onClick={() => step(dx, dy)}
+      sx={{ width: touchTarget, height: touchTarget, border: 1, borderColor: 'divider' }}
+      data-testid={testId}
+    >
+      {icon}
+    </IconButton>
+  );
+
+  return (
+    <Dialog
+      open
+      onClose={saving ? undefined : onClose}
+      fullScreen={fullScreen}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="position-dialog-title"
+      data-testid="position-dialog"
+    >
+      <DialogTitle id="position-dialog-title">{t('pages.bed.planting.position.title', { plant: plantLabel })}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+        {loaded.status === 'loading' ? <LoadingSkeleton variant="card" /> : null}
+        {loaded.status === 'zone' ? (
+          <Alert severity="info" data-testid="position-zone-note">
+            {t('pages.bed.planting.position.zone')}
+          </Alert>
+        ) : null}
+        {loaded.status === 'error' ? <Alert severity="error">{t('pages.bed.planting.position.failed')}</Alert> : null}
+        {loaded.status === 'ready' && shown ? (
+          <>
+            <Typography variant="body2" color="text.secondary">
+              {t('pages.bed.planting.position.help', { cm: activeStepCm })}
+            </Typography>
+            <LayoutCanvas
+              bed={bedGeometry}
+              layers={layers}
+              existing={others}
+              label={t('pages.bed.planting.position.canvasLabel', { bed: bedName })}
+              interactiveLayerId="plant"
+              selected={{ layerId: 'plant', index: 0 }}
+              onMove={(_, __, next) => moveTo(next)}
+              dragHoldMs={dragHoldMs}
+              gridStepM={gridStepM}
+              testId="position-canvas"
+            />
+            <Box
+              sx={{ display: 'grid', gridTemplateColumns: `repeat(3, ${touchTarget}px)`, gap: 1, justifyContent: 'center' }}
+              role="group"
+              aria-label={t('pages.bed.planting.position.stepper')}
+            >
+              <span />
+              {stepButton(t('pages.bed.planting.position.up'), 0, activeStepCm, <ArrowUpwardIcon />, 'position-up')}
+              <span />
+              {stepButton(t('pages.bed.planting.position.left'), -activeStepCm, 0, <ArrowBackIcon />, 'position-left')}
+              <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center', textAlign: 'center' }} aria-hidden="true">
+                {activeStepCm} cm
+              </Typography>
+              {stepButton(t('pages.bed.planting.position.right'), activeStepCm, 0, <ArrowForwardIcon />, 'position-right')}
+              <span />
+              {stepButton(t('pages.bed.planting.position.down'), 0, -activeStepCm, <ArrowDownwardIcon />, 'position-down')}
+              <span />
+            </Box>
+            {offerFineSteps && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Typography id="position-step-size-label" variant="caption" color="text.secondary">
+                  {t('pages.bed.planting.position.stepSize')}
+                </Typography>
+                <ToggleButtonGroup
+                  exclusive
+                  size="small"
+                  value={activeStepCm}
+                  onChange={(_, next: number | null) => {
+                    if (next !== null) setActiveStepCm(next);
+                  }}
+                  aria-labelledby="position-step-size-label"
+                  data-testid="position-step-size"
+                >
+                  {stepOptions.map((cm) => (
+                    <ToggleButton
+                      key={cm}
+                      value={cm}
+                      aria-label={t('pages.bed.planting.position.stepSizeOption', { cm })}
+                      sx={{ minHeight: touchTarget, minWidth: touchTarget, px: 1.5 }}
+                      data-testid={`position-step-${cm}`}
+                    >
+                      {cm} cm
+                    </ToggleButton>
+                  ))}
+                </ToggleButtonGroup>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <TextField
+                label={t('pages.bed.planting.position.x')}
+                value={xText}
+                onChange={(event) => setXText(event.target.value)}
+                error={parsed === null}
+                helperText={parsed === null ? t('pages.bed.planting.position.invalid') : undefined}
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                  htmlInput: { inputMode: 'decimal', 'data-testid': 'position-x' },
+                }}
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label={t('pages.bed.planting.position.y')}
+                value={yText}
+                onChange={(event) => setYText(event.target.value)}
+                error={parsed === null}
+                slotProps={{
+                  input: { endAdornment: <InputAdornment position="end">cm</InputAdornment> },
+                  htmlInput: { inputMode: 'decimal', 'data-testid': 'position-y' },
+                }}
+                sx={{ flex: 1 }}
+              />
+            </Box>
+            {parsed !== null && !inside ? (
+              <Alert severity="warning" data-testid="position-outside">
+                {t('pages.bed.planting.position.outside')}
+              </Alert>
+            ) : null}
+          </>
+        ) : null}
+      </DialogContent>
+      <DialogActions sx={{ px: { xs: 2, sm: 3 }, pb: 2 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ minHeight: touchTarget }}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => void save()}
+          disabled={saving || !changed}
+          sx={{ minHeight: touchTarget, minWidth: touchTarget }}
+          data-testid="position-save"
+        >
+          {t('pages.bed.planting.position.save')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

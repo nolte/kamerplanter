@@ -15,6 +15,9 @@ import Tooltip from '@mui/material/Tooltip';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import EditIcon from '@mui/icons-material/Edit';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey, isApiError } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
 import EmptyState from '@/components/common/EmptyState';
 import ProfileEditDialog from './ProfileEditDialog';
 import { useNotification } from '@/hooks/useNotification';
@@ -35,21 +38,34 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   const [reqProfile, setReqProfile] = useState<RequirementProfile | null>(null);
   const [nutProfile, setNutProfile] = useState<NutrientProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  // A failed read is shown with a retry; only a 404 means "no profile yet" and offers to
+  // generate the defaults (#3037) — generating over a failed read would overwrite.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
+    const absent = (err: unknown) => isApiError(err) && err.statusCode === 404;
     try {
       const req = await phasesApi.getRequirementProfile(phaseKey);
       setReqProfile(req);
-    } catch {
+    } catch (err) {
       setReqProfile(null);
+      if (!absent(err)) {
+        captureHandledError(err, { source: 'ProfilesSection.requirement' });
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      }
     }
     try {
       const nut = await phasesApi.getNutrientProfile(phaseKey);
       setNutProfile(nut);
-    } catch {
+    } catch (err) {
       setNutProfile(null);
+      if (!absent(err)) {
+        captureHandledError(err, { source: 'ProfilesSection.nutrient' });
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      }
     }
     setLoading(false);
   };
@@ -73,6 +89,7 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   };
 
   if (loading) return <LoadingSkeleton variant="card" />;
+  if (loadError) return <ErrorDisplay error={loadError} onRetry={() => void load()} />;
 
   const hasProfiles = !!(reqProfile || nutProfile);
 
@@ -112,7 +129,21 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
                     {t('pages.profiles.requirements')}
                   </Typography>
                   <ProfileRow label={`${t('pages.profiles.lightPpfd')} (PPFD)`} value={reqProfile.light_ppfd_target} />
-                  <ProfileRow label={t('pages.profiles.photoperiodHours')} value={`${reqProfile.photoperiod_hours} h`} />
+                  <ProfileRow
+                    label={t('pages.profiles.photoperiodHours')}
+                    value={`${reqProfile.photoperiod_hours} h`}
+                    detail={
+                      reqProfile.photoperiod_source
+                        ? t(`enums.photoperiodSource.${reqProfile.photoperiod_source}`)
+                        : t('pages.profiles.photoperiodSourceUnknown')
+                    }
+                    detailTestId="profile-photoperiod-source"
+                  />
+                  {!readOnly && reqProfile.photoperiod_source !== 'sourced' && (
+                    <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }} data-testid="profile-photoperiod-source-todo">
+                      {t('pages.profiles.photoperiodSourceTodo')}
+                    </Typography>
+                  )}
                   <Divider sx={{ my: 1 }} />
                   <ProfileRow label={t('pages.profiles.tempDay')} value={`${reqProfile.temperature_day_c} °C`} />
                   <ProfileRow label={t('pages.profiles.tempNight')} value={`${reqProfile.temperature_night_c} °C`} />
@@ -190,11 +221,26 @@ export default function ProfilesSection({ phaseKey, phaseName, readOnly }: Props
   );
 }
 
-function ProfileRow({ label, value }: { label: string; value: string | number }) {
+interface ProfileRowProps {
+  label: string;
+  value: string | number;
+  /** A second line under the value, e.g. where the value came from (#2857). */
+  detail?: string;
+  detailTestId?: string;
+}
+
+function ProfileRow({ label, value, detail, detailTestId }: ProfileRowProps) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, py: 0.5 }}>
       <Typography variant="body2" color="text.secondary">{label}</Typography>
-      <Typography variant="body2">{value}</Typography>
+      <Box sx={{ textAlign: 'right' }}>
+        <Typography variant="body2">{value}</Typography>
+        {detail && (
+          <Typography variant="caption" color="text.secondary" data-testid={detailTestId}>
+            {detail}
+          </Typography>
+        )}
+      </Box>
     </Box>
   );
 }

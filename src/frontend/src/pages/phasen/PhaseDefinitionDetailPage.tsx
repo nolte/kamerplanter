@@ -38,6 +38,8 @@ import type {
   PlantInstancesInPhase,
 } from '@/api/types';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Elapsed whole days since a phase-start timestamp (FIX-01 R2). Null when unknown. */
 function daysInPhase(startedAt: string | null): number | null {
@@ -92,15 +94,27 @@ export default function PhaseDefinitionDetailPage() {
       try {
         const [defData, seqData, plantsData, speciesData] = await Promise.all([
           phaseSequenceApi.getPhaseDefinition(key),
-          phaseSequenceApi.listSequencesForDefinition(key).catch(() => [] as PhaseSequence[]),
+          phaseSequenceApi.listSequencesForDefinition(key).catch((err: unknown) => {
+            // The sequences using this definition are secondary; the definition renders without them.
+            captureHandledError(err, { source: 'PhaseDefinitionDetailPage.sequences' });
+            return [] as PhaseSequence[];
+          }),
           // Tenant-scoped (FIX-01 List 1): tolerate absence of a tenant context (e.g.
           // light mode) by degrading to an empty list rather than failing the page.
           plantInstanceApi
             .listPlantInstancesInPhaseDefinition(key)
-            .catch(() => ({ total: 0, items: [] }) as PlantInstancesInPhase),
+            .catch((err: unknown) => {
+              // See above: no tenant context (light mode) must not fail the page.
+              captureHandledError(err, { source: 'PhaseDefinitionDetailPage.plants' });
+              return ({ total: 0, items: [] }) as PlantInstancesInPhase;
+            }),
           phaseSequenceApi
             .listSpeciesForDefinition(key)
-            .catch(() => [] as PhaseDefinitionSpecies[]),
+            .catch((err: unknown) => {
+              // The species list is secondary; the definition renders without it.
+              captureHandledError(err, { source: 'PhaseDefinitionDetailPage.species' });
+              return [] as PhaseDefinitionSpecies[];
+            }),
         ]);
         if (cancelled) return;
         setDefinition(defData);
@@ -323,7 +337,8 @@ export default function PhaseDefinitionDetailPage() {
     {
       id: 'commonName',
       label: t('pages.phaseSequences.commonName'),
-      render: (species) => (species.common_names.length > 0 ? species.common_names.join(', ') : '—'),
+      render: (species) =>
+        species.common_names.length > 0 ? orderCommonNamesForLanguage(species, i18n.language).join(', ') : '—',
       searchValue: (species) => species.common_names.join(' '),
     },
     {
@@ -407,6 +422,7 @@ export default function PhaseDefinitionDetailPage() {
                 component="img"
                 src={illustrationUrl ?? ''}
                 alt={displayName}
+                loading="lazy"
                 sx={{ maxHeight: 120, maxWidth: '100%', objectFit: 'contain' }}
                 onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                   (e.target as HTMLImageElement).style.display = 'none';
@@ -541,7 +557,7 @@ export default function PhaseDefinitionDetailPage() {
             columns={plantColumns}
             rows={plantsInPhase.items}
             getRowKey={(plant) => plant.key}
-            onRowClick={(plant) => navigate(`/pflanzen/plant-instances/${plant.key}`)}
+            getRowHref={(plant) => `/pflanzen/plant-instances/${plant.key}`}
             variant="simple"
             ariaLabel={t('pages.phaseSequences.plantsInPhase')}
             emptyMessage={t('pages.phaseSequences.noPlantsInPhase')}
@@ -602,7 +618,7 @@ export default function PhaseDefinitionDetailPage() {
                 columns={sequenceColumns}
                 rows={sequences}
                 getRowKey={(seq) => seq.key}
-                onRowClick={(seq) => navigate(`/phasen/ablaeufe/${seq.key}`)}
+                getRowHref={(seq) => `/phasen/ablaeufe/${seq.key}`}
                 variant="simple"
                 ariaLabel={t('pages.phaseSequences.usedInSequences')}
                 emptyMessage={t('pages.phaseSequences.noSequencesUsingDefinition')}
@@ -646,7 +662,7 @@ export default function PhaseDefinitionDetailPage() {
                 columns={speciesColumns}
                 rows={speciesInPhase}
                 getRowKey={(species) => species.key}
-                onRowClick={(species) => navigate(`/stammdaten/species/${species.key}`)}
+                getRowHref={(species) => `/stammdaten/species/${species.key}`}
                 variant="simple"
                 ariaLabel={t('pages.phaseSequences.speciesInPhase')}
                 emptyMessage={t('pages.phaseSequences.noSpeciesInPhase')}
@@ -655,7 +671,11 @@ export default function PhaseDefinitionDetailPage() {
                   <MobileCard
                     title={<Box sx={{ fontStyle: 'italic' }}>{species.scientific_name || species.key}</Box>}
                     titleId="scientificName"
-                    subtitle={species.common_names.length > 0 ? species.common_names.join(', ') : undefined}
+                    subtitle={
+                      species.common_names.length > 0
+                        ? orderCommonNamesForLanguage(species, i18n.language).join(', ')
+                        : undefined
+                    }
                     subtitleId="commonName"
                     fields={[
                       {

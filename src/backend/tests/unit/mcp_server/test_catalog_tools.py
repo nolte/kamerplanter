@@ -40,6 +40,7 @@ class _Species:
         self.key = "sp-tomato"
         self.scientific_name = "Solanum lycopersicum"
         self.common_names = ["Tomate"]
+        self.common_names_i18n = {"de": ["Tomate"]}
         self.synonyms = []
         self.genus = "Solanum"
         self.family_key = "fam-solanaceae"
@@ -142,6 +143,59 @@ async def test_species_info_keeps_meaningful_false_and_zero():
     )
     assert resp.data["green_manure_suitable"] is False
     assert resp.data["allows_harvest"] is True
+
+
+@pytest.mark.parametrize(
+    ("names", "names_i18n", "label"),
+    [
+        # species.yaml lists the English name first; the summary names the canonical German one (#2902)
+        (["Tomato", "Tomate"], {"en": ["Tomato"], "de": ["Tomate"]}, "Solanum lycopersicum (Tomate)"),
+        # no language map (tenant-created, CSV import): the first listed name
+        (["Meine Tomate"], {}, "Solanum lycopersicum (Meine Tomate)"),
+        # a map without German: the scientific name alone
+        (["Tomato"], {"en": ["Tomato"]}, "Solanum lycopersicum:"),
+    ],
+    ids=["map", "no-map", "no-german"],
+)
+@pytest.mark.asyncio
+async def test_species_info_summary_names_the_species_by_the_display_rule(names, names_i18n, label):
+    class _Named(_SpeciesService):
+        def get_species(self, key, *, tenant_key=None):
+            species = _Species()
+            species.common_names = names
+            species.common_names_i18n = names_i18n
+            return species
+
+    resp = await GetSpeciesInfo().run(_ctx(species_service=_Named()), GetSpeciesInfo.Input(species_key="sp-tomato"))
+
+    assert resp.summary.startswith(f"Species {label}")
+
+
+@pytest.mark.parametrize(
+    ("language", "label"),
+    [
+        ("en", "Solanum lycopersicum (Tomato)"),
+        ("de", "Solanum lycopersicum (Tomate)"),
+        ("fr", "Solanum lycopersicum (Tomate)"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_species_info_summary_names_the_species_in_the_request_language(language, label):
+    # #2955 — the summary words the name in ``ToolContext.language`` (the request's
+    # ``Accept-Language``) like the IPM tools, not always in the canonical language.
+    class _Named(_SpeciesService):
+        def get_species(self, key, *, tenant_key=None):
+            species = _Species()
+            species.common_names = ["Tomato", "Tomate"]
+            species.common_names_i18n = {"en": ["Tomato"], "de": ["Tomate"]}
+            return species
+
+    principal = McpPrincipal(account_key="u-1", display_name="Gardener", memberships=(_membership(),))
+    ctx = ToolContext(principal, _membership(), services={"species_service": _Named()}, language=language)
+
+    resp = await GetSpeciesInfo().run(ctx, GetSpeciesInfo.Input(species_key="sp-tomato"))
+
+    assert resp.summary.startswith(f"Species {label}")
 
 
 @pytest.mark.asyncio

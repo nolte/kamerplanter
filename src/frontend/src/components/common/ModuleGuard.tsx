@@ -13,6 +13,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
+import type { ModuleKey } from '@/config/moduleCatalog';
 
 /**
  * REQ-042 — deep-link guard. Direct URL access to a route of a hidden module
@@ -22,19 +23,30 @@ import { useModuleVisibility } from '@/hooks/useModuleVisibility';
  * Issue #587 — when a path is blocked by the smart-home gate specifically (e.g.
  * `/umgebungssteuerung`), the hint is tailored to point at the smart-home toggle
  * (Settings → Integrationen) instead of the module list.
+ *
+ * REQ-042 §4.3 — a route that lies in the path space of a core module (the garden plan,
+ * `/standorte/sites/:key/plan`, under `locations`) cannot be resolved by its path prefix. It passes
+ * `moduleKey` and the guard checks that module directly.
  */
-export default function ModuleGuard({ children }: { children: React.ReactNode }) {
+export default function ModuleGuard({
+  children,
+  moduleKey,
+}: {
+  children: React.ReactNode;
+  moduleKey?: ModuleKey;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isPathVisible, isSmartHomeGatedPath } = useModuleVisibility();
+  const { isPathVisible, isModuleVisible, isSmartHomeGatedPath } = useModuleVisibility();
   const descId = useId();
 
-  if (isPathVisible(location.pathname)) {
+  const visible = moduleKey ? isModuleVisible(moduleKey) : isPathVisible(location.pathname);
+  if (visible) {
     return <>{children}</>;
   }
 
-  const smartHomeGated = isSmartHomeGatedPath(location.pathname);
+  const smartHomeGated = !moduleKey && isSmartHomeGatedPath(location.pathname);
   const copy = smartHomeGated
     ? {
         title: t('pages.auth.smartHome.guardTitle'),

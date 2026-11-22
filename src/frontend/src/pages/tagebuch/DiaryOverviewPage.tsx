@@ -15,10 +15,11 @@ import MobileCard from '@/components/common/MobileCard';
 import PageTitle from '@/components/layout/PageTitle';
 import { useApiError } from '@/hooks/useApiError';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { useNotification } from '@/hooks/useNotification';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import {
-  diaryPhotoUri,
   listDiaryOverview,
   requestDiaryEntryAnalysis,
 } from '@/api/endpoints/diary';
@@ -34,6 +35,8 @@ import {
   EMPTY_DIARY_FILTERS,
   type DiaryOverviewFilterState,
 } from './diaryOverviewFilterState';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Page size the overview starts with; the backend caps `limit` at 200. */
 const DEFAULT_PAGE_SIZE = 50;
@@ -91,7 +94,7 @@ function mergeEntryIntoRow(row: DiaryOverviewItem, entry: PlantDiaryEntry): Diar
  * turns a deep link into the reactivation hint rather than a 404 (AK-31).
  */
 export default function DiaryOverviewPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -148,7 +151,7 @@ export default function DiaryOverviewPage() {
     } catch (err) {
       setRows([]);
       setTotal(0);
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -166,9 +169,12 @@ export default function DiaryOverviewPage() {
     pageSize,
   ]);
 
+  // A row's species name is worded by the server in the UI language when it stands in for a missing
+  // scientific name (#2902): reload on a switch.
+  const requestLanguage = useRequestLanguage();
   useEffect(() => {
     load();
-  }, [load, reloadToken]);
+  }, [load, reloadToken, requestLanguage]);
 
   // The plant/species dropdown options. Loaded once and independently of the
   // listing: a tenant without a readable plant list still gets a usable page,
@@ -179,7 +185,9 @@ export default function DiaryOverviewPage() {
       .then((all) => {
         if (!cancelled) setPlants(all);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // The plant filter is optional: without it the diary still lists every entry.
+        captureHandledError(err, { source: 'DiaryOverviewPage.plants' });
         if (!cancelled) setPlants([]);
       });
     return () => {
@@ -202,16 +210,18 @@ export default function DiaryOverviewPage() {
     const byKey = new Map<string, string>();
     for (const plant of plants) {
       if (!plant.species_key) continue;
+      // The scientific name leads here (the filter is botanical); the common name in
+      // the UI language is only the fallback (#2902).
       const label =
         plant.species?.scientific_name ||
-        plant.species?.common_names?.[0] ||
+        getLocalizedCommonName(plant.species, i18n.language) ||
         plant.species_key;
       if (!byKey.has(plant.species_key)) byKey.set(plant.species_key, label);
     }
     return Array.from(byKey, ([value, label]) => ({ value, label })).sort((a, b) =>
       a.label.localeCompare(b.label),
     );
-  }, [plants]);
+  }, [plants, i18n.language]);
 
   /** A filter change always returns to the first page — page 4 of the old result
    *  set is not page 4 of the new one. */
@@ -364,7 +374,7 @@ export default function DiaryOverviewPage() {
                 <AuthImage
                   /* 128 px is the smallest rendition (NFR-013 §8.2) — a list of
                      50 rows must not pull 50 full-size images for a thumbnail. */
-                  uri={diaryPhotoUri(row.preview_photo_id, 128)}
+                  uri={attachmentUri(row.preview_photo_id, 128)}
                   alt={t('pages.diaryOverview.photoPreviewAlt')}
                   sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'action.hover' }}
                   data-testid="diary-photo-preview"
@@ -473,7 +483,7 @@ export default function DiaryOverviewPage() {
             leading={
               row.preview_photo_id ? (
                 <AuthImage
-                  uri={diaryPhotoUri(row.preview_photo_id, 128)}
+                  uri={attachmentUri(row.preview_photo_id, 128)}
                   alt={t('pages.diaryOverview.photoPreviewAlt')}
                   sx={{ width: 56, height: 56, borderRadius: 1, bgcolor: 'action.hover' }}
                   data-testid="diary-photo-preview"

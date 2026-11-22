@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -48,7 +49,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -61,6 +62,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
       description: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -85,14 +87,14 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="treatment-create-dialog-title" data-testid="treatment-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="treatment-create-dialog-title" data-testid="treatment-create-dialog">
       <DialogTitle id="treatment-create-dialog-title">{t('pages.ipm.createTreatment')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -133,6 +135,7 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
           />
           <FormNumberField
             name="safety_interval_days"
+            helpTerm="karenzzeit"
             control={control}
             label={t('pages.ipm.safetyIntervalDays')}
             min={0}
@@ -166,6 +169,6 @@ export default function TreatmentCreateDialog({ open, onClose, onCreated }: Prop
           />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

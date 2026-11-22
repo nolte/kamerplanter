@@ -57,6 +57,7 @@ def _service(task: Task) -> TaskService:
     service._repo = repo
     service._propagate = lambda fn: None
     service._attachment_repo = None
+    service._care_mirror = None
     return service
 
 
@@ -167,8 +168,22 @@ def test_completion_is_the_only_writer_of_photo_refs():
             for call in ast.walk(node)
         )
     }
-    assert writers == {"complete_task"}, (
-        f"task.photo_refs is now mutated by {sorted(writers)}, not only complete_task. "
+    # Since REQ-053 WP 4.3 the one completion transition prepares its write in ``_prepare_completion`` (the refs are
+    # extended there, before the transaction); it is reached from ``complete_task`` and the batch completion only.
+    assert writers == {"_prepare_completion"}, (
+        f"task.photo_refs is now mutated by {sorted(writers)}, not only the completion transition. "
         f"A task can carry photos without having been completed, so re-derive whether "
         f"delete_task needs to clean them up (#1393)."
     )
+    callers = {
+        node.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef)
+        for call in ast.walk(node)
+        if isinstance(call, ast.Call)
+        and isinstance(call.func, ast.Attribute)
+        and call.func.attr == "_prepare_completion"
+    }
+    # ``_batch_complete_pass`` is one attempt of the batch completion (REQ-053 WP 9.3 retries a buffered batch).
+    # ``_commit_completion`` is the single completion's commit (REQ-053 WP 9.3: the follow-ups stay outside it).
+    assert callers == {"_commit_completion", "_batch_complete_pass"}, sorted(callers)

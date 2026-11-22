@@ -145,6 +145,22 @@ Mitteleuropa (Zone 7–8), Bezugspunkt: letzter Frost Mitte Mai.
 Quellen (§1.8): [University of Minnesota Extension — Growing Sunflowers](https://extension.umn.edu/flowers/growing-sunflowers) (bereits als Quelle 2 im Hauptquellenverzeichnis gelistet; Dunkelkeimer, Saattiefe, Keimtemperatur); [Homestead and Chill — Seed Viability Chart](https://homesteadandchill.com/old-seeds-viability-chart/) (Keimfähigkeitsdauer Gartensaatgut ~3–4 Jahre); [Stone Post Gardens — Demystifying the Size of the Mighty Sunflower Seed](https://stonepostgardens.com/size-of-a-sunflower-seed/) (Tausendkornmasse Ölsonnenblume 40–70 g); [OCL Journal — Confectionery sunflower breeding and supply chain in Eastern Europe](https://www.ocl-journal.org/articles/ocl/full_html/2019/01/ocl190002/ocl190002.html) (Tausendkornmasse Konditorsonnenblume 90–120 g); [MDPI Agronomy — Sunflower Yield and Yield Components for Various Agricultural Practices](https://www.mdpi.com/2073-4395/14/1/36) (Aussaatdichte 2,8–8,3 Pflanzen/m² je nach Sorte/Standraum, Steppenzone)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine lesbare belastbare Quelle — LfL-/LfULG-PDFs und UGA-Merkblatt nicht als Text lesbar, UMN Extension nicht erreichbar (403), RHS nennt keinen Abstand; Gartenportale/Baumarkt-Angaben als Quelle verworfen --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine lesbare belastbare Quelle (siehe Pflanzabstand) --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow sunflowers" (Growing Guide: „sunflowers love a sunny spot"), https://www.rhs.org.uk/plants/helianthus/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -482,6 +498,11 @@ Hinweis: Resistenz gegen Plasmopara halstedii ist sortenabhängig und rassenspez
 | Empfohlene Vorfrucht | Hülsenfrüchtler (Fabaceae — Bohne, Erbse; hinterlassen Reststickstoff) oder Getreide (Poaceae — Bodenstruktur) |
 | Empfohlene Nachfrucht | Schwachzehrer (Lamiaceae, Violaceae) oder Gründüngung (Phacelia, Senf); NICHT direkt Salat oder Getreide (Allelopathie-Rückstände!) |
 | Anbaupause (Jahre) | 3–4 Jahre gleiche Fläche (Asteraceae), um Sclerotinia-Inokulum und Verticillium im Boden zu reduzieren |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine lesbare Fachquelle (LfL-/LfULG-PDFs nicht als Text lesbar; verfügbare Treffer nur Gartenportale/Blogs, verworfen) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine belegte Zehrerstufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Suchauszüge nennen für Sonnenblume 4–5 Jahre (LfL Bayern, LfULG Sachsen), die Quell-PDFs waren aber nicht als Text lesbar — nicht verifiziert; Familienwert Asteraceae 3 --> |
 
 **Allelopathie-Warnung:** Sonnenblumenreste setzen beim Abbau allelopathische Substanzen frei (Heliannuol A–E, Chlorogensäure). Empfindliche Nachkulturen (Salat, Weizen, Kartoffel) sollten frühestens 4–6 Wochen nach Einarbeitung oder Entfernung der Rückstände folgen.
 
@@ -579,3 +600,4 @@ Autumn Beauty,Helianthus annuus,--,--,branching;multicolor;tall;ornamental,open_
 22. OCL Journal — Confectionery sunflower breeding and supply chain in Eastern Europe: https://www.ocl-journal.org/articles/ocl/full_html/2019/01/ocl190002/ocl190002.html — Tausendkornmasse Konditorsonnenblume
 23. MDPI Agronomy — Sunflower Yield and Yield Components for Various Agricultural Practices: https://www.mdpi.com/2073-4395/14/1/36 — Aussaatdichte Pflanzen/m²
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+24. Royal Horticultural Society — How to grow sunflowers (Growing Guide): https://www.rhs.org.uk/plants/helianthus/growing-guide — Lichtanspruch „sunny spot"

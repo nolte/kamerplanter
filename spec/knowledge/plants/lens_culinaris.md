@@ -154,6 +154,22 @@ Quellen (§1.8):
 5. [MDPI Agronomy 2024 — Agronomic Performances and Seed Yield Components of Lentil Germplasm](https://www.mdpi.com/2073-4395/14/2/303) — Tausendkornmasse-Spanne
 6. [ResearchGate — Effect of moisture levels and storage periods on seed quality of lentil](https://www.researchgate.net/publication/324978590_Effect_of_moisture_levels_and_storage_periods_on_the_seed_quality_of_lentil_Lens_culinaris_L) — Keimfähigkeitsverlust über Lagerzeit
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine belastbare Quelle für Gartenanbau; LfL-Merkblatt (2024) und Arche-Noah-Artenportrait (2021) nennen keinen Abstand in der Reihe (nur Saatstärke 150–220 Körner/m²) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: einzige gelesene Quelle (LfL-Merkblatt 2024) nennt etwa 12,5 cm nur für maschinelle Drillsaat im Gemenge (Feldanbau), nicht für Garten-/Beetreihen; Wert nicht übernommen --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine Fachquelle (RHS, Extension, Landesanstalt) mit Standortstufe gelesen --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -361,6 +377,11 @@ KEINE Stickstoffdüngung bei funktionierender Rhizobium-Symbiose. Kalziumversorg
 | Empfohlene Vorfrucht | Getreide (Weizen, Gerste); Wintergetreide |
 | Empfohlene Nachfrucht | Winterweizen, Mais, Raps (profitieren vom N-Depot) |
 | Anbaupause (Jahre) | 4–5 Jahre auf gleichem Standort (Sklerotinia-Dauerformen) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fachquelle ordnet die Linse einer Zehrerstufe zu (LfL-Merkblatt 2024 und Arche-Noah-Artenportrait 2021 nennen keine; Südtiroler Bauernbund 2022 führt nur Erbse/Buschbohne als Schwachzehrer) --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Stickstofffixierer | true (Symbiose mit Knöllchenbakterien; LfL, Merkblatt „Anbau von Linsen im ökologischen Landbau" (2024), https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/linsen-oekolandbau_lfl-merkblatt.pdf; Arche Noah, Artenportrait Linse (2021), https://www.arche-noah.at/media/artenportrait_linse.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Fabaceae 6; LfL-Merkblatt 2024 empfiehlt für Linse mindestens 6 Jahre) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -433,4 +454,6 @@ Anicia,Lens culinaris,"beluga_type;black;gourmet",110,open_pollinated
 18. [Sound Horticulture — Aphidoletes aphidimyza](https://soundhorticulture.com/products/aphidoletes-aphidimyza) — Gallmücke gegen Blattläuse, Ausbringraten
 19. [PMC — Pea Aphid Population Dynamics and Yield Loss on Lentil](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8707183/) — Acyrthosiphon pisum Hauptschädling der Linse
 20. [PSU / Greenhouse Grower — Hydroponic micronutrient solution ranges](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Fertigations-Standardbereiche Mn/Zn/Cu/Mo
+21. [LfL Bayern — Anbau von Linsen im ökologischen Landbau, Merkblatt (2024)](https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/linsen-oekolandbau_lfl-merkblatt.pdf) — N-Fixierung durch Knöllchenbakterien, Anbaupause mindestens 6 Jahre, Drillsaat-Reihenabstand ca. 12,5 cm (Feldanbau)
+22. [Arche Noah — Artenportrait Linse (2021, StartClim)](https://www.arche-noah.at/media/artenportrait_linse.pdf) — N-Bindung bis 150 kg/ha
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

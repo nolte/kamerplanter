@@ -134,6 +134,22 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte April bis Mitte M
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (§1.3 führt ausschließlich cutting_stem/division; Aussaat aus Samen ist laut §1.3-Vermehrungshinweis zwar botanisch möglich, aber praktisch kaum genutzt: Sortenreinheit nicht garantiert, Geschlecht [Humulus lupulus ist zweihäusig] erst nach der Blüte erkennbar — kommerzielle wie Hobby-Vermehrung erfolgt ausschließlich über Rhizomteilung/Stecklinge von garantiert weiblichen Mutterpflanzen) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine lesbare Fachquelle (LfL Grünes Heft Hopfen 2025 zu groß/nicht lesbar; Uni-Extension-PDFs Arkansas/Maryland/Florida nicht lesbar bzw. 403/404/410); der Wert in 1.6 ist unbelegt --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine lesbare Fachquelle, siehe Pflanzabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug — RHS „Full sun, Partial shade"; Kulturtext „Grow in full sun or partial shade" --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -465,6 +481,11 @@ Hopfen ist eine Staude mit jaehrlichem Neuaustrieb aus dem Rhizom. Die Phasen wi
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae); Gruenduengung (Phacelia, Lupine) |
 | Empfohlene Nachfrucht | -- (Dauerpflanze; kein Standortwechsel vorgesehen; Pause nach Rodung: 3--4 Jahre fuer Cannabaceae) |
 | Anbaupause (Jahre) | 4--5 Jahre (fuer Familienmitglieder Cannabaceae nach Rodung) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine lesbare Fachquelle mit Zehrerstufen-Zuordnung für Hopfen gelesen (Gartenratgeber-Fruchtfolgetabellen führen Hopfen nicht; LfL Grünes Heft Hopfen nicht lesbar) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für die Stufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cannabaceae: kein Familienwert belegt); der Wert 4--5 oben ist unbelegt --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 

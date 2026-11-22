@@ -114,6 +114,22 @@
 **Hinweis:** Begonia rex-cultorum ist eine schattenadaptierte Unterwuchspflanze (understory) tropisch-subtropischer Wälder mit dünnen, großflächigen Blättern und niedriger Stomata-Dichte; der Lichtkompensationspunkt liegt entsprechend tief (Studien zu 'Black Velvet' nutzen 5–20 µmol/m²/s als Unterwuchs-Spektrum, mit Optimum-Hinweis bei ~20). Helles, indirektes Licht (partial_shade bis shade); direkte Mittagssonne führt zu Blattverbrennungen. Die ECe-Schwelle bezieht sich auf die Substrat-Leitfähigkeit (saturated paste extract), NICHT auf die Gießwasser-EC; die niedrige Schwelle (< 3 dS/m, sensitive-Klasse) ist mit dem niedrigen Dünge-EC-Korridor (0.4–0.8 mS) in §2.3 konsistent. Die GDD-Basistemperatur von 10 °C ist aus den kardinalen Temperaturgrenzen abgeleitet (Wachstumsstopp < 15 °C, Schadschwelle < 10 °C), nicht aus einem publizierten GDD-Versuch.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Begonia rex (king begonia)", Angabe „Position: Partial shade", https://www.rhs.org.uk/plants/101666/begonia-rex-(r)/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -324,3 +340,4 @@ Begonia rex-cultorum,"Königsbegonie;Zierbegonie;Rex Begonia;Painted-leaf Begoni
 13. [Proven Winners / Gardening Know How — Overwintering Begonias](https://www.provenwinners.com/learn/overwintering-begonias) — frostfreie Überwinterung, reduziertes Gießen, kein Knollen-Storage bei rhizomatösen/faserwurzligen Typen
 14. [Healthy Houseplants / Cafe Planta — Rex Begonia Soil](https://www.healthyhouseplants.com/indoor-houseplants/rex-begonia-care-guide-growing-vibrant-begonia-rex-cultorum/) — Boden-pH 5.5–6.5, flache Rhizome, keine Staunässe
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. [RHS — Begonia rex (king begonia), Position: Partial shade](https://www.rhs.org.uk/plants/101666/begonia-rex-(r)/details) — Lichtanspruch (Standortstufe, §1.10)

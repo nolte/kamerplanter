@@ -7,6 +7,7 @@ import { router } from '@/routes/AppRoutes';
 import AuthProvider from '@/auth/AuthProvider';
 import { KioskProvider } from '@/kiosk/KioskProvider';
 import AppConsentBanner from '@/components/privacy/AppConsentBanner';
+import SnackbarCloseButton from '@/components/common/SnackbarCloseButton';
 
 export default function App() {
   return (
@@ -20,7 +21,10 @@ export default function App() {
             preventDuplicate
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             autoHideDuration={5000}
-            style={{ maxWidth: '480px', whiteSpace: 'pre-line' }}
+            // #3013 (N-10): every snackbar carries a keyboard-reachable close button.
+            action={(snackbarKey) => <SnackbarCloseButton snackbarKey={snackbarKey} />}
+            // #2814: never wider than the viewport (390 px), the action button stays visible.
+            style={{ maxWidth: 'min(480px, calc(100vw - 16px))', whiteSpace: 'pre-line' }}
           >
             <AuthProvider>
               <RouterProvider router={router} />

@@ -9,9 +9,12 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { verifyEmail } from '@/api/endpoints/auth';
+import { errorKey } from '@/api/errors';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function EmailVerificationPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.emailVerification'));
   const { token } = useParams<{ token: string }>();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() => token ? 'loading' : 'error');
   const [error, setError] = useState(() => token ? '' : t('pages.auth.invalidToken'));
@@ -23,12 +26,13 @@ export default function EmailVerificationPage() {
       .then(() => setStatus('success'))
       .catch((err) => {
         setStatus('error');
-        setError(err?.message || t('pages.auth.verificationFailed'));
+        // The server's English message never reaches the UI (#3013); the code picks the text.
+        setError(t(errorKey(err, 'pages.auth.verificationFailed')));
       });
   }, [token, t]);
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="email-verification-page">
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h5" gutterBottom>

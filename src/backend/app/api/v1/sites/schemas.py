@@ -1,9 +1,10 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import SiteType
-from app.domain.models.site import HardinessZoneSource
+from app.domain.models.geometry import Geometry
+from app.domain.models.site import HardinessZoneSource, ReachThresholds, SunClassThresholds, WindowThresholds
 
 # ── Water config schemas ──────────────────────────────────────────────
 
@@ -38,7 +39,49 @@ class WaterSourceWarningSchema(BaseModel):
     severity: str
 
 
+# ── Garden plan (REQ-053 §20.2, WP 1.7) ───────────────────────────────────────
+
+
+class SitePlanSchema(BaseModel):
+    """The garden plan of a site as the API returns it; written only by the plan routes (WP 1.8).
+
+    ``plan_updated_by`` (an account key) stays server-side: the plan response
+    names the last editor by display name, never by key (§22.1, SR-013).
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"north_angle_deg": 15.0, "default_grid_m": 0.3, "adjacency_factor": 1.0, "plan_revision": 3}]
+        }
+    )
+
+    boundary: Geometry | None = None
+    north_angle_deg: float = 0.0
+    default_grid_m: float
+    adjacency_factor: float
+    plan_revision: int = 0
+    plan_updated_at: datetime | None = None
+
+
 # ── Site schemas ──────────────────────────────────────────────────────
+
+
+class SunClassThresholdsIn(SunClassThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ReachThresholdsIn(ReachThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WindowThresholdsIn(WindowThresholds):
+    """The request form: a misspelt key is a 422 instead of a silently dropped value that resets the stored one."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"examples": [{"suggestion_radius_m": 1.5}]})
 
 
 class SiteCreate(BaseModel):
@@ -55,6 +98,13 @@ class SiteCreate(BaseModel):
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
+    # REQ-053 GP-FR-164/166 (WP 8.24) — the domain models themselves, so the request refuses (422) exactly what
+    # the model refuses: a bound <= 0, sun-class bounds that are not strictly descending, a one-side reach above
+    # the two-side one. Omitted (``null``) = keep the stored value on an edit, the defaults on create.
+    sun_class_thresholds: SunClassThresholdsIn | None = None
+    reach_thresholds: ReachThresholdsIn | None = None
+    # REQ-053 GP-FR-181 (WP 10.7): the radius around a window for the sun-window suggestion; same rules as above.
+    window_thresholds: WindowThresholdsIn | None = None
 
 
 class SiteResponse(BaseModel):
@@ -75,5 +125,11 @@ class SiteResponse(BaseModel):
     last_frost_date_avg: date | None = None
     first_frost_date_avg: date | None = None
     eisheilige_date: date | None = None
+    #: ``None`` is a site without a garden plan (REQ-053 §20.2).
+    plan: SitePlanSchema | None = None
+    #: The effective values: what is stored, the defaults where nothing is (GP-FR-164/166).
+    sun_class_thresholds: SunClassThresholds = Field(default_factory=SunClassThresholds)
+    reach_thresholds: ReachThresholds = Field(default_factory=ReachThresholds)
+    window_thresholds: WindowThresholds = Field(default_factory=WindowThresholds)
     created_at: datetime | None = None
     updated_at: datetime | None = None

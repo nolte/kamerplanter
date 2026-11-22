@@ -29,6 +29,15 @@ class _NoopCollection:
     def count(self) -> int:
         return 0
 
+    def has(self, key: str) -> bool:
+        # v0101 (REQ-053 WP 7.8): a volume the migration already ran on holds every system template under its fixed
+        # key, so the migration finds nothing missing and inserts nothing. (Seeding an unseeded volume is pinned by
+        # test_v0101_bed_template_index_and_system_templates.py and the integration test.)
+        return True
+
+    def insert(self, *args, **kwargs):  # pragma: no cover - never reached on a seeded volume
+        raise AssertionError("no system template should be inserted when every fixed key is present")
+
     def update(self, *args, **kwargs):  # pragma: no cover - never reached on empty data
         raise AssertionError("no document should be written on an empty database")
 
@@ -98,6 +107,12 @@ class _NoopCollection:
             {"type": "persistent", "fields": ["tenant_key", "species_key"], "unique": False},
             # also v0092 (#1534): tasks.(tenant_key, status) is bootstrapped on a fresh volume
             {"type": "persistent", "fields": ["tenant_key", "status"], "unique": False},
+            # v0099 (REQ-053 WP 7.1): irrigation_zones.(tenant_key, site_key) and the unique zone_covers._to
+            # are bootstrapped on a fresh volume.
+            {"type": "persistent", "fields": col.IRRIGATION_ZONE_SITE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.ZONE_COVERS_TARGET_INDEX_FIELDS, "unique": True},
+            # v0101 (REQ-053 WP 7.8): bed_templates.(tenant_key, name) is bootstrapped on a fresh volume.
+            {"type": "persistent", "fields": col.BED_TEMPLATE_TENANT_INDEX_FIELDS, "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "method"], "unique": False},
             {"type": "persistent", "fields": ["tenant_key", "plant_key"], "unique": False},
             # v0019 actuators (tenant_key, name) lookup index
@@ -167,6 +182,33 @@ class _NoopCollection:
                 "unique": True,
                 "sparse": True,
             },
+            # v0093 (#2323, REQ-053 M1): the garden-plan indexes are bootstrapped on a
+            # fresh volume, so the structural half finds every target present.
+            {"type": "persistent", "fields": col.LOCATION_BED_STATUS_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.GARDEN_OBJECT_TYPE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.SLOT_ROLE_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_TASK_INDEX_FIELDS, "unique": False},
+            {"type": "persistent", "fields": col.CARE_EVENT_SOURCE_REF_INDEX_FIELDS, "unique": True, "sparse": True},
+            # v0106 (REQ-053 WP 9.3): the unique sparse client-event indexes are bootstrapped on a fresh volume
+            # (care_events and attachments share the field pair; tasks has its own).
+            {"type": "persistent", "fields": col.CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS, "unique": True, "sparse": True},
+            {
+                "type": "persistent",
+                "fields": col.TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS,
+                "unique": True,
+                "sparse": True,
+            },
+            {
+                "type": "persistent",
+                "fields": col.CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS,
+                "unique": True,
+                "sparse": True,
+            },
+            # ... and client_event_tombstones: unique (not sparse) and its TTL index.
+            {"type": "persistent", "fields": col.CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS, "unique": True},
+            {"type": "ttl", "fields": col.CLIENT_EVENT_TOMBSTONE_TTL_FIELDS, "unique": False},
         ]
 
     def add_persistent_index(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
@@ -204,10 +246,22 @@ class _NoopGraph:
             {"edge_collection": "phase_profile"},
             {"edge_collection": "location_profile"},
             {"edge_collection": "rule_monitors"},
+            # v0093 (#2323, REQ-053 M1): the eight garden-plan edges, and the three
+            # definitions it widens reported with the bootstrap's vertex lists so the
+            # widening finds nothing missing.
+            *({"edge_collection": name} for name in col.GARDEN_PLAN_EDGE_COLLECTIONS),
+            *(
+                definition
+                for definition in col.GRAPH_EDGE_DEFINITIONS
+                if definition["edge_collection"] in (col.BELONGS_TO_TENANT, col.CARE_EVENT_FOR, col.HAS_TASK)
+            ),
         ]
 
     def create_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
         raise AssertionError("no edge definition should be created when the bootstrap already added it")
+
+    def replace_edge_definition(self, *args, **kwargs):  # pragma: no cover - never reached on bootstrapped db
+        raise AssertionError("no edge definition should be widened when the bootstrap already carries the vertices")
 
 
 class _NoopDb:
@@ -262,11 +316,18 @@ class TestVersionSmoke:
                 with pytest.raises(IrreversibleMigrationError):
                     migration.down(_NoopDb())
 
-    def test_baseline_is_the_only_reversible(self):
+    #: Versions that are honestly reversible besides the baseline: v0104 (REQ-053 M4) marks every line it writes
+    #: (``trigger = backfill`` + ``source_ref``) and ``down`` deletes exactly those (M-6). v0110 (spec/privacy
+    #: 09 §4) removes the ``legacy`` / ``unknown_legacy`` values only it writes; v0111 (09 §5) removes the key
+    #: fields that are still ``null`` and the labels that are still copies of their source (09 §11); v0112 (#2952)
+    #: removes the ``placed_in`` edges it marked ``backfilled_by = "v0112"``.
+    _REVERSIBLE_BESIDES_BASELINE = frozenset({"0104", "0110", "0111", "0112"})
+
+    def test_baseline_and_the_declared_marker_migrations_are_the_only_reversible(self):
         migrations = _migrations()
         assert migrations[0].name == "baseline"
         assert migrations[0].reversible is True
-        assert all(not m.reversible for m in migrations[1:])
+        assert {m.version for m in migrations[1:] if m.reversible} == self._REVERSIBLE_BESIDES_BASELINE
 
     def test_retire_harvest_runs_before_seeds(self):
         # AC-6 relies on the harvest reclassification running before any plan seed

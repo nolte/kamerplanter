@@ -16,6 +16,8 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { aiApi } from '@/api';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 
@@ -23,7 +25,8 @@ const DISMISS_STORAGE_PREFIX = 'kp.ai.dailyTip.dismissed';
 const TOUCH_TARGET_SX = { minWidth: { xs: 48, sm: 32 }, minHeight: { xs: 48, sm: 32 } } as const;
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
+  // The user's day: a dismissed tip comes back after the user's midnight, not UTC's.
+  return toLocalIsoDate();
 }
 
 /** Safe localStorage access — never throws when storage is unavailable. */
@@ -92,7 +95,8 @@ export default function DailyTipCard() {
           setLoaded(true);
         }
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'DailyTipCard.tip' });
         // Online-only feature (UI-NFR-012): a failure hides the card silently.
         // `loaded` stays false, so the "generate" invitation is not offered for
         // what may be an outage rather than an empty day.
@@ -106,7 +110,10 @@ export default function DailyTipCard() {
   const handleDismiss = useCallback(() => {
     setDismissed(true);
     persistDismissed(dismissStorageKey);
-    void aiApi.dismissDailyTip().catch(() => undefined);
+    void aiApi.dismissDailyTip().catch((err: unknown) => {
+      // Dismissal is best effort: the tip is already hidden locally.
+      captureHandledError(err, { source: 'DailyTipCard.dismiss' });
+    });
   }, [dismissStorageKey]);
 
   const handleGenerate = useCallback(() => {
@@ -160,6 +167,7 @@ export default function DailyTipCard() {
           </Button>
           {generateState === 'failed' && (
             <Box sx={{ mt: 1 }} data-testid="daily-tip-generate-error">
+              {/* No onRetry: the generate button right above already reads "try again" here (#3037). */}
               <ErrorDisplay
                 error={resolveAiErrorMessage(
                   generateError,

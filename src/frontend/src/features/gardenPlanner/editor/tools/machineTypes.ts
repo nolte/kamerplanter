@@ -1,0 +1,137 @@
+/**
+ * What the tool state machines (`selectMachine`, `drawMachine`, `panMachine`) talk in. A machine is
+ * a pure function `(state, pointer event, env) -> { state, effects }`: it never touches the store,
+ * the renderer or the DOM, so every gesture - including the aborted ones - is a plain unit test.
+ * The hook `useEditorTools` feeds it events and carries out the effects.
+ */
+import type { PlanModel } from '../../model/planModel';
+import type { Point, PlanOperation } from '../../model/types';
+import type { PlanTool, SelectionRef, SelectionStack } from '../../state/gardenPlanSlice';
+import type { Shape } from '../../model/geometry';
+import type { MoveSnapResult } from './snap';
+
+export interface PointerSample {
+  /** Canvas pixels, origin top-left. */
+  pointPx: Point;
+  pointerType: 'mouse' | 'pen' | 'touch';
+  shift: boolean;
+  /** Alt switches snapping off and makes a click walk down the stack (GP-UX-033, GP-FR-154). */
+  alt: boolean;
+}
+
+/** The readings the machines need, supplied fresh for every event. */
+export interface ToolEnv {
+  plan: PlanModel;
+  selection: readonly SelectionRef[];
+  stack: SelectionStack | null;
+  pxPerM: number;
+  /** `PlanRenderer.hitTestAll`: keys under a pixel, topmost first. */
+  hitTestAll(pointPx: Point): string[];
+  toModel(pointPx: Point): Point;
+  toScreen(pointM: Point): Point;
+  /**
+   * The seam for grid and snap (WP 2.5): turns a raw model point into the point the tool uses.
+   * `bypass` is Alt; `pointerType` widens the object-snap tolerance for a finger or a pen (GP-FR-154).
+   */
+  snapPoint(pointM: Point, bypass: boolean, pointerType?: PointerSample['pointerType']): Point;
+  /**
+   * The snap of a moved object (GP-FR-154): each of its `sources` (the vertices of its shape, a circle's centre
+   * and cardinal points) shifted by `rawDelta` may land on an object corner or edge; else `reference` (the
+   * anchor) snaps to the grid.
+   */
+  snapMove(
+    sources: readonly Point[],
+    reference: Point,
+    rawDelta: Point,
+    bypass: boolean,
+    pointerType?: PointerSample['pointerType'],
+  ): MoveSnapResult;
+  /** Rotation step of the rotate handle: 15, 45 or 90 (GP-FR-008). */
+  angleStepDeg: number;
+}
+
+export type ActionLabel =
+  | 'move'
+  | 'rotate'
+  | 'resize'
+  | 'editPoint'
+  | 'draw'
+  | 'delete'
+  // Panel, menu and dialog actions (WP 2.6)
+  | 'edit'
+  | 'duplicate'
+  | 'lock'
+  | 'unlock'
+  | 'zOrder'
+  | 'addWithDimensions'
+  // Arrange and repeat (WP 7.11, 7.13)
+  | 'align'
+  | 'distribute'
+  | 'multiDuplicate'
+  // The garden boundary (UC-01, GP-FR-019/032, #2890)
+  | 'drawBoundary'
+  | 'editBoundary'
+  // A caption set with the text tool (GP-UX-071, #2913)
+  | 'addText';
+
+export type Effect =
+  | { type: 'select'; selection: SelectionRef[] }
+  | { type: 'stack'; stack: SelectionStack | null }
+  | { type: 'commit'; ops: PlanOperation[]; label: ActionLabel }
+  | { type: 'pan'; dxPx: number; dyPx: number }
+  /** The client refused an edit before it reached the model (`geometry.outside_parent`, `object.locked`, ...). */
+  | { type: 'notice'; code: string }
+  | { type: 'tool'; tool: PlanTool }
+  /** "Pflanze setzen" (GP-UX-071): open the plant dialog for this free point slot of this bed. */
+  | { type: 'plantSlot'; bedKey: string; slotKey: string }
+  /** "Text" (GP-UX-071): ask for the text of a new caption anchored at this snapped plan point. */
+  | { type: 'textAnchor'; point: Point }
+  /** Zoom to `pxPerM`, keeping the plan point under `anchorPx` (canvas pixels) in place. */
+  | { type: 'zoom'; pxPerM: number; anchorPx: Point };
+
+export interface Step<S> {
+  state: S;
+  effects: Effect[];
+}
+
+/** A shape the overlay draws while a gesture is under way. */
+export interface OverlayShape {
+  key: string;
+  shape: Shape;
+  /** The live validation failed (GP-UX-053): drawn red. */
+  invalid: boolean;
+  /** An unfinished outline (polygon being drawn) is not closed. */
+  draft?: boolean;
+}
+
+export interface Overlay {
+  shapes: OverlayShape[];
+  /** The marquee in canvas pixels. */
+  marquee: { x: number; y: number; width: number; height: number } | null;
+}
+
+export const EMPTY_OVERLAY: Overlay = { shapes: [], marquee: null };
+
+/**
+ * A `snapMove` for an environment that only has a point snap (tests, the default): the anchor goes through
+ * `snapPoint`, and no marker is drawn for it.
+ */
+export function anchorSnapMove(snapPoint: ToolEnv['snapPoint']): ToolEnv['snapMove'] {
+  return (_sources, reference, rawDelta, bypass, pointerType) => {
+    const point = snapPoint(
+      [reference[0] + rawDelta[0], reference[1] + rawDelta[1]],
+      bypass,
+      pointerType,
+    );
+    return { delta: [point[0] - reference[0], point[1] - reference[1]], kind: 'none', point };
+  };
+}
+
+/** Pointer travel before a press becomes a drag. */
+export function dragThresholdPx(pointerType: PointerSample['pointerType']): number {
+  return pointerType === 'touch' ? 8 : 4;
+}
+
+export function distancePx(a: Point, b: Point): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1]);
+}

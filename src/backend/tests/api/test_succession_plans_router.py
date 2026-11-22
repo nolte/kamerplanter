@@ -224,3 +224,46 @@ class TestGenerate:
     def test_get_unknown_plan_returns_404(self):
         client, _repo = _build()
         assert client.get(_base("/missing")).status_code == 404
+
+
+class TestOperationalQuotas:
+    """#2776 SEC-001: a schedule over the quotas is a 422 on create and on update, and nothing is stored."""
+
+    def test_a_schedule_over_the_batch_quota_is_refused_on_create(self):
+        client, repo = _build()
+        # 2026-01-01 .. 2026-04-15 sown daily: 105 batches, one over the quota.
+        resp = client.post(
+            _base(), json={**_PLAN_BODY, "interval_days": 1, "start_date": "2026-01-01", "end_date": "2026-04-15"}
+        )
+
+        assert resp.status_code == 422, resp.text
+        (error,) = resp.json()["detail"]
+        assert error["type"] == "succession.quota_exceeded"
+        assert error["ctx"] == {"quota": "batches", "limit": 104, "current": 105}
+        assert repo._store == {}
+
+    def test_a_schedule_at_the_batch_quota_is_created(self):
+        client, _repo = _build()
+        resp = client.post(
+            _base(), json={**_PLAN_BODY, "interval_days": 1, "start_date": "2026-01-01", "end_date": "2026-04-14"}
+        )
+
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["total_batches"] == 104
+
+    def test_an_update_that_stretches_the_schedule_over_the_quota_is_a_422(self):
+        client, repo = _build()
+        key = client.post(_base(), json=_PLAN_BODY).json()["key"]
+
+        resp = client.put(_base(f"/{key}"), json={"interval_days": 1})
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["error_code"] == "VALIDATION_ERROR"
+        assert repo._store[key].interval_days == 21
+
+    def test_a_too_long_interval_and_too_many_plants_are_refused(self):
+        client, repo = _build()
+
+        assert client.post(_base(), json={**_PLAN_BODY, "interval_days": 366}).status_code == 422
+        assert client.post(_base(), json={**_PLAN_BODY, "plants_per_batch": 10_001}).status_code == 422
+        assert repo._store == {}

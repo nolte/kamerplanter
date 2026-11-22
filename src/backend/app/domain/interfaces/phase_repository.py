@@ -29,6 +29,15 @@ class IPhaseRepository(ABC):
     def get_phase_by_key(self, key: PhaseKey) -> GrowthPhase | None: ...
 
     @abstractmethod
+    def get_phase_names(self, keys: Collection[PhaseKey]) -> dict[PhaseKey, str]:
+        """``phase key → name`` of the growth phases among ``keys``, in one read.
+
+        A key that names no growth phase (an absent one, a phase-sequence entry key) or a phase without a name is
+        absent from the result. Built for the print (#2489), which needs the names of every distinct phase of a
+        site and must not pay one read per key.
+        """
+
+    @abstractmethod
     def get_phase_or_raise(self, key: PhaseKey) -> GrowthPhase: ...
 
     @abstractmethod

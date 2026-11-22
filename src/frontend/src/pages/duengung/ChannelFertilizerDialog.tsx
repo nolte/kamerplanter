@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
+import FormDialogCancelButton from '@/components/form/FormDialogCancelButton';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -15,13 +17,14 @@ import IconButton from '@mui/material/IconButton';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import type { Fertilizer, FertilizerDosage } from '@/api/types';
+import type { Translate } from '@/i18n/translate';
 
 export interface DosageEntry {
   fertilizer_key: string;
@@ -117,7 +120,7 @@ function EditDialog({
   fertilizers,
   existingDosage,
 }: EditDialogProps) {
-  const { control, handleSubmit, reset, formState } = useForm<EditFormData>({
+  const { control, handleSubmit, reset, formState } = useDialogForm<EditFormData>({
     resolver: zodResolver(editSchema),
     defaultValues: {
       ml_per_liter: existingDosage.ml_per_liter,
@@ -150,7 +153,8 @@ function EditDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -190,7 +194,7 @@ function EditDialog({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <FormDialogCancelButton onCancel={onClose} />
           <Button
             type="submit"
             variant="contained"
@@ -200,7 +204,7 @@ function EditDialog({
           </Button>
         </DialogActions>
       </Form>
-    </Dialog>
+    </FormDialog>
   );
 }
 
@@ -213,7 +217,7 @@ interface AddDialogProps {
   onClose: () => void;
   onSave: (data: DosageEntry[]) => void;
   fullScreen: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
+  t: Translate;
   fertilizers: Fertilizer[];
   existingFertilizerKeys: string[];
 }
@@ -227,7 +231,7 @@ function AddDialog({
   fertilizers,
   existingFertilizerKeys,
 }: AddDialogProps) {
-  const { control, handleSubmit, reset, formState } = useForm<AddFormData>({
+  const { control, handleSubmit, reset, formState } = useDialogForm<AddFormData>({
     resolver: zodResolver(addSchema),
     defaultValues: { drafts: [] },
   });
@@ -292,7 +296,8 @@ function AddDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -389,7 +394,7 @@ function AddDialog({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <FormDialogCancelButton onCancel={onClose} />
           <Button
             type="submit"
             variant="contained"
@@ -400,6 +405,6 @@ function AddDialog({
           </Button>
         </DialogActions>
       </Form>
-    </Dialog>
+    </FormDialog>
   );
 }

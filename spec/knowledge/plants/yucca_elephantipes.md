@@ -128,6 +128,22 @@
 **Hinweis:** *Yucca elephantipes* ist ausgesprochen lichtbedürftig und bevorzugt vollsonnige Standorte (mindestens 6 h direkte Sonne); Halbschatten wird toleriert, führt aber zu vergeiltem (spindeligem) Wuchs — daher `shade_tolerance: full_sun`. Das Wurzelsystem ist faserig (fibrous) und mittelflach; die Hauptwurzelzone liegt effektiv bei rund 30–60 cm (Container-Mindesttiefe 30 cm, im Freiland tiefere Verankerung). Gegenüber Staunässe ist die Art sehr empfindlich (`sensitive`) — Wurzel-/Stammfäule ist die häufigste Todesursache. Bezüglich Bodensalzgehalt gilt sie als salztolerant und küstentauglich (`tolerant`), quantitative ECe-Schwellen (Maas-Hoffman) sind jedoch nicht publiziert. Der pH-Vorzug 6,0–7,5 ist quellentreu (porös, durchlässig, schwach sauer bis neutral) und deckt die in §1.6 und §2.3 genannte engere Spanne 6,0–7,0 ab.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Yucca elephantipes“ (Position: Full sun), https://www.rhs.org.uk/plants/68706/yucca-elephantipes/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -597,4 +613,5 @@ Silver Star,Yucca elephantipes,unbekannt,,variegated;ornamental;;none,clone
 23. [UF/IFAS Fact Sheet ST-675 — Yucca elephantipes](https://hort.ifas.ufl.edu/trees/YUCELEA.pdf) — Wuchs, Standort, Wurzel-/Containerangaben; Beleg effective_root_depth_cm
 24. [allthingslighting.org — Far-Red Lighting and the Phytochromes](https://www.allthingslighting.org/far-red-lighting-and-the-phytochromes/) — Far-Red-Fraction FR/(R+FR) ≈ 0.46 / R:FR ≈ 1.1–1.2 in direkter Vollsonne, höher unter Schatten; Anker far_red_fraction
 25. [Yamori et al. 2013 — Temperature response of photosynthesis in C3, C4, and CAM plants (Plant Cell Environ./UWO PDF)](https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf) — Temperaturoptima CAM-Photosynthese; Grundlage photosynthesis_temp_opt_c und vpd_sensitivity=low
+RHS -- Yucca elephantipes (Position/Aspect: Full sun; Lichtanspruch): https://www.rhs.org.uk/plants/68706/yucca-elephantipes/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

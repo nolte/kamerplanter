@@ -119,6 +119,22 @@ Hinweis (Freitext): Himbeere ist selbstfruchtbar (self-fertile) und benötigt ke
 Hinweis (Freitext): Himbeere ist flachwurzelnd (rhizomatös, Hauptwurzelmasse im oberen Bodenbereich) und steht in der Sonne bis zum Halbschatten; volle Sonne gibt den höchsten Ertrag, leichter Schatten wird toleriert. Staunässe begünstigt Phytophthora-Wurzelfäule (P. rubi) — durchlässiger Boden ist Pflicht. Als salzempfindliche Beere (sensitive berry, Chlorid-Toleranz nur ~120 ppm) reagiert sie früh auf salzhaltiges Gieß-/Bodenmilieu. Der pH-Vorzug 5.5–6.5 ist mit §1.6 und §2.3 derselben Datei harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 40–60 | `species.spacing_cm` |
+| Reihenabstand (cm) | 150–200 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow raspberries“, https://www.rhs.org.uk/fruit/raspberries/grow-your-own („Space plants 40–60cm (16–24in) apart“; „1.5–2m (5–6.5ft) between rows, depending on the variety“). Zum Vergleich Sächsische Landesanstalt für Landwirtschaft, „Beerenobstanbau“, Schriftenreihe Heft 24/2007, https://publikationen.sachsen.de/bdb/artikel/14159/documents/16685 (Erwerbsanbau, 2,80 m × 0,50 m) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow raspberries“, https://www.rhs.org.uk/fruit/raspberries/grow-your-own („Choose a sunny planting site for best results“; Halbschatten: kleinere Ernte) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -297,6 +313,11 @@ Himbeeren bevorzugen leicht saure Böden (pH 5,5–6,5) — daher schwefelsaure 
 | Empfohlene Vorfrucht | Hülsenfrüchte oder Gründüngung |
 | Empfohlene Nachfrucht | — (Dauerpflanze, Standzeit 10–15 Jahre) |
 | Anbaupause (Jahre) | 5–7 Jahre nach Roden (Bodenmüdigkeit!) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Zehrerstufen-Quelle (LKSH, LK NRW, NiG Burgenland, SBB führen Obstgehölze/Beerenobst nicht namentlich) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: ohne Zehrerstufe keine Konfidenz --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle, die Nicht-Fixierung für die Art belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene artspezifische Quelle für eine Abweichung vom Familienwert (Dauerkultur); Bestandswert 5–7 Jahre ist unbelegt --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -363,4 +384,5 @@ Glen Ample,Rubus idaeus,SCRI,1996,"spine_free;large_fruit",–,,open_pollinated,
 12. [USU Extension — Managing Saline and Sodic Soils / DPIRD NSW Salinity tolerance](https://www.dpird.nsw.gov.au/__data/assets/pdf_file/0005/523643/Salinity-tolerance-in-irrigated-crops.pdf) — Himbeere als salzempfindliche Beere (sensitive), Chlorid-Toleranz ~120 ppm
 13. [Oregon State Extension — Growing Raspberries / OSU Phytophthora Root Rot](https://ohioline.osu.edu/factsheet/plpath-fru-14) — Staunässe-Empfindlichkeit, Phytophthora rubi bei Vernässung, flaches Wurzelsystem
 14. [GardenOracle — Growing Red Raspberries: Rubus idaeus](https://gardenoracle.com/images/rubus-idaeus.html) — Wurzeltiefe (12–18 inch ≈ 30–45 cm), Vollsonne/Halbschatten
+15. RHS, How to grow raspberries: https://www.rhs.org.uk/fruit/raspberries/grow-your-own (40–60 cm / Reihe 1,5–2 m, sunny)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

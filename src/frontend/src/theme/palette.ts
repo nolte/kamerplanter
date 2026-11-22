@@ -1,4 +1,5 @@
 import { type PaletteOptions } from '@mui/material/styles';
+import { eventCategoryPalette, metricPalette, phasePalette } from './domainColors';
 
 export const lightPalette: PaletteOptions = {
   mode: 'light',
@@ -87,6 +88,10 @@ export const lightPalette: PaletteOptions = {
     default: '#f5f5f5',
     paper: '#ffffff',
   },
+  // #3021 — domain colours (phase / metric / calendar category), single source in `domainColors.ts`.
+  phase: phasePalette('light'),
+  metric: metricPalette('light'),
+  eventCategory: eventCategoryPalette('light'),
 };
 
 /**
@@ -205,4 +210,7 @@ export const darkPalette: PaletteOptions = {
     default: '#121212',
     paper: '#1e1e1e',
   },
+  phase: phasePalette('dark'),
+  metric: metricPalette('dark'),
+  eventCategory: eventCategoryPalette('dark'),
 };

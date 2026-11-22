@@ -115,6 +115,22 @@
 **Hinweis:** Der Lichtkompensationspunkt ist aus eng verwandten Marantaceen abgeleitet (Calathea makoyana ≈ 50, C. insignis ≈ 100 µmol/m²/s); Stromanthe sanguinea ist wie diese eine Regenwald-Unterwuchspflanze (understory). Der Lichtsättigungspunkt liegt bei diesen Arten deutlich höher (≈ 400–600 µmol/m²/s); direkte Vollsonne führt zu Blattbleiche/Verbrennung. Salztoleranz: Marantaceen sind ausgesprochen empfindlich gegen Salze, Chlorid, Fluorid und hartes/kalkhaltiges Gießwasser (Blattspitzennekrose) — daher Einstufung `sensitive`; keine belegten Maas-Hoffman-Schwellenwerte (ECe-Bezug) verfügbar.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Stromanthe sanguinea“ (Position: Partial shade; Kulturtext: "bright, filtered light"), https://www.rhs.org.uk/plants/17841/stromanthe-sanguinea/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -319,4 +335,5 @@ Stromanthe sanguinea,"Stromanthe Triostar;Sanguinea;Triostar Stromanthe;Never Ne
 13. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringraten Raubmilbe (University Extension)
 14. [Marantaceae — Wikipedia](https://en.wikipedia.org/wiki/Marantaceae) — Familie als tropische C3-Unterwuchsstauden (understory)
 15. [All Things Lighting — Far-Red Lighting and the Phytochromes](https://www.allthingslighting.org/far-red-lighting-and-the-phytochromes/) — R:FR-Verhältnis Sonne (≈1.3) vs. Unterwuchs/Schatten (≤0.4), Grundlage Far-Red-Fraction
+RHS -- Stromanthe sanguinea (Position/Aspect: Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/17841/stromanthe-sanguinea/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

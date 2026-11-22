@@ -71,6 +71,8 @@ fi
 echo "Seeded probe resource in $KP_ZAP_TENANT_A_SLUG: $RESOURCE_A_KEY"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "::add-mask::$TENANT_A_TOKEN"
+  echo "::add-mask::$TENANT_B_TOKEN"
   {
     echo "tenant_a_token=$TENANT_A_TOKEN"
     echo "tenant_b_token=$TENANT_B_TOKEN"

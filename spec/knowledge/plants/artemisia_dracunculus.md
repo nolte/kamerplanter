@@ -130,6 +130,22 @@ Beim Kauf unbedingt Sorte beachten — Stecklinge/Topfpflanzen sind meist Franz�
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt (Französischer Estragon, die in diesem Steckbrief primär dokumentierte und im Handel dominante Kulturform, ist ein steriler Klon ohne keimfähigen Samen; §1.3 dieses Dokuments listet ausschließlich cutting_stem/division als Vermehrungsmethoden und vermerkt explizit "Französ. Estragon NIEMALS aus Samen (steril)". Nur die botanisch abweichende, aromatisch schwächere Varietät Russischer Estragon (var. inodorus) ist generativ samenvermehrbar, ist aber nicht die durch Stecklinge/Topfware verbreitete, in diesem Steckbrief primär behandelte Kulturform (siehe §1.1 "WICHTIG"-Hinweis). Keine Keimwerte erfunden.) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 40 | `species.spacing_cm` |
+| Reihenabstand (cm) | 40 | `species.row_spacing_cm` |
+| Quelle Abstände | Kiepenkerl, Kulturanleitung „Estragon", https://www.kiepenkerl.de/kulturanleitungen/estragon/ (Jungpflanzen „auf einen Abstand von 40 x 40 cm" setzen; die Quelle nennt nur diesen einen quadratischen Wert, daher für Pflanz- und Reihenabstand identisch) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Artemisia dracunculus (tarragon)" (Position „Full sun"; „Grow in a well-drained soil in full sun"), https://www.rhs.org.uk/plants/1632/artemisia-dracunculus/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -288,6 +304,11 @@ Estragon ist ein ausgeprägt schwacher Zehrer — zu viel Dünger führt zu krä
 | Fruchtfolge-Kategorie | Kräuter / Asteraceae |
 | Empfohlene Vorfrucht | beliebig |
 | Anbaupause (Jahre) | Mehrjährig; Standort 3–4 Jahre; dann teilen und umpflanzen |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Natur im Garten Burgenland (Land Niederösterreich), „Fruchtfolge im Gemüsegarten" (2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Gruppe „Kräuter" im Schwachzehrer-Beet; Estragon nicht namentlich genannt, daher Gruppenzuordnung) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; Natur im Garten Burgenland 2022 führt Schmetterlingsblütler als eigene Gruppe, Kräuter getrennt davon, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -335,3 +356,6 @@ Artemisia dracunculus,"Estragon;Bertram;Tarragon",Asteraceae,Artemisia,perennial
 14. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate 2–50/m², Spinnmilben-Spezialist
 15. [Cornell NYSIPM / ARBICO — Phytoseiulus persimilis](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate ~10–32/m² (1–3+/sq ft), Anwendungsstrategie
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+16. [Natur im Garten Burgenland (Land Niederösterreich) — Fruchtfolge im Gemüsegarten (2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Zehrerstufen-Gruppen (Kräuter = Schwachzehrer), Schmetterlingsblütler als eigene Familiengruppe
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

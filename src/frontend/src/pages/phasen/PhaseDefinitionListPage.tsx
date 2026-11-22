@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -26,7 +25,6 @@ import { kamiPhaseGermination } from '@/assets/brand/illustrations';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
 
 export default function PhaseDefinitionListPage() {
-  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const notification = useNotification();
@@ -249,7 +247,7 @@ export default function PhaseDefinitionListPage() {
         rows={definitions}
         loading={loading}
         getRowKey={(def) => def.key}
-        onRowClick={(def) => navigate(`/phasen/definitionen/${def.key}`)}
+        getRowHref={(def) => `/phasen/definitionen/${def.key}`}
         tableState={tableState}
         ariaLabel={t('pages.phaseSequences.definitionsTitle')}
         emptyMessage={t('pages.phaseSequences.noDefinitions')}

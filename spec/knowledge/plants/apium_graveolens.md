@@ -157,6 +157,22 @@ Angaben fuer Mitteleuropa (Zone 7--8), letzter Frost ca. Mitte Mai. Nur Vorkultu
 - Tausendkornmasse: [Wikifarmer — Apium graveolens Celery seeds](https://wikifarmer.com/library/en/article/apium-graveolens-celery-seeds) (Weight of 100 seeds 0.041–0.042 g ≈ 0.41–0.42 g/1000); [Urban Farmer — Giant Red (F1) Celery Seeds](https://www.ufseeds.com/product/giant-red-celery-seeds---1000-seeds/CEGR-1000-seeds.html) (2576 Samen/g ≈ 0.39 g/1000)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–35 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30–35 | `species.row_spacing_cm` |
+| Quelle Abstände | Bildungs- und Beratungszentrum Arenenberg (Kanton Thurgau), „Kulturblatt Sellerie" (2015), Stangensellerie Freiland: Pflanzabstand „30 x 35 cm" (die Quelle weist Reihe/In-Reihe nicht getrennt aus, daher beide Zellen 30–35), https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf; abweichend USU Extension, „Celery in the Garden" (12 in = 30 cm in der Reihe, 2 ft = 60 cm Reihenabstand), https://extension.usu.edu/yardandgarden/research/celery-in-the-garden.php | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | USU Extension, „Celery in the Garden" („Celery thrives in full sun"), https://extension.usu.edu/yardandgarden/research/celery-in-the-garden.php; RHS, „Apium graveolens" (Position „Full sun, Partial shade"; „reliably moist soil in full sun or light shade"), https://www.rhs.org.uk/plants/41552/apium-graveolens/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -476,6 +492,11 @@ Mikronaehrstoff-Zielwerte (Mn/Zn/Cu/Mo) als Naehrloesungs-Konzentrationen nach a
 | Empfohlene Vorfrucht | Getreide; Leguminosen (Erbsen, Bohnen); Gruenduengung (Lupine) |
 | Empfohlene Nachfrucht | Schwachzehrer (Feldsalat, Postelein, Zwiebeln) |
 | Anbaupause (Jahre) | 4--5 Jahre (Septoria bleibt im Boden; Fruchtfolge mit anderen Apiaceae einhalten) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Oktober 2022), Tabelle 2: Stangensellerie und Knollensellerie = Starkzehrer, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (April 2022), Sellerie im Starkzehrer-Beet, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; BBZ Arenenberg, „Kulturblatt Sellerie" (2015), „Sellerie ist ein starker Nährstoffzehrer", https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf; UMass Amherst, New England Vegetable Management Guide, „Celery and Celeriac" („heavy feeders"), https://nevegetable.org/crops/celery-and-celeriac |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Oktober 2022) führt Sellerie unter Doldenblütler und Schmetterlingsblütler als eigene Familie, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4) — SBB 2022 und BBZ Arenenberg 2015 nennen 4–5 Jahre (schließt den Familienwert ein) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -574,3 +595,9 @@ Apium graveolens,Sellerie;Knollensellerie;Stangensellerie;Celery;Celeriac,Apiace
 20. [permakultur-konkret.ch -- Sellerie](https://permakultur-konkret.ch/plant/sellerie/) -- Bluetezeit "Juli - Sep."
 21. [RHS -- Apium graveolens](https://www.rhs.org.uk/plants/41552/apium-graveolens/details) -- Bluete im 2. Jahr, Saison "Summer"; ergaenzend bestaetigen NEVegetable/MSU/UMass-Quellen (bereits 14/16 gelistet) den Induktions-/Vernalisationsrahmen (Induktionsschwelle ~10 Tage < 10 degC bzw. 7--10 Tage < 12--13 degC; volle Vernalisation 2--12 Wochen bei 1.7--8.9 degC) -- dieser bestehende Wert `vernalization_min_days: 10` wurde geprueft und bestaetigt, keine Aenderung noetig
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+22. [BBZ Arenenberg -- Kulturblatt Sellerie (2015), Pflanzabstand Stangensellerie 30 x 35 cm, Zehrerstufe "starker Naehrstoffzehrer", Anbaupause 4--5 Jahre](https://arenenberg.tg.ch/public/upload/assets/9009/2015_Kulturblatt_Sellerie.pdf)
+23. [USU Extension -- Celery in the Garden](https://extension.usu.edu/yardandgarden/research/celery-in-the-garden.php) -- Vollsonne; Abstaende in der Reihe/zwischen den Reihen
+24. [RHS -- Apium graveolens, Details](https://www.rhs.org.uk/plants/41552/apium-graveolens/details) -- Position "Full sun, Partial shade"
+25. [Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (Oktober 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) -- Stangen-/Knollensellerie Starkzehrer; Doldenbluetler 4--5 Jahre; Schmetterlingsbluetler getrennt
+26. [Natur im Garten Burgenland -- Fruchtfolge im Gemuesegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) -- Sellerie im Starkzehrer-Beet
+27. [UMass Amherst -- Celery and Celeriac (NE Vegetable Management Guide)](https://nevegetable.org/crops/celery-and-celeriac) -- "heavy feeders"

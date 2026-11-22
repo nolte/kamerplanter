@@ -8,7 +8,7 @@ Fokus: Beides (Zierpflanze & Nutzpflanze)
 Technologie: GitHub Actions, pre-commit, Docker, Helm, SLSA-Provenance
 Status: Genehmigt
 Priorität: Hoch
-Version: 1.5 (develop-Branch-Protection ohne `strict`, Betreiberentscheidung 2026-10-03)
+Version: 1.6 (Lane-Input-Wächter required, #1683, 2026-11-22)
 Autor: nolte
 Datum: 2026-08-08
 Tags: [ci, cd, pipeline, gate-integrity, reproducibility, provenance, supply-chain, vacuous-success]
@@ -20,6 +20,7 @@ Betroffene Module: [.github/workflows, .pre-commit-config.yaml, scripts/security
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.6 | 2026-11-22 | §4.3 „Stand“: die messungsfreien Lane-Input-Wächter sind in die required Lane `Write-route and tree guards` befördert (#1683, gemessene Historie im Absatz); die `lane_inputs_drift`-Regeln bleiben wöchentlich in `lane-inputs.yml`. |
 | 1.5 | 2026-10-03 | **`strict` auf `develop` abgeschaltet (Betreiberentscheidung):** `required_status_checks.strict` steht in `.github/settings.yml` auf `false`. Gegeben wird die Zusicherung, dass ein Pull Request, der auf seinem eigenen Stand grün ist, auch auf dem gemergten Ergebnis grün ist; ausgeglichen wird das durch den Lauf auf `develop` nach jedem Merge (Rot wird sofort vorwärts repariert) und die weiter required Wächter. Die Messungen unter §4.3 und die Erwähnungen von `strict: true` beschreiben den Stand bis 2026-10-02. |
 | 1.4 | 2026-09-25 | §4.3: die Messung verlässt die Feature-Pull-Requests (#1794). `lane-inputs.yml` läuft wöchentlich und per Dispatch auf `develop` und schlägt Drift als Bot-Pull-Request vor; die Regeln, die eingecheckte Manifeste gegen die aktuellen Workflows halten, laufen nur dort (Marker `lane_inputs_drift`). Der überholte Übergangszustand (Register, lokale Messung) ist durch den gemessenen Stand ersetzt. |
 | 1.3 | 2026-09-23 | §4.3 (ein Relevanzfilter wird an dem gemessen, was sein Job liest — nicht an dem, was sein Workflow erwähnt, #1596) ergänzt; die Regel stand zuvor nur als Messung in den Pull-Request-Bodies von #1595 und als Kommentar über dem `guards`-Job in `backend-guards.yml`. |
@@ -564,12 +565,18 @@ Messung zu binden; er steht hier, statt versteckt zu sein.
 aufgezeichnetes Manifest (`backend-guards--guards.yaml`, `gate.kind:
 unfiltered`), gegen das die `covered_by`-Delegationen aus
 `backend--lint-test.yaml` gemessen, nicht angenommen, gehalten werden;
-`backend--coverage.yaml` gibt es seit #1748 nicht mehr. Wächter und Lane sind
-**advisory**. Die Datei
-trägt weiterhin den Marker `advisory`, und die required Lane
-`Write-route and tree guards` wählt sie mit `-m 'not advisory'` ab. Ob der
-Wächter oder die Lane required wird, entscheidet #1683 an gemessener Historie
-(§4). Ein Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
+`backend--coverage.yaml` gibt es seit #1748 nicht mehr. Seit 2026-11-22 (#1683)
+laufen die Teile des Wächters, die keine Messung brauchen, samt
+`test_record_legs_provide_the_measured_jobs_environment.py` in der required
+Lane `Write-route and tree guards`; der Marker `advisory` und
+`-m 'not advisory'` sind entfallen. Begründet nach §4 an gemessener Historie:
+die letzten 200 `backend.yml`-Läufe auf `develop` seit 2026-11-02 ergaben 183
+Erfolge, 6 Fehlschläge, 11 Abbrüche, und keiner der Fehlschläge stammte aus
+einer der beiden Dateien. Die `lane_inputs_drift`-Regeln und die Lane
+`lane-inputs.yml` bleiben **advisory** und wöchentlich: sie zeigten in sechs
+aufeinanderfolgenden Wochen Drift (Bot-Pull-Requests #2459, #2554, #2633,
+#2837, #2988, #3031) und würden als Pull-Request-Check jeden Feature-Pull-Request
+blockieren (#1794). Ein Manifest mit einer Invocation, die nicht mit 0 endete, trägt eine
 `allow_failure_reason`, die benennt, welche Lesepfade der Fehlerpfad
 übersprungen haben kann; ein `run:`-Befehl des Jobs, den kein Manifest
 aufgezeichnet hat, ist rot, es sei denn, er steht mit Begründung unter

@@ -6,6 +6,7 @@ from arango.database import StandardDatabase
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
@@ -203,7 +204,7 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         data.pop("_key", None)
         data["updated_at"] = datetime.now(UTC).isoformat()
 
-        old = self._db.collection(col.PLANTING_RUN_ENTRIES).get(entry_key)
+        old = get_document(self._db.collection(col.PLANTING_RUN_ENTRIES), entry_key)
         result = self._db.collection(col.PLANTING_RUN_ENTRIES).update(
             {"_key": entry_key, **data},
             return_new=True,
@@ -290,14 +291,34 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         )
 
     def get_existing_ids_at_location(self, location_key: LocationKey) -> set[str]:
+        """The ``instance_id``s taken at a location: every plant that ever stood in one of its slots.
+
+        Both paths count: a ``placed_in`` edge (a plant that stood there and moved on), and a plant's own
+        ``slot_key`` (a plant moved here before #2948 has no edge to its slot). Missing one would let
+        ``generate_plant_ids`` reissue an id the unique index then refuses (#2774).
+        """
         query = """
-        FOR slot IN 1..1 OUTBOUND @loc_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@slot_edge]}
-          FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
-            OPTIONS {edgeCollections: [@plant_edge]}
+        LET slots = (
+          FOR slot IN 1..1 OUTBOUND @loc_id GRAPH 'kamerplanter_graph'
+            OPTIONS {edgeCollections: [@slot_edge]}
+            RETURN slot
+        )
+        LET by_edge = (
+          FOR slot IN slots
+            FOR plant IN 1..1 INBOUND slot GRAPH 'kamerplanter_graph'
+              OPTIONS {edgeCollections: [@plant_edge]}
+              RETURN plant.instance_id
+        )
+        LET by_slot_key = (
+          FOR plant IN @@plants
+            FILTER plant.slot_key IN slots[*]._key
             RETURN plant.instance_id
+        )
+        FOR instance_id IN UNION_DISTINCT(by_edge, by_slot_key)
+          RETURN instance_id
         """
         bind_vars = {
+            "@plants": col.PLANT_INSTANCES,
             "loc_id": f"{col.LOCATIONS}/{location_key}",
             "slot_edge": col.HAS_SLOT,
             "plant_edge": col.PLACED_IN,

@@ -13,12 +13,14 @@ strictly filtered on ``tenant_key`` — never an f-string value interpolation
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.propagation import (
     PhenotypeNote,
@@ -324,6 +326,24 @@ class PropagationRepository:
         }
         return items, next(self._db.aql.execute(count_query, bind_vars=count_vars), 0)
 
+    def account_display_names(self, account_keys: list[str]) -> dict[str, str]:
+        """``account key -> display name`` of the accounts that still exist (#2976).
+
+        The keys come from the ``author_user_key`` of protocols the caller's tenant may read; an erased account
+        has no user document and is simply missing, which the caller shows as "anonymisiert".
+        """
+        keys = sorted({key for key in account_keys if key})
+        if not keys:
+            return {}
+        query = """
+        FOR u IN @@users
+          FILTER u._key IN @keys
+          RETURN { key: u._key, name: u.display_name }
+        """
+        bind_vars: dict[str, Any] = {"@users": col.USERS, "keys": keys}
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+        return {str(row["key"]): str(row["name"]) for row in cursor if row.get("name")}
+
     def protocol_in_use(self, protocol_key: str, tenant_key: str) -> bool:
         """Whether any of the tenant's events reference this protocol."""
         query = """
@@ -370,7 +390,7 @@ class PropagationRepository:
 
     def get_plant_raw(self, key: str, tenant_key: str) -> dict[str, Any] | None:
         """Raw plant document scoped to ``tenant_key`` (keeps denormalized mother flags)."""
-        doc = self._db.collection(col.PLANT_INSTANCES).get(key)
+        doc = get_document(self._db.collection(col.PLANT_INSTANCES), key)
         if doc is None or doc.get("tenant_key") != tenant_key:
             return None
         return self._events._from_doc(doc)

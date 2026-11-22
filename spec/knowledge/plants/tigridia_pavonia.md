@@ -141,6 +141,22 @@ Hinweis: Lichtkompensationspunkt (light compensation point, Netto-Photosynthese 
 **Quellen (§1.8):** [Tigridia pavonia — Pacific Bulb Society](https://www.pacificbulbsociety.org/pbswiki/index.php/Tigridia_pavonia) (Keimzeit 25–35 Tage bei 15–18 °C, bereits in §1.3 verwendet); [TIGRIDIA PAVONIA MIXED COLOURS SEEDS — Plant World Seeds](https://www.plant-world-seeds.com/store/view_seed_item/1303) und [Tigridia pavonia 'Color Mix' — VIRIAR](https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix) (Keimdauer 7–21 Tage bzw. 2–6 Wochen, Keimtemperatur 18–27 °C, Lichtkeimung, dünne Abdeckung); [Mexican Tiger Flower: How To Care For The Tigridia Pavonia](https://plantcaretoday.com/mexican-tiger-flower-care-tigridia.html) (Kulturhinweise, keine Vorbehandlung dokumentiert).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (RHS nennt nur Pflanztiefe 10 cm, keinen Pflanzabstand) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend bzw. keine Quelle: RHS nennt keinen Reihenabstand) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Tigridia pavonia“ (Kulturtext „Plant 10cm deep“; Max Spread 0–0,1 m; kein Pflanzabstand), https://www.rhs.org.uk/plants/93864/wd/details | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tigridia pavonia“ (Position: Full sun; Kulturtext „Outdoors grow in well-drained, preferably sandy, fertile soil in full sun“), https://www.rhs.org.uk/plants/93864/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -534,6 +550,11 @@ Hinweis: Tigridia pavonia zeigt generell eine recht gute Robustheit gegen die me
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae: Erbse, Bohne) wegen Stickstoffanreicherung; oder Rueckduengungsbrache |
 | Empfohlene Nachfrucht | Blattgemuese (Salat, Spinat -- Schwachzehrer); oder weiterer Sommerblueher (nicht Iridaceae) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Iridaceae auf gleicher Flaeche (Fusarium-Akkumulation im Boden) |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Schwachzehrer (light_feeder) oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung --> |
 
 Hinweis: Tigridia teilt Bodenpathogene (insbesondere Fusarium oxysporum) mit anderen Iridaceae (Gladiolen, Iris, Freesia). Fruchfolge-Pausen von 3--4 Jahren pro Flaeche sind wichtig, um Boden-Fusarium-Akkumulation zu vermeiden. Gladiolae sollten sogar 6 Jahre Pause haben -- Tigridia ist weniger empfindlich, aber gleiches Prinzip.
 
@@ -634,4 +655,5 @@ name,parent_species,breeder,breeding_year,traits,days_to_maturity,disease_resist
 <!-- Quelle: Steckbrief-Erweiterung 2026-07 (Batch 11, Issue #301 seed-profile-backfill) -->
 23. TIGRIDIA PAVONIA MIXED COLOURS SEEDS -- Plant World Seeds: [https://www.plant-world-seeds.com/store/view_seed_item/1303](https://www.plant-world-seeds.com/store/view_seed_item/1303) — Keimdauer, Keimtemperatur, Lichtkeimung
 24. Tigridia pavonia 'Color Mix' -- VIRIAR: [https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix](https://www.viriar.com/blogs/perennial-encyclopedia/tigridia-pavonia-color-mix) — Keimdauer/-temperatur-Bestätigung, Kulturhinweise
+25. RHS -- Tigridia pavonia (Position: Full sun; Lichtanspruch; Pflanztiefe 10 cm): https://www.rhs.org.uk/plants/93864/wd/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

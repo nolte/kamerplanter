@@ -127,6 +127,447 @@ curl -X GET \
 
 ---
 
+### Bed history and care log (REQ-053)
+
+Read endpoints of the bed history. All need a valid JWT and are open to every member of the tenant; a bed or entry of another tenant answers like a missing one with `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/history                       # care entries + planting events
+GET    /api/v1/t/{slug}/locations/{key}/rotation                      # timeline per year (family, nutrient demand, role)
+GET    /api/v1/t/{slug}/locations/{key}/succession-recommendation     # next crop: the next step of the rotation
+GET    /api/v1/t/{slug}/sites/{key}/rotation-matrix                   # crop rotation matrix: beds × years of a site
+GET    /api/v1/t/{slug}/locations/{key}/soil-analyses                 # soil analyses as series per method
+GET    /api/v1/t/{slug}/locations/{key}/companion-edges               # companion layer: judged neighbouring pairs
+GET    /api/v1/t/{slug}/locations/{key}/summary                       # bed head incl. the nutrient hint
+POST   /api/v1/t/{slug}/locations/{key}/history/backfill              # fill in an earlier year (grower and above)
+DELETE /api/v1/t/{slug}/locations/{key}/history/backfill/{event_key}  # take a backfilled year back
+GET    /api/v1/t/{slug}/care-events                                   # care log of the whole tenant
+```
+
+**`GET …/history`** returns the stored care entries of the bed and the planting events **derived** from plants and runs in one list, newest first. Every item carries `kind` (`care_event`, `plant_planted`, `plant_removed`, `run_started`, `run_completed`), `at` and `category` (`planting` or `removal` for planting events). For `care_event` the whole entry is in `care_event`. Here as in `GET /care-events`, a care entry lists the readable names of its plants in `plant_names` (`plant_name`, else `instance_id`, in the order of `plant_keys`; a deleted plant is missing), so the list needs no request per row. `summary` stays the stored text; the app words a position correction itself, with the plant's name.
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `category` | – | Only this category (`422` for an unknown one) |
+| `plant_key` | – | Only entries that name this plant (runs drop out) |
+| `from`, `to` | – | Period, inclusive; `to` before `from` is `422`. An instant without a time zone is read as UTC |
+| `performed_by` | – | Account key of a member. Role `viewer`/`grower`: only your own account (`403` otherwise); `lead` and the `management` scope: any member. The `_anonymized` marker cannot be filtered (`422`). Planting events have no performer and drop out |
+| `include_corrections` | `false` | Also replaced entries and `position_corrected` |
+| `offset`, `limit` | `0`, `50` | Page; `limit` at most 200 |
+
+**`GET …/soil-analyses`** returns the measurements of the bed's `soil_analysis` care entries as **series per parameter and method** (`ec` by `ec_method`, `ph` by `ph_method`, the rest by `extraction_method`; `unknown` is its own method). A change of method is listed in `method_changes`. Values of different methods are never merged, compared or converted. Filters: `parameter`, `from`, `to`; `limit` (1 to 500, default 200) bounds the number of analyses, `truncated` says whether older ones were left out. A content class (`content_class`, A to E) appears only when a lab stated it by the CAL method; it is never computed. When a `soil_analysis` is created, the server writes the newest values (`ph`, `ec_ms_cm`, `humus_percent`, `caco3_percent`, each with its method, and `last_analysis_at`) into the soil profile in the same transaction, but only if the analysis is newer than `last_analysis_at`; values in a unit other than the profile's own (`pH`, `mS/cm` = `dS/m`, `%`) are not taken over and never converted. A conductivity needs its `ec_method` (`422` without). `liming_hint` (`status` = `likely`, `not_indicated` or `not_assessable`, plus `reason`) is the "liming likely worthwhile" hint of the current soil profile: `likely` only with `growing_medium_kind = native_soil`, a known `soil_texture`, `ph_method = cacl2` and `ph` below the stated `target_ph`; otherwise `reason` names the first missing precondition (`no_ph`, `not_native_soil`, `ph_method_not_cacl2`, `texture_unknown`, `no_target_ph`). There is no lime amount. <!-- REQ-053 GP-FR-122 -->
+
+**`GET …/summary`** returns the head of the bed view (area, status, counters, last care). For a bed (`is_bed = true`) it carries `nutrient_hint`, otherwise `null`: `state` (`ok`, `check`, `likely_deficit` or `insufficient_data`), `confidence` (`low`, `medium`, `high`), `reasons[]` (reason codes, deciding ones first, for example `thresholds_without_source`, `feeding_overdue`, `k_class_low`, `preceding_nitrogen_fixer`, `standing_nitrogen_fixer`, `bark_mulch_n_binding`, `p_or_k_class_high`, `species_not_readable`, `check_salt_content`), `compost_and_p_withheld`, `withheld_source` and `sources[]`. The hint never contains a number or a fertiliser amount. Every threshold takes part only with a value and a source; none ships with one, so every bed answers `insufficient_data` with `thresholds_without_source`. The one rule active as shipped: when a lab result (CAL) puts P or K into class D/E, `compost_and_p_withheld` is `true` (compost then serves no nutrient supply, it stays possible as a soil improver) and `withheld_source` names the source (R-006). A `feeding` and a `soil_amendment` with manure or horn shavings count as N input, compost does not. `check_salt_content` ("check salt content") appears when the soil conductivity (`ec_ms_cm`) lies above a configured, sourced salt limit and was measured with the same `ec_method` the limit holds for (no conversion between methods, not for a mineral substrate). The code changes neither `state` nor an amount. No limit ships, so the code only appears once somebody configures a value with a source. Readable by every member. <!-- REQ-053 GP-FR-125 -->
+
+**`GET …/companion-edges`** returns the companion layer of the bed: one judged line per neighbouring pair of plant places (`adjacent_to`) in which **both** places hold a species. A species counts when a plant stands there or a live planting run plans it there, the same set as `POST …/validate-planting`. `status` is `compatible`, `incompatible` or `unknown` and follows the same rule as the planting dialog: an incompatibility wins, else a compatibility with its `score`, else the relation is unknown. With several species on one place the strongest statement wins. `reason_code` (`companion.incompatible`, `companion.compatible`, `companion.unknown`) is the key for display, `reason` the stored reason of an incompatibility, `deciding` names the two deciding species. `slot_a` and `slot_b` carry `slot_key`, `species_keys` and `position` (`{x, y}` in plan coordinates in metres, `null` without geometry). The work is bounded: at most 2000 pairs (the first by place keys) and at most 8 species per place are judged (`species_truncated` is `true` when a place holds more). Of the judged pairs at most 500 are returned, `incompatible` first, then `compatible`, then `unknown`, each by place keys. `total` counts all pairs exactly, `truncated` is `true` when pairs are missing. When a bed has more than 2000 occupied pairs, the pairs beyond that window are not judged, whatever their status would be. <!-- REQ-053 GP-FR-134 -->
+
+**`GET …/rotation`** returns for each year the families that stood in the bed (`family_key`, `family_name`, `nutrient_demand`, `plan_role`, `source` = `plant` or `backfill`). `years` defaults to `max(rotation pause of the families involved, 5)`, at most 10 (`422` above).
+
+**`GET /sites/{key}/rotation-matrix`** puts these timelines of all beds of a site side by side: `columns` are the years, and for each bed `cells` holds, per year, the same list as `GET …/rotation` of that bed (family, `nutrient_demand`, `plan_role`, season). `years` as above (1 to 10); the default is read from the beds of the page, so send the `years` of the first answer when you page on. Beds are listed by name, at most 500, paged with `offset`/`limit` (`limit` at most 200); `total` is the number of beds read (after the cap of 500, the basis for paging), `truncated` is `true` when the site holds more than 500 beds and the rest is left out. A bed without the rotation check is listed with `rotation_applicable: false` and the reason in `not_applicable_reason`; years before `rotation_reset_at` are left out. Two future years follow the current one: there, and in the current year, the planting runs still planned at the bed stand with `source: planned` (by their window `planned_from`/`planned_until`), but never in a year in which something already stood in the same season. `GET …/rotation` shows no plans. Readable by every member; the budget is `RATE_LIMIT_PLAN_EXPORT` per account. <!-- REQ-053 GP-FR-135 -->
+
+**`POST …/locations/{key}/validate-planting` when replanting.** The call optionally takes `replant_of_plant_key`, the key of the plant being replaced. That plant then no longer counts as "family stood here this year", and a residual finding depends on its cause of loss: `rotation.replant_after_biotic_failure` (warning) for disease or pests, `rotation.replant_cause_unknown` (info) for an unknown or missing cause, nothing for frost, heat, drought, waterlogging, neglect or mechanical damage. Items in `rotation[]` carry `termination_cause`. A key that is unknown, belongs to another bed or tenant, or to a plant that did not die this year is ignored without an error; after a recorded soil change (`rotation_reset_at`) the finding is dropped. <!-- REQ-053 §11.3, GP-FR-131 -->
+
+**`GET …/succession-recommendation`** suggests families and species for the next year, **the order only, never an amount**. The step after the latest recorded year follows the cycle heavy feeder → medium feeder → light feeder → green manure or fallow → heavy feeder (`target`); candidates are the successors stored in the crop rotation data for that year's families (`families[]` with species, at most 20), minus the families whose rotation pause in this bed is not over (`held_back[]`). A species appears only when its nutrient demand is stored; there is no default. `status` explains an empty list: `no_history`, `demand_unknown`, `no_successor_data`, `no_matching_species` or `not_applicable` (rotation check off, reason in `not_applicable_reason`). `previous` names the year the recommendation is based on. Readable by every member. <!-- REQ-053 GP-FR-133 -->
+
+**`POST …/history/backfill`** takes `{year, season?, species_key?, family_key?, plan_role}`. `year` lies between the current year minus 10 and minus 1 (`422 backfill.year_out_of_range`). A species names its family; a differing `family_key` is `422 backfill.family_mismatch`. Only a fallow year (`plan_role: fallow`) needs no family. The server writes the care entry itself; a client cannot set the `trigger`.
+
+**`GET /care-events`** is the care log of the whole tenant with the same filters plus `location_key` and `include_superseded`. Without a period, bed or plant filter it shows the last 90 days.
+
+**`GET /care-events?format=csv`** returns the same entries (same filters, same role rules) as a file instead of one page of JSON: UTF-8 with BOM, RFC 4180 quoting, a display name instead of an account key. Cells that start with `=`, `+`, `-`, `@`, a tab or a carriage return get a leading `'` so a spreadsheet does not run them as a formula. `delimiter=semicolon` is the Excel variant for locales with a decimal comma. `offset` and `limit` do not apply; more than 50,000 rows is `422 export.too_many_rows` (narrow it by bed, plant, category or period). The budget is `RATE_LIMIT_CARE_EVENTS_EXPORT` per account; the JSON list does not count against it. <!-- REQ-053 GP-FR-104 -->
+
+**`GET /api/v1/t/{slug}/locations?site_key=…&format=csv`** returns the bed list of a site as a file instead of JSON (beds only, sorted by name; `is_bed=false` is `422 export.beds_only`; UTF-8 with BOM, cells that start with a formula character are neutralised as for the care log). As in the care-log CSV, the header row holds the column ids (`name`, `area_m2`, `assigned_to` …) and enum cells hold the API's values (`active`, `loam`, `full_sun` …); only type and irrigation zone appear with their names. `columns` is a comma-separated selection (default: `name,type,area_m2,status,soil_texture,irrigation_zone,active_plants`; the site conditions are selectable on top); an unknown name is `422 export.unknown_column`, an empty selection `422 export.no_columns`. `include_assignment=true` (default `false`) appends the column `assigned_to` with the display names of the assigned members. `delimiter=semicolon` is the Excel variant (semicolon, decimal comma), `locale=de|en` sets the language of the type names. More than 2,000 beds is `422 export.too_many_rows`. The budgets of the garden-plan exports apply, `RATE_LIMIT_PLAN_EXPORT` per account and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant, both to `format=csv` only; the JSON list does not count against them. <!-- REQ-053 GP-FR-145, GP-FR-175 -->
+
+---
+
+### Bed photos (REQ-053)
+
+Photos of a bed with a cover photo. A photo is a file of category `location` that you upload beforehand with `POST /api/v1/t/{slug}/attachments` (`category=location`); EXIF and GPS data are removed on upload. A bed or photo of another tenant answers like an absent one with `404`.
+
+```
+GET    /api/v1/t/{slug}/locations/{key}/photos                   # the bed's photos, newest first (every member)
+POST   /api/v1/t/{slug}/locations/{key}/photos                   # link a photo (role grower and up)
+PUT    /api/v1/t/{slug}/locations/{key}/photos/cover             # choose the cover, or clear it with null (grower and up)
+DELETE /api/v1/t/{slug}/locations/{key}/photos/{attachment_id}   # remove a photo (own from grower, another member's lead only)
+```
+
+All four answer with `{location_key, cover_photo_ref, photos[], max_photos}`. An entry in `photos` carries `attachment_id`, `uri`, `thumbnail_uris`, `mime_type`, `byte_size`, `caption`, `taken_on`, `created_at`, `is_cover` and `can_remove` (whether you may remove this photo). A bed holds at most 50 photos (`max_photos`).
+
+| Error | Meaning |
+|-------|---------|
+| `422 reference.not_found` | `attachment_id` is not a bed photo of your garden (another tenant, another category or absent) |
+| `422 location.photo_limit_reached` | The bed already has 50 photos |
+| `422 location.cover_not_a_photo` | The cover is not one of this bed's photos |
+| `403` | Role too low, or another member's photo without the `lead` role |
+
+The first photo becomes the cover automatically; if you remove the cover, the newest remaining photo becomes the cover (none is set after the last photo). `GET /locations/{key}` and the bed list name the cover in `cover_photo_ref`. A removed photo is deleted unless another bed, a gallery or a task still shows it. When you delete a bed or a site, its photos go the same way. Photos are never part of the garden plan's JSON backup; the import refuses a file whose beds contain `photo_refs` or `cover_photo_ref` with `422 import.unknown_keys`. <!-- REQ-053 GP-FR-051 -->
+
+---
+
+### Accept or dismiss suggested tasks (REQ-053)
+
+A suggested task is an open task with `suggested = true`; `suggestion_reason` gives the reason. Both endpoints need the role `grower` or higher (`viewer` → `403`), write nothing but the task itself and answer with the changed task (`TaskResponse`).
+
+```
+POST /api/v1/t/{slug}/tasks/{key}/accept-suggestion    # becomes an ordinary open task
+POST /api/v1/t/{slug}/tasks/{key}/dismiss-suggestion   # closes the suggestion as skipped
+```
+
+**`accept-suggestion`** sets `suggested = false` and clears `suggestion_reason`; status, due date and everything else stay. Who made the suggestion stays in `origin` and `source`.
+
+**`dismiss-suggestion`** takes the optional body `{"reason": "…"}` (at most 500 characters, other fields → `422`) and sets `status = skipped`, `completed_at` to the moment it was closed and `completion_notes` to the reason. `suggested` stays `true`: the suggestion was never accepted, and every view that hides suggestions keeps hiding it. No care entry and no notification are written, and the task does not count as done. `POST …/tasks/{key}/reopen` brings a dismissed suggestion back.
+
+The check and the write are one statement: if two people decide at the same time, one wins and the other gets `409`.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Task not found (or not in this tenant) |
+| `409` | `task.not_a_suggestion` | The task is not (or no longer) a suggestion, for example because it was already accepted |
+| `409` | `task.suggestion_closed` | Dismiss only: the suggestion is already closed (completed, skipped or dismissed) |
+| `409` | `WRITE_CONFLICT` | A concurrent write on the same task; try again |
+
+### Buffered writes: `client_event_id`
+
+A client that queues writes while offline sends each one with its own `client_event_id` (a UUID) so a retry never creates a second object. Five routes take it: `POST /care-events` and `POST /tasks/{key}/complete` in the body, `POST /tasks/batch/status` once for the whole batch (each task gets its own id derived from it), and the photo uploads `POST /attachments` and `POST /plant-instances/{key}/photos` as a form field. The id is unique per tenant.
+
+The first request answers as before (`201` for a new care entry). Sending the same id again answers `200` with the object the first request created and writes nothing; a completed task stays completed even if it was reopened in between. Two requests with the same id at the same moment create exactly one object. A care entry shows its `client_event_id` only to the member who wrote it. If you deleted what a request created (a photo, a task), a later retry with the same id creates nothing and answers `404 client_event.deleted`; drop the queued entry.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `409` | `client_event.payload_mismatch` | The id was already used for a different request (another task, plant, file, category or member) |
+| `409` | `task.already_closed` | The task is already completed or skipped (before: `422 VALIDATION_ERROR`) |
+| `404` | `task.missing` | The task was deleted or is not in this tenant (before: `404 ENTITY_NOT_FOUND`) |
+| `404` | `client_event.deleted` | What this id created was deleted since; nothing was written |
+
+In a batch, a task that is already closed is listed under `failed` with its `code`, as is a task this batch completed that was deleted since (`client_event.deleted`, never a `404` for the whole batch); a replayed task is listed under `succeeded`.
+
+!!! warning "Not implemented yet: generating suggestions"
+    Kamerplanter itself does not create tasks with `suggested = true` yet. The endpoints are ready, but in a running installation they only have something to decide once a later version creates suggestions. <!-- REQ-053 GP-FR-086, GP-API-040 -->
+
+---
+
+### Create a mixed culture in one step (REQ-053)
+
+`POST /api/v1/t/{slug}/planting-runs/mixed-culture` creates one run per species of a mixed culture on the same bed, all in one step (role `grower` or higher). Each item of `runs[]` carries in `entry.row_assignment` the rows (counted from 0) its species takes. Every row belongs to exactly one species: when the rows of two items overlap, the API answers `422` before anything is stored. Only items with a row layout (`grid`, `rows`, `triangular`) and a `row_assignment` take part; an area (`zone`), free positions (`free`) and items without a layout take no rows. The error names the pairs in `details[0].conflicts` as `{"runs": [i, j], "rows": [...], "rows_total": n}` (positions in `runs[]`, the shared rows in ascending order and their count), at most 20 pairs with at most 50 rows each; `details[0].pairs_total` gives the number of all pairs, and `details[0].truncated` is `true` when anything was cut. `details[0].field` points at the later item of the first pair.
+
+!!! note "Limit of the check"
+    The row index refers to the row grid of its own item (`row_spacing_cm`, `row_direction`, edge margins). When two items use different grids, their plants can stand at the same spot although the index sets are disjoint. The planting dialog lays all species out on one shared grid; when you call the API directly, send the same row settings for every item.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `layout.row_assignment_overlap` | Two items with a row layout claim the same row index (assuming the same grid, see above) |
+| `422` | `layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded` | The layout of one species cannot be computed or exceeds a limit |
+| `422` | `VALIDATION_ERROR` with `reference.not_found` | A species or cultivar does not exist or belongs to another tenant |
+
+---
+
+### Switch the crop rotation check per bed (REQ-053)
+
+`PATCH /api/v1/t/{slug}/locations/{key}` (role `grower` or higher) takes two fields for the crop rotation check that `POST …/locations/{key}/validate-planting` and `GET …/locations/{key}/rotation` evaluate:
+
+| Field | Values | Meaning |
+|-------|--------|---------|
+| `rotation_enabled` | `true`, `false`, `null` | `true` switches the check on for this bed, also for pots (`planter`), tents (`tent`) and shelves (`shelf`), where it is otherwise off. `false` switches it off. `null` (default) follows the location type |
+| `rotation_exempt` | `true`, `false` | Permanent crop (asparagus, berry shrubs): the check is off whatever `rotation_enabled` says. `null` is not allowed |
+
+When the check is off, both routes answer `rotation_applicable: false` with the reason in `not_applicable_reason`: `rotation.not_applicable.rotation_exempt`, `rotation.not_applicable.disabled` (switched off for the bed) or `rotation.not_applicable.container` (pot, tent, shelf without a switch). Both fields are also part of the garden plan's JSON backup; an older file without them gives a bed that is not exempt and follows its location type. In the file both must be JSON booleans (`"yes"` or `1` gives `validation.invalid`), and the import refuses a bed with both set to `true` with `import.rotation_exempt_and_enabled`.
+
+The switch also governs the check per plant place: when the check is off for a bed, `POST …/plant-instances` with a `slot_key` and `POST …/planting-runs/{key}/create-plants` no longer refuse a planting in that bed with `ROTATION_VIOLATION`, and `POST …/plant-instances/slots/{slot_key}/validate-planting` reports it as valid.
+
+**One planting position, one plant.** `POST …/plant-instances` with the `slot_key` of a slot with the role `position` refuses a second plant with **409**: `slot.occupied` when a plant of the tenant stands there already (`removed_on` empty), and `slot.already_planned` with `conflicting_run_key`, `overlap_from` and `overlap_until` when a planned or running planting run reserves the spot for a window that has not ended. Both are in `details[0]` with `field: "slot_key"`. Rows and areas (`row`, `zone`) keep taking several plants. The check reads before it writes; two simultaneous requests for the same spot can both pass it, as when the plants of a planting run are created. <!-- REQ-053 V-25, GP-UX-071 -->
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role `viewer` |
+| `404` | `ENTITY_NOT_FOUND` | Bed not found (or not in this tenant) |
+| `422` | `patch.rotation_exempt_and_enabled` | After the change both `rotation_exempt` and `rotation_enabled` would be `true`; to exempt a switched-on bed, send `rotation_enabled: null` with it |
+| `422` | `VALIDATION_ERROR` | `rotation_exempt: null` or a value that is not a boolean |
+
+---
+
+### Sun and reach thresholds of a site (REQ-053)
+
+`POST /api/v1/t/{slug}/sites` and `PUT /api/v1/t/{slug}/sites/{key}` take two optional objects that set where the sun classes begin and how wide a bed may be before the hint "hard to reach" (`bed.reach_too_wide`) appears. `GET` always returns the effective values: the stored ones, else the defaults. Left out or `null` means "keep the stored value" on an edit.
+
+| Field | Default | Meaning |
+|-------|---------|---------|
+| `sun_class_thresholds.full_sun_min_hours` | `6` | Full sun above this many hours of direct sun on the reference day |
+| `sun_class_thresholds.partial_shade_min_hours` | `3` | Lower bound of partial shade |
+| `sun_class_thresholds.shade_min_hours` | `2` | Lower bound of shade; below it deep shade |
+| `sun_class_thresholds.reference_month`, `reference_day` | `6`, `21` | Reference day (21 June) |
+| `reach_thresholds.both_sides_m` | `1.2` | Widest bed with access from two opposite sides |
+| `reach_thresholds.one_side_m` | `0.6` | Widest bed with access from one side or unknown access |
+
+The hour bounds must be above 0 and strictly descending, and `one_side_m` may not exceed `both_sides_m`; otherwise `422`. Kamerplanter computes nothing from the sun bounds yet; they set the help texts of the sun tiles. The hint reads a bed's access only from its access sides (`site_conditions.access_sides`), not from adjacent paths. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
+
+---
+
+### Reading the Garden Plan: Areas (REQ-053)
+
+`GET /api/v1/t/{slug}/sites/{key}/plan` returns the whole plan of a site. Two fields tell which locations are **areas** (a garden, terrace, balcony, greenhouse or room) and which are beds:
+
+| Field | Meaning |
+|-------|---------|
+| `area_type_keys` | Every location type the plan draws as an area, sorted, also those no location of this plan has yet. A type is an area type when it is neither a bed (`is_bed`) nor carries a planting grid (`supports_layout`); tent and shelf therefore do not count. |
+| `locations[].is_area` | `true` for an area. For every other location the field is absent. For an area, `bed_status` has no meaning. |
+| `bed_type_keys` | Every location type flagged `is_bed`, sorted. A client checks the rule "two beds of one parent location do not overlap" (`bed.overlap`) with it before the save; the server still checks it. |
+| `locations[].parcel_label` | The bed's fixed parcel number (one line, at most 40 characters). Absent when none is set. |
+
+A bed lying completely inside an area names it in `parent_location_key` only when it was created inside the area after the area; there is no endpoint to move existing beds into an area. Both fields are additions; older clients read the response unchanged. <!-- REQ-053 §9.5, GP-UX-071, #2913 -->
+
+**Writing the parcel number.** You set `parcel_label` with `PATCH /api/v1/t/{slug}/locations/{key}` or with `update_fields` in the plan batch; `null` or a blank text removes it, surrounding space is stripped. More than 40 characters, a line break, a control or bidi character give `422`. `PUT /locations/{key}` leaves the value unchanged. The bed list CSV has the selectable column `parcel_label`, and the JSON backup carries the field. <!-- REQ-053 GP-FR-176 -->
+
+**Caching.** `GET …/sites`, `GET …/sites/{key}/plan` and `GET …/locations/{key}/summary` answer with `Cache-Control: private, no-cache`: the browser may keep them for the offline view but must ask the server before every reuse. Every other answer under `/api/v1/` carries `Cache-Control: no-store`, an error answer of these three included. The app fetches the three paths with the request cache mode `no-store`, so only its own offline store, separated per account and garden, keeps them and not the general browser cache; `POST /auth/logout` and `/auth/logout-all` also answer with `Clear-Site-Data: "cache"`. Your own clients should fetch the three paths the same way. <!-- REQ-053 §32.6 Pkt. 13 -->
+
+---
+
+### Garden Plan (PDF, SVG, JSON backup)
+
+Three exports of one site's garden plan (REQ-053). All three need a valid JWT and are open to every member of the tenant. A site of another tenant answers `404`, like an absent one. Each route allows `RATE_LIMIT_PLAN_EXPORT` requests per account (default 10 a minute) and `RATE_LIMIT_PLAN_EXPORT_TENANT` per tenant (default 30 a minute); above that the API answers `429` with `Retry-After`.
+
+```
+GET /api/v1/t/{slug}/print/garden-plan/{site_key}        # PDF
+GET /api/v1/t/{slug}/sites/{key}/plan/render.svg         # SVG download
+GET /api/v1/t/{slug}/sites/{key}/plan/export             # JSON backup
+```
+
+**Partial export of the JSON backup** (GP-FR-172): `scope` is `site` (default), `selection` (exactly the beds named in `keys`; a garden object as `object:<key>`) or `subtree` (the named beds with everything below them). `keys` is a comma-separated list of at most 100, not allowed with `site`. A partial file has no plan settings, holds only the zones of its beds, and references that leave the file are `null`. A key the site does not hold is `404`; `422` for missing, too many or invalid keys (`export.keys_required`, `export.too_many_keys`, `export.keys_not_allowed`, `export.object_key_in_subtree`).
+
+**Query parameters of the PDF and the SVG:**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scale` | `auto` | `auto` or one of `1:20`, `1:25`, `1:50`, `1:75`, `1:100`, `1:125`, `1:150`, `1:200`, `1:250`, `1:300`, `1:400`, `1:500`. `auto` takes the finest scale at which the plan fits the page |
+| `paper` | `a4` | `a4` or `a3` |
+| `orientation` | `landscape` | `landscape` or `portrait` |
+| `layers` | `beds,objects,plants,labels` | Comma-separated: `grid`, `beds`, `objects`, `slots`, `plants`, `labels`. Boundary, scale bar, north arrow and legend are always drawn |
+| `locale` | `de` | `de` or `en` |
+| `color` | `#2e7d32` | Accent colour of the garden boundary, `#rrggbb` (send the `#` as `%23`) |
+| `bed_list` | `false` | PDF only: add a second page with the bed list (name, area, status, sun) |
+
+The response carries `X-Plan-Scale` (for example `1:50`). `X-Plan-Suggested-Paper: a3` appears when A4 would need a scale coarser than 1:200.
+
+The PDF contains no member names, assignments, notes or coordinates. The SVG uses millimetres in its `viewBox` (1 m = 1,000 units) and is delivered as an attachment with `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none'` (the SVG carries no `style` element or attribute). The JSON backup carries `schema_version: "1"` with the plan settings, locations, slots and garden objects, but no plants, tasks, events or account references.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `422` | `plan.empty` | The plan has no boundary and nothing placed on it |
+| `422` | `plan.does_not_fit` | PDF only: the fixed `scale` does not fit the paper; choose a coarser scale or A3 |
+| `422` | `VALIDATION_ERROR` | A query value outside the lists above |
+
+---
+
+### Garden Plan import (JSON backup)
+
+Restores a plan from the JSON backup above (REQ-053). **Only a lead** may import; a grower or viewer gets `403` before the file is read. A site of another tenant answers `404`. The route allows `RATE_LIMIT_PLAN_IMPORT` requests per tenant (default 3 a minute) and a body of up to 5 MB.
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/import
+```
+
+```json
+{
+  "mode": "replace",
+  "dry_run": true,
+  "force": false,
+  "confirm_site_name": null,
+  "document": { "schema_version": "1", "...": "the file from GET …/plan/export" }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `mode` | `replace` swaps the site's locations and garden objects for the file's and writes the state it overwrites to the change log first (a snapshot); `merge` only adds |
+| `dry_run` | `true` checks the file and answers the report; nothing is written |
+| `force` | Lifts only the condition that no bed holds an active plant. Those beds, and the locations above them, then stay |
+| `confirm_site_name` | `replace` (not a dry run) needs the exact name of the site |
+| `target` | `same_site` (default), `other_site` or `other_tenant`: where the file goes. Keys are always new. For the last two, a reference that is not in the file is never resolved against the site (`null` and `dropped_references[]` with reason `outside_file`/`not_found`). `other_tenant` needs the lead role in the target account; nothing is read from another account |
+| `offset_m` | `merge` only: `[dx, dy]` in metres (finite, at most ±1000), added to every shape of the file; `replace` answers `422` `import.offset_requires_merge`, an invalid value `422` |
+| `document` | The backup file |
+
+The answer is the same report for a dry run and an applied import: `would_create`, `would_update` and `would_delete` (counts of `locations`, `garden_objects`, `slots`, `plan_settings`; `would_delete.bed_photos` names the photos of the deleted beds, which are deleted after the import unless something else still names them), `kept_locations`, `dropped_references[]` (`entity`, `key`, `field`, `reason`), `errors[]` (`field`, `code`, `key`), `applied`, `plan_revision`, `snapshot_written`. A dry run lists geometry and limit violations in `errors[]` with status `200`; an applied import with errors answers `422`.
+
+Keys of the file are never kept: every location, garden object and slot gets a new key. A reference that leaves the file is resolved against the target site only, otherwise it is set to empty and reported in `dropped_references[]`. Links to Home Assistant entities and actuators are never imported.
+
+The frost exposure of a bed (`frost_exposed` in `locations[]`) is part of the file and is taken over as it stands there; `null` means "inherit from the site type". If the field is missing (a file from an older version), the import derives it from `site_conditions.microclimate.frost_risk`: `high` becomes `true`, `low` becomes `false`, everything else inherits.
+
+**Error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `import.forbidden` | Not a lead |
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `409` | `import.not_empty` | `replace` while a bed holds an active plant; remove the plants or send `force` |
+| `409` | `plan.revision_conflict` | Someone saved the plan while the import ran |
+| `413` | `REQUEST_BODY_TOO_LARGE` | More than 5 MB |
+| `422` | `import.schema_version_missing`, `import.schema_version_unsupported` | The file is no backup of a version this installation reads |
+| `422` | `import.schema_migration_failed` | An older backup could not be converted to the current version |
+| `422` | `import.unknown_keys` | The file holds top-level parts this version does not know (a newer file) |
+| `422` | `import.site_name_mismatch` | `replace` without the exact site name |
+| `422` | `import.offset_invalid`, `import.offset_requires_merge` | `offset_m` is not finite or beyond ±1000 m / belongs to `merge` only |
+| `422` | `plan.quota_exceeded`, `import.too_deep`, `import.parent_cycle`, `import.duplicate_key`, `import.duplicate_slot_id`, `geometry.invalid`, `geometry.outside_parent`, `bed.overlap`, `slot.outside_bed` | The file breaks a limit or a geometry rule |
+| `422` | `import.rotation_exempt_and_enabled` | A bed of the file is a permanent crop (`rotation_exempt: true`) and has `rotation_enabled: true` as well; `details[].field` names `locations[i].rotation_enabled` |
+| `429` | | Import budget of the tenant used up; `Retry-After` names the wait |
+
+---
+
+### Create beds from a CSV bed list
+
+Creates beds from a CSV file. <!-- REQ-053 GP-FR-174 --> **Only the lead** may import; growers and viewers get `403` before the file is read. A site of another tenant answers `404`, also before reading. `RATE_LIMIT_PLAN_CSV_IMPORT` requests per account (default 10 per minute) and `RATE_LIMIT_PLAN_CSV_IMPORT_TENANT` shared per tenant (default 30 per minute) apply.
+
+```
+POST /api/v1/t/{slug}/sites/{key}/beds/import-csv?dry_run=true
+Content-Type: text/csv
+```
+
+The body is the file itself (raw, not multipart). The accepted content types are `text/csv`, `text/plain` and `application/vnd.ms-excel`; anything else answers `415`. The file is UTF-8 (a BOM is allowed), uses `;` as the delimiter and has at most 1 MiB, 500 rows and 100 columns. Header: `Name;Typ;Breite_m;Länge_m` (also `Laenge_m`; English `name;type;width_m;length_m`), optionally `Sonne`/`sun`, `Bodenart`/`soil_texture` and `Zone`/`irrigation_zone`. Numbers take a decimal comma or point. A leading formula character (`=`, `+`, `-`, `@`, tab, CR) of a text cell is removed and reported as a warning.
+
+| Query parameter | Default | Description |
+|-----------------|---------|-------------|
+| `dry_run` | `true` | `true` checks the file and answers the report; nothing is written. `false` writes the valid lines in one transaction and skips the faulty ones |
+| `expected_revision` | – | The `plan_revision` of the dry run; if the plan changed since then, the route answers `409` |
+
+The beds are placed as rectangles in rows from the top-left corner of the garden boundary, 0.5 m apart, wrapping at the width of the boundary and stepping around existing beds. The write goes through the same path as a batch (containment, overlap, site quota, revision, change log with one `import_csv` entry).
+
+**Response (the same for dry run and import):**
+
+| Field | Description |
+|-------|-------------|
+| `dry_run` | As requested |
+| `rows_total`, `rows_valid`, `rows_skipped` | Data lines of the file (empty lines are not counted), valid lines and skipped lines |
+| `rows[]` | The valid lines in file order: `line`, `name`, `location_type_key`, `width_m`, `length_m`, `origin` (lower-left corner, `[x, y]`), `sun_exposure`, `soil_texture`, `irrigation_zone_key`, `location_key` (set only after the write) |
+| `errors[]`, `errors_total` | Errors per line: `line` (the header is line 1), `column` (as the file spells it, `null` for the placement) and `code`. At most 500 are listed, the total stays exact. The cell value is never part of the response |
+| `warnings[]`, `warnings_total` | Like `errors[]`, for warnings |
+| `ignored_columns[]`, `ignored_columns_total` | Unknown header columns (cut to 64 characters, at most 50 listed) |
+| `applied` | `true` once the valid lines were written; `false` for a dry run or without a valid line |
+| `plan_revision` | The plan revision the check ran against, or the one the write produced |
+
+**Whole-file error codes:**
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `import.forbidden` | Not a lead |
+| `404` | `ENTITY_NOT_FOUND` | Site not found (or not in this tenant) |
+| `409` | `plan.revision_conflict` | The plan changed since the dry run (`expected_revision`) |
+| `413` | `REQUEST_BODY_TOO_LARGE` | More than 1 MiB |
+| `415` | `UNSUPPORTED_MEDIA_TYPE` | The content type is none of the above |
+| `422` | `csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`, `csv.too_many_columns` | The file cannot be read: not UTF-8, no `;` delimiter, empty or without a header, not readable as CSV, more than 100 columns |
+| `422` | `csv.missing_column`, `csv.duplicate_column` | A required column is missing or a column appears twice in the header |
+| `422` | `plan.quota_exceeded` | More than 500 rows, or the site would exceed 500 beds and garden objects |
+| `422` | `batch.too_complex` | The placement exceeded its time budget; nothing was written |
+| `429` | | Budget per account or per tenant used up; `Retry-After` names the wait |
+
+**Line error codes** (listed in `errors[]`, the line is skipped):
+
+| Code | Meaning |
+|------|---------|
+| `csv.required` | A required value is missing |
+| `csv.too_long` | The text is too long |
+| `csv.invalid_number` | Not a valid number (thousands separators and units are not allowed) |
+| `csv.out_of_range` | The value is outside the allowed range |
+| `csv.unknown_type` | The type is unknown |
+| `csv.not_a_bed_type` | The type exists but is not a bed type |
+| `csv.unknown_value` | `Sonne` or `Bodenart` is unknown |
+| `csv.unknown_zone` | No irrigation zone of that name at the site |
+| `csv.ambiguous_zone` | Several irrigation zones carry the name |
+| `csv.does_not_fit` | The bed finds no space inside the garden boundary |
+| `geometry.outside_parent`, `bed.overlap`, `geometry.invalid` | The plan rules refuse the bed after placement (outside a non-rectangular boundary, overlapping, invalid shape) |
+
+`csv.formula_stripped` appears as a warning in `warnings[]`: the leading formula character of a cell was removed.
+
+---
+
+### Garden Plan save: geometry errors
+
+`PUT /api/v1/t/{slug}/sites/{key}/plan/boundary` (the boundary) and `POST …/plan/batch` (a batch of operations) refuse a shape that breaks a geometry rule with `422` `VALIDATION_ERROR` (REQ-053). On the boundary route, a vertex or origin outside the plan's coordinate range (0 to 1000 m) carries `code: "geometry.invalid"`; for a polygon or polyline vertex the entry also carries `point_index`, the position of the first such vertex in `points` (counted from 0). The other shape rules there (dimensions, vertex count, rotation) answer with the generic `code: "value_error"`. In a batch, every geometry defect carries `code: "geometry.invalid"` with `op_index` naming the operation and, for a vertex, `point_index`. Slots and bed templates are saved on their own endpoints in the bed's frame (−1000 to 1000 m) and report an out-of-range vertex the same way.
+
+---
+
+### Earlier states of the plan (snapshots)
+
+A `replace` import writes the plan it overwrites to the change log as an `import_snapshot` (kept as long as the log, one year; a site keeps at most its 20 newest snapshots, and a `replace` or restore that writes a 21st removes the oldest). Both routes are **lead only**; a site of another tenant answers `404`, and so does a snapshot of another site or tenant.
+
+```
+GET  /api/v1/t/{slug}/sites/{key}/plan/snapshots                        # list, newest first, paged (limit/offset)
+POST /api/v1/t/{slug}/sites/{key}/plan/snapshots/{audit_key}/restore    # { "dry_run": true, "force": false, "confirm_site_name": null }
+```
+
+The list names, per snapshot, `audit_key`, `revision`, `at`, `summary`, `changed_by_name` and the number of locations, garden objects, slots and zones, never the plan itself. The restore is a `replace` with the stored plan (same checks and same report as the import; `confirm_site_name` is required unless `dry_run`); the plan it overwrites is saved as a snapshot of its own first. Zones of the site that the snapshot does not name are retired. `409` `import.not_empty` while a bed holds an active plant (`force` lifts that). A `merge` import creates no snapshot.
+
+---
+
+### Thinning a zone: zone stand (REQ-053)
+
+**`GET /slots/{key}/thinning`** returns the thinning plan of a sown slot. `max_count` is the most single plants one operation creates (500). For a zone, `max_stand_count` also names the most plants that may be recorded as a stand (100,000); for a row it is `null`.
+
+**`POST /slots/{key}/thinning`** thins the slot. Up to `max_count`, single plants are created as before. If the number for a **zone** is higher, no plants are created and the answer carries `stand_quantity` with the recorded number (otherwise `null`). The stand is added to the run's `actual_quantity`, the care entry has no `plant_keys` (whole bed), and the slot keeps `sown_at` and gets `thinned_at`. A row above 500 and a zone above `max_stand_count` still answer `422` `plan.quota_exceeded`. Sowing or thinning a slot that holds a stand answers `409` `slot.occupied`; clearing the bed ends the stand.
+
+| Response | New field | Meaning |
+|----------|-----------|---------|
+| Slot (`GET /slots/{key}`) and planting (`GET /locations/{key}/plantings`) | `thinned_at` | Day a zone was thinned into a stand, otherwise `null` |
+| Plant state (`GET /locations/{key}/plant-states`) | `kind = "stand"`, `sown_on` | `planted_on` is the thinning day, `sown_on` the sowing day, lifecycle `active`, `plant_key` is `null` |
+
+### Irrigation zones, watering round and zone quota (REQ-053)
+
+Irrigation zones belong to a site. Every member may read; creating, changing and assigning beds needs "grower" or above; only the lead may delete. A zone or site of another tenant answers like a missing one with `404`.
+
+```
+GET|POST         /api/v1/t/{slug}/sites/{key}/irrigation-zones         # list, paged (limit/offset) | create
+GET|PATCH|DELETE /api/v1/t/{slug}/irrigation-zones/{key}
+PUT              /api/v1/t/{slug}/irrigation-zones/{key}/locations     # { "location_keys": [...] } replaces the beds
+GET              /api/v1/t/{slug}/irrigation-zones/{key}/status        # last watering, next, demand, consumption, hints
+POST             /api/v1/t/{slug}/irrigation-zones/{key}/log-watering  # watering round
+```
+
+**Assigning beds:** A bed belongs to at most one zone. If it already lies in another zone of the same site, `PUT …/locations` moves it without asking; the response says so in `moved_from`. A bed outside the site is `422` `reference.not_found` with its position.
+
+**Watering round:** body `{ "volume_liters": 60, "allocation": "by_area", "performed_at": null, "summary": "Morning round" }`. `volume_liters` more than 0 and at most 100,000; `allocation` is `by_area` (by the beds' `area_m2`) or `equal`; `summary` at most 500 characters. The response (`201`) names `event_keys`, `shares` (litres per bed), `allocation`, `performed_at` and `skipped_location_keys` (with `by_area`, the beds without an area). Every bed gets one watering entry, all in one transaction, each marked with its `allocation`: the amount is divided, not measured. Each account may log `RATE_LIMIT_ZONE_LOG_WATERING` rounds (default 20 per minute). There is no `by_demand` distribution and no "rain - skipped" round.
+
+**Zone quota:** A site holds at most 500 zones. Creating a 501st answers `422` `irrigation_zone.quota_exceeded`; so does a `merge` or `replace` import after which the site would hold more than 500 zones. A zone in the file has no stable identity: importing the same file twice with `merge` creates its zones twice. If a site holds more than 500 zones anyway, `GET /sites/{key}/plan` (with zones), the export and a `replace` import answer `422` `irrigation_zone.quota_exceeded` instead of silently cutting the list.
+
+| HTTP status | Code | Meaning |
+|-------------|------|---------|
+| `403` | `FORBIDDEN` | Role too low (viewer writes, grower deletes) or technical coupling without the `technical` admin scope |
+| `404` | `ENTITY_NOT_FOUND` | Zone or site not found (or not in this tenant) |
+| `422` | `irrigation_zone.no_beds`, `irrigation_zone.no_bed_area` | The round has nothing to divide (no beds; with `by_area`, no bed with an area) |
+| `422` | `irrigation_zone.quota_exceeded` | More than 500 zones on the site |
+| `422` | `reference.not_found` | Bed, water source or actuator does not belong to the site or tenant |
+
+---
+
+### Bed templates and a bed from a template (REQ-053)
+
+```
+GET|POST     /api/v1/t/{slug}/bed-templates                    # system templates and your own, by name, paged
+PATCH|DELETE /api/v1/t/{slug}/bed-templates/{key}
+POST         /api/v1/t/{slug}/sites/{key}/plan/place-template  # { "template_key", "origin": [x, y], "rotation_deg": 0, "expected_revision" }
+```
+
+Creating and changing templates needs "grower" or above, deleting needs the lead; only platform admins change and delete system templates. A tenant owns at most 200 templates (`422` `bed_template.quota_exceeded`). Deleting removes the provenance key `template_key` from the beds placed from it.
+
+`place-template` creates one bed through the same path as a batch `create_location` (one transaction, one revision) and answers like the batch; `key_map.template_bed` names the new bed. `origin` is where the template's anchor lands in the plan (rectangle: lower-left corner, circle: centre, polygon: first vertex); `rotation_deg` (0 to below 360) is added to the template's own rotation. Order of checks: template (`422` `reference.not_found`, a foreign one like a missing one), geometry (`422` `geometry.invalid`), placement (`422` `geometry.outside_parent`, `bed.overlap`), last the revision (`409` `plan.revision_conflict`). Recurring tasks of a template are not created.
+
+---
+
+### New season from the previous year (REQ-053)
+
+```
+POST /api/v1/t/{slug}/sites/{key}/plan/new-season    # { "year": 2027, "dry_run": true, "expected_revision": null }
+```
+
+**Lead only.** For each bed without an active plant the route re-creates the places of the planting runs that ended in `year − 1` as free planting positions. Beds with an active plant, retired beds and beds that would exceed 2,000 positions are skipped and named in the report. Zones, plants, runs and history stay unchanged. `dry_run` is the default and writes nothing; without it everything runs in one transaction with a change-log entry. `year` is a whole number and at most next year (`422` `season.invalid_year`); a plan changed since `expected_revision` is `409` `plan.revision_conflict`. The tenant's import budget applies (`RATE_LIMIT_PLAN_IMPORT`). The response names `year`, `source_year`, `dry_run`, `applied`, `plan_revision`, `beds_copied`, `beds_skipped`, `slots_to_create` and per bed a `status` (`copied`, `skipped_active_plants`, `skipped_retired`, `skipped_slot_quota`, `nothing_to_copy`) with the number of positions.
+
+---
+
 ### List Available Templates
 
 Returns a list of all registered print templates.
@@ -732,6 +1173,103 @@ GET /api/v1/species/{species_key}/lifecycle
 ### See Also
 
 - [Growth Phases — User Guide: Botanical Life Cycle vs. Cultivation Cycle Type](../user-guide/growth-phases.md#botanischer-lebenszyklus-vs-anbau-zyklustyp)
+
+---
+
+## Requirement Profiles: Origin of the Light Duration (`photoperiod_source`)
+
+A phase's requirement profile records where its light duration `photoperiod_hours` comes from. Only a sourced light duration says something about the plant; the tent hint compares only those. <!-- REQ-003, REQ-053 §9.2a, #2857 -->
+
+| Value | Meaning |
+|-------|---------|
+| `sourced` | From a species profile in the seed data, or saved by a person through `POST`/`PUT /api/v1/profiles/requirements` |
+| `generated` | Taken by the profile generator from its phase template, which is the same for every species (also `POST /api/v1/profiles/generate-defaults/{phase_key}`) |
+| `default` | Nobody chose it: the template does not know the phase, the fallback of 18.0 h applies |
+| `null` | Profile from before the field existed, origin unknown |
+
+- `GET /api/v1/profiles/requirements/{phase_key}` returns the field.
+- `POST /api/v1/profiles/requirements` and `PUT /api/v1/profiles/requirements/{key}` always set it to `sourced`. A `photoperiod_source` in the request body is ignored; a client cannot state another origin.
+- Existing installations need no migration: at start-up the seed loaders write `sourced` into every profile whose light duration a species profile names. Other profiles keep their origin.
+
+**Tent hint in `GET /api/v1/t/{slug}/locations/{key}/summary`.** `tent_hints[]` forms groups (`groups[]`) only from light durations with `sourced`. Plants with `generated`, `default`, `null` or without a profile count as unknown (`unknown_plant_count`, the first five in `unknown_plant_names`). Two groups at least one hour apart give `tent.photoperiod_conflict` (`warning`); otherwise at least two plants, at least one of them unknown, give `tent.photoperiod_unknown` (`info`). Plants in a young phase are not counted.
+
+---
+
+## Species: Language-Tagged Common Names (`common_names_i18n`)
+
+Species also carry their common names grouped by language, so the matching name can later be picked per UI language. <!-- REQ-001 / UI-NFR-007 R-009a -->
+
+### Fields
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `common_names` | list[string] | Flat list of all names in all languages — basis for search, forms and CSV import. Unchanged. |
+| `common_names_i18n` | object (language code → list[string]) | Names per language in preference order, the first name is the preferred one. Keys in use today: `de`, `en`. Default `{}`. |
+
+```json
+{
+  "scientific_name": "Solanum lycopersicum",
+  "common_names": ["Tomate", "Tomato"],
+  "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] }
+}
+```
+
+### Rules
+
+- Every name in `common_names_i18n` must also be in `common_names`. The map assigns existing names to a language and never introduces a name of its own. A request that violates this gets `422`; the name is never appended silently.
+- Keys are lowercase language codes with 2–3 letters (`de`, `en`, `fil`); other keys give `422`.
+- Names are stripped of surrounding whitespace, an empty name gives `422`. Duplicate names within one language are dropped, a language left without names is omitted.
+
+### Writing
+
+`POST /api/v1/species` and `PUT /api/v1/species/{key}` accept `common_names_i18n` as an optional field:
+
+| Request | Effect |
+|---------|--------|
+| `POST` without the field | The species is created with `{}`. |
+| `PUT` without the field | The stored map is kept. Names you remove from `common_names` in this `PUT` also disappear from the map. |
+| `PUT` with `{}` | The map is cleared. |
+| `PUT` with a map | The map is replaced by the one sent (rules above). |
+
+### Reading
+
+`GET /api/v1/species` (and the single-species read) returns `common_names_i18n`. The same field is part of the species summaries in plant instances (as `species_common_names_i18n` or `common_names_i18n` in the species object), planting runs, companion-planting compatibility and the species lists of phase sequences and phase definitions.
+
+### Catalogue Data
+
+The shipped global catalogue (213 species) carries German and English names derived from the plant fact sheets. Existing installations get them at start-up through the seed sync; no migration is needed. The sync only touches rows of the global catalogue; species owned by a tenant are never touched.
+
+### Display Rule
+
+The name shown is the one in the UI language, else the German one, else the scientific name. For a species without an assignment (`{}`, for example a species a tenant created or imported via CSV), it is the first entry of `common_names`. For a species with an assignment the first entry is not a valid basis, because the order of the list carries no language.
+
+The web UI and the server follow the same rule. Fields in which the server returns a single display name follow the language of the request:
+
+| Response | Field |
+|----------|-------|
+| `GET /api/v1/t/{slug}/care-reminders/dashboard` | `species_name` |
+| `GET /api/v1/t/{slug}/dashboard/aggregated` (widget `plant_grid`) | `species_common_name` |
+| `GET /api/v1/t/{slug}/calendar/sowing` | `common_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/plant-states` | `species_name` |
+| `GET /api/v1/t/{slug}/locations/{key}/succession-recommendation` | `common_name` |
+| `GET /api/v1/t/{slug}/overwintering-profiles/hardiness-overview` | `species_common_name` |
+| `GET /api/v1/t/{slug}/tasks/workflows` and `…/workflows/{key}/executions` | `species_name` |
+| `GET /api/v1/t/{slug}/diary` | `species_name` (only when the scientific name is missing) |
+
+The language comes from the `Accept-Language` header, which the web UI sends with its active language on every request. The server evaluates it by weight (`q`) and supports `de` and `en`. Any other or a missing header yields `de`. The print endpoints use their `locale` parameter instead.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Accept-Language: en" \
+  https://kamerplanter.example/api/v1/t/mein-garten/calendar/sowing
+```
+
+!!! note "Texts without a request stay German"
+    What the server writes without a request is created in the canonical language German: reminders, notifications, summaries of the MCP tools and the names of automatically generated workflow templates. Stored names keep the language they were created in.
+
+### See Also
+
+- [Master Data: Plant Species — User Guide](../user-guide/plant-management.md)
+- [Error Handling](../api/error-handling.md)
 
 ---
 
@@ -1387,6 +1925,7 @@ Requires a valid JWT token; no separate role restriction.
     "key": "species/123",
     "scientific_name": "Solanum lycopersicum",
     "common_names": ["Tomate", "Tomato"],
+    "common_names_i18n": { "de": ["Tomate"], "en": ["Tomato"] },
     "typical_duration_days": 30,
     "illustration": "phases/flowering.svg"
   }
@@ -1398,6 +1937,7 @@ Requires a valid JWT token; no separate role restriction.
 | `key` | string | The species' key |
 | `scientific_name` | string | Scientific (binomial) name |
 | `common_names` | list[string] | Common names |
+| `common_names_i18n` | object | Common names per language code, see [Species: Language-Tagged Common Names](#species-language-tagged-common-names-common_names_i18n) |
 | `typical_duration_days` | integer | This phase's typical duration for the species — the species-specific override (`override_duration_days`) from the phase-sequence entry when set, otherwise the phase definition's default |
 | `illustration` | string | The phase definition's own illustration path (no per-species illustration yet) |
 
@@ -1426,6 +1966,7 @@ Requires a valid JWT token and an active tenant membership; any role may read.
       "species_key": "species/123",
       "species_scientific_name": "Solanum lycopersicum",
       "species_common_names": ["Tomato"],
+      "species_common_names_i18n": { "en": ["Tomato"] },
       "location_key": "locations/5",
       "location_name": "South Balcony",
       "slot_key": "slots/12",

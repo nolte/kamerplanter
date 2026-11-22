@@ -72,13 +72,16 @@ describe('SpeciesCompanionTab', () => {
     expect(screen.getByText(`${i18n.t('pages.companionPlanting.score')}: 0.9`)).toBeInTheDocument();
   });
 
-  it('leads with the common (German) name and shows the scientific name as secondary text', async () => {
+  it('leads with the common name in the UI language and shows the scientific name as secondary text', async () => {
+    // English FIRST in the flat list, as species.yaml lists it (#2902): the German UI
+    // must take the name from the language map, not from common_names[0].
     setupRelations(
       [
         {
           species_key: 'sp-2',
           scientific_name: 'Ocimum basilicum',
-          common_names: ['Basilikum', 'Basil'],
+          common_names: ['Basil', 'Basilikum'],
+          common_names_i18n: { de: ['Basilikum'], en: ['Basil'] },
           score: 0.9,
         },
       ],
@@ -86,7 +89,8 @@ describe('SpeciesCompanionTab', () => {
         {
           species_key: 'sp-3',
           scientific_name: 'Brassica oleracea',
-          common_names: ['Kohl', 'Cabbage'],
+          common_names: ['Cabbage', 'Kohl'],
+          common_names_i18n: { de: ['Kohl'], en: ['Cabbage'] },
           reason: 'Nährstoffkonkurrenz',
         },
       ],

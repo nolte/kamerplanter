@@ -124,6 +124,22 @@
 **Hinweis:** Als Unterwuchs-Art (understory) schattenverträglich, aber kein Tiefschatten — `partial_shade` (helles indirektes Licht, kein direkter Mittagssonnenstand). Der Lichtkompensationspunkt schattentoleranter krautiger Unterwuchspflanzen liegt typisch bei 10–50 µmol/m²/s; für Pilea ist die untere Spanne (10–30) plausibel. Angegeben ist ausschließlich der Kompensationspunkt (Netto-Photosynthese = 0), **nicht** der Sättigungspunkt. Flaches, mattenartiges Faserwurzelsystem ohne Tiefgang → kleine, flache Töpfe bevorzugt. Stark staunässe- und salzempfindlich: Überdüngung führt zu Salzkruste/Wurzelbrand; gelegentliches Durchspülen (Flushing) des Substrats empfohlen. Bezugsgröße einer etwaigen Salzschwelle wäre Substrat-ECe (Sättigungsextrakt), nicht die Gießwasser-EC. pH-Vorzug 6.0–7.0 stimmt mit §1.6 und §2.3 überein.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Pilea peperomioides“ (Position: Partial shade; Kulturtext ohne Lichtangabe; Aspect east-/south-facing), https://www.rhs.org.uk/plants/13015/pilea-peperomioides/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -346,4 +362,5 @@ Pilea peperomioides,"Chinesische Geldpflanze;Bauchnabelpflanze;Chinese Money Pla
 20. [palmenmann.de — Pilea: Informationen und Tipps](https://www.palmenmann.de/pflanzenwissen/blog/pilea-die-wichtigsten-informationen-und-tipps-rund-um-pflege-und-vermehrung) — Blütezeit Mai bis Juli, Blütenbildung durch kühle Überwinterung (≥12°C) begünstigt
 21. [gartenjournal.net — Pilea peperomioides pflegen](https://www.gartenjournal.net/pilea) — Blüte im Frühjahr (Mai) nach kühler Überwinterung (5–10°C bzw. 10–15°C)
 22. [RHS — Pilea peperomioides](https://www.rhs.org.uk/plants/13015/pilea-peperomioides/details) — Hardiness-Rating H1C ("tender evergreen perennial"), bestätigt `frost_sensitivity: tender`
+RHS -- Pilea peperomioides (Position: Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/13015/pilea-peperomioides/details
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

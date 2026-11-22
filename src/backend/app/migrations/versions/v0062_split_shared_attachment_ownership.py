@@ -99,6 +99,12 @@ CARRIER_CATEGORY: dict[str, str] = {
     col.HARVEST_OBSERVATIONS: "harvest",
     col.INSPECTIONS: "ipm",
     col.STORAGE_OBSERVATIONS: "post_harvest",
+    # REQ-053 §20.10: a care event's photos are the ones of the task it records (GP-API-031). The collection did not
+    # exist when this migration ran, so the entry changes nothing; it keeps the pin against PHOTO_REF_COLLECTIONS.
+    col.CARE_EVENTS: "task",
+    # REQ-053 GP-FR-051 (WP 8.18): a bed's photos are bed photos. No location carried photos when this migration ran,
+    # so the entry changes nothing (module level, outside the class checksum, M-7); it keeps the pin.
+    col.LOCATIONS: "location",
 }
 
 

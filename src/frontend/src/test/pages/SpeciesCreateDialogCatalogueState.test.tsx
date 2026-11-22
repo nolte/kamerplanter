@@ -43,7 +43,7 @@ function makeFamily(index: number) {
   return {
     key: `fam-${index}`,
     name: `Familie ${String(index).padStart(2, '0')}`,
-    typical_nutrient_demand: 'medium',
+    typical_nutrient_demand: 'medium_feeder',
     common_pests: [],
     rotation_category: 'fruit',
     created_at: '2024-01-01T00:00:00Z',

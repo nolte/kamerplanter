@@ -31,6 +31,11 @@ interface ImageCapturePanelProps {
    * higher-resolution profile here.
    */
   normalizeOptions?: NormalizeImageOptions;
+  /**
+   * The beginner's photo tips are written for plant identification ("a single leaf or flower"); a caller whose photo
+   * shows something else (a whole bed) turns them off. Default on.
+   */
+  photoTips?: boolean;
 }
 
 /**
@@ -54,6 +59,7 @@ export default function ImageCapturePanel({
   disabled = false,
   level,
   normalizeOptions,
+  photoTips = true,
 }: ImageCapturePanelProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -237,7 +243,7 @@ export default function ImageCapturePanel({
           </Box>
 
           {/* Photo tips (beginner only — keep advanced users uncluttered) */}
-          {level === 'beginner' && (
+          {level === 'beginner' && photoTips && (
             <Box
               sx={{
                 mt: 1.5,

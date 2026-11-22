@@ -157,7 +157,7 @@ describe('useNutrientPlanData', () => {
   it('captures a load error', async () => {
     vi.mocked(planApi.fetchNutrientPlan).mockRejectedValueOnce(new Error('load boom'));
     const { result } = renderHook(() => useNutrientPlanData(), { wrapper: makeWrapper() });
-    await waitFor(() => expect(result.current.error).toContain('load boom'));
+    await waitFor(() => expect(result.current.error).toContain('errors.loadFailed'));
     expect(result.current.plan).toBeNull();
   });
 

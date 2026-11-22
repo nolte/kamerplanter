@@ -159,11 +159,9 @@ describe('SiteRunsSection', () => {
   });
 
   it('navigates to the run detail on row click', async () => {
-    const user = userEvent.setup();
     mount({ runs: [run({ key: 'run-abc', name: 'Clickable Run' })] });
     await screen.findByTestId('data-table');
-    await user.click(screen.getByText('Clickable Run'));
-    expect(mockNavigate).toHaveBeenCalledWith('/durchlaeufe/planting-runs/run-abc');
+    expect(screen.getByText('Clickable Run').closest('a')).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-abc');
   });
 
   it('renders the mobile-card layout with a subtitle and phase field', async () => {

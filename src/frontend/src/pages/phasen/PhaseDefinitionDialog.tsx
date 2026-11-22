@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -8,7 +8,8 @@ import DialogContent from '@mui/material/DialogContent';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -66,10 +67,11 @@ export default function PhaseDefinitionDialog({
     tags: '',
   };
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues,
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open && definition) {
@@ -116,20 +118,22 @@ export default function PhaseDefinitionDialog({
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
       aria-labelledby="phase-definition-dialog-title"
+      data-testid="phase-definition-dialog"
     >
       <DialogTitle id="phase-definition-dialog-title">
         {isEdit
@@ -225,6 +229,6 @@ export default function PhaseDefinitionDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

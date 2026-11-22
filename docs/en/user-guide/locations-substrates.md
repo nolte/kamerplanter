@@ -123,6 +123,26 @@ Click **Save**. The site appears in the overview.
 !!! tip "GPS coordinates unlock weather sources"
     For sites of type Outdoor, Greenhouse, or Balcony, a stored GPS position also unlocks the **Weather Source** section on the site detail page — there you select and prioritize public weather services or a Home Assistant source, see [Weather Sources per Location](weather-sources.md).
 
+### Sun and reach for garden planning {#setting-sun-and-reach}
+
+When the garden planner module is switched on, the detail page of a site has the section **Garden planning: sun and reach**. The values apply to every bed of the site.
+
+| Setting | Default | Effect |
+|---------|---------|--------|
+| Full sun: more than | 6 h | help text of the **Full sun** tile |
+| Partial shade: from | 3 h | help text of the **Partial shade** tile (up to the full-sun value) |
+| Shade: from | 2 h | help text of the **Shade** tile; below it is **Deep shade** |
+| Reference date (day, month) | 21 June | the day the hours of direct sun refer to |
+| Access from two sides | 1.2 m | guide value of the **Bed too wide** hint with two opposite access sides |
+| Access from one side | 0.6 m | guide value with one access side, and when no access sides are recorded |
+
+The sun defaults follow the Royal Horticultural Society, the reach defaults arm length (Oregon State and Iowa State University Extension, the environment ministry of Rhineland-Palatinate). Every value must be greater than 0. The sun hours must decrease from top to bottom (full sun above partial shade above shade), and the one-side value may not be greater than the two-side value. Otherwise the form names the error at the field and saves nothing.
+
+Kamerplanter computes nothing else from these values: you still choose the sun class of a bed yourself, the values only decide what the tiles show as the definition. If you do not change them, the defaults stay in force. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
+
+!!! info "For technical users"
+    In the API the fields are `sun_class_thresholds` (`full_sun_min_hours`, `partial_shade_min_hours`, `shade_min_hours`, `reference_month`, `reference_day`) and `reach_thresholds` (`both_sides_m`, `one_side_m`) on `PUT /api/v1/t/{tenant_slug}/sites/{key}`. A field missing from the request, or `null`, keeps the stored value; invalid values are answered with 422. The response always carries the effective values, that is the defaults while nothing is stored.
+
 ---
 
 ## Adding Locations and Slots
@@ -151,12 +171,16 @@ Click **Save**. The site appears in the overview.
 | Balcony | No | Balcony |
 | Terrace | No | Terrace |
 | Grow Tent | Yes | Enclosed grow tent with controlled climate |
-| Bed | No | Ground-level or raised bed outdoors |
+| Bed | No | Ground-level bed outdoors |
+| Raised Bed | No | Elevated, framed bed |
+| Greenhouse Bed | No | Bed inside a greenhouse |
+| Cold Frame | No | Covered box for early propagation |
+| Planter | No | Movable planter or a group of pots planned like a bed |
 | Shelf | Yes | Shelf or shelving unit |
 | Container Group | No | Grouping of several pots or containers in one place |
 
 !!! info "For technical users"
-    The twelve types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
+    The sixteen types listed above are pre-installed system types. Kamerplanter already supports custom, additional location types internally. This setting is currently only available via the API — there is no dedicated management page for it in the UI yet.
 
 ### Setting Frost Exposure for a Location {#setting-frost-exposure-for-a-location}
 
@@ -258,6 +282,256 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 
 ---
 
+## Bed View {#bed-view}
+
+If you open a location whose type is a bed (Bed, Raised Bed, Greenhouse Bed, Cold Frame or Planter), Kamerplanter shows the bed view instead of the regular location page. It brings everything important about a bed together in one place.
+
+### Summary above the tabs
+
+Above the tabs you see at a glance: area, type, status, soil type, sun exposure, active plants, open tasks, last care, next due date and who is responsible for the bed. If the bed has a cover photo, it leads the summary (see [Photos of the bed](#photos-of-the-bed)). Use the **season selector** to switch the year; it appears in the address as `?year=`. Next to it you see what grew in the bed the year before.
+
+**Nutrient hint.** Under **Nutrients** the summary shows **Fertiliser likely needed** or **Check feeding** as soon as Kamerplanter can say something about it. Below it you see why: how long ago your last feeding or soil amendment with manure or horn shavings was (compost supplies little nitrogen and does not count), measured against the feeder level of the species in the bed, and what your lab report says about phosphorus and potassium. If you mulched with bark mulch after your last feeding, it says that bark mulch can bind nitrogen while it rots. If the previous crop was, or the current crop is, a nitrogen fixer such as beans or peas, the hint mentions it but does not estimate a nitrogen amount. If your lab report shows the soil is rich in phosphorus or potassium, compost serves no nutrient supply; as a soil improver it remains an option, and the hint never points you to compost or a phosphorus fertiliser. Only a lab report by the CAL method counts for the content classes. The hint never names a number or a fertiliser amount. When everything looks fine or data is missing, the line stays out. <!-- REQ-053 GP-FR-125 -->
+
+!!! note "Partially available: nutrient hint"
+    The rules of the hint are in place. To show anything, every threshold (for example after how many days without feeding a heavy feeder runs short) needs a sourced value. No threshold has such a source yet, so the line stays empty for every bed for now. Once sourced values exist, Kamerplanter will show the hint.
+
+### The tabs
+
+The active tab is part of the address (e.g. `#plan` or `#soil`), so you can share links to a specific tab.
+
+| Tab | Content |
+|-----|---------|
+| Plan | Bed frame with places, rows or zones and plant markers. Tap a plant and the bed offers **Correct position** and **Transplant to …**. **Open in garden plan** takes you to the garden plan for editing the bed frame. |
+| Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
+| Planting | Planned and standing plants of the bed, the **Plant** and **Clear bed** buttons and the actions on a plant (see [Planting a bed](#planting-a-bed) and [Clearing a bed](#clearing-a-bed)). |
+| History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
+| Soil | The bed's soil profile and soil analyses (see [Maintaining the soil profile](#maintaining-the-soil-profile) and [Recording soil analyses](#recording-soil-analyses)). |
+| Photos | The bed's photos with its cover photo (see [Photos of the bed](#photos-of-the-bed)). |
+| Details | The previous location page, unchanged. |
+
+### Planting a bed {#planting-a-bed}
+
+On the **Planting** tab, **Plant** opens the planting dialog. It is available from the "grower" role and needs the bed to be drawn on the garden plan. The bed must not be retired.
+
+1. **Choose species and cultivar.** Your favourites come first. Below the choice you see the species' mature height and width and whether it needs a support.
+2. **Read the hints.** As soon as you have chosen a species, Kamerplanter checks **crop rotation** and the **neighbours** in the bed. Every hint has a strength (no issue, info, warning, critical) and a reason, for example "The family Solanaceae stood in this bed 1 year(s) ago. The rotation pause is 4 years". A hint blocks nothing. A **site** hint comes with them, see [Sun and shade of a bed](#sun-and-shade-of-a-bed).
+3. **Choose number and layout.** Either **As many as fit** or a fixed number. The layout is **Grid**, **Rows**, **Staggered**, **Zone** (for direct sowing) or **Free positions** (for woody plants).
+4. **Check the spacings.** Kamerplanter prefills the plant spacing and row spacing from the species profile and says where the value comes from. If the profile has none, Kamerplanter uses the value you used last for this species. If there is none either, the field stays empty and you enter the spacing yourself. Under **More options** you set the row direction and the edge margins.
+5. **Look at the preview.** The bed shows at once where the plants would stand, and below it you see how many there are and how many fit at most. The server confirms the number a moment later. If its answer differs, its answer counts.
+6. **Plan or record.** **Plan planting** creates a planned run and reserves the places from the planting date. If you have planted already, switch on **I have planted already**. The plants are then created at once on the calculated positions.
+
+**Several species (mixed culture).** **Add another species** adds up to four species to the same planting. If all are laid out in rows, Kamerplanter spreads the rows **alternately** over the species, say carrot in every second row with onion in between. The row and edge settings of species 1 then apply to all; only the spacing within the row stays per species. Every row belongs to exactly one species: if two species claim the same row, Kamerplanter does not create the planting. If Kamerplanter rates a combination as incompatible, a hint appears. <!-- REQ-053 GP-FR-070 -->
+
+**Free positions.** With **Free positions** you tap the planting places onto the bed. Dragging moves a place, a number below the preview deletes it. Every place snaps to the garden plan's grid when you tap or drag it; hold Alt to place it freely to the centimetre. If two places are closer together than the minimum spacing, both get a **yellow ring**. That is a hint; you can still plant.
+
+**Plant anyway.** From the strength **warning** on, you switch on **Plant anyway** and give a **reason**. The reason is stored with the planting, and the bed carries the **Crop rotation hint** in its overview for as long as the planting runs.
+
+**Pot volume.** For species with a recommended pot volume you can enter the volume of your pot under **More options**. If it is smaller than recommended, Kamerplanter warns you.
+
+**Correct position.** For a standing plant (on the **Planting** tab or after a tap on the plan), **Correct position** moves its place: by dragging, with the arrow buttons in steps of 10 cm, or by typing the coordinates. For fine work, switch **Step size** to 5 cm or 1 cm. The care log records the correction together with the plant. Plants in a zone have no single place and cannot be moved.
+
+**Transplant to …** You do not move a plant to another bed by dragging. **Transplant to …** creates the "Transplant" task for the plant, with the target bed in its text. You complete it once you have moved the plant.
+
+!!! warning "Not yet implemented"
+    The **Crop rotation hint** appears only in the bed overview so far, not on the bed in the garden plan. It is set only for plantings you started despite a hint. Planned, still empty places appear on the plan as dashed circles without species and date. Your browser, not your account, remembers the spacings you used last. A bed that is not on the garden plan cannot be planted through the dialog yet. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
+
+### Clearing a bed {#clearing-a-bed}
+
+At the end of the season you clear a bed in one step: in the **Planting** tab, tap **Clear bed** while plants stand in the bed. The dialog tells you how many plants and runs are affected and explains what happens: every plant ends with today's date and moves to the history, the running runs are completed, the planting spots are archived and free the bed for the next planting, and the care log gets one entry "Bed cleared". You choose how the plants ended (**Harvested** is preselected; also senesced, died or cancelled); the choice applies to every plant in the bed. If a plant ended differently, end it on its own plant page first. Planned runs keep their spots. Members from the "grower" role can clear a bed, only while online and not in field mode; it cannot be undone. <!-- REQ-053 GP-FR-055 -->
+
+### Plant state and plant info {#plant-state}
+
+On the **Plan** tab every standing plant shows its state right on the marker, so you see at a glance whether something needs doing.
+
+- **Disc:** the colour is the growth phase, the letter the species. Zoomed in far, an arc around the disc shows how far the phase has progressed.
+- **Ring:** it tells the state of the planting. Dashed and faint means planned, dotted with seed dots means sown, solid means growing, a double ring means harvesting, and a cross on an empty ring means failed.
+- **Sign at the top right:** at most one appears, the most urgent: a triangle for an open finding, a hexagon with a star for frost risk, a circle with an exclamation mark for an overdue task, a drop for watering due and a square with a check mark for ready to harvest. All other reasons are listed in the plant info.
+
+Ring and sign differ without colour too, so you can tell them apart in greyscale and with red-green weakness. The collapsible **Legend** under the plan explains every sign.
+
+**Plant info.** Rest the mouse on a plant for 0.3 seconds and an info bubble shows species, cultivar, phase and progress, age, position, last care, next task and the reasons it needs attention. The bubble stays while the pointer is on the plant or the bubble and closes with **Esc**. With the keyboard you get the same info through focus on the marker. On a touch screen, tap the plant to open a sheet at the bottom with the cover photo and a **Details** button. Hovering sends no request: Kamerplanter loads the states of all plants of a bed once, after every action on the bed and when you come back to the tab.
+
+!!! warning "Not implemented yet"
+    **Frost risk** is not shown yet; it arrives with the bed's site features. **Watering due** currently comes only from a watering task that is due today, not from the irrigation demand. Planned places are still drawn without species and date. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+
+You see the same discs, rings and signs in the garden plan for the whole site when you switch on the **Show plant state** layer there; it is described on the [Garden Plan](garden-plan.md#plant-state-and-filter) page.
+
+### Care on the bed {#care-on-the-bed}
+
+The **Care** tab lists every open task attached to the bed or to a plant in it. **Overdue** tasks come first and are marked red, followed by the other open tasks. With the "viewer" role you see the list read-only.
+
+**Completing a task.** Tap **Done**. A short dialog opens that asks only for what fits the kind of task:
+
+| Kind of task | Fields |
+|--------------|--------|
+| Watering, flushing | Amount (litres, millilitres or litres per m²) and water source |
+| Feeding | Product (from the catalogue or free text), amount and unit |
+| Soil amendment, liming | Material, amount and unit |
+| Mulching | Material and thickness in centimetres |
+| Covering, uncovering | Material (fleece, net, foil, frost cover) |
+| Harvest | Weight |
+| All others | Note |
+
+Every field is optional, so you can tap **Complete** without entering anything. **When** defaults to now; you can backdate up to 365 days, but never into the future. The details go into the bed's care log. A double tap counts once.
+
+**Feeding per m².** When you feed and pick a product from the catalogue, the dialog fills in the rate per m² from the product data sheet, for example 80 grams per m² for horn shavings. Below it you see what that means for your bed: on 3.6 m² that is 288 g. For litres per m² the layer thickness is shown as well, because 1 L/m² equals 1 mm. You can change the rate; the dialog never overwrites a quantity you typed yourself. It takes the suggestion only from the data sheet, never from a soil analysis or from how hungry a crop is. If your bed has no area because it is not drawn on the plan, "grams per m²" and "litres per m²" are disabled; enter a total in grams, kilograms or litres instead. Kamerplanter does not accept a rate of 0 per m².
+
+**Nitrogen as an approximation.** If the product label states an N content, the dialog also shows "≈ … kg N/ha" for grams per m²: 80 g/m² of horn shavings at 13 % N are about 10.4 g N/m² or 104 kg N/ha (1 g/m² = 10 kg/ha). This is only an approximation from the label, not a nutrient balance. There is no warning when the total of a season gets high.
+
+**Soil amendment and liming.** Under **Material** you pick from a list, for example compost, manure, horn shavings, rock dust, biochar, sand, perlite, coffee grounds, green manure, sulfur, lime or wood ash. Liming offers lime and wood ash. If nothing fits, type your own name. For lime and wood ash a hint appears: both raise the pH. The hint names its source (University of New Hampshire Extension, Alberta Agriculture). Kamerplanter does not calculate how much lime your soil needs. <!-- REQ-053 GP-FR-123, GP-FR-124 -->
+
+**Organic soil amendment in the feeding balance.** When you apply compost, manure or horn shavings, Kamerplanter counts it as feeding the plants in the bed: it creates an entry in their feeding log, whether you complete a task or record the dose with **Log care**. Other materials such as sand or perlite write no such entry. If you undo or void the care entry, the dose also leaves the feeding balance. Kamerplanter refuses a dose on a bed with more than 200 plants; record it per part of the bed then. <!-- REQ-053 W-007, §12.1 -->
+
+**Undo.** After every action a message with **Undo** stays for eight seconds. It reopens the task and takes the log entry back. As the author you can do this for ten minutes; the "lead" role can do it at any time.
+
+**New task.** **New task** creates a task for the bed. If you choose **Every plant in the bed**, each plant standing there gets its own task and the task for the whole bed is dropped. The categories on offer follow the bed: flushing, EC check and pH adjustment exist only for beds with a substrate, hilling, tillage and liming not for pure substrate beds, ventilating only in a greenhouse, cold frame or tent.
+
+**Logging care without a task.** **Log care** records what you just did ("I mulched") when no task exists for it. Plant protection treatments are not logged here; use the plant protection form, because the care log is not proof of a treatment.
+
+**Suggestions.** Tasks proposed by the system appear in their own **Suggestions** section, each with its reason, for example "ET0 demand 4.2 L/m² over 3 days". Each suggestion has two buttons:
+
+- **Accept:** the suggestion becomes an ordinary open task and moves into the list above. You then complete it like any other task.
+- **Dismiss:** the suggestion is closed. No care entry is written, and the task does not count as done. For eight seconds you can take this back with **Undo**; the suggestion is then back in the section.
+
+Nothing happens until you decide. If the bed has no suggestions, you do not see the section. Accepting and dismissing needs the role "grower" or higher; with the role "viewer" you only see the suggestions. If someone else has accepted or dismissed the suggestion in the meantime, Kamerplanter shows a message and reloads the list.
+
+!!! warning "Not implemented yet: generating suggestions"
+    Kamerplanter itself does not create suggestions yet. Accepting and dismissing work, but in your garden the section only appears once a later version creates suggestions. <!-- REQ-053 GP-FR-086 -->
+
+**Several beds at once.** On the garden plan page, the button **Complete tasks on several beds** sits above the bed list. You pick a kind of task (for example watering) and the beds. Kamerplanter finds every open task of that kind on those beds and their plants and completes them in one step with the same details for all. One step takes at most 200 tasks; Kamerplanter reports whatever could not be completed.
+
+**Task counter on the plan.** On the garden plan, each bed with open tasks shows a number in its top-right corner, red if tasks are overdue. A tap on it opens the bed's Care tab. By keyboard you reach it through the **Care** button in the properties of the selected bed, or through the number in the "Open tasks" column of the bed list. <!-- REQ-053 GP-FR-083, GP-FR-088, GP-FR-089, GP-FR-090 -->
+
+!!! info "Colour by priority"
+    The counter distinguishes only "open" and "overdue" so far. Colouring by task priority follows once the plan delivers the priority.
+
+### Sun and shade of a bed {#sun-and-shade-of-a-bed}
+
+You record how much direct sunlight a bed gets with five **tiles**. Each tile shows an icon, the name and the definition:
+
+| Tile | Meaning |
+|------|---------|
+| Full sun | more than 6 hours of direct sunlight on 21 June |
+| Partial shade | 3–6 hours |
+| Shade | 2–3 hours |
+| Deep shade | less than 2 hours |
+| Unknown | not recorded yet (default) |
+
+The hours follow the Royal Horticultural Society definition, measured at midsummer. You set the bounds and the reference date per site, see [Sun and reach for garden planning](#setting-sun-and-reach); the tiles then show your values. <!-- REQ-053 GP-FR-164 -->
+
+- **In the bed view:** next to the sun exposure in the overview, **Change sun** opens the tiles. This needs the "grower" role.
+- **In the garden plan:** when you select a bed, the properties panel shows the tiles. When you select several beds (frame selection or the Shift key), **Set the sun for all selected beds** sets the value at once. Locked beds stay as they are. You can take the step back with **Undo**, and it only counts once you save the plan.
+
+**Sun window and leaf shade.** On top of the tile you record **when** the sun reaches the bed: morning, midday, afternoon, all day or changing. The hours of direct sun in summer are optional, a rough guess is enough. The **Leaf shade in summer** switch notes that the bed is sunny in spring and later shaded by the leaves of trees. You find the fields in the **Change sun** dialog of the bed view and, in field mode, in the bed sheet (with large buttons, every change is saved at once). The entries appear on one line under the sun exposure in the bed overview. Kamerplanter calculates nothing from them, and leaf shade is a note only: it does not change the site hint when planting. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
+
+**Site conditions: frost, heat, wind, slope, access.** In the bed view, **Change conditions** opens a dialog for the **frost risk** (Low, Normal, High), the **cold-air pocket**, the **stored heat** (wall or building), the **wind** (Sheltered, Normal, Exposed), **slope** and **aspect** in degrees and the **access sides**. Everything is optional and entered by hand; Kamerplanter computes nothing from it except the bed-width hint from the access sides (see below). A bed with frost risk **High** is always named by the frost early warning, **Low** never. In field mode the bed sheet has the large chips **Moist / Normal / Dry** for the site moisture and **Windy**; every tap is stored at once. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+
+**Compass direction from the aspect.** When you enter the aspect in degrees, Kamerplanter derives the compass direction of the bed in eight steps: north, northeast, east, southeast, south, southwest, west and northwest. Each direction covers 45° around its centre; a boundary belongs to the direction that begins there, clockwise:
+
+| Compass direction | Aspect |
+|-------------------|--------|
+| North | from 337.5° and below 22.5° |
+| Northeast | 22.5° to below 67.5° |
+| East | 67.5° to below 112.5° |
+| Southeast | 112.5° to below 157.5° |
+| South | 157.5° to below 202.5° |
+| Southwest | 202.5° to below 247.5° |
+| West | 247.5° to below 292.5° |
+| Northwest | 292.5° to below 337.5° |
+
+As long as no aspect in degrees is entered, a compass direction you set by hand elsewhere stays as it is. <!-- REQ-053 GP-FR-017, GP-FR-168 -->
+
+!!! info "For technical users"
+    The derived compass direction is stored in the location field `orientation` (API and MCP); the interface keeps showing the degrees. The four existing values `north`, `south`, `east`, `west` stay valid; `northeast`, `southeast`, `southwest` and `northwest` are new. When `site_conditions.aspect_deg` is set, the derived direction overrides a value sent with `PUT /locations/{key}`.
+
+**The hint Bed too wide.** When a bed is wider than you can reach from its edge, the overview of the bed view shows the badge **Bed too wide** under **Reach**, with a line giving the width and the guide value. What counts is the narrowest extent of the bed: the shorter side of a rectangle, the diameter of a circle. The guide values follow arm reach: **1.2 m** when you reach the bed from two opposite sides (north and south, or east and west), **0.6 m** from one side. You set both per site, see [Sun and reach for garden planning](#setting-sun-and-reach). Two neighbouring sides (say north and east) count as one side. If you have not recorded any access sides, the stricter one-side value applies; record them under **Change conditions** and Kamerplanter uses your access. A bed exactly as wide as the guide value counts as within reach. Irregular (non-convex) beds get no hint. The hint blocks nothing and is not an error; Kamerplanter does not yet take paths next to the bed into account. <!-- REQ-053 GP-FR-166 -->
+
+In the garden plan, the properties panel of a selected bed shows the same fields under the tiles; a change there becomes part of the plan save, and you can take it back with **Undo**.
+
+**Site hint when planting.** In the planting dialog Kamerplanter compares the sun of the bed with the **light requirement** of the species (full sun, partial shade or shade) and shows a traffic light with plain text, for example "Bed: Shade — Tomato needs full sun". Green means well suited, yellow only partly suited, red poorly suited. Yellow also appears when the bed is one step shadier than the requirement and the species profile says the species takes that much shade; if that value is missing, the text says "Tolerance unknown". If the sun of the bed or the light requirement of the species is not recorded, no hint appears. The hint blocks nothing and asks for no reason. Up to three further hints appear, each only when both the bed and the species have the value: a bed with **high** frost risk for a **frost-sensitive** species, a bed **exposed** to wind for a species that **needs support**, and a **poorly drained** bed for a species that **tolerates waterlogging poorly**. Every other combination gives no hint, and so does a missing or unknown value. <!-- REQ-053 GP-FR-161 -->
+
+!!! note "Frost risk"
+    The frost risk of a bed (low, normal, high) will be maintained next to the sun. Kamerplanter copies existing **frost exposure** settings over automatically (yes becomes high, no becomes normal); until then, the frost exposure setting stays the one that counts. The JSON backup of your garden plan contains the frost exposure, so a restored bed keeps it. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
+**Layers in the garden plan.** Sun window, drainage and frost risk can be shown as layers in the garden plan; they are described under [Layers and site conditions](garden-plan.md#layers-and-site-conditions).
+
+**Plant state in the garden plan.** You see the same marks as a layer on the plan of the whole site, with a filter for plants that need attention; see [Plant state and filter](garden-plan.md#plant-state-and-filter).
+
+### History of the bed {#history-of-the-bed}
+
+The **History** tab has two parts: the **timeline** on top and the **list** below it.
+
+**Timeline.** It shows for each year which plant families stood in the bed, for at least the last five years and up to ten when a family needs a long rotation pause. Every family has its own colour and the entry always carries its name as well. Green manure and fallow years are marked. The timeline is the basis of the crop rotation check. For pots, tents and shelves that check is off by default; the history is still kept. The check can be switched on or off per bed; for permanent crops it always stays off. <!-- REQ-053 GP-FR-137 -->
+
+You find the switch for the check per bed in the **Soil** tab (see [Setting crop rotation for a bed](#setting-crop-rotation-for-a-bed)). <!-- REQ-053 GP-FR-137 -->
+
+**Follow-up crop recommendation.** Below the timeline Kamerplanter names which step of the feeder cycle fits after the last recorded year: heavy feeder, then medium feeder, then light feeder, then green manure or fallow, then heavy feeder again. It also lists families and species of the catalogue that, by the crop rotation master data (`rotation_after`), can follow the families of the last year and whose feeder class fits that step. This is an **order, not a fertiliser recommendation**: Kamerplanter names no amounts. Families that are still keeping their rotation pause in the bed are listed apart as "still in their rotation pause" and are not suggested. A species without a stored feeder class never appears; where no feeder class is known for the last crop or no species fits, the reason stands in place of the list. The recommendation appears only when the rotation check is on for the bed. <!-- REQ-053 GP-FR-133 -->
+
+**What stood here?** To fill in a year from before you used the app, tap **Fill in {year}** at the year or **What stood here?** at the top. You choose the year, the plant family (or a species, which brings its family), the role (main crop, green manure or fallow) and optionally the season. The last ten years up to last year are allowed. A message with **Undo** follows. You take a filled-in entry back later with the **x** on the entry, as its author or in the "lead" role. It then stays in the care log as cancelled. Viewers see the timeline read-only.
+
+**List.** The newest entries come first, 50 per page; **Load more** fetches the next ones. The list mixes care entries with planting events: plant planted or removed, run started or completed. You can filter by **category**, **period**, **plant** and **person**. Corrections are hidden at first: replaced entries and "Position corrected". **Show corrections** brings them back, marked "Corrected" or "Correction".
+
+!!! info "Who may filter by person"
+    The person filter is an activity profile and therefore restricted. With the "viewer" and "grower" roles you filter only by yourself. The "lead" role and members with the `management` admin scope can filter by any member. Members who left show as "anonymised" and cannot be filtered.
+
+**Export as CSV.** **Export CSV** on the **History** tab and on the **History of all beds** page downloads the care entries the current filter shows (up to 50,000). You can choose **CSV (comma)** or **CSV for Excel (semicolon)**. The file holds display names instead of accounts, and text that looks like a formula is neutralised. The export follows the same role rules as the list. With more than 50,000 entries, narrow it by bed, plant, category or period first.
+
+ **History of all beds** opens the care history of the whole tenant at `/standorte/historie`. It shows the last 90 days unless you choose another period and offers the same filters plus **Bed**. The plant filter is available once a bed is chosen.
+
+### Photos of the bed {#photos-of-the-bed}
+
+On the **Photos** tab you keep track of how your bed develops over the season. The photos are listed newest first, each with its date. Tap a photo to open it in full size; the arrows page through the others.
+
+- **Add photo:** From the "grower" role, **Add photo** takes a picture with the camera or lets you choose an image file. You see a preview and save with **Save photo**. Kamerplanter removes location and camera data (EXIF) from the image on upload.
+- **Cover photo:** The first photo of a bed becomes its cover photo automatically. It appears in the summary of the bed view and in the bed sheet of field mode. The star makes another photo the cover; tapping the star of the cover photo takes it back, and the bed then has no cover photo.
+- **Remove photo:** You see the bin on your own photos; the lead can remove any photo. After a confirmation the photo disappears from the gallery. If nothing else uses it, Kamerplanter deletes it for good. If it was the cover photo, the newest remaining photo becomes the cover photo; if it was the last photo, the bed has none.
+- **At most 50 photos:** A bed holds up to 50 photos. Once the limit is reached, **Add photo** is locked and a notice asks you to remove a photo first.
+
+With the "viewer" role you only see the photos. A bed's photos belong to your garden: they are part of the garden export and are deleted with it, but they never go into the JSON backup of the garden plan. In field mode, too, you can give a photo straight to the bed, see [Field mode in the garden](garden-plan.md#field-mode-in-the-garden).
+
+### Setting crop rotation for a bed {#setting-crop-rotation-for-a-bed}
+
+At the top of the **Soil** tab is the section **Crop rotation for this bed**. With **Rotation check** you choose whether Kamerplanter checks crop rotation for this bed: **Default of the bed type** (off for planters, tents and shelves, on otherwise), **Switched on** or **Switched off**. The **Permanent crop** switch takes the bed out of crop rotation entirely, for example for fruit trees or asparagus. Every change applies at once to the hints when planting and to the follow-up crop recommendation. You can change both settings with the role "grower" or above; observers only see the state.
+
+A permanent crop cannot have the check switched on. If you try, Kamerplanter refuses the change and explains it in a note; nothing is saved. Set the check to **Default of the bed type** or **Switched off** first. <!-- REQ-053 GP-FR-137 -->
+
+### Maintaining the soil profile
+
+In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. The drainage also appears in the bed overview once you have recorded it. As a viewer (role "viewer") you see the profile read-only.
+
+If you enter an EC, you also choose the **EC method** (saturated paste, 1:2 or 1:5 extract, probe or "Method unknown") - an EC value cannot be read without its method, and the form does not save it without one. Only fill in the **Target pH (CaCl₂)** if your lab states it; Kamerplanter does not derive a target pH from the soil texture.
+
+### Recording soil analyses {#recording-soil-analyses}
+
+Below the soil profile, the **Soil** tab has the **Soil analyses** area. From the role "grower" upwards you open **Record soil analysis** there and enter the values from your lab report, test kit or probe:
+
+1. When the sample was taken (up to five years back, so you can also enter older lab reports - every other care entry reaches one year back), where the values come from (**Lab**, **Test kit** or **Probe/sensor**) and, optionally, the sampling depth in cm.
+2. For each value the **parameter** (pH, EC, humus, lime content, Nmin, phosphorus, potassium, magnesium, soil moisture), the **value**, the **unit** and the **method**. For pH and EC the method is required; if it is not on the report, choose "Probe, method unknown" or "Method unknown". **Add another value** records a whole report in one go.
+3. You can give a **content class** (A to E) only for phosphorus, potassium and magnesium when the value comes from a lab by the CAL method - exactly as stated in the report. Kamerplanter never computes a class.
+
+The analysis appears as a care entry in the [bed history](#history-of-the-bed). Kamerplanter takes the newest pH, EC, humus and lime values with their method into the soil profile, but only in the profile's unit (pH, mS/cm or dS/m, %) and never from an analysis older than the one last taken over.
+
+**History:** for pH, EC and humus the area shows one chart each, with a separate line per measuring method. When the method changes from one analysis to the next, a dashed "Method change" line marks it: values of different methods are not comparable, and Kamerplanter never converts one into another. **Show as table** shows the same values as a table; a screen reader always reads the table.
+
+**Liming likely worthwhile:** Kamerplanter shows this hint only when the bed has the filling "Native soil" and a known soil texture, the pH was measured in CaCl₂ and is below the target pH you entered in the soil profile. If one of these is missing, the area says which. Kamerplanter never gives a lime amount - your lab does.
+
+### Changing the bed status
+
+- **Planned → Active**: possible from the "grower" role.
+- **Retire and reactivate**: only with the "lead" role.
+- To retire a bed you need a **reason**, and the bed must contain no plants. The reason is written to the care log.
+
+!!! tip "Tip: empty the bed first, then retire it"
+    If plants are still in the bed, Kamerplanter rejects retiring it. Remove or harvest them first.
+
+---
+
+## Garden Plan, Field Mode and Export {#garden-plan-pointer}
+
+Everything that concerns the whole site as a plan has its own page: drawing and gestures, the bed list below the plan, field mode for the phone, layers, irrigation zones, templates, export, backup and import. You find it under [Garden Plan](garden-plan.md). This page covers the bed view of a single bed.
+
+---
+
 ## Tips for Location Structure
 
 !!! example "Example: Balcony gardener"
@@ -294,6 +568,7 @@ A **batch** is a concrete, physical quantity of a substrate with its own history
 
 ## See Also
 
+- [Garden Plan](garden-plan.md) — drawing the plan, field mode, layers, irrigation zones, export and import
 - [Tank Management](tanks.md)
 - [Planting Runs](planting-runs.md)
 - [Fertilization](fertilization.md)

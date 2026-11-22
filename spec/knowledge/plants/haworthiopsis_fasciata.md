@@ -114,6 +114,22 @@
 
 **Hinweis (Steckbrief-Erweiterung 2026-06):** Haworthiopsis fasciata ist eine der schattenverträglichsten Sukkulenten (partial_shade) und gedeiht im natürlichen Habitat halbschattig unter größeren Pflanzen; direkte Mittagssonne führt zu Stressfärbung (rot/weiß). Als CAM-Sukkulente und ausgesprochener Schwachzehrer (light_feeder) reagiert sie empfindlich auf Bodenversalzung (sensitive): Salzanreicherung aus Überdüngung schädigt die Wurzeln und ist eine häufige Pflegefehler-Ursache. Flach-faserige Wurzeln in flachen Schalen; Staunässe wird nicht toleriert (sensitive). Der pH-Vorzug 6.0–7.5 (leicht sauer bis neutral) harmonisiert mit den pH-Angaben in §1.6 und §2.3.
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quellen widersprüchlich — RHS-Artseite führt Position „Full sun", RHS-Gattungsratgeber Haworthia und weitere Kulturtexte nennen „bright, indirect light"/Halbschatten; keine eindeutige Standortstufe --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

@@ -30,6 +30,8 @@ import type {
   SpeciesPhaseTimeline,
 } from '@/api/types';
 import type { RunNutrientData, ChannelGroup } from '@/hooks/useRunNutrientData';
+import type { Translate } from '@/i18n/translate';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 interface PlantingRunDetailsTabProps {
   run: PlantingRun;
@@ -71,7 +73,7 @@ function ChannelCard({
   dosageMode: 'per_liter' | 'total';
   volumeLiters: number;
   volumeLabel: string;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
 }) {
   return (
     <Card variant="outlined" sx={{ flex: '1 1 300px' }}>
@@ -369,7 +371,7 @@ export default function PlantingRunDetailsTab({
                   <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{speciesData.scientific_name}</Typography>
                   {speciesData.common_names.length > 0 && (
                     <Typography variant="body2" color="text.secondary">
-                      {speciesData.common_names.join(', ')}
+                      {orderCommonNamesForLanguage(speciesData, i18n.language).join(', ')}
                     </Typography>
                   )}
                 </Box>

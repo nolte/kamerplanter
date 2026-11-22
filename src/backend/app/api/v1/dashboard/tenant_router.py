@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_dashboard_service, get_user_preference_service
+from app.common.locale import get_request_locale
 from app.config.settings import settings
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.dashboard_service import DashboardService
@@ -116,11 +117,15 @@ def get_aggregated(
     widgets: str = Query(default="", description="Comma-separated active widget keys (REQ-045)"),
     ctx: TenantContext = Depends(get_current_tenant),
     service: DashboardService = Depends(get_dashboard_service),
+    language: str = Depends(get_request_locale),
 ) -> DashboardAggregatedResponse:
-    """Return REQ-009 aggregation sliced to the user's active widget keys."""
+    """Return REQ-009 aggregation sliced to the user's active widget keys.
+
+    Species names (``plant_grid``) follow the request's language (``Accept-Language``, #2902).
+    """
 
     requested = [key.strip() for key in widgets.split(",") if key.strip()]
-    summary = service.get_summary(ctx.tenant_key)
+    summary = service.get_summary(ctx.tenant_key, language=language)
     payloads: dict[str, Any] = {}
     for widget_key in requested:
         payload = _slice_summary_for(widget_key, summary)

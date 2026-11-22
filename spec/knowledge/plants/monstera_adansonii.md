@@ -13,7 +13,7 @@
 | Feld | Wert | KA-Feld |
 |------|------|---------|
 | Wissenschaftlicher Name | Monstera adansonii | `species.scientific_name` |
-| Volksnamen (DE/EN) | Monkey Mask Monstera, Lochpflanze; Swiss Cheese Plant, Monkey Mask Plant, Five Holes Plant | `species.common_names` |
+| Volksnamen (DE/EN) | Lochpflanze; Monkey Mask Monstera, Swiss Cheese Plant, Monkey Mask Plant, Five Holes Plant | `species.common_names` |
 | Familie | Araceae | `species.family` → `botanical_families.name` |
 | Gattung | Monstera | `species.genus` |
 | Ordnung | Alismatales | `botanical_families.order` |
@@ -117,6 +117,22 @@
 
 **Hinweis:** Monstera adansonii ist eine Unterwuchs-Aroidee (understory aroid) des tropischen Regenwaldes — angepasst an diffuses, gefiltertes Licht, nicht an Vollsonne. Der niedrige Lichtkompensationspunkt (5–15 µmol/m²/s) ist typisch für Schattenpflanzen mit geringer Atmungsrate. Unterhalb ~10 µmol/m²/s stagniert die Chlorophyllsynthese. Sättigung tritt deutlich oberhalb (≈ 200–400 µmol/m²/s) ein — diese Sättigungswerte gehören nicht in das LCP-Feld. Salzempfindlich (salt-sensitive): Düngersalze reichern sich an und führen zu Blattrandnekrosen (tip burn); daher Substrat regelmäßig spülen (flush).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Monstera adansonii“ (Position: Partial shade; Kulturtext „bright, indirect light“), https://www.rhs.org.uk/plants/11191/monstera-adansonii/details | — |
 
 ---
 
@@ -336,4 +352,5 @@ Monstera adansonii,"Monkey Mask Monstera;Lochpflanze;Swiss Cheese Plant;Monkey M
 15. [PlantCareClub — How to Propagate Monstera: Stem Cuttings & Air Layering](https://plantcareclub.com/care-guides/propagate-monstera-stem-cuttings-air-layering) — Vermehrung via Abmoosen (air layering) fuer Monstera adansonii, ~100% Anwuchserfolg
 16. [Blooming Backyard — How to Propagate Monstera adansonii from Cuttings](https://www.bloomingbackyard.com/propagate-monstera-adansonii/) — Bestaetigt Abmoosen als Vermehrungsmethode speziell fuer M. adansonii, Bewurzelungsdauer 6-8 Monate
 17. [Monsteraliebe.de — Monstera Adansonii: Pflege und Vermehrung](https://monsteraliebe.de/monstera-adansonii/) — "Wir haben die besten Erfahrungen mit Abmoosen gemacht" — Luftableger-Methode fuer M. adansonii
+[RHS — Monstera adansonii](https://www.rhs.org.uk/plants/11191/monstera-adansonii/details) — Lichtanspruch (Position: Partial shade; „bright, indirect light“)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Audit growing-phase-auditor) -->

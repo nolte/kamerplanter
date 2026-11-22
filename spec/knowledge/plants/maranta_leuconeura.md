@@ -121,6 +121,22 @@
 **Hinweis:** Schattenlaubpflanze (shade leaf) des tropischen Regenwald-Unterwuchses (understory) mit sehr niedrigem Lichtkompensationspunkt — der angegebene Bereich (2–8 µmol/m²/s) entspricht dem unteren Ende der C3-Spanne (8–16 µmol/m²/s) für Schattenblätter. NUR Kompensationspunkt; Lichtsättigung und Photoinhibition (direkte Sonne bleicht das Blattmuster aus) sind hier bewusst NICHT enthalten. Wurzeltiefe flach und breit-spreitend (rhizomatöser Horst) — konsistent mit Min. Topftiefe 12 cm (§1.6). Salzempfindlichkeit qualitativ stark belegt (Salz-/Fluoridschäden mit Blattspitzennekrose), jedoch ohne quantitativen ECe-Maas-Hoffman-Wert. Boden-pH-Vorzug 5.5–6.5 harmonisiert mit §1.6 (Substrat) und §2.3 (Nährstoffprofile).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite führt Position „Full shade, Partial shade“ (Spanne ohne Vorzug); Kulturtext „Bright filtered or indirect light is best“ nennt keine Standortstufe --> | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

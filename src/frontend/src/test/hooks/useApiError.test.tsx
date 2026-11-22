@@ -66,6 +66,41 @@ describe('useApiError', () => {
     expect(mockEnqueue).toHaveBeenCalled();
   });
 
+  it('names a stale soil profile instead of the generic conflict (REQ-053 #2706)', () => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError('soil_profile.stale', 'stale', [], 409));
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      expect.stringMatching(/soil analysis|Bodenanalyse/),
+      expect.objectContaining({ variant: 'error' }),
+    );
+  });
+
+  it.each([
+    ['task.already_closed', 409, /already done|schon erledigt/],
+    ['task.missing', 404, /no longer exists|gibt es nicht mehr/],
+    ['client_event.payload_mismatch', 409, /different details|anderen Angaben/],
+    ['client_event.deleted', 404, /deleted in the meantime|inzwischen gelöscht/],
+  ])('names the completion conflict %s instead of the generic message (REQ-053 WP 9.3)', (code, status, text) => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError(code, 'conflict', [], status));
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      expect.stringMatching(text),
+      expect.objectContaining({ variant: 'error' }),
+    );
+  });
+
+  it.each([
+    ['slot.occupied', /stands on this planting spot already|steht schon eine Pflanze/],
+    ['slot.already_planned', /reserved for a planned planting|für eine geplante Pflanzung reserviert/],
+  ])('names the taken planting position %s instead of the generic conflict (REQ-053 V-25)', (code, text) => {
+    const { result } = renderHook(() => useApiError(), { wrapper });
+    result.current.handleError(makeApiError(code, 'refused', [], 409));
+    expect(mockEnqueue).toHaveBeenCalledWith(
+      expect.stringMatching(text),
+      expect.objectContaining({ variant: 'error' }),
+    );
+  });
+
   it('handles VALIDATION_ERROR', () => {
     const { result } = renderHook(() => useApiError(), { wrapper });
     result.current.handleError(makeApiError('VALIDATION_ERROR', 'Invalid', [], 422));

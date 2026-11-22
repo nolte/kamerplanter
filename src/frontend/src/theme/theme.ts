@@ -1,10 +1,55 @@
-import { createTheme, darken, type Theme } from '@mui/material/styles';
+import { alpha, createTheme, darken, getOverlayAlpha, type Theme } from '@mui/material/styles';
 import { lightPalette, darkPalette, highContrastPalette } from './palette';
 import { typography } from './typography';
 import { breakpoints, radii } from './tokens';
 import { kioskThemeOverrides } from '@/kiosk/kioskTheme';
 
 const reducedMotion = '@media (prefers-reduced-motion: reduce)';
+
+/**
+ * UI-NFR-001 R-011 — interactive elements reach 48×48 px where they are operated by touch. Scoped to a
+ * coarse pointer: R-013 lets a mouse-driven desktop keep smaller targets, and the dense desktop tables and
+ * the plan Gantt rely on that. On a fine pointer the WCAG 2.2 AA floor (2.5.8, 24×24 px) still holds —
+ * the smallest MUI IconButton (`size="small"`) is 28 px. Kiosk mode raises this again to 64 px (R-007).
+ */
+export const TOUCH_TARGET_MIN = 48;
+const coarsePointer = '@media (pointer: coarse)';
+
+/**
+ * UI-NFR-002 R-005 / WCAG 2.4.7, 2.4.13 (#3017, W-08/L-07) — one visible focus ring for every MUI control
+ * that takes keyboard focus. MUI's own focus cue on ButtonBase (ListItemButton, MenuItem, IconButton, Tab,
+ * CardActionArea …) is a ~12 % tint, about 1.3:1 against the item. The ring is 2 px in `primary.main`:
+ * light #2e7d32 on #f5f5f5/#fff = 4.7–5.1:1, dark #66bb6a on #121212/#1e1e1e = 7.6–8.6:1, high contrast
+ * #000 on #fff = 21:1 — every mode clears the 3:1 the NFR asks for.
+ *
+ * Inline controls get the ring outside (offset 2 px), list-like rows inside (offset -2 px) so a scroll
+ * container's `overflow: hidden` cannot clip it.
+ */
+function focusRingStyles(theme: Theme) {
+  const ring = {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+  };
+  return {
+    '.MuiButtonBase-root.Mui-focusVisible': ring,
+    [[
+      '.MuiListItemButton-root.Mui-focusVisible',
+      '.MuiMenuItem-root.Mui-focusVisible',
+      '.MuiTab-root.Mui-focusVisible',
+      '.MuiCardActionArea-root.Mui-focusVisible',
+      '.MuiAccordionSummary-root.Mui-focusVisible',
+    ].join(', ')]: { outlineOffset: -2 },
+  };
+}
+
+/** Highest elevation whose dark-mode overlay still keeps every role colour legible as a label (#3047). */
+export const MAX_DARK_OVERLAY_ELEVATION = 8;
+
+/** The overlay MUI paints on a dark Paper of `elevation` (same formula as `Paper.js`). */
+function darkOverlay(elevation: number): string {
+  const tint = alpha('#fff', getOverlayAlpha(elevation));
+  return `linear-gradient(${tint}, ${tint})`;
+}
 
 function buildTheme(mode: 'light' | 'dark'): Theme {
   const palette = mode === 'light' ? lightPalette : darkPalette;
@@ -18,13 +63,26 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
     },
     components: {
       MuiCssBaseline: {
-        styleOverrides: {
+        // A function so the ring follows the palette of whichever theme is built on top of this one
+        // (the high-contrast theme reuses these component settings).
+        styleOverrides: (theme) => ({
+          ...focusRingStyles(theme),
           [reducedMotion]: {
             '*, *::before, *::after': {
               animationDuration: '0.01ms !important',
               animationIterationCount: '1 !important',
               transitionDuration: '0.01ms !important',
               scrollBehavior: 'auto !important',
+            },
+          },
+        }),
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            [coarsePointer]: {
+              minWidth: TOUCH_TARGET_MIN,
+              minHeight: TOUCH_TARGET_MIN,
             },
           },
         },
@@ -127,6 +185,22 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
           variant: 'outlined',
         },
       },
+      // Dark mode lightens an elevated Paper with a white overlay that grows with the elevation. On a
+      // Dialog (elevation 24) and a temporary Drawer (16) it reaches rgb(63-67) — and every role colour
+      // used as a label there fell below WCAG AA: `primary.main` 4.19:1, `success` 4.19, `secondary`
+      // 4.28, `info` 4.30, `error` 4.34 (the dialog's text buttons and links, #3047). Capped at the
+      // elevation-8 overlay a Menu already paints, where the lowest role reads 4.88:1, so a dialog
+      // still sits visibly above the page.
+      MuiPaper: {
+        styleOverrides: {
+          root: ({ theme, ownerState }) =>
+            theme.palette.mode === 'dark' &&
+            ownerState.variant !== 'outlined' &&
+            (ownerState.elevation ?? 1) > MAX_DARK_OVERLAY_ELEVATION
+              ? { backgroundImage: darkOverlay(MAX_DARK_OVERLAY_ELEVATION) }
+              : {},
+        },
+      },
       // `warning.main` (#ed6c02) reaches only 3.11:1 on white, so wherever it is
       // used as *text* it misses WCAG AA's 4.5:1 (UI-NFR-002). The outlined Chip
       // is the construct that does exactly that — its label and border are drawn
@@ -161,6 +235,26 @@ function buildTheme(mode: 'light' | 'dark'): Theme {
         defaultProps: {
           size: 'small',
           variant: 'outlined',
+        },
+      },
+      // #3065 — a dialog's scrolling content must not change its width when its
+      // scrollbar comes or goes. Where the platform draws a classic (space-taking)
+      // scrollbar — desktop Chrome/Firefox on Linux and Windows — the 15 px it
+      // takes from the content re-wraps every helper text and toggle row the
+      // moment the content starts to overflow: an alert or a section appearing,
+      // an accordion expanding, the window shrinking. Everything below the first
+      // re-wrapped line moves under the pointer. Measured in the nightly on the
+      // plant-create dialog (same dialog instance before/after its first scroll:
+      // fields 15 px narrower, "Optionaler Anzeigename für diese Pflanze" on two
+      // lines, the action row lower) and on the care-profile dialog (the month
+      // row wrapping October onto a second line). Reserving the gutter keeps the
+      // layout identical either way; overlay scrollbars (macOS, mobile) are not
+      // affected by the property at all.
+      MuiDialogContent: {
+        styleOverrides: {
+          root: {
+            scrollbarGutter: 'stable',
+          },
         },
       },
       MuiTableCell: {

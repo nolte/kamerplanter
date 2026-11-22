@@ -9,26 +9,27 @@ job: knowledge-service
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
-replay_seconds: 12
-job_spec_sha256: 086772ed392e80e46d208deb4b300b94d53619ebe5996ce5085ac995167cc87f
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+replay_seconds: 11
+job_spec_sha256: 8cd90671015f475d8f284c100fd8073f694af04d5c6ef00f3699b5caac75949f
 invocations:
 - command: task deps:sync:knowledge-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 209
+  untracked_reads_dropped: 211
 - command: task test:knowledge-service
   cwd: .
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2113
+  untracked_reads_dropped: 2120
 subprocesses:
 - ld-linux-x86-64.so.2
 - python
+- python3
 - task
 - uv
 accepted_gaps: []

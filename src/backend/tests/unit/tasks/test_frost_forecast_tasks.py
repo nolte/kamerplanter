@@ -318,3 +318,87 @@ class TestATenantThatIsNotActiveGetsNoFrostWarning:
         assert result["notified"] == 0
         assert result["skipped"] == 1
         service._engine.notify.assert_not_awaited()
+
+
+def _bed(key: str, name: str, risk) -> SimpleNamespace:
+    from app.domain.models.site import Location, Microclimate, SiteConditions
+
+    conditions = None if risk is None else SiteConditions(microclimate=Microclimate(frost_risk=risk))
+    return Location(_key=key, name=name, site_key="site1", area_m2=1.0, site_conditions=conditions)
+
+
+class TestBedsNamedInTheWarning:
+    """WP 8.20 (GP-FR-162): ``high`` always named, ``low`` never, ``normal``/``unknown`` not (per-site warning)."""
+
+    def _run(self, task_module, monkeypatch, beds, forecasts):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        _wire_config_cursor(deps)
+        deps.get_site_repo.return_value.get_site_by_key.return_value = _site()
+        deps.get_site_repo.return_value.get_locations_by_site.return_value = beds
+        deps.get_weather_forecast_repo.return_value.find_by_site.return_value = forecasts
+        deps.get_membership_repo.return_value.list_by_tenant.return_value = [
+            SimpleNamespace(user_key="u1", is_active=True)
+        ]
+        notification_repo = MagicMock()
+        notification_repo.find_notified_user_keys.return_value = set()
+        service = _make_service(notification_repo)
+        deps.get_notification_service.return_value = service
+        result = module.evaluate_forecast_frost_warnings()
+        return result, service
+
+    def test_a_high_bed_is_named_and_a_low_bed_is_not(self, task_module, monkeypatch):
+        from app.common.enums import FrostRisk
+
+        beds = [
+            _bed("b1", "Low bed", FrostRisk.LOW),
+            _bed("b2", "High bed", FrostRisk.HIGH),
+            _bed("b3", "Normal bed", FrostRisk.NORMAL),
+            _bed("b4", "Unknown bed", FrostRisk.UNKNOWN),
+            _bed("b5", "No conditions", None),
+        ]
+        result, service = self._run(task_module, monkeypatch, beds, [_forecast(0, -2.0)])
+
+        assert result["notified"] == 1
+        _user, _tenant, notification = service._engine.notify.await_args.args
+        assert "High bed" in notification.body
+        for absent in ("Low bed", "Normal bed", "Unknown bed", "No conditions"):
+            assert absent not in notification.body
+        assert notification.data["frost_bed_keys"] == ["b2"]
+
+    def test_no_high_bed_means_the_warning_stays_per_site(self, task_module, monkeypatch):
+        from app.common.enums import FrostRisk
+
+        result, service = self._run(
+            task_module, monkeypatch, [_bed("b1", "Low bed", FrostRisk.LOW)], [_forecast(0, -2.0)]
+        )
+
+        assert result["notified"] == 1
+        _user, _tenant, notification = service._engine.notify.await_args.args
+        assert "Beds at frost risk" not in notification.body
+        assert notification.data["frost_bed_keys"] == []
+
+    def test_a_high_bed_without_a_predicted_frost_triggers_nothing(self, task_module, monkeypatch):
+        from app.common.enums import FrostRisk
+
+        result, service = self._run(
+            task_module, monkeypatch, [_bed("b1", "High bed", FrostRisk.HIGH)], [_forecast(0, 8.0)]
+        )
+
+        assert result["notified"] == 0
+        service._engine.notify.assert_not_awaited()
+
+    def test_the_task_and_the_plant_state_use_the_same_verdict_expression(self, task_module, monkeypatch):
+        """The trigger runs through ``site_frost_verdict``, the verdict the plant state's reason reads too."""
+        from app.domain.services import frost_forecast
+
+        calls: list[int] = []
+        real = frost_forecast.evaluate_forecast_frost_warning
+
+        def spy(*args, **kwargs):
+            calls.append(1)
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(frost_forecast, "evaluate_forecast_frost_warning", spy)
+        self._run(task_module, monkeypatch, [], [_forecast(0, -2.0)])
+        assert calls == [1]

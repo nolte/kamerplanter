@@ -66,6 +66,7 @@ KNOWN_MODULE_KEYS: frozenset[str] = frozenset(
         "automation",
         "smart_home",
         "ai",
+        "garden_planner",
     }
 )
 

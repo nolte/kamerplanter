@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -36,7 +35,6 @@ type ScopeFilter = 'all' | 'universal' | 'restricted';
 export default function ActivityListPage() {
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const canEdit = useCanEditInstallationCatalogue();
   const { items, loading } = useAppSelector((s) => s.activities);
   const [createOpen, setCreateOpen] = useState(false);
@@ -125,7 +123,7 @@ export default function ActivityListPage() {
   ];
 
   return (
-    <>
+    <Box data-testid="activity-list-page">
       <PageTitle
         title={t('pages.activities.title')}
         action={
@@ -175,7 +173,7 @@ export default function ActivityListPage() {
         columns={columns}
         rows={items}
         loading={loading}
-        onRowClick={(r) => navigate(`/stammdaten/activities/${r.key}`)}
+        getRowHref={(r) => `/stammdaten/activities/${r.key}`}
         getRowKey={(r) => r.key}
         emptyMessage={t('pages.activities.noActivities')}
         emptyActionLabel={t('pages.activities.create')}
@@ -224,6 +222,6 @@ export default function ActivityListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => { setCreateOpen(false); dispatch(fetchActivities()); }}
       />
-    </>
+    </Box>
   );
 }

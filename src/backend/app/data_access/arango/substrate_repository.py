@@ -1,12 +1,41 @@
 from arango.database import StandardDatabase
 
+from app.common.exceptions import ValidationError
 from app.common.types import BatchKey, SlotKey, SubstrateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.query_builder import escape_aql_like
 from app.data_access.arango.tenant_scope import tenant_union_predicate
+from app.data_access.arango.transactions import stream_transaction
 from app.domain.interfaces.substrate_repository import ISubstrateRepository
 from app.domain.models.substrate import Substrate, SubstrateBatch
+
+#: Every named-graph edge that can end at a substrate (``uses_type`` from its batches) — derived (#2560).
+_SUBSTRATE_EDGES = edges_touching(col.SUBSTRATES)
+_SUBSTRATE_DELETE_WRITE: tuple[str, ...] = tuple(dict.fromkeys((col.SUBSTRATES, *(e for e, _ in _SUBSTRATE_EDGES))))
+_SUBSTRATE_DELETE_READ: tuple[str, ...] = (
+    col.PLANT_INSTANCES,
+    col.PLANTING_RUNS,
+    col.SUBSTRATE_BATCHES,
+    col.RUN_USES_SUBSTRATE,
+)
+
+#: The substrate (no row when it does not exist) with the plants and planting runs that use it (D2, #2560).
+_SUBSTRATE_REFERRERS = """
+LET s = DOCUMENT(@id)
+FILTER s != null
+LET batch_ids = (FOR b IN @@batches FILTER b.substrate_key == @key RETURN b._id)
+LET batch_keys = (FOR b IN batch_ids RETURN PARSE_IDENTIFIER(b).key)
+RETURN {
+    plants: LENGTH(FOR p IN @@plants FILTER p.substrate_key == @key RETURN 1),
+    runs: LENGTH(UNION_DISTINCT(
+        (FOR r IN @@runs FILTER r.substrate_batch_key != null AND r.substrate_batch_key IN batch_keys
+            RETURN r._id),
+        (FOR e IN @@run_uses FILTER e._to IN batch_ids RETURN e._from)
+    ))
+}
+"""
 
 
 class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepository):
@@ -126,7 +155,60 @@ class ArangoSubstrateRepository(BaseArangoRepository[Substrate], ISubstrateRepos
         return super().update(key, substrate)
 
     def delete_substrate(self, key: SubstrateKey) -> bool:
-        return super().delete(key)
+        """Remove the substrate and every graph edge on it — refused while a plant or a run uses it (#2560, D2).
+
+        One stream transaction: the references are counted and the row removed under the same snapshot, so a plant
+        written between a check and the delete cannot slip through. A plant references the substrate by its
+        ``substrate_key``; a planting run through its batch (``substrate_batch_key`` or a ``run_uses_substrate``
+        edge to a batch whose ``substrate_key`` is this one). Referrers are counted across tenants: a global
+        medium may be used by any tenant, and nulling another tenant's field silently is what D2 rules out.
+
+        The edges are derived (:data:`_SUBSTRATE_EDGES`): ``uses_type`` from the batches used to stay behind. The
+        remaining field referrers — a batch's ``substrate_key``, a mix component, a bed's
+        ``soil_profile.substrate_key`` — are not settled here; ``tests/unit/guards/
+        test_deletes_reach_their_derived_edges.py`` holds the reason for each.
+
+        Raises:
+            ValidationError: 422 while a plant or a planting run references the substrate.
+
+        Returns:
+            ``True`` when the substrate was removed, ``False`` when it did not exist (nothing is written then).
+        """
+        substrate_id = f"{col.SUBSTRATES}/{key}"
+        with stream_transaction(
+            self._db, write=_SUBSTRATE_DELETE_WRITE, read=_SUBSTRATE_DELETE_READ, entity="substrate"
+        ) as txn:
+            rows = list(
+                txn.aql.execute(
+                    _SUBSTRATE_REFERRERS,
+                    bind_vars={
+                        "id": substrate_id,
+                        "key": key,
+                        "@batches": col.SUBSTRATE_BATCHES,
+                        "@plants": col.PLANT_INSTANCES,
+                        "@runs": col.PLANTING_RUNS,
+                        "@run_uses": col.RUN_USES_SUBSTRATE,
+                    },
+                )
+            )
+            if not rows:
+                return False
+            plants, runs = int(rows[0]["plants"]), int(rows[0]["runs"])
+            if plants or runs:
+                raise ValidationError(
+                    "A substrate that plants or planting runs still use cannot be deleted.",
+                    details=[
+                        {
+                            "field": "key",
+                            "reason": f"used by {plants} plant(s) and {runs} planting run(s)",
+                            "code": "SUBSTRATE_IN_USE",
+                        }
+                    ],
+                )
+            for edge, field_name in _SUBSTRATE_EDGES:
+                remove_edges(txn, edge, field_name, [substrate_id])
+            txn.collection(col.SUBSTRATES).delete(key)
+        return True
 
     # ── Substrate Batch CRUD ──────────────────────────────────────────
 

@@ -120,6 +120,22 @@
 **Hinweis:** Als schattenadaptierte epiphytische CAM-Liane (epiphytic CAM vine) hat Hoya carnosa einen niedrigen Lichtkompensationspunkt (light compensation point) im typischen Schattenpflanzen-Bereich von ca. 10–50 µmol/m²/s. Der Lichtsättigungspunkt (light saturation point) liegt deutlich höher; volle Mittagssonne kann zu Photoinhibition (photoinhibition) und Blattverbrennung führen — diese Werte gehören NICHT in das Kompensationspunkt-Feld. Die Salztoleranz-Klasse `sensitive` ergibt sich aus der hohen Empfindlichkeit gegenüber Düngersalz-Akkumulation und Wurzelschäden; die quantitativen Maas-Hoffman-Parameter sind für diese Zierpflanze nicht publiziert. Boden-pH-Vorzug harmonisiert mit §1.6 und §2.3 (6.0–7.0).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle uneindeutig — RHS-Positionsfeld „Full sun" widerspricht dem RHS-Kulturtext „bright filtered light"; Indoor-Angabe (hell/gefiltert) nicht auf Standortstufen abbildbar --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen

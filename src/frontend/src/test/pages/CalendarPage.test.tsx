@@ -11,6 +11,7 @@ import userPreferencesReducer from '@/store/slices/userPreferencesSlice';
 import tenantsReducer from '@/store/slices/tenantSlice';
 import CalendarPage from '@/pages/kalender/CalendarPage';
 import { renderWithProviders, tenantState, type TestStore } from '../helpers';
+import { expectNoA11yViolations } from '../a11y/expectNoA11yViolations';
 import { server } from '../mocks/server';
 import type { CalendarEvent, CalendarFeed, CalendarFeedIssued } from '@/api/types';
 
@@ -200,8 +201,8 @@ describe('CalendarPage — month view & events', () => {
 
     await screen.findByTestId('calendar-page');
     expect(await screen.findByTestId('calendar-event-dot-ev-task')).toHaveTextContent('Prune tomato');
-    // The run instance is collapsed into a single labelled entry.
-    expect(screen.getByLabelText('Batch A')).toBeInTheDocument();
+    // The run instance is collapsed into a single entry (opened through its day, #3017).
+    expect(screen.getByTestId('calendar-run-entry-run-1')).toHaveTextContent('Batch A');
     // Day 20 has four entries but only three are shown -> "+1 more".
     expect(screen.getByText(`+1 ${i18n.t('common.more')}`)).toBeInTheDocument();
   });
@@ -209,16 +210,35 @@ describe('CalendarPage — month view & events', () => {
   it('opens an event popover and navigates to its detail', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    const { store } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
-    void store;
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await user.click(await screen.findByTestId('calendar-event-dot-ev-task'));
     const popover = await screen.findByTestId('event-popover');
     expect(within(popover).getByText('Prune tomato')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: i18n.t('pages.calendar.goToDetail') }));
-    // getEventLink -> /aufgaben/tasks/<task_key>
+    // A real link (#3069 SCR-005): getEventLink -> /aufgaben/tasks/<task_key>.
+    const detail = within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') });
+    expect(detail).toHaveAttribute('href', '/aufgaben/tasks/t1');
+    await user.click(detail);
     await waitFor(() => expect(screen.queryByTestId('event-popover')).toBeNull());
+    expect(router.state.location.pathname).toBe('/aufgaben/tasks/t1');
+  });
+
+  it('keeps the event popover open on a Ctrl-click on its detail link (#3069 SCR-005)', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await user.click(await screen.findByTestId('calendar-event-dot-ev-task'));
+    const popover = await screen.findByTestId('event-popover');
+    const detail = within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') });
+    const before = router.state.location.pathname;
+    // The browser opens a modified click in a new tab; this tab stays where it is.
+    await user.keyboard('{Control>}');
+    await user.click(detail);
+    await user.keyboard('{/Control}');
+    expect(screen.getByTestId('event-popover')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
   });
 
   it('shows watering-forecast hints and confirms watering from the popover', async () => {
@@ -304,6 +324,97 @@ describe('CalendarPage — month view & events', () => {
   });
 });
 
+// #3017 (L-10) — the month view was `role="table"` with `role="button"` children directly under it (axe
+// critical: aria-required-children) and one tab stop per day that had events.
+describe('CalendarPage — month grid semantics and keyboard (#3017)', () => {
+  beforeEach(() => {
+    i18n.changeLanguage('de');
+  });
+  afterEach(() => {
+    cleanup();
+    i18n.changeLanguage('en');
+  });
+
+  it('exposes the month as a grid of rows and gridcells with no critical or serious axe violation', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const { container } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const grid = screen.getByRole('grid');
+    // Header row + at least four week rows, each a direct row of the grid.
+    const gridRows = within(grid).getAllByRole('row');
+    expect(gridRows.length).toBeGreaterThanOrEqual(5);
+    expect(within(gridRows[0]).getAllByRole('columnheader')).toHaveLength(7);
+    for (const row of gridRows.slice(1)) {
+      expect(within(row).getAllByRole('gridcell')).toHaveLength(7);
+    }
+    await expectNoA11yViolations(container, { minImpact: 'serious', minElements: 200 });
+  });
+
+  it('is a single tab stop that the arrow, Home and End keys move through', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const days = screen
+      .getAllByRole('gridcell')
+      .filter((c) => c.hasAttribute('data-day'));
+    // Exactly one day is tabbable: today, since the page opens on the current month.
+    const tabbable = days.filter((c) => c.getAttribute('tabindex') === '0');
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute('data-day', String(NOW.getDate()));
+    // Entries inside a day are not extra tab stops.
+    expect(screen.getByTestId('calendar-event-dot-ev-task')).toHaveAttribute('tabindex', '-1');
+
+    // Start on the 10th and walk the grid.
+    screen.getByTestId('calendar-day-10').focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('calendar-day-11')).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByTestId('calendar-day-18')).toHaveFocus();
+    await user.keyboard('{ArrowUp}{ArrowLeft}');
+    expect(screen.getByTestId('calendar-day-10')).toHaveFocus();
+    // The roving tab stop followed the focus.
+    expect(screen.getByTestId('calendar-day-10')).toHaveAttribute('tabindex', '0');
+    expect(screen.getByTestId(`calendar-day-${NOW.getDate() === 10 ? 11 : NOW.getDate()}`)).toHaveAttribute(
+      'tabindex',
+      '-1',
+    );
+
+    // Home/End stay within the week of the focused day.
+    const firstWeekday = (new Date(Y, M, 1).getDay() + 6) % 7; // Monday-based column of the 1st
+    const column = (firstWeekday + 10 - 1) % 7;
+    await user.keyboard('{Home}');
+    expect(screen.getByTestId(`calendar-day-${Math.max(1, 10 - column)}`)).toHaveFocus();
+    screen.getByTestId('calendar-day-10').focus();
+    await user.keyboard('{End}');
+    expect(screen.getByTestId(`calendar-day-${10 + (6 - column)}`)).toHaveFocus();
+
+    // Never past the month's edges.
+    screen.getByTestId('calendar-day-1').focus();
+    await user.keyboard('{ArrowLeft}{ArrowUp}');
+    expect(screen.getByTestId('calendar-day-1')).toHaveFocus();
+  });
+
+  it('opens the day popover with Enter on the focused day and returns focus on Escape', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-task');
+    const day = screen.getByTestId('calendar-day-12');
+    day.focus();
+    await user.keyboard('{Enter}');
+    const popover = await screen.findByTestId('day-popover');
+    expect(within(popover).getByText('Water basil')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
+    expect(day).toHaveFocus();
+  });
+});
+
 describe('CalendarPage — day popover interactions', () => {
   beforeEach(() => {
     i18n.changeLanguage('de');
@@ -316,15 +427,44 @@ describe('CalendarPage — day popover interactions', () => {
   it('follows a run group link and closes the popover', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await screen.findByTestId('calendar-event-dot-ev-water');
     await user.click(screen.getByTestId('calendar-day-12'));
     const dayPopover = await screen.findByTestId('day-popover');
 
-    await user.click(within(dayPopover).getByText('Batch A'));
+    // The run group and the linked phase event are real links (#3047).
+    const runLink = within(dayPopover).getByRole('link', { name: /Batch A/ });
+    expect(runLink).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
+    expect(within(dayPopover).getByRole('link', { name: /Flowering start/ })).toHaveAttribute(
+      'href',
+      '/pflanzen/plant-instances/plant-2',
+    );
+    await user.click(runLink);
     // Navigating to the run detail closes the day popover.
     await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
+    expect(router.state.location.pathname).toBe('/durchlaeufe/planting-runs/run-1');
+  });
+
+  it('keeps the day popover open on a Ctrl- or Shift-click, which opens the link in a new tab (#3069 SCR-005)', async () => {
+    useCalendarHandlers({ events: richEvents() });
+    const user = userEvent.setup();
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+
+    await screen.findByTestId('calendar-event-dot-ev-water');
+    await user.click(screen.getByTestId('calendar-day-12'));
+    const dayPopover = await screen.findByTestId('day-popover');
+    const before = router.state.location.pathname;
+
+    // Run group link and linked event entry: both stay put on a modified click.
+    await user.keyboard('{Control>}');
+    await user.click(within(dayPopover).getByRole('link', { name: /Batch A/ }));
+    await user.keyboard('{/Control}');
+    await user.keyboard('{Shift>}');
+    await user.click(within(dayPopover).getByRole('link', { name: /Flowering start/ }));
+    await user.keyboard('{/Shift}');
+    expect(screen.getByTestId('day-popover')).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(before);
   });
 
   it('opens the event popover for a non-linked event from the day popover', async () => {
@@ -367,10 +507,11 @@ describe('CalendarPage — day popover interactions', () => {
     // The non-linked event opens its own detail popover.
     expect(await screen.findByTestId('event-popover')).toBeInTheDocument();
 
-    // Re-open the day popover and activate the run group via keyboard.
+    // Re-open the day popover and follow the run group link with Enter.
     await user.click(screen.getByTestId('calendar-day-12'));
     dayPopover = await screen.findByTestId('day-popover');
-    fireEvent.keyDown(within(dayPopover).getByText('Batch A'), { key: 'Enter' });
+    within(dayPopover).getByRole('link', { name: /Batch A/ }).focus();
+    await user.keyboard('{Enter}');
     await waitFor(() => expect(screen.queryByTestId('day-popover')).toBeNull());
   });
 
@@ -397,7 +538,7 @@ describe('CalendarPage — day popover interactions', () => {
     const popover = await screen.findByTestId('event-popover');
     // Description and the goToDetail link (task_key present) are both shown.
     expect(within(popover).getByText('A described event')).toBeInTheDocument();
-    expect(within(popover).getByRole('button', { name: i18n.t('pages.calendar.goToDetail') })).toBeInTheDocument();
+    expect(within(popover).getByRole('link', { name: i18n.t('pages.calendar.goToDetail') })).toBeInTheDocument();
   });
 
   it('renders linked and all-day events together in a day popover', async () => {
@@ -426,15 +567,25 @@ describe('CalendarPage — view modes', () => {
     i18n.changeLanguage('en');
   });
 
-  it('switches to the list view and navigates on row click', async () => {
+  it('switches to the list view and links the rows that have a detail page (#3047)', async () => {
     useCalendarHandlers({ events: richEvents() });
     const user = userEvent.setup();
-    renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
+    const { router } = renderWithProviders(<CalendarPage />, { store: makeCalendarStore() });
 
     await screen.findByTestId('calendar-page');
     await user.click(screen.getByTestId('calendar-view-list'));
     // The list renders event titles as table rows.
     expect(await screen.findByText('Prune tomato')).toBeInTheDocument();
+
+    // A row with a detail page carries a real link (#3047); one without stays a plain row.
+    const linked = screen.getByText('Prune tomato').closest('[data-testid="data-table-row"]') as HTMLElement;
+    const plain = screen.getByText('Water basil').closest('[data-testid="data-table-row"]') as HTMLElement;
+    const rowLink = within(linked).getByTestId('data-table-row-link');
+    expect(rowLink).toHaveAttribute('href', '/aufgaben/tasks/t1');
+    expect(within(plain).queryByTestId('data-table-row-link')).toBeNull();
+    expect(plain).not.toHaveAttribute('tabindex');
+    await user.click(rowLink);
+    expect(router.state.location.pathname).toBe('/aufgaben/tasks/t1');
   });
 
   it('switches to the phase timeline view', async () => {

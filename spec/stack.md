@@ -3,7 +3,7 @@ ID: TECH-STACK-001
 Titel: Technologie-Stack & Architektur-Entscheidungen
 Kategorie: Architektur / Infrastructure
 Fokus: Beides
-Technologie: Python 3.14, FastAPI, ArangoDB, Kubernetes, Helm
+Technologie: Python 3.15, FastAPI, ArangoDB, Kubernetes, Helm
 Status: Produktionsreif Priorität: Kritisch
 ---
 
@@ -65,7 +65,7 @@ Status: Produktionsreif Priorität: Kritisch
 #### FastAPI (Primary)
 
 - **Version**: >= 0.115.0
-- **Python Version**: >= 3.14
+- **Python Version**: >= 3.15
 - **Begründung**:
     - Automatische OpenAPI-Dokumentation
     - Native async/await Support
@@ -176,11 +176,13 @@ class PlantRepository(Repository[Plant]):
 #   Note: gdd_accumulated is of type int (line 42)
 ```
 
-#### Dockerfile für Python 3.14
+#### Dockerfile für Python 3.15
+
+Backend und Knowledge-Service laufen auf Python 3.15; `requires-python` ist `>=3.15`, und die CI testet nur noch 3.15 (Check `lint-test (3.15)`). Die onnxruntime-basierten Dienste (Inference, Embedding, Reranker) bleiben auf Python 3.14, bis onnxruntime cp315-Wheels veröffentlicht (1.31.1 hat keine).
 
 ```dockerfile
 # backend/Dockerfile
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /build
 
@@ -197,7 +199,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-install-project
 
 # Runtime Stage
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # Non-root User
 RUN useradd -m -u 1000 -s /bin/bash appuser
@@ -680,7 +682,7 @@ CREATE INDEX idx_ai_chunks_search_text
 - **API**: FastAPI-Microservice auf Port 8080 (`/embed`, `/health`, `/ready`)
 - **Pooling**: Mean Pooling + L2-Normalisierung
 - **Max Token Length**: 512 (Truncation)
-- **Docker**: `docker/embedding-service/Dockerfile` (Python 3.14-slim)
+- **Docker**: `docker/embedding-service/Dockerfile` (Python 3.14-slim — bleibt auf 3.14, bis onnxruntime cp315-Wheels liefert)
 - **Deployment**: Kubernetes via Helm (optional, `embedding-service` Controller)
 
 ```python
@@ -1925,7 +1927,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
 
       - name: Install dependencies
         run: |
@@ -2302,15 +2304,15 @@ Abstraktes `IEmailService`-Interface (analog GBIF/Perenual-Adapter in REQ-011). 
 
 ### 8.1 Python Development
 
-#### Python 3.14 Installation
+#### Python 3.15 Installation
 
 ```bash
 # Über pyenv (empfohlen)
-pyenv install 3.14
-pyenv local 3.14
+pyenv install 3.15
+pyenv local 3.15
 
 # Oder via Docker
-docker run -it python:3.14-slim bash
+docker run -it python:3.15-slim bash
 ```
 
 #### Dependency Management
@@ -2456,7 +2458,7 @@ TOTAL: ~€40/Monat + €900 Initial
 
 |Anforderung|Technologie|Alternativen|Begründung|
 |---|---|---|---|
-|**Python Version**|3.14|3.15|Stabil, breite Library-Kompatibilitaet|
+|**Python Version**|3.15 (Backend, Knowledge-Service)|3.14 (onnxruntime-Dienste bis cp315-Wheels)|Image-Interpreter = Testinterpreter; onnxruntime 1.31.1 ohne cp315-Wheel|
 |**Backend Framework**|FastAPI|Django, Flask|Async, Auto-Docs, Type-Safety|
 |**API Standard**|REST|GraphQL|Einfachheit, Cache-freundlich|
 |**Multi-Model DB**|ArangoDB|Neo4j+Mongo|Ein System für Graphs+Docs|

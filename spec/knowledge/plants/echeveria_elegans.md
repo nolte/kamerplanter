@@ -110,6 +110,22 @@
 **Hinweis:** Echeveria elegans ist eine Vollsonnenpflanze (full sun) aus bright/semi-desert-Habitaten Mexikos; benötigt ganzjährig hohe Lichtmengen, etioliert (vergeilt) bei Lichtmangel. Fibröses, flach-horizontal streichendes Wurzelsystem (shallow, fibrous) — die effektive Wurzeltiefe (effective root depth) liegt bei ca. 15–30 cm, weshalb flache, breite Gefäße bevorzugt werden. Sehr empfindlich gegenüber Staunässe (waterlogging) — schon kurze Nässephasen führen zu Wurzelfäule. Als Sukkulente mit empfindlicher Salzreaktion (salt-sensitive) wird Düngung niedrig dosiert (EC 0.3–0.6 mS); die fehlenden Maas-Hoffman-Kennwerte (ECe-Schwelle, Slope) sind in der Literatur für die Art nicht quantifiziert. Boden-pH-Vorzug 6.0–7.0 harmonisiert mit der Substrat-Empfehlung in §1.6 und den Phasen-Nährstoffprofilen in §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Echeveria elegans" (Position: Full sun), https://www.rhs.org.uk/plants/6226/echeveria-elegans/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -315,3 +331,4 @@ Echeveria elegans,"Mexikanische Schneekugel;Glashausrose;Mexican Snowball;Mexica
 17. [Henry Shaw Cactus & Succulent Society / AskGardening — Succulent Light Levels](https://askgardening.com/succulent-light-needs/) — PPFD-Bereiche, Lichtkompensationshinweis (kein artspez. Kompensationspunkt)
 18. [Nutrient Solution for Hydroponics (Hoagland & Arnon)](https://www.researchgate.net/publication/358182542_Nutrient_Solution_for_Hydroponics) — Mikronährstoff-Standardgehalte Mn/Zn/Cu/Mo (ppm)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+19. [RHS — Echeveria elegans](https://www.rhs.org.uk/plants/6226/echeveria-elegans/details) — Position (Full sun)

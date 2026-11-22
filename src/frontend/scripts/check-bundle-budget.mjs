@@ -48,17 +48,44 @@ function parseIndexHtml() {
   return { js: [...js], css: [...css] };
 }
 
+function readManifest() {
+  // Vite 8 / rolldown emits the manifest at dist/.vite/manifest.json.
+  return JSON.parse(readFileSync(join(distDir, '.vite', 'manifest.json'), 'utf8'));
+}
+
 /** Resolve the emitted chunk file for a source module via the Vite manifest. */
 function resolveManifestChunk(sourceKey) {
-  // Vite 8 / rolldown emits the manifest at dist/.vite/manifest.json.
-  const manifest = JSON.parse(
-    readFileSync(join(distDir, '.vite', 'manifest.json'), 'utf8'),
-  );
+  const manifest = readManifest();
   const entry = manifest[sourceKey];
   if (!entry) return null;
   const files = [entry.file];
   for (const cssFile of entry.css ?? []) files.push(cssFile);
   return files;
+}
+
+/**
+ * The files a lazily loaded chunk brings with it: its own JS and CSS plus those of every chunk it imports statically
+ * (transitively), minus the files that are already loaded before it (`alreadyLoaded`). Pure, so it can be
+ * unit-tested against a manifest object.
+ *
+ * @param {Record<string, {file: string, css?: string[], imports?: string[]}>} manifest
+ * @param {string} sourceKey
+ * @param {Set<string>} alreadyLoaded dist-relative files
+ * @returns {string[] | null}
+ */
+export function lazyChunkClosure(manifest, sourceKey, alreadyLoaded) {
+  const entry = manifest[sourceKey];
+  if (!entry) return null;
+  const files = new Set();
+  const visit = (key) => {
+    const chunk = manifest[key];
+    if (!chunk || alreadyLoaded.has(chunk.file) || files.has(chunk.file)) return;
+    files.add(chunk.file);
+    for (const cssFile of chunk.css ?? []) if (!alreadyLoaded.has(cssFile)) files.add(cssFile);
+    for (const next of chunk.imports ?? []) visit(next);
+  };
+  visit(sourceKey);
+  return [...files];
 }
 
 export function kib(bytes) {
@@ -72,9 +99,17 @@ export function kib(bytes) {
  * over budget).
  *
  * @param {{ initialJsBytes: number, initialCssBytes: number,
- *   dashboardBytes: number | null, budget: object }} input
+ *   dashboardBytes: number | null, gardenPlannerBytes?: number | null,
+ *   konvaRendererBytes?: number | null, budget: object }} input
  */
-export function evaluateBudget({ initialJsBytes, initialCssBytes, dashboardBytes, budget }) {
+export function evaluateBudget({
+  initialJsBytes,
+  initialCssBytes,
+  dashboardBytes,
+  gardenPlannerBytes = null,
+  konvaRendererBytes = null,
+  budget,
+}) {
   const checks = [
     {
       label: 'Initial JS (gzip)',
@@ -102,6 +137,30 @@ export function evaluateBudget({ initialJsBytes, initialCssBytes, dashboardBytes
     });
   }
 
+  // REQ-053 WP 2.3: the lazy garden-plan route chunk (renderer + plan slice + model) is budgeted on
+  // its own so it can never leak into the initial payload unnoticed.
+  if (gardenPlannerBytes !== null && budget.routeChunks.gardenPlanner) {
+    checks.push({
+      label: '/standorte/sites/:key/plan route chunk (gzip)',
+      requirement: 'REQ-053 WP 2.3',
+      actual: gardenPlannerBytes,
+      budget: budget.routeChunks.gardenPlanner.gzipKb * 1024,
+      severity: 'error',
+    });
+  }
+
+  // REQ-053 WP 9.7 (GP-NFR-003 "mit Konva", operator question 3 of #2759): the Konva renderer is its own lazy chunk,
+  // loaded only for a plan of 3 000 objects and more. It alone gets the 200 KB; every other budget stays as it is.
+  if (konvaRendererBytes !== null && budget.routeChunks.gardenPlannerKonva) {
+    checks.push({
+      label: 'Konva plan renderer chunk incl. konva/react-konva (gzip)',
+      requirement: 'REQ-053 WP 9.7',
+      actual: konvaRendererBytes,
+      budget: budget.routeChunks.gardenPlannerKonva.gzipKb * 1024,
+      severity: 'error',
+    });
+  }
+
   let failed = false;
   for (const c of checks) {
     c.over = c.actual > c.budget;
@@ -123,10 +182,37 @@ function main() {
     ? dashboardFiles.reduce((sum, f) => sum + gzipBytes(f), 0)
     : null;
 
+  const gardenPlannerSource = budget.routeChunks.gardenPlanner?.source;
+  const gardenPlannerFiles = gardenPlannerSource ? resolveManifestChunk(gardenPlannerSource) : null;
+  if (gardenPlannerSource && !gardenPlannerFiles) {
+    // A configured route budget whose chunk is not in the manifest would silently measure nothing.
+    console.error(`Route chunk "${gardenPlannerSource}" is missing from the Vite manifest.`);
+    process.exit(1);
+  }
+  const gardenPlannerBytes = gardenPlannerFiles
+    ? gardenPlannerFiles.reduce((sum, f) => sum + gzipBytes(f), 0)
+    : null;
+
+  const konvaSource = budget.routeChunks.gardenPlannerKonva?.source;
+  let konvaRendererBytes = null;
+  if (konvaSource) {
+    // Two pages load the chunk - the plan route and the bed page's plan tab - and they share different chunks with
+    // it, so nothing beyond the initial payload is certainly in the browser: everything else the chunk pulls in counts.
+    const konvaFiles = lazyChunkClosure(readManifest(), konvaSource, new Set([...js, ...css]));
+    if (!konvaFiles) {
+      console.error(`Lazy chunk "${konvaSource}" is missing from the Vite manifest.`);
+      process.exit(1);
+    }
+    konvaRendererBytes = konvaFiles.reduce((sum, f) => sum + gzipBytes(f), 0);
+    console.log(`Konva renderer chunk files: ${konvaFiles.join(', ')}`);
+  }
+
   const { checks, failed } = evaluateBudget({
     initialJsBytes,
     initialCssBytes,
     dashboardBytes,
+    gardenPlannerBytes,
+    konvaRendererBytes,
     budget,
   });
 

@@ -126,6 +126,22 @@
 
 <!-- SECTION MISSING: seed_profile — vegetativ vermehrt. Anemone hupehensis wird im Erwerbs- und Hobbygarten praktisch ausschließlich über Rhizomteilung bzw. Wurzelstecklinge vermehrt (division/cutting_stem, siehe §1.3) — dies ist deutlich schneller und sortenecht, während echte Samenvermehrung bei Anemone hupehensis in der gärtnerischen Praxis kaum verwendet wird (u.a. wegen sehr unregelmäßiger, langsamer Keimung und weil Hybriden/Cultivare durch Samen nicht sortenrein reproduziert werden). Es werden daher KEINE Keimwerte erfunden; `species.seed_profile` bleibt für diese Art unbefüllt (null). -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS (https://www.rhs.org.uk/plants/1231/anemone-hupehensis/details) nennt nur die Endbreite 0.5–1 m, keinen Pflanzabstand — keine Ableitung aus der Wuchsbreite (E-10) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | NC State Extension, „Eriocapitella hupehensis" („grows best in full sun to part shade … prefers part shade"), https://plants.ces.ncsu.edu/plants/eriocapitella-hupehensis/; RHS, „Anemone hupehensis", Position „Full sun, Partial shade", https://www.rhs.org.uk/plants/1231/anemone-hupehensis/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -283,6 +299,11 @@ Einmalige organische Düngung im Frühjahr (April) reicht für die gesamte Saiso
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Gartenstauden |
 | Anbaupause (Jahre) | Mehrjährig; Standort 10+ Jahre; alle 3–5 Jahre teilen |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Ranunculaceae: kein Familienwert belegt; mehrjährige Staude ohne Fruchtfolge) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -346,3 +367,5 @@ Anemone hupehensis,"Herbstanemone;Chinesische Herbstanemone;Japanese Anemone",Ra
 <!-- Quelle: growing-phase-auditor 2026-07 -->
 14. [Gardener's Path — How to Plant and Grow Anemone Flowers](https://gardenerspath.com/plants/flowers/grow-anemones/) — USDA-Zone 4-8, Winterschutz-Empfehlung fuer Jungpflanzen/Wind
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+15. [RHS — Anemone hupehensis (Chinese anemone), Details](https://www.rhs.org.uk/plants/1231/anemone-hupehensis/details) — Position „Full sun, Partial shade", Ultimate spread 0.5–1 m (Pflanzabstand 1.9, Lichtbedarf 1.10)
+16. [NC State Extension — Eriocapitella hupehensis](https://plants.ces.ncsu.edu/plants/eriocapitella-hupehensis/) — Lichtanspruch „prefers part shade" (Lichtbedarf 1.10)

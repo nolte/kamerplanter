@@ -37,6 +37,7 @@ import type {
   WeatherSourceEntryRequest,
   WeatherSourceKind,
 } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const MASKED_PLACEHOLDER = '••••';
 
@@ -158,7 +159,9 @@ export default function WeatherSourceAddDialog({
         setWeatherEntities(w);
         setSensorEntities(s);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // Without suggestions the entity IDs stay free-text fields; the source can still be saved.
+        captureHandledError(err, { source: 'WeatherSourceAddDialog.haEntities' });
         if (!cancelled) {
           setWeatherEntities([]);
           setSensorEntities([]);

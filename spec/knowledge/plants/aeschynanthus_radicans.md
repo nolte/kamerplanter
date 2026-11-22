@@ -114,6 +114,22 @@
 **Hinweis:** Als Regenwald-Epiphyt (epiphyte) ist die Lippenstift-Pflanze stark schattentolerant; die Netto-Photosynthese erreicht bereits bei sehr niedrigem PPFD (light compensation point ~10–30 µmol/m²/s) den Nullpunkt. Lichtsättigung liegt deutlich darunter als bei Sonnenpflanzen — direkte Mittagssonne führt zu Photoinhibition/Blattbrand und gehört NICHT in das Kompensationspunkt-Feld. Die Salztoleranz-Klasse `sensitive` ist physiologisch und über mehrere Pflegequellen belegt (Dünger-/Wasser-Salzanreicherung verursacht Blattrandnekrosen; empfohlen werden Substrat-Spülung und kalkarmes/destilliertes Gießwasser); ein numerischer Maas-Hoffman-ECe-Schwellenwert ist für diese Zierart jedoch nicht publiziert. Die pH-Spanne 6.0–7.0 ist mit §1.6 und §2.3 derselben Datei harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Aeschynanthus radicans“, Position „Partial shade“ (Kultur: „bright, filtered light“), https://rhs.org.uk/Plants/562/wd/Details (abgerufen 2026-10-16) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -320,3 +336,6 @@ Aeschynanthus radicans,"Lippenstift-Pflanze;Lippenstift-Blume;Lipstick Plant;Lip
 13. [Koppert (US) — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate gegen Spinnmilben
 14. [ScienceDirect Topics — Light Compensation Point](https://www.sciencedirect.com/topics/engineering/light-compensation) und [Sterck et al. (2013), J. Ecology 101:971 — Plasticity influencing the light compensation point in tropical understorey](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/1365-2745.12076) — Lichtkompensationspunkt schattenadaptierter Tropenpflanzen (~10–50 µmol/m²/s)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+15. [RHS — Aeschynanthus radicans, Position „Partial shade“, „bright, filtered light“ (abgerufen 2026-10-16)](https://rhs.org.uk/Plants/562/wd/Details) — Lichtanspruch (Standortstufe) §1.10
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

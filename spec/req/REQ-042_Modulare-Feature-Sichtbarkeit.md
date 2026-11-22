@@ -7,14 +7,15 @@ Kategorie: Benutzerführung
 Fokus: Beides (Frontend-Schwerpunkt, additive Backend-Erweiterung)
 Technologie: React, TypeScript, MUI, Redux Toolkit, FastAPI, ArangoDB
 Status: Entwurf
-Version: 1.2 (Modul `social` registriert)
-Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009 (Dashboard-Widgets), REQ-027 (Light-Modus), REQ-024 (Abgrenzung RBAC), REQ-030 (Benachrichtigungen, optional), REQ-050 (Tagebuch-Übersicht — Modul `diary`), UI-NFR-001 (Mobile-First)
+Version: 1.3 (Modul `garden_planner` registriert)
+Abhängigkeit: REQ-020 (UserPreference-API), REQ-021 (Erfahrungsstufen), REQ-009 (Dashboard-Widgets), REQ-027 (Light-Modus), REQ-024 (Abgrenzung RBAC), REQ-030 (Benachrichtigungen, optional), REQ-050 (Tagebuch-Übersicht — Modul `diary`), REQ-053 (Garten-/Beetplanung — Modul `garden_planner`), UI-NFR-001 (Mobile-First)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.3 | 2026-10-15 | Modul `garden_planner` („Gartenplan") im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `beginner`, `core: false`, Route `/standorte/sites/:key/plan`. Quelle: REQ-053 v1.4 §21.8 (Betreiberentscheidung O-15), Anhang A Issue 41/67. Der Plan ist **kein eigener Hauptmenüpunkt**, sondern ein Unterpunkt der Site innerhalb des Kern-Moduls `locations` (REQ-021 § 3.3); das Modul steuert den Einstieg („Plan"-Tab/-Schaltfläche an der Site, Feldmodus, Dashboard-Widgets des Plans) und wird an der Site-Detailseite über `isModuleVisible('garden_planner')` geprüft — nicht über das Pfad-Präfix, weil die Route im Pfadraum des Kern-Moduls liegt (§ 4.3). Im Light-Modus (REQ-027) verfügbar. `ModuleKey` um `'garden_planner'` ergänzt. Gemessen (2026-10-15): `moduleCatalog.ts` führt 25 Keys — `social` (v1.2) fehlt dort noch, `aquaponics` ist im Code, aber nicht in § 1.3 registriert (offener Spec-Gap, nicht Teil dieser Änderung). |
 | 1.2 | 2026-10-04 | Modul `social` („Pflanzen-Posts: Mastodon & Co.") im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `intermediate`, `core: false`, Navigationspfad `/social`. Quelle: REQ-055 v1.3 PS-UX-001. Das Modul steuert **nur** den Veröffentlichungsteil (Tab „Veröffentlicht", `/social`, Mastodon-Spalte in „Was soll {Name} erzählen?", Verknüpfen); die Tabs „Profil" und „Verlauf" an der Pflanzeninstanz folgen dem Kern-Modul `plants` und sind für alle Erfahrungsstufen sichtbar (Betreiberentscheidung zur Casual-User-Review, REQ-055 §25.2). Ist das Feature instanzweit aus (`SOCIAL_ENABLED=false`), blendet die UI den Eintrag unabhängig von der Präferenz aus. `ModuleKey` um `'diary'` (seit v1.1 fehlend, Spec-Gap) und `'social'` ergänzt. |
 | 1.1 | 2026-08-05 | Modul `diary` (Tagebuch) im Katalog § 1.3 registriert — Kategorie „Pflege & Planung", Default-Level `beginner`, `core: false`, Navigationspfad `/tagebuch`. Entscheidung O-07 aus REQ-050 v1.1 § 9; ohne diesen Eintrag wäre die Tagebuch-Übersicht die einzige Seite ohne Sichtbarkeitssteuerung (REQ-050 AK-31). Keine Änderung am Datenmodell, an der API oder an der Tri-State-Logik. |
 | 1.0 | 2026-06-20 | Erstversion. Basierend auf Feature-Request [FR-001 Modulare Feature-Sichtbarkeit](../feature-requests/FR-001_Modulare-Feature-Sichtbarkeit.md) / [Issue #243](https://github.com/nolte/kamerplanter/issues/243). |
@@ -112,10 +113,13 @@ Die folgende Taxonomie leitet sich aus der Navigationsstruktur (REQ-021 § 3.3 `
 | `smart_home` | Smart-Home / Home Assistant | Automation | expert | | `/smart-home` |
 | `ai` | KI-Funktionen (Erkennung/Assistent) | KI | intermediate | | `/ki/*` |
 | `social` | Pflanzen-Posts (Mastodon & Co.) | Pflege & Planung | intermediate | | `/social` |
+| `garden_planner` | Gartenplan | Pflege & Planung | beginner | | `/standorte/sites/:key/plan` (Unterpunkt der Site, kein Hauptmenüpunkt) |
 
 > Der Katalog ist erweiterbar. Neue REQs registrieren ihr Modul durch einen Eintrag; das Sichtbarkeitssystem greift automatisch. Die kanonische Quelle der Wahrheit ist `moduleCatalog.ts` (§ 4.1).
 
 **Zu `diary` (REQ-051 §6.2; Modulentscheidung REQ-050 O-07):** Die mandantenweite Tagebuch-Übersicht ist bewusst **kein** Kern-Modul — REQ-050 AK-31 verlangt Abschaltbarkeit, und `core: true` wäre genau der Zustand, in dem ein Nutzer, der kein Tagebuch führt, den Navigationspunkt nicht loswird. Das Default-Level ist `beginner`, weil ein Tagebuch die niedrigschwelligste Funktion des Systems ist (Notiz plus Foto, ohne Fachbegriff); `intermediate` würde sie ausgerechnet vor der Zielgruppe verstecken, für die sie gedacht ist. Die **Erfassung** je Pflanze liegt als Tab an der Pflanzeninstanz-Detailseite (REQ-051 §6.1) und folgt damit dem Kern-Modul `plants`, nicht diesem Eintrag.
+
+**Zu `garden_planner` (REQ-053 §21.8, Betreiberentscheidung O-15):** Der grafische Gartenplan ist ein **Unterpunkt der Site** — erreichbar über die Site-Detailseite (`/standorte/sites/:key/plan`, Feldmodus `?mode=field`) und damit innerhalb des Kern-Moduls `locations`; einen eigenen Hauptmenüpunkt gibt es nicht (REQ-021 § 3.3). Das Modul ist bewusst **kein** Kern-Modul: Wer nur Zimmerpflanzen auf Fensterbänken führt, braucht keinen Grundriss und soll den „Plan"-Einstieg abschalten können. Das Default-Level ist `beginner`, weil der Plan der Einstieg der Outdoor-Zielgruppe ist (REQ-053 §4/§5, Leerzustand GP-UX-010 erklärt den ersten Schritt) und weil das Modul im Light-Modus (REQ-027, anonym, Erfahrungsstufe im localStorage) ohne Übersteuerung sichtbar sein soll — ein höheres Default-Level würde es ausgerechnet vor den Erstnutzern verstecken. Ausgeblendet wird der Einstieg an der Site (Tab/Schaltfläche „Plan", Beet-Sheet im Feldmodus) sowie die plangebundenen Dashboard-Widgets; die Beetverwaltung als Tabelle/Baum (REQ-002) folgt weiter dem Kern-Modul `locations` und bleibt sichtbar. Die Route trägt den `ModuleGuard` (§ 4.3). Die Berechtigungen des Plans (Lesen „Alle Rollen", Ändern „Ab Gärtner", REQ-053 §21.8) sind von dieser Sichtbarkeit unabhängig (§ 1.2).
 
 ### 1.4 Light-Modus-Verhalten (REQ-027)
 
@@ -184,7 +188,7 @@ export type ModuleKey =
   | 'runs' | 'propagation'
   | 'master_data' | 'companion'
   | 'sensors' | 'automation' | 'smart_home' | 'ai'
-  | 'diary' | 'social';
+  | 'diary' | 'social' | 'garden_planner';
 
 export interface ModuleDefinition {
   key: ModuleKey;
@@ -265,6 +269,7 @@ export function useModuleVisibility() {
 - **Dashboard (`REQ-009`):** Jedes modulgebundene Widget prüft `isModuleVisible(moduleKey)` vor dem Rendern. Ausgeblendete Module erzeugen keine leeren Platzhalter.
 - **Quick-Actions / Schnellzugriffe:** Aktionen, die zu einem ausgeblendeten Modul führen, werden entfernt.
 - **Deep-Link-Guard (`ModuleGuard`):** Route-Wrapper. Wird eine Route eines ausgeblendeten Moduls direkt per URL aufgerufen, wird die Seite **nicht** mit 404 abgewiesen, sondern zeigt einen Hinweis „Dieses Modul ist ausgeblendet" mit Button „In Einstellungen aktivieren". So gehen geteilte/gespeicherte Links nicht verloren.
+- **Unterpunkte im Pfadraum eines Kern-Moduls (`garden_planner`, REQ-053):** `isPathVisible` findet den **ersten** Katalog-Eintrag, dessen `navPaths` als Präfix passen. Eine Route wie `/standorte/sites/:key/plan` liegt unter dem Präfix des Kern-Moduls `locations` und würde dadurch immer als sichtbar gelten. Solche Module werden deshalb **nicht** über das Pfad-Präfix, sondern an ihrem Einstiegspunkt gesteuert: Die Site-Detailseite rendert den „Plan"-Einstieg nur bei `isModuleVisible('garden_planner')`, und die Plan-Route trägt den `ModuleGuard` mit explizitem Modul-Key. Der Katalogeintrag führt die Route trotzdem (Dokumentation, Dashboard-Widgets), parametrisierte Segmente (`:key`) werden beim Präfix-Vergleich nicht ausgewertet.
 
 ### 4.4 Einstellungsdialog: Tab „Module & Funktionen"
 
@@ -319,4 +324,5 @@ Im Onboarding-Wizard (REQ-020) kann ein optionaler Schritt „Was möchtest du n
 | REQ-024 | Abgrenzung: keine RBAC/Zugriffskontrolle | Niedrig (klärend) |
 | REQ-030 | Benachrichtigungen ausgeblendeter Module bleiben unangetastet (kein Stummschalten via Sichtbarkeit) | Niedrig |
 | REQ-033 / HA-Integration | Optionaler `module-catalog`-Endpunkt für Nicht-Web-Clients (Phase 2) | Niedrig |
+| REQ-053 | Registriert das Modul `garden_planner` (§ 1.3); Einstieg an der Site statt Pfad-Präfix (§ 4.3) | Niedrig (Katalogeintrag) |
 | UI-NFR-001 | Mobile-First-Bedienung des Einstellungs-Tabs | Mittel |

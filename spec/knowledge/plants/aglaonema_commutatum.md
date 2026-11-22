@@ -114,6 +114,22 @@
 **Hinweis:** Der Lichtkompensationspunkt (Netto-Photosynthese = 0) liegt sehr niedrig — typisch für eine obligate Schattenpflanze (obligate shade plant). Die licht-gesättigte Photosyntheserate ist selbst für Schattenpflanzen extrem gering (0.7–1.0 µmol CO₂ m⁻² s⁻¹), die Lichtsättigung (light saturation point) wird bereits bei ~125 µmol/m²/s erreicht — diese Sättigungs-/Optimumwerte gehören NICHT in das Kompensationspunkt-Feld. Salztoleranz-Klasse nach Miyamoto/USDA-Schema (sensitive = ECe-Schwelle 0–3 dS/m, bezogen auf Substrat-ECe, nicht Gießwasser-EC); A. commutatum reagiert empfindlich auf Salzanreicherung im Substrat (Blattspitzen-Nekrose / „tipping" durch Dünger- und Leitungswassersalze) — regelmäßiges Durchspülen empfohlen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (Chicago Botanic Garden: Partial Shade und Full Shade; NC State Genusseite: Deep shade und Partial Shade; RHS-Artseite Aglaonema commutatum enthält keine Standortangabe) --> | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -320,3 +336,7 @@ Red Siam,Aglaonema commutatum,"ornamental;red_pink;green_edges",clone
 11. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Raubmilbe gegen Spinnmilbe, Ausbringung, Klimaansprüche <!-- Steckbrief-Erweiterung 2026-06 -->
 12. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate, Etablierung <!-- Steckbrief-Erweiterung 2026-06 -->
 13. [Texas A&M Landscape IPM — Commercially Available Natural Enemies](https://landscapeipm.tamu.edu/types-of-pest-control/biological-2/commercial-natural-enemies/) — Cryptolaemus montrouzieri Ausbringrate, Saison <!-- Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->
+14. [Chicago Botanic Garden — Aglaonema commutatum, Exposure „Partial Shade“ und „Full Shade“ (abgerufen 2026-10-16)](https://www.chicagobotanic.org/plant-information/plant-finder/aglaonema-commutatum-chinese-evergreen) — Standortangabe ohne Vorzug, daher kein Lichtanspruch (§1.10)
+15. [RHS — Aglaonema commutatum (Plant ID 703), keine Standortangabe (abgerufen 2026-10-16)](https://rhs.org.uk/Plants/703/wd/Details) — geprüft, kein Lichtanspruch ableitbar (§1.10)
+<!-- /Quelle: WP 0.5b Steckbrief-Anreicherung 2026-10 -->

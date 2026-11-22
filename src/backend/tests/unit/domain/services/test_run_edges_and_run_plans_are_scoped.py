@@ -116,8 +116,10 @@ def test_reslotting_a_run_moves_only_the_tenants_own_plants() -> None:
 
 def test_reslotting_reads_plants_through_the_repository_interface() -> None:
     """The release loop called ``plant_repo.get``, which the real repository does not have."""
-    plant_repo = MagicMock(spec=["get_by_key", "update"])
+    # ``get_active_by_slot``: the release frees a slot only once no plant is left on it (#2727 review).
+    plant_repo = MagicMock(spec=["get_by_key", "update", "get_active_by_slot"])
     plant_repo.get_by_key.side_effect = _plants().get_by_key.side_effect
+    plant_repo.get_active_by_slot.return_value = []
     service = PlantingRunService(run_repo=_run_repo(), plant_repo=plant_repo, engine=MagicMock(), site_repo=_Sites())
     service._reassign_plant_slots(RUN, "loc_own", tenant_key=OWN)
     assert "p_own" in _updated_plants(plant_repo)

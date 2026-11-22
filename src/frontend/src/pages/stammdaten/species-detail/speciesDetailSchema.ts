@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Species } from '@/api/types';
+import type { Species, SpeciesCreate } from '@/api/types';
 
 /** Propagation method enum values — mirrors PropagationMethod in api/types.ts. */
 export const PROPAGATION_METHODS = [
@@ -188,6 +188,92 @@ export function speciesToFormValues(current: Species): SpeciesFormData {
     greenhouse_recommended: current.greenhouse_recommended ?? false,
     support_required: current.support_required ?? false,
     default_nutrient_plan_key: current.default_nutrient_plan_key ?? null,
+  };
+}
+
+/**
+ * The complete species update body. `PUT /species/{key}` REPLACES the species: a field
+ * missing from the body is stored as its default (measured #2902 — a body without
+ * `common_names` saves `[]`, with 200, and the language map goes with it). The mapped
+ * type lists every key of `SpeciesCreate`, so a field added there and forgotten here is
+ * a compile error instead of a silent wipe on the next save.
+ */
+export type SpeciesUpdateBody = { [K in keyof Required<SpeciesCreate>]: SpeciesCreate[K] };
+
+/**
+ * The single source of a species update body: every field of the loaded species, as
+ * stored. Callers override only what they edit (the edit form, the growing-periods tab).
+ *
+ * `common_names_i18n` is deliberately not sent: the server then keeps the stored map,
+ * minus any name the edit removed from `common_names` (#2902). Sending the loaded map
+ * would turn the removal of a name into a 422.
+ */
+export function speciesToUpdatePayload(current: Species): SpeciesUpdateBody {
+  return {
+    scientific_name: current.scientific_name,
+    common_names: current.common_names ?? [],
+    family_key: current.family_key ?? null,
+    genus: current.genus ?? '',
+    hardiness_zones: current.hardiness_zones ?? [],
+    native_habitat: current.native_habitat ?? '',
+    growth_habit: current.growth_habit,
+    photosynthesis_type: current.photosynthesis_type ?? null,
+    root_type: current.root_type,
+    allelopathy_score: current.allelopathy_score,
+    base_temp: current.base_temp,
+    synonyms: current.synonyms ?? [],
+    taxonomic_authority: current.taxonomic_authority ?? '',
+    taxonomic_status: current.taxonomic_status ?? '',
+    description: current.description ?? '',
+    sowing_indoor_weeks_before_last_frost: current.sowing_indoor_weeks_before_last_frost ?? null,
+    sowing_outdoor_after_last_frost_days: current.sowing_outdoor_after_last_frost_days ?? null,
+    direct_sow_months: current.direct_sow_months ?? [],
+    harvest_months: current.harvest_months ?? [],
+    bloom_months: current.bloom_months ?? [],
+    harvest_from_year: current.harvest_from_year ?? null,
+    bloom_from_year: current.bloom_from_year ?? null,
+    frost_sensitivity: current.frost_sensitivity ?? null,
+    plant_category: current.plant_category ?? null,
+    harvest_pattern: current.harvest_pattern ?? null,
+    harvested_part: current.harvested_part ?? null,
+    climacteric: current.climacteric ?? null,
+    propagation_configs: current.propagation_configs ?? [],
+    allows_harvest: current.allows_harvest ?? true,
+    growing_periods: current.growing_periods ?? [],
+    container_suitable: current.container_suitable ?? null,
+    recommended_container_volume_l: current.recommended_container_volume_l ?? null,
+    min_container_depth_cm: current.min_container_depth_cm ?? null,
+    mature_height_cm: current.mature_height_cm ?? null,
+    mature_width_cm: current.mature_width_cm ?? null,
+    spacing_cm: current.spacing_cm ?? null,
+    indoor_suitable: current.indoor_suitable ?? null,
+    balcony_suitable: current.balcony_suitable ?? null,
+    greenhouse_recommended: current.greenhouse_recommended ?? false,
+    support_required: current.support_required ?? false,
+    watering_guide: current.watering_guide ?? null,
+    default_nutrient_plan_key: current.default_nutrient_plan_key ?? null,
+  };
+}
+
+/** The edit form's values as update fields: "no selection" (`''`) becomes `null`. */
+export function speciesFormToPayload(data: SpeciesFormData): Partial<SpeciesUpdateBody> {
+  return {
+    ...data,
+    photosynthesis_type: data.photosynthesis_type || null,
+    container_suitable: data.container_suitable || null,
+    indoor_suitable: data.indoor_suitable || null,
+    balcony_suitable: data.balcony_suitable || null,
+    harvest_pattern: data.harvest_pattern || null,
+    harvested_part: data.harvested_part || null,
+    climacteric: data.climacteric || null,
+    default_nutrient_plan_key: data.default_nutrient_plan_key || null,
+    propagation_configs: data.propagation_configs.map((c) => ({
+      method: c.method,
+      months: [...new Set(c.months)].sort((a, b) => a - b),
+      wood_stage: c.wood_stage || null,
+      difficulty: c.difficulty || null,
+      notes: c.notes?.trim() || null,
+    })),
   };
 }
 

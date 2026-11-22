@@ -1,10 +1,12 @@
 import { createAsyncThunk, createSlice, miniSerializeError } from '@reduxjs/toolkit';
+import axios from 'axios';
 import { isRateLimited } from '@/api/client';
 import * as authApi from '@/api/endpoints/auth';
 import type { UserProfile } from '@/api/types';
-import { isApiError, parseApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import { releasePushSubscription } from '@/lib/pushSubscription';
 import { forgetPendingInvitation } from '@/utils/pendingInvitation';
+import { forgetLoginReturn } from '@/utils/loginReturn';
 
 interface AuthState {
   user: UserProfile | null;
@@ -88,6 +90,8 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
   // #2162 review S-2 — an invitation remembered across a sign-in belongs to the account that is
   // leaving; the next account signing in in this tab must not be taken to it.
   forgetPendingInvitation();
+  // UI-NFR-014 — the same for a page remembered for the return after a sign-in.
+  forgetLoginReturn();
   await releasePushSubscription({ notifyServer: true });
   await authApi.logout();
 });
@@ -104,6 +108,13 @@ export const logoutUser = createAsyncThunk('auth/logout', async () => {
  */
 export const RATE_LIMITED_REJECTION = 'rate-limited';
 
+/**
+ * `error.code` of a refresh the server refused as a dead session (401/403), set by the thunk's error
+ * serialiser (#2789 verification M1). A 5xx carries the same `ApiError` envelope but leaves the refresh
+ * cookie valid; only this code may end the session's offline data (`store/sessionListener.ts`).
+ */
+export const DEAD_SESSION_REFRESH_CODE = 'refresh.dead_session';
+
 export const refreshAccessToken = createAsyncThunk(
   'auth/refresh',
   async (_: void, { rejectWithValue }) => {
@@ -117,6 +128,22 @@ export const refreshAccessToken = createAsyncThunk(
       if (isRateLimited(error)) return rejectWithValue(RATE_LIMITED_REJECTION);
       throw error;
     }
+  },
+  {
+    // The status survives serialisation only as `code`: 401/403 is a dead session, anything else
+    // (5xx, no answer) is an outage the offline data must outlive.
+    serializeError: (error) => {
+      const serialized = miniSerializeError(error);
+      const status = isApiError(error)
+        ? error.statusCode
+        : axios.isAxiosError(error)
+          ? error.response?.status
+          : undefined;
+      if (status === 401 || status === 403) {
+        return { ...serialized, code: DEAD_SESSION_REFRESH_CODE };
+      }
+      return serialized;
+    },
   },
 );
 
@@ -154,7 +181,9 @@ const authSlice = createSlice({
     });
     builder.addCase(loginLocal.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = parseApiError(action.error);
+      // An i18n key (#3013): at the login form a 401 means wrong credentials, not an expired session.
+      state.error =
+        action.error.code === 'UNAUTHORIZED' ? 'errors.invalidCredentials' : errorKey(action.error);
     });
 
     // Register
@@ -167,7 +196,7 @@ const authSlice = createSlice({
     });
     builder.addCase(registerLocal.rejected, (state, action) => {
       state.isLoading = false;
-      state.error = parseApiError(action.error);
+      state.error = errorKey(action.error);
     });
 
     // Fetch profile

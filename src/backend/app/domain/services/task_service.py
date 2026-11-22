@@ -1,18 +1,47 @@
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from functools import partial
+from typing import TYPE_CHECKING, Any, Protocol
+from uuid import UUID
 
 import structlog
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
-from app.common.enums import AttachmentCategory, TaskOrigin, WorkflowTargetType
-from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
+from app.common.enums import AttachmentCategory, TaskCategory, TaskOrigin, TaskStatus, TenantRole, WorkflowTargetType
+from app.common.exceptions import (
+    ClientEventDeletedError,
+    ClientEventMismatchError,
+    DuplicateError,
+    ForbiddenError,
+    KarenzViolationError,
+    NotFoundError,
+    PlanError,
+    TaskAlreadyClosedError,
+    TaskMissingError,
+    ValidationError,
+    WriteConflictError,
+)
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership, verify_tenant_read_access
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.hst_validator import HSTValidator
 from app.domain.engines.recurrence_engine import RecurrenceEngine
+from app.domain.engines.task_completion_engine import HARVEST_BATCHES, TaskCompletionEngine
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
+from app.domain.interfaces.fertilizer_repository import IFertilizerRepository
+from app.domain.interfaces.task_completion_repository import ITaskCompletionRepository
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.care_event import UNDO_REASON, CareEvent, CareEventInput, CareEventOrigin
+from app.domain.models.client_event import (
+    ClientEventStamp,
+    batch_item_client_event_id,
+    client_event_digest,
+    is_client_event_conflict,
+    same_digest,
+)
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE
 from app.domain.models.task import (
     ChecklistItem,
     Task,
@@ -23,9 +52,26 @@ from app.domain.models.task import (
     WorkflowPhase,
     WorkflowTemplate,
 )
+from app.domain.models.task_completion import (
+    MAX_BATCH_COMPLETION,
+    CompletionActor,
+    CompletionWrite,
+    DomainDocument,
+    TaskCompletionDetails,
+    TaskCompletionOutcome,
+    UndoWrite,
+)
+from app.domain.services.care_event_service import check_performed_instant, check_void_allowed
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 
+if TYPE_CHECKING:
+    from app.domain.services.care_event_service import CareEventService
+    from app.domain.services.harvest_service import HarvestService
+
 logger = structlog.get_logger(__name__)
+
+#: How often a buffered completion tries again when a concurrent one holds the same task (WP 9.3).
+_CLIENT_WRITE_ATTEMPTS = 3
 
 #: Rows the unscoped task queue answers with at most.
 #:
@@ -34,6 +80,9 @@ logger = structlog.get_logger(__name__)
 #: answer, so every filter has to be asked of the *server* — and a reader of
 #: either layer has to be able to find the cap that makes that true.
 QUEUE_LIMIT = 200
+
+#: At most this many clones per "for every plant" request (REQ-053 GP-FR-081); a bed holds a few dozen plants.
+MAX_FAN_OUT = 200
 
 # ── Update allow-lists (mass assignment, #965) ──
 #
@@ -217,6 +266,21 @@ def _as_aware_utc(value: datetime | None) -> datetime | None:
     return value
 
 
+class CareTaskMirror(Protocol):
+    """The care-state bridge of a care-reminder task (REQ-022, ``CareReminderService``): confirmation, care event and
+    the next occurrence. Every path that completes or skips a task reaches it through :class:`TaskService` (#2960)."""
+
+    def record_care_task_completion(
+        self, task: Task, *, tenant_key: str, user_key: str, completion_client_event_id: str | None = None
+    ) -> object: ...
+
+    def record_care_task_skip(self, task: Task, *, tenant_key: str) -> object: ...
+
+
+def _is_plant_care_reminder(task: Task) -> bool:
+    return task.category == "care_reminder" and task.entity_type == "plant_instance" and bool(task.entity_key)
+
+
 class TaskService:
     def __init__(
         self,
@@ -227,8 +291,24 @@ class TaskService:
         notification_propagation: NotificationPropagationService | None = None,
         attachment_repo: IAttachmentRepository | None = None,
         membership_lookup: Callable[[str, str], Any] | None = None,
+        completion: ITaskCompletionRepository | None = None,
+        care_events: CareEventService | None = None,
+        harvests: HarvestService | None = None,
+        fertilizers: IFertilizerRepository | None = None,
+        care_mirror: Callable[[], CareTaskMirror] | None = None,
     ) -> None:
         self._repo = repo
+        #: Built only when a care-reminder task is completed or skipped (#2960): the one place every completing path -
+        #: the single route, the batch, a replay - mirrors such a task into the plant's care state. Without it (unit
+        #: tests, the Celery beat) a completion closes the task alone.
+        self._care_mirror = care_mirror
+        # The atomic completion transition (REQ-053 WP 4.3, ADR-008 phase 3 for tasks). All three are supplied by
+        # the DI factory; a service built without them (unit tests, the Celery beat) keeps the plain
+        # single-document completion and writes no care-log line.
+        self._completion = completion
+        self._care_events = care_events
+        self._harvests = harvests
+        self._completion_engine = TaskCompletionEngine(fertilizers)
         # ``(user_key, tenant_key) -> membership | None`` — decides who a task may
         # be assigned to (#1871 B9). Without it an assignment is refused.
         self._membership_lookup = membership_lookup
@@ -282,9 +362,11 @@ class TaskService:
             tenant_key=tenant_key,
         )
 
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
-        """Return species_name and ``tenant_key``'s assigned entity count per workflow key (#1708)."""
-        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key)
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> dict[str, dict]:
+        """Return species_name (in ``language``, #2902) and ``tenant_key``'s assigned entity count per workflow key."""
+        return self._repo.get_workflow_usage_stats(wf_keys, tenant_key=tenant_key, language=language)
 
     def get_workflow_template(self, key: str, tenant_key: str = "") -> WorkflowTemplate:
         wt = self._repo.get_workflow_template_or_raise(key)
@@ -972,8 +1054,6 @@ class TaskService:
 
         now = datetime.now(UTC)
         for tt in templates:
-            checklist = [ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist]
-
             status = "pending"
             # recurrence-owner-ok: a workflow-template offset — it says when the FIRST task
             # of this run falls due relative to instantiation, not when the next one does.
@@ -990,30 +1070,15 @@ class TaskService:
                 status = "dormant"
                 due_date = None
 
-            task = Task(
-                name=tt.name,
-                name_de=tt.name_de,
-                instruction=tt.instruction,
-                instruction_de=tt.instruction_de,
-                category=tt.category,
+            task = self._task_from_template(
+                tt,
+                tenant_key=tenant_key,
                 entity_key=entity_key,
                 entity_type=entity_type,
                 due_date=due_date,
                 status=status,
-                priority="medium",
-                skill_level=tt.skill_level,
-                stress_level=tt.stress_level,
-                estimated_duration_minutes=tt.estimated_duration_minutes,
-                requires_photo=tt.requires_photo,
-                timer_duration_seconds=tt.timer_duration_seconds,
-                timer_label=tt.timer_label,
-                checklist=checklist,
-                trigger_phase=tt.trigger_phase,
-                template_key=tt.key,
-                workflow_execution_key=execution.key,
-                activity_key=tt.activity_key,
-                tenant_key=tenant_key,
             )
+            task.workflow_execution_key = execution.key
             created_task = self._repo.create_task(task)
 
             if tt.activity_key and created_task.key:
@@ -1023,6 +1088,99 @@ class TaskService:
                 )
 
         return execution
+
+    @staticmethod
+    def _task_from_template(
+        tt: TaskTemplate,
+        *,
+        tenant_key: str,
+        entity_key: str,
+        entity_type: str,
+        due_date: datetime | None,
+        status: str,
+    ) -> Task:
+        """The one way a task template becomes an unsaved task: a workflow run and a bed template both use it."""
+        return Task(
+            name=tt.name,
+            name_de=tt.name_de,
+            instruction=tt.instruction,
+            instruction_de=tt.instruction_de,
+            category=tt.category,
+            entity_key=entity_key,
+            entity_type=entity_type,
+            due_date=due_date,
+            status=status,
+            priority="medium",
+            skill_level=tt.skill_level,
+            stress_level=tt.stress_level,
+            estimated_duration_minutes=tt.estimated_duration_minutes,
+            requires_photo=tt.requires_photo,
+            timer_duration_seconds=tt.timer_duration_seconds,
+            timer_label=tt.timer_label,
+            checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in tt.default_checklist],
+            trigger_phase=tt.trigger_phase,
+            template_key=tt.key,
+            activity_key=tt.activity_key,
+            tenant_key=tenant_key,
+        )
+
+    def create_recurring_tasks_for_bed(
+        self,
+        task_template_keys: Sequence[str],
+        *,
+        bed_key: str,
+        tenant_key: str,
+        actor_user_key: str = "",
+    ) -> list[Task]:
+        """The recurring tasks a bed template brings, created on a newly placed bed (REQ-053 GP-FR-087, #2897).
+
+        Each key names a task template the tenant can read - its own or a global one (the hybrid-catalogue
+        union, #324); another tenant's key answers 404 like an absent one and nothing is written. Every template
+        becomes one pending task on the bed (``entity_type = location``) through the builder a workflow run uses,
+        with a **yearly** RRULE (ADR-008 boundary 1) pinned to the calendar day of its first due date: the day of
+        placement plus the template's ``days_offset``. Bed templates name a task template, and a task template
+        carries no cadence of its own, so "every year on that day" is the cadence (the GP-FR-087 example: refill
+        the raised bed every March). The tasks and their edges are written in **one** transaction - all or none.
+        The tasks are the user's (``origin = user``): the user asked for them when placing the bed.
+
+        Whether ``bed_key`` is a bed of the tenant is the caller's check: it is the bed the caller just created.
+        """
+        self._require_tenant_key(tenant_key, "create_recurring_tasks_for_bed")
+        keys: list[str] = []
+        for key in task_template_keys:  # a repeated key creates one task
+            if key not in keys:
+                keys += [key]
+        if not keys:
+            return []
+        templates: list[TaskTemplate] = []
+        for key in keys:
+            template: TaskTemplate = self._repo.get_task_template_or_raise(key)
+            verify_tenant_read_access(template, tenant_key, "TaskTemplate")
+            templates += [template]
+        now = datetime.now(UTC)
+        tasks: list[Task] = []
+        for template in templates:
+            # recurrence-owner-ok: a template offset - it says when the FIRST task falls due after the bed is
+            # placed, like a workflow run's ``days_offset``; the cadence is the RRULE below, advanced by
+            # RecurrenceEngine after each completion.
+            first_due: datetime = now + timedelta(days=template.days_offset)
+            task = self._task_from_template(
+                template,
+                tenant_key=tenant_key,
+                entity_key=bed_key,
+                entity_type="location",
+                due_date=first_due,
+                status="pending",
+            )
+            task.recurrence_rule = self._recurrence.require_rrule(self._recurrence.yearly_rule_on(first_due.date()))
+            tasks += [task]
+        created: list[Task] = self._repo.create_tasks_atomic(tasks, tenant_key=tenant_key)
+        for task in created:
+            if task.activity_key and task.key:
+                self._repo.create_task_activity_edge(task.key, task.activity_key)
+            self._propagate_created(task, actor_user_key)
+        logger.info("task.recurring_from_bed_template", tenant=log_tenant(tenant_key), count=len(created))
+        return created
 
     # ── Notification propagation (REQ-030 §4.2, #742) ──
 
@@ -1133,12 +1291,17 @@ class TaskService:
         return user_key
 
     def create_task(self, task: Task, *, actor_user_key: str = "") -> Task:
+        self._recurrence.require_rrule(task.recurrence_rule)  # 422 recurrence.rrule_required (GP-ACC-038)
         self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
         created = self._repo.create_task(task)
+        self._propagate_created(created, actor_user_key)
+        return created
+
+    def _propagate_created(self, created: Task, actor_user_key: str) -> None:
+        """The notification coupling of a newly created task: its due reminder and, when assigned, the assignee."""
         self._propagate(lambda p: p.sync_task_due_notification(created, recipient_user_key=actor_user_key))
         if created.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(created, previous_user_key=None))
-        return created
 
     def create_task_idempotent(self, task: Task, *, actor_user_key: str = "") -> tuple[Task, bool]:
         """Create a task, or upsert the existing one for an idempotent producer re-post.
@@ -1223,10 +1386,19 @@ class TaskService:
         notification to the new member. The ``previous`` snapshot (pre-edit task)
         lets the coupling detect a reassignment.
         """
+        # 422 recurrence.rrule_required (GP-ACC-038) — only for a rule the edit changes, so a task
+        # that still carries a not-yet-migrated rule can be renamed or reassigned.
+        if previous is None or task.recurrence_rule != previous.recurrence_rule:
+            self._recurrence.require_rrule(task.recurrence_rule)
         prev_assignee = previous.assigned_to_user_key if previous is not None else None
         if task.assigned_to_user_key != prev_assignee:
             self._require_member_assignee(task.assigned_to_user_key, task.tenant_key)
+        rule_changed = previous is None or task.recurrence_rule != previous.recurrence_rule
         updated = self._repo.update_task(key, task)
+        if rule_changed and task.recurrence_rule:
+            # #2411 item 4: a new RRULE answers the question the migration parked (v0097 kept the unconvertible
+            # original in ``recurrence_rule_unconvertible``); no API field, no notification.
+            self._repo.clear_parked_recurrence(key)
         self._propagate(lambda p: p.sync_task_due_notification(updated, recipient_user_key=actor_user_key))
         if prev_assignee != updated.assigned_to_user_key:
             self._propagate(lambda p: p.on_task_reassigned(updated, previous_user_key=prev_assignee))
@@ -1357,6 +1529,357 @@ class TaskService:
                     details=[{"field": "photo_refs", "message": f"unknown task attachment '{ref}'"}],
                 )
 
+    # ── Completion: the one transition (ADR-008 phase 3 for tasks, REQ-053 GP-FR-083) ──
+
+    @staticmethod
+    def _require_completable(task: Task) -> None:
+        if task.status in (TaskStatus.COMPLETED, TaskStatus.SKIPPED):
+            raise TaskAlreadyClosedError(task.status)
+        if task.status not in ("pending", "in_progress"):
+            raise ValidationError(f"Cannot complete task in status '{task.status}'.")
+
+    def _task_for_completion(self, key: str, *, tenant_key: str) -> Task:
+        """The task a completion closes; 404 ``task.missing`` when it is gone or another tenant's (WP 9.3)."""
+        try:
+            return self.get_task(key, tenant_key=tenant_key)
+        except NotFoundError as exc:
+            raise TaskMissingError(key) from exc
+
+    def _completion_replays(self, stamps: dict[str, ClientEventStamp], *, tenant_key: str) -> dict[str, Task]:
+        """The tasks earlier completions with the ``stamps``' ids closed, by task key - one query (WP 9.3).
+
+        409 ``client_event.payload_mismatch`` when an id closed another task or carried another request. A task is
+        answered as it is now - a reopen since then is not undone by a late replay.
+        """
+        if not stamps:
+            return {}
+        task_of = {stamp.client_event_id: key for key, stamp in stamps.items()}
+        found: dict[str, Task] = {}
+        holders: list[Task] = self._repo.find_tasks_by_completion_client_event_ids(list(task_of), tenant_key=tenant_key)
+        for holder in holders:
+            key = task_of.get(holder.completion_client_event_id or "")
+            if key is None:
+                continue
+            if holder.key != key or not same_digest(holder.completion_client_event_digest, stamps[key].digest):
+                raise ClientEventMismatchError()
+            found[key] = holder
+        return found
+
+    def _tombstoned(self, stamps: dict[str, ClientEventStamp], *, tenant_key: str) -> set[str]:
+        """The task keys whose earlier buffered completion closed a task that was deleted since (WP 9.3)."""
+        if not stamps:
+            return set()
+        task_of = {stamp.client_event_id: key for key, stamp in stamps.items()}
+        gone = self._repo.client_event_tombstones(list(task_of), tenant_key=tenant_key)
+        return {task_of[client_event_id] for client_event_id in gone if client_event_id in task_of}
+
+    @staticmethod
+    def _completion_digest(
+        task_keys: list[str],
+        *,
+        actor: CompletionActor | None,
+        completion_notes: str | None,
+        details: BaseModel | None,
+        **fields: object,
+    ) -> str:
+        """The request digest of a completion: the tasks, the care fields, the task fields, and the caller.
+
+        ``details`` is typed as the pydantic base on purpose (the call-graph sweep's blind-spot ceiling, #2039).
+        """
+        return client_event_digest(
+            {
+                "user": actor.user_key if actor else None,
+                "tasks": sorted(task_keys),
+                "completion_notes": completion_notes,
+                "details": details.model_dump(mode="json") if details else None,
+                **fields,
+            }
+        )
+
+    def _bed_of(self, task: Task, *, tenant_key: str) -> str | None:
+        """The bed this task's completion is logged in, or ``None`` for a task outside the care log (GP-FR-083)."""
+        entity = TaskCompletionEngine.bed_entity(task)
+        if entity is None or self._completion is None or self._care_events is None:
+            return None
+        kind, entity_key = entity
+        if kind == "location":
+            return entity_key
+        return self._completion.plant_location(entity_key, tenant_key=tenant_key)
+
+    @staticmethod
+    def _care_input(
+        task: Task,
+        location_key: str,
+        details: TaskCompletionDetails,
+        *,
+        performed_at: datetime,
+        completion_notes: str | None,
+        photo_refs: list[str],
+    ) -> CareEventInput:
+        """The care event a completion logs, in the vocabulary of GP-FR-100; all fields but the instant optional."""
+        try:
+            return CareEventInput(
+                location_key=location_key,
+                category=task.category.value,
+                summary=task.name,
+                performed_at=performed_at,
+                plant_keys=list(details.plant_keys),
+                reason=details.reason,
+                product_ref=details.product_ref,
+                product_label=details.product_label,
+                quantity=details.quantity,
+                unit=details.unit,
+                material=details.material,
+                measurements=details.measurements,
+                # The completion note is the log's note: it fills the outcome text when the client gave none.
+                observed_outcome=details.observed_outcome or (completion_notes[:2000] if completion_notes else None),
+                outcome_rating=details.outcome_rating,
+                photo_refs=photo_refs,
+            )
+        except PydanticValidationError as exc:
+            raise ValidationError(
+                "The care fields of the completion are not valid.",
+                details=[
+                    {"field": ".".join(str(part) for part in err["loc"]), "message": err["msg"]}
+                    for err in exc.errors(include_url=False, include_input=False, include_context=False)
+                ],
+            ) from exc
+
+    def _event_plants(self, event: CareEvent, *, tenant_key: str) -> list[str]:
+        """The plants the specialist document is attributed to: the event's own, else the plants standing in the bed."""
+        if event.plant_keys:
+            return list(event.plant_keys)
+        if self._completion is None or self._care_events is None:
+            return []
+        subtree = self._care_events.location_subtree(event.location_key, tenant_key=tenant_key)
+        return self._completion.plants_in_locations(subtree, tenant_key=tenant_key)
+
+    def _prepare_completion(
+        self,
+        task: Task,
+        *,
+        completion_notes: str | None,
+        actual_minutes: int | None,
+        photo_refs: list[str] | None,
+        difficulty_rating: int | None,
+        quality_rating: int | None,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        tenant_key: str,
+        taken_batch_ids: set[str],
+        stamp: ClientEventStamp | None = None,
+    ) -> CompletionWrite:
+        """Validate one completion and compute everything its transaction writes; nothing is stored here.
+
+        ``stamp`` is the buffered write's id and digest (WP 9.3): stored on the task with the status, so the unique
+        index ``(tenant_key, completion_client_event_id)`` holds it in the same commit.
+        """
+        self._require_completable(task)
+        if task.requires_photo and not task.photo_refs and not photo_refs:
+            raise ValidationError("This task requires at least one photo before completion.")
+        details = details or TaskCompletionDetails()
+        new_photos: list[str] = []
+        if photo_refs:
+            self._verify_photo_refs(photo_refs, task.photo_refs, tenant_key=tenant_key)
+            # Order-preserving dedup across what is already stored and what arrives. The completion form seeds its
+            # list from the task's own `photo_refs`, so reopening a completed task and completing it again used to
+            # append every existing ref a second time — `[a, a, b]` in the document and duplicate React keys in the
+            # gallery (#1339 review).
+            known = set(task.photo_refs)
+            new_photos = [ref for ref in dict.fromkeys(photo_refs) if ref not in known]
+            task.photo_refs.extend(new_photos)
+
+        performed_at = details.performed_at or datetime.now(UTC)
+        location_key = self._bed_of(task, tenant_key=tenant_key) if actor is not None else None
+        event: CareEvent | None = None
+        domain: DomainDocument | None = None
+        replaces_event_key: str | None = None
+        if location_key is not None and actor is not None and self._care_events is not None:
+            event = self._build_event(
+                task,
+                location_key,
+                details,
+                actor=actor,
+                performed_at=performed_at,
+                completion_notes=completion_notes,
+                photo_refs=new_photos,
+                tenant_key=tenant_key,
+            )
+            if event is not None:
+                domain = self._domain_document(task, event, tenant_key=tenant_key, taken_batch_ids=taken_batch_ids)
+                replaces_event_key = self._line_to_replace(task, actor, tenant_key=tenant_key)
+        elif details.carries_care_fields:
+            raise PlanError(
+                "task.no_bed_context",
+                "This task is not bound to a bed, so there is no care log to write the care fields into.",
+                status_code=422,
+                field="plant_keys",
+            )
+        if event is None and details.performed_at is not None:
+            check_performed_instant(performed_at)  # V-11 holds the instant of a completion outside the care log too
+
+        task.status = TaskStatus.COMPLETED
+        task.completed_at = performed_at
+        if completion_notes:
+            task.completion_notes = completion_notes
+        if actual_minutes is not None:
+            task.actual_duration_minutes = actual_minutes
+        if difficulty_rating is not None:
+            task.difficulty_rating = difficulty_rating
+        if quality_rating is not None:
+            task.quality_rating = quality_rating
+        if stamp is not None:
+            task.completion_client_event_id = stamp.client_event_id
+            task.completion_client_event_digest = stamp.digest
+        patch = task.model_dump(
+            mode="json",
+            include={
+                "status",
+                "completed_at",
+                "completion_notes",
+                "actual_duration_minutes",
+                "difficulty_rating",
+                "quality_rating",
+                "photo_refs",
+                "completion_client_event_id",
+                "completion_client_event_digest",
+            },
+            exclude_none=True,
+        )
+        return CompletionWrite(
+            task_key=task.key or "",
+            task_patch=patch,
+            event=event,
+            domain=domain,
+            replaces_event_key=replaces_event_key,
+        )
+
+    def _line_to_replace(self, task: Task, actor: CompletionActor, *, tenant_key: str) -> str | None:
+        """The open care line of an earlier, reopened completion that this completion may replace, else ``None``.
+
+        Only the author of that line or a lead may take it out (no time window: the task was reopened by someone
+        entitled to, and the line says "done" for a task that is not); anyone else completing the task adds a line
+        and leaves the author's alone — the lead can void it (GP-API-037).
+        """
+        if self._completion is None:
+            return None
+        earlier = self._completion.task_event(task.key or "", tenant_key=tenant_key)
+        if earlier is None:
+            return None
+        if earlier.created_by == actor.user_key or actor.role == TenantRole.LEAD:
+            return earlier.key
+        return None
+
+    def _build_event(
+        self,
+        task: Task,
+        location_key: str,
+        details: TaskCompletionDetails,
+        *,
+        actor: CompletionActor,
+        performed_at: datetime,
+        completion_notes: str | None,
+        photo_refs: list[str],
+        tenant_key: str,
+    ) -> CareEvent | None:
+        """The validated care event of the completion; ``None`` when the task's bed is gone (the task still closes)."""
+        assert self._care_events is not None  # noqa: S101 — guarded by the caller; narrows the optional for mypy
+        data = self._care_input(
+            task,
+            location_key,
+            details,
+            performed_at=performed_at,
+            completion_notes=completion_notes,
+            photo_refs=photo_refs,
+        )
+        try:
+            return self._care_events.build_event(
+                data,
+                tenant_key=tenant_key,
+                user_key=actor.user_key,
+                role=actor.role,
+                origin=CareEventOrigin(trigger="task", task_key=task.key),
+            )
+        except NotFoundError:
+            # The task points at a bed that no longer exists (or is not the tenant's): the task is still done, there
+            # is just no bed to log it in. A body that named plants for that bed cannot be honoured.
+            if details.carries_care_fields:
+                raise
+            check_performed_instant(performed_at)
+            return None
+
+    def _domain_document(
+        self, task: Task, event: CareEvent, *, tenant_key: str, taken_batch_ids: set[str]
+    ) -> DomainDocument | None:
+        """The specialist document of the event (§12.1), with the checks its own service would have made."""
+        wants_plants = event.category in (
+            TaskCategory.WATERING.value,
+            TaskCategory.FEEDING.value,
+            TaskCategory.SOIL_AMENDMENT.value,
+            TaskCategory.HARVEST.value,
+        )
+        plants = self._event_plants(event, tenant_key=tenant_key) if wants_plants else []
+        domain = self._completion_engine.domain_document(task, event, plant_keys=plants)
+        if domain is None or domain.collection != HARVEST_BATCHES:
+            return domain
+        if self._harvests is None:
+            return None  # no harvest service wired: no batch is written rather than one that skipped the Karenz gate
+        self._harvests.require_karenz_clear(plants, event.performed_at, tenant_key=tenant_key)
+        plant_key = str(domain.document.get("plant_key", ""))
+        batch_id = self._harvests.next_batch_id(
+            plant_key, event.performed_at, tenant_key=tenant_key, taken=taken_batch_ids
+        )
+        return replace(domain, document={**domain.document, "batch_id": batch_id})
+
+    def _commit_completions(self, writes: list[CompletionWrite], tasks: list[Task], *, tenant_key: str) -> list[Task]:
+        """Store the prepared completions; one transaction when the transition is wired, else task by task."""
+        if self._completion is not None:
+            self._completion.complete(writes, tenant_key=tenant_key)
+            return [self._repo.get_task_or_raise(write.task_key) for write in writes]
+        return [self._repo.update_task(task.key or "", task) for task in tasks]
+
+    def _mirror_care_completion(
+        self, task: Task, *, tenant_key: str, actor: CompletionActor | None, client_event_id: str | None
+    ) -> None:
+        """Mirror a completed care-reminder task of a plant into its care state; the performer is the caller (§32.8).
+
+        The dedup key is THIS request's id, never the task's stored one: a completion without an id after a reopen
+        leaves an earlier completion's id on the task. A completion without a verified caller mirrors nothing.
+        """
+        build = self._care_mirror
+        if build is None or actor is None or not _is_plant_care_reminder(task):
+            return
+        mirror: CareTaskMirror = build()
+        mirror.record_care_task_completion(
+            task, tenant_key=tenant_key, user_key=actor.user_key, completion_client_event_id=client_event_id
+        )
+
+    def _after_completion(
+        self,
+        completed: Task,
+        as_stored: Task,
+        *,
+        tenant_key: str,
+        actor: CompletionActor | None,
+        client_event_id: str | None = None,
+    ) -> None:
+        """What follows the committed completion: dependents, the next occurrence, the notification and, last, the
+        care-state mirror of a care reminder (not atomic)."""
+        # Reschedule dependents if late. Coerce both operands to timezone-aware UTC first: a date-only due_date is
+        # stored naive and would otherwise crash the comparison (and abort the recurrence spawn below).
+        due_aware = _as_aware_utc(as_stored.due_date)
+        completed_aware = _as_aware_utc(as_stored.completed_at)
+        if due_aware and completed_aware and completed_aware > due_aware:
+            self._reschedule_dependents(as_stored.key or "", as_stored)
+
+        # Create next recurring task if applicable
+        if as_stored.recurrence_rule:
+            self._create_next_recurring_task(completed)
+
+        # Mark the task's open due notification done (badge drops, #742).
+        self._propagate(lambda p: p.on_task_completed(completed))
+        self._mirror_care_completion(completed, tenant_key=tenant_key, actor=actor, client_event_id=client_event_id)
+
     def complete_task(
         self,
         key: str,
@@ -1367,53 +1890,171 @@ class TaskService:
         quality_rating: int | None = None,
         *,
         tenant_key: str,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
+        stamp: ClientEventStamp | None = None,
     ) -> Task:
-        task = self.get_task(key, tenant_key=tenant_key)
-        if task.status not in ("pending", "in_progress"):
-            raise ValidationError(f"Cannot complete task in status '{task.status}'.")
+        """Complete a task: ONE transition over the task, the care-log line and the specialist document.
 
-        if task.requires_photo and not task.photo_refs and not photo_refs:
-            raise ValidationError("This task requires at least one photo before completion.")
-
-        if photo_refs:
-            self._verify_photo_refs(photo_refs, task.photo_refs, tenant_key=tenant_key)
-            # Order-preserving dedup across what is already stored and what
-            # arrives. The completion form seeds its list from the task's own
-            # `photo_refs`, so reopening a completed task and completing it again
-            # used to append every existing ref a second time — `[a, a, b]` in the
-            # document and duplicate React keys in the gallery (#1339 review).
-            known = set(task.photo_refs)
-            task.photo_refs.extend(ref for ref in dict.fromkeys(photo_refs) if ref not in known)
-
-        task.status = "completed"
-        task.completed_at = datetime.now(UTC)
-        if completion_notes:
-            task.completion_notes = completion_notes
-        if actual_minutes is not None:
-            task.actual_duration_minutes = actual_minutes
-        if difficulty_rating is not None:
-            task.difficulty_rating = difficulty_rating
-        if quality_rating is not None:
-            task.quality_rating = quality_rating
-
-        updated = self._repo.update_task(key, task)
-
-        # Reschedule dependents if late. Coerce both operands to timezone-aware
-        # UTC first: a date-only due_date is stored naive and would otherwise
-        # crash the comparison (and abort the recurrence spawn below).
-        due_aware = _as_aware_utc(task.due_date)
-        completed_aware = _as_aware_utc(task.completed_at)
-        if due_aware and completed_aware and completed_aware > due_aware:
-            self._reschedule_dependents(key, task)
-
-        # Create next recurring task if applicable
-        if task.recurrence_rule:
-            self._create_next_recurring_task(updated)
-
-        # Mark the task's open due notification done (badge drops, #742).
-        self._propagate(lambda p: p.on_task_completed(updated))
-
+        With an ``actor`` and a task bound to a bed the care event (``trigger = task``) and — per §12.1 — the
+        ``watering_events`` / ``feeding_events`` / ``harvest_batches`` document are written in the same stream
+        transaction as the status change (GP-FR-083, GP-ACC-024): an error in any of them leaves the task as it was.
+        A task without a bed, or a caller without an actor, closes the task alone. The recurrence spawn, the
+        dependents and the notification follow the commit (their own ADR-008 strand, E-02).
+        """
+        updated, as_stored = self._commit_completion(
+            key,
+            completion_notes,
+            actual_minutes,
+            photo_refs,
+            difficulty_rating,
+            quality_rating,
+            tenant_key=tenant_key,
+            details=details,
+            actor=actor,
+            stamp=stamp,
+        )
+        self._after_completion(
+            updated,
+            as_stored,
+            tenant_key=tenant_key,
+            actor=actor,
+            client_event_id=stamp.client_event_id if stamp is not None else None,
+        )
         return updated
+
+    def _commit_completion(
+        self,
+        key: str,
+        completion_notes: str | None,
+        actual_minutes: int | None,
+        photo_refs: list[str] | None,
+        difficulty_rating: int | None,
+        quality_rating: int | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        stamp: ClientEventStamp | None,
+    ) -> tuple[Task, Task]:
+        """Load, prepare and commit one completion; the follow-ups are the caller's. ``(as committed, as loaded)``."""
+        task = self._task_for_completion(key, tenant_key=tenant_key)
+        prepared = self._prepare_completion(
+            task,
+            completion_notes=completion_notes,
+            actual_minutes=actual_minutes,
+            photo_refs=photo_refs,
+            difficulty_rating=difficulty_rating,
+            quality_rating=quality_rating,
+            details=details,
+            actor=actor,
+            tenant_key=tenant_key,
+            taken_batch_ids=set(),
+            stamp=stamp,
+        )
+        updated = self._commit_completions([prepared], [task], tenant_key=tenant_key)[0]
+        return updated, task
+
+    def complete_task_once(
+        self,
+        key: str,
+        completion_notes: str | None = None,
+        actual_minutes: int | None = None,
+        photo_refs: list[str] | None = None,
+        difficulty_rating: int | None = None,
+        quality_rating: int | None = None,
+        *,
+        tenant_key: str,
+        client_event_id: UUID | None,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
+    ) -> TaskCompletionOutcome:
+        """:meth:`complete_task` with the replay rule of a buffered write (REQ-053 WP 9.3, GP-API-031).
+
+        Without a ``client_event_id`` this is :meth:`complete_task`. With one, the task the id closed before is
+        answered as it is (``replayed``; nothing is written, no follow-up runs again). Two attempts at once: the
+        task document serialises them - the loser's transaction sees the task closed (409 ``task.already_closed``)
+        or conflicts on it (``1200``) - and the loser then finds the winner's id on the task and answers the replay.
+        A task closed by anyone else stays 409 ``task.already_closed``; a deleted or foreign one 404 ``task.missing``;
+        the id of another task or request 409 ``client_event.payload_mismatch``.
+        """
+        if client_event_id is None:
+            return TaskCompletionOutcome(
+                self.complete_task(
+                    key,
+                    completion_notes,
+                    actual_minutes,
+                    photo_refs,
+                    difficulty_rating,
+                    quality_rating,
+                    tenant_key=tenant_key,
+                    details=details,
+                    actor=actor,
+                )
+            )
+        digest = self._completion_digest(
+            [key],
+            actor=actor,
+            completion_notes=completion_notes,
+            details=details,
+            actual_minutes=actual_minutes,
+            photo_refs=list(photo_refs or []),
+            difficulty_rating=difficulty_rating,
+            quality_rating=quality_rating,
+        )
+        stamp = ClientEventStamp(str(client_event_id), digest)
+        stamps = {key: stamp}
+        replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
+        if replayed is not None:
+            return self._replayed_completion(replayed, stamp, tenant_key=tenant_key, actor=actor)
+        if self._tombstoned(stamps, tenant_key=tenant_key):
+            raise ClientEventDeletedError()
+        committed: tuple[Task, Task] | None = None
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            # Only the commit of the completion may lead to the replay path: a follow-up error after the commit
+            # (the next occurrence, the notification) surfaces as it does without an id.
+            try:
+                committed = self._commit_completion(
+                    key,
+                    completion_notes,
+                    actual_minutes,
+                    photo_refs,
+                    difficulty_rating,
+                    quality_rating,
+                    tenant_key=tenant_key,
+                    details=details,
+                    actor=actor,
+                    stamp=stamp,
+                )
+            except (TaskAlreadyClosedError, DuplicateError, WriteConflictError) as exc:
+                if isinstance(exc, DuplicateError) and not is_client_event_conflict(exc.details):
+                    raise  # another unique index (a harvest batch id) refused the commit: not a replay
+                replayed = self._completion_replays(stamps, tenant_key=tenant_key).get(key)
+                if replayed is not None:
+                    logger.info("task_completion.replayed", task_key=key, raced=True)
+                    return self._replayed_completion(replayed, stamp, tenant_key=tenant_key, actor=actor)
+                if not isinstance(exc, WriteConflictError) or attempt == _CLIENT_WRITE_ATTEMPTS - 1:
+                    raise
+                continue
+            break
+        if committed is None:  # pragma: no cover - the loop breaks with a commit or raises
+            raise AssertionError("unreachable")
+        updated, as_stored = committed
+        self._after_completion(
+            updated, as_stored, tenant_key=tenant_key, actor=actor, client_event_id=stamp.client_event_id
+        )
+        return TaskCompletionOutcome(updated, client_event_id=stamp.client_event_id)
+
+    def _replayed_completion(
+        self, replayed: Task, stamp: ClientEventStamp, *, tenant_key: str, actor: CompletionActor | None
+    ) -> TaskCompletionOutcome:
+        """A replay runs the care mirror again - a first attempt may have died between its commit and the mirror -
+        unless the task was reopened since; the mirror is idempotent per id (REQ-053 WP 9.3)."""
+        if replayed.status == TaskStatus.COMPLETED.value:
+            self._mirror_care_completion(
+                replayed, tenant_key=tenant_key, actor=actor, client_event_id=stamp.client_event_id
+            )
+        return TaskCompletionOutcome(replayed, replayed=True, client_event_id=stamp.client_event_id)
 
     def _reschedule_dependents(self, key: str, task: Task) -> None:
         # ``tenant_key`` is part of the guard, not an optional extra: the
@@ -1511,7 +2152,91 @@ class TaskService:
         task.completed_at = datetime.now(UTC)
         updated = self._repo.update_task(key, task)
         self._propagate(lambda p: p.on_task_completed(updated))
+        # The skip sibling of the completion mirror (#2960): the single route and the batch both skip through here.
+        build = self._care_mirror
+        if build is not None and _is_plant_care_reminder(updated):
+            mirror: CareTaskMirror = build()
+            mirror.record_care_task_skip(updated, tenant_key=tenant_key)
         return updated
+
+    # ── Suggestions (REQ-053 GP-FR-086, GP-API-040) ──
+    #
+    # A suggestion is a pending task with ``suggested = true`` that the system proposed (§12.1 "automatisch
+    # vorgeschlagen"). Accepting turns it into an ordinary open task (``suggested = false``); dismissing closes it
+    # as ``skipped``. Neither is a completion: no care_event, no care-reminder confirmation, no notification.
+    # Both write through ``resolve_suggestion``, whose predicate and write are one statement, so two people
+    # deciding the same suggestion at once cannot both win and a concurrent edit is not overwritten.
+
+    #: The states a suggestion can be dismissed from - the same two ``skip_task`` accepts.
+    _DISMISSABLE = (TaskStatus.PENDING.value, TaskStatus.IN_PROGRESS.value)
+
+    def accept_suggestion(self, key: str, *, tenant_key: str) -> Task:
+        """Turn a suggestion into an ordinary task (``suggested = false``); the task stays open as it is.
+
+        ``suggestion_reason`` is cleared with the flag: the field reads "why the system proposed it" and is
+        ``None`` unless ``suggested`` (``Task`` model, §20.9). Who proposed it stays on ``origin``/``source``.
+        404 for an unknown or foreign key, 409 ``task.not_a_suggestion`` for a task that is none (any more).
+        """
+        task = self.get_task(key, tenant_key=tenant_key)
+        self._require_suggestion(task)
+        written = self._repo.resolve_suggestion(
+            key, tenant_key=tenant_key, changes={"suggested": False, "suggestion_reason": None}
+        )
+        return written if written is not None else self._suggestion_lost(key, tenant_key=tenant_key, dismissing=False)
+
+    def dismiss_suggestion(self, key: str, *, tenant_key: str, reason: str | None = None) -> Task:
+        """Close a suggestion as ``skipped`` - the spec's "verworfen" (§12.1) - with an optional reason.
+
+        The reason lands in ``completion_notes`` (what a closed task carries as its note; ``reopen`` clears it).
+        ``suggested`` stays ``true``: the task was never accepted, and every reader that leaves suggestions out
+        (``t.suggested != true``) keeps leaving it out. ``completed_at`` is stamped as on a skip - the time the
+        task was closed, not a completion: the status says ``skipped``. Nothing else happens: no care_event, no
+        care-reminder confirmation, no notification. 404 for an unknown or foreign key, 409
+        ``task.not_a_suggestion`` for a task that is none, 409 ``task.suggestion_closed`` for one already closed.
+        """
+        task = self.get_task(key, tenant_key=tenant_key)
+        self._require_suggestion(task)
+        self._require_dismissable(task)
+        note = reason.strip() if reason else ""
+        written = self._repo.resolve_suggestion(
+            key,
+            tenant_key=tenant_key,
+            changes={
+                "status": TaskStatus.SKIPPED.value,
+                "completed_at": datetime.now(UTC).isoformat(),
+                "completion_notes": note or None,
+            },
+            open_statuses=self._DISMISSABLE,
+        )
+        return written if written is not None else self._suggestion_lost(key, tenant_key=tenant_key, dismissing=True)
+
+    @staticmethod
+    def _require_suggestion(task: Task) -> None:
+        if not task.suggested:
+            raise PlanError(
+                "task.not_a_suggestion",
+                "This task is not a suggestion (any more); there is nothing to accept or dismiss.",
+                status_code=409,
+                field="key",
+            )
+
+    @classmethod
+    def _require_dismissable(cls, task: Task) -> None:
+        if task.status not in cls._DISMISSABLE:
+            raise PlanError(
+                "task.suggestion_closed",
+                f"This suggestion is already closed (status '{task.status}'); there is nothing to dismiss.",
+                status_code=409,
+                field="key",
+            )
+
+    def _suggestion_lost(self, key: str, *, tenant_key: str, dismissing: bool) -> Task:
+        """The conditional write matched nothing: someone decided the suggestion in between. Name the reason."""
+        current = self.get_task(key, tenant_key=tenant_key)  # 404 when it was deleted in between
+        self._require_suggestion(current)
+        if dismissing:
+            self._require_dismissable(current)
+        raise WriteConflictError("tasks", "the suggestion was changed at the same time")
 
     # ── Clone ──
 
@@ -1534,8 +2259,22 @@ class TaskService:
 
         entity_key = target_entity_key or source.entity_key
         entity_type = target_entity_type or source.entity_type
+        return self._clone_of(source, entity_type=entity_type, entity_key=entity_key, due_date=due_date)
 
-        new_task = Task(
+    def _clone_of(
+        self, source: Task, *, entity_type: str | None, entity_key: str | None, due_date: datetime | None
+    ) -> Task:
+        """One new pending task copied from ``source`` onto an entity, linked by ``task_cloned_from`` (GP-FR-081)."""
+        new_task = self._copy_of(source, entity_type=entity_type, entity_key=entity_key, due_date=due_date)
+        created = self._repo.create_task(new_task)
+        if source.key and created.key:
+            self._repo.create_task_cloned_from_edge(created.key, source.key)
+        return created
+
+    @staticmethod
+    def _copy_of(source: Task, *, entity_type: str | None, entity_key: str | None, due_date: datetime | None) -> Task:
+        """A new, unsaved pending task carrying ``source``'s content, bound to an entity."""
+        return Task(
             tenant_key=source.tenant_key,
             name=source.name,
             name_de=source.name_de,
@@ -1556,11 +2295,129 @@ class TaskService:
             tags=list(source.tags),
             checklist=[ChecklistItem(text=item.text, done=False, order=item.order) for item in source.checklist],
         )
-        return self._repo.create_task(new_task)
+
+    def fan_out_to_plants(
+        self,
+        key: str,
+        *,
+        tenant_key: str,
+        include_children: bool = True,
+        keep_source: bool = False,
+    ) -> list[Task]:
+        """ "For every plant in the bed": one clone of a bed task per plant standing in it (GP-FR-081).
+
+        ``key`` must be an open task bound to a bed (``entity_type = location``). Every active plant of the bed
+        (and of its sub-locations when ``include_children``) gets a pending clone bound to it, linked back by a
+        ``task_cloned_from`` edge. The bed task itself is then ``skipped`` — the user chose "for every plant"
+        *instead of* "for the bed" — unless ``keep_source``. A bed without plants clones nothing and leaves the
+        source open. The clones are written one by one, not in one transaction: a failure part-way leaves the
+        source open, so the request is not lost; a retry clones only the plants that hold no clone yet.
+        """
+        self._require_tenant_key(tenant_key, "fan_out_to_plants")
+        source = self.get_task(key, tenant_key=tenant_key)
+        if source.status not in ("pending", "in_progress"):  # the fan-out keeps its 422; 409 is the completion's
+            raise ValidationError(f"Cannot fan out a task in status '{source.status}'.")
+        if source.entity_type != "location" or not source.entity_key:
+            raise ValidationError(
+                "Only a task bound to a bed (entity_type 'location') can be fanned out to its plants."
+            )
+        if source.category == "care_reminder":
+            # Care reminders have their own strand (GP-FR-106), and the queue collapses same-named care tasks.
+            raise ValidationError("A care reminder cannot be fanned out; the reminder engine writes one per plant.")
+        if self._care_events is None or self._completion is None:
+            raise RuntimeError("fan_out_to_plants needs the care-event service and the completion repository.")
+        scope = self._care_events.location_scope(
+            source.entity_key, include_children=include_children, tenant_key=tenant_key
+        )
+        plants = self._completion.plants_in_locations(scope, tenant_key=tenant_key)
+        if len(plants) > MAX_FAN_OUT:
+            raise ValidationError(
+                f"The bed holds {len(plants)} plants; at most {MAX_FAN_OUT} tasks are created at once."
+            )
+        # A retry after a failure part-way clones only the plants that have no clone yet.
+        already = self._repo.get_clone_entity_keys(key, tenant_key=tenant_key)
+        clones = [
+            self._clone_of(source, entity_type="plant_instance", entity_key=plant_key, due_date=source.due_date)
+            for plant_key in plants
+            if plant_key not in already
+        ]
+        if plants and not keep_source:
+            self.skip_task(key, tenant_key=tenant_key)
+        return clones
+
+    def _for_plant(self, template: Task, *, plant_key: str, tenant_key: str) -> Task:
+        """The unsaved task of ``template`` for one plant: the content of the template, the caller's tenant."""
+        task = self._copy_of(template, entity_type="plant_instance", entity_key=plant_key, due_date=template.due_date)
+        task.tenant_key = tenant_key
+        task.scheduled_time = template.scheduled_time
+        task.assigned_to_user_key = template.assigned_to_user_key
+        return task
+
+    def create_tasks_for_each_plant(
+        self,
+        template: Task,
+        *,
+        tenant_key: str,
+        include_children: bool = True,
+        actor_user_key: str = "",
+    ) -> list[Task]:
+        """ "For every plant" without the bed task: one pending task per plant of a bed, in ONE transaction (#2462).
+
+        ``template`` is the task as the caller described it, bound to a bed (``entity_type = location``). Nothing is
+        written for the bed itself: every active plant of the bed (and of its sub-locations when ``include_children``)
+        gets its own copy, written together with its ``has_task`` edge in one transaction, so a failure part-way
+        leaves no half-fanned bed behind (``fan_out_to_plants`` writes the clones one by one). A bed without plants
+        creates nothing and answers an empty list. The limits are those of :meth:`fan_out_to_plants`: at most
+        :data:`MAX_FAN_OUT` plants, no care reminders, only a bed.
+        """
+        self._require_tenant_key(tenant_key, "create_tasks_for_each_plant")
+        if template.entity_type != "location" or not template.entity_key:
+            raise ValidationError("Only a task bound to a bed (entity_type 'location') can be created for each plant.")
+        if template.category == "care_reminder":
+            raise ValidationError(
+                "A care reminder cannot be created for each plant; the reminder engine writes one per plant."
+            )
+        if template.recurrence_rule:
+            raise ValidationError("A task created for each plant cannot recur; set the recurrence on a single task.")
+        if self._care_events is None or self._completion is None:
+            raise RuntimeError(
+                "create_tasks_for_each_plant needs the care-event service and the completion repository."
+            )
+        self._require_member_assignee(template.assigned_to_user_key, tenant_key)
+        scope = self._care_events.location_scope(
+            template.entity_key, include_children=include_children, tenant_key=tenant_key
+        )
+        plants = self._completion.plants_in_locations(scope, tenant_key=tenant_key)
+        if len(plants) > MAX_FAN_OUT:
+            raise ValidationError(
+                f"The bed holds {len(plants)} plants; at most {MAX_FAN_OUT} tasks are created at once."
+            )
+        if not plants:
+            return []
+        per_plant = [self._for_plant(template, plant_key=plant_key, tenant_key=tenant_key) for plant_key in plants]
+        created = self._repo.create_tasks_atomic(per_plant, tenant_key=tenant_key)
+        for task in created:
+            self._propagate_created(task, actor_user_key)
+        return created
 
     # ── Reopen ──
 
-    def reopen_task(self, key: str, *, tenant_key: str) -> Task:
+    def reopen_task(
+        self,
+        key: str,
+        *,
+        tenant_key: str,
+        undo: bool = False,
+        actor: CompletionActor | None = None,
+    ) -> Task:
+        """Reopen a completed or skipped task.
+
+        ``undo`` is the field-mode snackbar (GP-FR-149): the task's care-log line is voided with
+        ``void_reason = undo`` in the same transaction as the reopen — the lead any time, the author within ten
+        minutes (the predicate of ``POST /care-events/{key}/void``, GP-API-037). It needs the ``actor``.
+        """
+        if undo and actor is None:
+            raise ValueError("reopen_task(undo=True) needs the actor: the void is held to the caller's role.")
         task = self.get_task(key, tenant_key=tenant_key)
         if task.status not in ("completed", "skipped"):
             raise ValidationError(
@@ -1586,12 +2443,39 @@ class TaskService:
         if task.reopened_from_status != "completed":
             task.reopened_from_status = task.status
         task.reopened_at = datetime.now(UTC)
-        task.status = "pending"
+        task.status = TaskStatus.PENDING
         task.completed_at = None
         task.actual_duration_minutes = None
         task.completion_notes = None
         task.difficulty_rating = None
         task.quality_rating = None
+        if undo and actor is not None and self._completion is not None and self._care_events is not None:
+            event = self._completion.task_event(key, tenant_key=tenant_key)
+            if event is not None:
+                check_void_allowed(event, reason=UNDO_REASON, user_key=actor.user_key, role=actor.role)
+            self._completion.reopen(
+                UndoWrite(
+                    task_key=key,
+                    task_patch=task.model_dump(
+                        mode="json",
+                        include={
+                            "status",
+                            "reopened_at",
+                            "reopened_from_status",
+                            "completed_at",
+                            "actual_duration_minutes",
+                            "completion_notes",
+                            "difficulty_rating",
+                            "quality_rating",
+                        },
+                    ),
+                    event_key=event.key if event else None,
+                    voided_by=actor.user_key,
+                    voided_at=datetime.now(UTC),
+                ),
+                tenant_key=tenant_key,
+            )
+            return self._repo.get_task_or_raise(key)
         return self._repo.update_task(key, task)
 
     # ── Batch Operations ──
@@ -1614,7 +2498,41 @@ class TaskService:
         completion_notes: str | None = None,
         *,
         tenant_key: str,
+        details: TaskCompletionDetails | None = None,
+        actor: CompletionActor | None = None,
+        client_event_id: UUID | None = None,
     ) -> tuple[list[str], list[dict]]:
+        """Apply ``start`` / ``complete`` / ``skip`` to many tasks.
+
+        ``complete`` is the atomic transition (GP-FR-088, GP-API-032): every key is resolved first — an unknown or
+        foreign one answers 404 ``task.missing`` for the **whole** batch and nothing is written — then the
+        completable tasks are completed in ONE transaction, one care event each. A task that cannot be completed
+        (closed already: ``task.already_closed``; missing photo) is reported in ``failed`` with its code and left
+        out. The other actions keep their per-key result.
+
+        ``client_event_id`` (``complete`` only, WP 9.3) is decided **per task**: each task stores an id derived from
+        the batch id and its key, a task that id closed before counts as succeeded without a write, the rest is
+        completed as usual.
+        """
+        if action != "complete" and details is not None and (details.carries_care_fields or details.performed_at):
+            raise ValidationError(
+                "Care fields belong to action 'complete'.",
+                details=[{"field": "action", "message": "performed_at and care fields apply to 'complete' only"}],
+            )
+        if action != "complete" and client_event_id is not None:
+            raise ValidationError(
+                "client_event_id belongs to action 'complete'.",
+                details=[{"field": "client_event_id", "message": "applies to 'complete' only"}],
+            )
+        if action == "complete":
+            return self._batch_complete(
+                task_keys,
+                completion_notes,
+                tenant_key=tenant_key,
+                details=details,
+                actor=actor,
+                client_event_id=client_event_id,
+            )
         succeeded: list[str] = []
         failed: list[dict] = []
         for tk in task_keys:
@@ -1625,17 +2543,150 @@ class TaskService:
                 self.get_task(tk, tenant_key=tenant_key)
                 if action == "start":
                     self.start_task(tk, tenant_key=tenant_key)
-                elif action == "complete":
-                    self.complete_task(tk, completion_notes=completion_notes, tenant_key=tenant_key)
                 elif action == "skip":
                     self.skip_task(tk, tenant_key=tenant_key)
                 else:
-                    failed.append({"key": tk, "error": f"Unknown action: {action}"})
+                    failed.append({"key": tk, "error": f"Unknown action: {action}", "code": None})
                     continue
                 succeeded.append(tk)
             except (NotFoundError, ValidationError) as e:
-                failed.append({"key": tk, "error": str(e)})
+                failed.append({"key": tk, "error": str(e), "code": e.error_code})
         return succeeded, failed
+
+    def _batch_complete(
+        self,
+        task_keys: list[str],
+        completion_notes: str | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        client_event_id: UUID | None = None,
+    ) -> tuple[list[str], list[dict[str, str]]]:
+        keys = list(dict.fromkeys(task_keys))
+        # Kept beside the body bound (`MAX_BATCH_TASK_KEYS` in `api/v1/tasks/schemas.py`, #2757 SEC-004): the body
+        # bound is the trust boundary and counts before the de-duplication; this one bounds what the domain writes in
+        # ONE transaction (one care event per task) for every caller of the service, not only the HTTP route.
+        if len(keys) > MAX_BATCH_COMPLETION:
+            raise ValidationError(
+                f"A batch completes at most {MAX_BATCH_COMPLETION} tasks.",
+                details=[{"field": "task_keys", "message": f"at most {MAX_BATCH_COMPLETION}"}],
+            )
+        if client_event_id is None:
+            return self._batch_complete_pass(
+                keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor, stamps={}
+            )
+        digest = self._completion_digest(keys, actor=actor, completion_notes=completion_notes, details=details)
+        stamps = {key: ClientEventStamp(batch_item_client_event_id(client_event_id, key), digest) for key in keys}
+        for attempt in range(_CLIENT_WRITE_ATTEMPTS):
+            try:
+                return self._batch_complete_pass(
+                    keys, completion_notes, tenant_key=tenant_key, details=details, actor=actor, stamps=stamps
+                )
+            except (TaskAlreadyClosedError, DuplicateError, WriteConflictError) as exc:
+                # A task of the batch was closed, or its id taken, between the pass's reads and its commit - by a
+                # concurrent attempt of this very batch, most likely. The next pass decides each task again. Any
+                # other unique index (a harvest batch id) is the request's error, not a race of this batch.
+                if isinstance(exc, DuplicateError) and not is_client_event_conflict(exc.details):
+                    raise
+                if attempt == _CLIENT_WRITE_ATTEMPTS - 1:
+                    raise
+        raise AssertionError("unreachable: the loop returns or raises")  # pragma: no cover
+
+    def _batch_complete_pass(
+        self,
+        keys: list[str],
+        completion_notes: str | None,
+        *,
+        tenant_key: str,
+        details: TaskCompletionDetails | None,
+        actor: CompletionActor | None,
+        stamps: dict[str, ClientEventStamp],
+    ) -> tuple[list[str], list[dict[str, str]]]:
+        """One attempt at a batch completion; ``stamps`` (per task) is empty without a ``client_event_id``."""
+        # Per task (WP 9.3): a task its id closed before is a replay - succeeded, nothing written for it.
+        replayed_tasks = self._completion_replays(stamps, tenant_key=tenant_key)
+        replayed = set(replayed_tasks)
+        # A task this batch closed that was deleted since is reported per task, never a 404 for the whole batch.
+        deleted = self._tombstoned({k: v for k, v in stamps.items() if k not in replayed}, tenant_key=tenant_key)
+        failed: list[dict[str, str]] = [
+            {"key": key, "error": "What this batch completed was deleted since.", "code": "client_event.deleted"}
+            for key in keys
+            if key in deleted
+        ]
+        # All keys first: a foreign or unknown one is a 404 for the whole batch (GP-API-032) — before any write and
+        # before any status is judged, so the answer cannot tell a foreign task from an absent one.
+        tasks = [
+            self._task_for_completion(key, tenant_key=tenant_key)
+            for key in keys
+            if key not in replayed and key not in deleted
+        ]
+        prepared: list[CompletionWrite] = []
+        ready: list[Task] = []
+        taken_batch_ids: set[str] = set()
+        for task in tasks:
+            try:
+                prepared.append(
+                    self._prepare_completion(
+                        task,
+                        completion_notes=completion_notes,
+                        actual_minutes=None,
+                        photo_refs=None,
+                        difficulty_rating=None,
+                        quality_rating=None,
+                        details=details,
+                        actor=actor,
+                        tenant_key=tenant_key,
+                        taken_batch_ids=taken_batch_ids,
+                        stamp=stamps.get(task.key or ""),
+                    )
+                )
+                ready.append(task)
+            except (ValidationError, KarenzViolationError, TaskAlreadyClosedError) as e:
+                # Not completable (closed already, another status, missing photo) or a harvest inside its safety
+                # interval: this task is reported with its code and left out. A refused reference of the care fields
+                # (a plant outside the bed) is the request's error and fails the whole batch with its own code.
+                failed.append({"key": task.key or "", "error": str(e), "code": e.error_code})
+        # A replayed task gets its care mirror again, like a replay of the single route (idempotent per id).
+        for key, task in replayed_tasks.items():
+            if task.status == TaskStatus.COMPLETED.value:
+                self._guarded_follow_up(
+                    task,
+                    partial(
+                        self._mirror_care_completion,
+                        task,
+                        tenant_key=tenant_key,
+                        actor=actor,
+                        client_event_id=stamps[key].client_event_id,
+                    ),
+                )
+        if not ready:
+            return [key for key in keys if key in replayed], failed
+        stored = self._commit_completions(prepared, ready, tenant_key=tenant_key)
+        for completed, as_stored in zip(stored, ready, strict=True):
+            stamp = stamps.get(as_stored.key or "")
+            self._guarded_follow_up(
+                completed,
+                partial(
+                    self._after_completion,
+                    completed,
+                    as_stored,
+                    tenant_key=tenant_key,
+                    actor=actor,
+                    client_event_id=stamp.client_event_id if stamp is not None else None,
+                ),
+            )
+        done = replayed | {task.key or "" for task in stored}
+        return [key for key in keys if key in done], failed
+
+    @staticmethod
+    def _guarded_follow_up(task: Task, follow_up: Callable[[], None]) -> None:
+        """The batch is committed: one task's follow-up (care mirror, next occurrence, notification) failing must not
+        turn the answer into a 500 for tasks that are completed, nor starve the follow-up of the rest."""
+        try:
+            follow_up()
+        except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
+            logger.error("task_completion.follow_up_failed", task_key=task.key, error_type=type(exc).__name__)
 
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
@@ -1804,8 +2855,15 @@ class TaskService:
         tenant_key: str,
         category: str | None = None,
         origins: Sequence[str] | None = None,
+        location_key: str | None = None,
+        include_children: bool = True,
     ) -> list[Task]:
         """The prioritised task queue of one tenant (#927, #1503).
+
+        ``location_key`` (REQ-053 GP-FR-080, GP-API-030) narrows the queue to a bed: the tasks bound to it and to
+        the plants standing in it, with the sub-locations below it when ``include_children``. The bed is resolved
+        against the caller's tenant here, so a foreign or unknown key is a 404 — never an empty queue. It excludes
+        ``plant_key``: asking for both is a 422 rather than a silent intersection.
 
         Both branches are tenant-scoped: the per-plant one because ``plant_key``
         comes from a query parameter and used to select across tenants, the
@@ -1820,7 +2878,18 @@ class TaskService:
         #1484 closed for ``plant_key``). Both are threaded into the query the
         same way ``plant_key`` is, and both apply to either branch.
         """
-        if plant_key:
+        if plant_key and location_key:
+            raise ValidationError("plant_key and location_key cannot be combined.")
+        if location_key:
+            if self._care_events is None:
+                raise RuntimeError("get_task_queue by location needs the care-event service.")
+            scope = self._care_events.location_scope(
+                location_key, include_children=include_children, tenant_key=tenant_key
+            )
+            tasks = self._repo.get_pending_tasks_in_locations(
+                scope, QUEUE_LIMIT, tenant_key=tenant_key, category=category, origins=origins
+            )
+        elif plant_key:
             tasks = self._repo.get_tasks_for_plant(
                 plant_key, "pending", tenant_key=tenant_key, category=category, origins=origins
             )
@@ -1960,7 +3029,17 @@ class TaskService:
         return self._repo.get_workflow_execution_or_raise(key, tenant_key=tenant_key)
 
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self,
+        template_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[dict]:
-        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035)."""
-        return self._repo.get_executions_for_template(template_key, tenant_key=tenant_key, offset=offset, limit=limit)
+        """A template's executions in ``tenant_key``, newest first; ``offset``/``limit`` read one window (MT-035).
+
+        The species names are worded in ``language`` (#2902)."""
+        return self._repo.get_executions_for_template(
+            template_key, tenant_key=tenant_key, offset=offset, limit=limit, language=language
+        )

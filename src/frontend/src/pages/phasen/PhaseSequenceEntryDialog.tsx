@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,9 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
-import { useForm, Controller } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -20,6 +22,8 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { PhaseDefinition, PhaseSequenceEntry } from '@/api/types';
 
@@ -57,8 +61,14 @@ export default function PhaseSequenceEntryDialog({
   const [saving, setSaving] = useState(false);
   const isEdit = !!entry;
 
-  const [definitionOptions, setDefinitionOptions] = useState<PhaseDefinition[]>([]);
-  const [definitionsLoading, setDefinitionsLoading] = useState(false);
+  // A failed read is shown with a retry, never as an empty picker (#3037).
+  const loadDefinitions = useCallback(
+    (): Promise<PhaseDefinition[]> => phaseSequenceApi.listPhaseDefinitions(0, 200),
+    [],
+  );
+  const definitionsLoad = useAsyncOptions(loadDefinitions, { enabled: open });
+  const definitionOptions = definitionsLoad.options;
+  const definitionsLoading = definitionsLoad.loading;
 
   const defaultValues: FormData = {
     phase_definition_key: '',
@@ -68,10 +78,11 @@ export default function PhaseSequenceEntryDialog({
     is_recurring: false,
   };
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues,
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open && entry) {
@@ -87,16 +98,6 @@ export default function PhaseSequenceEntryDialog({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, entry, reset]);
-
-  useEffect(() => {
-    if (!open) return;
-    setDefinitionsLoading(true);
-    phaseSequenceApi
-      .listPhaseDefinitions(0, 200)
-      .then(setDefinitionOptions)
-      .catch(() => setDefinitionOptions([]))
-      .finally(() => setDefinitionsLoading(false));
-  }, [open]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -117,20 +118,22 @@ export default function PhaseSequenceEntryDialog({
       }
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
       aria-labelledby="phase-sequence-entry-dialog-title"
+      data-testid="phase-sequence-entry-dialog"
     >
       <DialogTitle id="phase-sequence-entry-dialog-title">
         {isEdit
@@ -190,6 +193,9 @@ export default function PhaseSequenceEntryDialog({
                 />
               )}
             />
+            {definitionsLoad.error && (
+              <OptionsLoadError onRetry={definitionsLoad.reload} data-testid="sequence-definitions-load-error" />
+            )}
           </Box>
 
           {/* Duration override */}
@@ -234,6 +240,6 @@ export default function PhaseSequenceEntryDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

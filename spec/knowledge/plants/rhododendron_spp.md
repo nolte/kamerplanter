@@ -131,6 +131,22 @@
 - **pH-Konsistenz:** Der Vorzugsbereich 4,5–5,5 (RHS/Extension) liegt innerhalb des in §1.6/§2.3 genannten tolerierten Kulturbereichs pH 4,0–5,5; pH >6,0 löst Chlorose aus.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 50–100 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zierstrauch in Einzel- bzw. Gruppenpflanzung, kein Reihenanbau) | `species.row_spacing_cm` |
+| Quelle Abstände | Plantura, „Rhododendron pflanzen“ („schwachwüchsige Arten … circa 50 cm, starkwachsende Verwandte bis zu 100 cm“; Ratgeberseite), https://www.plantura.garden/gehoelze/rhododendron/rhododendron-pflanzen | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Rhododendron: Growing guide“ („Choose a site with dappled shade in sheltered conditions“), https://www.rhs.org.uk/plants/rhododendron/growing-guide; Plantura (bevorzugt halbschattige Standorte), https://www.plantura.garden/gehoelze/rhododendron/rhododendron-pflanzen | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -382,4 +398,6 @@ Rhododendron spp.,"Rhododendron;Alpenrose",Ericaceae,Rhododendron,perennial,day_
 12. [PMC — Interactive Effects of Chilling, Photoperiod, and Forcing Temperature on Flowering Phenology of Temperate Woody Plants](https://pmc.ncbi.nlm.nih.gov/articles/PMC7176907/) — peer-reviewed: GDD-Basistemperatur Budbreak ~5 °C, Chilling-Bedürfnis holziger Sträucher
 13. [ISHS — Flowering Response of Azalea (Rhododendron simsii) to Cold Treatment](https://ishs.org/ishs-article/990_7/) — Chilling/Kältebedarf 4–6 Wochen zum Brechen der Blütenknospen-Dormanz
 14. [USU Extension — Salinity and Plant Tolerance](https://extension.usu.edu/irrigation/research/salinity-and-plant-tolerance) — University Extension: ECe-Klassifizierung (sensitive <2 dS/m), holzige Ziergehölze überwiegend salzempfindlich
+15. RHS — Rhododendron: Growing guide (Standort in lichtem Halbschatten („dappled shade“)): https://www.rhs.org.uk/plants/rhododendron/growing-guide
+16. Plantura — Rhododendron pflanzen (Pflanzabstand 50–100 cm; halbschattiger Standort): https://www.plantura.garden/gehoelze/rhododendron/rhododendron-pflanzen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -17,7 +17,9 @@ import TextField from '@mui/material/TextField';
 import Chip from '@mui/material/Chip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useFieldArray, Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -28,7 +30,8 @@ import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
-import { getFieldViolations } from '@/api/errors';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import * as wateringLogApi from '@/api/endpoints/watering-logs';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as fertApi from '@/api/endpoints/fertilizers';
@@ -137,14 +140,18 @@ const SERVER_FIELD_TO_FORM_FIELD: Record<string, keyof FormData> = {
  * rules and each needs its own wording; and translated here rather than taken
  * from the envelope, because the backend's `reason` is English.
  *
- * A code with no entry is deliberately *not* rendered on the field: showing the
- * English reason in a German form is worse than the generic validation toast
- * `handleError` raises anyway, and this is the fallback that keeps a new
- * backend rule from breaking the dialog.
+ * A code with no entry is rendered with the generic "invalid input" text, never
+ * with the English reason, and `handleError` still raises the validation toast —
+ * the fallback that keeps a new backend rule from breaking the dialog (#3019).
  */
 const VIOLATION_MESSAGE_KEYS: Record<string, string> = {
   watering_target_required: 'pages.wateringLogs.errors.targetRequired',
   supplemental_cannot_fertigate: 'pages.wateringLogs.errors.supplementalCannotFertigate',
+};
+
+const VIOLATION_CONFIG = {
+  messageKeys: VIOLATION_MESSAGE_KEYS,
+  fieldMap: SERVER_FIELD_TO_FORM_FIELD,
 };
 
 export interface ChannelPreset {
@@ -180,7 +187,7 @@ export default function WateringLogCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -188,24 +195,34 @@ export default function WateringLogCreateDialog({
   // Options for plant and fertilizer selection
   const [plantOptions, setPlantOptions] = useState<PlantInstance[]>([]);
   const [fertilizerOptions, setFertilizerOptions] = useState<Fertilizer[]>([]);
+  // A failed option read is shown with a retry, never as empty pickers (#3037).
+  const [optionsLoadError, setOptionsLoadError] = useState(false);
+  const [optionsAttempt, setOptionsAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     async function loadOptions() {
+      let failed = false;
+      const degrade = <T,>(source: string, fallback: T) => (err: unknown): T => {
+        captureHandledError(err, { source: `WateringLogCreateDialog.${source}` });
+        failed = true;
+        return fallback;
+      };
       const [plants, fertilizers] = await Promise.all([
-        plantApi.listAllPlantInstances().catch(() => []),
+        plantApi.listAllPlantInstances().catch(degrade<PlantInstance[]>('plants', [])),
         availableFertilizers
           ? Promise.resolve(availableFertilizers)
-          : fertApi.fetchAllFertilizers().catch(() => []),
+          : fertApi.fetchAllFertilizers().catch(degrade<Fertilizer[]>('fertilizers', [])),
       ]);
       if (cancelled) return;
       setPlantOptions(plants);
       setFertilizerOptions(fertilizers);
+      setOptionsLoadError(failed);
     }
     loadOptions();
     return () => { cancelled = true; };
-  }, [open, availableFertilizers]);
+  }, [open, availableFertilizers, optionsAttempt]);
 
   const buildDefaults = (): FormData => ({
     plant_keys: initialPlantKeys ?? [],
@@ -226,10 +243,13 @@ export default function WateringLogCreateDialog({
     notes: null,
   });
 
-  const { control, handleSubmit, reset, setError } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: buildDefaults(),
   });
+  // The API's field-scoped 422 detail lands on the inputs it is about (#970, #3019);
+  // the codes this dialog knows get their own wording, any other one the generic text.
+  const applyFieldViolation = useFormFieldViolations(control, VIOLATION_CONFIG);
 
   // Reset form when dialog opens or preset/options change
   useEffect(() => {
@@ -249,28 +269,6 @@ export default function WateringLogCreateDialog({
     })),
     [fertilizerOptions],
   );
-
-  /**
-   * Put the API's field-scoped 422 detail onto the inputs it is about.
-   *
-   * Without this the dialog answered a rejected cross-field rule with nothing
-   * but "Bitte überprüfen Sie Ihre Eingaben." — a toast that names no field, on
-   * a form of twenty inputs (#970). The information to do better was in the
-   * response all along; `handleError` only maps it when a setter is handed in,
-   * and translating by `code` needs the `code`, which the setter contract does
-   * not carry.
-   *
-   * Violations whose field or code this dialog cannot render are skipped by
-   * design, so the generic toast remains the floor rather than the ceiling.
-   */
-  const applyServerFieldErrors = (error: unknown) => {
-    for (const violation of getFieldViolations(error)) {
-      const formField = SERVER_FIELD_TO_FORM_FIELD[violation.field];
-      const messageKey = VIOLATION_MESSAGE_KEYS[violation.code];
-      if (!formField || !messageKey) continue;
-      setError(formField, { type: violation.code, message: t(messageKey) });
-    }
-  };
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -303,15 +301,15 @@ export default function WateringLogCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      applyServerFieldErrors(err);
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       open={open}
       onClose={onClose}
       maxWidth="sm"
@@ -337,6 +335,12 @@ export default function WateringLogCreateDialog({
           </Typography>
 
           {/* Plant selection (multi-select autocomplete) */}
+          {optionsLoadError && (
+            <OptionsLoadError
+              onRetry={() => setOptionsAttempt((n) => n + 1)}
+              data-testid="watering-log-options-load-error"
+            />
+          )}
           <Controller
             name="plant_keys"
             control={control}
@@ -351,7 +355,7 @@ export default function WateringLogCreateDialog({
                 <Autocomplete
                   multiple
                   options={plantOptions}
-                  getOptionLabel={(option) => getPlantLabel(option)}
+                  getOptionLabel={(option) => getPlantLabel(option, i18n.language)}
                   value={plantOptions.filter((p) => field.value.includes(p.key))}
                   onChange={(_, newValue) => {
                     field.onChange(newValue.map((p) => p.key));
@@ -379,7 +383,7 @@ export default function WateringLogCreateDialog({
                       return (
                         <Chip
                           key={key}
-                          label={getPlantLabel(option)}
+                          label={getPlantLabel(option, i18n.language)}
                           size="small"
                           color="success"
                           variant="outlined"
@@ -615,6 +619,6 @@ export default function WateringLogCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

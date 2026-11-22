@@ -66,7 +66,10 @@ import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
-import { useSnackbar } from 'notistack';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { useNotification } from '@/hooks/useNotification';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useNavigate } from 'react-router-dom';
 import { fetchProfile } from '@/store/slices/authSlice';
@@ -130,6 +133,7 @@ import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { RecognitionStatusCard } from '@/components/admin/RecognitionStatusCard';
 import { PestRecognitionAdminCard } from '@/components/admin/PestRecognitionAdminCard';
 import { PestContributionsAdminCard } from '@/components/admin/PestContributionsAdminCard';
+import { clearOfflineData } from '@/pwa/offlineData';
 import type {
   AuthProviderInfo,
   SessionInfo,
@@ -177,7 +181,7 @@ export default function AccountSettingsPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const user = useAppSelector((s) => s.auth.user);
   const preferences = useAppSelector((s) => s.userPreferences.preferences);
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
@@ -267,7 +271,6 @@ export default function AccountSettingsPage() {
   const [providersLoaded, setProvidersLoaded] = useState(false);
   const [providersLoadFailed, setProvidersLoadFailed] = useState(false);
   const [passwordStepUpCode, setPasswordStepUpCode] = useState('');
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeySummary[]>([]);
   const [apiKeysLoading, setApiKeysLoading] = useState(true);
   const [apiKeysError, setApiKeysError] = useState(false);
@@ -316,6 +319,8 @@ export default function AccountSettingsPage() {
   const [haSaveSuccess, setHaSaveSuccess] = useState(false);
   const [haResetDone, setHaResetDone] = useState(false);
   const [haLoaded, setHaLoaded] = useState(false);
+  // A failed settings read is shown with a retry: empty fields would read as "not configured" (#3037).
+  const [haLoadError, setHaLoadError] = useState(false);
   // Pl@ntNet (plant identification) settings state
   const [plantnetKey, setPlantnetKey] = useState('');
   const [plantnetMaskedKey, setPlantnetMaskedKey] = useState('');
@@ -380,9 +385,12 @@ export default function AccountSettingsPage() {
       });
   }, []);
 
-  const loadSessions = useCallback(() => {
-    listSessions().then(setSessions).catch(() => {});
-  }, []);
+  // #3013 (A-01): the sessions list is how a foreign session is spotted and revoked, so a failed
+  // load renders an error with retry rather than an empty table. Light mode has no sessions endpoint.
+  const fetchSessions = useCallback((): Promise<SessionInfo[]> => listSessions(), []);
+  const sessionsLoad = useAsyncOptions(fetchSessions, { enabled: !isLightMode });
+  const sessions = sessionsLoad.options;
+  const loadSessions = sessionsLoad.reload;
 
   const loadApiKeys = useCallback(() => {
     setApiKeysLoading(true);
@@ -404,8 +412,7 @@ export default function AccountSettingsPage() {
     // not exist in light mode, so asking for them would only produce 404s.
     if (isLightMode) return;
     loadProviders();
-    loadSessions();
-  }, [isLightMode, loadProviders, loadSessions, loadApiKeys]);
+  }, [isLightMode, loadProviders, loadApiKeys]);
 
   const loadAdminData = useCallback(async () => {
     if (isLightMode || !isPlatformAdminUser) return;
@@ -420,7 +427,9 @@ export default function AccountSettingsPage() {
       setAdminTenants(tenants);
       setAdminUsers(users);
       setAdminDataOk(true);
-    } catch {
+    } catch (err) {
+      // Rendered below as a load error with retry, not as an absent admin section (#3037).
+      captureHandledError(err, { source: 'AccountSettingsPage.adminData' });
       setAdminDataOk(false);
     } finally {
       setAdminLoaded(true);
@@ -451,8 +460,10 @@ export default function AccountSettingsPage() {
       setPlantnetSource(pi.source_plantnet_api_key);
       setPlantnetKey('');
       setHaLoaded(true);
-    } catch {
-      /* ignore — settings optional */
+      setHaLoadError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'AccountSettingsPage.systemSettings' });
+      setHaLoadError(true);
     }
   }, []);
 
@@ -460,10 +471,10 @@ export default function AccountSettingsPage() {
   // ``GET /admin/settings`` answers 403 to anyone else, and firing it anyway
   // would spend a request to fill fields that are no longer rendered.
   useEffect(() => {
-    if (activeTab === 'ha' && !haLoaded && canManageInstanceSettings) {
+    if (activeTab === 'ha' && !haLoaded && !haLoadError && canManageInstanceSettings) {
       loadHaSettings();
     }
-  }, [activeTab, haLoaded, loadHaSettings, canManageInstanceSettings]);
+  }, [activeTab, haLoaded, haLoadError, loadHaSettings, canManageInstanceSettings]);
 
   const handleHaTest = async () => {
     setHaTesting(true);
@@ -587,9 +598,9 @@ export default function AccountSettingsPage() {
     try {
       await updateProfile({ display_name: displayName, locale, timezone });
       dispatch(fetchProfile());
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      setError(parseApiError(err));
+      setError(parseApiError(err, t));
     }
   };
 
@@ -615,7 +626,7 @@ export default function AccountSettingsPage() {
       setNewPassword('');
       setPasswordStepUpCode('');
       passwordFactors.reset();
-      enqueueSnackbar(t('pages.auth.passwordChanged'), { variant: 'success' });
+      notification.success(t('pages.auth.passwordChanged'));
       loadProviders();
     } catch (err) {
       // A throttled step-up (429 STEP_UP_LOCKED, #1816) reads as the translated
@@ -636,7 +647,7 @@ export default function AccountSettingsPage() {
     if (!unlinkTarget) return;
     await unlinkProvider(unlinkTarget.key, toCredentialStepUpBody(credentials));
     setUnlinkTarget(null);
-    enqueueSnackbar(t('pages.auth.providerUnlinked'), { variant: 'success' });
+    notification.success(t('pages.auth.providerUnlinked'));
     loadProviders();
   };
 
@@ -645,7 +656,7 @@ export default function AccountSettingsPage() {
       await revokeSession(key);
       loadSessions();
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -671,7 +682,7 @@ export default function AccountSettingsPage() {
       const result = await createApiKey({ label: newKeyLabel.trim() });
       finishApiKeyCreation(result.raw_key);
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -685,9 +696,9 @@ export default function AccountSettingsPage() {
     try {
       await revokeApiKey(keyId);
       loadApiKeys();
-      enqueueSnackbar(t('pages.auth.apiKeyRevoked'), { variant: 'success' });
+      notification.success(t('pages.auth.apiKeyRevoked'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -703,9 +714,9 @@ export default function AccountSettingsPage() {
       // user (and E2E waits) navigate away while the PATCH is still in flight,
       // silently losing the level change on full reload.
       await dispatch(updateUserPreferences({ updates: { experience_level: newLevel } })).unwrap();
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     }
   };
 
@@ -715,6 +726,10 @@ export default function AccountSettingsPage() {
   const handleDeleteAccount = async ({ echo, ...credentials }: StepUpConfirmation) => {
     await deleteAccount({ confirm_email: echo, ...toStepUpBody(credentials) });
     setDeleteAccountOpen(false);
+    // The closed account's offline data goes before the page does (REQ-053 WP 9.2, #2789 review S3):
+    // the reload's refresh fails, and nothing else would clear the plan cache or the API caches. The account's
+    // unsent offline entries go too (REQ-053 WP 9.4); other users' entries on the device stay.
+    await clearOfflineData({ discardWriteQueueOf: user?.key ?? null });
     // Full reload, not a router navigation: the session is gone server-side and
     // every in-memory slice belongs to the closed account.
     window.location.href = '/login';
@@ -994,6 +1009,11 @@ export default function AccountSettingsPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.auth.devicePairing.sessionsHint')}
               </Typography>
+              {sessionsLoad.error ? (
+                <ErrorDisplay error="pages.auth.sessionsLoadFailed" onRetry={sessionsLoad.reload} />
+              ) : sessionsLoad.loading && sessions.length === 0 ? (
+                <LoadingSkeleton variant="table" rows={3} />
+              ) : (
               <TableContainer>
                 <Table size="small">
                   <TableHead>
@@ -1073,6 +1093,7 @@ export default function AccountSettingsPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              )}
             </CardContent>
           </Card>
           {/* Mounted inside the sessions tab, not next to the page's other
@@ -1125,7 +1146,7 @@ export default function AccountSettingsPage() {
                       aria-label={t('pages.auth.copyApiKey')}
                       onClick={() => {
                         navigator.clipboard.writeText(createdKeyRaw);
-                        enqueueSnackbar(t('pages.auth.apiKeyCopied'), { variant: 'success' });
+                        notification.success(t('pages.auth.apiKeyCopied'));
                       }}
                     >
                       <ContentCopyIcon fontSize="small" />
@@ -1278,7 +1299,7 @@ export default function AccountSettingsPage() {
                   const val = parseFloat(e.target.value);
                   if (!isNaN(val) && val > 0) {
                     dispatch(updateUserPreferences({ updates: { watering_can_liters: val } }));
-                    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+                    notification.success(t('common.saved'));
                   }
                 }}
                 slotProps={{
@@ -1377,6 +1398,15 @@ export default function AccountSettingsPage() {
       {/* ── Admin Tab ── */}
       {activeTab === 'ha' && (
         <Box sx={GRID_2COL}>
+          {haLoadError && canManageInstanceSettings && (
+            <Box sx={{ gridColumn: '1 / -1' }}>
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadHaSettings()}
+                data-testid="system-settings-load-error"
+              />
+            </Box>
+          )}
           {/* Smart Home Master Toggle */}
           <Card variant="outlined" sx={{ gridColumn: '1 / -1' }}>
             <CardContent>
@@ -1806,6 +1836,14 @@ export default function AccountSettingsPage() {
             </Typography>
           </Alert>
 
+          {isFullMode && isPlatformAdminUser && adminLoaded && !adminLoading && !adminDataOk && (
+            <OptionsLoadError
+              messageKey="errors.loadFailed"
+              onRetry={() => void loadAdminData()}
+              data-testid="admin-data-load-error"
+            />
+          )}
+
           {/* Admin: Stats + Org/User tables */}
           {isFullMode && isPlatformAdminUser && adminDataOk && (
             <>
@@ -1924,7 +1962,7 @@ export default function AccountSettingsPage() {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <Typography variant="body2" sx={{ fontWeight: 500 }}>{tenant.name}</Typography>
                                   {tenant.is_platform && (
-                                    <Chip label="Platform" size="small" color="warning" variant="outlined" />
+                                    <Chip label={t('pages.auth.platformChip')} size="small" color="warning" variant="outlined" />
                                   )}
                                 </Box>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
@@ -2157,8 +2195,9 @@ export default function AccountSettingsPage() {
         maxWidth="sm"
         fullWidth
         data-testid="api-key-label-dialog"
+        aria-labelledby="api-key-label-dialog-title"
       >
-        <DialogTitle>{t('pages.auth.createApiKey')}</DialogTitle>
+        <DialogTitle id="api-key-label-dialog-title">{t('pages.auth.createApiKey')}</DialogTitle>
         <DialogContent>
           <TextField
             label={t('pages.auth.apiKeyLabel')}
@@ -2184,8 +2223,8 @@ export default function AccountSettingsPage() {
       </Dialog>
 
       {/* HA Reset Dialog */}
-      <Dialog fullScreen={fullScreen} open={haResetOpen} onClose={() => setHaResetOpen(false)}>
-        <DialogTitle>{t('pages.admin.resetToDefaults')}</DialogTitle>
+      <Dialog fullScreen={fullScreen} open={haResetOpen} onClose={() => setHaResetOpen(false)} data-testid="ha-reset-dialog" aria-labelledby="ha-reset-dialog-title">
+        <DialogTitle id="ha-reset-dialog-title">{t('pages.admin.resetToDefaults')}</DialogTitle>
         <DialogContent>
           <DialogContentText>{t('pages.admin.resetConfirm')}</DialogContentText>
         </DialogContent>
@@ -2204,6 +2243,7 @@ export default function AccountSettingsPage() {
         onClose={() => setPlantnetResetOpen(false)}
         aria-labelledby="plantnet-reset-dialog-title"
         aria-describedby="plantnet-reset-dialog-desc"
+        data-testid="plantnet-reset-dialog"
       >
         <DialogTitle id="plantnet-reset-dialog-title">
           {t('pages.admin.plantnetResetDialogTitle')}

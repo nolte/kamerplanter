@@ -184,6 +184,22 @@ Dracaena spp. werden als Zimmerpflanzen nicht gesät und nicht geerntet. Die fol
 - *Staunässe:* Wurzeln benötigen Sauerstoff; dauerhaft nasses Substrat führt zu Wurzelfäule (*Pythium*, *Erwinia*). Daher `sensitive`. (Quelle 21)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Dokument führt zwei Arten; RHS nennt für D. marginata „Full sun" („full light with some protection from hot, direct sunlight"), für D. fragrans die Spanne „Full sun, Partial shade" ohne Vorzug — kein einheitlicher Artwert --> | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Dracaena marginata (v)", https://www.rhs.org.uk/plants/31916/dracaena-marginata-(v)/details und „Dracaena fragrans", https://www.rhs.org.uk/plants/6093/dracaena-fragrans/details, gelesen, aber nicht einheitlich) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -548,6 +564,11 @@ Klassische Freiland-Mischkulturregeln (Fruchtfolge, Stickstoffversorgung) gelten
 | Empfohlene Vorfrucht | nicht relevant |
 | Empfohlene Nachfrucht | nicht relevant |
 | Anbaupause (Jahre) | nicht relevant |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zimmerpflanze, keine Fruchtfolge-Quelle; Familie Asparagaceae ohne Familienwert --> |
 
 ---
 

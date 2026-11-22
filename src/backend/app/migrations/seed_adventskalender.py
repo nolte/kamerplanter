@@ -21,6 +21,7 @@ from app.common.dependencies import (
 )
 from app.common.enums import (
     CycleType,
+    PhotoperiodSource,
     PhotoperiodType,
     StressTolerance,
     Suitability,
@@ -30,8 +31,10 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.phase import NutrientProfile, RequirementProfile
 from app.domain.models.species import Species
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
 from app.migrations.seed_ipm_rows import seed_ipm_rows
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
+from app.migrations.seed_photoperiod_source import stamp_unchanged_photoperiods
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -108,6 +111,7 @@ def _load_data() -> dict[str, Any]:
 def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
     """Construct BotanicalFamily models from YAML data."""
     families: list[BotanicalFamily] = []
+    entry: dict[str, Any]
     for entry in data.get("new_families", []):
         ph_pref = entry.get("soil_ph_preference")
         families.append(
@@ -117,6 +121,10 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 common_name_en=entry["common_name_en"],
                 order=entry["order"],
                 typical_nutrient_demand=entry["typical_nutrient_demand"],
+                # REQ-053 GP-FR-138 (M6, #2325): sourced values only (E-10); absent keys keep the
+                # model defaults (nitrogen_fixing False, rotation_pause_years None).
+                nitrogen_fixing=entry.get("nitrogen_fixing", False),
+                rotation_pause_years=entry.get("rotation_pause_years"),
                 frost_tolerance=entry["frost_tolerance"],
                 typical_root_depth=entry["typical_root_depth"],
                 typical_growth_forms=entry["typical_growth_forms"],
@@ -144,6 +152,7 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
     """
     carry_fields = _species_carry_fields()
     species_list: list[Species] = []
+    entry: dict[str, Any]
     for entry in data.get("new_species", []):
         _warn_on_unknown_species_fields(entry)
 
@@ -289,21 +298,42 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
     species_key_map: dict[str, str] = {}
 
     for sp in new_species:
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
-        if existing:
-            species_key_map[sp.scientific_name] = existing.key or ""
+        existing_species: Species | None = catalogue_species(species_repo, sp.scientific_name)
+        if existing_species:
+            species_key_map[sp.scientific_name] = existing_species.key or ""
+            changed = False
             # Update growing_periods if changed (GrowingPeriod model migration)
-            if sp.growing_periods and sp.growing_periods != existing.growing_periods:
-                existing.growing_periods = sp.growing_periods
-                species_repo.update(existing.key or "", existing)
+            if sp.growing_periods and sp.growing_periods != existing_species.growing_periods:
+                existing_species.growing_periods = sp.growing_periods
+                changed = True
                 logger.info(
                     "species_growing_periods_updated",
                     name=sp.scientific_name,
                 )
+            # Vernacular names and their language map (REQ-001, #2902) reach an
+            # existing_species installation through this sync, not a migration. They travel
+            # together (the map may only name entries of the list) and only onto a
+            # GLOBAL row — a tenant's own species keeps the names its owner gave it.
+            names_changed = (
+                sp.common_names != existing_species.common_names
+                or sp.common_names_i18n != existing_species.common_names_i18n
+            )
+            if not existing_species.tenant_key and names_changed:
+                existing_species.common_names = sp.common_names
+                existing_species.common_names_i18n = sp.common_names_i18n
+                changed = True
+                logger.info("species_common_names_updated", name=sp.scientific_name)
+            if changed:
+                species_repo.update(existing_species.key or "", existing_species)
             else:
                 logger.info("species_exists", name=sp.scientific_name)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         family_name = new_species_family_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
         # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
@@ -316,7 +346,7 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── §3: Enrich existing species ──────────────────────────────────────
     for sci_name, updates in species_enrichment.items():
-        existing = species_repo.get_by_scientific_name(sci_name)
+        existing = catalogue_species(species_repo, sci_name)
         if not existing:
             logger.info("enrichment_species_not_found", name=sci_name)
             continue
@@ -385,6 +415,13 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
             has_germination = any(p.name == "germination" for p in existing_phases)
             if has_germination:
                 logger.info("phases_already_artspezifisch", species=sci_name)
+                # The phases stay as they are; their stored light hours that equal the Steckbrief's are sourced (#2857).
+                stated: dict[str, float] = {
+                    str(entry["phase"]["name"]): float(entry["requirements"]["photoperiod"])
+                    for entry in phase_data.get(sci_name, [])
+                    if entry["requirements"]["photoperiod"] is not None
+                }
+                stamp_unchanged_photoperiods(lifecycle_repo, existing_phases, stated)
                 continue
 
             if phases_owned_elsewhere(sci_name, phase_data):
@@ -443,6 +480,8 @@ def run_seed_adventskalender() -> None:  # noqa: C901, PLR0912, PLR0915
                 phase_key=phase_key,
                 light_ppfd_target=req["ppfd"],
                 photoperiod_hours=req["photoperiod"],
+                # The Steckbrief states the hours of this phase (#2857).
+                photoperiod_source=PhotoperiodSource.SOURCED,
                 temperature_day_c=req["temp_day"],
                 temperature_night_c=req["temp_night"],
                 humidity_day_percent=req["hum_day"],

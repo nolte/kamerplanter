@@ -1,0 +1,780 @@
+/**
+ * The bed view (REQ-053 WP 3.5: GP-FR-041/047/120/121, GP-API-012/018): header, tabs in the URL,
+ * the plan tab, the soil form, the status change and the read-only viewer.
+ */
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it } from 'vitest';
+import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
+import { bed, planResponse } from '@/test/gardenPlanFixtures';
+import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
+import { server } from '@/test/mocks/server';
+import BedView from './BedView';
+import { careTask, useCareBackend } from '../care/careTestKit';
+import { careItem, FABACEAE, SOLANACEAE, timeline, useHistoryBackend, year } from '../history/historyTestKit';
+import { bedSummary } from './bedTestKit';
+import { soilAnalyses } from './soilAnalysisTestKit';
+import type { BedSummary } from './types';
+
+const BASE = '/api/v1/t/:tenant';
+
+function store(role: 'viewer' | 'grower' | 'lead' = 'lead') {
+  return createTestStore({ ...tenantState(role), ...authState() });
+}
+
+function useBackend(extra: Parameters<typeof server.use> = []) {
+  server.use(
+    ...extra,
+    http.get('/api/v1/location-types', () =>
+      HttpResponse.json([{ key: 'raised_bed', name: 'Hochbeet', name_en: 'Raised bed' }]),
+    ),
+    http.get('/api/v1/tenants/:slug/members', () =>
+      HttpResponse.json([{ key: 'mem_1', user_key: 'user-1', display_name: 'Tester' }]),
+    ),
+    http.get('/api/v1/tenants/:slug/assignments', () =>
+      HttpResponse.json([{ key: 'as_1', membership_key: 'mem_1', location_key: 'loc_b03', tenant_key: 't' }]),
+    ),
+    http.get(`${BASE}/sites/:key/plan`, () =>
+      HttpResponse.json(
+        planResponse({
+          locations: [bed('loc_b03', 1, 1), bed('loc_other', 8, 8)],
+          garden_objects: [],
+          slots: [
+            { key: 's1', slot_id: 'A1', location_key: 'loc_b03', plan_geometry: { origin: [1.3, 1.3] } },
+            { key: 's2', slot_id: 'A2', location_key: 'loc_b03', plan_geometry: { origin: [1.6, 1.6] } },
+            { key: 's3', slot_id: 'B1', location_key: 'loc_other', plan_geometry: { origin: [8.3, 8.3] } },
+          ],
+          plants: [{ key: 'pl_1', instance_id: 'TOM-1', species_key: 'sp_tomato', slot_key: 's1' }],
+        }),
+      ),
+    ),
+    // The soil tab's analysis history (GP-FR-122): none recorded yet.
+    http.get(`${BASE}/locations/:key/soil-analyses`, () =>
+      HttpResponse.json(soilAnalyses({ series: [], method_changes: [], analyses: 0 })),
+    ),
+    // The planting tab and the rotation badge of the header.
+    http.get(`${BASE}/locations/:key/plantings`, () => HttpResponse.json([])),
+    http.get(`${BASE}/planting-runs`, () => HttpResponse.json([])),
+    http.get('/api/v1/growth-phases/:key', () =>
+      HttpResponse.json({ key: 'ph_veg', name: 'Vegetative', display_name: 'Vegetative' }),
+    ),
+  );
+}
+
+function renderBed(summary: BedSummary, route: string, role: 'viewer' | 'grower' | 'lead' = 'lead', onReload = () => undefined) {
+  return renderWithProviders(
+    <BedView summary={summary} details={<div data-testid="details-stub">master data</div>} onReload={onReload} />,
+    { store: store(role), route },
+  );
+}
+
+afterEach(() => cleanup());
+
+describe('BedView', () => {
+  it('shows the bed head from the summary (GP-FR-047)', async () => {
+    useBackend();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    const header = await screen.findByTestId('bed-header');
+    expect(within(header).getByTestId('bed-header-area')).toHaveTextContent('2.4 m²');
+    expect(within(header).getByTestId('bed-header-status')).toHaveTextContent('Active');
+    expect(within(header).getByTestId('bed-header-soil')).toHaveTextContent('Loam');
+    expect(within(header).getByTestId('bed-header-sun')).toHaveTextContent('Partial shade');
+    expect(within(header).getByTestId('bed-header-plants')).toHaveTextContent('6 plants');
+    expect(within(header).getByTestId('bed-header-plants')).toHaveTextContent('2 species');
+    expect(within(header).getByTestId('bed-header-tasks')).toHaveTextContent('3 tasks');
+    expect(within(header).getByTestId('bed-header-tasks')).toHaveTextContent('1 overdue');
+    // The type name and the assignment arrive from their own requests.
+    await waitFor(() => expect(within(header).getByTestId('bed-header-type')).toHaveTextContent('Raised bed'));
+    await waitFor(() => expect(within(header).getByTestId('bed-header-assigned')).toHaveTextContent('Tester'));
+    expect(within(header).getByTestId('bed-header-previous-year')).toHaveTextContent('Previous year (');
+  });
+
+  it('opens on the plan tab and draws the bed with its places and plants (GP-FR-041)', async () => {
+    useBackend();
+    const { container } = renderBed(bedSummary(), '/standorte/locations/loc_b03');
+    expect(await screen.findByTestId('bed-plan-canvas')).toBeInTheDocument();
+    // Only this bed's places are counted; the neighbouring bed is not part of the view.
+    expect(screen.getByTestId('bed-plan-dimensions')).toHaveTextContent(/· 2 places · 1 plant$/);
+    expect(container.querySelector('[data-plan-key="loc_b03"]')).not.toBeNull();
+    expect(container.querySelector('[data-plan-key="loc_other"]')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Plan' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('says so when the bed is not on the garden plan yet', async () => {
+    useBackend();
+    renderBed(bedSummary({ geometry: null, bbox: null }), '/standorte/locations/loc_b03');
+    expect(await screen.findByText('This bed is not on the garden plan yet')).toBeInTheDocument();
+    expect(screen.queryByTestId('bed-plan-canvas')).toBeNull();
+  });
+
+  it('keeps the tab in the URL hash: a deep link opens the planting tab with its Plant button', async () => {
+    useBackend();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#planting');
+    expect(await screen.findByTestId('bed-planting-tab')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Planting' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByTestId('bed-plant-button')).toBeEnabled();
+  });
+
+  it('shows a badge on the bed while a planting under way was started despite a crop-rotation hint (GP-FR-132)', async () => {
+    useBackend([
+      http.get(`${BASE}/planting-runs`, () =>
+        HttpResponse.json([
+          { key: 'run_1', status: 'planned', rotation_override_reason: 'No other bed is free' },
+          { key: 'run_2', status: 'completed', rotation_override_reason: 'Last year, long over' },
+          { key: 'run_3', status: 'active', rotation_override_reason: null },
+        ]),
+      ),
+    ]);
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    const badge = await screen.findByTestId('bed-rotation-badge');
+    expect(badge).toHaveTextContent('Crop rotation hint');
+    expect(badge).toHaveTextContent('Planted anyway: No other bed is free');
+    expect(badge).not.toHaveTextContent('long over');
+  });
+
+  it('shows no badge when no planting overrides a hint, and none when the runs cannot be read', async () => {
+    useBackend([http.get(`${BASE}/planting-runs`, () => HttpResponse.json({}, { status: 500 }))]);
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    await screen.findByTestId('bed-header');
+    await waitFor(() => expect(screen.queryByTestId('bed-rotation-badge')).toBeNull());
+  });
+
+  it('opens the care tab with the open tasks of the bed (GP-FR-083) and the history tab with its timeline (GP-FR-102)', async () => {
+    useBackend();
+    useHistoryBackend({ items: [careItem('h1', { summary: 'Mulched' })], timeline: timeline([year(2026), year(2025), year(2024), year(2023), year(2022)]) });
+    useCareBackend([careTask('t1', { name: 'Water the bed' })]);
+    const user = userEvent.setup();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#care');
+    expect(await screen.findByTestId('care-task-t1')).toHaveTextContent('Water the bed');
+    expect(screen.getByRole('tab', { name: 'Care' })).toHaveAttribute('aria-selected', 'true');
+    await user.click(screen.getByRole('tab', { name: 'History' }));
+    expect(await screen.findByTestId('bed-history-tab')).toHaveTextContent('What grew here');
+    expect(await screen.findByTestId('history-item-care:h1')).toHaveTextContent('Mulched');
+  });
+
+  it('reloads the summary after a task was completed, so the head counters follow', async () => {
+    useBackend();
+    useCareBackend([careTask('t1', { name: 'Weed', category: 'weeding' })]);
+    const user = userEvent.setup();
+    let reloads = 0;
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#care', 'lead', () => {
+      reloads += 1;
+    });
+    await user.click(await screen.findByTestId('care-done-t1'));
+    await user.click(await screen.findByTestId('care-complete-submit'));
+    await waitFor(() => expect(reloads).toBeGreaterThan(0));
+  });
+
+  it('opens the photos tab from the hash and reloads the head after the cover was chosen (GP-FR-051)', async () => {
+    const photo = (isCover: boolean) => ({
+      attachment_id: 'p1',
+      uri: '/api/v1/t/test-tenant/attachments/p1',
+      thumbnail_uris: null,
+      is_cover: isCover,
+      can_remove: true,
+    });
+    useBackend([
+      http.get(`${BASE}/locations/:key/photos`, () =>
+        HttpResponse.json({ location_key: 'loc_b03', cover_photo_ref: null, photos: [photo(false)], max_photos: 50 }),
+      ),
+      http.put(`${BASE}/locations/:key/photos/cover`, () =>
+        HttpResponse.json({ location_key: 'loc_b03', cover_photo_ref: 'p1', photos: [photo(true)], max_photos: 50 }),
+      ),
+      http.get(`${BASE}/attachments/:id`, () =>
+        HttpResponse.arrayBuffer(new Uint8Array([1]).buffer, { headers: { 'Content-Type': 'image/jpeg' } }),
+      ),
+    ]);
+    const user = userEvent.setup();
+    let reloads = 0;
+    renderBed(bedSummary({ cover_photo_ref: null }), '/standorte/locations/loc_b03#photos', 'grower', () => {
+      reloads += 1;
+    });
+    expect(await screen.findByTestId('bed-photos')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Photos' })).toHaveAttribute('aria-selected', 'true');
+    expect(reloads).toBe(0);
+    await user.click(await screen.findByTestId('bed-photo-toggle-cover-p1'));
+    await waitFor(() => expect(reloads).toBe(1));
+  });
+
+  it('hides the plan tab when the garden planner module is switched off', async () => {
+    useBackend();
+    const off = createTestStore({
+      ...tenantState('lead'),
+      ...authState(),
+      userPreferences: {
+        preferences: { module_visibility: { garden_planner: 'disabled' }, smart_home_enabled: false },
+        loading: false,
+        error: null,
+      },
+    });
+    renderWithProviders(
+      <BedView summary={bedSummary()} details={<div />} onReload={() => undefined} />,
+      { store: off, route: '/standorte/locations/loc_b03' },
+    );
+    expect(await screen.findByTestId('bed-tabs')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Plan' })).toBeNull();
+    // The first remaining tab is the default.
+    expect(screen.getByRole('tab', { name: 'Planting' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  describe('soil tab (GP-FR-120/121)', () => {
+    it('shows the stored profile and saves a changed one through PATCH', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower', () => {
+        reloaded += 1;
+      });
+      const form = await screen.findByTestId('bed-soil-tab');
+      expect(within(form).getByTestId('form-field-soil_texture')).toHaveTextContent('Loam');
+      expect(within(form).getByTestId('form-submit-button')).toBeDisabled();
+
+      await user.click(within(screen.getByTestId('form-field-drainage')).getByRole('combobox'));
+      await user.click(await screen.findByTestId('form-option-drainage-poor'));
+      expect(screen.getByTestId('form-submit-button')).toBeEnabled();
+      await user.click(screen.getByTestId('form-submit-button'));
+
+      await waitFor(() => expect(body).not.toBeNull());
+      expect(body).toMatchObject({
+        soil_profile: {
+          soil_texture: 'loam',
+          drainage: 'poor',
+          site_water_regime: 'fresh',
+          conditions: ['stony'],
+          ph: 6.5,
+          ph_method: 'cacl2',
+        },
+      });
+      await waitFor(() => expect(reloaded).toBe(1));
+    });
+
+    it('carries the rotation switch of the bed above the soil form, writing only its own key (GP-FR-137)', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary({ rotation_enabled: false }), '/standorte/locations/loc_b03#soil', 'grower', () => {
+        reloaded += 1;
+      });
+
+      const switchBox = await screen.findByTestId('rotation-switch');
+      expect(within(switchBox).getByRole('radio', { name: 'Switched off' })).toBeChecked();
+      await user.click(within(switchBox).getByRole('radio', { name: 'Switched on' }));
+
+      await waitFor(() => expect(bodies).toEqual([{ rotation_enabled: true }]));
+      await waitFor(() => expect(reloaded).toBe(1));
+      expect(screen.getByTestId('bed-soil-tab')).toBeInTheDocument();
+    });
+
+    it('carries the soil analyses below the profile: record, liming hint and history (GP-FR-122)', async () => {
+      const reads: string[] = [];
+      useBackend([
+        http.get(`${BASE}/locations/:key/soil-analyses`, ({ params }) => {
+          reads.push(String(params.key));
+          return HttpResponse.json(soilAnalyses({ liming_hint: { status: 'likely', reason: 'below_target' } }));
+        }),
+      ]);
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      const section = await screen.findByTestId('bed-soil-analyses');
+      expect(await within(section).findByTestId('soil-history-chart')).toBeInTheDocument();
+      expect(within(section).getByTestId('soil-liming-hint')).toHaveTextContent('Liming likely worthwhile');
+      expect(within(section).getByTestId('soil-liming-hint')).not.toHaveTextContent(/\d+\s*(g|kg)/);
+      expect(within(section).getByTestId('soil-analysis-record')).toBeInTheDocument();
+      expect(reads).toEqual(['loc_b03']);
+    });
+
+    it('opens the record dialog from the empty state, and a viewer gets neither', async () => {
+      useBackend();
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      const section = await screen.findByTestId('bed-soil-analyses');
+      await user.click(await within(section).findByRole('button', { name: 'Record soil analysis' }));
+      expect(await screen.findByTestId('soil-analysis-dialog')).toBeInTheDocument();
+      cleanup();
+
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+      const readOnly = await screen.findByTestId('bed-soil-analyses');
+      expect(await within(readOnly).findByText(/No soil analysis has been recorded/)).toBeInTheDocument();
+      expect(within(readOnly).queryByRole('button', { name: 'Record soil analysis' })).toBeNull();
+    });
+
+    it('explains the finger test', async () => {
+      useBackend();
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+      await user.click(await screen.findByRole('button', { name: /Finger test/ }));
+      expect(await screen.findByText(/Very easy to shape, shiny/)).toBeVisible();
+    });
+
+    it('is read-only for a viewer', async () => {
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+      const form = await screen.findByTestId('bed-soil-tab');
+      expect(within(form).getByText(/view it but not change it/)).toBeInTheDocument();
+      expect(within(form).queryByTestId('form-submit-button')).toBeNull();
+      expect(within(form).getByRole('textbox', { name: /Notes/ })).toBeDisabled();
+    });
+  });
+
+  describe('site conditions (GP-FR-162/163/168, WP 8.22)', () => {
+    it('shows what was recorded in the head and hides the control from a viewer', async () => {
+      useBackend();
+      renderBed(
+        bedSummary({ site_conditions: { microclimate: { frost_risk: 'high' }, wind_exposure: 'exposed' } }),
+        '/standorte/locations/loc_b03#soil',
+        'viewer',
+      );
+      const fact = await screen.findByTestId('bed-header-site');
+      expect(fact).toHaveTextContent('Frost risk: High · Wind: Exposed');
+      expect(screen.queryByTestId('bed-site-change-button')).toBeNull();
+    });
+
+    it('stores only the changed keys through ONE PATCH, never frost_exposed, and reloads the summary', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(
+        bedSummary({ site_conditions: { microclimate: { frost_risk: 'low' }, wind_exposure: 'normal' } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+        () => {
+          reloaded += 1;
+        },
+      );
+
+      await user.click(await screen.findByTestId('bed-site-change-button'));
+      const dialog = await screen.findByTestId('bed-site-dialog');
+      expect(await within(dialog).findByRole('radio', { name: 'Low' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'High' }));
+      await user.click(within(dialog).getByRole('checkbox', { name: 'West' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Normal', checked: true })); // already stored: no key
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+
+      await waitFor(() =>
+        expect(body).toEqual({ site_conditions: { microclimate: { frost_risk: 'high' }, access_sides: ['W'] } }),
+      );
+      expect(JSON.stringify(body)).not.toContain('frost_exposed');
+      await waitFor(() => expect(reloaded).toBe(1));
+      await waitFor(() => expect(screen.queryByTestId('bed-site-dialog')).toBeNull());
+    });
+
+    it('sends nothing when the dialog is saved unchanged, and nothing while a degrees entry is unreadable', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-site-change-button'));
+      const dialog = await screen.findByTestId('bed-site-dialog');
+      await user.type(within(dialog).getByRole('textbox', { name: 'Slope (degrees)' }), 'steep{Enter}');
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+      expect(patched).toBe(0);
+      expect(await screen.findByTestId('bed-site-dialog')).toBeInTheDocument();
+
+      await user.clear(within(dialog).getByRole('textbox', { name: 'Slope (degrees)' }));
+      await user.keyboard('{Enter}');
+      await user.click(within(dialog).getByTestId('bed-site-submit'));
+      await waitFor(() => expect(screen.queryByTestId('bed-site-dialog')).toBeNull());
+      expect(patched).toBe(0);
+    });
+  });
+
+  describe('site thresholds (GP-FR-164/166, WP 8.24)', () => {
+    const siteWith = () =>
+      http.get(`${BASE}/sites/:key`, ({ params }) =>
+        HttpResponse.json({
+          key: params.key,
+          name: 'Garten',
+          type: 'outdoor',
+          sun_class_thresholds: {
+            full_sun_min_hours: 8,
+            partial_shade_min_hours: 4,
+            shade_min_hours: 1,
+            reference_month: 7,
+            reference_day: 1,
+          },
+          reach_thresholds: { both_sides_m: 1.2, one_side_m: 0.8 },
+        }),
+      );
+    const narrowBed = () =>
+      bedSummary({
+        geometry: { kind: 'rect', origin: [1, 1], width_m: 0.9, length_m: 2, rotation_deg: 0 },
+        site_conditions: { access_sides: [] },
+      });
+
+    it('reads the site of the bed: the reach hint names the configured one-side value', async () => {
+      useBackend([siteWith()]);
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil');
+
+      await waitFor(() =>
+        expect(screen.getByTestId('bed-reach-detail')).toHaveTextContent('one-side value applies (0.8 m)'),
+      );
+    });
+
+    it('the sun dialog shows the configured hours and reference day', async () => {
+      useBackend([siteWith()]);
+      const user = userEvent.setup();
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil', 'grower');
+      // The site has arrived once the hint carries its value.
+      await waitFor(() => expect(screen.getByTestId('bed-reach-detail')).toHaveTextContent('(0.8 m)'));
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+
+      expect(within(dialog).getByText('More than 8 hours of direct sunlight on July 1')).toBeInTheDocument();
+      expect(within(dialog).getByText('Less than 1 hour of direct sunlight')).toBeInTheDocument();
+    });
+
+    it('keeps the defaults when the site cannot be read', async () => {
+      useBackend([http.get(`${BASE}/sites/:key`, () => HttpResponse.json({}, { status: 500 }))]);
+      renderBed(narrowBed(), '/standorte/locations/loc_b03#soil');
+
+      expect(await screen.findByTestId('bed-reach-detail')).toHaveTextContent('one-side value applies (0.6 m)');
+    });
+  });
+
+  describe('sun and shade (GP-FR-157)', () => {
+    it('changes the class from the head through PATCH and reloads the summary', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower', () => {
+        reloaded += 1;
+      });
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      expect(within(dialog).getByRole('radio', { name: 'Partial shade' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'Full sun' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(body).toEqual({ sun_exposure: 'full_sun' }));
+      await waitFor(() => expect(reloaded).toBe(1));
+      await waitFor(() => expect(screen.queryByTestId('bed-sun-dialog')).toBeNull());
+    });
+
+    it('sends nothing when the class is left as it was', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      await user.click(await screen.findByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(screen.queryByTestId('bed-sun-dialog')).toBeNull());
+      expect(patched).toBe(0);
+    });
+
+    it('stores the sun window, the hours and leaf shade in one PATCH that carries only the changed keys (GP-FR-158/159)', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(
+        bedSummary({ site_conditions: { sun_profile: { sun_window: 'morning', foliage_shade_in_summer: false } } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+      );
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      expect(within(dialog).getByRole('radio', { name: 'Morning' })).toBeChecked();
+      await user.click(within(dialog).getByRole('radio', { name: 'Afternoon' }));
+      await user.type(
+        within(dialog).getByRole('textbox', { name: 'Hours of direct sun in summer (optional)' }),
+        '5',
+      );
+      await user.click(within(dialog).getByRole('switch', { name: 'Leaf shade in summer' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        site_conditions: {
+          sun_profile: { sun_window: 'afternoon', direct_sun_hours_summer: 5, foliage_shade_in_summer: true },
+        },
+      });
+    });
+
+    it('sends the class and the profile together and drops a key set back to its stored value', async () => {
+      const bodies: unknown[] = [];
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, async ({ request }) => {
+          bodies.push(await request.json());
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(
+        bedSummary({ site_conditions: { sun_profile: { sun_window: 'morning' } } }),
+        '/standorte/locations/loc_b03#soil',
+        'grower',
+      );
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Morning' })); // back to the stored value
+      await user.click(within(dialog).getByRole('switch', { name: 'Leaf shade in summer' }));
+      await user.click(within(dialog).getByRole('radio', { name: 'Shade' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(bodies).toHaveLength(1));
+      expect(bodies[0]).toEqual({
+        sun_exposure: 'shade',
+        site_conditions: { sun_profile: { foliage_shade_in_summer: true } },
+      });
+    });
+
+    it('keeps the dialog open with the entry when the server refuses the profile (422)', async () => {
+      let refused = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          refused += 1;
+          return HttpResponse.json(
+            { detail: 'site_conditions.sun_profile.direct_sun_hours_summer: must be <= 24' },
+            { status: 422 },
+          );
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      await waitFor(() => expect(refused).toBe(1));
+      await waitFor(() => expect(within(screen.getByTestId('bed-sun-dialog')).getByTestId('bed-sun-submit')).toBeEnabled());
+      expect(screen.getByTestId('bed-sun-dialog')).toBeInTheDocument();
+      expect(within(screen.getByTestId('bed-sun-dialog')).getByRole('radio', { name: 'Midday' })).toBeChecked();
+    });
+
+    it('does not save while the hours are out of range and keeps the dialog open (0 requests)', async () => {
+      let patched = 0;
+      useBackend([
+        http.patch(`${BASE}/locations/:key`, () => {
+          patched += 1;
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 4 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+      await user.click(within(dialog).getByRole('radio', { name: 'Midday' }));
+      await user.type(within(dialog).getByRole('textbox', { name: 'Hours of direct sun in summer (optional)' }), '30');
+      await user.click(within(dialog).getByTestId('bed-sun-submit'));
+
+      expect(within(dialog).getByText('Enter a number between 0 and 24, or leave the field empty.')).toBeVisible();
+      expect(screen.getByTestId('bed-sun-dialog')).toBeInTheDocument();
+      expect(patched).toBe(0);
+    });
+
+    it('shows what was recorded on one line in the head and nothing when nothing was', async () => {
+      useBackend();
+      const { unmount } = renderBed(
+        bedSummary({
+          site_conditions: {
+            sun_profile: { sun_window: 'all_day', direct_sun_hours_summer: 7, foliage_shade_in_summer: true },
+          },
+        }),
+        '/standorte/locations/loc_b03#soil',
+        'viewer',
+      );
+      expect(await screen.findByTestId('bed-header-sun-profile')).toHaveTextContent(
+        'Sun: All day · about 7 h of direct sun · Leaf shade in summer',
+      );
+      unmount();
+
+      renderBed(bedSummary({ site_conditions: { sun_profile: { sun_window: 'unknown' } } }), '/standorte/locations/loc_b03#soil', 'viewer');
+      await screen.findByTestId('bed-header');
+      expect(screen.queryByTestId('bed-header-sun-profile')).toBeNull();
+    });
+
+    it('offers a viewer no way to change it', async () => {
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+      const header = await screen.findByTestId('bed-header');
+
+      expect(within(header).getByTestId('bed-header-sun')).toHaveTextContent('Partial shade');
+      expect(screen.queryByTestId('bed-sun-change-button')).toBeNull();
+    });
+
+    it('has no critical accessibility violations in the dialog', async () => {
+      useBackend();
+      const user = userEvent.setup();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      await user.click(await screen.findByTestId('bed-sun-change-button'));
+      const dialog = await screen.findByTestId('bed-sun-dialog');
+
+      await expectNoA11yViolations(dialog);
+    });
+  });
+
+  describe('status change (GP-FR-046, GP-API-018)', () => {
+    it('needs a reason to retire a bed and posts it', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.post(`${BASE}/locations/:key/status`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'retired', plan_revision: 5 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      let reloaded = 0;
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'lead', () => {
+        reloaded += 1;
+      });
+      await user.click(await screen.findByTestId('bed-status-change-button'));
+      const dialog = await screen.findByTestId('bed-status-dialog');
+      // An active bed can only be retired; that needs a reason.
+      expect(within(dialog).getByTestId('bed-status-submit')).toBeDisabled();
+      await user.type(within(dialog).getByRole('textbox', { name: /Reason/ }), 'Dismantled for the shed');
+      await user.click(within(dialog).getByTestId('bed-status-submit'));
+      await waitFor(() => expect(body).toEqual({ bed_status: 'retired', reason: 'Dismantled for the shed' }));
+      await waitFor(() => expect(reloaded).toBe(1));
+      await waitFor(() => expect(screen.queryByTestId('bed-status-dialog')).toBeNull());
+    });
+
+    it('offers a grower no status change for an active bed', async () => {
+      useBackend();
+      renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+      await screen.findByTestId('bed-header');
+      expect(screen.queryByTestId('bed-status-change-button')).toBeNull();
+    });
+
+    it('lets a grower bring a planned bed into use without a reason', async () => {
+      let body: unknown = null;
+      useBackend([
+        http.post(`${BASE}/locations/:key/status`, async ({ request }) => {
+          body = await request.json();
+          return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 5 });
+        }),
+      ]);
+      const user = userEvent.setup();
+      renderBed(bedSummary({ bed_status: 'planned' }), '/standorte/locations/loc_b03#soil', 'grower');
+      await user.click(await screen.findByTestId('bed-status-change-button'));
+      const dialog = await screen.findByTestId('bed-status-dialog');
+      await user.click(within(dialog).getByTestId('bed-status-submit'));
+      await waitFor(() => expect(body).toEqual({ bed_status: 'active' }));
+    });
+  });
+
+  it('reads the season from ?year=, falls back to this year for a bad value and keeps the tab', async () => {
+    useBackend();
+    const user = userEvent.setup();
+    const current = new Date().getFullYear();
+    renderBed(bedSummary(), `/standorte/locations/loc_b03?year=${current - 2}#soil`);
+    const header = await screen.findByTestId('bed-header-season');
+    expect(within(header).getByTestId('bed-header-previous-year')).toHaveTextContent(`(${current - 3})`);
+    await user.click(within(header).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: String(current) }));
+    await waitFor(() =>
+      expect(screen.getByTestId('bed-header-previous-year')).toHaveTextContent(`(${current - 1})`),
+    );
+    expect(screen.getByRole('tab', { name: 'Soil' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('ignores a year outside the offered window', async () => {
+    useBackend();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03?year=1900#soil');
+    const current = new Date().getFullYear();
+    expect(await screen.findByTestId('bed-header-previous-year')).toHaveTextContent(`(${current - 1})`);
+  });
+
+  it('names the previous year from the rotation timeline the history and the matrix read (#2764)', async () => {
+    useBackend();
+    const current = new Date().getFullYear();
+    const { seen } = useHistoryBackend({
+      timeline: timeline([
+        year(current),
+        year(current - 1, [{ ...SOLANACEAE, season: 'main', source: 'backfill', care_event_key: 'ce_1' }]),
+        year(current - 2),
+        year(current - 3, [FABACEAE]),
+      ]),
+    });
+    const user = userEvent.setup();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil');
+    const line = await screen.findByTestId('bed-header-previous-year');
+    await waitFor(() =>
+      expect(line).toHaveTextContent(`Previous year (${current - 1}): Solanaceae (Heavy Feeder, Main season)`),
+    );
+    // The longest look-back, so every offered season finds its previous year in the answer.
+    expect(seen.find((request) => request.path === '/locations/loc_b03/rotation')?.params).toEqual({ years: '10' });
+
+    await user.click(within(screen.getByTestId('bed-header-season')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: String(current - 2) }));
+    await waitFor(() =>
+      expect(screen.getByTestId('bed-header-previous-year')).toHaveTextContent(
+        `Previous year (${current - 3}): Fabaceae (Light Feeder)`,
+      ),
+    );
+  });
+
+  it('has no critical accessibility violations on the plan and the soil tab (GP-NFR-028)', async () => {
+    useBackend();
+    const { container } = renderBed(bedSummary(), '/standorte/locations/loc_b03');
+    await screen.findByTestId('bed-plan-canvas');
+    await expectNoA11yViolations(container);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: 'Soil' }));
+    await screen.findByTestId('bed-soil-tab');
+    await expectNoA11yViolations(container);
+  });
+});
+
+describe('bed label (GP-FR-052, GP-UX-028, #2899)', () => {
+  it('offers "Etikett drucken" to every member and opens the label dialog for this bed', async () => {
+    useBackend();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'viewer');
+
+    await userEvent.click(await screen.findByTestId('bed-view-print-label'));
+
+    const dialog = await screen.findByTestId('bed-view-label-dialog');
+    expect(dialog).toHaveTextContent(bedSummary().name);
+    await userEvent.click(within(dialog).getByTestId('bed-view-label-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('bed-view-label-dialog')).toBeNull());
+  });
+});

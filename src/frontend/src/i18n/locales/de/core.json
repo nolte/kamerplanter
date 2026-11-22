@@ -157,6 +157,10 @@
     "glossary": {
       "label": "Glossar",
       "description": "Nachschlagewerk für Fachbegriffe wie VPD oder EC rund um den Anbau."
+    },
+    "garden_planner": {
+      "label": "Gartenplan",
+      "description": "Grafischer Plan deiner Beete und Gartenobjekte als Unterpunkt des Standorts."
     }
   },
   "roleGuard": {
@@ -294,11 +298,23 @@
     "rowsPerPage": "Zeilen pro Seite",
     "of": "von",
     "unsavedChanges": "Du hast ungespeicherte Änderungen. Möchtest du die Seite wirklich verlassen?",
+    "discardChangesTitle": "Änderungen verwerfen?",
+    "discardChangesMessage": "Du hast Eingaben gemacht, die noch nicht gespeichert sind. Wenn du das Fenster schließt, gehen sie verloren.",
+    "discardChangesConfirm": "Verwerfen",
     "deleteConfirm": "Bist du sicher, dass du \"{{name}}\" löschen möchtest? Diese Aktion kann nicht rückgängig gemacht werden.",
     "createdAt": "Erstellt am",
     "updatedAt": "Aktualisiert am",
     "skipToContent": "Zum Inhalt springen",
     "toggleSidebar": "Seitenleiste umschalten",
+    "pwa": {
+      "online": "Online",
+      "offline": "Offline",
+      "onlineHint": "Verbunden – Daten werden live geladen.",
+      "offlineHint": "Keine Verbindung – Änderungen sind erst wieder online möglich.",
+      "updateAvailable": "Neue Version verfügbar",
+      "updateNow": "Jetzt aktualisieren",
+      "updateLater": "Später"
+    },
     "sliderLabel": "{{label}} (Regler)",
     "days": "Tage",
     "months_unit": "Monate",
@@ -364,7 +380,17 @@
         "species": "Die Artenliste",
         "substrates": "Die Substratliste"
       }
-    }
+    },
+    "confirmDelete": "Löschen bestätigen",
+    "created": "Erstellt",
+    "deleted": "Gelöscht",
+    "error": "Ein Fehler ist aufgetreten.",
+    "noSearchResults": "Keine Ergebnisse für deine Suche gefunden",
+    "notes": "Notizen",
+    "switchToDarkTheme": "Zum dunklen Design wechseln",
+    "switchToLightTheme": "Zum hellen Design wechseln",
+    "changeLanguage": "Sprache ändern",
+    "breadcrumb": "Brotkrumen-Navigation"
   },
   "table": {
     "showing": "Zeigt {{from}}–{{to}} von {{total}} Einträgen",
@@ -436,9 +462,11 @@
     "diary": "Tagebuch",
     "kiAssistent": "KI-Assistent",
     "glossary": "Glossar",
+    "gardenPlan": "Gartenplan",
     "phasen": "Phasen",
     "detail": "Details",
-    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten"
+    "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten",
+    "careHistory": "Pflegehistorie"
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",
@@ -447,10 +475,14 @@
     "serverWithDetail": "Serverfehler: {{detail}}",
     "forbidden": "Du hast keine Berechtigung für diese Aktion.",
     "conflict": "Konflikt: Die Ressource wurde zwischenzeitlich geändert.",
+    "soilProfileStale": "Das Bodenprofil hat sich inzwischen geändert, weil eine Bodenanalyse gespeichert wurde. Lade die Seite neu und trage deine Änderung erneut ein.",
+    "taskAlreadyClosed": "Diese Aufgabe ist schon erledigt oder übersprungen – vermutlich war jemand schneller. Lade die Liste neu.",
+    "taskMissing": "Diese Aufgabe gibt es nicht mehr – vermutlich wurde sie gelöscht.",
+    "clientEventMismatch": "Dieser Eintrag wurde schon mit anderen Angaben gespeichert. Prüfe den gespeicherten Eintrag, bevor du ihn erneut sendest.",
+    "clientEventDeleted": "Was du hier gespeichert hattest, wurde inzwischen gelöscht – der Eintrag wird nicht erneut angelegt.",
     "tooLarge": "Die Datei ist zu groß. Bitte wähle eine kleinere Datei.",
     "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
     "validation": "Bitte überprüfe deine Eingaben.",
-    "validationWithDetail": "Validierungsfehler: {{detail}}",
     "duplicate": "Ein Eintrag mit diesem Namen existiert bereits.",
     "unknown": "Ein unbekannter Fehler ist aufgetreten.",
     "loadFailed": "Die Daten konnten nicht geladen werden.",
@@ -465,7 +497,58 @@
       "serviceAccountLimitReached": "Der Garten hat die Höchstzahl an Dienstkonten seines Plans erreicht. Lösche ein nicht mehr genutztes Dienstkonto oder bitte den Betreiber um einen größeren Plan.",
       "storageQuotaExceeded": "Der Speicherplatz des Gartens ist aufgebraucht. Lösche nicht mehr benötigte Fotos oder Anhänge oder bitte den Betreiber um mehr Speicher.",
       "photoQuotaExceeded": "Diese Pflanze hat die Höchstzahl an Fotos erreicht. Lösche ältere Fotos, bevor du neue hochlädst."
-    }
+    },
+    "slotOccupied": "Auf diesem Pflanzplatz steht schon eine Pflanze. Wähle einen anderen Platz oder entferne die Pflanze zuerst.",
+    "slotAlreadyPlanned": "Dieser Pflanzplatz ist für eine geplante Pflanzung reserviert. Wähle einen anderen Platz.",
+    "generic": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    "unauthorized": "Deine Anmeldung ist nicht mehr gültig. Bitte melde dich erneut an.",
+    "rateLimited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuche es dann erneut.",
+    "invalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",
+    "ACCOUNT_LOCKED": "Dein Konto ist nach zu vielen Fehlversuchen vorübergehend gesperrt. Versuche es später erneut.",
+    "EMAIL_NOT_VERIFIED": "Deine E-Mail-Adresse ist noch nicht bestätigt. Prüfe dein Postfach auf den Bestätigungslink.",
+    "INVALID_STATUS_TRANSITION": "Dieser Schritt ist im aktuellen Zustand nicht mehr möglich – vermutlich hat sich inzwischen etwas geändert. Lade die Seite neu.",
+    "ACCOUNT_BEING_ERASED": "Dieses Konto wird gerade gelöscht.",
+    "ADAPTER_NOT_AVAILABLE": "Diese Datenquelle ist gerade nicht erreichbar. Versuch es später noch einmal.",
+    "ADAPTER_NOT_FOUND": "Diese Datenquelle ist nicht eingerichtet.",
+    "AI_BUDGET_EXCEEDED": "Das KI-Budget für diesen Zeitraum ist aufgebraucht.",
+    "AI_BUDGET_UNAVAILABLE": "Das KI-Budget lässt sich gerade nicht prüfen. Versuch es später noch einmal.",
+    "AI_DISABLED_FOR_TENANT": "KI-Funktionen sind für diesen Garten ausgeschaltet.",
+    "CONSENT_REQUIRED": "Für diese Funktion brauchst du erst deine Einwilligung in den Datenschutzeinstellungen.",
+    "ERASURE_INCOMPLETE": "Die Löschung ist noch nicht abgeschlossen.",
+    "EXPORT_ALREADY_RUNNING": "Ein Export läuft bereits. Warte, bis er fertig ist.",
+    "EXTERNAL_SOURCE_ERROR": "Die externe Quelle hat einen Fehler gemeldet. Versuch es später noch einmal.",
+    "FEATURE_DISABLED": "Diese Funktion ist ausgeschaltet.",
+    "FEATURE_NOT_CONFIGURED": "Diese Funktion ist auf diesem Server nicht eingerichtet.",
+    "FEED_EXPIRED": "Dieser Kalender-Link ist abgelaufen. Erzeuge einen neuen.",
+    "FILE_TOO_LARGE": "Die Datei ist zu groß.",
+    "HST_VIOLATION": "Dieser Schritt ist in der aktuellen Phase nicht erlaubt (Stressbehandlung).",
+    "IMAGE_PIXEL_LIMIT_EXCEEDED": "Das Bild hat zu viele Pixel. Verkleinere es und versuch es noch einmal.",
+    "INCOMPATIBLE_COMPANION": "Diese Pflanzen vertragen sich nicht als Nachbarn.",
+    "INVALID_FILE_TYPE": "Dieser Dateityp wird nicht unterstützt.",
+    "INVALID_RUN_STATE": "Der Durchlauf ist dafür nicht im passenden Zustand.",
+    "INVALID_TOKEN": "Der Link ist ungültig oder abgelaufen.",
+    "KARENZ_VIOLATION": "Die Wartezeit nach einer Pflanzenschutz-Behandlung läuft noch – ernten ist noch nicht erlaubt.",
+    "PHASE_TRANSITION_INVALID": "Dieser Phasenwechsel ist nicht möglich.",
+    "PRESIGN_UPLOAD_UNSUPPORTED": "Der Speicher unterstützt diesen Upload-Weg nicht.",
+    "REGISTRATION_NOT_ALLOWED": "Eine Registrierung ist hier gerade nicht möglich.",
+    "REQUEST_BODY_TOO_LARGE": "Die Anfrage ist zu groß.",
+    "RESISTANCE_WARNING": "Achtung: Dieser Wirkstoff wurde zu oft hintereinander eingesetzt (Resistenzgefahr).",
+    "RESOURCE_IN_USE": "Das wird noch verwendet und kann nicht gelöscht werden.",
+    "ROTATION_VIOLATION": "Das verstößt gegen die Fruchtfolge dieses Beets.",
+    "SEASON_STATE_UNAVAILABLE": "Der Saisonstand lässt sich gerade nicht ermitteln.",
+    "STEP_UP_REAUTH_FAILED": "Die Bestätigung deiner Identität ist fehlgeschlagen.",
+    "STORED_DOCUMENT_INVALID": "Ein gespeicherter Datensatz ist ungültig. Bitte melde das dem Betreiber.",
+    "SUBSTRATE_EXHAUSTED": "Dieses Substrat ist aufgebraucht und muss ersetzt werden.",
+    "TENANT_ERASURE_CLAIM_LOST": "Die Löschung dieses Gartens wurde von einem anderen Vorgang übernommen.",
+    "TENANT_ERASURE_INCOMPLETE": "Die Löschung dieses Gartens ist noch nicht abgeschlossen.",
+    "THUMBNAIL_METADATA_LEAK": "Das Vorschaubild enthält noch Metadaten und wurde abgelehnt.",
+    "TRANSACTION_TIME_BUDGET_EXCEEDED": "Der Vorgang hat zu lange gedauert. Versuch es mit weniger Daten noch einmal.",
+    "UNSUPPORTED_MEDIA_TYPE": "Dieses Format wird nicht unterstützt.",
+    "UPLOAD_CAPACITY_EXHAUSTED": "Der Upload-Speicher ist gerade voll. Versuch es später noch einmal.",
+    "VIRUS_SCAN_REJECTED": "Die Datei wurde von der Virenprüfung abgelehnt.",
+    "WINTER_PATH_VIOLATION": "Dieser Schritt passt nicht zum gewählten Überwinterungsweg.",
+    "phaseRunOwned": "Diese Phase gehört zu einem Durchlauf und wird dort gesteuert.",
+    "recurrenceRruleRequired": "Für eine Wiederholung fehlt die Regel."
   },
   "validation": {
     "required": "Pflichtfeld.",
@@ -483,7 +566,8 @@
     "url": "Bitte eine gültige URL eingeben.",
     "invalidFormat": "Ungültiges Format.",
     "invalidOption": "Bitte eine gültige Option wählen.",
-    "invalid": "Ungültige Eingabe."
+    "invalid": "Ungültige Eingabe.",
+    "botanicalFamilySuffix": "Muss auf „-aceae“ enden."
   },
   "entities": {
     "botanicalFamily": "Botanische Familie",
@@ -715,7 +799,16 @@
     "layoutGrid3x3": "Raster 3×3 (9 Karten pro Seite)",
     "layoutGrid3x3Helper": "Sehr kompakt — optimal für viele Pflanzen auf einmal.",
     "printLabels": "Infokarten drucken",
-    "printLabelsShort": "Etiketten"
+    "printLabelsShort": "Etiketten",
+    "bedLabel": "Etikett drucken",
+    "bedLabelTitle": "Beet-Etikett drucken",
+    "bedLabelIntro": "Erstellt ein druckfertiges PDF-Etikett für „{{name}}“ mit Standort, Typ, Fläche und einem QR-Code. Wer den Code scannt, landet direkt in diesem Beet im Feldmodus – ohne Anmeldung zuerst beim Login und danach wieder hier.",
+    "bedLabelOffline": "Ohne Verbindung kann kein Etikett erstellt werden.",
+    "qrSizeLabel": "Größe des QR-Codes",
+    "qrSizeIntro": "Größere Codes lassen sich aus dem Stand und bei schlechtem Licht besser scannen.",
+    "qrSizeSmall": "Klein (25 mm)",
+    "qrSizeMedium": "Mittel (40 mm)",
+    "qrSizeLarge": "Groß (60 mm)"
   },
   "dashboard": {
     "manageWidgets": "Widgets verwalten",

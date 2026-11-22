@@ -57,6 +57,7 @@ export default function EmptyState({
         src={illustration ?? kamiStateEmpty}
         alt=""
         aria-hidden="true"
+        loading="lazy"
         sx={{ maxHeight: 180, maxWidth: '100%', objectFit: 'contain', mb: 2, opacity: 0.85 }}
       />
       <Typography variant="body1" sx={{ mb: description ? 0.5 : 2, fontWeight: 500 }}>

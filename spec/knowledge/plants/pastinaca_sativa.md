@@ -129,6 +129,22 @@
 Quellen (§1.8): [Harvest to Table — How to Grow Parsnips From Seed](https://harvesttotable.com/parsnips-seed-starting-tips/); [Savvy Gardening — Growing Parsnips: A Seed to Harvest Guide](https://savvygardening.com/growing-parsnips/); [PFAF — Pastinaca sativa](https://pfaf.org/user/plant.aspx?LatinName=Pastinaca+sativa); [Old Farmer's Almanac — Growing Parsnips](https://www.almanac.com/plant/parsnips); [Holmes Seed Company — Parsnip Growing Guide](https://www.holmesseed.com/growers-guidebook/growing-guides/parsnip-growing-guide/); [Illinois Extension — Parsnip](https://extension.illinois.edu/gardening/parsnip); [Manitoba Agriculture — Parsnip Cultivars/Production (PDF)](https://www.gov.mb.ca/agriculture/crops/crop-management/pubs/bmz00s14p.pdf); [Vital Seeds / West Coast Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 10–15 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30–40 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern, Merkblatt 2157 „Pastinake – Kulturanleitung“ (2013): „Reihenabstand: 30 bis 40 cm“, „Vereinzeln: … auf 10 cm in der Reihe“, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/infoschrift_pastinake.pdf; RHS, „How to grow parsnips“: Sämlinge auf 15 cm vereinzeln, weitere Reihen 30 cm Abstand, https://www.rhs.org.uk/vegetables/parsnips/grow-your-own (In-Reihe-Wert: Spanne aus beiden Quellen, 10 bzw. 15 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow parsnips“, https://www.rhs.org.uk/vegetables/parsnips/grow-your-own („Choose an open, sunny area with deep, light soil that drains readily“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -291,6 +307,11 @@ Pastinaken sind sehr winterhart (frosthart bis ca. -15 °C); die Wurzeln überwi
 | Empfohlene Vorfrucht | Leguminosen; Kohlgewächse (NICHT andere Apiaceae) |
 | Empfohlene Nachfrucht | Starkzehrer (Kürbis, Kohl); kein Sellerie, Möhre, Fenchel |
 | Anbaupause (Jahre) | 3–4 Jahre keine Apiaceae auf gleicher Fläche |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Pastinake: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LWG Bayern, Merkblatt 2157 „Pastinake – Kulturanleitung“ (2013; „Als Mittelstarkzehrer entziehen sie dem Boden pro Quadratmeter etwa 10 g Stickstoff“), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/infoschrift_pastinake.pdf |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; LWG Bayern 2013 führt die Pastinake als Doldengewächs, Südtiroler Bauernbund 2022 unter Doldenblütler getrennt von Schmetterlingsblütlern, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae; Südtiroler Bauernbund 2022 nennt für Doldenblütler 4-5 Jahre, kein artspezifischer Wert für die Pastinake) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -369,4 +390,7 @@ Pastinaca sativa,"Pastinake;Hammermöhre;Parsnip",Apiaceae,Pastinaca,biennial,da
 26. [Wikipedia — Parsnip](https://en.wikipedia.org/wiki/Parsnip) — "If unharvested, it produces a flowering stem... in its second growing season, later producing... seeds" (Bluehstrategie, biennial)
 27. [NC State Extension Gardener Plant Toolbox — Pastinaca sativa](https://plants.ces.ncsu.edu/plants/pastinaca-sativa/) — biennial, Bluete/Samenbildung im 2. Jahr
 28. [Friends of Eloise Butler — Wild Parsnip, Pastinaca sativa L.](https://friendsofeloisebutler.org/pages/plants/wildparsnip.html) — "aggressive, monocarpic perennial plant... bolts... flowers, sets seed, and dies" (explizite monokarpe Einordnung derselben Art)
+29. [LWG Bayern — Merkblatt 2157 „Pastinake – Kulturanleitung“ (2013)](https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/infoschrift_pastinake.pdf) — Reihenabstand 30–40 cm, Vereinzeln auf 10 cm, Mittelstarkzehrer, Doldengewächs
+30. [RHS — How to grow parsnips](https://www.rhs.org.uk/vegetables/parsnips/grow-your-own) — 15 cm in der Reihe, Reihenabstand 30 cm, „open, sunny area“
+31. [Südtiroler Bauernbund — Merkblatt „Fruchtfolgen im Gemüsebau“ (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Pastinake: Mittelzehrer, Doldenblütler 4-5 Jahre Anbaupause
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

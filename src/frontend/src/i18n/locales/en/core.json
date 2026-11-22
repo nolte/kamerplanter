@@ -157,6 +157,10 @@
     "glossary": {
       "label": "Glossary",
       "description": "Reference of technical terms such as VPD or EC around cultivation."
+    },
+    "garden_planner": {
+      "label": "Garden plan",
+      "description": "Graphical plan of your beds and garden objects, reachable from the site."
     }
   },
   "roleGuard": {
@@ -294,11 +298,23 @@
     "rowsPerPage": "Rows per page",
     "of": "of",
     "unsavedChanges": "You have unsaved changes. Are you sure you want to leave?",
+    "discardChangesTitle": "Discard changes?",
+    "discardChangesMessage": "You have entered data that has not been saved yet. If you close this dialog, it will be lost.",
+    "discardChangesConfirm": "Discard",
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
     "createdAt": "Created at",
     "updatedAt": "Updated at",
     "skipToContent": "Skip to content",
     "toggleSidebar": "Toggle sidebar",
+    "pwa": {
+      "online": "Online",
+      "offline": "Offline",
+      "onlineHint": "Connected – data loads live.",
+      "offlineHint": "No connection – changes are possible again once you are online.",
+      "updateAvailable": "New version available",
+      "updateNow": "Update now",
+      "updateLater": "Later"
+    },
     "sliderLabel": "{{label}} (slider)",
     "days": "days",
     "months_unit": "months",
@@ -364,7 +380,17 @@
         "species": "The species list",
         "substrates": "The substrate list"
       }
-    }
+    },
+    "confirmDelete": "Confirm deletion",
+    "created": "Created",
+    "deleted": "Deleted",
+    "error": "An error occurred.",
+    "noSearchResults": "No results found for your search",
+    "notes": "Notes",
+    "switchToDarkTheme": "Switch to dark theme",
+    "switchToLightTheme": "Switch to light theme",
+    "changeLanguage": "Change language",
+    "breadcrumb": "Breadcrumb"
   },
   "table": {
     "showing": "Showing {{from}}–{{to}} of {{total}} entries",
@@ -436,9 +462,11 @@
     "diary": "Diary",
     "kiAssistent": "AI Assistant",
     "glossary": "Glossary",
+    "gardenPlan": "Garden plan",
     "phasen": "Phases",
     "detail": "Details",
-    "beginnerHint": "Unlock more features in the settings"
+    "beginnerHint": "Unlock more features in the settings",
+    "careHistory": "Care history"
   },
   "errors": {
     "network": "Network error. Please check your connection.",
@@ -447,10 +475,14 @@
     "serverWithDetail": "Server error: {{detail}}",
     "forbidden": "You do not have permission for this action.",
     "conflict": "Conflict: The resource has been modified.",
+    "soilProfileStale": "The soil profile has changed in the meantime because a soil analysis was saved. Reload the page and enter your change again.",
+    "taskAlreadyClosed": "This task is already done or skipped – someone was probably faster. Reload the list.",
+    "taskMissing": "This task no longer exists. It was probably deleted.",
+    "clientEventMismatch": "This entry was already saved with different details. Check the saved entry before you send it again.",
+    "clientEventDeleted": "What you saved here was deleted in the meantime – the entry is not created again.",
     "tooLarge": "The file is too large. Please choose a smaller file.",
     "notFound": "The requested resource was not found.",
     "validation": "Please check your input.",
-    "validationWithDetail": "Validation error: {{detail}}",
     "duplicate": "An entry with this name already exists.",
     "unknown": "An unknown error occurred.",
     "loadFailed": "Failed to load data.",
@@ -465,7 +497,58 @@
       "serviceAccountLimitReached": "The garden has reached the service account limit of its plan. Delete a service account you no longer use or ask the operator for a larger plan.",
       "storageQuotaExceeded": "The garden's storage is used up. Delete photos or attachments you no longer need or ask the operator for more storage.",
       "photoQuotaExceeded": "This plant has reached its photo limit. Delete older photos before you upload new ones."
-    }
+    },
+    "slotOccupied": "A plant stands on this planting spot already. Choose another spot or remove that plant first.",
+    "slotAlreadyPlanned": "This planting spot is reserved for a planned planting. Choose another spot.",
+    "generic": "Something went wrong. Please try again.",
+    "unauthorized": "Your sign-in is no longer valid. Please sign in again.",
+    "rateLimited": "Too many requests in a short time. Wait a moment, then try again.",
+    "invalidCredentials": "The email address or password is incorrect.",
+    "ACCOUNT_LOCKED": "Your account is temporarily locked after too many failed attempts. Try again later.",
+    "EMAIL_NOT_VERIFIED": "Your email address is not verified yet. Check your inbox for the verification link.",
+    "INVALID_STATUS_TRANSITION": "This step is no longer possible in the current state – something probably changed in the meantime. Reload the page.",
+    "ACCOUNT_BEING_ERASED": "This account is being erased.",
+    "ADAPTER_NOT_AVAILABLE": "This data source is unavailable right now. Try again later.",
+    "ADAPTER_NOT_FOUND": "This data source isn't set up.",
+    "AI_BUDGET_EXCEEDED": "The AI budget for this period is used up.",
+    "AI_BUDGET_UNAVAILABLE": "The AI budget can't be checked right now. Try again later.",
+    "AI_DISABLED_FOR_TENANT": "AI features are turned off for this garden.",
+    "CONSENT_REQUIRED": "This feature needs your consent in the privacy settings first.",
+    "ERASURE_INCOMPLETE": "The erasure isn't complete yet.",
+    "EXPORT_ALREADY_RUNNING": "An export is already running. Wait until it has finished.",
+    "EXTERNAL_SOURCE_ERROR": "The external source reported an error. Try again later.",
+    "FEATURE_DISABLED": "This feature is turned off.",
+    "FEATURE_NOT_CONFIGURED": "This feature isn't set up on this server.",
+    "FEED_EXPIRED": "This calendar link has expired. Create a new one.",
+    "FILE_TOO_LARGE": "The file is too large.",
+    "HST_VIOLATION": "This step isn't allowed in the current phase (stress training).",
+    "IMAGE_PIXEL_LIMIT_EXCEEDED": "The image has too many pixels. Reduce it and try again.",
+    "INCOMPATIBLE_COMPANION": "These plants don't go well together as neighbours.",
+    "INVALID_FILE_TYPE": "This file type isn't supported.",
+    "INVALID_RUN_STATE": "The run isn't in the right state for this.",
+    "INVALID_TOKEN": "The link is invalid or has expired.",
+    "KARENZ_VIOLATION": "The waiting period after a plant-protection treatment is still running – harvesting isn't allowed yet.",
+    "PHASE_TRANSITION_INVALID": "This phase change isn't possible.",
+    "PRESIGN_UPLOAD_UNSUPPORTED": "The storage doesn't support this upload path.",
+    "REGISTRATION_NOT_ALLOWED": "Registration isn't possible here right now.",
+    "REQUEST_BODY_TOO_LARGE": "The request is too large.",
+    "RESISTANCE_WARNING": "Caution: this active ingredient was used too often in a row (resistance risk).",
+    "RESOURCE_IN_USE": "This is still in use and can't be deleted.",
+    "ROTATION_VIOLATION": "This breaks the crop rotation of this bed.",
+    "SEASON_STATE_UNAVAILABLE": "The season state can't be determined right now.",
+    "STEP_UP_REAUTH_FAILED": "Confirming your identity failed.",
+    "STORED_DOCUMENT_INVALID": "A stored record is invalid. Please report this to the operator.",
+    "SUBSTRATE_EXHAUSTED": "This substrate is exhausted and needs replacing.",
+    "TENANT_ERASURE_CLAIM_LOST": "The erasure of this garden was taken over by another process.",
+    "TENANT_ERASURE_INCOMPLETE": "The erasure of this garden isn't complete yet.",
+    "THUMBNAIL_METADATA_LEAK": "The thumbnail still carries metadata and was refused.",
+    "TRANSACTION_TIME_BUDGET_EXCEEDED": "The operation took too long. Try again with less data.",
+    "UNSUPPORTED_MEDIA_TYPE": "This format isn't supported.",
+    "UPLOAD_CAPACITY_EXHAUSTED": "Upload storage is full right now. Try again later.",
+    "VIRUS_SCAN_REJECTED": "The file was rejected by the virus scan.",
+    "WINTER_PATH_VIOLATION": "This step doesn't fit the chosen overwintering path.",
+    "phaseRunOwned": "This phase belongs to a run and is controlled there.",
+    "recurrenceRruleRequired": "A recurrence needs a rule."
   },
   "validation": {
     "required": "This field is required.",
@@ -483,7 +566,8 @@
     "url": "Please enter a valid URL.",
     "invalidFormat": "Invalid format.",
     "invalidOption": "Please choose a valid option.",
-    "invalid": "Invalid input."
+    "invalid": "Invalid input.",
+    "botanicalFamilySuffix": "Must end with “-aceae”."
   },
   "entities": {
     "botanicalFamily": "Botanical Family",
@@ -715,7 +799,16 @@
     "layoutGrid3x3": "Grid 3×3 (9 cards per page)",
     "layoutGrid3x3Helper": "Very compact — best for labelling many plants at once.",
     "printLabels": "Print info cards",
-    "printLabelsShort": "Labels"
+    "printLabelsShort": "Labels",
+    "bedLabel": "Print label",
+    "bedLabelTitle": "Print bed label",
+    "bedLabelIntro": "Creates a print-ready PDF label for “{{name}}” with site, type, area and a QR code. Scanning the code opens this bed in field mode – without a session it goes through the sign-in first and comes back here.",
+    "bedLabelOffline": "A label cannot be created without a connection.",
+    "qrSizeLabel": "QR code size",
+    "qrSizeIntro": "Larger codes scan more reliably from standing height and in poor light.",
+    "qrSizeSmall": "Small (25 mm)",
+    "qrSizeMedium": "Medium (40 mm)",
+    "qrSizeLarge": "Large (60 mm)"
   },
   "dashboard": {
     "manageWidgets": "Manage widgets",

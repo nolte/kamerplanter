@@ -138,6 +138,22 @@
 8. §1.3/§1.6 dieses Steckbriefs (bereits zitierte Quellen) — Cross-Check Direktsaat, keine Vorkultur wegen Pfahlwurzel
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: weder RHS-Artseite noch RHS-Lupinen-Anbauleitfaden nennen einen Pflanzabstand; Max Spread 0,5–1 m ist kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Quellen widersprechen sich (Artseite: Position „Full sun, Partial shade", Kulturtext „full sun or light shade"; RHS-Lupinen-Leitfaden: „All lupins like well-drained soil in full sun. Avoid planting in shade") --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -265,6 +281,11 @@ Lupine als Stickstoff-Fixiererin NICHT mit Stickstoff düngen! Sie fixiert selbs
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Kürbis); nährstoffarme Böden |
 | Empfohlene Nachfrucht | Alle Starkzehrer profitieren vom hinterlassenen Stickstoff |
 | Anbaupause (Jahre) | 3–4 Jahre auf gleicher Fläche (Anthraknose-Prävention) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | true (Rhizobien-Symbiose: alle sechs getesteten Bradyrhizobium-Stämme bildeten Knöllchen an Lupinus polyphyllus; Ramula, Mousavi & Kalske, Plant and Soil 490 (2023), https://link.springer.com/article/10.1007/s11104-023-06105-4) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Fabaceae 6; Zierstaude, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -313,4 +334,7 @@ Lupinus polyphyllus,"Vielblättrige Lupine;Gartenlupine;Garden Lupin",Fabaceae,L
 10. [Germination of Three Native Lupinus Species in Response to Temperature (Northwest Science, BioOne)](https://bioone.org/journals/Northwest-Science/volume-85/issue-2/046.085.0223/Germination-of-Three-Native-Lupinus-Species-in-Response-to-Temperature/10.3955/046.085.0223.pdf) — Kühltemperatur-Präferenz, Chilling-Begünstigung
 11. [Aphidius colemani Tech Sheet (Sound Horticulture)](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Ausbringrate Blattlaus-Schlupfwespe, Mumien-Etablierung
 12. [Aphidoletes aphidimyza (Koppert)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Ausbringrate Gallmücke gegen Blattläuse, Temperaturoptimum 20–30 °C
+13. [RHS — Lupinus polyphyllus](https://www.rhs.org.uk/plants/10573/lupinus-polyphyllus/details) — Position „Full sun, Partial shade"; kein Pflanzabstand angegeben
+14. [RHS — How to grow lupins (Growing Guide)](https://www.rhs.org.uk/plants/lupins/growing-guide) — „full sun", Schatten vermeiden; kein Pflanzabstand angegeben
+15. [Ramula, Mousavi & Kalske (2023) — Rhizobial benefits to an herbaceous invader depend on context and symbiotic strain, Plant and Soil 490:603–616](https://link.springer.com/article/10.1007/s11104-023-06105-4) — Knöllchenbildung (Bradyrhizobium) an Lupinus polyphyllus
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

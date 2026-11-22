@@ -1,0 +1,110 @@
+"""Prometheus metrics of the garden plan (REQ-053 GP-NFR-061, NFR-007).
+
+Registered on the API process's own registry (``app.observability.metrics.REGISTRY``), so they
+are served by the same listener as the HTTP metrics and nowhere else.
+
+**What is never a label.** A tenant, a site or a person: the series set would grow with the
+installation and publish it to anyone who can scrape. ``size`` is a bucket of the plan's
+object count (small / medium / large, §25.1), not the count itself.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+
+from prometheus_client import Counter, Gauge, Histogram
+
+from app.observability.metrics import REGISTRY
+
+#: §25.1 size classes by locations + garden objects: "groß" is the 500-object quota.
+SIZE_SMALL_MAX = 50
+SIZE_MEDIUM_MAX = 200
+
+GARDEN_PLAN_BATCH_DURATION = Histogram(
+    "garden_plan_batch_duration_seconds",
+    "Duration of an applied garden-plan batch, validation and transaction (GP-NFR-061).",
+    registry=REGISTRY,
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0),
+)
+GARDEN_PLAN_CONFLICTS = Counter(
+    "garden_plan_conflicts_total",
+    "Garden-plan batches refused with plan.revision_conflict (GP-NFR-061).",
+    registry=REGISTRY,
+)
+GARDEN_PLAN_SIZE_OBJECTS = Gauge(
+    "garden_plan_size_objects",
+    "Locations plus garden objects of the plan last read or written, by size class (GP-NFR-061).",
+    ("size",),
+    registry=REGISTRY,
+)
+
+
+CARE_EVENTS_CREATED = Counter(
+    "care_events_created_total",
+    "Care events written to the bed log, by category (REQ-053 GP-NFR-061, WP 4.1).",
+    ("category",),
+    registry=REGISTRY,
+)
+
+
+CARE_EVENTS_CONSISTENCY_BACKFILLED = Counter(
+    "care_events_consistency_backfilled_total",
+    "Care events the daily consistency job wrote for a domain event that had none, by source collection "
+    "(REQ-053 GP-NFR-016, WP 8.2).",
+    ("source",),
+    registry=REGISTRY,
+)
+
+
+def record_care_event_backfilled(source: str, count: int) -> None:
+    """Count ``count`` events written by the consistency job. ``source`` is one of the four collection names."""
+    CARE_EVENTS_CONSISTENCY_BACKFILLED.labels(source=source).inc(count)
+
+
+def record_care_event_created(category: str) -> None:
+    """Count one care event written. ``category`` is a validated enum value (closed set), never user text."""
+    CARE_EVENTS_CREATED.labels(category=category).inc()
+
+
+def size_class(object_count: int) -> str:
+    """The §25.1 bucket of a plan with *object_count* locations and garden objects."""
+    if object_count <= SIZE_SMALL_MAX:
+        return "small"
+    if object_count <= SIZE_MEDIUM_MAX:
+        return "medium"
+    return "large"
+
+
+def observe_plan_size(object_count: int) -> None:
+    """Record the object count of the plan just handled under its size class (the last value per class)."""
+    GARDEN_PLAN_SIZE_OBJECTS.labels(size=size_class(object_count)).set(object_count)
+
+
+def record_conflict() -> None:
+    """Count one batch refused with ``plan.revision_conflict``."""
+    GARDEN_PLAN_CONFLICTS.inc()
+
+
+def observe_batch_duration(seconds: float) -> None:
+    """Record the duration of one applied batch."""
+    GARDEN_PLAN_BATCH_DURATION.observe(seconds)
+
+
+CLIENT_EVENT_INDEX_BLOCKED = Gauge(
+    "client_event_index_blocked",
+    "1 while migration v0106 could not create a unique client-event index because two rows share an id "
+    "(REQ-053 WP 9.3); replays on that collection are then not guarded by the database. Alert on > 0.",
+    ("collection",),
+    registry=REGISTRY,
+)
+
+
+def record_client_event_index_blocked(collection: str, *, blocked: bool) -> None:
+    """Set the blocked state of one collection's client-event index; ``collection`` is a fixed collection name."""
+    CLIENT_EVENT_INDEX_BLOCKED.labels(collection=collection).set(1 if blocked else 0)
+
+
+def record_client_event_indexes(present: Mapping[str, bool]) -> None:
+    """Set the gauge for every collection ``ensure_collections`` reported: blocked where the index is missing."""
+    for collection, in_place in present.items():
+        record_client_event_index_blocked(collection, blocked=not in_place)

@@ -131,6 +131,22 @@
 **Quellen (§1.8):** [How To Grow Strelitzia Reginae From Seeds](https://gardening-plant.com/blogs/news/how-to-grow-strelitzia-reginae-from-seeds) und [How to Grow and Care for Bird of Paradise Plants — Gardener's Path](https://gardenerspath.com/plants/flowers/grow-bird-paradise/) (Keimtemperatur 25–30 °C, Keimdauer 8 Wochen bis mehrere Monate, Skarifizierung + Einweichen); [How Scarification, GA3 and Graphene Oxide Influence the In Vitro Establishment and Development of Strelitzia — MDPI/PMC](https://www.mdpi.com/2223-7747/12/11/2142) (Skarifizierung mit Schwefelsäure signifikant keimfördernd); [GERMINATION METHODS FOR BIRD-OF-PARADISE SEED — NC State Extension (hortscans)](https://hortscans.ces.ncsu.edu/uploads/g/e/germinat_5592db2f311e1.pdf) (Keimmethodik); [Seed Storage & Seed Viability Guide — Dayuseeds](https://www.dayuseeds.com/resources/seed-storage-amp-seed-viability-guide.html) und [Strelitzia reginae — PLANTBOOK](https://www.plantbook.co.za/strelitzia-reginae/) (Empfehlung: Samen frisch verwenden, Viabilität nimmt bei Lagerung rasch ab).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Strelitzia reginae“ (Position: Full sun, Partial shade; Kulturtext: "in full light with shade from hot sun", Blüte nur bei "adequate levels of light and feed"), https://www.rhs.org.uk/plants/17807/strelitzia-reginae/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -349,4 +365,5 @@ Strelitzia reginae,"Paradiesvogelblume;Königin-Strelitzie;Bird of Paradise;Cran
 21. [GERMINATION METHODS FOR BIRD-OF-PARADISE SEED — NC State Extension](https://hortscans.ces.ncsu.edu/uploads/g/e/germinat_5592db2f311e1.pdf) — Keimmethodik
 22. [Seed Storage & Seed Viability Guide — Dayuseeds](https://www.dayuseeds.com/resources/seed-storage-amp-seed-viability-guide.html) — Allgemeine Viabilitätsprinzipien
 23. [Strelitzia reginae — PLANTBOOK](https://www.plantbook.co.za/strelitzia-reginae/) — Empfehlung frisches Saatgut, Viabilitätsverlust bei Lagerung
+RHS -- Strelitzia reginae (Position/Aspect: Full sun, Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/17807/strelitzia-reginae/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

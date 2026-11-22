@@ -119,6 +119,22 @@
 **Hinweis (Licht):** Schattentolerante Aroide des tropischen Unterwuchs; verträgt sehr niedrige Innenraum-Lichtwerte (ab ~50 fc), bei Direktsonne drohen Blattverbrennungen. Lichtsättigung der Photosynthese liegt für verwandte Aroide deutlich höher (~1000 µmol/m²/s nur an Sonnenblättern) — diese Sättigungswerte gehören NICHT in das Kompensationspunkt-Feld.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS Full sun, Partial shade) -->  | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Dieffenbachia seguine", https://www.rhs.org.uk/plants/31781/dieffenbachia-seguine/details (Position: Full sun, Partial shade; Kulturhinweis: „bright, filtered light" in der Wachstumszeit, im Winter „full light"; Spanne ohne Vorzug, keine Standortstufe abgeleitet) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -347,3 +363,4 @@ Tropic Snow,Dieffenbachia seguine,"ornamental;large;cream_variegated",clone
 14. [Koppert Canada — Aphidius colemani](https://retail.koppert.ca/pages/beneficial-insects/aphidius-colemani) — Ausbringrate Schlupfwespe gegen Blattläuse
 15. [FGMN Nursery — Cryptolaemus montrouzieri Guide](https://fgmnnursery.com/blogs/predatory-mite-matters/cryptolaemus-montrouzieri-the-mealybug-destroyer-guide) — Mealybug Destroyer gegen Schmierläuse (4–8 Wochen Etablierung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. [RHS — Dieffenbachia seguine](https://www.rhs.org.uk/plants/31781/dieffenbachia-seguine/details) — Position Full sun/Partial shade, Kulturhinweis gefiltertes Licht (light_requirement)

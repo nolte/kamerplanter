@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -29,7 +29,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import type { Control, UseFormSetValue } from 'react-hook-form';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useFieldArray, useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -43,6 +45,9 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import ShowAllFieldsToggle from '@/components/common/ShowAllFieldsToggle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useAppDispatch } from '@/store/hooks';
 import { resetShowAllFields } from '@/store/slices/uiSlice';
@@ -57,6 +62,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import LocationTreeSelect from '@/components/form/LocationTreeSelect';
 import type { Species, Cultivar, Site, PlantInstance } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 const entrySchema = z.object({
   species_key: z.string().min(1),
@@ -101,6 +107,8 @@ interface EntryRowProps {
    * same as a field the form itself decided to lock.
    */
   speciesLoading: boolean;
+  /** Element id for the species picker (focus target after a catalogue retry). */
+  speciesFieldId?: string;
   onRemove: () => void;
   canRemove: boolean;
 }
@@ -116,12 +124,16 @@ function EntryRow({
   speciesList,
   speciesDisabled,
   speciesLoading,
+  speciesFieldId,
   onRemove,
   canRemove,
 }: EntryRowProps) {
   const { t } = useTranslation();
   const [cultivarList, setCultivarList] = useState<Cultivar[]>([]);
   const [cultivarsLoading, setCultivarsLoading] = useState(false);
+  // A failed read is shown with a retry, never as "this species has no cultivars" (#3037).
+  const [cultivarsError, setCultivarsError] = useState(false);
+  const [cultivarsAttempt, setCultivarsAttempt] = useState(0);
   const speciesKey = useWatch({ control, name: `entries.${index}.species_key` });
   const cultivarKey = useWatch({ control, name: `entries.${index}.cultivar_key` });
   const idPrefix = useWatch({ control, name: `entries.${index}.id_prefix` });
@@ -131,10 +143,12 @@ function EntryRow({
     if (!speciesKey) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- reset state when species cleared
       setCultivarList([]);
+      setCultivarsError(false);
       autoPrefix.current = '';
       return;
     }
     setCultivarsLoading(true);
+    setCultivarsError(false);
     setValue(`entries.${index}.cultivar_key`, null);
     const species = speciesList.find((s) => s.key === speciesKey);
     if (species) {
@@ -147,9 +161,13 @@ function EntryRow({
     speciesApi
       .listCultivars(speciesKey)
       .then(setCultivarList)
-      .catch(() => setCultivarList([]))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'PlantingRunCreateDialog.cultivars' });
+        setCultivarList([]);
+        setCultivarsError(true);
+      })
       .finally(() => setCultivarsLoading(false));
-  }, [speciesKey, index, setValue]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [speciesKey, index, setValue, cultivarsAttempt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!cultivarKey) return;
@@ -167,6 +185,7 @@ function EntryRow({
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1, flexWrap: 'wrap' }}>
       <Box sx={{ flex: 1, minWidth: 160 }}>
         <SpeciesAutocompleteField
+          id={speciesFieldId}
           name={`entries.${index}.species_key`}
           control={control}
           label={t('entities.species')}
@@ -187,6 +206,12 @@ function EntryRow({
             ...cultivarList.map((c) => ({ value: c.key, label: c.name })),
           ]}
         />
+        {cultivarsError && (
+          <OptionsLoadError
+            onRetry={() => setCultivarsAttempt((n) => n + 1)}
+            data-testid="run-entry-cultivars-load-error"
+          />
+        )}
       </Box>
       <Box sx={{ width: 100 }}>
         <FormNumberField
@@ -226,7 +251,7 @@ function EntryRow({
 export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
@@ -234,7 +259,11 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   // asked for one page of 200 against 207 seeded species, and the picker filters
   // client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species', { enabled: open });
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  const firstSpeciesFieldId = useId();
+  // A failed read is shown with a retry, never as "no sites" (#3037).
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
+  const sitesList = sitesLoad.options;
   const [adoptMode, setAdoptMode] = useState(false);
   const [availablePlants, setAvailablePlants] = useState<PlantInstance[]>([]);
   const [plantsLoading, setPlantsLoading] = useState(false);
@@ -250,7 +279,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
     onClose();
   }, [dispatch, onClose]);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -258,12 +287,13 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       site_key: null,
       location_key: null,
       substrate_batch_key: null,
-      planned_start_date: new Date().toISOString().split('T')[0],
+      planned_start_date: toLocalIsoDate(),
       source_plant_key: null,
       notes: null,
       entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'entries' });
   const runType = useWatch({ control, name: 'run_type' });
@@ -277,7 +307,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         site_key: null,
         location_key: null,
         substrate_batch_key: null,
-        planned_start_date: new Date().toISOString().split('T')[0],
+        planned_start_date: toLocalIsoDate(),
         source_plant_key: null,
         notes: null,
         entries: [{ species_key: '', cultivar_key: null, quantity: 1, id_prefix: '', spacing_cm: null, notes: null }],
@@ -286,7 +316,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       setSelectedPlants(new Set());
       setPlantSearch('');
       setPlantsError(null);
-      sitesApi.listSites(0, 200).then(setSitesList).catch(() => {});
     }
   }, [open, reset]);
 
@@ -307,7 +336,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
         .then((allPlants) => {
           setAvailablePlants(allPlants.filter((p) => !p.removed_on));
         })
-        .catch(() => {
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'PlantingRunCreateDialog.plants' });
           setAvailablePlants([]);
           setPlantsError(t('common.loadingError'));
         })
@@ -381,7 +411,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
@@ -395,7 +425,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const fc = plantingRunFieldConfig;
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={handleClose} maxWidth="md" fullWidth aria-labelledby="planting-run-create-dialog-title" data-testid="planting-run-create-dialog">
       <DialogTitle id="planting-run-create-dialog-title">{t('pages.plantingRuns.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -430,6 +460,9 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                 ...sitesList.map((s) => ({ value: s.key, label: s.name })),
               ]}
             />
+            {sitesLoad.error && (
+              <OptionsLoadError onRetry={sitesLoad.reload} data-testid="run-sites-load-error" />
+            )}
           </ExpertiseFieldWrapper>
           <ExpertiseFieldWrapper minLevel={fc.location_key.level}>
             <LocationTreeSelect
@@ -551,8 +584,8 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                             />
                           </ListItemIcon>
                           <ListItemText
-                            primary={getPlantDisplayName(plant)}
-                            secondary={getPlantDisplayName(plant) !== plant.instance_id ? plant.instance_id : undefined}
+                            primary={getPlantDisplayName(plant, i18n.language)}
+                            secondary={getPlantDisplayName(plant, i18n.language) !== plant.instance_id ? plant.instance_id : undefined}
                           />
                           <Chip
                             label={plant.current_phase}
@@ -583,7 +616,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
               */}
               <CatalogueLoadError
                 reader={speciesCatalogue}
-                focusSelector="[data-testid='form-field-entries.0.species_key'] input"
+                focusTargetId={firstSpeciesFieldId}
               />
               {fields.map((field, index) => (
                 <EntryRow
@@ -594,6 +627,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
                   speciesList={speciesCatalogue.items}
                   speciesDisabled={speciesCatalogue.status !== 'ready'}
                   speciesLoading={speciesCatalogue.status === 'loading'}
+                  speciesFieldId={index === 0 ? firstSpeciesFieldId : undefined}
                   onRemove={() => remove(index)}
                   canRemove={fields.length > 1}
                 />
@@ -623,6 +657,6 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

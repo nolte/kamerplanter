@@ -1,0 +1,139 @@
+import { tenantClient } from '@/api/client';
+import { rethrowBlobError } from '@/api/blobError';
+import { listSites } from '@/api/endpoints/sites';
+import { listBeds } from '../bed/bedApi';
+import type { HistoryQuery } from './historyFilters';
+import type {
+  BackfillBody,
+  BackfillResult,
+  CareEventLine,
+  FilterOption,
+  HistoryItem,
+  RotationMatrix,
+  RotationTimeline,
+  SuccessionRecommendation,
+} from './historyTypes';
+
+/**
+ * REST access of the bed history and the tenant-wide history through the tenant-scoped client
+ * (REQ-053 GP-API-034, GP-API-038, GP-API-039, GP-API-042).
+ */
+
+/** One page of the history lists (GP-FR-102: "Paginierung ab 50 Einträgen"). */
+export const HISTORY_PAGE_SIZE = 50;
+
+/** GP-API-038: care events and derived planting events of one bed, newest first. */
+export async function getBedHistory(bedKey: string, query: HistoryQuery, offset: number): Promise<HistoryItem[]> {
+  const { data } = await tenantClient.get<HistoryItem[]>(`/locations/${bedKey}/history`, {
+    params: { ...query, offset, limit: HISTORY_PAGE_SIZE },
+  });
+  return data;
+}
+
+/** GP-API-034 / GP-FR-107: the care log of the whole tenant (90 days unless a range is sent). */
+export async function getCareEvents(query: HistoryQuery, offset: number): Promise<CareEventLine[]> {
+  const { include_corrections: corrections, ...rest } = query;
+  const { data } = await tenantClient.get<CareEventLine[]>('/care-events', {
+    params: { ...rest, ...(corrections ? { include_superseded: true } : {}), offset, limit: HISTORY_PAGE_SIZE },
+  });
+  return data;
+}
+
+/** `semicolon` is the Excel variant of locales with a decimal comma. */
+export type CsvDelimiter = 'comma' | 'semicolon';
+
+/**
+ * GP-FR-104 / GP-API-034 `format=csv`: every entry the filter lists (at most 50 000) as one file, under the
+ * same role rules as the list. A refusal (`export.too_many_rows`, 429) is read back from the blob body.
+ */
+export async function downloadCareEventsCsv(query: HistoryQuery, delimiter: CsvDelimiter): Promise<Blob> {
+  const { include_corrections: corrections, ...rest } = query;
+  try {
+    const { data } = await tenantClient.get<Blob>('/care-events', {
+      params: { ...rest, ...(corrections ? { include_superseded: true } : {}), format: 'csv', delimiter },
+      responseType: 'blob',
+    });
+    return data;
+  } catch (error) {
+    return rethrowBlobError(error);
+  }
+}
+
+/** GP-API-039: family, demand and role per year; the server picks `max(pause, 5)` years without `years`. */
+export async function getRotationTimeline(bedKey: string, years?: number): Promise<RotationTimeline> {
+  const { data } = await tenantClient.get<RotationTimeline>(`/locations/${bedKey}/rotation`, {
+    params: years === undefined ? {} : { years },
+  });
+  return data;
+}
+
+/** Beds per page of the rotation matrix (the server pages by bed, at most 500 beds). */
+export const ROTATION_MATRIX_PAGE_SIZE = 50;
+
+/**
+ * GP-FR-135: beds x years of a site. Without `years` the server derives the look-back from the beds of the page, so
+ * a client that pages passes the `years` of the first answer to keep the columns the same.
+ */
+export async function getRotationMatrix(siteKey: string, offset: number, years?: number): Promise<RotationMatrix> {
+  const { data } = await tenantClient.get<RotationMatrix>(`/sites/${siteKey}/rotation-matrix`, {
+    params: { offset, limit: ROTATION_MATRIX_PAGE_SIZE, ...(years === undefined ? {} : { years }) },
+  });
+  return data;
+}
+
+/** GP-FR-133: the families and species for the next year of a bed, by the feeder cycle (order only). */
+export async function getSuccessionRecommendation(bedKey: string): Promise<SuccessionRecommendation> {
+  const { data } = await tenantClient.get<SuccessionRecommendation>(`/locations/${bedKey}/succession-recommendation`);
+  return data;
+}
+
+/** GP-API-042: *what stood here in {year}?* - the server stamps the care event. */
+export async function backfillYear(bedKey: string, body: BackfillBody): Promise<BackfillResult> {
+  const { data } = await tenantClient.post<BackfillResult>(`/locations/${bedKey}/history/backfill`, body);
+  return data;
+}
+
+/** GP-API-042: take a backfilled year back (its author, or a lead). */
+export async function cancelBackfill(bedKey: string, careEventKey: string): Promise<void> {
+  await tenantClient.delete(`/locations/${bedKey}/history/backfill/${careEventKey}`);
+}
+
+interface PlantingRow {
+  plant_key?: string | null;
+  instance_id?: string | null;
+}
+
+/** The plants the bed has had (every state), to filter the history by plant. Informational only. */
+export async function listBedPlantOptions(bedKey: string): Promise<FilterOption[]> {
+  const { data } = await tenantClient.get<PlantingRow[]>(`/locations/${bedKey}/plantings`, {
+    params: { limit: 200 },
+  });
+  const seen = new Set<string>();
+  return data.flatMap((row) => {
+    if (!row.plant_key || seen.has(row.plant_key)) return [];
+    seen.add(row.plant_key);
+    return [{ key: row.plant_key, label: row.instance_id ?? row.plant_key }];
+  });
+}
+
+/** Sites per request (the server's page limit). */
+const SITE_PAGE = 200;
+/** A ceiling for the paging loop: 50 pages are 10 000 sites. */
+const MAX_SITE_PAGES = 50;
+
+/**
+ * Every bed of every site, to filter the tenant-wide history by bed and to name the bed of each entry. The sites are
+ * read page by page: with only the first 200 the beds of every later site had no name in the list (#2764).
+ */
+export async function listAllBedOptions(): Promise<FilterOption[]> {
+  const sites: Awaited<ReturnType<typeof listSites>> = [];
+  for (let page = 0; page < MAX_SITE_PAGES; page += 1) {
+    const batch = await listSites(page * SITE_PAGE, SITE_PAGE);
+    sites.push(...batch);
+    if (batch.length < SITE_PAGE) break;
+  }
+  // #3013 (B-01): a site whose beds fail to load rejects the whole list — the caller shows an error with retry
+  // instead of a bed filter in which that site's beds silently vanished.
+  const perSite = await Promise.all(sites.map((site) => listBeds(site.key)));
+  return perSite.flat().map((bed) => ({ key: bed.key, label: bed.name }));
+}

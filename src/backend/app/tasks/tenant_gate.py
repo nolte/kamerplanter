@@ -79,6 +79,7 @@ TENANT_WRITING_BEATS: frozenset[str] = frozenset(
         "app.tasks.tank_maintenance_tasks.sync_tank_states_from_ha",
         "app.tasks.watering_tasks.generate_watering_tasks",
         "app.tasks.weather_tasks.fetch_weather_forecasts",
+        "care_events.consistency",
         "inventree.push_pending_transactions",
         "inventree.sync_stock_levels",
         "notifications.dispatch_due_care",
@@ -106,7 +107,9 @@ TENANT_AGNOSTIC_BEATS: dict[str, str] = {
     "app.tasks.auth_tasks.cleanup_unverified_accounts": _RETENTION + " (R-02, accounts, not tenants)",
     "app.tasks.auth_tasks.rotate_oidc_discovery": _GLOBAL + " (OIDC provider metadata)",
     "app.tasks.enrichment_tasks.sync_all_sources_task": _GLOBAL + " (species catalogue enrichment)",
+    "app.tasks.storage_tasks.cleanup_orphaned_location_photos": _STORAGE + " (never-linked bed photos)",
     "app.tasks.storage_tasks.cleanup_orphaned_task_photos": _STORAGE,
+    "app.tasks.storage_tasks.cleanup_orphaned_underlays": _STORAGE + " (never-named garden-plan underlays)",
     "app.tasks.storage_tasks.reconcile_orphaned_storage_objects": _STORAGE,
     "app.tasks.tenant_tasks.cleanup_expired_invitations": _RETENTION + " (R-12, invitation expiry)",
     "app.tasks.tenant_tasks.resume_tenant_erasures": _RETENTION + " (it is what erases a pending tenant)",
@@ -114,12 +117,18 @@ TENANT_AGNOSTIC_BEATS: dict[str, str] = {
     "mcp.cleanup_expired_audit_log": _RETENTION,
     "mcp.cleanup_expired_idempotency": _RETENTION,
     "pest_image.sweep_orphaned_prototypes": _STORAGE + " (contributed pest prototypes)",
+    "privacy.consistency": (
+        "read-only privacy check (spec/privacy PRIV-206): counts erasure tombstones outside the allowlist "
+        "installation-wide, writes nothing, so there is nothing a suspension could hold back"
+    ),
     "retention.anonymize_consent_ips": _RETENTION + " (R-04a)",
+    "retention.anonymize_expired_care_events": _RETENTION + " (R-25, REQ-053 care log)",
     "retention.execute_scheduled_erasures": _RETENTION,
     "retention.expire_data_exports": _RETENTION + " (export expiry)",
     "retention.expire_email_change_requests": _RETENTION,
     "retention.purge_expired_consent_records": _RETENTION + " (R-04)",
     "retention.purge_expired_erasure_records": _RETENTION + " (R-06)",
+    "retention.purge_expired_garden_plan_audit": _RETENTION + " (R-26, REQ-053 plan audit)",
     "retention.purge_expired_legal_retention_rows": _RETENTION + " (R-16/R-17/R-18)",
     "retention.purge_expired_tenant_erasure_records": _RETENTION + " (R-06a)",
     "retention.redispatch_stale_pending_exports": (

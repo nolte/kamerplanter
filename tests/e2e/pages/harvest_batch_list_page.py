@@ -20,7 +20,7 @@ class HarvestBatchListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='harvest-batch-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -278,8 +278,7 @@ class HarvestBatchListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        btn = self.wait_for_element(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open an MUI Select and pick an option by its visible text.

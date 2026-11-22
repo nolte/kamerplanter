@@ -145,6 +145,22 @@
 - [Home Microgreens — Growing Cilantro From Seed: to Soak or Not to Soak](https://homemicrogreens.com/growing-cilantro-from-seed/) und [Matt Magnusson — Testing How To Best Germinate Coriander Seeds](https://mattmagnusson.com/germinate-coriander-seeds/) — Einweichen + Aufbrechen der Doppelfrucht (presoak + scarification)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 20–25 | `species.spacing_cm` |
+| Reihenabstand (cm) | 12–30 | `species.row_spacing_cm` |
+| Quelle Abstände | Pflanzabstand: Kiepenkerl, Kulturanleitung Koriander („Abstand von 20 bis 25 cm", Zuordnung Reihe/Zwischenreihe nicht ausgewiesen), https://www.kiepenkerl.de/kulturanleitungen/koriander/; USU Extension, „Cilantro/Coriander in the Garden" (Samennutzung 8–10 in ≈ 20–25 cm, Blattnutzung dichter: 2 in ≈ 5 cm; Reihen mind. 15 in ≈ 38 cm), https://extension.usu.edu/yardandgarden/research/cilantro-coriander-in-the-garden. Reihenabstand: DLR Rheinland-Pfalz, „Anbau- und Sortenhinweise für den Gemüseanbau in Rheinland-Pfalz: Koriander, Blatt — Freiland/Frischmarkt 2024/2025" (2024; „Reihenabstand 12-30 cm", ca. 100 Pflanzen/m²), https://www.dlr.rlp.de/Internet/global/themen.nsf/71d722c50f66ecc3c12581210042df58/1ef319fcf05534dbc125876e002d5a6f/$FILE/Koriander,%20Blatt.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | USU Extension, „Cilantro/Coriander in the Garden" („grows best in full sun and fertile, well-drained soils"), https://extension.usu.edu/yardandgarden/research/cilantro-coriander-in-the-garden; Kiepenkerl, Kulturanleitung Koriander („Sonnige, windgeschützte Standorte sind optimal"), https://www.kiepenkerl.de/kulturanleitungen/koriander/ | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -302,6 +318,11 @@ Koriander im Beet braucht keinen extra Dünger — Kompost vor der Aussaat reich
 | Empfohlene Vorfrucht | Starkzehrer (Tomate, Kohl); Mittelzehrer |
 | Empfohlene Nachfrucht | beliebig |
 | Anbaupause (Jahre) | 3–4 Jahre zwischen Apiaceae (Karotte, Petersilie, Fenchel) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Schwachzehrer u. a. „Kräuter" — Gruppenzuordnung, Koriander nicht namentlich genannt); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (Jahr nicht angegeben), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Schwachzehrer-Beet: „Kräuter" — Gruppenzuordnung, Koriander nicht namentlich genannt) |
+| Zehrerstufe — Konfidenz | low |
+| Stickstofffixierer | false (keine Leguminose; DLR Rheinland-Pfalz, „Koriander, Blatt" 2024/2025, führt Koriander in der Doldenblütler-Fruchtfolge („4-5 Jahre keine Doldenblütler"), https://www.dlr.rlp.de/Internet/global/themen.nsf/71d722c50f66ecc3c12581210042df58/1ef319fcf05534dbc125876e002d5a6f/$FILE/Koriander,%20Blatt.pdf; LKSH „Fruchtfolge im Garten" (2020) führt Doldenblütler und Hülsenfrüchte als getrennte Gruppen) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -357,4 +378,7 @@ Coriandrum sativum,"Koriander;Korianderkraut;Coriander;Cilantro",Apiaceae,Corian
 13. [Healthy Houseplants — Coriander (Cilantro) Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/coriander-cilantro-complete-care-guide-for-coriandrum-sativum/) — Staunässe-Empfindlichkeit, Drainage, pH 6,2–6,8
 14. [UConn IPM — Biological Control of Aphids](https://ipm.cahnr.uconn.edu/ipm-biological-control-of-aphids/) — Nützlings-Ausbringraten/Etablierung
 15. [MDPI Insects — Conditions for Successful Aphid Control by Ladybirds in Greenhouses](https://www.mdpi.com/2075-4450/8/2/38) — Marienkäfer ~10 Adulte/m², Etablierungszeit
+16. [DLR Rheinland-Pfalz — Anbau- und Sortenhinweise Gemüseanbau: Koriander, Blatt (Freiland/Frischmarkt 2024/2025)](https://www.dlr.rlp.de/Internet/global/themen.nsf/71d722c50f66ecc3c12581210042df58/1ef319fcf05534dbc125876e002d5a6f/$FILE/Koriander,%20Blatt.pdf) — Reihenabstand 12–30 cm, Fruchtfolge (Doldenblütler 4–5 Jahre)
+17. [LKSH — Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Zehrergruppen (Schwachzehrer: Kräuter), Pflanzenfamilien-Tabelle (Hülsenfrüchte getrennt von Doldenblütlern)
+18. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Schwachzehrer-Beet (Kräuter)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

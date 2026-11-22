@@ -137,6 +137,22 @@ Quellen: ASPCA Toxic Plant Database, RHS, Wagwalking.com Dahlia Poisoning
 | Boden-pH-Vorzug (min–max) | 6.5–7.0 (leicht sauer bis neutral; in diesem Bereich optimale Nährstoffverfügbarkeit. Harmonisiert mit §1.6/§2.3, die mit 6.0–7.0 leicht weiter gefasst sind) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow dahlias" (Growing Guide): vorgezogene Pflanzen aus Knollen 60 cm, bewurzelte Stecklinge 50–60 cm, „at least 60cm (2ft), and more for larger cultivars", https://www.rhs.org.uk/plants/dahlia/growing-guide (Reihenabstand wird von der Quelle nicht genannt; 'Hapet Daydream' 100–120 cm hoch, die RHS-Untergrenze 60 cm wird als Wert eingetragen, die Sortenbreite von 60–75 cm in 1.6 ist durch diese Quelle nicht gedeckt) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS Plant Finder, Dahlia 'Hapet Daydream' (D) (Sunlight: Full sun), https://www.rhs.org.uk/plants/383289/dahlia-hapet-daydream-d/details; RHS, „How to grow dahlias" (Growing Guide): „Dahlias need a warm, sheltered, sunny spot", https://www.rhs.org.uk/plants/dahlia/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -573,6 +589,11 @@ Hinweis: Es liegen keine dahlienspezifischen Mikronährstoff-Sollwerte vor. Die 
 | Empfohlene Vorfrucht | Hülsenfrüchte (Fabaceae) als Gründüngung; Phacelia (Stickstoffanreicherung im Boden) |
 | Empfohlene Nachfrucht | Schwachzehrer: Kräuter (Thymus, Salvia), Salate; nach Dahlien wird der Boden intensiv genutzt — leichte Begrünung ratsam |
 | Anbaupause (Jahre) | 2–3 Jahre (keine Dahlien oder Asteraceae-Starkzehrer am selben Standort) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 **Hinweis:** Dahlien sind keine Gemüsepflanzen im klassischen Sinne, daher greift die typische 4-Jahres-Fruchtfolge hier nicht streng. In der Praxis: Standort jährlich wechseln oder nach 2–3 Jahren Dahlienanbau 1–2 Jahre Pause mit Hülsenfrüchten oder Gründüngung.
 
@@ -684,3 +705,5 @@ Asteraceae,Korbblütler,Daisy family,Asterales,Größte Pflanzenfamilie mit char
 32. [Penn State Extension — Hydroponics Systems: Nutrient Solution Programs and Recipes](https://extension.psu.edu/hydroponics-systems-nutrient-solution-programs-and-recipes) — Mikronährstoffe Modified Sonneveld: Mn 0.25, Zn 0.13, Cu 0.023, Mo 0.024 ppm
 33. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffe: Mn 0.5, Zn 0.05, Cu 0.02, Mo 0.01 ppm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+34. [RHS — How to grow dahlias (Growing Guide)](https://www.rhs.org.uk/plants/dahlia/growing-guide) — Pflanzabstand 60 cm, sonniger Standort (§1.9, §1.10)
+35. [RHS Plant Finder — Dahlia 'Hapet Daydream' (D)](https://www.rhs.org.uk/plants/383289/dahlia-hapet-daydream-d/details) — Sunlight: Full sun (§1.10)

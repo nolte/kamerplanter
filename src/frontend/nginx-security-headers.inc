@@ -10,7 +10,11 @@ add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" alway
 # image-capture previews render client-side object URLs (URL.createObjectURL);
 # without blob: every gallery image and upload preview is CSP-blocked and the
 # UI misreports it as an unsupported image format.
-add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+#
+# worker-src 'self' (REQ-053 WP 9.1, #2741): the service worker /sw.js is the
+# only worker. Named explicitly instead of inheriting script-src, so a later
+# script-src widening cannot silently admit a foreign or blob: worker.
+add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
 add_header X-Frame-Options "SAMEORIGIN" always;
 add_header X-Content-Type-Options "nosniff" always;
 add_header X-XSS-Protection "1; mode=block" always;

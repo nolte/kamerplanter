@@ -3,7 +3,9 @@
 pests:
   - scientific_name: Tetranychus urticae
     common_name: Spider Mites
-    common_name_de: Gemeine Spinnmilbe
+    common_names_i18n:
+      en: [Spider Mites]
+      de: [Gemeine Spinnmilbe]
     pest_type: arachnid
     lifecycle_days: 21
     optimal_temp_min: 25.0

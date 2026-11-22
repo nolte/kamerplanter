@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-10-13'
-measured_at_commit: 86d28b46be866e5b41a8670307ee8b6cd9cc8152
+measured_on: '2026-11-18'
+measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
 replay_seconds: 11
 job_spec_sha256: c78cb2d0f8ae939a876c5830d521629a0e17e86de0f343b2b60db09a549c733e
 invocations:
@@ -27,7 +27,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 1535
+  untracked_reads_dropped: 2048
 subprocesses:
 - license-checker-rseidelsohn
 - node

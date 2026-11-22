@@ -1,0 +1,469 @@
+"""REQ-053 WP 4.3 (#2413) — the atomic task completion through the deployed app (GP-API-031/032, GP-FR-149).
+
+``app.main`` with the real ``TaskService`` / ``CareEventService``, the real tenant gate and the in-memory doubles of
+``tests/support/task_completion_fakes.py``. The unit tier shows what the service decides; this tier shows how it
+reads on the wire: the status, the dotted code, that a body cannot carry the server-owned fields (SR-009), and — per
+route — that **another tenant's task answers 404** (GP-NFR-050) and is left untouched.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.common.auth import get_current_user
+from app.common.dependencies import get_care_event_service, get_task_service, get_tenant_service
+from app.common.enums import TaskCategory, TaskStatus, TenantRole
+from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
+from app.domain.engines.dependency_resolver import DependencyResolver
+from app.domain.engines.hst_validator import HSTValidator
+from app.domain.models.care_event import CareEvent
+from app.domain.models.user import User
+from app.domain.services.care_event_service import CareEventService
+from app.domain.services.task_service import TaskService
+from tests.support.care_event_fakes import (
+    FakeAttachmentRepo,
+    FakeAttachmentService,
+    FakeCareEventRepo,
+    FakeFertilizers,
+    FakeMemberships,
+)
+from tests.support.garden_plan_fakes import (
+    OTHER_TENANT,
+    TENANT,
+    USER,
+    FakePlanRepo,
+    FakeSites,
+    make_location,
+    make_site,
+    rect,
+)
+from tests.support.task_completion_fakes import FakeCompletionRepo, FakeHarvests, FakeTaskRepo, bed_task
+
+_OWN = "/api/v1/t/own/tasks"
+_OTHER = "/api/v1/t/other/tasks"
+
+
+class _Tenants:
+    role = TenantRole.GROWER
+
+    def get_tenant_by_slug(self, slug: str) -> SimpleNamespace:
+        keys = {"own": TENANT, "other": OTHER_TENANT}
+        if slug not in keys:
+            raise NotFoundError("Tenant", slug)
+        return SimpleNamespace(key=keys[slug], slug=slug, is_active=True)
+
+    def get_membership(self, user_key: str, tenant_key: str) -> SimpleNamespace:
+        return SimpleNamespace(role=type(self).role, admin_scopes=[], is_active=True)
+
+    def get_personal_tenant(self, user_key: str) -> None:
+        return None
+
+
+@pytest.fixture
+def world() -> SimpleNamespace:
+    sites = FakeSites(make_site())
+    plan = FakePlanRepo(sites)
+    plan.locations["bed"] = make_location("bed", name="Bed", geometry=rect(1, 1, 2, 1)).model_copy(
+        update={"area_m2": 2.5}
+    )
+    care_repo = FakeCareEventRepo()
+    plants = {"pi_here": (TENANT, "bed"), "pi_foreign": (OTHER_TENANT, "bed")}
+    care_repo.plants = dict(plants)
+    care = CareEventService(
+        care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
+    )
+    tasks = FakeTaskRepo(
+        bed_task("t1"),
+        bed_task("t2"),
+        bed_task("t_feed", TaskCategory.FEEDING),
+        bed_task("t_foreign", tenant_key=OTHER_TENANT),
+    )
+    completion = FakeCompletionRepo(tasks, plants)
+    service = TaskService(
+        tasks,
+        HSTValidator(),
+        DependencyResolver(),
+        completion=completion,
+        care_events=care,
+        harvests=FakeHarvests(),
+        fertilizers=FakeFertilizers(),
+    )
+    return SimpleNamespace(tasks=tasks, completion=completion, service=service, care=care, care_repo=care_repo)
+
+
+@pytest.fixture
+def client(world) -> Iterator[Callable[..., TestClient]]:
+    from app.main import app
+
+    def build(role: TenantRole = TenantRole.GROWER) -> TestClient:
+        _Tenants.role = role
+        return TestClient(app)
+
+    app.dependency_overrides[get_current_user] = lambda: User(_key=USER, email="s@example.org", display_name="Sabine")
+    app.dependency_overrides[get_tenant_service] = _Tenants
+    app.dependency_overrides[get_task_service] = lambda: world.service
+    app.dependency_overrides[get_care_event_service] = lambda: world.care
+    try:
+        yield build
+    finally:
+        _Tenants.role = TenantRole.GROWER
+        app.dependency_overrides.clear()
+
+
+class TestComplete:
+    def test_a_bare_tap_completes_and_logs_the_task(self, client, world) -> None:
+        # GP-FR-084: every field but the instant is optional; a tap on "Erledigt" without input is valid.
+        response = client().post(f"{_OWN}/t1/complete", json={})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "completed"
+        (write,) = world.completion.completed
+        assert (write.event.trigger, write.event.task_key, write.event.performed_by_user_key) == ("task", "t1", USER)
+
+    def test_the_care_fields_of_a_feeding_reach_the_event_and_the_document(self, client, world) -> None:
+        # GP-ACC-024
+        response = client().post(
+            f"{_OWN}/t_feed/complete",
+            json={
+                "product_ref": {"kind": "fertilizer", "key": "fert_global"},
+                "quantity": 2,
+                "unit": "l_per_m2",
+                "plant_keys": ["pi_here"],
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        (write,) = world.completion.completed
+        assert write.event.quantity_total == 5.0
+        assert write.domain.collection == "feeding_events"
+
+    def test_a_zero_dose_per_m2_on_a_feeding_answers_422(self, client, world) -> None:
+        # Review acceptance "area dosing": rate <= 0 is refused, never a silent total of 0.
+        response = client().post(f"{_OWN}/t_feed/complete", json={"quantity": 0, "unit": "g_per_m2"})
+
+        assert response.status_code == 422, response.text
+        assert response.json()["details"][0]["code"] == "care_event.area_dose_not_positive"
+        assert world.completion.completed == []
+
+    def test_an_infinite_quantity_answers_422(self, client, world) -> None:
+        raw = '{"quantity": Infinity, "unit": "g_per_m2"}'
+        response = client().post(f"{_OWN}/t_feed/complete", content=raw, headers={"Content-Type": "application/json"})
+
+        assert response.status_code == 422, response.text
+        assert world.completion.completed == []
+
+    @pytest.mark.parametrize(
+        ("offset", "code"),
+        [
+            (timedelta(minutes=10), "care_event.performed_in_future"),
+            (-timedelta(days=400), "care_event.too_old"),
+        ],
+    )
+    def test_the_instant_is_held_to_the_window(self, client, world, offset, code) -> None:
+        # GP-ACC-025
+        response = client().post(f"{_OWN}/t1/complete", json={"performed_at": (datetime.now(UTC) + offset).isoformat()})
+
+        assert response.status_code == 422
+        assert response.json()["details"][0]["code"] == code
+        assert world.completion.completed == []
+
+    @pytest.mark.parametrize(
+        "forged",
+        [
+            {"trigger": "system"},
+            {"task_key": "t2"},
+            {"source_ref": {"collection": "feeding_events", "key": "x"}},
+            {"performed_by_user_key": "u_tom"},
+            {"created_by": "u_tom"},
+            {"tenant_key": OTHER_TENANT},
+        ],
+    )
+    def test_a_body_cannot_carry_the_server_owned_fields(self, client, world, forged) -> None:
+        response = client().post(f"{_OWN}/t1/complete", json=forged)
+
+        assert response.status_code == 422
+        assert world.completion.completed == []
+
+    def test_a_plant_of_another_tenant_is_422_not_found(self, client, world) -> None:
+        response = client().post(f"{_OWN}/t1/complete", json={"plant_keys": ["pi_foreign"]})
+
+        assert response.status_code == 422
+        assert response.json()["details"][0]["code"] == "reference.not_found"
+        assert world.completion.completed == []
+
+    def test_another_tenants_task_is_404_and_untouched(self, client, world) -> None:
+        response = client().post(f"{_OWN}/t_foreign/complete", json={})
+
+        assert response.status_code == 404
+        assert world.tasks.store["t_foreign"].status == TaskStatus.PENDING
+        assert world.completion.completed == []
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200  # the positive control
+
+    def test_a_viewer_is_refused_at_the_gate(self, client, world) -> None:
+        response = client(TenantRole.VIEWER).post(f"{_OWN}/t1/complete", json={})
+
+        assert response.status_code == 403
+        assert world.completion.completed == []
+
+
+class TestBatch:
+    def test_one_event_per_task(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status",
+            json={"task_keys": ["t1", "t2"], "action": "complete", "quantity": 4, "unit": "l"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"succeeded": ["t1", "t2"], "failed": []}
+        assert [w.event.task_key for w in world.completion.completed] == ["t1", "t2"]
+
+    def test_a_foreign_key_is_404_for_the_whole_batch(self, client, world) -> None:
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t_foreign"], "action": "complete"})
+
+        assert response.status_code == 404
+        assert world.completion.completed == []
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+
+    def test_more_than_200_tasks_are_422(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status", json={"task_keys": [f"t{i}" for i in range(201)], "action": "complete"}
+        )
+
+        assert response.status_code == 422
+        assert world.completion.completed == []
+
+    @pytest.mark.parametrize(
+        ("path", "body"),
+        [
+            ("batch/status", {"action": "start"}),
+            ("batch/status", {"action": "skip"}),
+            ("batch/delete", {}),
+            ("batch/assign", {"assigned_to_user_key": USER}),
+        ],
+    )
+    def test_more_than_200_keys_are_422_for_every_batch_at_the_body(self, client, world, path, body) -> None:
+        # #2757 SEC-004: only `complete` was bounded (in the service, after parsing); start, skip, delete and assign
+        # walked every key of an unbounded list. The body is refused before a single task is read or written.
+        keys = ["t1", *(f"t_unknown_{i}" for i in range(200))]
+        response = client(TenantRole.LEAD).post(f"{_OWN}/{path}", json={"task_keys": keys, **body})
+
+        assert response.status_code == 422, response.text
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+        assert world.tasks.store["t1"].assigned_to_user_key is None
+
+    @pytest.mark.parametrize(
+        ("path", "extra"),
+        [("batch/status", {"action": "start"}), ("batch/delete", {}), ("batch/assign", {"assigned_to_user_key": USER})],
+    )
+    def test_an_overlong_task_key_is_422_at_the_body(self, client, world, path, extra) -> None:
+        # #2757 security suggestion: each entry is bounded too (64 chars; Arango generates numeric keys).
+        response = client(TenantRole.LEAD).post(f"{_OWN}/{path}", json={"task_keys": ["t1", "k" * 65], **extra})
+
+        assert response.status_code == 422, response.text
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+
+    def test_a_body_cannot_carry_the_server_owned_fields(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status", json={"task_keys": ["t1"], "action": "complete", "trigger": "system"}
+        )
+
+        assert response.status_code == 422
+
+
+class TestReopen:
+    @pytest.fixture
+    def done(self, world) -> None:
+        world.tasks.store["t1"] = world.tasks.store["t1"].model_copy(update={"status": TaskStatus.COMPLETED})
+        world.completion.open_event = CareEvent(
+            _key="ce_1",
+            tenant_key=TENANT,
+            site_key="site_1",
+            location_key="bed",
+            category="watering",
+            summary="x",
+            performed_at=datetime.now(UTC),
+            trigger="task",
+            task_key="t1",
+            created_by=USER,
+            created_at=datetime.now(UTC) - timedelta(seconds=20),
+        )
+
+    def test_undo_reopens_and_voids_in_one_write(self, client, world, done) -> None:
+        response = client().post(f"{_OWN}/t1/reopen", json={"undo": True})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "pending"
+        (write,) = world.completion.reopened
+        assert (write.event_key, write.void_reason) == ("ce_1", "undo")
+
+    def test_a_plain_reopen_leaves_the_care_line(self, client, world, done) -> None:
+        response = client().post(f"{_OWN}/t1/reopen")
+
+        assert response.status_code == 200
+        assert world.completion.reopened == []
+
+    def test_a_late_undo_by_a_grower_is_403_and_nothing_changes(self, client, world, done) -> None:
+        world.completion.open_event = world.completion.open_event.model_copy(
+            update={"created_at": datetime.now(UTC) - timedelta(minutes=30)}
+        )
+
+        response = client().post(f"{_OWN}/t1/reopen", json={"undo": True})
+
+        assert response.status_code == 403
+        assert world.completion.reopened == []
+        assert world.tasks.store["t1"].status == TaskStatus.COMPLETED
+
+    def test_another_tenants_task_is_404(self, client, world) -> None:
+        world.tasks.store["t_foreign"] = world.tasks.store["t_foreign"].model_copy(
+            update={"status": TaskStatus.COMPLETED}
+        )
+
+        assert client().post(f"{_OWN}/t_foreign/reopen", json={"undo": True}).status_code == 404
+        assert world.completion.reopened == []
+
+    def test_a_body_that_names_more_than_undo_is_422(self, client, world, done) -> None:
+        assert client().post(f"{_OWN}/t1/reopen", json={"void_reason": "x"}).status_code == 422
+
+
+class TestConflictCodesAndClientEventId:
+    """REQ-053 WP 9.3: the stable conflict reasons of a completion and the replay of a buffered one.
+
+    Measured before the change: a closed task answered 422 ``VALIDATION_ERROR`` and a deleted one 404
+    ``ENTITY_NOT_FOUND``; no completion route accepted a client id.
+    """
+
+    _ID = "7a3f3c0e-9a3b-4f7e-8e7d-1f2a3b4c5d6e"
+
+    def test_a_closed_task_is_409_already_closed(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/t1/complete", json={})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "task.already_closed"
+        assert response.json()["details"][0]["status"] == "completed"
+        assert len(world.completion.completed) == 1
+
+    @pytest.mark.parametrize("key", ["t_deleted", "t_foreign"])
+    def test_a_deleted_or_foreign_task_is_404_missing(self, client, world, key) -> None:
+        response = client().post(f"{_OWN}/{key}/complete", json={})
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "task.missing"
+        assert response.json()["details"][0]["entity"] == "task"  # #1437: a 404 still names its entity
+        assert world.completion.completed == []
+
+    def test_a_replay_answers_the_task_without_a_second_completion(self, client, world) -> None:
+        first = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+        replays = [client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}) for _ in range(2)]
+
+        assert first.status_code == 200, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)
+        assert len(world.completion.completed) == 1
+
+    def test_the_id_of_one_task_on_another_is_409_mismatch(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}).status_code == 200
+
+        response = client().post(f"{_OWN}/t2/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+        assert world.tasks.store["t2"].status == TaskStatus.PENDING
+
+    def test_a_batch_replay_decides_per_task(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+
+        answers = [client().post(f"{_OWN}/batch/status", json=payload) for _ in range(3)]
+
+        assert [a.status_code for a in answers] == [200, 200, 200]
+        assert all(a.json() == {"succeeded": ["t1", "t2"], "failed": []} for a in answers)
+        assert [w.task_key for w in world.completion.completed] == ["t1", "t2"]  # once each, not three times
+
+    def test_a_closed_task_in_a_batch_is_failed_with_its_code(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={}).status_code == 200
+
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t2"], "action": "complete"})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["succeeded"] == ["t2"]
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "task.already_closed")]
+
+    def test_a_deleted_task_in_a_batch_is_404_missing_for_the_whole_batch(self, client, world) -> None:
+        response = client().post(f"{_OWN}/batch/status", json={"task_keys": ["t1", "t_deleted"], "action": "complete"})
+
+        assert response.status_code == 404
+        assert response.json()["error_code"] == "task.missing"
+        assert world.completion.completed == []
+
+    def test_an_id_on_another_action_is_422(self, client, world) -> None:
+        response = client().post(
+            f"{_OWN}/batch/status", json={"task_keys": ["t1"], "action": "start", "client_event_id": self._ID}
+        )
+
+        assert response.status_code == 422
+        assert world.tasks.store["t1"].status == TaskStatus.PENDING
+
+
+class TestClientEventReviewFindings:
+    """Code review of #2787: post-commit errors, tombstones, the batched lookup, unrelated unique indexes."""
+
+    _ID = "1b2c3d4e-5f60-4718-8a9b-0c1d2e3f4a5b"
+
+    def test_a_follow_up_error_after_the_commit_surfaces_and_is_no_replay(self, client, world, monkeypatch) -> None:
+        def follow_up_fails(*_args, **_kwargs) -> None:
+            raise WriteConflictError("tasks", "the next occurrence conflicted")
+
+        monkeypatch.setattr(world.service, "_after_completion", follow_up_fails)
+
+        response = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "WRITE_CONFLICT"  # as without an id, never a 200 "replayed"
+        assert len(world.completion.completed) == 1
+
+    def test_a_replay_of_a_deleted_task_is_404_deleted_and_writes_nothing(self, client, world) -> None:
+        assert client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID}).status_code == 200
+        world.tasks.delete_task("t1")
+
+        response = client().post(f"{_OWN}/t1/complete", json={"client_event_id": self._ID})
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "client_event.deleted"
+        assert len(world.completion.completed) == 1
+
+    def test_a_batch_reports_a_deleted_task_per_task(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+        assert client().post(f"{_OWN}/batch/status", json=payload).status_code == 200
+        world.tasks.delete_task("t1")
+
+        response = client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert response.status_code == 200, response.text  # never a 404 for the whole batch
+        assert response.json()["succeeded"] == ["t2"]
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "client_event.deleted")]
+        assert len(world.completion.completed) == 2
+
+    def test_a_batch_replay_looks_its_tasks_up_in_one_query(self, client, world) -> None:
+        payload = {"task_keys": ["t1", "t2"], "action": "complete", "client_event_id": self._ID}
+        client().post(f"{_OWN}/batch/status", json=payload)
+        world.tasks.client_id_lookups.clear()
+
+        client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert [len(ids) for ids in world.tasks.client_id_lookups] == [2]
+
+    def test_an_unrelated_unique_index_is_not_retried_as_a_race(self, client, world) -> None:
+        world.completion.fail_with = DuplicateError("harvest_batches", "batch_id", "B-1")
+        payload = {"task_keys": ["t1"], "action": "complete", "client_event_id": self._ID}
+
+        response = client().post(f"{_OWN}/batch/status", json=payload)
+
+        assert response.status_code == 409
+        assert response.json()["error_code"] == "DUPLICATE_ENTRY"
+        assert world.completion.calls == 1  # one attempt, not three

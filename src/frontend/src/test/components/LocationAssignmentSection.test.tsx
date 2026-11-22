@@ -47,7 +47,6 @@ function slot(key: string, slotId: string, occupied = false): Slot {
     key,
     slot_id: slotId,
     location_key: 'loc-1',
-    position: [0, 0],
     capacity_plants: 1,
     currently_occupied: occupied,
     last_sanitization: null,

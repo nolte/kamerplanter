@@ -12,7 +12,7 @@ class KamerplanterError(Exception):
         message: str,
         error_code: str = "INTERNAL_ERROR",
         status_code: int = 500,
-        details: list[dict[str, str]] | None = None,
+        details: list[dict[str, Any]] | None = None,
     ) -> None:
         self.error_id = new_error_id()
         self.message = message
@@ -76,6 +76,36 @@ class NotFoundError(KamerplanterError):
         )
 
 
+class StoredDocumentInvalidError(KamerplanterError):
+    """409: a document read by key exists but no longer satisfies its model (a legacy row, #2709).
+
+    Not a 404 - the document is there, and saying otherwise would be false - and not a 422: the request is
+    well-formed, the stored state is what conflicts. ``details`` names the failing fields, never their stored
+    values (NFR-006: no internal data in a response).
+
+    ``stored`` is the raw document, for the caller that must decide ownership before the 409 may be answered
+    (a foreign tenant's legacy row reads as absent, not as a 409 - no existence oracle). It is never part of
+    the response.
+    """
+
+    def __init__(self, entity: str, key: str, fields: list[str], *, stored: dict[str, Any] | None = None) -> None:
+        super().__init__(
+            message=f"The stored {entity} '{key}' does not satisfy the current model.",
+            error_code="STORED_DOCUMENT_INVALID",
+            status_code=409,
+            details=[
+                {
+                    "field": field,
+                    "reason": "The stored value does not satisfy the current model.",
+                    "code": "STORED_DOCUMENT_INVALID",
+                    "entity": normalise_entity_name(entity),
+                }
+                for field in fields
+            ],
+        )
+        self.stored: dict[str, Any] = stored or {}
+
+
 class DuplicateError(KamerplanterError):
     def __init__(self, entity: str, field: str, value: str) -> None:
         super().__init__(
@@ -119,6 +149,169 @@ class WriteConflictError(KamerplanterError):
             status_code=409,
             details=[{"field": "key", "reason": reason, "code": "WRITE_CONFLICT"}],
         )
+
+
+class TransactionTimeBudgetExceededError(KamerplanterError):
+    """A stream transaction outran its time budget and was aborted, writing nothing (REQ-053 GP-NFR-013).
+
+    Raised by ``data_access/arango/transactions.py`` when the body of a
+    transaction has taken longer than the budget it was opened with (10 s by
+    default), measured at the moment the helper would otherwise commit — or
+    earlier, when the body asks the handle to check between operations. The
+    transaction is **aborted** before this is raised, so nothing it staged is
+    visible to anyone.
+
+    422 rather than 409 or 503: the request was well-formed and nothing
+    conflicted with it — it was too much work to do atomically within the budget,
+    which is the same verdict GP-NFR-013 assigns to a plan batch over its
+    complexity limits (``batch.too_complex``). A caller that owns a published
+    contract code for that verdict (the plan batch, WP 1.8) catches this and
+    re-raises under its own code; the house code here keeps the condition
+    distinguishable from a validation error in logs and in the error catalogue.
+    """
+
+    def __init__(self, entity: str, *, budget_seconds: float, elapsed_seconds: float) -> None:
+        reason = f"took {elapsed_seconds:.2f} s against a budget of {budget_seconds:g} s"
+        super().__init__(
+            message=f"Transaction on '{entity}' exceeded its time budget ({reason}) and was aborted.",
+            error_code="TRANSACTION_TIME_BUDGET_EXCEEDED",
+            status_code=422,
+            # ``request``, not a field name: no input field caused this, so a client
+            # mapping ``details[].field`` onto its form (NFR-006 §7) has nothing to mark.
+            details=[{"field": "request", "reason": reason, "code": "TRANSACTION_TIME_BUDGET_EXCEEDED"}],
+        )
+
+
+class PlanError(KamerplanterError):
+    """A garden-plan refusal that carries its **published** dotted code (REQ-053 §21.3, §22.2).
+
+    The plan API publishes lowercase dotted codes (``plan.revision_conflict``,
+    ``batch.operation_forbidden``, ``boundary.shrinks_below_objects`` …) that a
+    client branches on, so a plan error is born with that code as both its
+    ``error_code`` and the ``code`` of its first ``details`` entry, instead of a
+    SCREAMING_CASE house code a transport would have to translate. ``extra``
+    keys (``op_index``, ``current_revision``, ``limit`` …) ride in the first
+    ``details`` entry with their native JSON types, because a client reads
+    ``details[0].op_index`` as a number.
+    """
+
+    def __init__(self, code: str, message: str, *, status_code: int, field: str = "request", **extra: Any) -> None:
+        super().__init__(
+            message=message,
+            error_code=code,
+            status_code=status_code,
+            details=[{"field": field, "reason": message, "code": code, **extra}],
+        )
+
+
+class ClientEventMismatchError(PlanError):
+    """409 ``client_event.payload_mismatch``: a ``client_event_id`` that names another request (REQ-053 WP 9.3).
+
+    A ``client_event_id`` stands for exactly one buffered write. A replay with the same id and the same request
+    answers the stored object; the same id with a different body, on a different task or plant, or from another
+    member is refused here instead of being read as "already done" - the caller would otherwise believe a write
+    happened that never did. Nothing of the stored object is echoed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "client_event.payload_mismatch",
+            "This client_event_id was already used for a different request.",
+            status_code=409,
+            field="client_event_id",
+        )
+
+
+class ClientEventDeletedError(PlanError):
+    """404 ``client_event.deleted``: a replay of a buffered write whose object was deleted since (WP 9.3).
+
+    The delete left a tombstone for the id; the replay creates nothing. A client drops the buffered entry.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            "client_event.deleted",
+            "What this client_event_id created was deleted since; nothing was written.",
+            status_code=404,
+            field="client_event_id",
+        )
+
+
+class TaskAlreadyClosedError(PlanError):
+    """409 ``task.already_closed``: a completion of a task that is completed or skipped already (WP 9.3).
+
+    The stable conflict reason an offline queue branches on ("someone else was faster"); the status the task has
+    rides along. A task in another non-completable state (``failed``, ``dormant``) stays the 422 it was.
+    """
+
+    def __init__(self, status: str) -> None:
+        super().__init__(
+            "task.already_closed",
+            f"The task is closed already (status '{status}').",
+            status_code=409,
+            field="status",
+            status=status,
+        )
+
+
+class TaskMissingError(NotFoundError):
+    """404 ``task.missing``: the task to complete is gone - deleted, or never the caller's tenant's (WP 9.3).
+
+    A :class:`NotFoundError` (every handler of a 404 still catches it) whose code is the stable conflict reason of
+    a completion; ``details[0].entity`` stays ``task`` so a client that separates 404s by entity (#1437) keeps
+    working. Foreign and absent answer alike (GP-NFR-050).
+    """
+
+    def __init__(self, key: str) -> None:
+        super().__init__("Task", key)
+        self.error_code = "task.missing"
+        self.details[0]["code"] = "task.missing"
+
+
+class PlanRevisionConflictError(PlanError):
+    """409 ``plan.revision_conflict``: ``expected_revision`` is not the site's ``plan_revision`` (V-14).
+
+    ``changed_by`` is the *display name* of the last editor, never the account key
+    (§22.1, SR-013): a key would be a stable identifier for a person in the
+    response of an optimistic-locking miss.
+    """
+
+    def __init__(self, *, current_revision: int, changed_by: str | None, changed_at: str | None) -> None:
+        super().__init__(
+            "plan.revision_conflict",
+            "The garden plan was changed by someone else; reload it and apply your changes again.",
+            status_code=409,
+            field="expected_revision",
+            current_revision=current_revision,
+            changed_by=changed_by,
+            changed_at=changed_at,
+        )
+        self.current_revision = current_revision
+
+
+class PlanValidationError(KamerplanterError):
+    """422: one or more operations of a plan request violate a validation rule (§22.2).
+
+    ``findings`` are ``(op_index, field, code)``; the whole request is refused and
+    nothing is persisted. ``op_index`` is ``None`` for a finding that belongs to no
+    single operation (a boundary that shrinks below existing objects).
+    """
+
+    def __init__(self, findings: list[tuple[int | None, str, str, dict[str, Any]]]) -> None:
+        details: list[dict[str, Any]] = []
+        for op_index, field, code, extra in findings:
+            entry: dict[str, Any] = {"field": field, "reason": code, "code": code}
+            if op_index is not None:
+                entry["op_index"] = op_index
+            entry.update(extra)
+            details.append(entry)
+        super().__init__(
+            message="The plan request is invalid.",
+            error_code="VALIDATION_ERROR",
+            status_code=422,
+            details=details,
+        )
+        self.codes = [code for _, _, code, _ in findings]
 
 
 class AccountBeingErasedError(KamerplanterError):
@@ -245,6 +438,27 @@ class OAuthAutoLinkRefusedError(ValidationError):
     a GitHub provider registered without the `user:email` scope, so this is an
     ordinary path rather than a corner.
     """
+
+
+class RecurrenceRuleRequiredError(ValidationError):
+    """``recurrence_rule`` is not an RFC 5545 RRULE (REQ-053 GP-ACC-038, REQ-006 v3.5, ADR-008).
+
+    RRULE is the only recurrence format since migration M5 (v0097, #2325) converted
+    the stored cron strings and the engine dropped its croniter fallback. A cron
+    expression — or any other string ``dateutil.rrule`` cannot parse — is refused at
+    the service boundary with 422 and the code ``recurrence.rrule_required``, so a
+    client learns the format instead of storing a rule that never recurs.
+    """
+
+    def __init__(self, rule: str) -> None:
+        super().__init__(
+            message=(
+                "recurrence_rule must be an RFC 5545 RRULE such as 'FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0'; "
+                f"got {rule!r}. Cron expressions are no longer accepted."
+            ),
+            details=[{"field": "recurrence_rule", "code": "recurrence.rrule_required"}],
+        )
+        self.error_code = "recurrence.rrule_required"
 
 
 class WinterPathViolationError(KamerplanterError):
@@ -807,9 +1021,10 @@ class RequestBodyTooLargeError(KamerplanterError):
     """
 
     def __init__(self, max_bytes: int) -> None:
-        max_mb = max_bytes / (1024 * 1024)
+        # A ceiling below 1 MiB (the bed-template file, 256 KB) is named in KB: "0 MB" would say nothing.
+        size = f"{max_bytes / (1024 * 1024):.0f} MB" if max_bytes >= 1024 * 1024 else f"{max_bytes // 1024} KB"
         super().__init__(
-            message=f"Request body exceeds the maximum allowed size of {max_mb:.0f} MB.",
+            message=f"Request body exceeds the maximum allowed size of {size}.",
             error_code="REQUEST_BODY_TOO_LARGE",
             status_code=413,
         )

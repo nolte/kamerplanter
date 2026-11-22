@@ -20,7 +20,7 @@ new_families:
     common_name_de: "Oelgewaechse"
     common_name_en: Olive family
     order: Lamiales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [shrub, tree]
@@ -39,7 +39,7 @@ new_families:
     common_name_de: Storchschnabelgewaechse
     common_name_en: Geranium family
     order: Geraniales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [herb]
@@ -58,7 +58,7 @@ new_families:
     common_name_de: Hahnenfussgewaechse
     common_name_en: Buttercup family
     order: Ranunculales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -77,7 +77,7 @@ new_families:
     common_name_de: Grasliliengewaechse
     common_name_en: Asphodel family
     order: Asparagales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate  # Corrected: family spans frost-hardy (Hemerocallis) to sensitive (Aloe) genera
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -96,7 +96,7 @@ new_families:
     common_name_de: Hortensiengewaechse
     common_name_en: Hydrangea family
     order: Cornales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -115,7 +115,7 @@ new_families:
     common_name_de: Pfingstrosengewaechse
     common_name_en: Peony family
     order: Saxifragales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb, shrub]
@@ -134,7 +134,7 @@ new_families:
     common_name_de: Raublattgewaechse
     common_name_en: Borage family
     order: Boraginales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: moderate
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -153,7 +153,7 @@ new_families:
     common_name_de: Weinrebengewaechse
     common_name_en: Grape family
     order: Vitales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [vine]
@@ -172,7 +172,7 @@ new_families:
     common_name_de: Heidekrautgewaechse
     common_name_en: Heath family
     order: Ericales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: hardy
     typical_root_depth: shallow
     typical_growth_forms: [shrub]
@@ -191,7 +191,7 @@ new_families:
     common_name_de: Stachelbeergewaechse
     common_name_en: Currant family
     order: Saxifragales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -210,7 +210,7 @@ new_families:
     common_name_de: Moschuskrautgewaechse
     common_name_en: Moschatel family
     order: Dipsacales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -229,7 +229,7 @@ new_families:
     common_name_de: Geissblattgewaechse
     common_name_en: Honeysuckle family
     order: Dipsacales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [shrub]
@@ -248,7 +248,7 @@ new_families:
     common_name_de: Himmelsleitergewaechse
     common_name_en: Phlox family
     order: Ericales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: medium
     typical_growth_forms: [herb]
@@ -267,7 +267,7 @@ new_families:
     common_name_de: Knoeterichgewaechse
     common_name_en: Buckwheat family
     order: Caryophyllales
-    typical_nutrient_demand: medium
+    typical_nutrient_demand: medium_feeder
     frost_tolerance: hardy
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -286,7 +286,7 @@ new_families:
     common_name_de: Kapuzinerkressengewaechse
     common_name_en: Nasturtium family
     order: Brassicales
-    typical_nutrient_demand: light
+    typical_nutrient_demand: light_feeder
     frost_tolerance: sensitive
     typical_root_depth: shallow
     typical_growth_forms: [herb, vine]
@@ -357,7 +357,10 @@ new_species:
       - method: layering
         months: [7, 8]
         notes: Absenker
-    common_names: [Forsythie, Goldgloeckchen, Forsythia]
+    common_names: [Forsythie, Goldglöckchen, Forsythia, Goldflieder, Border Forsythia]
+    common_names_i18n:
+      de: [Forsythie, Goldflieder, Goldglöckchen]
+      en: [Border Forsythia, Forsythia]
     genus: Forsythia
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -390,6 +393,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Geranium sanguineum"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -404,7 +415,10 @@ new_species:
         notes: auch im Herbst
       - method: seed
         months: [3, 4]
-    common_names: [Blut-Storchschnabel, Bloody Cranesbill]
+    common_names: [Blut-Storchschnabel, Bloody Cranesbill, Blutroter Storchschnabel]
+    common_names_i18n:
+      de: [Blut-Storchschnabel, Blutroter Storchschnabel]
+      en: [Bloody Cranesbill]
     genus: Geranium
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -438,6 +452,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in Steckbrief (Abschnitt fehlt bzw. Entfällt) — nutrient_demand, nutrient_demand_source, nutrient_demand_confidence, nitrogen_fixing, rotation_pause_years unbelegt (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Helleborus niger"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -455,7 +477,10 @@ new_species:
       - method: seed
         months: [6, 7]
         notes: Frischsaat, Kaltkeimer
-    common_names: [Christrose, Schneerose, Christmas Rose]
+    common_names: [Christrose, Schneerose, Christmas Rose, Weihnachtsrose, Schwarze Nieswurz]
+    common_names_i18n:
+      de: [Christrose, Weihnachtsrose, Schwarze Nieswurz, Schneerose]
+      en: [Christmas Rose]
     genus: Helleborus
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -486,6 +511,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hemerocallis spp."
     propagation_configs:
@@ -493,6 +525,9 @@ new_species:
         months: [3, 4]
         notes: auch im Herbst
     common_names: [Taglilie, Daylily]
+    common_names_i18n:
+      de: [Taglilie]
+      en: [Daylily]
     genus: Hemerocallis
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -524,6 +559,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hosta spp."
     propagation_configs:
@@ -531,6 +573,9 @@ new_species:
         months: [3, 4]
         notes: beim Austrieb; auch im Herbst
     common_names: [Funkie, Herzlilie, Hosta, Plantain Lily]
+    common_names_i18n:
+      de: [Funkie, Herzlilie]
+      en: [Hosta, Plantain Lily]
     genus: Hosta
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -565,6 +610,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Hydrangea macrophylla"
     propagation_configs:
@@ -574,7 +627,10 @@ new_species:
       - method: layering
         months: [6, 7, 8]
         notes: Absenker
-    common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea]
+    common_names: [Gartenhortensie, Bauernhortensie, Hydrangea, Bigleaf Hydrangea, Ballhortensie, Hortensie, French Hydrangea]
+    common_names_i18n:
+      de: [Bauernhortensie, Ballhortensie, Hortensie, Gartenhortensie]
+      en: [Bigleaf Hydrangea, French Hydrangea, Hydrangea]
     genus: Hydrangea
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -607,6 +663,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ligustrum vulgare"
     propagation_configs:
@@ -616,7 +679,10 @@ new_species:
         notes: auch Hartholz im Winter
       - method: layering
         months: [6, 7, 8]
-    common_names: [Liguster, Gewoehnlicher Liguster, Wild Privet]
+    common_names: [Liguster, Gewöhnlicher Liguster, Wild Privet, Rainweide, Common Privet]
+    common_names_i18n:
+      de: [Gewöhnlicher Liguster, Rainweide, Liguster]
+      en: [Common Privet, Wild Privet]
     genus: Ligustrum
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -648,13 +714,23 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Paeonia lactiflora"
     propagation_configs:
       - method: division
         months: [9, 10]
         notes: Augen nur flach setzen, sonst blühfaul
-    common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony]
+    common_names: [Staudenpfingstrose, Edelpfingstrose, Chinese Peony, Garden Peony, Chinesische Pfingstrose, Milchweiße Pfingstrose, Common Garden Peony]
+    common_names_i18n:
+      de: [Chinesische Pfingstrose, Milchweiße Pfingstrose, Staudenpfingstrose, Edelpfingstrose]
+      en: [Chinese Peony, Common Garden Peony, Garden Peony]
     genus: Paeonia
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -688,6 +764,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phlox paniculata"
     propagation_configs:
@@ -699,6 +782,9 @@ new_species:
         wood_stage: herbaceous
         notes: Trieb- oder Wurzelschnittlinge
     common_names: [Flammenblume, Hoher Stauden-Phlox, Garden Phlox]
+    common_names_i18n:
+      de: [Flammenblume, Hoher Stauden-Phlox]
+      en: [Garden Phlox]
     genus: Phlox
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -730,6 +816,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhododendron spp."
     propagation_configs:
@@ -744,6 +837,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Rhododendron, Alpenrose]
+    common_names_i18n:
+      de: [Rhododendron, Alpenrose]
+      en: [Rhododendron]
     genus: Rhododendron
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -779,6 +875,13 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 5.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rosa spp."
     propagation_configs:
@@ -789,7 +892,10 @@ new_species:
       - method: grafting
         months: [7, 8]
         notes: Okulation im Sommer
-    common_names: [Gartenrose, Rose, Garden Rose]
+    common_names: [Gartenrose, Rose, Garden Rose, Edelrose]
+    common_names_i18n:
+      de: [Gartenrose, Edelrose, Rose]
+      en: [Garden Rose]
     genus: Rosa
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -825,6 +931,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Syringa vulgaris"
     propagation_configs:
@@ -839,6 +952,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Gemeiner Flieder, Edelflieder, Common Lilac]
+    common_names_i18n:
+      de: [Gemeiner Flieder, Edelflieder]
+      en: [Common Lilac]
     genus: Syringa
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -870,6 +986,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6.5
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Viburnum opulus"
     propagation_configs:
@@ -883,7 +1007,10 @@ new_species:
       - method: seed
         months: [9, 10]
         notes: Kaltkeimer, doppelte Dormanz
-    common_names: [Gewoehnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
+    common_names: [Gewöhnlicher Schneeball, Gemeiner Schneeball, Guelder-rose]
+    common_names_i18n:
+      de: [Gewöhnlicher Schneeball, Gemeiner Schneeball]
+      en: [Guelder-rose]
     genus: Viburnum
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -915,6 +1042,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 8.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Weigela florida"
     propagation_configs:
@@ -926,6 +1060,9 @@ new_species:
         months: [6, 7, 8]
         notes: Absenker im Sommer
     common_names: [Liebliche Weigelie, Weigelie, Weigela]
+    common_names_i18n:
+      de: [Liebliche Weigelie, Weigelie]
+      en: [Weigela]
     genus: Weigela
     plant_category: outdoor_ornamental
     growth_habit: shrub
@@ -958,6 +1095,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Fruit trees ----------
 
@@ -966,7 +1110,10 @@ new_species:
       - method: grafting
         months: [2, 3]
         notes: Spätwinter-Reiserveredelung; Okulation im Sommer alternativ
-    common_names: [Kulturapfel, Apfel, Apple]
+    common_names: [Kulturapfel, Apfel, Apple, Apfelbaum, Domestic Apple]
+    common_names_i18n:
+      de: [Kulturapfel, Apfelbaum, Apfel]
+      en: [Apple, Domestic Apple]
     genus: Malus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1005,13 +1152,23 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Prunus avium"
     propagation_configs:
       - method: grafting
         months: [2, 3]
         notes: Spätwinter-Veredelung
-    common_names: [Suesskirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
+    common_names: [Süßkirsche, Vogelkirsche, Sweet Cherry, Wild Cherry]
+    common_names_i18n:
+      de: [Süßkirsche, Vogelkirsche]
+      en: [Sweet Cherry, Wild Cherry]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1049,6 +1206,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Prunus domestica"
     propagation_configs:
@@ -1056,6 +1220,9 @@ new_species:
         months: [2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Pflaume, Zwetschge, Plum, European Plum]
+    common_names_i18n:
+      de: [Pflaume, Zwetschge]
+      en: [Plum, European Plum]
     genus: Prunus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1094,6 +1261,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.5
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pyrus communis"
     propagation_configs:
@@ -1101,6 +1275,9 @@ new_species:
         months: [2, 3]
         notes: Spätwinter-Veredelung
     common_names: [Kulturbirne, Gemeine Birne, Pear]
+    common_names_i18n:
+      de: [Kulturbirne, Gemeine Birne]
+      en: [Pear]
     genus: Pyrus
     plant_category: outdoor_vegetable
     growth_habit: tree
@@ -1138,6 +1315,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Berry shrubs ----------
 
@@ -1150,7 +1334,10 @@ new_species:
       - method: division
         months: [10, 11, 3]
         notes: Teilung in Ruhe
-    common_names: [Rote Johannisbeere, Ahlbeere, Red Currant]
+    common_names: [Rote Johannisbeere, Ahlbeere, Red Currant, Ribes]
+    common_names_i18n:
+      de: [Rote Johannisbeere, Ahlbeere]
+      en: [Red Currant, Ribes]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1187,6 +1374,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Ribes uva-crispa"
     propagation_configs:
@@ -1198,6 +1392,9 @@ new_species:
         months: [6, 7, 8]
         notes: Absenker im Sommer
     common_names: [Stachelbeere, Stachelbeerstrauch, Gooseberry]
+    common_names_i18n:
+      de: [Stachelbeere, Stachelbeerstrauch]
+      en: [Gooseberry]
     genus: Ribes
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1234,6 +1431,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 6.5
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rubus fruticosus agg."
     propagation_configs:
@@ -1244,6 +1448,9 @@ new_species:
         months: [7, 8, 9]
         wood_stage: semi_hardwood
     common_names: [Brombeere, Blackberry, Bramble]
+    common_names_i18n:
+      de: [Brombeere]
+      en: [Blackberry, Bramble]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1282,6 +1489,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # DATEN FEHLEN: Erwerbsobst-Spindelanlage, fuer Hausgarten nicht uebertragbar (Betreiberentscheidung #2371, E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rubus idaeus"
     propagation_configs:
@@ -1292,6 +1506,9 @@ new_species:
         months: [10, 11, 3]
         notes: Teilung in Ruhe
     common_names: [Himbeere, Gemeine Himbeere, Raspberry]
+    common_names_i18n:
+      de: [Himbeere, Gemeine Himbeere]
+      en: [Raspberry]
     genus: Rubus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1328,6 +1545,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.8
+    row_spacing_cm: "150–200"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Sambucus nigra"
     propagation_configs:
@@ -1336,6 +1560,9 @@ new_species:
         wood_stage: hardwood
         notes: Steckholz im Winter, sehr leicht
     common_names: [Schwarzer Holunder, Fliederbeere, Hollerbusch, Black Elderberry, Elder]
+    common_names_i18n:
+      de: [Schwarzer Holunder, Fliederbeere, Hollerbusch]
+      en: [Black Elderberry, Elder]
     genus: Sambucus
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1373,6 +1600,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Vaccinium corymbosum"
     propagation_configs:
@@ -1380,7 +1615,10 @@ new_species:
         months: [2, 3]
         wood_stage: hardwood
         notes: Steckholz Spätwinter; auch softwood im Sommer
-    common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry]
+    common_names: [Kulturheidelbeere, Amerikanische Heidelbeere, Highbush Blueberry, Strauchheidelbeere]
+    common_names_i18n:
+      de: [Kulturheidelbeere, Amerikanische Heidelbeere, Strauchheidelbeere]
+      en: [Highbush Blueberry]
     genus: Vaccinium
     plant_category: outdoor_vegetable
     growth_habit: shrub
@@ -1417,6 +1655,13 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 5.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "UGA Extension C1163: \"Blueberry plants are sensitive to overfertilization, and the nutrient demand of blueberries is low compared to row crops and vegetables\", https://fieldreport.caes.uga.edu/publications/C1163/suggested-blueberry-fertilization-timings-and-rates/; RHS How to grow blueberries: in gemulchtem Boden keine zusaetzliche Duengung, \"dislike excess fertiliser\", https://www.rhs.org.uk/fruit/blueberries/grow-your-own"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Vitis vinifera"
     propagation_configs:
@@ -1428,6 +1673,9 @@ new_species:
         months: [1, 2, 3]
         notes: Spätwinter-Veredelung/Omega-Veredelung
     common_names: [Weinrebe, Weintraube, Grape Vine]
+    common_names_i18n:
+      de: [Weinrebe, Weintraube]
+      en: [Grape Vine]
     genus: Vitis
     plant_category: outdoor_vegetable
     growth_habit: vine
@@ -1452,6 +1700,7 @@ new_species:
     balcony_suitable: "yes"
     greenhouse_recommended: true
     support_required: true
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     pruning_type: winter_pruning
@@ -1466,6 +1715,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 6.5
+    row_spacing_cm: "150–180"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "RHS How to grow grapes: in gemulchtem Boden \"shouldn't need any additional feeding\", https://www.rhs.org.uk/fruit/grapes/grow-your-own; UC IPM Grape Fertilization Guide: Dünger \"may rarely be needed in some aeras with rich soil\", Übermaß fördert Wuchs, https://ipm.ucanr.edu/home-and-landscape/grape-fertilization-guide/ (beide indirekt, Hausgarten-Ratgeber)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Herbs ----------
 
@@ -1487,7 +1743,10 @@ new_species:
       - method: seed
         months: [8, 9]
         notes: Frischsaat keimt am besten
-    common_names: [Liebstoeckel, Maggikraut, Lovage]
+    common_names: [Liebstöckel, Maggikraut, Lovage, Suppengrün]
+    common_names_i18n:
+      de: [Liebstöckel, Maggikraut, Suppengrün]
+      en: [Lovage]
     genus: Levisticum
     plant_category: herb
     growth_habit: herb
@@ -1525,6 +1784,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Melissa officinalis"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1548,7 +1814,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: Lichtkeimer
-    common_names: [Zitronenmelisse, Melisse, Lemon Balm]
+    common_names: [Zitronenmelisse, Melisse, Lemon Balm, Gartenmelisse]
+    common_names_i18n:
+      de: [Zitronenmelisse, Gartenmelisse, Melisse]
+      en: [Lemon Balm]
     genus: Melissa
     plant_category: herb
     growth_habit: herb
@@ -1587,6 +1856,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.6
       max_ph: 9
+    row_spacing_cm: "42–62.5"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Sammelgruppe Kräuter = Schwachzehrer: Natur im Garten Burgenland, Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit Kräuter); Landwirtschaftskammer NRW 2020, Fruchtfolge im Gemüsegarten planen (Schwachzehrer inkl. Kräuter) (Melisse nicht namentlich)"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: 4
 
   - scientific_name: "Origanum vulgare"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1607,7 +1883,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Lichtkeimer
-    common_names: [Oregano, Wilder Majoran, Dost, Oregano]
+    common_names: [Oregano, Wilder Majoran, Dost, Wild Marjoram]
+    common_names_i18n:
+      de: [Oregano, Wilder Majoran, Dost]
+      en: [Oregano, Wild Marjoram]
     genus: Origanum
     plant_category: herb
     growth_habit: subshrub
@@ -1646,6 +1925,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Landwirtschaftskammer NRW, Fruchtfolge im Gemuesegarten planen (2020; Gruppenangabe: Kraeuter = Schwachzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Satureja hortensis"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1663,6 +1949,9 @@ new_species:
         months: [4, 5]
         notes: Lichtkeimer, einjährig
     common_names: [Sommer-Bohnenkraut, Summer Savory]
+    common_names_i18n:
+      de: [Sommer-Bohnenkraut]
+      en: [Summer Savory]
     genus: Satureja
     plant_category: herb
     growth_habit: herb
@@ -1700,6 +1989,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 8
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Vegetables ----------
 
@@ -1717,7 +2013,10 @@ new_species:
       - method: seed
         months: [3, 4]
         notes: Direktsaat, frisches Saatgut, kurz keimfähig
-    common_names: [Pastinake, Parsnip]
+    common_names: [Pastinake, Parsnip, Hammermöhre, Hirschmöhre]
+    common_names_i18n:
+      de: [Pastinake, Hammermöhre, Hirschmöhre]
+      en: [Parsnip]
     genus: Pastinaca
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1755,6 +2054,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    row_spacing_cm: "30–40"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt Fruchtfolgen im Gemüsebau (2022), Tabelle 2 (Pastinake: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LWG Bayern, Merkblatt 2157 Pastinake - Kulturanleitung (2013; Mittelstarkzehrer), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/infoschrift_pastinake.pdf"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rheum rhabarbarum"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1773,7 +2079,10 @@ new_species:
       - method: seed
         months: [3, 4]
         notes: Sorten nicht sortenecht
-    common_names: [Rhabarber, Gemueserhabarber, Rhubarb, Garden Rhubarb]
+    common_names: [Rhabarber, Gemüserhabarber, Rhubarb, Garden Rhubarb]
+    common_names_i18n:
+      de: [Rhabarber, Gemüserhabarber]
+      en: [Rhubarb, Garden Rhubarb]
     genus: Rheum
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1797,6 +2106,7 @@ new_species:
     balcony_suitable: limited
     greenhouse_recommended: false
     support_required: false
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: heavy_feeder
     green_manure_suitable: false
     pruning_type: after_harvest
@@ -1808,6 +2118,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5
       max_ph: 6.8
+    row_spacing_cm: "91–122"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "University of Arkansas Division of Agriculture FSA-6076 Rhubarb (Andersen): \"Fertility - medium to rich\", \"Fertilizer - medium\", https://www.uaex.uada.edu/publications/PDF/FSA-6076.pdf; abweichend UConn Home & Garden Education Center (little to no fertilizer needed), https://homegarden.cahnr.uconn.edu/factsheets/rhubarb"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Spinacia oleracea"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1826,6 +2143,9 @@ new_species:
         months: [3, 4, 8, 9]
         notes: Direktsaat, schießt bei Hitze/Langtag
     common_names: [Spinat, Echter Spinat, Spinach]
+    common_names_i18n:
+      de: [Spinat, Echter Spinat]
+      en: [Spinach]
     genus: Spinacia
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1867,6 +2187,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    row_spacing_cm: "20"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "LK NRW 2020 (Mittelstarkzehrer: Spinat), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH (Mittelzehrer: Moehren, Spinat, Radies), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; WIDERSPRUCH: Suedtiroler Bauernbund 2022 Tab. 2 (Schwachzehrer: Spinat), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Spinat), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Green manure / cover crops ----------
 
@@ -1887,7 +2214,10 @@ new_species:
       - method: self_seeding
         months: [8, 9]
         notes: versamt sich willig
-    common_names: [Vielblaettrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin]
+    common_names: [Vielblättrige Lupine, Staudenlupine, Garden Lupin, Bigleaf Lupin, Gartenlupine, Large-leaved Lupin]
+    common_names_i18n:
+      de: [Vielblättrige Lupine, Gartenlupine, Staudenlupine]
+      en: [Garden Lupin, Large-leaved Lupin, Bigleaf Lupin]
     genus: Lupinus
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1912,6 +2242,7 @@ new_species:
     greenhouse_recommended: false
     support_required: false
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [7, 10]
@@ -1922,6 +2253,12 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Medicago sativa"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1939,7 +2276,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: Direktsaat
-    common_names: [Luzerne, Alfalfa, Ewiger Klee]
+    common_names: [Luzerne, Alfalfa, Ewiger Klee, Lucerne]
+    common_names_i18n:
+      de: [Luzerne, Ewiger Klee]
+      en: [Alfalfa, Lucerne]
     genus: Medicago
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -1961,6 +2301,7 @@ new_species:
     mature_width_cm: "20-40"
     spacing_cm: "5-10"
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
     green_manure_suitable: true
     pruning_type: after_harvest
     pruning_months: [6, 7, 8]
@@ -1974,6 +2315,12 @@ new_species:
     soil_ph_preference:
       min_ph: 6.5
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phacelia tanacetifolia"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -1992,7 +2339,10 @@ new_species:
         notes: Dunkelkeimer, Direktsaat als Gründüngung
       - method: self_seeding
         months: [8, 9]
-    common_names: [Bueschelschoen, Bienenfreund, Phacelia, Scorpion Weed]
+    common_names: [Büschelschön, Bienenfreund, Phacelia, Scorpion Weed, Rainfarn-Phazelie, Lacy Phacelia, Blue Tansy, Fiddleneck]
+    common_names_i18n:
+      de: [Bienenfreund, Rainfarn-Phazelie, Büschelschön]
+      en: [Lacy Phacelia, Blue Tansy, Fiddleneck, Phacelia, Scorpion Weed]
     genus: Phacelia
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2023,6 +2373,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.4
       max_ph: 8.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Sinapis alba"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2038,7 +2395,10 @@ new_species:
         notes: Direktsaat als Gründüngung
       - method: self_seeding
         months: [8, 9]
-    common_names: [Gelbsenf, Weisser Senf, White Mustard, Yellow Mustard]
+    common_names: [Gelbsenf, Weißer Senf, White Mustard, Yellow Mustard]
+    common_names_i18n:
+      de: [Gelbsenf, Weißer Senf]
+      en: [White Mustard, Yellow Mustard]
     genus: Sinapis
     plant_category: outdoor_vegetable
     growth_habit: herb
@@ -2069,6 +2429,13 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 8.2
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   # ---------- Annual ornamentals ----------
 
@@ -2086,7 +2453,10 @@ new_species:
       - method: seed
         months: [3, 4, 5]
         notes: Vorkultur oder Direktsaat nach Frost
-    common_names: [Studentenblume, Franzoesische Tagetes, French Marigold]
+    common_names: [Studentenblume, Französische Tagetes, French Marigold, Aufrechte Tagetes]
+    common_names_i18n:
+      de: [Studentenblume, Aufrechte Tagetes, Französische Tagetes]
+      en: [French Marigold]
     genus: Tagetes
     plant_category: outdoor_ornamental
     growth_habit: herb
@@ -2122,6 +2492,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.5
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Tropaeolum majus"
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2140,7 +2517,10 @@ new_species:
         notes: Direktsaat nach Frost, Dunkelkeimer
       - method: self_seeding
         months: [9, 10]
-    common_names: [Grosse Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
+    common_names: [Große Kapuzinerkresse, Kapuzinerkresse, Garden Nasturtium, Indian Cress]
+    common_names_i18n:
+      de: [Große Kapuzinerkresse, Kapuzinerkresse]
+      en: [Garden Nasturtium, Indian Cress]
     genus: Tropaeolum
     plant_category: herb
     growth_habit: herb
@@ -2181,6 +2561,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.1
       max_ph: 7.8
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 # ==============================================================================
 # S3  SPECIES ENRICHMENT (14 existing species)
@@ -2222,6 +2609,13 @@ species_enrichment:
       light_germination: light
       thousand_seed_weight_g: 1.1
       # sowing_density_per_m2: MISSING - two values in source (11-16 for Kopfsalat, 25-33 for Pfluecksalat); cannot determine single target value
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau\" (2022), Tabelle 2 (Kopfsalat: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen\" (2020; Salate: Mittelstarkzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: medium
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Lavandula angustifolia":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2262,6 +2656,14 @@ species_enrichment:
     native_habitat: "Westliches Mittelmeer (Frankreich, Spanien)"
     pruning_type: spring_pruning
     pruning_months: [3, 4, 8]
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Mentha piperita":
     propagation_configs:
@@ -2287,12 +2689,20 @@ species_enrichment:
     frost_sensitivity: hardy
     harvest_months: [5, 6, 7, 8, 9, 10]
     bloom_months: [6, 7, 8]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: medium_feeder
     green_manure_suitable: false
     allelopathy_score: 0.2
     native_habitat: "Hybride (Mentha aquatica x Mentha spicata); Europa"
     pruning_type: after_harvest
     pruning_months: [6, 7, 8, 9]
+    row_spacing_cm: "62.5–75"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Sammelgruppe Kräuter = Schwachzehrer: Natur im Garten Burgenland, Fruchtfolge im Gemüsegarten (Schwachzehrer-Beet mit Kräuter); Landwirtschaftskammer NRW 2020, Fruchtfolge im Gemüsegarten planen (Schwachzehrer inkl. Kräuter) (Pfefferminze nicht namentlich); Gegenindiz LfL Bayern Kulturanleitung Pfefferminze: Entzug 42 kg N je 100 dt Frischkraut, gestaffelte N-Gaben, keine Zehrerklasse"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: 4
 
   "Ocimum basilicum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2328,12 +2738,20 @@ species_enrichment:
     sowing_indoor_weeks_before_last_frost: 7
     sowing_outdoor_after_last_frost_days: 14
     direct_sow_months: [5, 6]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: light_feeder
     green_manure_suitable: false
     allelopathy_score: 0.1
     native_habitat: "Tropisches Asien (Indien, Suedostasien)"
     pruning_type: summer_pruning
     pruning_months: [5, 6, 7, 8, 9]
+    row_spacing_cm: "25"
+    light_requirement: full_sun
+    nutrient_demand: medium_feeder
+    nutrient_demand_source: "LWG Bayern, Merkblatt 2151 Basilikum (2020; mittleres Naehrstoffbeduerfnis), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2151-2020.pdf; abweichend LK NRW 2020 (Kraeuter als Gruppe Schwachzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Petroselinum crispum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2372,6 +2790,13 @@ species_enrichment:
     native_habitat: "Mittelmeerraum"
     pruning_type: summer_pruning
     pruning_months: [5, 6, 7, 8, 9, 10]
+    row_spacing_cm: "20–30"
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: false
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Phaseolus vulgaris":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2410,6 +2835,13 @@ species_enrichment:
     support_required: true
     pruning_type: none
     pruning_months: []
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt Fruchtfolgen im Gemüsebau (2022), Tabelle 2 (Buschbohne: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, Fruchtfolge im Gemüsegarten planen (2020; Schwachzehrer: alle Hülsenfrüchte), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, Fruchtfolge im Garten (Schwachzehrer: Erbsen, Bohnen, Kräuter), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Buschbohnen; Stangenbohnen in Mittelzehrer-Spalte), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; RHS French beans (don't need feeding when growing in the ground), https://www.rhs.org.uk/vegetables/french-beans/grow-your-own"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: true
+    rotation_pause_years: 3
 
   "Pisum sativum":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2449,6 +2881,13 @@ species_enrichment:
     support_required: true
     pruning_type: none
     pruning_months: []
+    row_spacing_cm: "30"
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Erbse: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: Erbsen), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: Erbsen), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: alle Hülsenfrüchte), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; RHS, „Peas: Grow your own“ (im Boden meist keine Düngung nötig), https://www.rhs.org.uk/vegetables/peas/grow-your-own"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: true
+    rotation_pause_years: 5
 
   "Salvia officinalis":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2491,6 +2930,13 @@ species_enrichment:
     native_habitat: "Mittelmeerraum (Dalmatien, Balkan)"
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Salvia rosmarinus":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2531,6 +2977,13 @@ species_enrichment:
     native_habitat: "Mittelmeerraum"
     pruning_type: spring_pruning
     pruning_months: [3, 4]
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Solanum lycopersicum":
     propagation_configs:
@@ -2571,6 +3024,13 @@ species_enrichment:
       light_germination: indifferent
       thousand_seed_weight_g: 3.3
       # sowing_density_per_m2: MISSING - not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Tomate: Starkzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Starkzehrer: Kohlarten, Kartoffeln, Gurken, Kürbisarten und Tomaten), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Beet: Paradeiser), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Solanum tuberosum":
     propagation_configs:
@@ -2601,6 +3061,13 @@ species_enrichment:
     native_habitat: "Suedamerika (Peru, Bolivien)"
     pruning_type: none
     pruning_months: []
+    row_spacing_cm: "60–75"
+    light_requirement: full_sun
+    nutrient_demand: heavy_feeder
+    nutrient_demand_source: "LKSH, „Fruchtfolge im Garten“ (Starkzehrer: „Kohl, Kartoffeln, Kürbis, Porree“), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Starkzehrer: Kohlarten, Kartoffeln, Gurken, Kürbisarten, Tomaten), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Beet: Erdäpfel), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: high
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Thymus vulgaris":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2646,6 +3113,13 @@ species_enrichment:
     native_habitat: "Westliches Mittelmeer"
     pruning_type: spring_pruning
     pruning_months: [4, 7]
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "LKSH (Schwachzehrer: Erbsen, Bohnen, Kraeuter; Gruppe), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; LK NRW 2020 (Schwachzehrer: alle Huelsenfruechte, Moehren, Zwiebeln sowie Kraeuter; Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland (Schwachzehrer-Beet: Kraeuter; Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf"
+    nutrient_demand_confidence: low
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   "Trifolium pratense":
     # seed-profile-backfill 2026-07 (#301) — from Steckbrief §Saatgut, >=2 sources
@@ -2667,7 +3141,15 @@ species_enrichment:
     bloom_months: [5, 6, 7, 8, 9]
     sowing_outdoor_after_last_frost_days: -21
     direct_sow_months: [3, 4, 5, 8, 9]
+    # Precedence (operator decision #2371, 2026-10-18): the sourced `nutrient_demand` wins over this legacy field; kept (EC scaling), conflict listed in spec/analysis/req-053-steckbrief-gaps.md.
     nutrient_demand_level: nitrogen_fixer
+    nitrogen_fixing: true
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: light_feeder
+    nutrient_demand_source: "Landwirtschaftskammer NRW, Fruchtfolge im Gemüsegarten planen (2020): Schwachzehrer = \"alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter\" (Gruppenangabe, Klee nicht namentlich), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, Fruchtfolge im Garten (Schwachzehrer z. B. Erbsen, Bohnen; Klee als Gründüngung der Hülsenfrüchte), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf"
+    nutrient_demand_confidence: low
+    rotation_pause_years: 4
     green_manure_suitable: true
     allelopathy_score: 0.0
     native_habitat: "Europa, Westasien"

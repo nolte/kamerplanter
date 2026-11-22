@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
@@ -35,12 +37,13 @@ import {
   DIARY_ENTRY_TYPES,
   DIARY_MAX_PHOTOS,
   createPlantDiaryEntry,
-  diaryPhotoUri,
   getPlantEnvironmentPreview,
   updatePlantDiaryEntry,
 } from '@/api/endpoints/diary';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import type { DiaryEntryType, PlantDiaryEntry, PlantEnvironmentPreview } from '@/api/types';
 import DiaryPhotoUploadDialog from './DiaryPhotoUploadDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const schema = z.object({
   entry_type: z.enum(['observation', 'problem', 'milestone', 'measurement', 'photo', 'note']),
@@ -140,7 +143,7 @@ export default function DiaryEntryDialog({
     handleSubmit,
     reset,
     formState: { isDirty },
-  } = useForm<FormData>({
+  } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       entry_type: 'observation',
@@ -150,6 +153,7 @@ export default function DiaryEntryDialog({
       measurements: [],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const { fields, append, remove } = useFieldArray({ control, name: 'measurements' });
 
@@ -184,7 +188,8 @@ export default function DiaryEntryDialog({
       .then((preview) => {
         if (!cancelled) setEnvPreview(preview);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'DiaryEntryDialog.envPreview' });
         // A failed preview is not an error the grower has to act on: the entry
         // saves either way, and the server records honestly that the capture did
         // not get through. Surfacing a toast here would turn a non-event into an
@@ -235,7 +240,7 @@ export default function DiaryEntryDialog({
         onSaved(saved);
         onClose();
       } catch (err) {
-        handleError(err);
+        handleError(err, applyFieldViolation);
       } finally {
         setSaving(false);
       }
@@ -250,6 +255,7 @@ export default function DiaryEntryDialog({
       onSaved,
       onClose,
       handleError,
+      applyFieldViolation,
     ],
   );
 
@@ -261,7 +267,8 @@ export default function DiaryEntryDialog({
   const photoLimitReached = photoRefs.length >= DIARY_MAX_PHOTOS;
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={saving ? undefined : onClose}
@@ -443,7 +450,7 @@ export default function DiaryEntryDialog({
               {photoRefs.map((attachmentId) => (
                 <Card key={attachmentId} variant="outlined" sx={{ position: 'relative' }}>
                   <AuthImage
-                    uri={diaryPhotoUri(attachmentId, 512)}
+                    uri={attachmentUri(attachmentId, 512)}
                     alt={t('pages.plantDiary.photos.thumbAlt')}
                     sx={{ width: '100%', aspectRatio: '1 / 1', bgcolor: 'action.hover' }}
                     data-testid="diary-entry-photo-preview"
@@ -499,6 +506,6 @@ export default function DiaryEntryDialog({
         onClose={() => setUploadOpen(false)}
         onUploaded={handlePhotoUploaded}
       />
-    </Dialog>
+    </FormDialog>
   );
 }

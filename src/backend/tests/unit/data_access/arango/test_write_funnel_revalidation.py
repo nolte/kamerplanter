@@ -65,7 +65,10 @@ from app.domain.models.tenant import Tenant
 
 @pytest.fixture
 def mock_db():
-    return MagicMock()
+    db = MagicMock()
+    # ``update_location`` writes inside a stream transaction since #2561; its collection handle is the database's.
+    db.begin_transaction.return_value.collection = db.collection
+    return db
 
 
 def _doc_of(model, key: str) -> dict:
@@ -399,7 +402,7 @@ class TestLocationUpdateIsOnTheBasePath:
         location.area_m2 = -5.0  # ``ge=0``
 
         with pytest.raises(ValidationError) as excinfo:
-            repo.update_location("loc-1", location)
+            repo.update_location("loc-1", location, untouched=())
 
         assert [detail["field"] for detail in excinfo.value.details] == ["area_m2"]
         coll.update.assert_not_called()
@@ -412,7 +415,7 @@ class TestLocationUpdateIsOnTheBasePath:
         location.lights_on = "25:00"  # HH:MM validator
 
         with pytest.raises(ValidationError):
-            repo.update_location("loc-1", location)
+            repo.update_location("loc-1", location, untouched=())
 
         coll.update.assert_not_called()
 
@@ -421,7 +424,7 @@ class TestLocationUpdateIsOnTheBasePath:
         coll = mock_db.collection.return_value
         coll.update.return_value = {"new": _doc_of(_location(), "loc-1")}
 
-        repo.update_location("loc-1", _location())
+        repo.update_location("loc-1", _location(), untouched=())
 
         payload = coll.update.call_args.args[0]
         assert "created_at" not in payload

@@ -135,6 +135,22 @@
 **Hinweise:** Lichtsättigung (light saturation) liegt deutlich höher (~550–1200 µmol/m²/s, temperaturabhängig) — gehört NICHT in den Kompensationspunkt. Weinrebe reagiert morphologisch eher auf Blaulicht-Attenuierung als auf R:FR. Der pH-Vorzug 6.0–6.5 ist enger als die in §1.6/§2.3 genannte Toleranzspanne (pH 6.0–7.5), die den noch verträglichen Bereich beschreibt — das Optimum liegt bei pH ~6.5. ECe-Schwelle bezieht sich auf den Bodensättigungsextrakt (soil saturation extract ECe), NICHT auf die Gießwasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 120–150 | `species.spacing_cm` |
+| Reihenabstand (cm) | 150–180 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow grapes“ (Hausgarten-Empfehlung: „If planting more than one vine, set them 1.2-1.5m (4-5ft) apart. If you have room for a mini-vineyard … space the rows 1.5–1.8m (5–6ft) apart“), https://www.rhs.org.uk/fruit/grapes/grow-your-own. Hinweis: Wert gilt für Hausgarten-Rebanlage (RHS); Erwerbsrebanlagen-Abstände wurden nicht gelesen und sind nicht übertragbar | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (siehe 1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow grapes“ („for a successful crop of ripe grapes, they need a warm, sheltered, sunny location“), https://www.rhs.org.uk/fruit/grapes/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -349,6 +365,11 @@ Kein stickstoffreicher Dünger ab Juli — weiche Triebe sind anfällig für Per
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Kletterpflanzen / Weichenobst |
 | Anbaupause (Jahre) | Mehrjährig; Standort 20–50 Jahre |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | RHS, „How to grow grapes“ (Reben in regelmäßig gemulchtem Boden „shouldn’t need any additional feeding“), https://www.rhs.org.uk/fruit/grapes/grow-your-own; UC IPM (Univ. of California), Grape Fertilization Guide (Dünger „may rarely be needed in some aeras with rich soil“ [sic]; „Avoid excessive fertilization and rich soil, however, because they will contribute to excessive vine vigor“), https://ipm.ucanr.edu/home-and-landscape/grape-fertilization-guide/. Beide Quellen sind indirekt (keine nennt Schwach-/Mittel-/Starkzehrer) und Hausgarten-Ratgeber; widerspricht dem Bestandswert Mittelzehrer in dieser Tabelle. |
+| Zehrerstufe — Konfidenz | low (indirekte Aussagen zu geringem Düngebedarf, keine Zehrerklassifikation; Widerspruch zum Bestandswert) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Dauerkultur (Rebe), keine gelesene Quelle für eine Anbaupause; Wert bleibt null --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -397,4 +418,6 @@ Vitis vinifera,"Weinrebe;Weintraube;Grape Vine",Vitaceae,Vitis,perennial,day_neu
 15. [Trione Vineyards — Vitis vinifera Vines are Hermaphroditic / self-pollinating](https://trionewinery.com/2021/04/21/vitis-vinifera-vines-are-hermaphroditic/) — Selbstfruchtbarkeit, Windbestäubung
 16. [PNAS — Multiple independent recombinations led to hermaphroditism in grapevine (PMC8053984)](https://pmc.ncbi.nlm.nih.gov/articles/PMC8053984/) — zwittrige, selbstfruchtbare Blüten
 17. [Blue light attenuation mediates shade acclimation of Vitis vinifera cv. Malbec (ScienceDirect)](https://www.sciencedirect.com/science/article/abs/pii/S0098847218310268) — Vollsonne R:FR ≈ 1.1, Schatten/Unterwuchs R:FR < 1.1
+18. RHS — How to grow grapes (Pflanzabstand 1,2–1,5 m, Reihen 1,5–1,8 m im Hausgarten; sonniger Standort; Düngung): https://www.rhs.org.uk/fruit/grapes/grow-your-own
+19. UC IPM — Grape Fertilization Guide (Düngebedarf gering, Übermaß fördert Wuchs): https://ipm.ucanr.edu/home-and-landscape/grape-fertilization-guide/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

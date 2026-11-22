@@ -108,3 +108,20 @@ class TestNextBatchToGenerate:
     def test_total_derived_when_not_stored(self):
         plan = _scenario4_plan()  # total_batches defaults to 0
         assert ENGINE.next_batch_to_generate(plan) == 1
+
+
+class TestBatchReservationWindow:
+    """GP-FR-074: a batch run carries the window its slots are reserved for (GP-FR-065)."""
+
+    def test_the_window_starts_on_the_sowing_day_and_is_open_without_a_duration(self):
+        run = ENGINE.generate_batch_run(_scenario4_plan(), 2)
+        assert run.planned_from == date(2026, 4, 22)
+        assert run.planned_until is None
+        assert run.source == "succession"
+
+    def test_a_duration_closes_the_window_on_its_last_day(self):
+        plan = _scenario4_plan().model_copy(update={"batch_duration_days": 60})
+        run = ENGINE.generate_batch_run(plan, 1)
+        # Closed interval: 60 days from 1 April end on 30 May.
+        assert run.planned_until == date(2026, 5, 30)
+        assert (run.planned_until - run.planned_from).days + 1 == 60

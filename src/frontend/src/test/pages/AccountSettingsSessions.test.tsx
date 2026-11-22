@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '@/test/mocks/server';
 import { renderWithProviders, createTestStore } from '@/test/helpers';
 import AccountSettingsPage from '@/pages/auth/AccountSettingsPage';
+import i18n from '@/i18n/i18n';
 
 /**
  * REQ-023 / #1118 — the sessions tab must tell a paired phone from a browser.
@@ -105,7 +106,7 @@ function storeWithUser() {
   });
 }
 
-function renderSessionsTab(sessions: unknown[]) {
+function renderSessionsTab(sessions: unknown[], sessionsAnswer?: () => Response) {
   const prefs = {
     experience_level: 'expert',
     locale: 'de',
@@ -113,7 +114,7 @@ function renderSessionsTab(sessions: unknown[]) {
     smart_home_enabled: false,
   };
   server.use(
-    http.get('/api/v1/users/me/sessions', () => HttpResponse.json(sessions)),
+    http.get('/api/v1/users/me/sessions', () => (sessionsAnswer ? sessionsAnswer() : HttpResponse.json(sessions))),
     http.get('/api/v1/users/me/providers', () => HttpResponse.json([])),
     http.get('/api/v1/auth/api-keys', () => HttpResponse.json([])),
     http.get('/api/v1/admin/settings', () =>
@@ -220,5 +221,33 @@ describe('AccountSettingsPage — sessions tab device names', () => {
     // The key sent is the paired session's, not the row's position: a revoke
     // wired to the wrong row would end the browser's own session instead.
     await waitFor(() => expect(revoked).toBe(PAIRED_SESSION.key));
+  });
+});
+
+/**
+ * #3013 (A-01) — a failed session load is an error with retry, never an empty list. The list is
+ * how a foreign session is spotted and revoked; an empty table would hide it.
+ */
+describe('AccountSettingsPage — sessions tab load failure (#3013)', () => {
+  it('shows an error with retry on a 500 and recovers on retry', async () => {
+    let fail = true;
+    renderSessionsTab([], () =>
+      fail
+        ? HttpResponse.json(
+            { error_id: 'e', error_code: 'INTERNAL_ERROR', message: 'An internal error occurred.', details: [], timestamp: '', path: '', method: 'GET' },
+            { status: 500 },
+          )
+        : HttpResponse.json([BROWSER_SESSION]),
+    );
+
+    const display = await screen.findByTestId('error-display');
+    expect(display).toHaveTextContent(i18n.t('pages.auth.sessionsLoadFailed'));
+    expect(display).not.toHaveTextContent('An internal error occurred.');
+    expect(screen.queryByTestId(`session-row-${BROWSER_SESSION.key}`)).toBeNull();
+
+    fail = false;
+    await userEvent.click(within(display).getByTestId('error-retry-button'));
+    expect(await screen.findByTestId(`session-row-${BROWSER_SESSION.key}`)).toBeInTheDocument();
+    expect(screen.queryByTestId('error-display')).toBeNull();
   });
 });

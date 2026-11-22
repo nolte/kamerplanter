@@ -40,6 +40,9 @@ from app.common.enums import (
     GrowthHabit,
     HarvestedPart,
     HarvestPattern,
+    Orientation,
+    PhotoperiodSource,
+    PhotoperiodType,
     RootType,
     SeedType,
 )
@@ -69,6 +72,13 @@ _ENUM_SYNC: list[tuple[type[StrEnum], str, str]] = [
 # form's Select rendered empty for it (#1505).
 _TS_ONLY_ENUM_SYNC: list[tuple[type[StrEnum], str]] = [
     (CareStyleType, "CareStyleType"),
+    # REQ-053 WP 8.24 (#2667): widened additively from four to eight compass values.
+    (Orientation, "Orientation"),
+    # #2857: the origin of a requirement profile's light hours, shown next to them in the profile view.
+    (PhotoperiodSource, "PhotoperiodSource"),
+    # #2857 part B: ``unspecified`` was added. Not in the 3-way gate: the seed schema's ``photoperiod_type`` lists only
+    # the stated types on purpose - a seed file states a type or leaves the key out, it never writes ``unspecified``.
+    (PhotoperiodType, "PhotoperiodType"),
 ]
 
 # (python enum, enums.* i18n key) — every value must resolve in de AND en.
@@ -83,6 +93,9 @@ _I18N_ENUMS: list[tuple[type[StrEnum], str]] = [
     (HarvestedPart, "harvestedPart"),
     (ClimactericClass, "climacteric"),
     (DtmReference, "dtmReference"),
+    (Orientation, "orientation"),
+    (PhotoperiodSource, "photoperiodSource"),
+    (PhotoperiodType, "photoperiodType"),
 ]
 
 

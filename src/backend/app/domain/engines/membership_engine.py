@@ -115,6 +115,17 @@ class MembershipEngine:
         return role == TenantRole.LEAD
 
     @staticmethod
+    def can_filter_care_log_by_member(role: TenantRole, admin_scopes: list[AdminScope]) -> bool:
+        """Whether a member may list the care log by *another* member's activity (REQ-053 GP-API-034, #2411 item 1).
+
+        A filter by member is a per-person activity timeline (up to five years); in a community garden it profiles
+        a person (SR-020, DSFA REQ-025). The lead (who answers for the tenant's work) and a member with the
+        ``management`` scope (who keeps the member list) may ask for anyone; a viewer or grower may filter only by
+        themselves — their own history is their own data (Art. 15), not a colleague's.
+        """
+        return role == TenantRole.LEAD or AdminScope.MANAGEMENT in admin_scopes
+
+    @staticmethod
     def can_delete_tenant(role: TenantRole, admin_scopes: list[AdminScope]) -> bool:
         """Deleting the whole tenant takes **both** axes: the lead role *and* ``management`` (#1791).
 

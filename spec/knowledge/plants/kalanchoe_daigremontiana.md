@@ -118,6 +118,22 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.5 (Vorzugsbereich; NC State belegt breitere Toleranz von sauer < 6,0 bis alkalisch; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Kalanchoe daigremontiana", https://www.rhs.org.uk/plants/9674/kalanchoe-daigremontiana/details (Position: „Full sun"; Kultur: „in full light") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -346,4 +362,5 @@ Kalanchoe daigremontiana,Brutblatt;Teufelsrückgrat;Mother of Thousands,Crassula
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 <!-- Quelle: growing-phase-auditor 2026-07 (§1.1 flowering_strategy) -->
 17. [LLIFLE Encyclopedia of Succulents — Kalanchoe daigremontiana](https://www.llifle.com/Encyclopedia/SUCCULENTS/Family/Crassulaceae/14430/Kalanchoe_daigremontiana) — Bestätigt Monokarpie: "slender monocarpic, perennials, glabrous, succulent herb"; Blüte sporadisch, meist zu Beginn der warmen Saison
+18. [RHS — Kalanchoe daigremontiana](https://www.rhs.org.uk/plants/9674/kalanchoe-daigremontiana/details) — Lichtanspruch (Position: Full sun)
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

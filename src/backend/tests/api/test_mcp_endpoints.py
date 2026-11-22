@@ -82,14 +82,37 @@ def _build_app(role: TenantRole = TenantRole.GROWER) -> tuple[FastAPI, dict]:
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
 
     # Read tools delegate to injected fakes so no DB is needed.
-    species = [SimpleNamespace(key="sp-1", scientific_name="Tomato", common_names=["Tomato"], genus="Solanum")]
+    species = [
+        SimpleNamespace(
+            key="sp-1",
+            scientific_name="Tomato",
+            common_names=["Tomato"],
+            common_names_i18n={"en": ["Tomato"]},
+            genus="Solanum",
+        )
+    ]
     fake_species = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
     fake_care = SimpleNamespace(
-        confirm_reminder=lambda plant_key, reminder_type, notes, tenant_key="": SimpleNamespace(key="cc-1")
+        # Keyword-only without defaults like the service: a tool that drops the caller fails here (#2517).
+        confirm_reminder=lambda plant_key, reminder_type, notes, *, tenant_key, user_key: SimpleNamespace(key="cc-1")
     )
     # SEC-001: confirm_care_task ownership-checks the plant first via get_plant.
     fake_plants = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))
+    # #2936 — a disease whose stored name is English, with a German one in the map.
+    mildew = SimpleNamespace(
+        key="di-1",
+        scientific_name="Erysiphe spp.",
+        common_name="Powdery Mildew",
+        common_names_i18n={"en": ["Powdery Mildew"], "de": ["Echter Mehltau"]},
+        pathogen_type="fungal",
+        incubation_period_days=5,
+        environmental_triggers=[],
+        affected_plant_parts=[],
+        description=None,
+    )
+    fake_ipm = SimpleNamespace(get_disease=lambda key: mildew)
     services = {
+        "ipm_service": fake_ipm,
         "species_service": fake_species,
         "care_reminder_service": fake_care,
         "plant_instance_service": fake_plants,
@@ -135,6 +158,25 @@ def test_call_read_tool():
     body = resp.json()
     assert body["data"]["total"] == 1
     assert body["summary"]
+
+
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Accept-Language": "en-GB,en;q=0.9"}, "Powdery Mildew"),
+        ({"Accept-Language": "de"}, "Echter Mehltau"),
+        ({}, "Echter Mehltau"),
+    ],
+)
+def test_a_tool_words_names_in_the_request_language(headers, expected):
+    # #2936 / #2945 — the request's ``Accept-Language`` reaches the tool through the dispatcher.
+    app, _ = _build_app(role=TenantRole.VIEWER)
+    client = TestClient(app)
+
+    resp = client.post("/api/v1/mcp/tools/get_disease", json={"disease_key": "di-1"}, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["summary"].startswith(f"{expected} (Erysiphe spp.)")
 
 
 def test_write_tool_denied_for_viewer():

@@ -34,7 +34,7 @@ Whether you're a **home grower** managing a grow tent, a **houseplant owner** tr
 
 | Layer | Technology |
 |-------|------------|
-| Backend | Python 3.14+, FastAPI, Celery, Authlib |
+| Backend | Python 3.15+, FastAPI, Celery, Authlib |
 | Frontend | React 19, TypeScript 6, MUI 9, Redux Toolkit, Vite 8 |
 | Knowledge Service | FastAPI, pgvector, ONNX embeddings, cross-encoder reranking |
 | Plant Recognition | Pl@ntNet API, self-hosted DINOv2 image matching |
@@ -80,7 +80,7 @@ Optional services (AI assistant, time-series) can be enabled via [Docker Compose
 
 ## Development
 
-Prerequisites: Docker, [Skaffold](https://skaffold.dev/), a local Kubernetes cluster (Kind/k3s/minikube), [Task](https://taskfile.dev/) (optional), Node.js 25+, Python 3.14+.
+Prerequisites: Docker, [Skaffold](https://skaffold.dev/), a local Kubernetes cluster (Kind/k3s/minikube), [Task](https://taskfile.dev/) (optional), Node.js 25+, Python 3.15+.
 
 ```bash
 task setup                                        # create Kind cluster

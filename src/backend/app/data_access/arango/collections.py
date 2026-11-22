@@ -1,4 +1,5 @@
 import contextlib
+from typing import Any, cast
 
 from arango.collection import StandardCollection
 from arango.database import StandardDatabase
@@ -157,6 +158,11 @@ SYSTEM_SETTINGS = "system_settings"
 # NFR-016 Schema-migration tracking (versioned migration framework)
 SCHEMA_MIGRATIONS = "schema_migrations"
 
+# spec/privacy/09 §2 (PRIV-701) — the redacted report of every privacy migration run, dry run and real
+# run: the operator's proof of a migration run. Counts, collection/field names, tenant and row keys only;
+# no personal data (``app.migrations.framework.report_store``).
+MIGRATION_REPORTS = "migration_reports"
+
 # REQ-027 §7a (#1855) — installation-wide bookkeeping of the deployment mode: the mode the last
 # start ran in (``deployment_mode``) and an open light-to-full take-over (``pending_takeover``).
 SYSTEM_META = "system_meta"
@@ -245,6 +251,10 @@ GLOSSARY_TERM_CACHE = "glossary_term_cache"
 # tools by idempotency key (retention 24h).
 MCP_AUDIT_LOG = "mcp_audit_log"
 MCP_IDEMPOTENCY_RECORD = "mcp_idempotency_record"
+#: REQ-053 WP 9.3: the ids of deleted objects a buffered write created, so a late replay does not re-create them.
+CLIENT_EVENT_TOMBSTONES = "client_event_tombstones"
+#: #2630 — stored objects whose delete failed after their last record was removed; retried by the reconciliation run.
+STORAGE_RELEASE_RETRIES = "storage_release_retries"
 
 # MT-014 (#2111) — the persistent security audit: who changed whose membership,
 # role or scopes, in which tenant, when. Append-only; retention in NFR-011 R-38.
@@ -266,6 +276,16 @@ TENANT_PLAN_INDEX_FIELDS = ["plan_key"]
 # import requests (global: the target tenant only comes into being during the run).
 TENANT_EXPORT_REQUESTS = "tenant_export_requests"
 TENANT_IMPORT_REQUESTS = "tenant_import_requests"
+
+# REQ-053 garden plan (migration M1 = v0093, #2323). ``garden_objects`` follow the
+# location pattern — ``site_key`` only, the site is the tenant anchor (E-01, #2107);
+# the other four carry ``tenant_key`` because they are listed tenant-wide (GP-FR-107)
+# or are tenant-scoped master data (§20.13).
+GARDEN_OBJECTS = "garden_objects"
+CARE_EVENTS = "care_events"
+IRRIGATION_ZONES = "irrigation_zones"
+GARDEN_PLAN_AUDIT = "garden_plan_audit"
+BED_TEMPLATES = "bed_templates"
 
 DOCUMENT_COLLECTIONS = [
     SPECIES,
@@ -344,6 +364,7 @@ DOCUMENT_COLLECTIONS = [
     SENSORS,
     SYSTEM_SETTINGS,
     SCHEMA_MIGRATIONS,
+    MIGRATION_REPORTS,
     SYSTEM_META,
     HA_PUBLISH_SETTINGS,
     LOCATION_TYPES,
@@ -387,6 +408,10 @@ DOCUMENT_COLLECTIONS = [
     # REQ-033 MCP server (adapter-layer only)
     MCP_AUDIT_LOG,
     MCP_IDEMPOTENCY_RECORD,
+    # REQ-053 WP 9.3 buffered-write tombstones
+    CLIENT_EVENT_TOMBSTONES,
+    # #2630 failed object releases, retried
+    STORAGE_RELEASE_RETRIES,
     # MT-014 security audit (#2111)
     SECURITY_AUDIT_LOG,
     # MT-015 Home Assistant entity allowlist (#2112)
@@ -421,6 +446,12 @@ DOCUMENT_COLLECTIONS = [
     CONTROL_EVENTS,
     MANUAL_OVERRIDES,
     PHASE_CONTROL_PROFILES,
+    # REQ-053 garden plan (M1, #2323)
+    GARDEN_OBJECTS,
+    CARE_EVENTS,
+    IRRIGATION_ZONES,
+    GARDEN_PLAN_AUDIT,
+    BED_TEMPLATES,
 ]
 
 # Edge collections
@@ -668,6 +699,16 @@ CV_DIAGNOSIS_FOUND = "cv_diagnosis_found"  # plant_diagnosis_requests → diseas
 CV_ATTACHED_TO_INSPECTION = "cv_attached_to_inspection"  # → inspections
 CV_PHENOTYPE_OF = "cv_phenotype_of"  # plant_diagnosis_requests → harvest_observations
 
+# REQ-053 garden plan edges (§20.14, M1 #2323)
+HAS_GARDEN_OBJECT = "has_garden_object"  # sites → garden_objects
+RUN_PLANNED_AT = "run_planned_at"  # planting_runs → slots (planned occupancy with a time window, GP-FR-065)
+CARE_EVENT_AT = "care_event_at"  # care_events → locations
+TASK_LOGGED_AS = "task_logged_as"  # tasks → care_events
+HAS_IRRIGATION_ZONE = "has_irrigation_zone"  # sites → irrigation_zones
+ZONE_COVERS = "zone_covers"  # irrigation_zones → locations
+ZONE_SUPPLIED_BY = "zone_supplied_by"  # irrigation_zones → garden_objects (water source)
+ZONE_ACTUATED_BY = "zone_actuated_by"  # irrigation_zones → actuators
+
 EDGE_COLLECTIONS = [
     TENANT_HAS_ACCESS,
     BELONGS_TO_FAMILY,
@@ -846,7 +887,28 @@ EDGE_COLLECTIONS = [
     PHASE_PROFILE,
     LOCATION_PROFILE,
     RULE_MONITORS,
+    # REQ-053 garden plan (M1, #2323)
+    HAS_GARDEN_OBJECT,
+    RUN_PLANNED_AT,
+    CARE_EVENT_AT,
+    TASK_LOGGED_AS,
+    HAS_IRRIGATION_ZONE,
+    ZONE_COVERS,
+    ZONE_SUPPLIED_BY,
+    ZONE_ACTUATED_BY,
 ]
+
+#: The eight edge collections REQ-053 §20.14 adds (M1 = v0093 creates them on existing volumes).
+GARDEN_PLAN_EDGE_COLLECTIONS = (
+    HAS_GARDEN_OBJECT,
+    RUN_PLANNED_AT,
+    CARE_EVENT_AT,
+    TASK_LOGGED_AS,
+    HAS_IRRIGATION_ZONE,
+    ZONE_COVERS,
+    ZONE_SUPPLIED_BY,
+    ZONE_ACTUATED_BY,
+)
 
 GRAPH_NAME = "kamerplanter_graph"
 
@@ -1218,7 +1280,8 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": HAS_TASK,
-        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS],
+        # + garden_objects since M1 (REQ-053 §20.14): a tree or a water source carries tasks too.
+        "from_vertex_collections": [PLANT_INSTANCES, PLANTING_RUNS, LOCATIONS, TANKS, GARDEN_OBJECTS],
         "to_vertex_collections": [TASKS],
     },
     {
@@ -1311,7 +1374,20 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": BELONGS_TO_TENANT,
-        "from_vertex_collections": [SITES, PLANT_INSTANCES, PLANTING_RUNS, TANKS, FERTILIZERS, NUTRIENT_PLANS, TASKS],
+        # + care_events, irrigation_zones, bed_templates since M1 (REQ-053 §20.14) —
+        # NOT garden_objects: they hang off their site like locations do (E-01).
+        "from_vertex_collections": [
+            SITES,
+            PLANT_INSTANCES,
+            PLANTING_RUNS,
+            TANKS,
+            FERTILIZERS,
+            NUTRIENT_PLANS,
+            TASKS,
+            CARE_EVENTS,
+            IRRIGATION_ZONES,
+            BED_TEMPLATES,
+        ],
         "to_vertex_collections": [TENANTS],
     },
     {
@@ -1348,7 +1424,8 @@ GRAPH_EDGE_DEFINITIONS = [
     },
     {
         "edge_collection": CARE_EVENT_FOR,
-        "from_vertex_collections": [CARE_CONFIRMATIONS],
+        # + care_events since M1 (REQ-053 §20.10): the care protocol names the plants it was for.
+        "from_vertex_collections": [CARE_CONFIRMATIONS, CARE_EVENTS],
         "to_vertex_collections": [PLANT_INSTANCES],
     },
     # REQ-022 Overwintering (G-002)
@@ -1712,7 +1789,104 @@ GRAPH_EDGE_DEFINITIONS = [
         "from_vertex_collections": [CONTROL_RULES],
         "to_vertex_collections": [SENSORS],
     },
+    # REQ-053 garden plan (§20.14, M1 #2323)
+    {
+        "edge_collection": HAS_GARDEN_OBJECT,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [GARDEN_OBJECTS],
+    },
+    {
+        "edge_collection": RUN_PLANNED_AT,
+        "from_vertex_collections": [PLANTING_RUNS],
+        "to_vertex_collections": [SLOTS],
+    },
+    {
+        "edge_collection": CARE_EVENT_AT,
+        "from_vertex_collections": [CARE_EVENTS],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": TASK_LOGGED_AS,
+        "from_vertex_collections": [TASKS],
+        "to_vertex_collections": [CARE_EVENTS],
+    },
+    {
+        "edge_collection": HAS_IRRIGATION_ZONE,
+        "from_vertex_collections": [SITES],
+        "to_vertex_collections": [IRRIGATION_ZONES],
+    },
+    {
+        "edge_collection": ZONE_COVERS,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [LOCATIONS],
+    },
+    {
+        "edge_collection": ZONE_SUPPLIED_BY,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [GARDEN_OBJECTS],
+    },
+    {
+        "edge_collection": ZONE_ACTUATED_BY,
+        "from_vertex_collections": [IRRIGATION_ZONES],
+        "to_vertex_collections": [ACTUATORS],
+    },
 ]
+
+
+# REQ-053 §20.14 garden-plan indexes (M1 = v0093, #2323). No ``tenant_key`` index on
+# ``locations``/``slots``/``garden_objects`` (E-01): their tenant is their site's.
+#: The bed list of a site filtered by status (GP-FR-052); ``site_key`` leads so a
+#: site-only read uses the prefix.
+LOCATION_BED_STATUS_INDEX_FIELDS = ["site_key", "bed_status"]
+#: A site's garden objects by type (§20.4).
+GARDEN_OBJECT_TYPE_INDEX_FIELDS = ["site_key", "object_type"]
+#: The beds placed from a bed template; a template delete unsets them (``_unset_template_key``, #2562). Sparse: most
+#: locations were not placed from a template, and a system-template delete would otherwise scan every tenant's.
+LOCATION_TEMPLATE_INDEX_FIELDS = ["template_key"]
+#: ``garden_plan_audit (site_key, revision)`` — the per-site change log, bootstrap-created (WP 1.8).
+GARDEN_PLAN_AUDIT_SITE_INDEX_FIELDS = ["site_key", "revision"]
+#: A location's slots by role (position / row / zone, §20.5).
+SLOT_ROLE_INDEX_FIELDS = ["location_key", "slot_role"]
+#: The care history of one bed, newest first (§20.10, GP-FR-107).
+CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS = ["tenant_key", "location_key", "performed_at"]
+#: The tenant-wide care history (§20.10).
+CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS = ["tenant_key", "performed_at"]
+#: The protocol row a task completion wrote (``task_logged_as`` inverse lookup).
+CARE_EVENT_TASK_INDEX_FIELDS = ["task_key"]
+#: One protocol row per source event (a watering, a feeding, a treatment …), unique and
+#: sparse so rows without a ``source_ref`` do not collide. ``tenant_key`` leads the pair
+#: §20.10 names: a unique index on a tenant-bearing collection is scoped to the tenant
+#: (#2029, ``test_tenant_unique_indexes_are_scoped``), and a source event belongs to
+#: exactly one tenant, so the constraint is not weakened.
+CARE_EVENT_SOURCE_REF_INDEX_FIELDS = ["tenant_key", "source_ref.collection", "source_ref.key"]
+#: One object per buffered write (REQ-053 WP 9.3; v0106): the ``client_event_id`` a client sends with a care event,
+#: a task completion or an upload is unique per tenant. Sparse, so the rows without an id (every write before
+#: wave 9, every server-made one) do not collide; ``tenant_key`` leads (``test_tenant_unique_indexes_are_scoped``).
+CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+#: The events of one replayable zone round ("rain - skipped", REQ-053 WP 9.13) share the raw ``client_round_id``.
+#: Not unique (n events per round), sparse (every other event carries none) - so it can never refuse a write and
+#: needs no migration: the bootstrap creates it on every boot.
+CARE_EVENT_CLIENT_ROUND_INDEX_FIELDS = ["tenant_key", "client_round_id"]
+TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "completion_client_event_id"]
+ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+#: One tombstone per deleted object of a buffered write, per tenant; the TTL index ages it out.
+CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS = ["tenant_key", "client_event_id"]
+CLIENT_EVENT_TOMBSTONE_TTL_FIELDS = ["deleted_at"]
+#: ``CLIENT_EVENT_TOMBSTONE_DAYS`` (domain/models/client_event.py) in seconds; equal by unit test.
+CLIENT_EVENT_TOMBSTONE_TTL_SECONDS = (365 + 30) * 86400
+#: A care confirmation of a buffered task completion exists once (WP 9.3): the replay of a completion runs the
+#: confirmation again only when the first attempt did not get to it. ``plant_key`` scopes it (the parent chain).
+#: The id leads so a 1210 names it (``extract_unique_field`` reports the first field that is no scope).
+CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS = ["completion_client_event_id", "plant_key"]
+#: A site's irrigation zones (GP-API-050, §20.11; v0099). ``tenant_key`` leads: the zone carries it (E-01).
+IRRIGATION_ZONE_SITE_INDEX_FIELDS = ["tenant_key", "site_key"]
+#: A bed is in at most one irrigation zone (§14.1, WP 7.1; v0099): ``zone_covers`` is unique on its target.
+#: An edge collection carries no ``tenant_key``; the location it points at has exactly one site, so the
+#: constraint holds per tenant as well.
+ZONE_COVERS_TARGET_INDEX_FIELDS = ["_to"]
+#: A tenant's bed templates by name (GP-FR-044, §20.12; v0101). ``tenant_key`` leads: the template carries it
+#: (E-01); a system template has none and is read through the same index with ``tenant_key == null``.
+BED_TEMPLATE_TENANT_INDEX_FIELDS = ["tenant_key", "name"]
 
 
 #: Fields of the canonical species dedup index (REQ-048 Stufe 1 / SEC-003).
@@ -1748,6 +1922,7 @@ def ensure_species_normalized_index(species_col: StandardCollection) -> None:
     migration then de-duplicates every volume and promotes the index to unique.
     Once promoted, a re-run finds the unique index already present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in species_col.indexes():
         if (
             isinstance(idx, dict)
@@ -1787,6 +1962,7 @@ def ensure_user_singleton_index(singleton_col: StandardCollection) -> None:
     non-unique bootstrap index, leaving v0031 to dedup and promote. Once
     promoted, a re-run finds the target index present and is a no-op.
     """
+    idx: dict[str, Any]
     for idx in singleton_col.indexes():
         if (
             isinstance(idx, dict)
@@ -1949,6 +2125,7 @@ def ensure_care_task_dedup_index(tasks_col: StandardCollection) -> None:
     if not has_care_task_dedup_computed_value(tasks_col):
         configure_care_task_dedup_computed_value(tasks_col)
 
+    idx: dict[str, Any]
     for idx in tasks_col.indexes():
         if (
             isinstance(idx, dict)
@@ -2035,6 +2212,20 @@ LEGACY_WORKFLOW_TEMPLATE_NAME_INDEX_FIELDS = ["name"]
 #: plants refused, and a caller-chosen id another tenant used answered ``409`` — the
 #: existence of another tenant's plant. ``v0079`` retires the legacy index.
 PLANT_INSTANCE_ID_INDEX_FIELDS = ["tenant_key", "instance_id"]
+
+#: The occupancy reads select a slot's plants by ``slot_key`` (#2774).
+PLANT_INSTANCE_SLOT_INDEX_FIELDS = ["slot_key"]
+
+#: The plant ownership fields the site delete and the bed readers select by (#2562): the delete's active-plant
+#: refusal reads ``site_key OR location_key IN … OR slot_key IN …`` — one indexed branch each, else the whole
+#: ``OR`` falls back to a full scan inside the delete transaction — and the bed readers select by ``location_key``.
+#: Sparse: a plant written before v0100 carries no ``site_key``, an unplaced one no ``location_key``; every reader
+#: compares against a bound key, never against ``null``.
+PLANT_INSTANCE_SITE_INDEX_FIELDS = ["site_key"]
+PLANT_INSTANCE_LOCATION_INDEX_FIELDS = ["location_key"]
+#: The substrate delete counts the plants still naming it inside its transaction (D2, #2560); sparse — most plants
+#: name no substrate.
+PLANT_INSTANCE_SUBSTRATE_INDEX_FIELDS = ["substrate_key"]
 
 #: The pre-#2065 collection-wide index; ``v0079`` drops it (``persistent`` or ``hash``).
 LEGACY_PLANT_INSTANCE_ID_INDEX_FIELDS = ["instance_id"]
@@ -2189,8 +2380,32 @@ def ensure_seed_identity_indexes(db: StandardDatabase) -> None:
         ensure_unique_index_when_clean(db.collection(name), EDGE_PAIR_FIELDS)
 
 
-def ensure_collections(db: StandardDatabase) -> None:
-    """Create all collections and the graph if they don't exist."""
+def has_ttl_index(collection: StandardCollection, fields: list[str]) -> bool:
+    """Whether ``collection`` carries a TTL index on exactly ``fields``."""
+    rows = cast("list[dict[str, Any]]", collection.indexes())  # a synchronous database answers a list
+    return any("type" in idx and idx["type"] == "ttl" and "fields" in idx and idx["fields"] == fields for idx in rows)
+
+
+def ensure_client_event_tombstone_indexes(db: StandardDatabase) -> None:
+    """The unique ``(tenant_key, client_event_id)`` and the TTL index of ``client_event_tombstones`` (WP 9.3)."""
+    tombstones = db.collection(CLIENT_EVENT_TOMBSTONES)
+    ensure_unique_index_when_clean(tombstones, CLIENT_EVENT_TOMBSTONE_INDEX_FIELDS)
+    if not has_ttl_index(tombstones, CLIENT_EVENT_TOMBSTONE_TTL_FIELDS):
+        tombstones.add_index(
+            {
+                "type": "ttl",
+                "fields": CLIENT_EVENT_TOMBSTONE_TTL_FIELDS,
+                "expireAfter": CLIENT_EVENT_TOMBSTONE_TTL_SECONDS,
+            }
+        )
+
+
+def ensure_collections(db: StandardDatabase) -> dict[str, bool]:
+    """Create all collections and the graph if they don't exist.
+
+    Returns, per collection, whether its client-event unique index is in place (REQ-053 WP 9.3): the caller sets
+    the operator's gauge from it (the data layer does not depend on observability).
+    """
     for name in DOCUMENT_COLLECTIONS:
         if not db.has_collection(name):
             db.create_collection(name)
@@ -2219,6 +2434,16 @@ def ensure_collections(db: StandardDatabase) -> None:
     plants_col = db.collection(PLANT_INSTANCES)
     # Per tenant since #2065; v0079 drops the legacy collection-wide index.
     plants_col.add_persistent_index(fields=PLANT_INSTANCE_ID_INDEX_FIELDS, unique=True)
+    # The plants standing in a slot are selected by their own ``slot_key`` (#2774); non-unique, so creating it on a
+    # volume that predates it needs no migration. One of the fields #2562 lists.
+    plants_col.add_persistent_index(fields=PLANT_INSTANCE_SLOT_INDEX_FIELDS, unique=False)
+    # #2562: the rest of the plant's placement and its substrate; non-unique, so bootstrap-only (no migration).
+    for plant_index_fields in (
+        PLANT_INSTANCE_SITE_INDEX_FIELDS,
+        PLANT_INSTANCE_LOCATION_INDEX_FIELDS,
+        PLANT_INSTANCE_SUBSTRATE_INDEX_FIELDS,
+    ):
+        plants_col.add_persistent_index(fields=plant_index_fields, unique=False, sparse=True, in_background=True)
 
     # MT-035 (#2131): the keyset/offset window of each tenant's list reads `limit` entries.
     for keyset_collection in KEYSET_PAGED_COLLECTIONS:
@@ -2234,6 +2459,8 @@ def ensure_collections(db: StandardDatabase) -> None:
 
     runs_col = db.collection(PLANTING_RUNS)
     runs_col.add_persistent_index(fields=["name"], unique=False)
+    # REQ-053 GP-FR-135: the rotation matrix reads the runs still planned at each bed of a page.
+    runs_col.add_persistent_index(fields=["location_key", "status"], unique=False)
 
     # REQ-013 §2 Succession plans — list queries always filter by tenant.
     succession_plans_col = db.collection(SUCCESSION_PLANS)
@@ -2720,6 +2947,62 @@ def ensure_collections(db: StandardDatabase) -> None:
         fields=["tenant_key", "site_key", "run_key", "demand_date"], unique=True
     )
 
+    # REQ-053 §20.14 garden plan (M1 = v0093, #2323). Built in the background: locations
+    # and slots exist on every volume and stay writable while the index is built.
+    db.collection(LOCATIONS).add_persistent_index(
+        fields=LOCATION_BED_STATUS_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(GARDEN_OBJECTS).add_persistent_index(
+        fields=GARDEN_OBJECT_TYPE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    db.collection(LOCATIONS).add_persistent_index(
+        fields=LOCATION_TEMPLATE_INDEX_FIELDS, unique=False, sparse=True, in_background=True
+    )
+    db.collection(SLOTS).add_persistent_index(fields=SLOT_ROLE_INDEX_FIELDS, unique=False, in_background=True)
+    # REQ-053 WP 1.8 (SR-011): the plan change log is read per site, newest revision first
+    # (``GET /sites/{key}/plan/audit``). Bootstrap-only on purpose — an additive index needs no migration.
+    db.collection(GARDEN_PLAN_AUDIT).add_persistent_index(
+        fields=GARDEN_PLAN_AUDIT_SITE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    care_events_col = db.collection(CARE_EVENTS)
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_LOCATION_HISTORY_INDEX_FIELDS, unique=False, in_background=True
+    )
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_TENANT_HISTORY_INDEX_FIELDS, unique=False, in_background=True
+    )
+    care_events_col.add_persistent_index(fields=CARE_EVENT_TASK_INDEX_FIELDS, unique=False, in_background=True)
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_SOURCE_REF_INDEX_FIELDS, unique=True, sparse=True, in_background=True
+    )
+    care_events_col.add_persistent_index(
+        fields=CARE_EVENT_CLIENT_ROUND_INDEX_FIELDS, unique=False, sparse=True, in_background=True
+    )
+    # REQ-053 WP 9.3 (v0106): one object per buffered write. Created only when clean - this runs before the
+    # migrations, and v0106 reports a volume that cannot take the index instead of failing the boot.
+    # Every boot retries a blocked index and reports it either way (the lifespan sets the operator's gauge), so a
+    # restart neither hides a block nor leaves a cleared one raised.
+    client_event_indexes: dict[str, bool] = {}
+    for name, fields in (
+        (CARE_EVENTS, CARE_EVENT_CLIENT_EVENT_INDEX_FIELDS),
+        (TASKS, TASK_COMPLETION_CLIENT_EVENT_INDEX_FIELDS),
+        (ATTACHMENTS, ATTACHMENT_CLIENT_EVENT_INDEX_FIELDS),
+        (CARE_CONFIRMATIONS, CARE_CONFIRMATION_COMPLETION_INDEX_FIELDS),
+    ):
+        client_event_indexes[name] = ensure_unique_index_when_clean(db.collection(name), fields, sparse=True)
+    ensure_client_event_tombstone_indexes(db)
+    # REQ-053 WP 7.1 (v0099): the zones of a site, and one zone per bed.
+    db.collection(IRRIGATION_ZONES).add_persistent_index(
+        fields=IRRIGATION_ZONE_SITE_INDEX_FIELDS, unique=False, in_background=True
+    )
+    # Unique: one zone per bed. Created only when clean — this runs before the migrations, and a volume with two
+    # edges to one bed must still boot so v0099 can report them (the v0070 shape, ``ensure_unique_index_when_clean``).
+    ensure_unique_index_when_clean(db.collection(ZONE_COVERS), ZONE_COVERS_TARGET_INDEX_FIELDS)
+    # REQ-053 WP 7.8 (v0101): the bed-template catalogue by owner and name.
+    db.collection(BED_TEMPLATES).add_persistent_index(
+        fields=BED_TEMPLATE_TENANT_INDEX_FIELDS, unique=False, in_background=True
+    )
+
     # Create or update named graph
     if not db.has_graph(GRAPH_NAME):
         db.create_graph(GRAPH_NAME, edge_definitions=GRAPH_EDGE_DEFINITIONS)
@@ -2737,3 +3020,4 @@ def ensure_collections(db: StandardDatabase) -> None:
                     old.get("to_vertex_collections", [])
                 ) != set(ed["to_vertex_collections"]):
                     graph.replace_edge_definition(**ed)
+    return client_event_indexes

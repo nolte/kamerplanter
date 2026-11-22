@@ -37,6 +37,12 @@ from app.domain.models.lifecycle import GrowthPhase, LifecycleConfig
 from app.domain.models.species import Species
 from app.domain.models.task import TaskTemplate, WorkflowPhase, WorkflowTemplate
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
+from app.migrations.seed_photoperiod_source import (
+    StatedPhotoperiod,
+    apply_steckbrief_phase_photoperiods,
+    parse_steckbrief_phase_photoperiods,
+)
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -82,6 +88,13 @@ def _load_lifecycle_overrides() -> dict[str, dict]:
     """Load per-species lifecycle overrides (cultivation_cycle_type, flowering_strategy)."""
     data = load_yaml("species.yaml")
     return data.get("lifecycle_overrides", {}) or {}
+
+
+def _load_steckbrief_phase_photoperiods() -> dict[str, list[StatedPhotoperiod]]:
+    """Load the light hours Steckbriefe state for default phases (#2857, ``steckbrief_phase_photoperiods``)."""
+    data: dict[str, Any] = load_yaml("species.yaml")
+    block: dict[str, Any] = data.get("steckbrief_phase_photoperiods") or {}
+    return parse_steckbrief_phase_photoperiods(block)
 
 
 def _load_default_phases() -> list[dict]:
@@ -704,27 +717,41 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         "climacteric",
     )
 
+    # Vernacular names (REQ-001, #2902) reach an existing installation through this
+    # sync, not through a migration: the language map ``common_names_i18n`` is new, and
+    # a name corrected in species.yaml (umlauts, a name added from the Steckbrief) would
+    # otherwise never leave the YAML. The two travel together — the map may only name
+    # entries of the list. Only a GLOBAL row is touched: a tenant's own species that
+    # shares the scientific name keeps the names its owner gave it.
+    seed_name_fields = ("common_names", "common_names_i18n")
+
     species_key_map: dict[str, str] = {}
 
     for sp in species_list:
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
-        if existing:
-            species_key_map[sp.scientific_name] = existing.key or ""
+        existing_species: Species | None = catalogue_species(species_repo, sp.scientific_name)
+        if existing_species:
+            species_key_map[sp.scientific_name] = existing_species.key or ""
+            synced_fields = seed_update_fields + (seed_name_fields if not existing_species.tenant_key else ())
             # Update seed fields if they changed
             needs_update = False
-            for field in seed_update_fields:
-                if getattr(sp, field) != getattr(existing, field):
+            for field in synced_fields:
+                if getattr(sp, field) != getattr(existing_species, field):
                     needs_update = True
                     break
             if needs_update:
-                for field in seed_update_fields:
-                    setattr(existing, field, getattr(sp, field))
-                species_repo.update(existing.key or "", existing)
+                for field in synced_fields:
+                    setattr(existing_species, field, getattr(sp, field))
+                species_repo.update(existing_species.key or "", existing_species)
                 logger.info("species_updated", name=sp.scientific_name)
             else:
                 logger.info("species_exists", name=sp.scientific_name)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         family_name = family_species_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
         # REQ-048 Stufe 1 / SEC-003: route the insert through the atomic dedup
@@ -748,7 +775,8 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             cultivation_cycle_type=CycleType(cult_cycle) if cult_cycle else None,
             flowering_strategy=FloweringStrategy(flower_strat) if flower_strat else None,
             growth_determinacy=GrowthDeterminacy(determinacy) if determinacy else None,
-            photoperiod_type=PhotoperiodType.DAY_NEUTRAL,
+            # #2857: no source here - a plant_info lifecycle_config or lifecycles_outdoor entry states it later (E-10).
+            photoperiod_type=PhotoperiodType.UNSPECIFIED,
         )
         created_lc = lifecycle_repo.create_lifecycle(lc)
         lc_key = created_lc.key or ""
@@ -776,6 +804,13 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
             lifecycle_repo.create_nutrient_profile(nut)
 
             logger.info("phase_created", species=sp.scientific_name, phase=phase_data["name"])
+
+    # ── Light hours the Steckbrief states for default phases (#2857) ─────
+    # New and existing lifecycles alike: this is how an installation gets them without a migration.
+    stated_hours = apply_steckbrief_phase_photoperiods(
+        lifecycle_repo, _load_steckbrief_phase_photoperiods(), species_key_map
+    )
+    logger.info("steckbrief_phase_photoperiods_applied", changed=stated_hours)
 
     # ── Link indoor species to their (attribute-resolved) PhaseSequence ─────
     # No-op on the very first boot (phase_sequences seed later in the registry);
@@ -903,6 +938,8 @@ def run_seed() -> None:  # noqa: C901, PLR0912, PLR0915
         beneficial = Beneficial(
             slug=taxon.slug,
             common_name=taxon.common_name_de,
+            # Synced on every run (upsert): the names per language (#2936), no migration.
+            common_names_i18n=taxon.names_i18n(),
             scientific_name=taxon.scientific_name,
             gbif_taxon_key=taxon.gbif_taxon_key,
             preys_on=list(taxon.preys_on),

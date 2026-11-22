@@ -8,16 +8,12 @@
 #     task docs:lock
 #
 # which is `uv pip compile docs/requirements.in --universal
-# --python-version 3.11 --generate-hashes -o docs/requirements.txt`. The two
-# flags are measured, not stylistic: the release lane installs this set TWICE,
-# once on the runner (Python 3.14, `reusable-mkdocs.yaml` pre-build) and once
-# inside `mhausenblas/mkdocs-deploy-gh-pages`, whose image is
-# `squidfunk/mkdocs-material:9.0.6` — Alpine, CPython 3.11.0, measured with
-# `docker run --entrypoint sh ... -c 'python -V'`. `--universal` emits one file
-# valid for both, including the musllinux wheel hashes that musl container
-# needs (verified against PyPI's file list for charset-normalizer 3.5.1: all 60
-# musllinux hashes are present), and `--python-version 3.11` keeps the resolve
-# inside the older of the two interpreters.
+# --python-version 3.14 --generate-hashes -o docs/requirements.txt`. 3.14 is
+# the interpreter every consumer installs into, the release lane included: it
+# builds and deploys on the runner since gh-plumbing v2.2.1. Before that it
+# installed the set a second time inside `squidfunk/mkdocs-material:9.0.6`
+# (CPython 3.11.0), which held the resolve at 3.11 and pymdown-extensions
+# below 13 (#2908).
 # EVERY ENTRY CARRIES A FLOOR AND A CEILING (#1601). NFR-009 §2.3.1 decides that
 # §2.1 binds the COMPILE SOURCE of a class (a) list as well as the compiled
 # output: the hashes below in docs/requirements.txt bind the bytes installed
@@ -43,7 +39,7 @@ mkdocs-git-revision-date-localized-plugin>=1.6,<2.0.0
 mkdocs-awesome-pages-plugin>=2.10,<3.0.0
 mkdocs-minify-plugin>=0.8,<1.0.0
 mkdocs-redirects>=1.2,<2.0.0
-pymdown-extensions>=12.1,<13.0.0
+pymdown-extensions>=13.0,<14.0.0
 mike>=2.2,<3.0.0
 mkdocs-literate-nav>=0.6,<1.0
 pyyaml>=6.0,<7.0

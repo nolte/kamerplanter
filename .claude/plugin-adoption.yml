@@ -28,6 +28,7 @@ inventory:
     - deployment-chart-manage
     - dockerfile-audit
     - error-tracking-audit
+    - frontend-audit
     - guard-coverage-check
     - kpi-derive
     - license-check
@@ -79,6 +80,13 @@ inventory:
     - unit-test-generator
     - unit-test-reviewer
     - webview-ui-expert
+  nolte-linux:
+    skills:
+    - image-boot-verify
+    - linux-image-audit
+    agents:
+    - linux-image-developer
+    - linux-image-scanner
   nolte-media:
     skills:
     - gemini-image-handoff
@@ -104,6 +112,7 @@ inventory:
   nolte-shared:
     skills:
     - audience-identify
+    - backlog-delivery-orchestrate
     - backstage-catalog-generate
     - blog-author
     - blog-author-trigger
@@ -126,6 +135,7 @@ inventory:
     - project-structure-apply
     - pull-request-create
     - pull-request-merge
+    - pull-request-runner-sweep
     - readme-structure-apply
     - release-notes-curate
     - release-publish-trigger

@@ -126,6 +126,22 @@
 - **Boden-pH-Vorzug:** Quellen streuen von 5.5–6.5 (gritty cactus mix) bis 6.6–7.5 (neutral). Quellentreu auf die überlappende Spanne 6.0–7.0 gesetzt; harmoniert mit dem in §2.3/§3.2 verwendeten Düngewasser-pH 6.0–6.5 (am unteren Rand des Vorzugsbereichs).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS Plant Finder, „Senecio rowleyanus" (Sunlight: Full sun, Partial shade; Kulturhinweis „Grow in free-draining potting compost in a bright position with several hours of direct sun" — Anspruch nach diesem Text als full_sun gewählt), https://www.rhs.org.uk/plants/17238/senecio-rowleyanus/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -352,6 +368,11 @@ Die Perlenschnur kommt aus einer nährstoffarmen Heimat (Namaqualand) — sie is
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -410,3 +431,4 @@ Curio rowleyanus,Perlenschnur;Erbsenpflanze;String of Pearls,Asteraceae,Curio,pe
 15. [rseco.org – Photosynthesis in sun and shade](https://rseco.org/book/export/html/257.html) — LCP-Spannen Sonnen-/Schattenpflanzen (Lichtkompensationspunkt)
 16. [Garden Pals / americangardener u.a. – String of Pearls pH & Substrat](https://gardenpals.com/string-of-pearls/) — Boden-pH-Vorzug (Spannenabgleich 5.5–7.5 → 6.0–7.0)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [RHS Plant Finder – Senecio rowleyanus](https://www.rhs.org.uk/plants/17238/senecio-rowleyanus/details) — Sunlight: Full sun, Partial shade; Kulturhinweis „bright position with several hours of direct sun" (Lichtanspruch §1.10)

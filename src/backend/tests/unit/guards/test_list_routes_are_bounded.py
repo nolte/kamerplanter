@@ -212,6 +212,10 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
         "the whole location tree of one site: the UI renders the tree, a window would cut it",
     ),
     ("GET", f"{_T}/sites/{{key}}/sensors"): ("per-parent", "the sensors of one site"),
+    ("GET", f"{_T}/sites/{{key}}/garden-objects"): (
+        "per-parent",
+        "the garden objects of one site, capped at 500 together with its locations (GP-NFR-017, plan.quota_exceeded)",
+    ),
     ("GET", f"{_T}/locations"): (
         "per-parent",
         "the locations of one site (or children of one location); the physical layout bounds it",
@@ -274,9 +278,14 @@ _CLASSIFIED: dict[tuple[str, str], tuple[str, str]] = {
     ("GET", f"{_T}/tasks/workflows/{{wf_key}}/templates"): ("per-parent", "the task templates of one workflow"),
     ("GET", f"{_T}/tasks/queue"): (
         "remaining",
-        "the tenant-wide branch is capped at QUEUE_LIMIT; the ?plant_key branch reads every pending "
+        "the tenant-wide and the ?location_key branch are capped at QUEUE_LIMIT; "
+        "the ?plant_key branch reads every pending "
         "task of one plant, and care-task de-duplication runs after the read, so a window before it "
         "would return short pages",
+    ),
+    ("POST", f"{_T}/tasks/{{key}}/fan-out"): (
+        "write-echo",
+        "answers with the clones it created, one per plant of one bed and at most MAX_FAN_OUT (REQ-053 GP-FR-081)",
     ),
     ("GET", f"{_T}/tasks/overdue"): (
         "remaining",

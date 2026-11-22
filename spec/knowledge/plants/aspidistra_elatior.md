@@ -115,6 +115,22 @@
 **Hinweis:** Aspidistra elatior ist ein C3-Schattenkraut der Wald-Unterschicht (forest understory) — wächst laut PFAF in „Vollschatten (deep woodland)" und laut NC State Extension in „deep shade (weniger als 2 Stunden direkte Sonne)". Die ledrigen Blätter sind keine Sukkulenz-Anpassung (kein CAM). Der Boden-pH-Vorzug 6.0–7.0 (leicht sauer bis neutral; MSU/ForwardPlant) liegt innerhalb der in §1.6/§2.3 genannten tolerierten Spanne 5.5–7.0 und steht damit nicht im Widerspruch. Salztoleranz wird in den Quellen uneinheitlich als „slightly" (PFAF/NC State) bis „moderate" (gardenia.net) beschrieben — konservativ als `moderately_sensitive` eingestuft. Staunässe ist die einzige ernsthafte Bedrohung (Wurzelfäule), daher `sensitive`.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS: Position „Full shade, Partial shade") --> | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Aspidistra elatior", https://www.rhs.org.uk/plants/1715/wd/details, gelesen; nur Spanne „Full shade, Partial shade" ohne bevorzugte Stufe, daher kein Wert) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -315,3 +331,6 @@ Aspidistra elatior,"Schusterpalme;Gusseisenpflanze;Schildblatt;Cast Iron Plant;B
 9. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate/Etablierung Spinnmilben-Raubmilbe
 10. [Koppert US — Cryptolaemus montrouzieri](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Ausbringrate/Etablierung Schmierlaus-Marienkäfer
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+11. [RHS — Aspidistra elatior](https://www.rhs.org.uk/plants/1715/wd/details) — Position „Full shade, Partial shade" (Spanne ohne Vorzug → Lichtanspruch 1.10 bleibt leer)
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

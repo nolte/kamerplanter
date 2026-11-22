@@ -280,7 +280,7 @@ describe('ScheduledTenantDeletionsCard (#2166)', () => {
     await userEvent.click(within(dialog).getByTestId('cancel-own-tenant-erasure-confirm'));
 
     expect(await within(dialog).findByTestId('cancel-own-tenant-erasure-error')).toHaveTextContent(
-      'Password confirmation failed.',
+      i18n.t('pages.auth.stepUpRejected'),
     );
     expect(screen.getByTestId('scheduled-tenant-row-lindenhof')).toBeInTheDocument();
   });
@@ -303,8 +303,9 @@ describe('ScheduledTenantDeletionsCard (#2166)', () => {
     await waitFor(() => expect(tenantApi.listMyTenantsWithScheduledDeletion).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByTestId('scheduled-tenant-row-lindenhof')).toBeNull());
     // The stale row is gone, the dialog still says why.
+    // #3013: the code decides the text; the backend's English message never shows.
     expect(await screen.findByTestId('cancel-own-tenant-erasure-error')).toHaveTextContent(
-      'The deletion can no longer be cancelled.',
+      i18n.t('errors.INVALID_STATUS_TRANSITION'),
     );
   });
 

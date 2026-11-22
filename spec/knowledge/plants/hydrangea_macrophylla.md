@@ -112,6 +112,22 @@
 | Boden-pH-Vorzug (soil pH preference) | 5,0–6,5 (blau ≤5,5 / rosa ≥6,5; harmonisiert mit §1.1 und §3.2) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS nennt keinen Pflanzabstand (nur Endbreite „Max Spread 1.5-2.5 metres"); die Endbreite ist kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Hydrangea macrophylla (H)", https://www.rhs.org.uk/plants/40792/hydrangea-macrophylla-h/details (Kulturtext: „Grow in any moist but well-drained soil in partial shade or grow in sun if soil remains reliably moist"; Positionsfeld nennt „Full sun, Partial shade", Vorzug laut Kulturtext Halbschatten) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -263,6 +279,11 @@ Hortensien NUR zwischen April und Juli düngen. Kein Dünger nach August — Hol
 | Empfohlene Vorfrucht | — (Dauergehölz) |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | keine |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Hydrangeaceae: kein Familienwert belegt) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -318,4 +339,5 @@ Hydrangea macrophylla,"Bauernhortensie;Ballhortensie;Hortensie;Bigleaf Hydrangea
 10. [Penn State Extension — The Basics of Bio Control of Insects for Greenhouses and Nurseries](https://extension.psu.edu/the-basics-of-bio-control-of-insects-for-greenhouses-and-nurseries) — Nützlinge, Ausbringraten (University Extension)
 11. [UConn Home & Garden Education Center — Hydrangea Diseases and Pests](https://homegarden.cahnr.uconn.edu/factsheets/hydrangea-diseases-and-pests/) — Schädlinge, biologische Bekämpfung (University Extension)
 12. [Gardening Know How — Best Varieties of Hydrangea for Shade](https://www.gardeningknowhow.com/ornamental/shrubs/hydrangea/shade-hydrangeas.htm) — Schatten-/Sonnentoleranz (partial_shade), Lichtbedarf
+13. [RHS — Hydrangea macrophylla (H)](https://www.rhs.org.uk/plants/40792/hydrangea-macrophylla-h/details) — Lichtanspruch (Halbschatten laut Kulturtext); kein Pflanzabstand angegeben
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -115,6 +115,22 @@
 **Hinweis:** Hedera helix ist ein ausgesprochener Schattenspezialist (deep_shade): wächst in tiefem Laubwald-Schatten, hat einen niedrigen Lichtkompensationspunkt (light compensation point, ca. 30 µmol/m²/s PAR nach Metcalfe 2005) und erreicht 90 % der Maximal-Photosynthese bereits bei ~360 µmol/m²/s. Sättigungs- und Photoinhibitions-Werte gehören NICHT in das Kompensationspunkt-Feld. Salztoleranz: Die Art besiedelt Küstensäume und Salzmarsch-Ränder und gilt als tolerant gegenüber Salzdeposition (Einstufung moderately_tolerant), jedoch ohne publizierte ECe-Schwellenwerte. Staunässe wird gemieden (sensitive). Der pH-Vorzug 6.0–7.5 ist harmonisiert mit §1.6 und §2.3; ökologisch besiedelt die Art ein breiteres Spektrum (selten unter pH 4).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Artseite und Gattungsratgeber nennen keinen Pflanzabstand; Dokument führt die Art als Zimmerpflanze, Freilandverwendung als Bodendecker ohne belegten Abstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug (RHS Hedera helix, Position: Full shade, Full sun, Partial shade) --> | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -348,3 +364,4 @@ Needlepoint,Hedera helix,"ornamental;narrow_leaves;compact",clone
 13. [Lucidcentral / Pacific Pests — Cryptolaemus montrouzieri (Biocontrol 395)](https://apps.lucidcentral.org/ppp/text/web_full/entities/biocontrol__cryptolaemus_montrouzieri_395.htm) — Ausbringung Marienkäfer gegen Schmierläuse
 14. [Metaphycus helvolus — Wikipedia (parasitises Coccus hesperidum)](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Wirt-Zuordnung Erzwespe → Braune Weichschildlaus
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. [RHS — Hedera helix (Plant details)](https://www.rhs.org.uk/plants/43091/hedera-helix/details) — Position: Full shade, Full sun, Partial shade (Spanne ohne Vorzug; kein Pflanzabstand)

@@ -98,6 +98,11 @@ class Attachment(BaseModel):
     #: 404 instead of 202 and dispatches nothing. Absent on records written
     #: before the field existed, which read as ``False``.
     renditions_failed: bool = False
+    #: The id of the buffered upload that created this record (REQ-053 WP 9.3), unique per tenant (sparse index,
+    #: v0106); a replay answers this record instead of storing the photo again. ``None`` for every other upload.
+    client_event_id: str | None = None
+    #: The digest of that upload (uploader, category, bytes, the plant it went to).
+    client_event_digest: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

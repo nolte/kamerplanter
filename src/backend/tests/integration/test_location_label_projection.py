@@ -86,6 +86,8 @@ def db():
         col.CULTIVARS,
     ):
         database.create_collection(name)
+    # The species join reads the #1092 grants (a stored species key is no read grant, #2082).
+    database.create_collection(col.TENANT_HAS_ACCESS, edge=True)
 
     # Sites carry the tenant. Locations and slots do not — exactly as the write
     # path stores them.

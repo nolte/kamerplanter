@@ -58,8 +58,9 @@ function makeFamily(overrides: Partial<BotanicalFamily> = {}): BotanicalFamily {
     common_name_en: 'Nightshades',
     order: 'Solanales',
     description: 'A family of flowering plants.',
-    typical_nutrient_demand: 'heavy',
+    typical_nutrient_demand: 'heavy_feeder',
     nitrogen_fixing: false,
+    rotation_pause_years: null,
     typical_root_depth: 'medium',
     soil_ph_preference: { min_ph: 6, max_ph: 7 },
     frost_tolerance: 'sensitive',
@@ -128,14 +129,16 @@ describe('BotanicalFamilyDetailPage', () => {
     expect(await screen.findByTestId('loading-skeleton')).toBeInTheDocument();
   });
 
-  it('shows the error display and retries via navigate when the fetch fails', async () => {
-    getBotanicalFamily.mockRejectedValue(new Error('nope'));
+  it('shows the error display, and its retry loads again instead of leaving the page (#3037)', async () => {
+    getBotanicalFamily.mockRejectedValueOnce(new Error('nope')).mockResolvedValue(makeFamily());
     const user = userEvent.setup();
     renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('error-display')).toBeInTheDocument();
     await user.click(screen.getByTestId('error-retry-button'));
-    expect(navigate).toHaveBeenCalledWith(-1);
+    expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
+    expect(getBotanicalFamily).toHaveBeenCalledTimes(2);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('lists the species belonging to the family and links to the filtered species view', async () => {
@@ -168,14 +171,21 @@ describe('BotanicalFamilyDetailPage', () => {
     expect(navigate).toHaveBeenCalledWith('/stammdaten/species?family=fam-1');
   });
 
-  it('tolerates a failing species lookup and still renders the form', async () => {
-    listSpeciesByFamily.mockRejectedValue(new Error('boom'));
+  it('tolerates a failing species lookup: the form renders and the list says it failed, with a retry (#3037)', async () => {
+    listSpeciesByFamily.mockRejectedValueOnce(new Error('boom'));
     renderWithProviders(<BotanicalFamilyDetailPage />, { store: adminStore() });
 
     expect(await screen.findByTestId('botanical-family-detail-page')).toBeInTheDocument();
+    expect(await screen.findByText(i18n.t('errors.loadFailed'))).toBeInTheDocument();
+    // A failed read is not "no species in this family".
+    expect(screen.queryByText(i18n.t('pages.botanicalFamilies.noSpeciesInFamily'))).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: i18n.t('common.retry') }));
+    await waitFor(() => expect(listSpeciesByFamily).toHaveBeenCalledTimes(2));
     expect(
       await screen.findByText(i18n.t('pages.botanicalFamilies.noSpeciesInFamily')),
     ).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t('errors.loadFailed'))).toBeNull();
   });
 
   it('submits the update with a soil-pH preference derived from both bounds', async () => {

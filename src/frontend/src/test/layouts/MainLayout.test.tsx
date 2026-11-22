@@ -57,7 +57,14 @@ describe('MainLayout (full mode)', () => {
     expect(screen.getByText('Zum Inhalt springen')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Seitenleiste umschalten' })).toBeInTheDocument();
     // Breadcrumbs render for a mapped route.
-    expect(screen.getByLabelText('breadcrumb')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Brotkrumen-Navigation' })).toBeInTheDocument();
+  });
+
+  it('mounts the route announcer next to main (#3017, W-02)', () => {
+    renderWithProviders(<MainLayout />, { store: storeWithUser(), route: '/pflanzen/plant-instances' });
+    const region = screen.getByTestId('route-announcer');
+    expect(region).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
   });
 
   it('toggles the sidebar state when the menu icon is clicked', async () => {

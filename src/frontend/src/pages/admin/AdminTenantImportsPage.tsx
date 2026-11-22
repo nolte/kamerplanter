@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
 import Box from '@mui/material/Box';
@@ -127,7 +127,7 @@ function toMemberMapping(rows: readonly MemberRow[]): Record<string, TenantImpor
 export default function AdminTenantImportsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
   const { plans, status: plansStatus } = usePlanCatalogue();
   // #1815 — back from the fresh sign-in: the file (and the form) did not survive the redirect.
@@ -300,7 +300,7 @@ export default function AdminTenantImportsPage() {
       reset(DEFAULT_VALUES);
       setAccepted(record);
       setImportKey(record.key);
-      enqueueSnackbar(t('pages.tenantImports.accepted'), { variant: 'success' });
+      notification.success(t('pages.tenantImports.accepted'));
     } catch (error) {
       if (isStepUpRefusal(error)) throw error;
       // The step-up was accepted (or never reached); the archive or the request was not.

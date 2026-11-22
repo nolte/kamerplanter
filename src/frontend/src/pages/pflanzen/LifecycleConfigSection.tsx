@@ -20,13 +20,16 @@ import ExpertiseFieldWrapper from '@/components/common/ExpertiseFieldWrapper';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey, isApiError } from '@/api/errors';
 import GrowthPhaseListSection from './GrowthPhaseListSection';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
-import type { LifecycleConfig, PhaseSequence } from '@/api/types';
+import type { LifecycleConfig, PhaseSequence, PhotoperiodType } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** Cycle-type enum values — mirrors CycleType in api/types.ts. */
 const CYCLE_TYPES = ['annual', 'biennial', 'perennial'] as const;
@@ -36,6 +39,14 @@ const FLOWERING_STRATEGIES = ['monocarpic', 'polycarpic'] as const;
 
 /** Growth-determinacy enum values — mirrors GrowthDeterminacy in api/types.ts (REQ-003 E4). */
 const GROWTH_DETERMINACIES = ['determinate', 'indeterminate', 'semi_determinate'] as const;
+
+/** #2857: `unspecified` (nobody classified the species) is the default, not `day_neutral` - that is a statement. */
+const PHOTOPERIOD_TYPES = [
+  'unspecified',
+  'short_day',
+  'long_day',
+  'day_neutral',
+] as const satisfies readonly PhotoperiodType[];
 
 const schema = z.object({
   cycle_type: z.enum(CYCLE_TYPES),
@@ -47,7 +58,7 @@ const schema = z.object({
   dormancy_required: z.boolean(),
   vernalization_required: z.boolean(),
   vernalization_min_days: z.number().nullable(),
-  photoperiod_type: z.enum(['short_day', 'long_day', 'day_neutral']),
+  photoperiod_type: z.enum(PHOTOPERIOD_TYPES),
   critical_day_length_hours: z.number().nullable(),
 });
 
@@ -69,6 +80,10 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
+  // A failed read is shown with a retry; only a 404 means "no lifecycle yet" and offers
+  // to create one (#3037 SCR-013) — a create after a failed read would add a duplicate.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   // REQ-003 lifecycle configs are installation-wide: one record per species, read
   // by every tenant. `POST/PUT /species/{key}/lifecycle` carries
   // `require_platform_admin` since #1402 C, so for everyone else this form is a
@@ -93,20 +108,24 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
       dormancy_required: false,
       vernalization_required: false,
       vernalization_min_days: null,
-      photoperiod_type: 'day_neutral',
+      photoperiod_type: 'unspecified',
       critical_day_length_hours: null,
     },
   });
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+    setLoadError(null);
     const psPromise = phaseSequenceApi
       .getSpeciesPhaseSequence(speciesKey)
       .then((ps) => {
         setPhaseSequence(ps);
         return ps;
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // The endpoint answers null for 'no sequence'; a failure leaves the lifecycle config as the source.
+        captureHandledError(err, { source: 'LifecycleConfigSection.phaseSequence' });
         setPhaseSequence(null);
         return null;
       });
@@ -114,6 +133,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
     const lcPromise = phasesApi
       .getLifecycleConfig(speciesKey)
       .then((lc) => {
+        if (cancelled) return;
         setLifecycle(lc);
         setExists(true);
         reset({
@@ -129,10 +149,21 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
           critical_day_length_hours: lc.critical_day_length_hours,
         });
       })
-      .catch(() => setExists(false));
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setExists(false);
+        if (isApiError(err) && err.statusCode === 404) return;
+        captureHandledError(err, { source: 'LifecycleConfigSection.lifecycle' });
+        setLoadError(errorKey(err, 'errors.loadFailed'));
+      });
 
-    Promise.all([psPromise, lcPromise]).finally(() => setLoading(false));
-  }, [speciesKey, reset]);
+    Promise.all([psPromise, lcPromise]).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [speciesKey, reset, attempt]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -160,6 +191,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
+  if (loadError) return <ErrorDisplay error={loadError} onRetry={() => setAttempt((n) => n + 1)} />;
 
   return (
     // The section marker scopes the E2E locator for this tab's own submit
@@ -303,7 +335,7 @@ export default function LifecycleConfigSection({ speciesKey }: Props) {
                 name="photoperiod_type"
                 control={control}
                 label={t('pages.lifecycle.photoperiodType')}
-                options={['short_day', 'long_day', 'day_neutral'].map((v) => ({
+                options={PHOTOPERIOD_TYPES.map((v) => ({
                   value: v,
                   label: t(`enums.photoperiodType.${v}`),
                 }))}

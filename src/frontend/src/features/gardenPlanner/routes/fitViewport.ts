@@ -1,0 +1,124 @@
+import { boundingBox } from '../model/geometry';
+import type { PlanModel } from '../model/planModel';
+import type { BoundingBox, Point } from '../model/types';
+import type { Viewport } from '../renderer/types';
+
+/** Free space around the drawing, as a share of its larger side. */
+const MARGIN_RATIO = 0.05;
+/** Never zoom in past this: a single small bed must not fill the screen with huge strokes. */
+const MAX_PX_PER_M = 200;
+/** Never zoom out past this; a 1 km garden is still drawn (the editor adds pan and zoom in WP 2.4). */
+const MIN_PX_PER_M = 0.5;
+
+/**
+ * The area the editor shows for a plan that has nothing to draw yet (#2617, GP-UX-049): a 10 m x 10 m
+ * square from the site's origin, so the first bed starts at a sensible scale in the middle of the view.
+ */
+export const EMPTY_PLAN_BOUNDS: BoundingBox = [0, 0, 10, 10];
+
+/**
+ * The model-space box (metres, `[minX, minY, maxX, maxY]`) around everything the plan draws: the
+ * garden boundary, every placed bed and every garden object. `null` = nothing to draw. Beds without
+ * a geometry (stock data, REQ-053 GP-ACC-035) are not placed and do not count.
+ */
+export function planContentBounds(plan: PlanModel): BoundingBox | null {
+  const boxes: BoundingBox[] = [];
+  const boundary = plan.settings?.boundary;
+  if (boundary) boxes.push(boundingBox(boundary));
+  for (const location of Object.values(plan.locations)) {
+    if (location.geometry) boxes.push(location.bbox ?? boundingBox(location.geometry));
+  }
+  for (const object of Object.values(plan.gardenObjects)) {
+    boxes.push(object.bbox ?? boundingBox(object.geometry));
+  }
+  if (boxes.length === 0) return null;
+  return boxes.reduce<BoundingBox>(
+    (acc, [x0, y0, x1, y1]) => [
+      Math.min(acc[0], x0),
+      Math.min(acc[1], y0),
+      Math.max(acc[2], x1),
+      Math.max(acc[3], y1),
+    ],
+    [Infinity, Infinity, -Infinity, -Infinity],
+  );
+}
+
+/**
+ * A viewport that shows `bounds` completely in `widthPx` x at most `maxHeightPx`. Screen y points
+ * down and model y up, so the origin is the top-left corner `(minX, maxY)` (see {@link Viewport}).
+ * The drawing is centred horizontally by the container; the height follows the aspect ratio.
+ */
+export function fitViewport(bounds: BoundingBox, widthPx: number, maxHeightPx: number): Viewport {
+  const [minX, minY, maxX, maxY] = bounds;
+  const sizeX = Math.max(maxX - minX, 0.1);
+  const sizeY = Math.max(maxY - minY, 0.1);
+  const margin = Math.max(sizeX, sizeY) * MARGIN_RATIO;
+  const contentW = sizeX + 2 * margin;
+  const contentH = sizeY + 2 * margin;
+  const fit = Math.min(widthPx / contentW, maxHeightPx / contentH);
+  const pxPerM = Math.min(MAX_PX_PER_M, Math.max(MIN_PX_PER_M, fit));
+  return {
+    originM: [minX - margin, maxY + margin],
+    pxPerM,
+    widthPx: Math.round(contentW * pxPerM),
+    heightPx: Math.round(contentH * pxPerM),
+  };
+}
+
+/**
+ * A viewport of exactly `widthPx` x `heightPx` that shows `bounds` completely and centred (REQ-053 §17.3, GP-UX-067):
+ * the canvas takes the room it is given - the rest of the viewport height under the header bar - and the plan sits
+ * in its middle at the zoom `fitViewport` would choose for the same box.
+ */
+export function fillViewport(bounds: BoundingBox, widthPx: number, heightPx: number): Viewport {
+  const { pxPerM } = fitViewport(bounds, widthPx, heightPx);
+  const width = Math.max(1, Math.round(widthPx));
+  const height = Math.max(1, Math.round(heightPx));
+  const [minX, minY, maxX, maxY] = bounds;
+  // The middle of the box lands on the middle of the canvas; screen y points down, model y up.
+  return {
+    originM: [(minX + maxX) / 2 - width / 2 / pxPerM, (minY + maxY) / 2 + height / 2 / pxPerM],
+    pxPerM,
+    widthPx: width,
+    heightPx: height,
+  };
+}
+
+/**
+ * The view of a canvas of `widthPx` x `heightPx` whose plan is fitted into `fitWidthPx` (REQ-053 §17.3, WP 10.5):
+ * a side panel that a selection docked beside the canvas still counts as room of the plan, so the zoom and the
+ * top-left corner stay where they were before the panel opened, and the panel only covers the right edge of the
+ * fitted view. Without a reserve (`fitWidthPx` = `widthPx`) it is `fillViewport`.
+ */
+export function fitIntoCanvas(bounds: BoundingBox, widthPx: number, heightPx: number, fitWidthPx = widthPx): Viewport {
+  const filled = fillViewport(bounds, Math.max(widthPx, fitWidthPx), heightPx);
+  const width = Math.max(1, Math.round(widthPx));
+  return filled.widthPx === width ? filled : { ...filled, widthPx: width };
+}
+
+/**
+ * The pan and zoom that bring `bounds` into the middle of a canvas that already has its size
+ * (GP-ACC-016: a bed chosen in the list is in view, its whole bounding box visible). The zoom is the
+ * largest that shows the box plus a margin, never below `minPxPerM` (the zoom that fits the whole
+ * plan) and never above the fit limit of a single object.
+ */
+export function focusViewport(
+  bounds: BoundingBox,
+  widthPx: number,
+  heightPx: number,
+  minPxPerM: number,
+): { pxPerM: number; originM: Point } {
+  const [minX, minY, maxX, maxY] = bounds;
+  const sizeX = Math.max(maxX - minX, 0.1);
+  const sizeY = Math.max(maxY - minY, 0.1);
+  const margin = Math.max(sizeX, sizeY) * MARGIN_RATIO;
+  const fit = Math.min(widthPx / (sizeX + 2 * margin), heightPx / (sizeY + 2 * margin));
+  const pxPerM = Math.max(minPxPerM, Math.min(MAX_PX_PER_M, fit));
+  // Centre the box: the canvas shows widthPx / pxPerM metres, the box needs sizeX.
+  const visibleX = widthPx / pxPerM;
+  const visibleY = heightPx / pxPerM;
+  return {
+    pxPerM,
+    originM: [minX - (visibleX - sizeX) / 2, maxY + (visibleY - sizeY) / 2],
+  };
+}

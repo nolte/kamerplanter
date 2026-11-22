@@ -1,0 +1,2578 @@
+"""REQ-053 WP 1.10 (#2329) — every garden-plan endpoint refuses a foreign tenant, against a real ArangoDB.
+
+``locations``, ``slots`` and ``garden_objects`` carry no ``tenant_key`` (E-01, #2107): their tenant is the
+parent site's. That makes the ownership walk the only isolation there is, so it is measured end to end —
+real routes, real services, real repositories, real server — with the caller a member of tenant A and every
+key addressed one that tenant B owns.
+
+**What a refusal has to be** (GP-NFR-050, GP-NFR-058, GP-ACC-014):
+
+* 404, and the *same* body as for a key that does not exist at all (the key substituted) — a different text
+  is the existence oracle the 404 exists to prevent;
+* no name, key or tenant of B anywhere in the body;
+* the database is byte-identical afterwards (a rejected write wrote nothing);
+* no ``garden_plan.batch_applied`` log line.
+
+**Falsified against the same expression.** :func:`_assert_refused` is the one assertion every case runs.
+:class:`TestTheMatrixCanFail` runs it against an *unscoped* stub — services that answer for the owning
+tenant whatever the caller is — and requires it to raise for every case, so a refusal check that passed
+vacuously would fail there. Every refusal is paired with the owner's positive control (the same call, as B,
+succeeds) so an endpoint that is simply broken cannot pass as "isolated".
+
+**The route list is derived, not listed by hand**: :class:`TestTheMatrixCoversTheRouters`
+walks the four routers and fails on a route the matrix does not name.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import re
+from collections.abc import Callable, Iterable, Iterator
+from dataclasses import dataclass, field
+from datetime import date, timedelta
+from types import SimpleNamespace
+from typing import Any
+
+import pytest
+from arango import ArangoClient
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
+from fastapi.testclient import TestClient
+from structlog.testing import capture_logs
+
+from app.api.v1.auth.router import limiter
+from app.api.v1.tenant_scoped.router import tenant_scoped_router
+from app.common.auth import get_current_tenant, get_is_platform_admin
+from app.common.datetimes import today_utc
+from app.common.dependencies import (
+    get_adjacency_dispatch,
+    get_adjacency_service,
+    get_bed_csv_import_service,
+    get_bed_history_service,
+    get_bed_rotation_service,
+    get_bed_template_service,
+    get_companion_overlay_service,
+    get_garden_plan_export_service,
+    get_garden_plan_import_service,
+    get_garden_plan_season_service,
+    get_garden_plan_service,
+    get_garden_plan_underlay_service,
+    get_garden_resource_service,
+    get_irrigation_zone_service,
+    get_location_photo_service,
+    get_plant_state_service,
+    get_planting_reservation_service,
+    get_planting_run_service,
+    get_rotation_matrix_service,
+    get_site_service,
+    get_slot_thinning_service,
+    get_soil_analysis_service,
+    get_task_service,
+)
+from app.common.enums import AttachmentCategory, TenantRole
+from app.common.error_handlers import app_error_handler, validation_error_handler
+from app.common.exceptions import KamerplanterError, NotFoundError, PlanValidationError
+from app.data_access.arango import collections as col
+from app.data_access.arango import location_photo_repository
+from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
+from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
+from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
+from app.data_access.arango.care_event_repository import ArangoCareEventRepository
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.garden_plan_repository import (
+    _BATCH_WRITE,
+    _SLOT_BATCH_WRITE,
+    ArangoGardenPlanRepository,
+)
+from app.data_access.arango.graph_repository import ArangoGraphRepository
+from app.data_access.arango.irrigation_zone_repository import (
+    COVERAGE_WRITE,
+    DELETE_WRITE,
+    ZONE_WRITE,
+    ArangoIrrigationZoneRepository,
+)
+from app.data_access.arango.location_photo_repository import ArangoLocationPhotoRepository
+from app.data_access.arango.location_type_repository import ArangoLocationTypeRepository
+from app.data_access.arango.plant_instance_repository import ArangoPlantInstanceRepository
+from app.data_access.arango.plant_state_repository import ArangoPlantStateRepository
+from app.data_access.arango.planting_reservation_repository import (
+    _CLEAR_WRITE,
+    _MIXED_WRITE,
+    _QUICK_WRITE,
+    ArangoPlantingReservationRepository,
+)
+from app.data_access.arango.planting_run_repository import ArangoPlantingRunRepository
+from app.data_access.arango.rotation_history_repository import ArangoRotationHistoryRepository
+from app.data_access.arango.site_repository import ArangoSiteRepository
+from app.data_access.arango.species_repository import ArangoSpeciesRepository
+from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.dependency_resolver import DependencyResolver
+from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
+from app.domain.engines.hst_validator import HSTValidator
+from app.domain.engines.planting_run_engine import PlantingRunEngine
+from app.domain.models.attachment import Attachment
+from app.domain.models.bed_template import BedTemplate
+from app.domain.models.garden_object import GardenObject
+from app.domain.models.site import Location, Slot
+from app.domain.models.tenant_context import TenantContext
+from app.domain.services.adjacency_service import AdjacencyService
+from app.domain.services.bed_csv_import_service import BedCsvImportService
+from app.domain.services.bed_history_service import BedHistoryService
+from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_template_service import BedTemplateService
+from app.domain.services.care_event_service import CareEventService
+from app.domain.services.companion_overlay_service import CompanionOverlayService
+from app.domain.services.garden_plan_export_service import GardenPlanExportService
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
+from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
+from app.domain.services.garden_resource_service import GardenResourceService
+from app.domain.services.irrigation_zone_service import IrrigationZoneService
+from app.domain.services.location_ownership import resolve_owned_location, resolve_owned_slot
+from app.domain.services.location_photo_service import LocationPhotoService
+from app.domain.services.plant_state_service import PlantStateService
+from app.domain.services.planting_reservation_service import PlantingReservationService
+from app.domain.services.planting_run_service import PlantingRunService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
+from app.domain.services.site_service import SiteService
+from app.domain.services.slot_thinning_service import SlotThinningService
+from app.domain.services.soil_analysis_service import SoilAnalysisService
+from app.domain.services.task_service import TaskService
+from tests.support.arango_integration import ARANGO_PASSWORD, ARANGO_URL, ARANGO_USERNAME, run_database_name
+from tests.support.care_event_fakes import FakeAttachmentRepo, FakeAttachmentService, FakeFertilizers, FakeMemberships
+from tests.support.pdf_text import pdf_pages_text
+
+pytestmark = pytest.mark.usefixtures("arango_db")
+
+TEST_DATABASE = run_database_name("garden_plan_tenant_isolation")
+A, B = "ten_a", "ten_b"
+SLUG_A, SLUG_B = "alice", "bob"
+USER = "u_sabine"
+#: Strings that exist only in tenant B's data; none may appear in a response to tenant A.
+B_SECRETS = (
+    "Bobs Geheimbeet",
+    "Bobs Garten",
+    "Bobs Eiche",
+    "site_b",
+    "bed_b",
+    "slot_b",
+    "slot2_b",
+    "slot_old_b",
+    "obj_b",
+    "zone_b",
+    "Bobs Tropfzone",
+    "barrel_b",
+    "tpl_b",
+    "att_b",
+    "snap_b",
+    "Bobs Vorlage",
+    "ev_b",
+    "sugg_b",
+    "Bobs Gießvorschlag",
+    # REQ-053 W-015 (#2830): the sown and the sowable row of the bed, their run and its entry.
+    "sown_b",
+    "sowable_b",
+    "sowrun_b",
+    "sowentry_b",
+    B,
+)
+#: The sowing day the ``sow_slot`` case sends: inside the year the route accepts, whenever the tier runs.
+_SOWING_DAY = (today_utc() - timedelta(days=3)).isoformat()
+_BOUNDARY = {"kind": "rect", "origin": [0, 0], "width_m": 20, "length_m": 20, "rotation_deg": 0}
+_RECT = {"kind": "rect", "origin": [1, 1], "width_m": 2, "length_m": 1, "rotation_deg": 0}
+_UNDERLAY = {
+    "attachment_key": "att_b",
+    "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+    "origin": [1.0, 5.0],
+    "rotation_deg": 0.0,
+    "opacity": 0.5,
+}
+
+
+class _RecordDeleter:
+    """The slice of ``AttachmentService`` the underlay needs: removes the record (the bytes are no concern here)."""
+
+    def __init__(self, repo: ArangoAttachmentRepository) -> None:
+        self._repo = repo
+
+    async def delete(self, attachment_id: str, tenant_key: str) -> bool:
+        return self._repo.delete(attachment_id, tenant_key)
+
+    async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
+        """The real service's rule: the record goes only when no carrier (another site's underlay included) names it,
+        checked in the transaction of the remove (#2545)."""
+        return self._repo.remove_if_unreferenced(attachment_id, tenant_key) is not None
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int:
+        """The bed and site deletes' batch (#2715 item 6): one scan, the unreferenced records removed together."""
+        return len(self._repo.remove_unreferenced(list(attachment_ids), tenant_key, category=category))
+
+
+#: Every collection a route of these four routers can write — the plan batch's and the slot batch's write sets
+#: plus the fixture's own — truncated per test and compared before/after a refused write.
+_TOUCHED: tuple[str, ...] = tuple(
+    dict.fromkeys(
+        (
+            col.SITES,
+            col.LOCATIONS,
+            col.SLOTS,
+            col.GARDEN_OBJECTS,
+            col.GARDEN_PLAN_AUDIT,
+            col.ADJACENT_TO,
+            # REQ-053 WP 8.15: the companion edges the overlay case seeds per test.
+            col.COMPATIBLE_WITH,
+            col.INCOMPATIBLE_WITH,
+            col.CARE_EVENTS,
+            col.IRRIGATION_ZONES,
+            col.BED_TEMPLATES,
+            col.ATTACHMENTS,
+            col.LOCATION_TYPES,
+            col.USERS,
+            # REQ-053 WP 9.10 (#2750): the assignments the parcel list of the PDF prints on opt-in.
+            col.MEMBERSHIPS,
+            col.LOCATION_ASSIGNMENTS,
+            col.PLANT_INSTANCES,
+            col.SPECIES,
+            col.BOTANICAL_FAMILIES,
+            col.TASKS,
+            # #2709: a masterdata grant the species-visibility cases write and revoke.
+            col.TENANT_HAS_ACCESS,
+            # REQ-053 W-015 (#2830): the run that reserves the sown rows, and what thinning writes.
+            col.PLANTING_RUNS,
+            col.PLANTING_RUN_ENTRIES,
+            col.RUN_PLANNED_AT,
+            col.PLACED_IN,
+            col.RUN_CONTAINS,
+            col.PHASE_HISTORIES,
+            col.PHASE_HISTORY_EDGE,
+            *_BATCH_WRITE,
+            *_SLOT_BATCH_WRITE,
+            *_CLEAR_WRITE,
+            *_QUICK_WRITE,
+            *_MIXED_WRITE,
+            *ZONE_WRITE,
+            *COVERAGE_WRITE,
+            *DELETE_WRITE,
+        )
+    )
+)
+
+
+@pytest.fixture(scope="module")
+def database():
+    client = ArangoClient(hosts=ARANGO_URL)
+    system = client.db("_system", username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+    if system.has_database(TEST_DATABASE):
+        system.delete_database(TEST_DATABASE)
+    system.create_database(TEST_DATABASE)
+    db = client.db(TEST_DATABASE, username=ARANGO_USERNAME, password=ARANGO_PASSWORD)
+    # The production schema, graph and indexes: the listings traverse ``kamerplanter_graph``.
+    col.ensure_collections(db)
+    yield db
+    system.delete_database(TEST_DATABASE)
+
+
+def _site(key: str, tenant: str, name: str) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "tenant_key": tenant,
+        "name": name,
+        "type": "outdoor",
+        "total_area_m2": 0.0,
+        "timezone": "UTC",
+        "plan": {
+            "boundary": _BOUNDARY,
+            "plan_revision": 1,
+            "north_angle_deg": 0.0,
+            # WP 7.14: each site already has its picture, so the DELETE's positive control removes a real one.
+            "underlay": {**_UNDERLAY, "attachment_key": f"att_{key[-1]}"},
+        },
+    }
+
+
+def _bed(key: str, site: str, name: str) -> dict[str, Any]:
+    # Deliberately no ``tenant_key`` (E-01): the site is the only anchor.
+    return {
+        "_key": key,
+        "site_key": site,
+        "name": name,
+        "location_type_key": "bed",
+        "area_m2": 2.0,
+        "depth": 0,
+        "path": key,
+        "bed_status": "active",
+        "geometry": _RECT,
+    }
+
+
+def _slot(key: str, bed: str) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "slot_id": key.upper(),
+        "location_key": bed,
+        "capacity_plants": 1,
+        "currently_occupied": False,
+        "slot_role": "position",
+        "geometry": {"kind": "point", "origin": [0.5, 0.5]},
+        "archived_at": None,
+    }
+
+
+def _tree(key: str, site: str, label: str) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "site_key": site,
+        "object_type": "tree",
+        "label": label,
+        "geometry": {"kind": "circle", "origin": [10, 10], "radius_m": 1},
+        "props": {"object_type": "tree", "crown_radius_m": 1, "foliage": "deciduous"},
+        "off_site": False,
+        "locked": False,
+        "z_order": 0,
+    }
+
+
+def _barrel(key: str, site: str) -> dict[str, Any]:
+    return {
+        "_key": key,
+        "site_key": site,
+        "object_type": "water_source",
+        "label": "",
+        # Inside the 15 m boundary of the ``put_boundary`` case, so that case's positive control still saves.
+        "geometry": {"kind": "point", "origin": [12, 3]},
+        "props": {"object_type": "water_source", "water_source_kind": "rain_barrel"},
+        "off_site": False,
+        "locked": False,
+        "z_order": 0,
+    }
+
+
+@pytest.fixture(autouse=True)
+def _no_rate_limit(monkeypatch):
+    """The rate limit is not under test, and the repeated calls of one case would trip it."""
+    monkeypatch.setattr(limiter, "enabled", False)
+
+
+@pytest.fixture
+def db(database):
+    for name in _TOUCHED:
+        database.collection(name).truncate()
+    database.collection(col.USERS).insert({"_key": USER, "display_name": "Sabine"})
+    database.collection(col.LOCATION_TYPES).insert({"_key": "bed", "name": "Bed", "is_bed": True})
+    for site, tenant, name in (("site_a", A, "Alices Garten"), ("site_b", B, "Bobs Garten")):
+        database.collection(col.SITES).insert(_site(site, tenant, name))
+        zone_name = "Alices Zone" if tenant == A else "Bobs Tropfzone"
+        database.collection(col.IRRIGATION_ZONES).insert(
+            {"_key": f"zone_{site[-1]}", "tenant_key": tenant, "site_key": site, "name": zone_name}
+        )
+    for suffix, site, bed_name, tree_name in (
+        ("a", "site_a", "Alices Beet", "Alices Birke"),
+        ("b", "site_b", "Bobs Geheimbeet", "Bobs Eiche"),
+    ):
+        database.collection(col.LOCATIONS).insert(_bed(f"bed_{suffix}", site, bed_name))
+        database.collection(col.SLOTS).insert(_slot(f"slot_{suffix}", f"bed_{suffix}"))
+        database.collection(col.HAS_SLOT).insert(
+            {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot_{suffix}"}
+        )
+        # WP 7.16: a place that ended in 2026, so a new season for 2027 has something to write for the owner
+        old_slot = _slot(f"slot_old_{suffix}", f"bed_{suffix}") | {
+            "geometry": {"kind": "point", "origin": [1.5, 0.5]},
+            "archived_at": "2026-08-01T10:00:00+00:00",
+        }
+        database.collection(col.SLOTS).insert(old_slot)
+        # a second slot per tenant: the manual adjacency routes (WP 3.3) need two ends
+        database.collection(col.SLOTS).insert(_slot(f"slot2_{suffix}", f"bed_{suffix}"))
+        database.collection(col.HAS_SLOT).insert(
+            {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/slot2_{suffix}"}
+        )
+        database.collection(col.GARDEN_OBJECTS).insert(_tree(f"obj_{suffix}", site, tree_name))
+        # WP 7.1: a water source per tenant, the target of a zone's ``water_source_key`` (GP-NFR-058).
+        database.collection(col.GARDEN_OBJECTS).insert(_barrel(f"barrel_{suffix}", site))
+        # WP 7.3: each tenant's zone covers its bed, so a watering round has a bed to write to.
+        database.collection(col.ZONE_COVERS).insert(
+            {"_from": f"{col.IRRIGATION_ZONES}/zone_{suffix}", "_to": f"{col.LOCATIONS}/bed_{suffix}"}
+        )
+    # WP 7.14: an underlay attachment per tenant (storage keys inside the tenant's own namespace).
+    for suffix, tenant in (("a", A), ("b", B)):
+        database.collection(col.ATTACHMENTS).insert(
+            {
+                "_key": f"att_{suffix}",
+                "tenant_key": tenant,
+                "mime_type": "image/png",
+                "byte_size": 10,
+                "sha256": suffix * 64,
+                "original_filename": "plan.png",
+                "created_by": USER,
+                "category": "garden_plan_underlay",
+                "storage_key": f"t/{tenant}/garden_plan_underlay/2026/10/att_{suffix}.png",
+            }
+        )
+    # WP 8.18: per tenant one photo the bed shows (and its cover) and one uploaded but not linked yet.
+    for suffix, tenant in (("a", A), ("b", B)):
+        for photo in (f"bedpic_{suffix}", f"newpic_{suffix}"):
+            database.collection(col.ATTACHMENTS).insert(
+                {
+                    "_key": photo,
+                    "tenant_key": tenant,
+                    "mime_type": "image/jpeg",
+                    "byte_size": 10,
+                    "sha256": photo.ljust(64, "0"),
+                    "original_filename": "beet.jpg",
+                    "created_by": USER,
+                    "category": "location",
+                    "storage_key": f"t/{tenant}/location/2026/11/{photo}.jpg",
+                }
+            )
+        database.collection(col.LOCATIONS).update(
+            {"_key": f"bed_{suffix}", "photo_refs": [f"bedpic_{suffix}"], "cover_photo_ref": f"bedpic_{suffix}"}
+        )
+    # WP 7.19: a snapshot a replace import of tenant B left behind (the plan it overwrote).
+    database.collection(col.GARDEN_PLAN_AUDIT).insert(
+        {
+            "_key": "snap_b",
+            "tenant_key": B,
+            "site_key": "site_b",
+            "revision": 1,
+            "user_key": USER,
+            "op": "import_snapshot",
+            "entity": "site",
+            "key": "site_b",
+            "summary": "state before the replace import (revision 1)",
+            "at": "2026-10-17T09:00:00+00:00",
+            "snapshot": _IMPORT_FILE,
+        }
+    )
+    # WP 7.8/7.9: a template per tenant and one system template (no ``tenant_key``, the global marker of §20.12).
+    for template_key, tenant_key, template_name in (
+        ("tpl_a", A, "Alices Vorlage"),
+        ("tpl_b", B, "Bobs Vorlage"),
+        ("sys_x", None, "System bed"),
+    ):
+        document: dict[str, Any] = {
+            "_key": template_key,
+            "name": template_name,
+            "location_type_key": "bed",
+            "default_geometry": {"kind": "rect", "origin": [0, 0], "width_m": 2, "length_m": 1, "rotation_deg": 0},
+            "default_layout": {},
+            "recurring_task_templates": [],
+            "created_by": USER,
+        }
+        if tenant_key is not None:
+            document["tenant_key"] = tenant_key
+        database.collection(col.BED_TEMPLATES).insert(document)
+    # WP 3.4: a global species and family for the rotation hints, and one backfilled year of tenant B's bed
+    database.collection(col.SPECIES).insert(
+        {
+            "_key": "sp",
+            "scientific_name": "Solanum lycopersicum",
+            "genus": "Solanum",
+            "family_key": "fam",
+            "tenant_key": "",
+        }
+    )
+    database.collection(col.BOTANICAL_FAMILIES).insert({"_key": "fam", "name": "Solanaceae", "rotation_pause_years": 3})
+    database.collection(col.CARE_EVENTS).insert(
+        {
+            "_key": "ev_b",
+            "tenant_key": B,
+            "site_key": "site_b",
+            "location_key": "bed_b",
+            "category": "planting",
+            "summary": "Backfill",
+            "performed_at": "2024-07-01T12:00:00Z",
+            "trigger": "backfill",
+            "created_by": USER,
+            "rotation_entry": {"year": 2024, "family_key": "fam", "plan_role": "main_crop"},
+        }
+    )
+    # REQ-053 WP 8.17: a suggested task on each tenant's bed, the subject of accept-/dismiss-suggestion.
+    for suffix, tenant, task_name in (("a", A, "Alices Gießvorschlag"), ("b", B, "Bobs Gießvorschlag")):
+        database.collection(col.TASKS).insert(
+            {
+                "_key": f"sugg_{suffix}",
+                "tenant_key": tenant,
+                "name": task_name,
+                "category": "watering",
+                "status": "pending",
+                "origin": "system",
+                "suggested": True,
+                "suggestion_reason": "ET0",
+                "entity_type": "location",
+                "entity_key": f"bed_{suffix}",
+            }
+        )
+    # REQ-053 W-015 (#2830): per tenant a sown row and a sowable row, both reserved by a planned run whose entry
+    # names the spacing after thinning - what the sowing and thinning routes need for the owner's positive control.
+    sown_at = (today_utc() - timedelta(days=10)).isoformat()
+    for suffix, tenant in (("a", A), ("b", B)):
+        for slot_key, y, sown in ((f"sown_{suffix}", 0.3, sown_at), (f"sowable_{suffix}", 0.7, None)):
+            database.collection(col.SLOTS).insert(
+                _slot(slot_key, f"bed_{suffix}")
+                | {
+                    "slot_role": "row",
+                    "geometry": {"kind": "polyline", "points": [[0.2, y], [1.4, y]], "width_m": 0.05},
+                    "sown_at": sown,
+                }
+            )
+            database.collection(col.HAS_SLOT).insert(
+                {"_from": f"{col.LOCATIONS}/bed_{suffix}", "_to": f"{col.SLOTS}/{slot_key}"}
+            )
+        database.collection(col.PLANTING_RUNS).insert(
+            {
+                "_key": f"sowrun_{suffix}",
+                "tenant_key": tenant,
+                "name": "Direct sowing",
+                "run_type": "monoculture",
+                "status": "planned",
+                "location_key": f"bed_{suffix}",
+            }
+        )
+        database.collection(col.PLANTING_RUN_ENTRIES).insert(
+            {
+                "_key": f"sowentry_{suffix}",
+                "run_key": f"sowrun_{suffix}",
+                "tenant_key": tenant,
+                "species_key": "sp",
+                "quantity": 1,
+                "id_prefix": "SOW",
+                "thinning_to_cm": 5.0,
+            }
+        )
+        for sequence, slot_key in enumerate((f"sown_{suffix}", f"sowable_{suffix}"), start=1):
+            database.collection(col.RUN_PLANNED_AT).insert(
+                {
+                    "_from": f"{col.PLANTING_RUNS}/sowrun_{suffix}",
+                    "_to": f"{col.SLOTS}/{slot_key}",
+                    "entry_key": f"sowentry_{suffix}",
+                    "planned_species_key": "sp",
+                    "sequence": sequence,
+                    "planned_from": sown_at,
+                }
+            )
+    return database
+
+
+# ── The application under test: real routes, real services, real repositories ──────────────────────
+
+
+def _photo_service(db) -> LocationPhotoService:
+    """REQ-053 WP 8.18: the bed photos over the real repositories; the record deleter stands in for the storage."""
+    attachment_repo = ArangoAttachmentRepository(db)
+    return LocationPhotoService(
+        ArangoSiteRepository(db),
+        ArangoLocationPhotoRepository(db),
+        attachment_repo,
+        lambda: _RecordDeleter(attachment_repo),
+    )
+
+
+def _services(
+    db,
+) -> tuple[GardenPlanService, GardenResourceService, SiteService, PlantingReservationService, PlantingRunService]:
+    sites = ArangoSiteRepository(db)
+    plan_repo = ArangoGardenPlanRepository(db)
+    photos = _photo_service(db)
+    plan = GardenPlanService(sites, plan_repo, template_repo=ArangoBedTemplateRepository(db), photos=lambda: photos)
+    resources = GardenResourceService(sites, plan_repo, ArangoGardenObjectRepository(db), plan)
+    run_repo = ArangoPlantingRunRepository(db)
+    reservation_repo = ArangoPlantingReservationRepository(db)
+    care = CareEventService(
+        ArangoCareEventRepository(db),
+        sites,
+        FakeMemberships(),
+        FakeFertilizers(),
+        FakeAttachmentRepo(),
+        FakeAttachmentService(),
+    )
+    reservations = PlantingReservationService(reservation_repo, run_repo, sites, plan_repo, care)
+
+    def species(key: str, *, tenant_key: str) -> SimpleNamespace:
+        if key != "sp":
+            raise NotFoundError("Species", key)
+        return SimpleNamespace(scientific_name="Solanum lycopersicum", green_manure_suitable=False)
+
+    runs = PlantingRunService(
+        run_repo,
+        ArangoPlantInstanceRepository(db),
+        PlantingRunEngine(),
+        site_repo=sites,
+        species_resolver=species,
+        reservations=reservations,
+        reservation_repo=reservation_repo,
+    )
+    return plan, resources, SiteService(sites), reservations, runs
+
+
+class _Unscoped:
+    """The deliberately unscoped stub: answers for ``B`` whoever asks.
+
+    Every ``tenant_key`` the router hands in is replaced with the owning tenant's before the real service
+    runs — exactly what a service that skipped its ownership predicate would let through.
+    """
+
+    def __init__(self, inner: object) -> None:
+        self._inner = inner
+
+    def __getattr__(self, name: str) -> Any:
+        target = getattr(self._inner, name)
+        if not callable(target):
+            return target
+
+        def call(*args: Any, **kwargs: Any) -> Any:
+            if "tenant_key" in kwargs:
+                kwargs["tenant_key"] = B
+            return target(*args, **kwargs)
+
+        return call
+
+
+def _rotation_service(db) -> BedRotationService:
+    sites = ArangoSiteRepository(db)
+    species = ArangoSpeciesRepository(db)
+    families = ArangoBotanicalFamilyRepository(db)
+    graph = ArangoGraphRepository(db)
+    care_repo = ArangoCareEventRepository(db)
+    care = CareEventService(
+        care_repo, sites, FakeMemberships(), FakeFertilizers(), FakeAttachmentRepo(), FakeAttachmentService()
+    )
+    validator = CropRotationValidator(
+        ArangoPlantInstanceRepository(db),
+        species,
+        graph,
+        site_repo=sites,
+        family_repo=families,
+        history_repo=ArangoRotationHistoryRepository(db),
+    )
+    return BedRotationService(sites, ArangoGardenPlanRepository(db), graph, species, families, care, validator)
+
+
+def _rotation_matrix_service(db) -> RotationMatrixService:
+    sites = ArangoSiteRepository(db)
+    validator = CropRotationValidator(
+        ArangoPlantInstanceRepository(db),
+        ArangoSpeciesRepository(db),
+        ArangoGraphRepository(db),
+        site_repo=sites,
+        family_repo=ArangoBotanicalFamilyRepository(db),
+        history_repo=ArangoRotationHistoryRepository(db),
+    )
+    return RotationMatrixService(sites, ArangoGardenPlanRepository(db), validator)
+
+
+def _history_service(db) -> BedHistoryService:
+    return BedHistoryService(ArangoSiteRepository(db), ArangoBedHistoryRepository(db))
+
+
+def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped: bool = False) -> TestClient:
+    plan, resources, sites, reservations, runs = _services(db)
+    rotation: Any = _rotation_service(db)
+    history: Any = _history_service(db)
+    matrix: Any = _rotation_matrix_service(db)
+    soil: Any = SoilAnalysisService(ArangoSiteRepository(db), ArangoCareEventRepository(db))
+    companions: Any = CompanionOverlayService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
+    )
+    adjacency: Any = AdjacencyService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), ArangoGraphRepository(db)
+    )
+    export: Any = GardenPlanExportService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan)
+    # WP 8.18: a replace import and a restore discard the photos of the beds they removed, like every bed delete.
+    import_photos = _photo_service(db)
+    importer: Any = GardenPlanImportService(
+        ArangoSiteRepository(db), ArangoGardenPlanRepository(db), plan, export, photos=lambda: import_photos
+    )
+    # REQ-053 WP 8.26: the CSV bed list writes through the plan service's batch path (``create_beds``).
+    csv_import: Any = BedCsvImportService(
+        ArangoSiteRepository(db),
+        ArangoGardenPlanRepository(db),
+        plan,
+        ArangoLocationTypeRepository(db),
+        ArangoIrrigationZoneRepository(db),
+    )
+    plant_states: Any = PlantStateService(ArangoSiteRepository(db), ArangoPlantStateRepository(db))
+    # REQ-053 W-015 (#2830): sowing and thinning, over the real repositories and the real run service.
+    thinning: Any = SlotThinningService(
+        ArangoSiteRepository(db),
+        ArangoPlantingReservationRepository(db),
+        ArangoPlantingRunRepository(db),
+        runs,
+        CareEventService(
+            ArangoCareEventRepository(db),
+            ArangoSiteRepository(db),
+            FakeMemberships(),
+            FakeFertilizers(),
+            FakeAttachmentRepo(),
+            FakeAttachmentService(),
+        ),
+        ArangoSpeciesRepository(db),
+    )
+    zones: Any = IrrigationZoneService(
+        ArangoIrrigationZoneRepository(db),
+        ArangoSiteRepository(db),
+        ArangoGardenObjectRepository(db),
+        ArangoCareEventRepository(db),
+    )
+    templates: Any = BedTemplateService(ArangoBedTemplateRepository(db))
+    season: Any = GardenPlanSeasonService(ArangoSiteRepository(db), ArangoGardenPlanRepository(db))
+    if unscoped:
+        season = _Unscoped(season)
+    attachment_repo = ArangoAttachmentRepository(db)
+    underlay: Any = GardenPlanUnderlayService(
+        ArangoSiteRepository(db),
+        ArangoGardenPlanRepository(db),
+        attachment_repo,
+        _RecordDeleter(attachment_repo),  # type: ignore[arg-type]
+    )
+    bed_photos: Any = _photo_service(db)
+    # REQ-053 WP 8.17: the decision on a suggested task (GP-API-040) over the real task repository.
+    tasks: Any = TaskService(ArangoTaskRepository(db), HSTValidator(), DependencyResolver())
+    if unscoped:
+        tasks = _Unscoped(tasks)
+        bed_photos = _Unscoped(bed_photos)
+        underlay = _Unscoped(underlay)
+        templates = _Unscoped(templates)
+        zones = _Unscoped(zones)
+        plant_states = _Unscoped(plant_states)
+        thinning = _Unscoped(thinning)
+        adjacency = _Unscoped(adjacency)
+        rotation = _Unscoped(rotation)
+        matrix = _Unscoped(matrix)
+        soil = _Unscoped(soil)
+        companions = _Unscoped(companions)
+        history = _Unscoped(history)
+        export = _Unscoped(export)
+        importer = _Unscoped(importer)
+        csv_import = _Unscoped(csv_import)
+        plan, resources, sites, reservations, runs = (  # type: ignore[assignment]
+            _Unscoped(plan),
+            _Unscoped(resources),
+            _Unscoped(sites),
+            _Unscoped(reservations),
+            _Unscoped(runs),
+        )
+    app = FastAPI()
+    app.state.limiter = limiter
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.include_router(tenant_scoped_router, prefix="/api/v1")
+    context = TenantContext(tenant_key=tenant, tenant_slug=SLUG_A if tenant == A else SLUG_B, user_key=USER, role=role)
+    app.dependency_overrides[get_current_tenant] = lambda: context
+    app.dependency_overrides[get_garden_plan_service] = lambda: plan
+    app.dependency_overrides[get_garden_resource_service] = lambda: resources
+    app.dependency_overrides[get_site_service] = lambda: sites
+    app.dependency_overrides[get_planting_reservation_service] = lambda: reservations
+    app.dependency_overrides[get_planting_run_service] = lambda: runs
+    app.dependency_overrides[get_adjacency_service] = lambda: adjacency
+    app.dependency_overrides[get_bed_rotation_service] = lambda: rotation
+    app.dependency_overrides[get_rotation_matrix_service] = lambda: matrix
+    app.dependency_overrides[get_soil_analysis_service] = lambda: soil
+    app.dependency_overrides[get_companion_overlay_service] = lambda: companions
+    app.dependency_overrides[get_plant_state_service] = lambda: plant_states
+    app.dependency_overrides[get_slot_thinning_service] = lambda: thinning
+    app.dependency_overrides[get_bed_history_service] = lambda: history
+    app.dependency_overrides[get_garden_plan_export_service] = lambda: export
+    app.dependency_overrides[get_garden_plan_import_service] = lambda: importer
+    app.dependency_overrides[get_bed_csv_import_service] = lambda: csv_import
+    app.dependency_overrides[get_garden_plan_season_service] = lambda: season
+    app.dependency_overrides[get_irrigation_zone_service] = lambda: zones
+    app.dependency_overrides[get_bed_template_service] = lambda: templates
+    app.dependency_overrides[get_garden_plan_underlay_service] = lambda: underlay
+    app.dependency_overrides[get_location_photo_service] = lambda: bed_photos
+    app.dependency_overrides[get_task_service] = lambda: tasks
+    app.dependency_overrides[get_is_platform_admin] = lambda: False
+    app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
+    return TestClient(app, raise_server_exceptions=False)
+
+
+# ── The matrix: one row per route that a foreign tenant addresses by key ───────────────────────────
+
+
+@dataclass(frozen=True)
+class Case:
+    """One request, written for the keys of *one* tenant's resources (``bed_b`` …), plus its absent twin."""
+
+    name: str
+    method: str
+    path: str
+    body: Any = None
+    params: dict[str, str] = field(default_factory=dict)
+    #: The success status as the owner (the positive control).
+    owner_status: int = 200
+    #: A write is checked for "the database did not change".
+    writes: bool = False
+    #: Marks the routes whose success logs ``garden_plan.batch_applied``.
+    logs_batch: bool = False
+
+    def for_keys(self, mapping: dict[str, str]) -> Case:
+        """The same request with every key in ``mapping`` replaced — in path, params and body."""
+
+        def swap(value: Any) -> Any:
+            if isinstance(value, str):
+                for old, new in mapping.items():
+                    value = value.replace(old, new)
+                return value
+            if isinstance(value, list):
+                return [swap(item) for item in value]
+            if isinstance(value, dict):
+                return {key: swap(item) for key, item in value.items()}
+            return value
+
+        return Case(
+            self.name,
+            self.method,
+            swap(self.path),
+            swap(copy.deepcopy(self.body)),
+            swap(dict(self.params)),
+            self.owner_status,
+            self.writes,
+            self.logs_batch,
+        )
+
+
+_NEW_OBJECT = {
+    "object_type": "tree",
+    "label": "Intruder",
+    "geometry": {"kind": "circle", "origin": [15, 15], "radius_m": 1},
+    "props": {"object_type": "tree", "crown_radius_m": 1, "foliage": "deciduous"},
+}
+_BATCH_OP = {
+    "op": "update_fields",
+    "entity": "garden_object",
+    "key": "obj_b",
+    "fields": {"label": "Taken over"},
+}
+
+_IMPORT_FILE = {
+    "schema_version": "1",
+    "exported_at": "2026-10-18T09:30:00Z",
+    "site": {"name": "Bobs Garten", "type": "outdoor"},
+    "locations": [],
+    "slots": [],
+    "garden_objects": [],
+}
+_IMPORT_DRY_RUN = {"mode": "replace", "dry_run": True, "document": _IMPORT_FILE}
+_IMPORT_REPLACE = {
+    "mode": "replace",
+    "dry_run": False,
+    "confirm_site_name": "Bobs Garten",
+    "document": _IMPORT_FILE,
+}
+
+#: REQ-053 WP 8.26: a bed list of one line (the body is the file itself, ``text/csv``).
+_BED_CSV = "Name;Typ;Breite_m;Länge_m\r\nNeues Beet;Bed;2;1\r\n".encode()
+
+#: The owner's keys: ``site_b``, ``bed_b``, ``slot_b``, ``obj_b``. Replaced by the absent twin below.
+CASES: tuple[Case, ...] = (
+    # garden_plan (WP 1.8)
+    Case("get_plan", "GET", "/sites/site_b/plan"),
+    Case("list_plan_audit", "GET", "/sites/site_b/plan/audit"),
+    # REQ-053 WP 5.2, GP-API-004 / GP-API-006: the JSON backup and the SVG read a whole site - a foreign one is a 404.
+    Case("export_plan", "GET", "/sites/site_b/plan/export"),
+    Case("render_plan_svg", "GET", "/sites/site_b/plan/render.svg"),
+    # REQ-053 WP 5.3, GP-API-005: the import deletes and inserts a whole plan - a foreign site is a 404 before the
+    # file is read, in the dry run as in the replace, and the replace writes nothing.
+    Case("import_plan_dry_run", "POST", "/sites/site_b/plan/import", _IMPORT_DRY_RUN),
+    Case("import_plan_replace", "POST", "/sites/site_b/plan/import", _IMPORT_REPLACE, writes=True),
+    # REQ-053 WP 8.26, GP-FR-174: the CSV bed list creates beds in a whole site - a foreign site is a 404 before the
+    # file is read, in the dry run as in the confirmation, and the confirmation writes nothing.
+    Case("import_beds_csv_dry_run", "POST", "/sites/site_b/beds/import-csv", _BED_CSV),
+    Case(
+        "import_beds_csv",
+        "POST",
+        "/sites/site_b/beds/import-csv",
+        _BED_CSV,
+        params={"dry_run": "false"},
+        writes=True,
+        logs_batch=True,
+    ),
+    # REQ-053 WP 7.18, GP-FR-172: the partial export names its keys - a foreign site is a 404 before any key is read,
+    # and so is a key of the owner's other kinds when it is asked for through a foreign site.
+    Case("export_plan_selection", "GET", "/sites/site_b/plan/export", params={"scope": "selection", "keys": "bed_b"}),
+    Case("export_plan_subtree", "GET", "/sites/site_b/plan/export", params={"scope": "subtree", "keys": "bed_b"}),
+    # REQ-053 WP 7.19, GP-FR-148/170: the snapshots of a replace - listed and restored for the owner only.
+    Case("list_plan_snapshots", "GET", "/sites/site_b/plan/snapshots"),
+    Case("restore_plan_snapshot_dry_run", "POST", "/sites/site_b/plan/snapshots/snap_b/restore", {"dry_run": True}),
+    Case(
+        "restore_plan_snapshot",
+        "POST",
+        "/sites/site_b/plan/snapshots/snap_b/restore",
+        {"dry_run": False, "confirm_site_name": "Bobs Garten"},
+        writes=True,
+    ),
+    # REQ-053 WP 7.16, GP-FR-171: the new season writes slots into a whole site - a foreign site is a 404, always.
+    Case("new_plan_season_dry_run", "POST", "/sites/site_b/plan/new-season", {"year": 2027, "dry_run": True}),
+    Case(
+        "new_plan_season",
+        "POST",
+        "/sites/site_b/plan/new-season",
+        {"year": 2027, "dry_run": False},
+        writes=True,
+    ),
+    Case(
+        "put_boundary",
+        "PUT",
+        "/sites/site_b/plan/boundary",
+        {"boundary": {**_BOUNDARY, "width_m": 15}, "north_angle_deg": 10.0},
+        writes=True,
+        logs_batch=True,
+    ),
+    Case(
+        "apply_batch",
+        "POST",
+        "/sites/site_b/plan/batch",
+        {"expected_revision": 1, "operations": [_BATCH_OP]},
+        writes=True,
+        logs_batch=True,
+    ),
+    # garden_objects (WP 1.9)
+    Case("list_garden_objects", "GET", "/sites/site_b/garden-objects"),
+    Case(
+        "create_garden_object",
+        "POST",
+        "/sites/site_b/garden-objects",
+        _NEW_OBJECT,
+        owner_status=201,
+        writes=True,
+        logs_batch=True,
+    ),
+    Case("get_garden_object", "GET", "/garden-objects/obj_b"),
+    Case(
+        "patch_garden_object", "PATCH", "/garden-objects/obj_b", {"label": "Taken over"}, writes=True, logs_batch=True
+    ),
+    Case("delete_garden_object", "DELETE", "/garden-objects/obj_b", owner_status=204, writes=True, logs_batch=True),
+    # locations (WP 1.9)
+    Case("list_locations", "GET", "/locations", params={"site_key": "site_b"}),
+    Case("list_beds", "GET", "/locations", params={"site_key": "site_b", "is_bed": "true"}),
+    # REQ-053 WP 8.25: the bed list as CSV, with the member names opted in - the most revealing form of the route.
+    Case(
+        "list_beds_csv",
+        "GET",
+        "/locations",
+        params={"site_key": "site_b", "is_bed": "true", "format": "csv", "include_assignment": "true"},
+    ),
+    # REQ-053 WP 9.10 (#2750): its twin in the garden-plan PDF - the parcel list with the member names opted in.
+    Case(
+        "print_garden_plan_parcel_list",
+        "GET",
+        "/print/garden-plan/site_b",
+        params={"parcel_list": "true", "include_assignment": "true"},
+    ),
+    Case(
+        "create_location",
+        "POST",
+        "/locations",
+        {"name": "Intruder", "site_key": "site_b", "area_m2": 1.0, "location_type_key": "bed"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case(
+        "update_location",
+        "PUT",
+        "/locations/bed_b",
+        {"name": "Taken over", "site_key": "site_b", "area_m2": 2.0, "location_type_key": "bed"},
+        writes=True,
+    ),
+    Case("get_location", "GET", "/locations/bed_b"),
+    Case("list_location_children", "GET", "/locations/bed_b/children"),
+    Case("get_location_summary", "GET", "/locations/bed_b/summary"),
+    Case("patch_location", "PATCH", "/locations/bed_b", {"name": "Taken over"}, writes=True),
+    # WP 3.9: the site features and the sun class are written by the same route - a foreign bed takes neither.
+    Case(
+        "patch_location_site_conditions",
+        "PATCH",
+        "/locations/bed_b",
+        {
+            "sun_exposure": "shade",
+            "site_conditions": {"microclimate": {"frost_risk": "high"}, "wind_exposure": "exposed"},
+        },
+        writes=True,
+    ),
+    Case(
+        "change_location_status",
+        "POST",
+        "/locations/bed_b/status",
+        {"bed_status": "retired", "reason": "Take over"},
+        writes=True,
+    ),
+    Case("delete_location", "DELETE", "/locations/bed_b", owner_status=204, writes=True, logs_batch=True),
+    Case(
+        "apply_slot_batch",
+        "POST",
+        "/locations/bed_b/slots/batch",
+        {
+            "mode": "append",
+            "slots": [{"slot_id": "INTRUDER_1", "geometry": {"kind": "point", "origin": [0.4, 0.5]}}],
+        },
+        writes=True,
+        owner_status=200,
+    ),
+    # REQ-053 WP 3.1, GP-API-016: a pure compute over the bed's geometry - nothing is written, nothing leaks.
+    Case(
+        "preview_planting_layout",
+        "POST",
+        "/locations/bed_b/planting-layout/preview",
+        {"entry": {"layout_strategy": "grid", "spacing_cm": 30}},
+    ),
+    # REQ-053 WP 3.2, GP-API-024 / GP-API-019 / GP-API-017: the plantings of a bed, clearing it, quick planting.
+    Case("list_plantings", "GET", "/locations/bed_b/plantings"),
+    # REQ-053 WP 3.7, GP-API-054: the visual state and info-bubble facts of a bed's plants.
+    Case("list_plant_states", "GET", "/locations/bed_b/plant-states"),
+    Case("clear_bed", "POST", "/locations/bed_b/clear", {"termination_type": "senesced"}, writes=True),
+    Case(
+        "quick_planting",
+        "POST",
+        "/locations/bed_b/quick-planting",
+        {"species_key": "sp", "quantity": 2, "layout_strategy": "grid", "spacing_cm": 50},
+        owner_status=201,
+        writes=True,
+    ),
+    # #2463: the per-species runs of a mixed culture on a bed in one transaction - a foreign bed is a 404 before the
+    # species or the layout are looked at, and nothing is written.
+    Case(
+        "create_mixed_culture",
+        "POST",
+        "/planting-runs/mixed-culture",
+        {
+            "location_key": "bed_b",
+            "planned_start_date": "2026-05-20",
+            "runs": [
+                {
+                    "name": "Tomato - Bobs Geheimbeet",
+                    "entry": {
+                        "species_key": "sp",
+                        "quantity": 2,
+                        "id_prefix": "TOM",
+                        "spacing_cm": 50,
+                        "layout_strategy": "grid",
+                    },
+                },
+                {
+                    "name": "Basil - Bobs Geheimbeet",
+                    "entry": {
+                        "species_key": "sp",
+                        "quantity": 2,
+                        "id_prefix": "BAS",
+                        "spacing_cm": 50,
+                        "layout_strategy": "grid",
+                    },
+                },
+            ],
+        },
+        owner_status=201,
+        writes=True,
+    ),
+    # REQ-053 WP 3.4, GP-API-025 / 039 / 042: rotation hints, the timeline and the history backfill of a bed.
+    Case("validate_planting", "POST", "/locations/bed_b/validate-planting", {"species_key": "sp"}),
+    Case("get_rotation", "GET", "/locations/bed_b/rotation"),
+    # REQ-053 WP 8.14, GP-FR-133: the follow-up crop recommendation names the families a bed grew.
+    Case("get_succession_recommendation", "GET", "/locations/bed_b/succession-recommendation"),
+    # REQ-053 WP 8.7, GP-FR-122: the soil analyses of a bed, read through the bed's site.
+    Case("get_soil_analyses", "GET", "/locations/bed_b/soil-analyses"),
+    # REQ-053 WP 8.15, GP-FR-134: the companion layer of a bed names the species standing in its slots.
+    Case("get_companion_edges", "GET", "/locations/bed_b/companion-edges"),
+    # REQ-053 WP 8.18, GP-FR-051: the photos of a bed - read, linked, the cover chosen, one removed - through the
+    # bed's site. The owner links its own unlinked photo, clears the cover and removes the photo the bed shows.
+    Case("list_location_photos", "GET", "/locations/bed_b/photos"),
+    Case(
+        "add_location_photo",
+        "POST",
+        "/locations/bed_b/photos",
+        {"attachment_id": "newpic_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case(
+        "set_location_cover_photo",
+        "PUT",
+        "/locations/bed_b/photos/cover",
+        {"attachment_id": None},
+        writes=True,
+    ),
+    Case("remove_location_photo", "DELETE", "/locations/bed_b/photos/bedpic_b", writes=True),
+    # REQ-053 WP 8.12, GP-FR-135: the rotation matrix of a site reads every bed's history under the tenant.
+    Case("get_rotation_matrix", "GET", "/sites/site_b/rotation-matrix"),
+    # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).
+    Case("get_bed_history", "GET", "/locations/bed_b/history"),
+    Case(
+        "backfill_history",
+        "POST",
+        "/locations/bed_b/history/backfill",
+        {"year": date.today().year - 2, "family_key": "fam"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("cancel_backfill", "DELETE", "/locations/bed_b/history/backfill/ev_b", owner_status=204, writes=True),
+    # slots (WP 1.9 + the reads of the single resource)
+    Case("list_slots", "GET", "/slots", params={"location_key": "bed_b"}),
+    Case("get_slot", "GET", "/slots/slot_b"),
+    Case(
+        "create_slot",
+        "POST",
+        "/slots",
+        {"slot_id": "INTRUDER_SLOT", "location_key": "bed_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("update_slot", "PUT", "/slots/slot_b", {"slot_id": "SLOT_B", "location_key": "bed_b"}, writes=True),
+    Case("patch_slot", "PATCH", "/slots/slot_b", {"capacity_plants": 3}, writes=True),
+    Case("delete_slot", "DELETE", "/slots/slot_b", owner_status=204, writes=True),
+    # REQ-053 WP 3.3, SR-021: the manual neighbourhood of two slots - both ends are resolved under the tenant.
+    Case(
+        "set_manual_adjacency",
+        "PUT",
+        "/slots/slot_b/adjacent/slot2_b",
+        {"distance_cm": 20},
+        owner_status=204,
+        writes=True,
+    ),
+    Case("remove_manual_adjacency", "DELETE", "/slots/slot_b/adjacent/slot2_b", owner_status=204, writes=True),
+    # REQ-053 W-015 (#2830): sowing a reserved row, and thinning a sown one into plants of its run.
+    Case("sow_slot", "PUT", "/slots/sowable_b/sowing", {"sown_at": _SOWING_DAY}, writes=True),
+    Case("get_thinning_plan", "GET", "/slots/sown_b/thinning"),
+    Case("thin_slot", "POST", "/slots/sown_b/thinning", {}, owner_status=201, writes=True),
+    # REQ-053 WP 7.1, GP-API-050/051: the irrigation zones of a site and the beds they cover.
+    Case("list_irrigation_zones", "GET", "/sites/site_b/irrigation-zones"),
+    Case(
+        "create_irrigation_zone",
+        "POST",
+        "/sites/site_b/irrigation-zones",
+        {"name": "Intruder zone", "water_source_key": "barrel_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("get_irrigation_zone", "GET", "/irrigation-zones/zone_b"),
+    Case("patch_irrigation_zone", "PATCH", "/irrigation-zones/zone_b", {"name": "Taken over"}, writes=True),
+    Case(
+        "replace_irrigation_zone_locations",
+        "PUT",
+        "/irrigation-zones/zone_b/locations",
+        {"location_keys": ["bed_b"]},
+        writes=True,
+    ),
+    Case("delete_irrigation_zone", "DELETE", "/irrigation-zones/zone_b", owner_status=204, writes=True),
+    # REQ-053 WP 7.3, GP-API-052/053: the zone's status and its watering round (zone_b covers bed_b).
+    Case("get_irrigation_zone_status", "GET", "/irrigation-zones/zone_b/status"),
+    Case(
+        "log_irrigation_zone_watering",
+        "POST",
+        "/irrigation-zones/zone_b/log-watering",
+        {"volume_liters": 12, "allocation": "equal"},
+        owner_status=201,
+        writes=True,
+    ),
+    # REQ-053 WP 9.13, GP-FR-117: "rain - skipped" on another tenant's zone writes no rainfall event there.
+    Case(
+        "log_irrigation_zone_rain_skipped",
+        "POST",
+        "/irrigation-zones/zone_b/rain-skipped",
+        {"summary": "Rained overnight"},
+        owner_status=201,
+        writes=True,
+    ),
+    # REQ-053 WP 7.8, GP-FR-044: a template of another tenant is not there for the caller.
+    Case("patch_bed_template", "PATCH", "/bed-templates/tpl_b", {"name": "Taken over"}, writes=True),
+    Case("delete_bed_template", "DELETE", "/bed-templates/tpl_b", owner_status=204, writes=True),
+    # REQ-053 WP 9.9, GP-API-070: another tenant's template is not there to be exported either.
+    Case("export_bed_template", "GET", "/bed-templates/tpl_b/export"),
+    # REQ-053 WP 7.14, GP-FR-033: the background picture of a foreign site is neither set, replaced nor removed.
+    Case("put_underlay", "PUT", "/sites/site_b/plan/underlay", _UNDERLAY, writes=True),
+    Case("delete_underlay", "DELETE", "/sites/site_b/plan/underlay", owner_status=204, writes=True),
+    # REQ-053 WP 7.9, §21.7: place-template on a foreign site is a 404 before the body is read.
+    Case(
+        "place_template",
+        "POST",
+        "/sites/site_b/plan/place-template",
+        {"template_key": "sys_x", "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        writes=True,
+        logs_batch=True,
+    ),
+    # REQ-053 WP 8.17, GP-API-040: a suggestion of another tenant is neither accepted nor dismissed.
+    Case("accept_suggestion", "POST", "/tasks/sugg_b/accept-suggestion", writes=True),
+    Case("dismiss_suggestion", "POST", "/tasks/sugg_b/dismiss-suggestion", {"reason": "Rain"}, writes=True),
+)
+
+_ABSENT = {
+    "site_b": "site_gone",
+    "bed_b": "bed_gone",
+    "slot_b": "slot_gone",
+    "slot2_b": "slot2_gone",
+    "obj_b": "obj_gone",
+    "ev_b": "ev_gone",
+    "zone_b": "zone_gone",
+    "barrel_b": "barrel_gone",
+    "tpl_b": "tpl_gone",
+    "att_b": "att_gone",
+    "snap_b": "snap_gone",
+    "sugg_b": "sugg_gone",
+    "sown_b": "sown_gone",
+    "sowable_b": "sowable_gone",
+}
+
+
+def _url(case: Case, slug: str) -> str:
+    return f"/api/v1/t/{slug}{case.path}"
+
+
+def _send(client: TestClient, case: Case, slug: str):
+    if isinstance(case.body, bytes):  # a file upload as the body itself (the CSV bed list, WP 8.26)
+        return client.request(
+            case.method,
+            _url(case, slug),
+            content=case.body,
+            params=case.params or None,
+            headers={"content-type": "text/csv"},
+        )
+    return client.request(case.method, _url(case, slug), json=case.body, params=case.params or None)
+
+
+def _snapshot(db) -> dict[str, list[dict[str, Any]]]:
+    return {
+        name: sorted(db.collection(name).all(), key=lambda doc: json.dumps(doc, sort_keys=True)) for name in _TOUCHED
+    }
+
+
+def _canonical(text: str) -> str:
+    """The body without what differs per request by construction: the error id and the timestamp."""
+    payload = json.loads(text)
+    payload.pop("error_id", None)
+    payload.pop("timestamp", None)
+    return json.dumps(payload, sort_keys=True)
+
+
+def _detail(case: Case, response) -> str:
+    return f"{case.name}: {response.status_code} {response.text}"
+
+
+def _assert_refused(db, client: TestClient, case: Case) -> None:
+    """The single expression every negative runs: 404, the absent key's body, nothing of B, nothing written."""
+    before = _snapshot(db)
+    with capture_logs() as logs:
+        refused = _send(client, case, SLUG_A)
+        absent = _send(client, case.for_keys(_ABSENT), SLUG_A)
+
+    assert refused.status_code == 404, _detail(case, refused)
+    assert absent.status_code == 404, _detail(case, absent)
+    # The caller's own path/params/body may be echoed back; what B owns beyond them must not be.
+    body = case.body.decode() if isinstance(case.body, bytes) else case.body
+    sent = json.dumps([case.path, case.params, body])
+    echoed = refused.text
+    for key in (secret for secret in B_SECRETS if secret in sent):
+        echoed = echoed.replace(key, "")
+    leaked = [secret for secret in B_SECRETS if secret in echoed]
+    assert leaked == [], f"{case.name} echoed {leaked}: {refused.text}"
+    # Same answer for a foreign and an absent key: the only difference allowed is the key the caller sent.
+    swapped = _canonical(refused.text)
+    for old, new in _ABSENT.items():
+        swapped = swapped.replace(old, new)
+    assert swapped == _canonical(absent.text), (
+        f"{case.name} tells a foreign key from an absent one: {refused.text} / {absent.text}"
+    )
+    assert [entry for entry in logs if entry["event"] == "garden_plan.batch_applied"] == [], case.name
+    assert _snapshot(db) == before, f"{case.name} changed the database"
+
+
+#: Routes of the four routers that no case addresses, each with the reason — an entry that names a route
+#: the routers no longer have fails, and so does a route missing from both this dict and :data:`CASES`.
+_OTHER_ROUTES: dict[tuple[str, str], str] = {
+    ("GET", "/bed-templates"): "addresses no key: the catalogue is system templates plus the caller's own; "
+    "TestBedTemplatesAreScopedToTheTenant lists it as both tenants",
+    ("POST", "/bed-templates"): "addresses no key (the owner is the caller's tenant, never a body field); "
+    "TestBedTemplatesAreScopedToTheTenant creates as A and reads as B",
+    ("POST", "/bed-templates/import"): "addresses no key (keys of the file are ignored, the owner is the caller's "
+    "tenant); TestBedTemplateExchange imports A's file as B and a file naming B's key as A",
+    **{
+        (method, path): "sensor and frost-warning routes of a location are served by the sensor and weather "
+        "services and predate REQ-053 (#1871 pinned them); WP 1.10 covers the garden-plan services"
+        for method, path in (
+            ("GET", "/locations/{key}/sensors"),
+            ("POST", "/locations/{key}/sensors"),
+            ("PUT", "/locations/{key}/sensors/{sensor_key}"),
+            ("DELETE", "/locations/{key}/sensors/{sensor_key}"),
+            ("GET", "/locations/{key}/sensors/live"),
+            ("GET", "/locations/{key}/frost-warning"),
+        )
+    },
+}
+
+
+def _route_pattern(path: str) -> re.Pattern[str]:
+    return re.compile(
+        "^" + re.sub(r"\{[^/]+\}", "[^/]+", re.escape(path).replace(r"\{", "{").replace(r"\}", "}")) + "$"
+    )
+
+
+def _routes_of_the_four_routers() -> set[tuple[str, str]]:
+    from app.api.v1.bed_templates.tenant_router import router as bed_templates
+    from app.api.v1.garden_objects.tenant_router import router as garden_objects
+    from app.api.v1.garden_plan.tenant_router import router as garden_plan
+    from app.api.v1.irrigation_zones.tenant_router import router as irrigation_zones
+    from app.api.v1.locations.tenant_router import router as locations
+    from app.api.v1.planting_runs.tenant_router import router as planting_runs
+    from app.api.v1.print.tenant_router import router as print_router
+    from app.api.v1.slots.tenant_router import router as slots
+    from app.api.v1.tasks.tenant_router import router as tasks
+
+    found: set[tuple[str, str]] = set()
+    for router in (garden_plan, garden_objects, locations, slots, irrigation_zones, bed_templates):
+        for route in router.routes:
+            path = f"{router.prefix}{route.path.removeprefix(router.prefix)}"
+            found.update((method, path) for method in route.methods)
+    # The planting-run router predates REQ-053 and is pinned route by route elsewhere (#1871); only the route
+    # that writes a bed's slots on behalf of a request body (#2463) belongs to this matrix.
+    for route in planting_runs.routes:
+        if route.path.endswith("/mixed-culture"):
+            found.update(
+                (method, f"{planting_runs.prefix}{route.path.removeprefix(planting_runs.prefix)}")
+                for method in route.methods
+            )
+    # The task router predates REQ-053 as well; the decision on a suggestion (WP 8.17, GP-API-040) belongs here.
+    for route in tasks.routes:
+        if route.path.endswith(("/accept-suggestion", "/dismiss-suggestion")):
+            found.update((method, f"{tasks.prefix}{route.path.removeprefix(tasks.prefix)}") for method in route.methods)
+    # The print router predates REQ-053 too; its garden-plan PDF (GP-API-007) prints member names on opt-in since
+    # the parcel list (WP 9.10, #2750), so it belongs here.
+    for route in print_router.routes:
+        if "/garden-plan/" in route.path:
+            found.update(
+                (method, f"{print_router.prefix}{route.path.removeprefix(print_router.prefix)}")
+                for method in route.methods
+            )
+    return found
+
+
+class TestTheMatrixCoversTheRouters:
+    def test_every_route_has_a_case_or_a_named_reason(self) -> None:
+        routes = _routes_of_the_four_routers()
+        uncovered = sorted(
+            route
+            for route in routes
+            if route not in _OTHER_ROUTES
+            and not any(
+                case.method == route[0] and _route_pattern(route[1]).match(case.path.split("?")[0]) for case in CASES
+            )
+        )
+
+        assert uncovered == [], f"routes no case addresses and no reason names: {uncovered}"
+        assert len(routes) >= 30, "the route walk saw almost nothing"
+
+    def test_every_named_exception_is_still_a_route(self) -> None:
+        assert sorted(set(_OTHER_ROUTES) - _routes_of_the_four_routers()) == []
+
+    def test_every_case_addresses_a_real_route(self) -> None:
+        routes = _routes_of_the_four_routers()
+        orphan = sorted(
+            case.name
+            for case in CASES
+            if not any(
+                method == case.method and _route_pattern(path).match(case.path.split("?")[0]) for method, path in routes
+            )
+        )
+        assert orphan == []
+
+
+#: Path keys no document can be read by, each as the client puts it on the wire (#2709). Measured against
+#: ArangoDB 3.12 on 2026-11-07: ``collection.get("a b")`` and ``get("x!%")`` answer ``None`` (an unknown key),
+#: but ``get(".")`` and ``get("..")`` raise ``DocumentGetError`` [HTTP 404][ERR 1203] - the dot segment is
+#: normalised out of ``/_api/document/<collection>/<key>`` - which used to reach the client as a 500.
+_UNREADABLE_PATH_KEYS = {"a b": "a%20b", "x!%": "x!%25", ".": "%2E", "..": "%2E%2E"}
+
+
+def _with_path_key(case: Case, wire_key: str) -> Case | None:
+    """``case`` with every key segment of its path replaced by ``wire_key``; ``None`` when the path has no key."""
+    segments = case.path.split("?")[0].split("/")
+    swapped = [wire_key if segment in _ABSENT else segment for segment in segments]
+    if swapped == segments:
+        return None
+    return Case(case.name, case.method, "/".join(swapped), copy.deepcopy(case.body), dict(case.params))
+
+
+class TestAnUnreadableKeyIsNeverA500:
+    """#2709 item 2: every keyed garden-plan route answers a malformed key like an absent one, never a 500.
+
+    The class predicate: every route of :data:`CASES` that names a key in its path, with the key replaced by each
+    of :data:`_UNREADABLE_PATH_KEYS` (path only - the body stays a valid request), answers 404 or 422.
+    """
+
+    @pytest.mark.parametrize("key", sorted(_UNREADABLE_PATH_KEYS), ids=repr)
+    def test_every_keyed_route_answers_404_or_422(self, db, key: str) -> None:
+        client = _client(db)
+        answered: dict[str, int] = {}
+        for case in CASES:
+            probe = _with_path_key(case, _UNREADABLE_PATH_KEYS[key])
+            if probe is not None:
+                answered[case.name] = _send(client, probe, SLUG_A).status_code
+
+        assert len(answered) >= 50, f"the sweep reached almost no keyed route: {sorted(answered)}"
+        wrong = {name: status for name, status in answered.items() if status not in (404, 422)}
+        assert wrong == {}, f"{key!r} answered neither 404 nor 422 on {wrong}"
+
+
+class TestAForeignTenantIsRefusedOnEveryRoute:
+    @pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
+    def test_the_route_answers_404_like_an_absent_key_and_writes_nothing(self, db, case: Case) -> None:
+        _assert_refused(db, _client(db), case)
+
+    @pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
+    def test_the_owner_reaches_the_same_resource(self, db, case: Case) -> None:
+        """The positive control: the call is valid, so the 404 above is the tenancy and nothing else."""
+        with capture_logs() as logs:
+            response = _send(_client(db, tenant=B), case, SLUG_B)
+
+        assert response.status_code == case.owner_status, _detail(case, response)
+        applied = [entry for entry in logs if entry["event"] == "garden_plan.batch_applied"]
+        assert bool(applied) is case.logs_batch, f"{case.name}: {logs}"
+
+
+_MIXED = next(case for case in CASES if case.name == "create_mixed_culture")
+
+
+class TestAMixedCultureIsOneTransaction:
+    """#2463: every run of the request, with its entry, slots and reservations, or nothing at all."""
+
+    @pytest.fixture(autouse=True)
+    def _without_the_sowing_runs(self, db) -> None:
+        """The fixture's sowing runs and rows (W-015, #2830) are not this class's subject: it counts what one request
+        wrote."""
+        for name in (col.RUN_PLANNED_AT, col.PLANTING_RUN_ENTRIES, col.PLANTING_RUNS):
+            db.collection(name).truncate()
+        for suffix in ("a", "b"):
+            for key in (f"sown_{suffix}", f"sowable_{suffix}"):
+                db.collection(col.SLOTS).delete(key)
+                db.aql.execute(
+                    "FOR e IN @@edges FILTER e._to == @id REMOVE e IN @@edges",
+                    bind_vars={"@edges": col.HAS_SLOT, "id": f"{col.SLOTS}/{key}"},
+                )
+
+    def _post(self, db, body: dict[str, Any], *, role: TenantRole = TenantRole.GROWER):
+        client = _client(db, tenant=B, role=role)
+        return client.post(f"/api/v1/t/{SLUG_B}/planting-runs/mixed-culture", json=body)
+
+    def test_a_grower_creates_all_runs_with_their_slots_and_reservations(self, db) -> None:
+        response = self._post(db, _MIXED.body)
+
+        assert response.status_code == 201, response.text
+        runs = response.json()["runs"]
+        assert [run["name"] for run in runs] == ["Tomato - Bobs Geheimbeet", "Basil - Bobs Geheimbeet"]
+        assert {run["status"] for run in runs} == {"planned"} and {run["run_type"] for run in runs} == {"monoculture"}
+        stored = list(db.collection(col.PLANTING_RUNS).all())
+        assert len(stored) == 2 and {run["tenant_key"] for run in stored} == {B}
+        assert len(list(db.collection(col.PLANTING_RUN_ENTRIES).all())) == 2
+        edges = list(db.collection(col.RUN_PLANNED_AT).all())
+        assert len(edges) == 4 and {edge["_from"].split("/")[1] for edge in edges} == {run["key"] for run in runs}
+        assert len(list(db.collection(col.RUN_AT_LOCATION).all())) == 2
+
+    def test_a_refused_species_stores_none_of_the_runs(self, db) -> None:
+        body = copy.deepcopy(_MIXED.body)
+        body["runs"][1]["entry"]["species_key"] = "sp_unknown"
+
+        response = self._post(db, body)
+
+        assert response.status_code == 422, response.text
+        for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
+            assert list(db.collection(name).all()) == [], name
+
+    def test_a_write_that_fails_half_way_rolls_every_run_back(self, db, monkeypatch) -> None:
+        """The second run's entry insert explodes inside the transaction: the first run must not stay."""
+        original = ArangoPlantingReservationRepository._edge_doc
+        calls: list[str] = []
+
+        def failing(run_key, slot_key, now, **properties):
+            calls.append(slot_key)
+            if len(calls) == 3:  # the first slot of the second run
+                raise RuntimeError("boom")
+            return original(run_key, slot_key, now, **properties)
+
+        monkeypatch.setattr(ArangoPlantingReservationRepository, "_edge_doc", staticmethod(failing))
+
+        response = self._post(db, _MIXED.body)
+
+        assert response.status_code == 500, response.text
+        for name in (col.PLANTING_RUNS, col.PLANTING_RUN_ENTRIES, col.RUN_PLANNED_AT, col.RUN_AT_LOCATION):
+            assert list(db.collection(name).all()) == [], name
+        live = [slot for slot in db.collection(col.SLOTS).all() if slot.get("archived_at") is None]
+        assert len(live) == 4  # the fixture's own two live slots per bed, none added (the archived ones are history)
+
+    def test_a_viewer_may_not_create_and_a_grower_still_may_not_delete_a_run(self, db) -> None:
+        assert self._post(db, _MIXED.body, role=TenantRole.VIEWER).status_code == 403
+        created = self._post(db, _MIXED.body, role=TenantRole.GROWER).json()["runs"]
+
+        grower = _client(db, tenant=B, role=TenantRole.GROWER)
+        refused = grower.delete(f"/api/v1/t/{SLUG_B}/planting-runs/{created[0]['key']}")
+        lead = _client(db, tenant=B, role=TenantRole.LEAD)
+        deleted = lead.delete(f"/api/v1/t/{SLUG_B}/planting-runs/{created[0]['key']}")
+
+        assert refused.status_code == 403, refused.text  # no permission change on DELETE /planting-runs
+        assert deleted.status_code == 204, deleted.text
+
+    def test_the_body_cannot_name_the_tenant_of_a_run(self, db) -> None:
+        response = self._post(db, {**_MIXED.body, "tenant_key": A})
+
+        assert response.status_code == 422, response.text
+        assert list(db.collection(col.PLANTING_RUNS).all()) == []
+
+
+class TestTheParentOfAListingIsResolvedUnderTheTenant:
+    """``GET /locations?site_key=<own>&parent_location_key=<foreign>`` — the site is the caller's, the parent is not."""
+
+    def _list(self, client: TestClient, parent: str):
+        return client.get(f"/api/v1/t/{SLUG_A}/locations", params={"site_key": "site_a", "parent_location_key": parent})
+
+    def test_a_foreign_parent_answers_like_an_absent_one(self, db) -> None:
+        client = _client(db)
+
+        foreign, absent = self._list(client, "bed_b"), self._list(client, "bed_gone")
+
+        assert (foreign.status_code, absent.status_code) == (404, 404), (foreign.text, absent.text)
+        assert _canonical(foreign.text).replace("bed_b", "bed_gone") == _canonical(absent.text)
+        assert [s for s in B_SECRETS if s != "bed_b" and s in foreign.text] == []
+
+    def test_the_own_parent_lists_its_children(self, db) -> None:
+        assert self._list(_client(db), "bed_a").status_code == 200
+
+    def test_a_parent_check_that_ignores_the_tenant_lists_the_foreign_children(self, db, monkeypatch) -> None:
+        """Falsification: with the service's own ownership step unscoped, the same request is a 200."""
+
+        def unscoped(self, key, *, tenant_key):
+            location = self._repo.get_location_by_key(key)
+            if location is None:
+                raise NotFoundError("Location", key)
+            return location
+
+        monkeypatch.setattr(SiteService, "get_location", unscoped)
+
+        assert self._list(_client(db), "bed_b").status_code == 200
+
+
+class TestBedTemplatesAreScopedToTheTenant:
+    """The two unkeyed routes: what the list shows, whose the created row is, and what a tenant cannot reach."""
+
+    def _list(self, client: TestClient, slug: str) -> list[dict[str, Any]]:
+        response = client.get(f"/api/v1/t/{slug}/bed-templates")
+        assert response.status_code == 200, response.text
+        return response.json()
+
+    def test_each_tenant_sees_the_system_templates_and_its_own_only(self, db) -> None:
+        as_a = self._list(_client(db), SLUG_A)
+        as_b = self._list(_client(db, tenant=B), SLUG_B)
+
+        assert [t["key"] for t in as_a] == ["tpl_a", "sys_x"] and [t["key"] for t in as_b] == ["tpl_b", "sys_x"]
+        assert {t["key"]: t["is_system"] for t in as_a} == {"tpl_a": False, "sys_x": True}
+        assert [secret for secret in B_SECRETS if secret in json.dumps(as_a)] == []
+
+    def test_a_created_template_belongs_to_the_caller_and_to_nobody_else(self, db) -> None:
+        body = {"name": "Mine", "location_type_key": "bed", "default_geometry": _RECT}
+
+        created = _client(db).post(f"/api/v1/t/{SLUG_A}/bed-templates", json={**body, "tenant_key": B})
+        assert created.status_code == 422  # a body cannot name the tenant
+
+        created = _client(db).post(f"/api/v1/t/{SLUG_A}/bed-templates", json=body)
+        assert created.status_code == 201, created.text
+        stored = db.collection(col.BED_TEMPLATES).get(created.json()["key"])
+        assert (stored["tenant_key"], stored["created_by"]) == (A, USER)
+        assert "Mine" not in json.dumps(self._list(_client(db, tenant=B), SLUG_B))
+
+    def test_a_tenant_cannot_change_or_delete_a_system_template(self, db) -> None:
+        client = _client(db)
+        before = _snapshot(db)
+
+        patched = client.patch(f"/api/v1/t/{SLUG_A}/bed-templates/sys_x", json={"name": "Mine now"})
+        deleted = client.delete(f"/api/v1/t/{SLUG_A}/bed-templates/sys_x")
+
+        assert (patched.status_code, deleted.status_code) == (403, 403)
+        assert _snapshot(db) == before
+
+    def test_a_foreign_template_cannot_be_placed_and_the_own_one_can(self, db) -> None:
+        client = _client(db)
+        url = f"/api/v1/t/{SLUG_A}/sites/site_a/plan/place-template"
+        body = {"origin": [5, 5], "rotation_deg": 0, "expected_revision": 1}
+
+        placed = client.post(url, json={**body, "template_key": "tpl_a"})
+        assert placed.status_code == 200, placed.text
+        (real,) = placed.json()["key_map"].values()
+        stored = db.collection(col.LOCATIONS).get(real)
+        assert (stored["site_key"], stored["template_key"], "tenant_key" in stored) == ("site_a", "tpl_a", False)
+
+        refused = client.post(url, json={**body, "template_key": "tpl_b", "expected_revision": 2})
+        assert refused.status_code == 422 and "reference.not_found" in _error_codes(refused)
+
+    def test_deleting_the_own_template_releases_the_placed_bed_and_leaves_tenant_b_alone(self, db) -> None:
+        """#2528: the bed placed from ``tpl_a`` loses its provenance; a B bed naming the same key is not touched."""
+        client = _client(db)
+        placed = client.post(
+            f"/api/v1/t/{SLUG_A}/sites/site_a/plan/place-template",
+            json={"template_key": "tpl_a", "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        )
+        assert placed.status_code == 200, placed.text
+        (real,) = placed.json()["key_map"].values()
+        db.collection(col.LOCATIONS).update({"_key": "bed_b", "template_key": "tpl_a"})
+        tenant_b_before = db.collection(col.LOCATIONS).get("bed_b")
+
+        deleted = client.delete(f"/api/v1/t/{SLUG_A}/bed-templates/tpl_a")
+
+        assert deleted.status_code == 204, deleted.text
+        plan = client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan")
+        assert plan.status_code == 200, plan.text
+        (bed,) = [loc for loc in plan.json()["locations"] if loc["key"] == real]
+        assert bed.get("template_key") is None  # the plan omits an unset value
+        assert "template_key" not in db.collection(col.LOCATIONS).get(real)
+        assert db.collection(col.LOCATIONS).get("bed_b") == tenant_b_before
+
+
+class TestBedTemplateExchange:
+    """REQ-053 WP 9.9 (#2749) against ArangoDB: GP-ACC-062 (the file, the roundtrip) and GP-ACC-063 (keys of the
+    file ignored, a dry run writes nothing, a taken name is a 409)."""
+
+    _HEADERS = {"content-type": "application/json"}
+
+    @pytest.fixture(autouse=True)
+    def _fresh_budget(self) -> Iterator[None]:
+        """The import shares the plan import's 3/minute per tenant; each test starts with a full budget."""
+        limiter.reset()
+        yield
+        limiter.reset()
+
+    def _export(self, client: TestClient, slug: str, key: str):
+        response = client.get(f"/api/v1/t/{slug}/bed-templates/{key}/export")
+        assert response.status_code == 200, response.text
+        return response
+
+    def _import(self, client: TestClient, slug: str, content: bytes, **params: str):
+        return client.post(
+            f"/api/v1/t/{slug}/bed-templates/import", content=content, params=params, headers=self._HEADERS
+        )
+
+    def test_export_then_import_into_another_tenant_gives_the_same_template(self, db) -> None:
+        """GP-ACC-062: the file names no tenant, author or note; B's import of A's file exports as the same file."""
+        exported = self._export(_client(db, role=TenantRole.VIEWER), SLUG_A, "tpl_a")
+        assert exported.json()["schema_version"] == "1" and exported.json()["default_geometry"]["kind"] == "rect"
+        assert [
+            needle for needle in ("tenant_key", "created_by", "note", A, USER, '"_key"') if needle in exported.text
+        ] == []
+
+        as_b = _client(db, tenant=B, role=TenantRole.GROWER)
+        before = _snapshot(db)
+        checked = self._import(as_b, SLUG_B, exported.content)
+        assert checked.status_code == 200, checked.text
+        assert (checked.json()["dry_run"], checked.json()["created_key"]) == (True, None)
+        assert _snapshot(db) == before, "the dry run wrote"
+
+        applied = self._import(as_b, SLUG_B, exported.content, dry_run="false")
+        assert applied.status_code == 200, applied.text
+        key = applied.json()["created_key"]
+        stored = db.collection(col.BED_TEMPLATES).get(key)
+        assert (stored["tenant_key"], stored["created_by"], stored["recurring_task_templates"]) == (B, USER, [])
+        assert self._export(as_b, SLUG_B, key).json() == exported.json()
+
+    def test_the_own_tenant_gets_a_409_with_a_free_name_and_nothing_written(self, db) -> None:
+        client = _client(db, role=TenantRole.GROWER)
+        exported = self._export(client, SLUG_A, "tpl_a")
+        before = _snapshot(db)
+
+        refused = self._import(client, SLUG_A, exported.content, dry_run="false")
+
+        assert refused.status_code == 409, refused.text
+        assert refused.json()["details"][0]["suggested_name"] == "Alices Vorlage (2)"
+        assert _snapshot(db) == before
+        renamed = self._import(client, SLUG_A, exported.content, dry_run="false", name="Alices Vorlage (2)")
+        assert renamed.status_code == 200, renamed.text
+
+    def test_keys_of_the_file_are_ignored(self, db) -> None:
+        """GP-ACC-063: a file naming B's template, B as owner and an author is stored as a new row of A."""
+        client = _client(db, role=TenantRole.GROWER)
+        document = {
+            **self._export(client, SLUG_A, "tpl_a").json(),
+            "name": "Uebernommen",
+            "_key": "tpl_b",
+            "tenant_key": B,
+            "created_by": "u_bob",
+        }
+        tpl_b_before = db.collection(col.BED_TEMPLATES).get("tpl_b")
+
+        applied = self._import(client, SLUG_A, json.dumps(document).encode(), dry_run="false")
+
+        assert applied.status_code == 200, applied.text
+        assert applied.json()["dropped_fields"] == ["_key", "created_by", "tenant_key"]
+        stored = db.collection(col.BED_TEMPLATES).get(applied.json()["created_key"])
+        assert stored["_key"] != "tpl_b" and (stored["tenant_key"], stored["created_by"]) == (A, USER)
+        assert db.collection(col.BED_TEMPLATES).get("tpl_b") == tpl_b_before
+        assert [secret for secret in B_SECRETS if secret in applied.text] == []
+
+
+class TestTheMatrixCanFail:
+    """The same assertion, aimed at services that skip the ownership predicate, must raise — for every case."""
+
+    @pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
+    def test_an_unscoped_stub_is_caught_by_the_refusal_check(self, db, case: Case) -> None:
+        with pytest.raises(AssertionError):
+            _assert_refused(db, _client(db, unscoped=True), case)
+
+
+# ── reference.not_found per body field that exists in wave 1 (GP-NFR-058, GP-ACC-041) ───────────────
+
+
+def _error_codes(response) -> list[str]:
+    payload = response.json()
+    items = payload.get("details") or payload.get("errors") or []
+    codes = [item.get("code") for item in items if isinstance(item, dict)]
+    return [code for code in codes if code] or [payload.get("code", "")]
+
+
+@dataclass(frozen=True)
+class ReferenceCase:
+    name: str
+    method: str
+    path: str
+    field_name: str
+    build: Callable[[str], Any]
+    foreign: str
+    own: str
+    missing: str
+
+
+REFERENCE_CASES: tuple[ReferenceCase, ...] = (
+    ReferenceCase(
+        "garden_object.parent_location_key",
+        "POST",
+        "/sites/site_a/garden-objects",
+        "parent_location_key",
+        lambda key: {**_NEW_OBJECT, "parent_location_key": key},
+        "bed_b",
+        "bed_a",
+        "bed_gone",
+    ),
+    ReferenceCase(
+        "batch.create_location.data.parent_location_key",
+        "POST",
+        "/sites/site_a/plan/batch",
+        "data.parent_location_key",
+        lambda key: {
+            "expected_revision": 1,
+            "operations": [
+                {
+                    "op": "create_location",
+                    "temp_key": "t1",
+                    "data": {
+                        "name": "Intruder",
+                        "location_type_key": "bed",
+                        "parent_location_key": key,
+                        "geometry": {"kind": "rect", "origin": [8, 8], "width_m": 1, "length_m": 1, "rotation_deg": 0},
+                    },
+                }
+            ],
+        },
+        "bed_b",
+        "bed_a",
+        "bed_gone",
+    ),
+    ReferenceCase(
+        "batch.create_garden_object.data.parent_location_key",
+        "POST",
+        "/sites/site_a/plan/batch",
+        "data.parent_location_key",
+        lambda key: {
+            "expected_revision": 1,
+            "operations": [
+                {
+                    "op": "create_garden_object",
+                    "temp_key": "t1",
+                    "data": {**_NEW_OBJECT, "parent_location_key": key},
+                }
+            ],
+        },
+        "bed_b",
+        "bed_a",
+        "bed_gone",
+    ),
+    *(
+        ReferenceCase(
+            f"batch.{op}.{entity}.key",
+            "POST",
+            "/sites/site_a/plan/batch",
+            "key",
+            lambda key, op=op, entity=entity, extra=extra: {
+                "expected_revision": 1,
+                "operations": [{"op": op, "entity": entity, "key": key, **extra}],
+            },
+            "bed_b" if entity == "location" else "obj_b",
+            "bed_a" if entity == "location" else "obj_a",
+            "bed_gone" if entity == "location" else "obj_gone",
+        )
+        for op, extra in (("delete", {}), ("set_locked", {"locked": True}), ("set_z_order", {"z_order": 3}))
+        for entity in ("location", "garden_object")
+    ),
+    ReferenceCase(
+        "location.irrigation_zone_key",
+        "PATCH",
+        "/locations/bed_a",
+        "irrigation_zone_key",
+        lambda key: {"irrigation_zone_key": key},
+        "zone_b",
+        "zone_a",
+        "zone_gone",
+    ),
+    # REQ-053 WP 7.1, GP-ACC-041 (zone part): the beds of a zone and its water source.
+    ReferenceCase(
+        "zone.location_keys",
+        "PUT",
+        "/irrigation-zones/zone_a/locations",
+        "location_keys[0]",
+        lambda key: {"location_keys": [key]},
+        "bed_b",
+        "bed_a",
+        "bed_gone",
+    ),
+    ReferenceCase(
+        "zone_create.water_source_key",
+        "POST",
+        "/sites/site_a/irrigation-zones",
+        "water_source_key",
+        lambda key: {"name": "Zone", "water_source_key": key},
+        "barrel_b",
+        "barrel_a",
+        "barrel_gone",
+    ),
+    # REQ-053 WP 7.9, GP-NFR-058: the template of place-template is a system one or the tenant's own.
+    ReferenceCase(
+        "place_template.template_key",
+        "POST",
+        "/sites/site_a/plan/place-template",
+        "template_key",
+        lambda key: {"template_key": key, "origin": [5, 5], "rotation_deg": 0, "expected_revision": 1},
+        "tpl_b",
+        "tpl_a",
+        "tpl_gone",
+    ),
+    # REQ-053 WP 8.18, GP-NFR-058: a bed photo is a ``location`` attachment of the caller's own tenant.
+    ReferenceCase(
+        "location_photo.attachment_id",
+        "POST",
+        "/locations/bed_a/photos",
+        "attachment_id",
+        lambda key: {"attachment_id": key},
+        "newpic_b",
+        "newpic_a",
+        "newpic_gone",
+    ),
+    # REQ-053 WP 7.14, GP-NFR-058: the picture is an attachment of the caller's own tenant.
+    ReferenceCase(
+        "underlay.attachment_key",
+        "PUT",
+        "/sites/site_a/plan/underlay",
+        "attachment_key",
+        lambda key: {**_UNDERLAY, "attachment_key": key},
+        "att_b",
+        "att_a",
+        "att_gone",
+    ),
+    ReferenceCase(
+        "zone_patch.water_source_key",
+        "PATCH",
+        "/irrigation-zones/zone_a",
+        "water_source_key",
+        lambda key: {"water_source_key": key},
+        "barrel_b",
+        "barrel_a",
+        "barrel_gone",
+    ),
+)
+
+
+def _assert_reference_refused(db, client: TestClient, case: ReferenceCase) -> None:
+    """The single expression every reference negative runs: 422 ``reference.not_found``, the absent key's body."""
+    before = _snapshot(db)
+    url = f"/api/v1/t/{SLUG_A}{case.path}"
+    with capture_logs() as logs:
+        refused = client.request(case.method, url, json=case.build(case.foreign))
+        absent = client.request(case.method, url, json=case.build(case.missing))
+
+    assert refused.status_code == 422, refused.text
+    assert "reference.not_found" in _error_codes(refused), refused.text
+    assert case.field_name in refused.text, refused.text
+    assert [secret for secret in B_SECRETS if secret in refused.text.replace(case.foreign, "")] == [], refused.text
+    assert _canonical(refused.text).replace(case.foreign, case.missing) == _canonical(absent.text), (
+        refused.text,
+        absent.text,
+    )
+    assert [entry for entry in logs if entry["event"] == "garden_plan.batch_applied"] == []
+    assert _snapshot(db) == before, "a refused reference changed the database"
+
+
+class TestABodyReferenceToAForeignKeyIsReferenceNotFound:
+    @pytest.mark.parametrize("case", REFERENCE_CASES, ids=lambda case: case.name)
+    def test_a_foreign_key_is_indistinguishable_from_an_absent_one_and_writes_nothing(
+        self, db, case: ReferenceCase
+    ) -> None:
+        _assert_reference_refused(db, _client(db), case)
+
+    @pytest.mark.parametrize("case", REFERENCE_CASES, ids=lambda case: case.name)
+    def test_the_own_key_passes_the_reference_check(self, db, case: ReferenceCase) -> None:
+        """The positive control: a key of the caller's own tenant is not ``reference.not_found``."""
+        response = _client(db).request(case.method, f"/api/v1/t/{SLUG_A}{case.path}", json=case.build(case.own))
+
+        assert "reference.not_found" not in response.text, response.text
+
+    def test_no_slot_batch_body_field_can_name_a_foreign_key(self, db) -> None:
+        """Wave 1's slot batch takes the bed in the path only; a key smuggled into the body is a 422, not a lookup."""
+        client = _client(db)
+        before = _snapshot(db)
+        for smuggled in ("location_key", "key", "slot_key", "site_key"):
+            body = {
+                "mode": "append",
+                "slots": [
+                    {"slot_id": "INTRUDER_1", "geometry": {"kind": "point", "origin": [0.4, 0.5]}, smuggled: "bed_b"}
+                ],
+            }
+            response = client.post(f"/api/v1/t/{SLUG_A}/locations/bed_a/slots/batch", json=body)
+            assert response.status_code == 422, (smuggled, response.text)
+            assert "reference.not_found" not in response.text
+        assert _snapshot(db) == before
+
+
+class TestTheReferenceChecksCanFail:
+    """The same expression, with the reference resolution unscoped, must raise — for every body field."""
+
+    @pytest.fixture
+    def unscoped_references(self, db, monkeypatch) -> None:
+        def every_structure(self, site_key, *, tenant_key):
+            return (
+                [Location(**doc) for doc in db.collection(col.LOCATIONS).all()],
+                [GardenObject(**doc) for doc in db.collection(col.GARDEN_OBJECTS).all()],
+            )
+
+        def any_zone(self, zone_key, *, tenant_key):
+            return "site_a" if db.collection(col.IRRIGATION_ZONES).has(zone_key) else None
+
+        def no_resolution(self, *args, **kwargs):
+            return None
+
+        monkeypatch.setattr(ArangoGardenPlanRepository, "load_structure", every_structure)
+        monkeypatch.setattr(ArangoGardenPlanRepository, "irrigation_zone_site_key", any_zone)
+
+        def unchecked_fields(self, location_key, fields):
+            # The column write without the in-transaction zone predicate (what WP 7.1's review closed).
+            db.collection(col.LOCATIONS).update({"_key": location_key, **fields}, merge=False, keep_none=False)
+
+        # WP 7.1: a zone service that skipped its reference resolution (the beds, the water source) — and, because the
+        # writes re-check the zone and the water source inside their transaction, those second checks as well; with
+        # either layer alone in place the refusal still holds, so the falsification must switch off both.
+        def every_template(self, template_key, *, tenant_key):
+            # WP 7.9: a placement that resolves the template without the visibility predicate.
+            document = db.collection(col.BED_TEMPLATES).get(template_key)
+            if document is None:
+                raise PlanValidationError([(None, "template_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            return BedTemplate(**document)
+
+        def every_attachment(self, attachment_key, *, tenant_key):
+            # WP 7.14: an underlay that resolves the attachment without the tenant predicate.
+            document = db.collection(col.ATTACHMENTS).get(attachment_key)
+            if document is None:
+                raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            return Attachment(**document)
+
+        def bind_any_attachment(txn, attachment_key, *, tenant_key, now):
+            # #2545: the underlay write touches its attachment in its own transaction under the tenant too - the
+            # second layer, switched off with the first (either alone still refuses).
+            txn.aql.execute(
+                "FOR a IN @@att FILTER a._key == @key UPDATE a WITH { updated_at: @now } IN @@att",
+                bind_vars={"@att": col.ATTACHMENTS, "key": attachment_key, "now": now},
+            )
+
+        def every_bed_photo(self, attachment_id, *, tenant_key):
+            # WP 8.18: a bed-photo link that resolves the attachment without the tenant predicate ...
+            document = db.collection(col.ATTACHMENTS).get(attachment_id)
+            if document is None:
+                raise PlanValidationError([(None, "attachment_id", ERROR_REFERENCE_NOT_FOUND, {})])
+            return Attachment(**document)
+
+        # ... and whose transaction touches it without one either (the second layer, switched off with the first).
+        monkeypatch.setattr(LocationPhotoService, "_bed_photo", every_bed_photo)
+        monkeypatch.setattr(
+            location_photo_repository,
+            "_TOUCH_ATTACHMENT",
+            location_photo_repository._TOUCH_ATTACHMENT.replace("AND a.tenant_key == @tenant_key ", "").replace(
+                "FILTER a._key == @attachment_key", "FILTER a._key == @attachment_key AND @tenant_key != null"
+            ),
+        )
+        monkeypatch.setattr(GardenPlanService, "_visible_template", every_template)
+        monkeypatch.setattr(GardenPlanUnderlayService, "_underlay_attachment", every_attachment)
+        monkeypatch.setattr(ArangoGardenPlanRepository, "_bind_underlay_attachment", staticmethod(bind_any_attachment))
+        monkeypatch.setattr(IrrigationZoneService, "_resolve_locations", no_resolution)
+        monkeypatch.setattr(IrrigationZoneService, "_resolve_water_source", no_resolution)
+        monkeypatch.setattr(ArangoIrrigationZoneRepository, "_take_water_source", staticmethod(no_resolution))
+        monkeypatch.setattr(ArangoGardenPlanRepository, "update_location_fields", unchecked_fields)
+
+    @pytest.mark.parametrize("case", REFERENCE_CASES, ids=lambda case: case.name)
+    def test_an_unscoped_resolution_is_caught(self, db, unscoped_references, case: ReferenceCase) -> None:
+        with pytest.raises(AssertionError):
+            _assert_reference_refused(db, _client(db), case)
+
+
+# ── GP-ACC-046: the anchor, the model inventory and the AQL ───────────────────────────────────────
+
+
+class TestTheOwnershipAnchor:
+    def test_resolve_owned_location_refuses_the_other_tenants_location(self, db) -> None:
+        sites = ArangoSiteRepository(db)
+
+        with pytest.raises(NotFoundError):
+            resolve_owned_location(sites, "bed_a", tenant_key=B)
+        with pytest.raises(NotFoundError):
+            resolve_owned_location(sites, "bed_b", tenant_key=A)
+        with pytest.raises(NotFoundError):
+            resolve_owned_location(sites, "bed_b", tenant_key="")
+
+    def test_a_foreign_and_an_absent_location_answer_with_the_same_message(self, db) -> None:
+        sites = ArangoSiteRepository(db)
+        messages = []
+        for key in ("bed_b", "bed_gone"):
+            with pytest.raises(NotFoundError) as exc:
+                resolve_owned_location(sites, key, tenant_key=A)
+            messages.append(str(exc.value).replace(key, "<key>"))
+
+        assert messages[0] == messages[1]
+        assert not any(secret in messages[0] for secret in B_SECRETS if secret != "bed_b")
+
+    def test_the_owner_resolves_its_own_location_and_slot(self, db) -> None:
+        sites = ArangoSiteRepository(db)
+
+        assert resolve_owned_location(sites, "bed_b", tenant_key=B).key == "bed_b"
+        slot, location = resolve_owned_slot(sites, "slot_b", tenant_key=B)
+        assert (slot.key, location.key) == ("slot_b", "bed_b")
+
+    def test_resolve_owned_slot_refuses_the_other_tenants_slot(self, db) -> None:
+        sites = ArangoSiteRepository(db)
+
+        with pytest.raises(NotFoundError):
+            resolve_owned_slot(sites, "slot_b", tenant_key=A)
+
+    @pytest.mark.parametrize("model", [Location, Slot, GardenObject], ids=lambda model: model.__name__)
+    def test_the_model_declares_no_tenant_key(self, model) -> None:
+        assert "tenant_key" not in model.model_fields
+
+    def test_the_documents_the_routes_write_carry_no_tenant_key(self, db) -> None:
+        client = _client(db)
+        created = client.post(f"/api/v1/t/{SLUG_A}/sites/site_a/garden-objects", json=_NEW_OBJECT)
+        assert created.status_code == 201, created.text
+        client.post(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/slots/batch",
+            json={
+                "mode": "append",
+                "slots": [{"slot_id": "OWN_SLOT_1", "geometry": {"kind": "point", "origin": [1, 1]}}],
+            },
+        )
+        client.patch(f"/api/v1/t/{SLUG_A}/locations/bed_a", json={"name": "Renamed"})
+
+        written = [
+            doc
+            for name in (col.LOCATIONS, col.SLOTS, col.GARDEN_OBJECTS)
+            for doc in db.collection(name).all()
+            if doc["_key"] in {created.json()["key"], "bed_a"} or str(doc.get("slot_id", "")).startswith("OWN_")
+        ]
+        assert len(written) == 3, written
+        assert [doc["_key"] for doc in written if "tenant_key" in doc] == []
+
+
+_TENANTLESS = {col.LOCATIONS, col.SLOTS, col.GARDEN_OBJECTS}
+_FOR = re.compile(r"\bFOR\s+(\w+)\s+IN\s+(@@\w+|\w+)")
+
+
+def tenant_predicates_on_tenantless_collections(query: str, bind_vars: dict[str, Any] | None) -> list[str]:
+    """The aliases of ``locations`` / ``slots`` / ``garden_objects`` that the query reads ``.tenant_key`` from."""
+    binds = bind_vars or {}
+    found = []
+    for alias, source in _FOR.findall(query):
+        collection = binds.get(source[1:], "") if source.startswith("@@") else source
+        if collection in _TENANTLESS and re.search(rf"\b{alias}\.tenant_key\b", query):
+            found.append(f"{alias} IN {collection}")
+    return found
+
+
+class TestTheAqlNeverReadsATenantKeyOffATenantlessCollection:
+    @pytest.fixture
+    def executed(self, monkeypatch) -> Iterator[list[tuple[str, dict[str, Any] | None]]]:
+        from arango.aql import AQL
+
+        seen: list[tuple[str, dict[str, Any] | None]] = []
+        original = AQL.execute
+
+        def recording(self, query, *args, **kwargs):
+            seen.append((query, kwargs.get("bind_vars")))
+            return original(self, query, *args, **kwargs)
+
+        monkeypatch.setattr(AQL, "execute", recording)
+        yield seen
+
+    def test_every_query_the_matrix_runs_is_clean(self, db, executed) -> None:
+        for tenant, slug in ((A, SLUG_A), (B, SLUG_B)):
+            client = _client(db, tenant=tenant)
+            for case in CASES:
+                if not case.writes:
+                    _send(client, case, slug)
+        _send(_client(db, tenant=B), next(c for c in CASES if c.name == "apply_batch"), SLUG_B)
+        _send(_client(db, tenant=B), next(c for c in CASES if c.name == "apply_slot_batch"), SLUG_B)
+        _send(_client(db, tenant=B), next(c for c in CASES if c.name == "change_location_status"), SLUG_B)
+
+        assert len(executed) > 20, "the scan saw almost no AQL — it measures nothing"
+        reads_the_collections = [
+            (query, binds)
+            for query, binds in executed
+            if _TENANTLESS
+            & {*(v for v in (binds or {}).values() if isinstance(v, str)), *re.findall(r"\bIN\s+(\w+)", query)}
+        ]
+        assert reads_the_collections, "no executed query touched locations, slots or garden_objects"
+        offenders = [
+            (hits, query)
+            for query, binds in executed
+            if (hits := tenant_predicates_on_tenantless_collections(query, binds))
+        ]
+        assert offenders == []
+
+    def test_the_scanner_finds_a_planted_predicate_through_a_bind_variable(self) -> None:
+        planted = "FOR l IN @@col FILTER l.tenant_key == @tenant_key RETURN l"
+
+        assert tenant_predicates_on_tenantless_collections(planted, {"@col": col.LOCATIONS}) == ["l IN locations"]
+        assert tenant_predicates_on_tenantless_collections("FOR s IN slots RETURN s.tenant_key", None) == ["s IN slots"]
+        # The anchor's own predicate (on the site) and other collections' tenant keys are legitimate.
+        site = "FOR l IN @@col LET site = DOCUMENT(@@sites, l.site_key) FILTER site.tenant_key == @tenant_key RETURN l"
+        assert tenant_predicates_on_tenantless_collections(site, {"@col": col.LOCATIONS, "@@sites": "sites"}) == []
+        assert (
+            tenant_predicates_on_tenantless_collections(
+                "FOR p IN @@plants FILTER p.tenant_key == @t RETURN p", {"@plants": col.PLANT_INSTANCES}
+            )
+            == []
+        )
+
+
+class TestTwoSitesShareOneUnderlayPicture:
+    """B3 of the PR review: the upload dedupes per sha256, so two sites can name one attachment."""
+
+    @pytest.fixture
+    def shared(self, db) -> TestClient:
+        site = _site("site_a2", A, "Alices zweiter Garten")
+        site["plan"]["underlay"]["attachment_key"] = "att_a"
+        db.collection(col.SITES).insert(site)
+        return _client(db)
+
+    def _held(self, db) -> bool:
+        return db.collection(col.ATTACHMENTS).has("att_a")
+
+    def test_removing_it_on_one_site_keeps_the_picture_the_other_site_names(self, db, shared) -> None:
+        url = f"/api/v1/t/{SLUG_A}/sites"
+
+        assert shared.delete(f"{url}/site_a/plan/underlay").status_code == 204
+
+        assert self._held(db)
+        assert db.collection(col.SITES).get("site_a2")["plan"]["underlay"]["attachment_key"] == "att_a"
+
+    def test_removing_it_on_the_last_site_deletes_the_picture(self, db, shared) -> None:
+        url = f"/api/v1/t/{SLUG_A}/sites"
+        shared.delete(f"{url}/site_a/plan/underlay")
+
+        assert shared.delete(f"{url}/site_a2/plan/underlay").status_code == 204
+
+        assert not self._held(db)
+
+    def test_replacing_it_on_one_site_keeps_the_picture_the_other_site_names(self, db, shared) -> None:
+        db.collection(col.ATTACHMENTS).insert(
+            {
+                "_key": "att_a_new",
+                "tenant_key": A,
+                "mime_type": "image/png",
+                "byte_size": 10,
+                "sha256": "c" * 64,
+                "original_filename": "other.png",
+                "created_by": USER,
+                "category": "garden_plan_underlay",
+                "storage_key": f"t/{A}/garden_plan_underlay/2026/10/att_a_new.png",
+            }
+        )
+
+        response = shared.put(
+            f"/api/v1/t/{SLUG_A}/sites/site_a/plan/underlay", json={**_UNDERLAY, "attachment_key": "att_a_new"}
+        )
+
+        assert response.status_code == 200 and self._held(db)
+
+
+# ── REQ-053 WP 8.15 (#2658, SEC-002): the companion layer reads nothing of the other tenant ─────────────────────
+
+
+class TestTheCompanionLayerReadsNothingOfTheOtherTenant:
+    """Against the real AQL: a cross-tenant ``adjacent_to`` edge, B's plant and B's private species stay invisible.
+
+    The route case above proves only the bed anchor (another tenant's bed is a 404). Here tenant A asks for its own
+    bed while the data around it names tenant B: an edge from A's slot to B's slot, B's plant in B's slot holding B's
+    private species, and an ``incompatible_with`` edge with a reason between that species and the global one A grows.
+    """
+
+    _SECRET_SPECIES = "sp_bob_secret"
+    _SECRET_NAME = "Bobs Geheimkraut"
+    _SECRET_REASON = "Bobs geheimer Unvertraeglichkeitsgrund"
+
+    @staticmethod
+    def _plant(db, key: str, tenant: str, slot: str, species: str) -> None:
+        db.collection(col.PLANT_INSTANCES).insert(
+            {
+                "_key": key,
+                "instance_id": key.upper(),
+                "tenant_key": tenant,
+                "slot_key": slot,
+                "species_key": species,
+                "removed_on": None,
+            }
+        )
+
+    def _seed(self, db) -> None:
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_basil",
+                "scientific_name": "Ocimum basilicum",
+                "genus": "Ocimum",
+                "tenant_key": "",
+                "scientific_name_normalized": "ocimum basilicum",
+            }
+        )
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": self._SECRET_SPECIES,
+                "scientific_name": self._SECRET_NAME,
+                "genus": "Secretum",
+                "tenant_key": B,
+                "scientific_name_normalized": "bobs geheimkraut",
+            }
+        )
+        self._plant(db, "pl_a1", A, "slot_a", "sp")
+        self._plant(db, "pl_a2", A, "slot2_a", "sp_basil")
+        self._plant(db, "pl_b1", B, "slot_b", self._SECRET_SPECIES)
+        for first, second in (("slot_a", "slot_b"), ("slot_a", "slot2_a")):  # one cross-tenant, one inside A's bed
+            for a, b in ((first, second), (second, first)):
+                db.collection(col.ADJACENT_TO).insert(
+                    {"_from": f"{col.SLOTS}/{a}", "_to": f"{col.SLOTS}/{b}", "source": "manual"}
+                )
+        for a, b in (("sp", self._SECRET_SPECIES), (self._SECRET_SPECIES, "sp")):
+            db.collection(col.INCOMPATIBLE_WITH).insert(
+                {"_from": f"{col.SPECIES}/{a}", "_to": f"{col.SPECIES}/{b}", "reason": self._SECRET_REASON}
+            )
+        for a, b in (("sp", "sp_basil"), ("sp_basil", "sp")):
+            db.collection(col.COMPATIBLE_WITH).insert(
+                {"_from": f"{col.SPECIES}/{a}", "_to": f"{col.SPECIES}/{b}", "score": 0.8}
+            )
+
+    def _get(self, db):  # type: ignore[no-untyped-def]
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
+        )
+        assert response.status_code == 200, response.text
+        return response
+
+    def test_a_cross_tenant_edge_names_neither_the_slot_the_species_nor_the_reason(self, db) -> None:
+        self._seed(db)
+
+        response = self._get(db)
+
+        # ``slot_b`` is also a field name of the answer, so B's slot is looked for as a value.
+        assert '"slot_b"' not in response.text.replace('"slot_b":{', "")
+        for secret in ("bed_b", self._SECRET_SPECIES, self._SECRET_NAME, self._SECRET_REASON, B):
+            assert secret not in response.text, secret
+        # The positive control: the pair inside A's bed is judged by the real AQL, compatible with its score.
+        body = response.json()
+        (edge,) = body["edges"]
+        assert {edge["slot_a"]["slot_key"], edge["slot_b"]["slot_key"]} == {"slot_a", "slot2_a"}
+        assert (edge["status"], edge["score"], body["total"], body["truncated"]) == ("compatible", 0.8, 1, False)
+        assert edge["deciding"]["species_a_name"] == "Solanum lycopersicum"
+        assert edge["deciding"]["species_b_name"] == "Ocimum basilicum"
+
+    def test_a_private_species_of_the_other_tenant_in_the_own_slot_is_neither_named_nor_keyed(self, db) -> None:
+        """A stored species key is no proof of access (#1963, #2709): A's own plant naming B's species holds nothing.
+
+        Before #2709 the slot hint kept the key, so the pair was drawn ``unknown`` and the answer carried B's
+        species key - the existence oracle. The hint read now cuts the keys with A's visible set: the slot holds
+        no species A may read, so no pair is drawn and the key appears nowhere.
+        """
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).update({"_key": "pl_a2", "species_key": self._SECRET_SPECIES})
+
+        response = self._get(db)
+
+        assert (response.json()["edges"], response.json()["total"]) == ([], 0)
+        for secret in (self._SECRET_SPECIES, self._SECRET_NAME, self._SECRET_REASON):
+            assert secret not in response.text, secret
+
+    def test_a_planned_species_the_tenant_may_not_read_is_not_keyed(self, db) -> None:
+        """#2709: A's own live run planning B's private species into A's slot names no species either."""
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).delete("pl_a2")
+        db.collection(col.PLANTING_RUNS).insert({"_key": "run_a_live", "tenant_key": A, "status": "active"})
+        db.collection(col.RUN_PLANNED_AT).insert(
+            {
+                "_from": f"{col.PLANTING_RUNS}/run_a_live",
+                "_to": f"{col.SLOTS}/slot2_a",
+                "planned_species_key": self._SECRET_SPECIES,
+            }
+        )
+
+        response = self._get(db)
+
+        assert (response.json()["edges"], response.json()["total"]) == ([], 0)
+        assert self._SECRET_SPECIES not in response.text
+
+    def test_a_granted_species_is_keyed_until_the_grant_is_taken_back(self, db) -> None:
+        """#2709, the case no write-path check covers: the key was readable when written, the grant is revoked.
+
+        The positive control first - granted (#1092), the species counts and the pair is drawn with its key - so
+        the empty answer after the revoke is the visibility cut and not a read that sees nothing.
+        """
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).update({"_key": "pl_a2", "species_key": self._SECRET_SPECIES})
+        grant = db.collection(col.TENANT_HAS_ACCESS).insert(
+            {"_from": f"{col.TENANTS}/{A}", "_to": f"{col.SPECIES}/{self._SECRET_SPECIES}"}
+        )
+
+        granted = self._get(db).json()
+        db.collection(col.TENANT_HAS_ACCESS).delete(grant["_key"])
+        revoked = self._get(db)
+
+        (edge,) = granted["edges"]
+        assert self._SECRET_SPECIES in {*edge["slot_a"]["species_keys"], *edge["slot_b"]["species_keys"]}
+        assert (revoked.json()["edges"], revoked.json()["total"]) == ([], 0)
+        assert self._SECRET_SPECIES not in revoked.text
+
+    def test_a_planned_species_of_the_other_tenants_run_does_not_count(self, db) -> None:
+        """SEC-004: a ``run_planned_at`` edge into A's slot from B's live run is not A's planning."""
+        self._seed(db)
+        db.collection(col.PLANT_INSTANCES).delete("pl_a2")
+        db.collection(col.PLANTING_RUNS).insert({"_key": "run_b_live", "tenant_key": B, "status": "active"})
+        db.collection(col.RUN_PLANNED_AT).insert(
+            {
+                "_from": f"{col.PLANTING_RUNS}/run_b_live",
+                "_to": f"{col.SLOTS}/slot2_a",
+                "planned_species_key": "sp_basil",
+            }
+        )
+
+        body = self._get(db).json()
+
+        assert (body["edges"], body["total"]) == ([], 0)  # slot2_a holds nothing of A's, so no pair is drawn
+
+
+class TestALegacyRowIsNoServerError:
+    """#2709 item 3: a stored document that fails model validation does not turn a read into a 500.
+
+    ``slot_legacy_a`` is a slot of A's own bed with ``capacity_plants: 0`` - a bound the model has (``ge=1``) and
+    an old row need not. The displayed plan leaves it out and logs it (``stored_document.unreadable_row_skipped``,
+    the key and the failing fields, no values). Every other read - by key, the slot list, the sibling read of the
+    write paths and the companion layer (``load_active_slots``), the export - answers 409
+    ``STORED_DOCUMENT_INVALID``: leaving the row out there would be a 404 for a slot that exists, a duplicate slot
+    id or quota pass on a write, or a backup that a replace import restores without the slot. Another tenant
+    asking for the key gets the 404 of an absent slot, never the 409 (no existence oracle).
+    """
+
+    _LEGACY = "slot_legacy_a"
+
+    def _seed(self, db) -> None:
+        db.collection(col.SLOTS).insert(
+            _slot(self._LEGACY, "bed_a") | {"capacity_plants": 0, "geometry": {"kind": "point", "origin": [1.0, 0.5]}}
+        )
+        db.collection(col.HAS_SLOT).insert({"_from": f"{col.LOCATIONS}/bed_a", "_to": f"{col.SLOTS}/{self._LEGACY}"})
+
+    @staticmethod
+    def _skipped(logs: list[dict[str, Any]]) -> list[tuple[str, str, list[str]]]:
+        return [
+            (entry["read"], entry["key"], entry["fields"])
+            for entry in logs
+            if entry["event"] == "stored_document.unreadable_row_skipped"
+        ]
+
+    def test_the_plan_read_leaves_the_row_out_and_logs_it(self, db) -> None:
+        self._seed(db)
+
+        with capture_logs() as logs:
+            response = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan")
+
+        assert response.status_code == 200, response.text
+        slots = {slot["key"] for slot in response.json()["slots"]}
+        assert "slot_a" in slots  # the positive control: the readable slots of the same bed are answered
+        assert self._LEGACY not in slots
+        assert self._skipped(logs) == [("load_read_model", self._LEGACY, ["capacity_plants"])]
+
+    def test_the_companion_layer_answers_409_for_a_row_in_a_pair(self, db) -> None:
+        """The legacy slot holds a plant next to ``slot_a``: the slot read of the layer says so, no 500."""
+        self._seed(db)
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_basil",
+                "scientific_name": "Ocimum basilicum",
+                "scientific_name_normalized": "ocimum basilicum",
+                "tenant_key": "",
+            }
+        )
+        for key, slot, species in (("pl_a1", "slot_a", "sp"), ("pl_legacy", self._LEGACY, "sp_basil")):
+            db.collection(col.PLANT_INSTANCES).insert(
+                {
+                    "_key": key,
+                    "instance_id": key.upper(),
+                    "tenant_key": A,
+                    "slot_key": slot,
+                    "species_key": species,
+                    "removed_on": None,
+                }
+            )
+        for a, b in (("slot_a", self._LEGACY), (self._LEGACY, "slot_a")):
+            db.collection(col.ADJACENT_TO).insert({"_from": f"{col.SLOTS}/{a}", "_to": f"{col.SLOTS}/{b}"})
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/locations/bed_a/companion-edges"
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+    def test_a_species_row_the_hint_cannot_read_is_left_out(self, db) -> None:
+        """A species whose ``spacing_cm`` is stored as a number (the hint reads the range string) - no 500."""
+        db.collection(col.SPECIES).insert(
+            {
+                "_key": "sp_num",
+                "scientific_name": "Numerus",
+                "scientific_name_normalized": "numerus",
+                "tenant_key": "",
+                "spacing_cm": 30,
+            }
+        )
+        for key, slot, species in (("pl_a1", "slot_a", "sp"), ("pl_a2", "slot2_a", "sp_num")):
+            db.collection(col.PLANT_INSTANCES).insert(
+                {
+                    "_key": key,
+                    "instance_id": key.upper(),
+                    "tenant_key": A,
+                    "slot_key": slot,
+                    "species_key": species,
+                    "removed_on": None,
+                }
+            )
+
+        with capture_logs() as logs:
+            response = _client(db, tenant=A, role=TenantRole.GROWER).post(
+                f"/api/v1/t/{SLUG_A}/locations/bed_a/validate-planting", json={"species_key": "sp"}
+            )
+
+        assert response.status_code == 200, response.text
+        assert self._skipped(logs) == [("load_slot_species_hints", "slot2_a", ["spacing_cm"])]
+
+    def test_a_read_by_key_answers_409(self, db) -> None:
+        self._seed(db)
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/slots/{self._LEGACY}")
+        readable = _client(db, tenant=A, role=TenantRole.VIEWER).get(f"/api/v1/t/{SLUG_A}/slots/slot_a")
+
+        assert readable.status_code == 200, readable.text
+        assert response.status_code == 409, response.text
+        body = response.json()
+        assert body["error_code"] == "STORED_DOCUMENT_INVALID"
+        assert "capacity_plants" in json.dumps(body["details"])
+        assert '"0"' not in json.dumps(body) and ": 0" not in json.dumps(body["details"])
+
+    @pytest.mark.parametrize("method", ["GET", "PUT", "DELETE"])
+    def test_another_tenant_asking_for_the_key_gets_the_404_of_an_absent_slot(self, db, method: str) -> None:
+        """B names A's legacy slot: the answer is the one an unknown key gets, not the 409 of A's own read."""
+        self._seed(db)
+        client = _client(db, tenant=B, role=TenantRole.LEAD)
+
+        legacy = client.request(
+            method, f"/api/v1/t/{SLUG_B}/slots/{self._LEGACY}", json={} if method == "PUT" else None
+        )
+        unknown = client.request(method, f"/api/v1/t/{SLUG_B}/slots/slot_nope", json={} if method == "PUT" else None)
+
+        assert legacy.status_code == unknown.status_code, (legacy.text, unknown.text)
+        assert legacy.status_code in (404, 422), legacy.text
+        assert "STORED_DOCUMENT_INVALID" not in legacy.text and "capacity_plants" not in legacy.text
+
+    def test_the_slot_list_of_the_bed_answers_409(self, db) -> None:
+        self._seed(db)
+
+        response = _client(db, tenant=A, role=TenantRole.VIEWER).get(
+            f"/api/v1/t/{SLUG_A}/slots", params={"location_key": "bed_a"}
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+    def test_the_export_answers_409_instead_of_a_file_without_the_slot(self, db) -> None:
+        """A replace import restores the site from this file: a silently shorter file would delete the slot."""
+        self._seed(db)
+        client = _client(db, tenant=A, role=TenantRole.VIEWER)
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 1})
+        assert client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export").status_code == 200  # positive control
+        db.collection(col.SLOTS).update({"_key": self._LEGACY, "capacity_plants": 0})
+
+        response = client.get(f"/api/v1/t/{SLUG_A}/sites/site_a/plan/export")
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "STORED_DOCUMENT_INVALID"
+
+
+class TestTheParcelListPrintsOnlyTheTenantsMembers:
+    """REQ-053 WP 9.10 (#2750, SEC-002): the PDF's parcel list with ``include_assignment`` against the real AQL.
+
+    Tenant A's members are assigned to A's bed; one of A's memberships is (wrongly) named by an assignment of B's,
+    and B has an assignment of a deactivated membership. B's PDF must print its own member and none of A's, the
+    deactivated membership's bed as "–", and A's site must be an absent one to B. Read from the PDF's text layer.
+    """
+
+    @pytest.fixture
+    def assigned(self, db):
+        for document in [
+            {"_key": "u_alice", "email": "alice@example.org", "display_name": "Alice Ackermann"},
+            {"_key": "u_bob", "email": "bob@example.org", "display_name": "Bob Brenner"},
+            {"_key": "u_ben", "email": "ben@example.org", "display_name": "Ben Beendet"},
+        ]:
+            db.collection(col.USERS).insert(document)
+        for document in [
+            {"_key": "m_alice", "user_key": "u_alice", "tenant_key": A, "is_active": True},
+            {"_key": "m_bob", "user_key": "u_bob", "tenant_key": B, "is_active": True},
+            {"_key": "m_ben", "user_key": "u_ben", "tenant_key": B, "is_active": False},
+        ]:
+            db.collection(col.MEMBERSHIPS).insert(document)
+        db.collection(col.LOCATIONS).insert(_bed("bed2_b", "site_b", "Bobs Zweitbeet") | {"z_order": 1})
+        for document in [
+            {"membership_key": "m_alice", "location_key": "bed_a", "tenant_key": A},
+            {"membership_key": "m_bob", "location_key": "bed_b", "tenant_key": B},
+            # B's assignment naming A's membership: the membership's tenant must stop it.
+            {"membership_key": "m_alice", "location_key": "bed_b", "tenant_key": B},
+            # A deactivated membership: no longer an assignment, the cell is "–".
+            {"membership_key": "m_ben", "location_key": "bed2_b", "tenant_key": B},
+        ]:
+            db.collection(col.LOCATION_ASSIGNMENTS).insert(document)
+        return db
+
+    def _pdf(self, client: TestClient, slug: str, site: str):
+        return client.get(
+            f"/api/v1/t/{slug}/print/garden-plan/{site}", params={"parcel_list": "true", "include_assignment": "true"}
+        )
+
+    def test_tenant_b_prints_its_own_member_and_none_of_tenant_a(self, assigned) -> None:
+        response = self._pdf(_client(assigned, tenant=B), SLUG_B, "site_b")
+
+        assert response.status_code == 200, response.text
+        parcel_page = pdf_pages_text(response.content)[1]
+        assert "1 · Bobs Geheimbeet" in parcel_page and "Bob Brenner" in parcel_page
+        assert "2 · Bobs Zweitbeet" in parcel_page
+        for leaked in ("Alice", "Ackermann", "Ben Beendet", "Alices"):
+            assert leaked not in parcel_page, parcel_page
+        # The deactivated membership's bed: its row ends with the empty-cell dash.
+        second = next(line for line in parcel_page.splitlines() if "Bobs Zweitbeet" in line)
+        assert second.rstrip().endswith("–"), second
+
+    def test_tenant_a_is_an_absent_site_to_tenant_b(self, assigned) -> None:
+        client = _client(assigned, tenant=B)
+
+        foreign, absent = self._pdf(client, SLUG_B, "site_a"), self._pdf(client, SLUG_B, "site_gone")
+
+        assert (foreign.status_code, absent.status_code) == (404, 404)
+        assert _canonical(foreign.text).replace("site_a", "site_gone") == _canonical(absent.text)
+        assert "Alice" not in foreign.text

@@ -2,12 +2,13 @@
 req_id: UI-NFR-002
 title: Barrierefreiheit — axe-core gegen die zusammengesetzte Anwendung
 category: Qualitaetssicherung / Barrierefreiheit
-test_count: 2
+test_count: 3
 coverage_areas:
   - axe-core-Durchlauf gegen die laufende Anwendung (nicht gegen Einzelkomponenten)
   - Negativkontrolle — ein gesaeter Verstoß macht den Durchlauf rot
+  - Dunkelmodus — axe-Durchlauf gegen das dunkle Theme auf den Hauptseiten
 generated: 2026-08-22
-version: "1.0"
+version: "1.1"
 ---
 
 # TC-UI-NFR-002: Barrierefreiheit der zusammengesetzten Seite
@@ -81,3 +82,68 @@ nicht kann. Ohne diesen Fall beweist ein gruenes TC-UINFR002-001 nur, dass eine
 Funktion eine Liste zurueckgegeben hat.
 
 **Tags**: [ui-nfr-002, barrierefreiheit, axe, negativkontrolle]
+
+---
+
+## TC-UINFR002-003: axe-Durchlauf im Dunkelmodus ueber die Hauptseiten
+
+**Anforderung**: UI-NFR-002 (R-015, R-016, R-017)
+**Prioritaet**: Hoch
+**Kategorie**: Barrierefreiheit / Kontrast im dunklen Theme
+**Vorbedingungen**:
+- Der Stapel laeuft; ein Nutzer ist angemeldet
+- Im Browser ist das dunkle Theme als manuelle Wahl gespeichert, bevor die erste
+  Seite des Durchlaufs laedt (so, wie der Theme-Umschalter in der App-Leiste die
+  Wahl ablegt)
+
+**Testschritte**:
+1. Nutzer oeffnet nacheinander Dashboard, Pflanzenliste, Artenliste, Standorte,
+   Aufgaben-Warteschlange und Kalender
+2. Auf jeder Seite wird gewartet, bis ihr Inhalt geladen ist — Zeilen,
+   Standort-Karten, Aufgabenkarten, das Monatsraster oder der Leerzustand —
+   und kein Lade-Skelett mehr sichtbar ist; der Scan misst nie das Skelett
+3. Auf jeder Seite wird geprueft, dass sie **tatsaechlich** im dunklen Theme
+   gezeichnet ist (Seitenhintergrund des dunklen Themes)
+4. Der axe-Durchlauf wird gegen jede dieser Seiten ausgefuehrt
+
+**Erwartetes Ergebnis**:
+- **Blockierend** ist genau eine Regel: `color-contrast` mit der Wirkung
+  **ernst** (`serious`) oder **kritisch** (`critical`). Jeder solche Befund
+  macht den Lauf rot und wird mit Regel, Wirkung und Selektor gemeldet — das ist
+  das dunkelmodus-spezifische Kriterium von #3047
+- **Beratend** sind alle uebrigen ernsten und kritischen Befunde (z. B.
+  `nested-interactive`, `link-name`, `button-name`, die `aria-*`-Regeln). Sie
+  haengen nicht vom Farbschema ab, haben hier noch keine Messhistorie und werden
+  deshalb genauso wie in TC-UINFR002-001 als `ADVISORY` protokolliert, ohne den
+  Lauf rot zu machen. Eine spaetere Hochstufung ist eine Entscheidung auf
+  gemessener Historie (NFR-018 §4)
+- Zeigt eine Seite das helle Theme, schlaegt der Testfall fehl, statt das helle
+  Theme als dunkelmodus-konform zu melden
+- Erreichen Dashboard, Artenliste, Standorte oder Kalender ihren geladenen
+  Zustand nicht, schlaegt der Testfall fehl, statt ein Lade-Skelett als konform
+  zu melden; Pflanzenliste und Aufgaben-Warteschlange nutzen ihre bestehenden
+  Warte-Anker, die nur warten und nicht selbst fehlschlagen
+
+**Nachbedingungen**:
+- Das Protokoll enthaelt je gescannter Seite die Zahl der Verstoesse und die
+  beratenden Befunde
+
+**Warum dieser Testfall existiert**: jsdom berechnet keine Farbkontraste. Bis zu
+diesem Durchlauf war das dunkle Theme daher nirgends im Browser gemessen. Die
+statische Haelfte derselben Pruefung — Text- und Rollenfarben auf den erhoehten
+Flaechen des dunklen Themes (Dialog, Drawer, Menue) — liegt in
+`src/frontend/src/test/theme/darkSurfaceContrast.test.tsx`. Sie misst auch das,
+was axe nicht sieht: MUI-Buttons meldet axe wegen des Ripple-Overlays nur als
+`incomplete`.
+
+**Tags**: [ui-nfr-002, barrierefreiheit, axe, dunkelmodus, kontrast]
+
+---
+
+## Aenderungshistorie
+
+| Version | Datum | Aenderung |
+|---------|-------|-----------|
+| 1.0 | 2026-08-22 | TC-UINFR002-001 und TC-UINFR002-002 (#1095) |
+| 1.1 | 2026-11-21 | TC-UINFR002-003: axe-Durchlauf im Dunkelmodus ueber die Hauptseiten (#3047) |
+| 1.2 | 2026-11-21 | TC-UINFR002-003: nur `color-contrast` blockiert, uebrige ernste/kritische Befunde beratend; Warten auf geladenen Seiteninhalt vor dem Scan (#3069) |

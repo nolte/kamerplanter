@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
@@ -58,7 +60,7 @@ function parseMaxUses(raw: string): number | null {
 
 export default function TenantSettingsPage() {
   const { t, i18n } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   // REQ-049: member and invitation management hangs off the `management`
   // scope, not off the domain rank — a lead is not automatically an admin.
@@ -75,8 +77,6 @@ export default function TenantSettingsPage() {
   }, [isAdmin, canExport]);
   const [tab, setTab] = useTabUrl(tabSlugs);
   const activeTab = tabSlugs[tab] ?? 'members';
-  const [members, setMembers] = useState<Membership[]>([]);
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
   // #2182 (REQ-024 AK-07) — how many people one link admits; kept as typed so an empty field can be edited.
   const [linkMaxUses, setLinkMaxUses] = useState('1');
@@ -100,30 +100,22 @@ export default function TenantSettingsPage() {
 
   const slug = activeTenant?.slug ?? '';
 
-  const loadMembers = useCallback(async () => {
-    if (!slug) return;
-    try {
-      const data = await tenantApi.listMembers(slug);
-      setMembers(data);
-    } catch {
-      /* ignore */
-    }
-  }, [slug]);
+  // #3013 (A-01): members and open invitations are security-relevant — a foreign member or a
+  // leaked invitation link must stay visible and revocable. A failed load therefore renders an
+  // error with retry, never the "no members"/"no invitations" empty text.
+  const fetchMembers = useCallback((): Promise<Membership[]> => tenantApi.listMembers(slug), [slug]);
+  const fetchInvitations = useCallback((): Promise<Invitation[]> => tenantApi.listInvitations(slug), [slug]);
+  const membersLoad = useAsyncOptions(fetchMembers, { enabled: !!slug });
+  const invitationsLoad = useAsyncOptions(fetchInvitations, { enabled: !!slug && isAdmin });
+  const members = membersLoad.options;
+  const invitations = invitationsLoad.options;
+  const loadMembers = membersLoad.reload;
+  const loadInvitations = invitationsLoad.reload;
 
-  const loadInvitations = useCallback(async () => {
-    if (!slug || !isAdmin) return;
-    try {
-      const data = await tenantApi.listInvitations(slug);
-      setInvitations(data);
-    } catch {
-      /* ignore */
-    }
-  }, [slug, isAdmin]);
-
-  useEffect(() => {
-    void loadMembers(); // eslint-disable-line react-hooks/set-state-in-effect -- async function, setState is after await
-    void loadInvitations();
-  }, [loadMembers, loadInvitations]);
+  const notifyCopied = (copied: boolean) => {
+    if (copied) notification.success(t('pages.tenants.linkCopied'));
+    else notification.info(t('pages.tenants.linkCopyFailed'));
+  };
 
   /** Copy *url*; whether it worked (the clipboard is refused outside a secure context or by policy). */
   const copyToClipboard = async (url: string): Promise<boolean> => {
@@ -144,16 +136,16 @@ export default function TenantSettingsPage() {
     try {
       result = await tenantApi.createEmailInvitation(slug, { email: inviteEmail, role: 'viewer' });
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
       return;
     } finally {
       setSubmitting(false);
     }
     setInviteEmail('');
-    void loadInvitations();
+    loadInvitations();
     if (result.delivered) {
       setShareable(null);
-      enqueueSnackbar(t('pages.tenants.invitationSent'), { variant: 'success' });
+      notification.success(t('pages.tenants.invitationSent'));
     } else {
       // The warning panel carries the message (review S2): no second, vanishing copy of it.
       setShareable({ kind: 'notDelivered', url: result.accept_url, expiresAt: result.expires_at, maxUses: 1 });
@@ -168,12 +160,12 @@ export default function TenantSettingsPage() {
     try {
       result = await tenantApi.createLinkInvitation(slug, { role: 'viewer', max_uses: maxUses });
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
       return;
     } finally {
       setSubmitting(false);
     }
-    void loadInvitations();
+    loadInvitations();
     setShareable({
       kind: 'link',
       url: result.accept_url,
@@ -181,17 +173,13 @@ export default function TenantSettingsPage() {
       maxUses: result.max_uses,
     });
     const copied = await copyToClipboard(result.accept_url);
-    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
-      variant: copied ? 'success' : 'info',
-    });
+    notifyCopied(copied);
   };
 
   const handleCopyShareable = async () => {
     if (!shareable) return;
     const copied = await copyToClipboard(shareable.url);
-    enqueueSnackbar(t(copied ? 'pages.tenants.linkCopied' : 'pages.tenants.linkCopyFailed'), {
-      variant: copied ? 'success' : 'info',
-    });
+    notifyCopied(copied);
   };
 
   const handleRevokeInvitation = useCallback(
@@ -201,10 +189,10 @@ export default function TenantSettingsPage() {
         await tenantApi.revokeInvitation(slug, key);
         loadInvitations();
       } catch (err) {
-        enqueueSnackbar(parseApiError(err), { variant: 'error' });
+        notification.error(parseApiError(err, t));
       }
     },
-    [slug, loadInvitations, enqueueSnackbar],
+    [slug, loadInvitations, notification, t],
   );
 
   // The acting administrator's OWN step-up (#2032); a rejection propagates to the dialog,
@@ -214,8 +202,8 @@ export default function TenantSettingsPage() {
     const removed = memberToRemove;
     await tenantApi.removeMember(slug, removed.key, toCredentialStepUpBody(credentials));
     setMemberToRemove(null);
-    enqueueSnackbar(t('pages.tenants.memberRemoved'), { variant: 'success' });
-    void loadMembers();
+    notification.success(t('pages.tenants.memberRemoved'));
+    loadMembers();
   };
 
   const memberColumns: Column<Membership>[] = useMemo(() => {
@@ -360,7 +348,7 @@ export default function TenantSettingsPage() {
   }
 
   return (
-    <Box>
+    <Box data-testid="tenant-settings-page">
       <PageTitle title={`${activeTenant.name} — ${t('pages.tenants.settings')}`} />
       <ScheduledTenantDeletionsCard />
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -370,8 +358,12 @@ export default function TenantSettingsPage() {
         {canExport && <Tab label={t('pages.tenants.tabExport')} data-testid="tenant-tab-export" />}
       </Tabs>
 
-      {activeTab === 'members' && (
+      {activeTab === 'members' && membersLoad.error && (
+        <ErrorDisplay error="pages.tenants.membersLoadFailed" onRetry={membersLoad.reload} />
+      )}
+      {activeTab === 'members' && !membersLoad.error && (
         <DataTable
+          loading={membersLoad.loading && members.length === 0}
           columns={memberColumns}
           rows={members}
           getRowKey={(r) => r.key}
@@ -528,7 +520,11 @@ export default function TenantSettingsPage() {
               </Alert>
             )}
 
+            {invitationsLoad.error ? (
+              <ErrorDisplay error="pages.tenants.invitationsLoadFailed" onRetry={invitationsLoad.reload} />
+            ) : (
             <DataTable
+              loading={invitationsLoad.loading && invitations.length === 0}
               columns={invitationColumns}
               rows={invitations}
               getRowKey={(r) => r.key}
@@ -578,6 +574,7 @@ export default function TenantSettingsPage() {
                 />
               )}
             />
+            )}
           </CardContent>
         </Card>
       )}

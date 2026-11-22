@@ -1,0 +1,932 @@
+"""The garden plan of a site (REQ-053 §21.1): read model, boundary, transactional batch, change log.
+
+Every route resolves its site **in the service** through the tenant anchor (§22.3 T-04); the
+gate here only decides the caller's rank. The batch checks the caller's role once more per
+operation (SR-001) — the route-level gate (``location:update``, ab Gärtner) is the entry, not
+the whole rule.
+"""
+
+import json
+import re
+from datetime import date
+from time import perf_counter
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, Path, Query, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
+from pydantic import ValidationError as PydanticValidationError
+
+from app.api.mapping import to_response
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
+from app.api.v1.garden_objects.schemas import garden_object_to_response
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_export_selection, plan_svg_options
+from app.api.v1.garden_plan.schemas import (
+    SCHEMA_VERSION,
+    BedCsvImportResponse,
+    DerivedGeometrySchema,
+    GardenPlanResponse,
+    PlaceTemplateRequest,
+    PlaceTemplateResponse,
+    PlanAuditEntryResponse,
+    PlanBatchRequest,
+    PlanBatchResponse,
+    PlanBoundaryRequest,
+    PlanBoundaryResponse,
+    PlanGardenObjectResponse,
+    PlanImportRequest,
+    PlanImportResponse,
+    PlanLocationResponse,
+    PlanMicroclimateResponse,
+    PlanPlantResponse,
+    PlanSeasonRequest,
+    PlanSeasonResponse,
+    PlanSettingsResponse,
+    PlanSiteConditionsResponse,
+    PlanSnapshotResponse,
+    PlanSnapshotRestoreRequest,
+    PlanSoilProfileResponse,
+    PlanSunDirectionResponse,
+    PlanSunDirectionsResponse,
+    PlanSunProfileResponse,
+    PlanUnderlayRequest,
+    PlanUnderlayResponse,
+    PlanZoneResponse,
+    RotationMatrixBedResponse,
+    RotationMatrixResponse,
+)
+from app.api.v1.locations.schemas import rotation_year_responses
+from app.common.auth import get_budgeted_tenant, get_current_tenant, require_permission
+from app.common.body_limit import read_bounded_body
+from app.common.cache_control import allow_offline_read_cache
+from app.common.dependencies import (
+    get_bed_csv_import_service,
+    get_garden_plan_export_service,
+    get_garden_plan_import_service,
+    get_garden_plan_season_service,
+    get_garden_plan_service,
+    get_garden_plan_underlay_service,
+    get_rotation_matrix_service,
+)
+from app.common.enums import FrostRisk, SlotRole, SoilDrainage, SunWindow
+from app.common.exceptions import PlanRevisionConflictError, UnsupportedMediaTypeError, ValidationError
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    VALIDATION_RESPONSE,
+    request_body_schema,
+)
+from app.common.pagination import PaginationParams, get_pagination
+from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
+from app.config.settings import settings
+from app.core.permissions import Action, ResourceType
+from app.domain.calculators.geometry_calculator import area_m2
+from app.domain.calculators.sun_calculator import SunDirections
+from app.domain.engines.plan_svg_engine import PlanSvgOptions
+from app.domain.models.bed_csv_import import MAX_CSV_BYTES
+from app.domain.models.garden_plan import GardenPlanView, PlanBatchResult, PlanSlotView, PlantShortInfo, SetBoundaryOp
+from app.domain.models.garden_plan_export import ExportScope, GardenPlanExport
+from app.domain.models.garden_plan_import import IMPORT_ENVELOPE_BYTES, MAX_IMPORT_BYTES
+from app.domain.models.site import SiteConditions, SiteUnderlay, SoilProfile, SunProfile
+from app.domain.models.tenant_context import TenantContext
+from app.domain.services.bed_csv_import_service import BedCsvImportService
+from app.domain.services.garden_plan_export_service import GardenPlanExportService, safe_filename_part
+from app.domain.services.garden_plan_import_service import GardenPlanImportService
+from app.domain.services.garden_plan_season_service import GardenPlanSeasonService
+from app.domain.services.garden_plan_service import INCLUDE_PARTS, GardenPlanService
+from app.domain.services.garden_plan_underlay_service import GardenPlanUnderlayService
+from app.domain.services.rotation_matrix_service import RotationMatrixService
+from app.observability.garden_plan_metrics import observe_batch_duration, observe_plan_size, record_conflict
+
+router = APIRouter(prefix="/sites", tags=["garden-plan"], responses=NOT_FOUND_RESPONSE)
+
+_SITE_KEY = Annotated[str, Path(description="Document key of the site.")]
+
+
+def _operations_bytes(operations: list[dict[str, Any]]) -> int:
+    """Size of the parsed operations as compact JSON, for the 2 MB ceiling (GP-NFR-013).
+
+    Measured on the parsed list rather than by reading the request body again: the edge already bounds the raw
+    body (``app/common/body_limit.py``), and a route that reads one itself needs a bound of its own.
+    """
+    return len(json.dumps(operations, separators=(",", ":")).encode())
+
+
+def _underlay_response(underlay: SiteUnderlay | None) -> PlanUnderlayResponse | None:
+    if underlay is None:
+        return None
+    return to_response(underlay, PlanUnderlayResponse)
+
+
+def _sun_profile_response(sun: SunProfile) -> PlanSunProfileResponse | None:
+    """Only what is known: ``unknown``, no hours and no leaf shade are left out, all three = no object."""
+    part = PlanSunProfileResponse(
+        sun_window=None if sun.sun_window == SunWindow.UNKNOWN else sun.sun_window,
+        direct_sun_hours_summer=sun.direct_sun_hours_summer,
+        foliage_shade_in_summer=True if sun.foliage_shade_in_summer else None,
+    )
+    return part if part.model_dump(exclude_none=True) else None
+
+
+def _site_conditions_response(conditions: SiteConditions | None) -> PlanSiteConditionsResponse | None:
+    """The lean slice of the plan (D-1/D-3 of #2538): sun profile and frost risk, unknown values absent.
+
+    Absent rather than ``"unknown"`` because a large garden carries hundreds of beds and the read model has a
+    ceiling (GP-NFR-031); the client reads an absent value as unknown. Wind, slope, access sides and flags are
+    not projected: no plan reader needs them.
+    """
+    if conditions is None:
+        return None
+    sun = _sun_profile_response(conditions.sun_profile)
+    risk = conditions.microclimate.frost_risk
+    microclimate = None if risk == FrostRisk.UNKNOWN else PlanMicroclimateResponse(frost_risk=risk)
+    if sun is None and microclimate is None:
+        return None
+    return PlanSiteConditionsResponse(sun_profile=sun, microclimate=microclimate)
+
+
+def _soil_profile_response(soil: SoilProfile | None) -> PlanSoilProfileResponse | None:
+    """The drainage for the moisture layer; ``None`` for no profile or an unknown drainage."""
+    if soil is None or soil.drainage == SoilDrainage.UNKNOWN:
+        return None
+    return PlanSoilProfileResponse(drainage=soil.drainage)
+
+
+def _plan_response(view: GardenPlanView) -> GardenPlanResponse:
+    plan = view.plan
+    return GardenPlanResponse(
+        schema_version=SCHEMA_VERSION,
+        site_key=view.site_key,
+        site_name=view.site_name,
+        site_type=view.site_type,
+        site_default_grid_m=view.site_default_grid_m,
+        plan_revision=view.plan_revision,
+        plan=(
+            PlanSettingsResponse(
+                boundary=plan.boundary,
+                north_angle_deg=plan.north_angle_deg,
+                default_grid_m=plan.default_grid_m,
+                adjacency_factor=plan.adjacency_factor,
+                plan_revision=plan.plan_revision,
+                plan_updated_at=plan.plan_updated_at,
+                plan_updated_by_name=view.plan_updated_by_name,
+                underlay=_underlay_response(plan.underlay),
+            )
+            if plan is not None
+            else None
+        ),
+        locations=[
+            to_response(
+                location,
+                PlanLocationResponse,
+                season_state=view.season_states.get(location.key or ""),
+                open_task_count=view.task_counters.get(location.key or "", _NO_TASKS).open_task_count,
+                overdue_task_count=view.task_counters.get(location.key or "", _NO_TASKS).overdue_task_count,
+                last_watered_at=view.last_watered.get(location.key or ""),
+                site_conditions=_site_conditions_response(location.site_conditions),
+                soil_profile=_soil_profile_response(location.soil_profile),
+                is_area=True if location.location_type_key in view.area_type_keys else None,
+            )
+            for location in view.locations
+        ],
+        area_type_keys=sorted(view.area_type_keys),
+        bed_type_keys=sorted(view.bed_type_keys),
+        garden_objects=[
+            PlanGardenObjectResponse(
+                **garden_object_to_response(obj).model_dump(),
+                open_task_count=view.object_task_counters.get(obj.key or "", _NO_TASKS).open_task_count,
+                overdue_task_count=view.object_task_counters.get(obj.key or "", _NO_TASKS).overdue_task_count,
+            )
+            for obj in view.garden_objects
+        ],
+        # Slots and plants go in as plain mappings: the response model validates the thousands of rows of
+        # the large class in one pass instead of one model call per row (#2526) - same models, same rules.
+        slots=[_slot_fields(slot) for slot in view.slots],
+        plants=[_plant_fields(plant) for plant in view.plants],
+        zones=[PlanZoneResponse(**zone) for zone in view.zones],
+        sun_directions=_sun_directions_response(view.sun_directions),
+    )
+
+
+def _sun_directions_response(directions: SunDirections | None) -> PlanSunDirectionsResponse | None:
+    """GP-FR-016: the compass's sunrise and sunset directions, absent without GPS."""
+    if directions is None:
+        return None
+    return PlanSunDirectionsResponse(
+        day=directions.day,
+        sunrise=PlanSunDirectionResponse(azimuth_deg=directions.sunrise.azimuth_deg, time=directions.sunrise.time),
+        sunset=PlanSunDirectionResponse(azimuth_deg=directions.sunset.azimuth_deg, time=directions.sunset.time),
+    )
+
+
+def _slot_fields(slot: PlanSlotView) -> dict[str, Any]:
+    """A slot with the fields at their common value left out (``None`` is not sent): GP-NFR-031.
+
+    Left out are ``slot_role`` = position, ``capacity_plants`` = 1, ``currently_occupied`` = false and the
+    ``kind`` of a point geometry. Only these, and only here: a blanket "omit defaults" would also drop the
+    ``kind`` discriminator of every geometry, and a geometry without its kind cannot be read.
+
+    The fields of a :class:`PlanSlotResponse` (with a :class:`PlanSlotGeometry`); validated as such by
+    :class:`GardenPlanResponse`.
+    """
+    geometry = slot.plan_geometry
+    plan_geometry = None
+    if geometry is not None:
+        kind = geometry["kind"]
+        plan_geometry = {**geometry, "kind": None if kind == "point" else kind}
+    return {
+        "key": slot.key,
+        "slot_id": slot.slot_id,
+        "location_key": slot.location_key,
+        "slot_role": None if slot.slot_role == SlotRole.POSITION else slot.slot_role,
+        "capacity_plants": None if slot.capacity_plants == 1 else slot.capacity_plants,
+        "currently_occupied": True if slot.currently_occupied else None,
+        "row_index": slot.row_index,
+        "sequence": slot.sequence,
+        "plan_geometry": plan_geometry,
+        "planned_from": slot.planned_from,
+    }
+
+
+#: The fields a plant row carries on the wire; resolved once (``model_fields`` is a class property, and reading it
+#: per field of 2 000 plants costs ~4 ms of the large class, #2526).
+_PLANT_RESPONSE_FIELDS: frozenset[str] = frozenset(PlanPlantResponse.model_fields)
+
+
+def _plant_fields(plant: PlantShortInfo) -> dict[str, Any]:
+    """The short info of §21.1; ``location_key`` only for a plant without a slot (the slot already names it).
+
+    The fields of a :class:`PlanPlantResponse`, mapped as :func:`app.api.mapping.to_response` maps them (``key``
+    coalesced to ``""``, only the response's own fields); validated as such by :class:`GardenPlanResponse`.
+    """
+    data = plant.model_dump()
+    data["key"] = data.get("key") or ""
+    data["location_key"] = None if plant.slot_key else plant.location_key
+    return {name: value for name, value in data.items() if name in _PLANT_RESPONSE_FIELDS}
+
+
+def _batch_response(result: PlanBatchResult) -> PlanBatchResponse:
+    return PlanBatchResponse(
+        plan_revision=result.plan_revision,
+        key_map=result.key_map,
+        updated=result.updated,
+        deleted=result.deleted,
+        derived={
+            key: DerivedGeometrySchema(area_m2=value.area_m2, bbox=value.bbox) for key, value in result.derived.items()
+        },
+    )
+
+
+def _include(raw: str) -> frozenset[str]:
+    parts = {part for part in re.split(r"\s*,\s*", raw.strip()) if part}
+    unknown = parts - INCLUDE_PARTS
+    if unknown:
+        raise ValidationError(
+            "include accepts plants, tasks and zones.",
+            details=[{"field": "include", "reason": "Unknown value.", "code": "validation.invalid"}],
+        )
+    return frozenset(parts)
+
+
+class _NoTasks:
+    open_task_count = 0
+    overdue_task_count = 0
+
+
+_NO_TASKS = _NoTasks()
+
+
+@router.get(
+    "/{key}/plan",
+    response_model=GardenPlanResponse,
+    response_model_exclude_none=True,
+    summary="Read the whole garden plan of a site",
+    responses={**VALIDATION_RESPONSE},
+)
+def get_plan(
+    response: Response,
+    key: _SITE_KEY,
+    include: Annotated[
+        str,
+        Query(
+            description="Comma-separated parts to include: plants, tasks, zones. Default: all (GP-API-001).",
+            examples=["plants,tasks,zones"],
+        ),
+    ] = "plants,tasks,zones",
+    as_of: Annotated[
+        date | None,
+        Query(
+            description=(
+                "Historical plant state (GP-API-001): the plants that stood in the beds on this day "
+                "(planted_on <= as_of < removed_on; no removal date counts as standing), without a phase. "
+                "Beds, objects, boundary, slots, task counters and zones stay current. Not after today (UTC); "
+                "omitted = the plants standing now."
+            ),
+            examples=["2025-07-15"],
+        ),
+    ] = None,
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> GardenPlanResponse:
+    """The site plan, locations with geometry, garden objects, slots in plan coordinates, plant short
+    info and task counters in one request (GP-API-001, GP-NFR-002).
+
+    422 for an unknown ``include`` value, a malformed ``as_of`` and ``plan.as_of_in_future`` for a day after
+    today. Answers ``Cache-Control: private, no-cache`` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
+    """
+    view = service.get_plan(key, tenant_key=ctx.tenant_key, include=_include(include), as_of=as_of)
+    allow_offline_read_cache(response)
+    observe_plan_size(len(view.locations) + len(view.garden_objects))
+    return _plan_response(view)
+
+
+@router.put(
+    "/{key}/plan/boundary",
+    response_model=PlanBoundaryResponse,
+    summary="Set the garden boundary (creates the plan)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+def put_boundary(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanBoundaryRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> PlanBoundaryResponse:
+    """Set the boundary, north angle and grid; creates the plan on the first call (GP-API-002).
+
+    422 ``boundary.shrinks_below_objects`` when the new boundary would leave a top-level object
+    outside (V-19).
+    """
+    operation = SetBoundaryOp(
+        op="set_boundary",
+        boundary=body.boundary,
+        north_angle_deg=body.north_angle_deg,
+        default_grid_m=body.default_grid_m,
+        adjacency_factor=body.adjacency_factor,
+    )
+    try:
+        result = service.set_boundary(
+            key,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            role=ctx.role,
+            operation=operation,
+            expected_revision=body.expected_revision,
+        )
+    except PlanRevisionConflictError:
+        record_conflict()
+        raise
+    return PlanBoundaryResponse(
+        plan_revision=result.plan_revision, total_area_m2=area_m2(body.boundary), boundary=body.boundary
+    )
+
+
+@router.put(
+    "/{key}/plan/underlay",
+    response_model=PlanUnderlayResponse,
+    summary="Set the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def put_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanUnderlayRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> PlanUnderlayResponse:
+    """Set or replace the one background picture of the site (GP-FR-033, GP-API-002 family).
+
+    The picture is a `garden_plan_underlay` attachment uploaded beforehand; the calibration (two pixel points and
+    the real distance between them) fixes the scale. 422 `reference.not_found` for an attachment that is not the
+    caller's own; 422 `plan.required` when the site has no plan. Not part of the plan revision, never exported.
+    """
+    stored = await service.set_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role, underlay=body.to_domain())
+    return to_response(stored, PlanUnderlayResponse)
+
+
+@router.delete(
+    "/{key}/plan/underlay",
+    status_code=204,
+    summary="Remove the background picture of the plan",
+    responses={**FORBIDDEN_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def delete_underlay(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanUnderlayService = Depends(get_garden_plan_underlay_service),
+) -> Response:
+    """Remove the picture and its attachment (unless another record still holds the stored object). Idempotent."""
+    await service.remove_underlay(key, tenant_key=ctx.tenant_key, role=ctx.role)
+    return Response(status_code=204)
+
+
+@router.post(
+    "/{key}/plan/batch",
+    response_model=PlanBatchResponse,
+    summary="Apply a list of plan operations atomically",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+async def apply_batch(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanBatchRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> PlanBatchResponse:
+    """All-or-nothing: one transaction with a revision check inside (GP-API-003, GP-NFR-013).
+
+    Each operation is checked against the caller's role first: ``delete`` needs the lead role,
+    and a batch holding one the caller may not run is refused whole with 403
+    ``batch.operation_forbidden {op_index}``. Then, in order: references (422
+    ``reference.not_found``), Pydantic, domain rules (422 ``geometry.outside_parent``,
+    ``bed.overlap`` …), and last the revision (409 ``plan.revision_conflict``). The photos of a deleted bed are
+    deleted afterwards unless something else still names them (WP 8.18).
+    """
+    started = perf_counter()
+    # #2715 item 8: the serialisation that measures the operations runs off the event loop, and the duration is
+    # observed when the batch has committed - the photo discard after it is not part of the plan write.
+    body_bytes = await run_in_threadpool(_operations_bytes, body.operations)
+    try:
+        result = await service.apply_batch_async(
+            key,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            role=ctx.role,
+            expected_revision=body.expected_revision,
+            operations=body.operations,
+            body_bytes=body_bytes,
+            on_commit=lambda _committed: observe_batch_duration(perf_counter() - started),
+        )
+    except PlanRevisionConflictError:
+        record_conflict()
+        raise
+    return _batch_response(result)
+
+
+@router.post(
+    "/{key}/plan/place-template",
+    response_model=PlaceTemplateResponse,
+    summary="Place one bed from a bed template",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_batch, key_func=user_rate_limit_key)
+def place_template(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlaceTemplateRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> PlaceTemplateResponse:
+    """Create a bed from a template through the batch path (GP-FR-044, WP 7.9): one transaction, one revision.
+
+    The bed gets a copy of the template's name, location type, geometry (anchor at `origin`, turned by
+    `rotation_deg`), height and soil axes; `template_key` is kept on it as provenance. In order: the template
+    (422 `reference.not_found` - a foreign key answers like an absent one), with `create_recurring_tasks` its task
+    templates (422 `reference.not_found` on `recurring_task_templates[i]`), the geometry (422 `geometry.invalid`),
+    containment and overlap (422 `geometry.outside_parent`, `bed.overlap`) and last the revision (409
+    `plan.revision_conflict`). `key_map` maps `template_bed` to the new location key.
+
+    `create_recurring_tasks: true` (GP-FR-087) creates one task per task template on the new bed, recurring yearly,
+    and lists them in `created_tasks`; should that write fail after the bed is committed, the bed stands and
+    `recurring_tasks_failed` is `true`.
+    """
+    started = perf_counter()
+    try:
+        result = service.place_template(
+            key,
+            tenant_key=ctx.tenant_key,
+            user_key=ctx.user_key,
+            role=ctx.role,
+            template_key=body.template_key,
+            origin=body.origin,
+            rotation_deg=body.rotation_deg,
+            expected_revision=body.expected_revision,
+            create_recurring_tasks=body.create_recurring_tasks,
+        )
+    except PlanRevisionConflictError:
+        record_conflict()
+        raise
+    observe_batch_duration(perf_counter() - started)
+    return PlaceTemplateResponse(
+        plan_revision=result.plan_revision,
+        key_map=result.key_map,
+        updated=result.updated,
+        deleted=result.deleted,
+        derived={
+            key: DerivedGeometrySchema(area_m2=value.area_m2, bbox=value.bbox) for key, value in result.derived.items()
+        },
+        created_tasks=result.created_task_keys,
+        recurring_tasks_failed=result.recurring_tasks_failed,
+    )
+
+
+@router.get(
+    "/{key}/plan/audit",
+    response_model=list[PlanAuditEntryResponse],
+    summary="The plan's change log (deletions and boundary changes)",
+)
+def list_plan_audit(
+    key: _SITE_KEY,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: GardenPlanService = Depends(get_garden_plan_service),
+) -> list[PlanAuditEntryResponse]:
+    """Newest first; the editor is named by display name (GP-API-008, SR-011)."""
+    entries = service.list_audit(key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit)
+    return [to_response(entry, PlanAuditEntryResponse) for entry in entries]
+
+
+@router.get(
+    "/{key}/rotation-matrix",
+    response_model=RotationMatrixResponse,
+    responses={**VALIDATION_RESPONSE},
+    summary="Crop-rotation matrix of the site (beds x years)",
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+def get_rotation_matrix(
+    request: Request,
+    key: _SITE_KEY,
+    years: Annotated[
+        int | None,
+        Query(
+            ge=1,
+            le=MAX_ROTATION_TIMELINE_YEARS,
+            description="Look-back in years; default `max(pause of the families involved, 5)`, at most 10.",
+        ),
+    ] = None,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: RotationMatrixService = Depends(get_rotation_matrix_service),
+) -> RotationMatrixResponse:
+    """Beds x years of a site (GP-FR-135), all roles: what stood in each bed per year (family, `nutrient_demand`,
+    `plan_role`, season) - the very rows `GET /locations/{key}/rotation` answers for the same bed and year.
+
+    Beds are listed in name order, at most 500 of them, paged by `offset`/`limit`; `total` is the bed count after
+    that cap (the paging basis), `truncated` says the site holds more than 500 beds. A bed the rotation check is off
+    for (`rotation_exempt` or switched off) is listed with `rotation_applicable: false` and its reason. History before
+    a bed's `rotation_reset_at` is left out. The columns run from `years` back to two years ahead: the runs still
+    planned at a bed (`source: planned`) fill the current and the future years, never a year and season in which
+    something already stood. The default `years` is read from the beds of the page - pass the `years` of the first
+    answer when paging.
+    """
+    matrix = service.rotation_matrix(
+        key, tenant_key=ctx.tenant_key, years=years, offset=pagination.offset, limit=pagination.limit
+    )
+    columns = list(range(matrix.from_year, matrix.to_year + 1))
+    beds: list[RotationMatrixBedResponse] = []
+    for bed in matrix.beds:
+        beds.append(
+            RotationMatrixBedResponse(
+                location_key=bed.location_key,
+                name=bed.name,
+                rotation_applicable=bed.applicable,
+                not_applicable_reason=bed.not_applicable_reason,
+                rotation_reset_at=bed.rotation_reset_at,
+                cells=rotation_year_responses(bed.entries, columns),
+            )
+        )
+    return RotationMatrixResponse(
+        site_key=matrix.site_key,
+        years=matrix.years,
+        columns=columns,
+        total=matrix.total,
+        truncated=matrix.truncated,
+        offset=matrix.offset,
+        limit=matrix.limit,
+        beds=beds,
+    )
+
+
+#: Headers of a downloadable SVG (GP-NFR-052 (e)): never rendered inline by the browser, never sniffed into
+#: another type, and — should it be opened anyway — allowed to load nothing and run nothing. The engine emits no
+#: ``style`` element or attribute (presentation attributes only), so no ``style-src`` is granted (#2542 S-4).
+SVG_DOWNLOAD_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'",
+}
+
+
+@router.get(
+    "/{key}/plan/render.svg",
+    summary="Draw the plan as an SVG to scale",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/svg+xml": {}}, "description": "The plan; millimetre viewBox, 1 m = 1 000 units."}
+    },
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+def render_plan_svg(
+    request: Request,
+    key: _SITE_KEY,
+    options: PlanSvgOptions = Depends(plan_svg_options),
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> Response:
+    """A self-contained SVG (GP-API-006, GP-FR-143): layers as ``<g id="layer-…">``, objects with ``data-key``.
+
+    Delivered as an attachment with ``nosniff`` and a deny-all CSP. ``X-Plan-Scale`` names the scale used and
+    ``X-Plan-Suggested-Paper`` is ``a3`` when A4 would need a scale coarser than 1:200. 422 ``plan.empty`` when
+    there is nothing to draw.
+    """
+    rendered = service.render_svg(key, tenant_key=ctx.tenant_key, options=options)
+    headers = {
+        **SVG_DOWNLOAD_HEADERS,
+        "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}.svg"',
+        "X-Plan-Scale": f"1:{rendered.scale}",
+    }
+    if rendered.suggest_a3:
+        headers["X-Plan-Suggested-Paper"] = "a3"
+    return Response(content=rendered.svg, media_type="image/svg+xml", headers=headers)
+
+
+@router.get(
+    "/{key}/plan/export",
+    response_model=GardenPlanExport,
+    summary="Back up the plan structure as JSON",
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+def export_plan(
+    request: Request,
+    key: _SITE_KEY,
+    selection: tuple[ExportScope, list[str]] = Depends(plan_export_selection),
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> Response:
+    """Site plan, locations with geometry and soil profile, garden objects and slots, ``schema_version: "1"``
+    (GP-API-004, GP-FR-140). No plants, tasks, care events or photos, and no ``*_by`` or account reference.
+
+    ``scope`` (GP-FR-172): ``site`` (default) is the whole plan, ``selection`` exactly the beds named in ``keys``
+    (a garden object as ``object:<key>``), ``subtree`` the named beds with everything below them. A partial file
+    carries no plan settings and holds every reference that leaves it as ``null``. Readable by every role, like the
+    whole-site backup (it is a subset of it, nothing more). A key the site does not hold is a 404.
+
+    Delivered as an attachment: it is a file to keep, and the same data is part of the GDPR export.
+    """
+    scope, keys = selection
+    document = service.export_json(key, tenant_key=ctx.tenant_key, scope=scope, keys=keys)
+    suffix = "" if scope == "site" else f"-{scope}"
+    return Response(
+        content=document.model_dump_json(),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="garden-plan-{safe_filename_part(key)}{suffix}.json"',
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+#: The path of the import below the API prefix, as the ASGI layer sees it. The body ceiling of the import (5 MB for
+#: the file, GP-NFR-051) is matched on it - see ``app.main._route_body_ceilings``.
+PLAN_IMPORT_PATH_PATTERN = r"/t/[^/]+/sites/[^/]+/plan/import"
+PLAN_IMPORT_MAX_BODY_BYTES = MAX_IMPORT_BYTES + IMPORT_ENVELOPE_BYTES
+
+
+@router.post(
+    "/{key}/plan/import",
+    response_model=PlanImportResponse,
+    summary="Restore a plan from a JSON backup (dry run, snapshot, replace or merge)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"application/json": {"schema": request_body_schema(PlanImportRequest)}},
+        }
+    },
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+async def import_plan(
+    request: Request,
+    key: _SITE_KEY,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> PlanImportResponse:
+    """Lead only (SR-010). The body is read **here**, after authentication, the role gate and the rate limit, so an
+    anonymous or under-privileged caller never makes the server buffer up to 5 MB (GP-NFR-051).
+
+    `dry_run: true` checks the file and answers `would_create` / `would_update` / `would_delete`,
+    `dropped_references[]` and `errors[]`; nothing is written. `replace` writes the plan it overwrites into the
+    change log first, needs `confirm_site_name`, and refuses with 409 `import.not_empty` while a bed holds an active
+    plant (`force` lifts that, and those beds then stay). Keys of the file are never kept (GP-NFR-051).
+    """
+    raw = await read_bounded_body(request, PLAN_IMPORT_MAX_BODY_BYTES)
+    try:
+        # Up to 5 MB of JSON: parsed off the event loop, like the import itself (#2542 S-2).
+        envelope = await run_in_threadpool(PlanImportRequest.model_validate_json, raw)
+    except PydanticValidationError as exc:
+        raise ValidationError(
+            "The import request is invalid.",
+            details=[
+                {
+                    "field": ".".join(str(part) for part in error["loc"]) or "request",
+                    "reason": error["type"],
+                    "code": "validation.invalid",
+                }
+                for error in exc.errors()[:20]
+            ],
+        ) from None
+    report = await run_in_threadpool(
+        service.import_plan,
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        mode=envelope.mode,
+        dry_run=envelope.dry_run,
+        force=envelope.force,
+        confirm_site_name=envelope.confirm_site_name,
+        document=envelope.document,
+        target=envelope.target,
+        offset_m=envelope.offset_m,
+    )
+    # WP 8.18: the photos of the beds a replace deleted go after the commit, unless something else names them.
+    await service.release_photos(report, tenant_key=ctx.tenant_key)
+    return PlanImportResponse(**report.model_dump())
+
+
+#: What the OpenAPI document shows as the body of the CSV bed list import: the file itself, not a JSON envelope.
+_BED_CSV_EXAMPLE = "Name;Typ;Breite_m;Länge_m;Sonne;Bodenart;Zone\r\nHochbeet 1;Hochbeet;2,0;1,2;Volle Sonne;Lehm;\r\n"
+#: The content types a bed list may arrive as (SEC-006): ``text/csv``, and what browsers send for a ``.csv`` file on
+#: systems that map it otherwise (``text/plain``; ``application/vnd.ms-excel`` on Windows with Office). Parameters
+#: (``; charset=utf-8``) are ignored - the encoding rule is the import's own.
+BED_CSV_MEDIA_TYPES: tuple[str, ...] = ("text/csv", "text/plain", "application/vnd.ms-excel")
+#: The per-tenant bucket of the CSV bed list import (GP-NFR-056, SEC-003).
+PLAN_CSV_IMPORT_TENANT_SCOPE = "garden_plan_csv_import_tenant"
+
+
+def _bed_csv_media_type(content_type: str) -> bool:
+    media_type = content_type.partition(";")[0].strip().lower()
+    return media_type in BED_CSV_MEDIA_TYPES
+
+
+@router.post(
+    "/{key}/beds/import-csv",
+    response_model=BedCsvImportResponse,
+    summary="Create beds from a CSV bed list (dry run first, lead only)",
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **VALIDATION_RESPONSE,
+        413: {"description": "The file is larger than 1 MiB (`REQUEST_BODY_TOO_LARGE`)."},
+        415: {"description": "The body is no CSV file (`UNSUPPORTED_MEDIA_TYPE`)."},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {"text/csv": {"schema": {"type": "string"}, "example": _BED_CSV_EXAMPLE}},
+        }
+    },
+)
+@limiter.limit(settings.rate_limit_plan_csv_import, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_csv_import_tenant, scope=PLAN_CSV_IMPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+async def import_beds_csv(
+    request: Request,
+    key: _SITE_KEY,
+    dry_run: Annotated[bool, Query(description="Check the file and report; write nothing. Default `true`.")] = True,
+    expected_revision: Annotated[
+        int | None,
+        Query(ge=0, description="The `plan_revision` of the dry run; a plan changed since then is a 409."),
+    ] = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: BedCsvImportService = Depends(get_bed_csv_import_service),
+) -> BedCsvImportResponse:
+    """GP-FR-174 (WP 8.26). The body is the file (`text/csv`): UTF-8 (a BOM is tolerated), `;` as delimiter, a header
+    row with `Name;Typ;Breite_m;Länge_m` and optionally `Sonne`, `Bodenart`, `Zone`; at most 1 MiB and
+    500 rows (422 `plan.quota_exceeded`, also when the site would exceed its 500 beds and objects).
+    Numbers take a decimal comma or point (`2,5` = `2.5`). `Typ` is a bed type by key, German or English name;
+    `Sonne`/`Bodenart` a value or its German/English label; `Zone` the name of an irrigation zone of the site. A
+    leading formula character (`= + - @`, tab, CR) of a text cell is discarded and reported as a warning (SR-016).
+
+    Lead only (403); rate limited per account and per tenant. The body is read **here**, after authentication, the
+    role gate, the rate limits and the site's ownership (404 for a foreign or absent site); a content type other than
+    `text/csv`, `text/plain` or `application/vnd.ms-excel` is a 415. A file that cannot be read at all is a 422
+    (`csv.invalid_encoding`, `csv.invalid_delimiter`, `csv.empty`, `csv.malformed`, `csv.too_many_columns`,
+    `csv.missing_column`, `csv.duplicate_column`); a placement past the batch's time budget is a 422
+    `batch.too_complex`. Every other problem is a line error in the report and the line
+    is skipped. The beds are placed as `rect`s in rows from the top-left corner of the boundary, 0.5 m apart, and go
+    through the batch path (containment, overlap, quota, revision, change log). `dry_run=false` writes the valid
+    lines in one transaction and answers their new keys.
+    """
+    await run_in_threadpool(service.check_site, key, tenant_key=ctx.tenant_key)
+    if not _bed_csv_media_type(request.headers.get("content-type", "")):
+        raise UnsupportedMediaTypeError(list(BED_CSV_MEDIA_TYPES))
+    raw = await read_bounded_body(request, MAX_CSV_BYTES)
+    report = await run_in_threadpool(
+        service.import_beds,
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        content=raw,
+        dry_run=dry_run,
+        expected_revision=expected_revision,
+    )
+    return BedCsvImportResponse(**report.model_dump())
+
+
+@router.get(
+    "/{key}/plan/snapshots",
+    response_model=list[PlanSnapshotResponse],
+    summary="The plans earlier replace imports overwrote (lead only)",
+    responses={**FORBIDDEN_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+def list_plan_snapshots(
+    request: Request,
+    key: _SITE_KEY,
+    pagination: PaginationParams = Depends(get_pagination),
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> list[PlanSnapshotResponse]:
+    """Newest first, bounded by the page. Counts of what each snapshot holds, never the plan itself. Lead only
+    (GP-FR-148): a snapshot is the whole structure of the garden. Kept for the audit retention (R-26, one year)."""
+    entries = service.list_snapshots(
+        key, tenant_key=ctx.tenant_key, role=ctx.role, offset=pagination.offset, limit=pagination.limit
+    )
+    return [to_response(entry, PlanSnapshotResponse) for entry in entries]
+
+
+@router.post(
+    "/{key}/plan/snapshots/{audit_key}/restore",
+    response_model=PlanImportResponse,
+    summary="Put a snapshot back (a replace with the stored plan; writes its own snapshot first)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+async def restore_plan_snapshot(
+    request: Request,
+    key: _SITE_KEY,
+    audit_key: Annotated[str, Path(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_\-:.@+]+$")],
+    body: PlanSnapshotRestoreRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanImportService = Depends(get_garden_plan_import_service),
+) -> PlanImportResponse:
+    """Lead only. The stored plan goes through the checks of an uploaded file and is written as a `replace`: the
+    state it overwrites is written as a snapshot first, so a restore can itself be restored. `dry_run` answers
+    what would change. 404 for a snapshot of another site or tenant, 409 `import.not_empty` while a bed holds an
+    active plant (`force` lifts that, those beds then stay), 422 `import.site_name_mismatch` without the site name.
+    The photos of the beds the restore removes are deleted afterwards unless something else still names them."""
+    report = await run_in_threadpool(
+        service.restore_snapshot,
+        key,
+        audit_key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        dry_run=body.dry_run,
+        force=body.force,
+        confirm_site_name=body.confirm_site_name,
+    )
+    await service.release_photos(report, tenant_key=ctx.tenant_key)
+    return to_response(report, PlanImportResponse)
+
+
+@router.post(
+    "/{key}/plan/new-season",
+    response_model=PlanSeasonResponse,
+    summary="New season from the previous year: last year's slot places as free slots (lead only)",
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+@limiter.limit(settings.rate_limit_plan_import, key_func=tenant_rate_limit_key)
+def new_plan_season(
+    request: Request,
+    key: _SITE_KEY,
+    body: PlanSeasonRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    _budget: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanSeasonService = Depends(get_garden_plan_season_service),
+) -> PlanSeasonResponse:
+    """GP-FR-171, same site, lead only. Per bed without an active plant, the slot places of the runs that ended in
+    `year - 1` are re-created as unoccupied slots (`geometry_source: season_copy`); a bed with an active plant (or a
+    retired one) is skipped and listed. Zones are not touched, no plant and no run is created, history and rotation
+    hints stay as they are. One transaction with the revision check and an audit row; a bed ends at 2 000 slots.
+    `dry_run` (the default) answers the same report and writes nothing; `expected_revision` makes a plan changed in
+    between a 409."""
+    report = service.new_season(
+        key,
+        tenant_key=ctx.tenant_key,
+        user_key=ctx.user_key,
+        role=ctx.role,
+        year=body.year,
+        dry_run=body.dry_run,
+        expected_revision=body.expected_revision,
+    )
+    return to_response(report, PlanSeasonResponse)

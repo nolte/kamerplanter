@@ -33,26 +33,29 @@ describe('ApiError', () => {
     expect(isApiError(new Error('test'))).toBe(false);
   });
 
-  it('parseApiError extracts message', () => {
+  // FRONTEND.md §10.3 / #3013: the stable code decides, the English `message` never comes back.
+  const t = (key: string) => `t:${key}`;
+
+  it('parseApiError resolves the error code, not the English message', () => {
     const err = new ApiError(errorResponse, 422);
-    expect(parseApiError(err)).toBe('The input data is invalid.');
+    expect(parseApiError(err, t)).toBe('t:errors.validation');
   });
 
-  it('parseApiError handles plain Error', () => {
-    expect(parseApiError(new Error('network fail'))).toBe('network fail');
+  it('parseApiError maps a plain Error to the generic fallback, not its message', () => {
+    expect(parseApiError(new Error('network fail'), t)).toBe('t:errors.generic');
   });
 
-  it('parseApiError handles unknown', () => {
-    expect(parseApiError('string error')).toBe('An unknown error occurred.');
+  it('parseApiError handles unknown input with the generic fallback', () => {
+    expect(parseApiError('string error', t)).toBe('t:errors.generic');
   });
 
-  it('parseApiError handles Redux serialized error (plain object with message)', () => {
-    const serialized = { name: 'ApiError', message: 'Invalid email or password.' };
-    expect(parseApiError(serialized)).toBe('Invalid email or password.');
+  it('parseApiError reads the code of a Redux serialized error and ignores its message', () => {
+    const serialized = { name: 'ApiError', message: 'Invalid email or password.', code: 'ENTITY_NOT_FOUND' };
+    expect(parseApiError(serialized, t)).toBe('t:errors.notFound');
   });
 
-  it('parseApiError rejects empty message in plain object', () => {
-    expect(parseApiError({ message: '' })).toBe('An unknown error occurred.');
+  it('parseApiError ignores the message of a serialized error without a code', () => {
+    expect(parseApiError({ message: 'English text' }, t)).toBe('t:errors.generic');
   });
 
   it('getFieldErrors maps body. fields correctly', () => {

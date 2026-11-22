@@ -24,7 +24,7 @@ TENANT_KEY = "tenant-a"
 
 
 def _fake_slot(slot_id: str, key: str):
-    return SimpleNamespace(slot_id=slot_id, key=key, currently_occupied=False)
+    return SimpleNamespace(slot_id=slot_id, key=key, currently_occupied=False, archived_at=None)
 
 
 def _planned_run(tenant_key: str = TENANT_KEY) -> PlantingRun:

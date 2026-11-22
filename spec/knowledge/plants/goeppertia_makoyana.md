@@ -118,6 +118,22 @@
 **Hinweis Physiologie:** Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) wurde für *C. makoyana* mit ca. 50 µmol/m²/s gemessen (Tang et al. 2018, PMC5877565); der untere Spannenwert (~5) reflektiert die für schattentolerante Regenwald-Unterholz-Herben (understory) typische Untergrenze. Der **Lichtsättigungspunkt** (light saturation point) liegt bei ca. 400 µmol/m²/s — dieser Wert gehört NICHT ins Kompensationspunkt-Feld und ist hier nur als Freitext-Orientierung genannt. Salztoleranz: UF/IFAS stuft die Salztoleranz als "poor" ein (= sensitive); regelmäßiges Durchspülen des Substrats und Verwendung von Regen-/destilliertem Wasser sind zur Vermeidung von Salzakkumulation und Blattrandnekrosen erforderlich.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Goeppertia makoyana" (Position: Partial shade; unter Glas „indirect or filtered light"), https://www.rhs.org.uk/plants/357223/goeppertia-makoyana/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -351,3 +367,4 @@ Goeppertia makoyana,"Pfauenpflanze;Korbmarante;Peacock Plant;Cathedral Windows",
 11. [PSU Extension — Hydroponics Systems and Principles Of Plant Nutrition](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Referenzspannen (Mn/Zn/Cu/Mo) für Nährlösungen
 12. [Oxford Academic, Ann. Bot. (2020) — PAR und R:FR unter Bestandes-Beschattung](https://academic.oup.com/aob/article/126/4/635/5650896) — Far-Red-Anreicherung / niedriges R:FR im Unterholz (Far-Red-Fraction-Begründung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. [RHS — Goeppertia makoyana (Plant Details)](https://www.rhs.org.uk/plants/357223/goeppertia-makoyana/details) — Position: Partial shade

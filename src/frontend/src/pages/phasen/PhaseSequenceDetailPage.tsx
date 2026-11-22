@@ -53,8 +53,11 @@ import { useApiError } from '@/hooks/useApiError';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
+import type { PhaseSequenceSpecies } from '@/api/endpoints/phaseSequences';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import type { PhaseSequence, PhaseSequenceEntry } from '@/api/types';
 import PhaseSequenceEntryDialog from './PhaseSequenceEntryDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const cycleTypes = ['annual', 'biennial', 'perennial'] as const;
 
@@ -136,6 +139,7 @@ function EditSequenceDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="edit-sequence-dialog-title"
+      data-testid="edit-sequence-dialog"
     >
       <DialogTitle id="edit-sequence-dialog-title">
         {t('pages.phaseSequences.editSequence')}
@@ -245,6 +249,7 @@ function CloneSequenceDialog({
       maxWidth="sm"
       fullWidth
       aria-labelledby="clone-sequence-dialog-title"
+      data-testid="clone-sequence-dialog"
     >
       <DialogTitle id="clone-sequence-dialog-title">
         {t('pages.phaseSequences.duplicateSequence')}
@@ -301,7 +306,7 @@ export default function PhaseSequenceDetailPage() {
   // creates another row in the same shared catalogue.
   const canCurate = useCanEditInstallationCatalogue();
   const { isReadOnly, canCopyAsTemplate } = useOriginProtection({ isSystem: sequence?.is_system });
-  const [linkedSpecies, setLinkedSpecies] = useState<{ key: string; scientific_name: string; common_names: string[] }[]>([]);
+  const [linkedSpecies, setLinkedSpecies] = useState<PhaseSequenceSpecies[]>([]);
   const [showAllSpecies, setShowAllSpecies] = useState(false);
 
   const visibleSpecies = useMemo(
@@ -316,7 +321,11 @@ export default function PhaseSequenceDetailPage() {
       setError(null);
       const [data, species] = await Promise.all([
         phaseSequenceApi.getPhaseSequence(key),
-        phaseSequenceApi.listSpeciesForSequence(key).catch(() => []),
+        phaseSequenceApi.listSpeciesForSequence(key).catch((err: unknown) => {
+          // The linked-species list is secondary; the sequence itself renders without it.
+          captureHandledError(err, { source: 'PhaseSequenceDetailPage.linkedSpecies' });
+          return [];
+        }),
       ]);
       setSequence(data);
       setLinkedSpecies(species);
@@ -537,19 +546,22 @@ export default function PhaseSequenceDetailPage() {
               {t('pages.phaseSequences.usedBySpecies')} ({linkedSpecies.length})
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-              {visibleSpecies.map((sp) => (
+              {visibleSpecies.map((sp) => {
+                const common = getLocalizedCommonName(sp, i18n.language);
+                return (
                 <Chip
                   key={sp.key}
                   component={RouterLink}
                   to={`/stammdaten/species/${sp.key}`}
                   icon={<LocalFloristIcon />}
-                  label={sp.common_names[0] ? `${sp.scientific_name} (${sp.common_names[0]})` : sp.scientific_name}
+                  label={common && common !== sp.scientific_name ? `${sp.scientific_name} (${common})` : sp.scientific_name}
                   clickable
                   variant="outlined"
                   size="small"
                   sx={{ maxWidth: { xs: 200, sm: 'none' } }}
                 />
-              ))}
+                );
+              })}
             </Box>
             {linkedSpecies.length > 5 && (
               <Button

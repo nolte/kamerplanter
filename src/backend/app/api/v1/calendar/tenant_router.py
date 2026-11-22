@@ -24,6 +24,7 @@ from app.api.v1.calendar.schemas import (
 from app.common.auth import get_current_tenant, require_permission
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_calendar_service
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
@@ -178,11 +179,17 @@ def get_sowing_calendar(
     site_id: str | None = Query(default=None, description="Restrict the calendar to a single site."),
     year: int = Query(default=None, description="Calendar year; defaults to the current year."),
     ctx: TenantContext = Depends(get_current_tenant),
+    language: str = Depends(get_request_locale),
 ) -> SowingCalendarResponse:
-    """Return the sowing calendar with per-species phase bars for a year."""
+    """Return the sowing calendar with per-species phase bars for a year.
+
+    ``common_name`` follows the request's language (``Accept-Language``, #2902).
+    """
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    entries, frost_config = svc.get_sowing_calendar(site_id, effective_year, tenant_key=ctx.tenant_key)
+    entries, frost_config = svc.get_sowing_calendar(
+        site_id, effective_year, tenant_key=ctx.tenant_key, language=language
+    )
     return SowingCalendarResponse(
         entries=[
             SowingCalendarEntrySchema(
@@ -218,11 +225,12 @@ def get_season_overview(
     site_id: str | None = Query(default=None, description="Restrict the overview to a single site."),
     year: int = Query(default=None, description="Calendar year; defaults to the current year."),
     ctx: TenantContext = Depends(get_current_tenant),
+    language: str = Depends(get_request_locale),
 ) -> SeasonOverviewResponse:
-    """Return a month-by-month season overview with activity counts."""
+    """Return a month-by-month season overview with activity counts; species labels follow the request's language."""
     svc: CalendarService = get_calendar_service()
     effective_year = year if year else _default_calendar_year()
-    overview = svc.get_season_overview(site_id, effective_year, tenant_key=ctx.tenant_key)
+    overview = svc.get_season_overview(site_id, effective_year, tenant_key=ctx.tenant_key, language=language)
     return SeasonOverviewResponse(
         site_key=overview.site_key,
         site_name=overview.site_name,

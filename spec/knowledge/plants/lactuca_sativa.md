@@ -154,6 +154,22 @@ Hinweis: Die Keimtemperatur-Obergrenze (25 degC, Thermodormanz) und der Lichtkei
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Lettuce: 600--1200 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern, Merkblatt 2111 „Fruchtfolge für Gemüsebeete" (2016), Eintrag „Salate" 30 cm Reihenabstand / 30 cm Abstand in der Reihe, https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Lactuca sativa" (Position: Full sun), https://www.rhs.org.uk/plants/106151/lactuca-sativa/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -457,6 +473,11 @@ Nicht anwendbar als typische Winterkultur. Winterkopfsalat (spezielle Sorten) ka
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae), Gruenduengung -- lockerer, stickstoffreicher Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Radieschen, Feldsalat) oder Starkzehrer nach Kompostgabe |
 | Anbaupause (Jahre) | 2 Jahre fuer Asteraceae auf gleicher Flaeche (Falscher Mehltau, Nematoden) |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (2022), Tabelle 2 (Kopfsalat: Mittelzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen" (2020; Salate: Mittelstarkzehrer), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Schmetterlingsblütler als eigene Familie, Salat unter Korbblütler, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3; Südtiroler Bauernbund 2022 nennt für Korbblütler/Lactuca-Salate ebenfalls 3 Jahre) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -555,4 +576,8 @@ Batavia 'Grazer Krauthaeuptel',Lactuca sativa,,,heat_tolerant;heirloom,60,,open_
 23. whyfarmit.com -- Best Nutrients for Hydroponic Lettuce (Mikronaehrstoff-ppm-Bereiche): https://whyfarmit.com/hydroponic-lettuce-nutrients/
 24. University of Maryland Extension -- Growing Lettuce in a Home Garden (Halbschatten-Toleranz): https://extension.umd.edu/resource/growing-lettuce-home-garden
 25. Nature -- Natural Cross-Pollination in Lettuce, Lactuca sativa L. (Selbstbefruchter, Fremdbefruchtung < 5%): https://www.nature.com/articles/1811084a0
+26. LWG Bayern -- Merkblatt 2111 „Fruchtfolge für Gemüsebeete" (2016; Pflanz- und Reihenabstand Salate): https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/2111-2016.pdf
+27. Südtiroler Bauernbund -- Merkblatt „Fruchtfolgen im Gemüsebau" (2022; Zehrergruppen, Anbaupausen): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+28. Landwirtschaftskammer NRW -- „Fruchtfolge im Gemüsegarten planen" (2020; Zehrergruppen): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
+29. RHS -- Lactuca sativa (Position: Full sun): https://www.rhs.org.uk/plants/106151/lactuca-sativa/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

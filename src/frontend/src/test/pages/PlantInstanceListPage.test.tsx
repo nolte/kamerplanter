@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import PlantInstanceListPage from '@/pages/pflanzen/PlantInstanceListPage';
+import { ENRICHMENT_CONCURRENCY } from '@/api/requestLimiter';
 import { renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
 
@@ -214,6 +215,18 @@ describe('PlantInstanceListPage', () => {
       expect(screen.getAllByText('Spring Batch').length).toBeGreaterThan(0);
     });
 
+    it('links the planting-run chip to the run detail route, and the row does not follow too (#3047)', async () => {
+      const user = userEvent.setup();
+      const { router } = renderWithProviders(<PlantInstanceListPage />);
+
+      await user.click(await screen.findByRole('switch'));
+      const chip = (await screen.findAllByText('Spring Batch'))[0].closest('a');
+      // `/durchlaeufe/<key>` matched no route; the detail lives under `planting-runs`.
+      expect(chip).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
+      await user.click(chip!);
+      expect(router.state.location.pathname).toBe('/durchlaeufe/planting-runs/run-1');
+    });
+
     it('searches the table, exercising the column search predicates', async () => {
       const user = userEvent.setup();
       renderWithProviders(<PlantInstanceListPage />);
@@ -248,6 +261,166 @@ describe('PlantInstanceListPage', () => {
       await user.click(phaseHeader);
       // Sorting must not remove the row
       expect(screen.getAllByText('Removed One').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('with more plants than one API page (#3032)', () => {
+    /** 200 old plants fill the first page; the newest plant sits on page 2. */
+    function plantAt(index: number, overrides: Record<string, unknown> = {}) {
+      return {
+        ...richPlant,
+        key: `plant-${String(index).padStart(4, '0')}`,
+        instance_id: `OLD-${index}`,
+        plant_name: `Old Plant ${index}`,
+        slot_key: null,
+        location_key: null,
+        cultivar_key: null,
+        planted_on: '2024-01-01',
+        removed_on: null,
+        current_phase: 'vegetative',
+        ...overrides,
+      };
+    }
+    const allPlants = [
+      ...Array.from({ length: 200 }, (_v, i) => plantAt(i)),
+      plantAt(200, { instance_id: 'NEW-201', plant_name: 'Newest Plant', planted_on: '2026-11-01' }),
+    ];
+
+    function pagedResponse(request: Request) {
+      // Mirrors the backend window: `_key` ascending, sliced by offset/limit.
+      const url = new URL(request.url);
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const limit = Number(url.searchParams.get('limit') ?? 50);
+      return HttpResponse.json(allPlants.slice(offset, offset + limit));
+    }
+
+    beforeEach(() => {
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', ({ request }) => pagedResponse(request)),
+        http.get('/api/v1/plant-instances', ({ request }) => pagedResponse(request)),
+      );
+    });
+
+    it('lists a plant that only the second page returns', async () => {
+      renderWithProviders(<PlantInstanceListPage />);
+      expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+    });
+
+    it('renders after the first page while later pages still load', async () => {
+      // Hold every page past the first until the test releases it: the list must
+      // not wait for the complete set before it renders (#3032).
+      let releaseLaterPages: () => void = () => {};
+      const laterPages = new Promise<void>((resolve) => {
+        releaseLaterPages = resolve;
+      });
+      const gatedResponse = async ({ request }: { request: Request }) => {
+        if (Number(new URL(request.url).searchParams.get('offset') ?? 0) > 0) await laterPages;
+        return pagedResponse(request);
+      };
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', gatedResponse),
+        http.get('/api/v1/plant-instances', gatedResponse),
+      );
+
+      try {
+        renderWithProviders(<PlantInstanceListPage />);
+
+        // First page on screen, the loading-more hint up, page 2 not yet there.
+        expect((await screen.findAllByText(/^OLD-\d+$/)).length).toBeGreaterThan(0);
+        expect(screen.getByText(/Weitere Pflanzen werden geladen/)).toBeTruthy();
+        expect(screen.queryByText('Newest Plant')).toBeNull();
+
+        releaseLaterPages();
+
+        expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+        await waitFor(() => {
+          expect(screen.queryByText(/Weitere Pflanzen werden geladen/)).toBeNull();
+        });
+      } finally {
+        releaseLaterPages();
+      }
+    });
+  });
+
+  describe('slot enrichment fan-out (#3032)', () => {
+    const SLOT_COUNT = 12;
+
+    /** Plants that each sit in their own slot, so the page resolves SLOT_COUNT slots. */
+    const slottedPlants = Array.from({ length: SLOT_COUNT }, (_, i) => ({
+      ...richPlant,
+      key: `slotted-${i}`,
+      instance_id: `SLOT-${i}`,
+      plant_name: `Slotted ${i}`,
+      cultivar_key: null,
+      slot_key: `slot-${i}`,
+      removed_on: null,
+    }));
+
+    /** Holds every slot read until the test releases it, recording how many ran at once. */
+    function gateSlotReads() {
+      const stats = { started: 0, inFlight: 0, maxInFlight: 0 };
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const slotResponse = async ({ params }: { params: Record<string, string | readonly string[] | undefined> }) => {
+        stats.started += 1;
+        stats.inFlight += 1;
+        stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
+        await released;
+        stats.inFlight -= 1;
+        return HttpResponse.json({ key: params.key, location_key: 'loc-1', slot_id: String(params.key) });
+      };
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', () => HttpResponse.json(slottedPlants)),
+        http.get('/api/v1/plant-instances', () => HttpResponse.json(slottedPlants)),
+        http.get('/api/v1/t/:tenant/slots/:key', slotResponse),
+        http.get('/api/v1/slots/:key', slotResponse),
+      );
+      return { stats, release };
+    }
+
+    it('never holds more than ENRICHMENT_CONCURRENCY slot reads at once', async () => {
+      const { stats, release } = gateSlotReads();
+      try {
+        renderWithProviders(<PlantInstanceListPage />);
+        await screen.findByText('SLOT-0');
+        await waitFor(() => expect(stats.started).toBeGreaterThan(0));
+        // Give a fan-out that ignores the limit every chance to fire the rest.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(stats.maxInFlight).toBeLessThanOrEqual(ENRICHMENT_CONCURRENCY);
+        expect(stats.started).toBeLessThan(SLOT_COUNT);
+
+        release();
+        await waitFor(() => expect(stats.started).toBe(SLOT_COUNT));
+        // A second fan-out over the same slots would only show after the first one is through.
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(stats.started).toBe(SLOT_COUNT);
+        expect(stats.maxInFlight).toBeLessThanOrEqual(ENRICHMENT_CONCURRENCY);
+      } finally {
+        release();
+      }
+    });
+
+    it('starts no queued slot read once the page has unmounted', async () => {
+      const { stats, release } = gateSlotReads();
+      try {
+        const { unmount } = renderWithProviders(<PlantInstanceListPage />);
+        await screen.findByText('SLOT-0');
+        await waitFor(() => expect(stats.started).toBeGreaterThan(0));
+        const startedBeforeUnmount = stats.started;
+        // Some reads are still queued, so the unmount has something to drop.
+        expect(startedBeforeUnmount).toBeLessThan(SLOT_COUNT);
+
+        unmount();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        expect(stats.started).toBe(startedBeforeUnmount);
+      } finally {
+        release();
+      }
     });
   });
 

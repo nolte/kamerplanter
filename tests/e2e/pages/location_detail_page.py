@@ -40,8 +40,8 @@ class LocationDetailPage(BasePage):
 
     # ── Slot sub-section ───────────────────────────────────────────────
     # DataTable rows — there may be multiple DataTables on the page (slots + watering)
-    # We select all data-table-row elements; slots table appears first.
-    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    # We select all DataTable rows ([data-row-key]); slots table appears first.
+    DATA_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     CREATE_WATERING_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-button']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
@@ -129,7 +129,7 @@ class LocationDetailPage(BasePage):
     # ── Slot sub-section ───────────────────────────────────────────────
 
     def get_all_table_row_count(self) -> int:
-        """Return total count of data-table-row elements on page (slots + watering)."""
+        """Return total count of DataTable rows ([data-row-key]) on page (slots + watering)."""
         rows = self.driver.find_elements(*self.DATA_TABLE_ROWS)
         return len(rows)
 

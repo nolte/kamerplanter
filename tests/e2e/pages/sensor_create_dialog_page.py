@@ -65,7 +65,7 @@ class SensorCreateDialogPage(BasePage):
         return bool(elements) and elements[0].is_displayed()
 
     def close_via_cancel(self) -> None:
-        self.wait_and_click(self.CANCEL_BUTTON)
+        self.cancel_form_dialog(self.CANCEL_BUTTON)
         self.wait_for_element_hidden(self.DIALOG)
 
     # ── Form interactions ─────────────────────────────────────────────────
@@ -126,14 +126,14 @@ class SensorCreateDialogPage(BasePage):
         Returns None when no row matches.  Used to verify the new sensor
         appears in the parent page's sensor table after save.
         """
-        rows = self.driver.find_elements(By.CSS_SELECTOR, "[data-testid='data-table-row']")
+        rows = self.driver.find_elements(By.CSS_SELECTOR, "[data-row-key]")
         for row in rows:
             if sensor_name in row.text:
                 return row
         return None
 
     def wait_for_row_containing(self, text: str, timeout: int = 15) -> bool:
-        """Wait until any ``data-table-row`` on the page contains *text*.
+        """Wait until any DataTable row (``[data-row-key]``) on the page contains *text*.
 
         Returns True once found; raises TimeoutException if *timeout* elapses.
         Used to verify a newly created sensor appears in the parent page's

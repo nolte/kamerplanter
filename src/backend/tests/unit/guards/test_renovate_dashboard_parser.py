@@ -881,7 +881,7 @@ class TestEveryImagePinIsReadBySomeManager:
         for expected in (
             ".github/workflows/security-zap-postmerge.yml",
             ".github/workflows/security-zap-nightly.yml",
-            ".taskfiles/checks.yaml",
+            ".pins/images.yaml",
         ):
             assert expected in pinning_files, f"{expected} is no longer in the swept corpus"
 
@@ -992,10 +992,14 @@ class TestEveryImagePinIsReadBySomeManager:
         assert check.unmanaged_image_pins(root) == [".github/workflows/scan.yml:6"]
 
     def test_the_taskfiles_are_in_the_corpus_too(self, tmp_path: Path) -> None:
-        """S3 of the review: the manager reads `.taskfiles/`, so the sweep does.
+        """S3 of the review: an unmarked pin added back to `.taskfiles/` is found.
 
-        The real `.taskfiles/checks.yaml` pin is covered, which is what makes
-        this case a measurement rather than a claim about globs.
+        The Taskfile pins moved to `.pins/images.yaml` with #2581 and the
+        manager no longer reads `.taskfiles/`, but the sweep keeps it in its
+        corpus: a pin someone writes there again, without the marker, is still
+        a pin nothing ages. (A MARKED one there is refused by
+        `test_no_renovate_pin_in_taskfiles.py`, because this sweep judges the
+        marker shape, not the manager's file patterns.)
         """
         taskfiles = tmp_path / ".taskfiles"
         taskfiles.mkdir()
@@ -1003,6 +1007,23 @@ class TestEveryImagePinIsReadBySomeManager:
         (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
 
         assert check.unmanaged_image_pins(tmp_path) == [".taskfiles/checks.yaml:2"]
+
+    def test_the_pin_files_are_in_the_corpus_too(self, tmp_path: Path) -> None:
+        """`.pins/` is where the Taskfile targets' pins live since #2581.
+
+        A marked pin there is read; an unmarked one beside it is a finding —
+        the pair proves the directory is swept rather than skipped.
+        """
+        pins = tmp_path / ".pins"
+        pins.mkdir()
+        (pins / "images.yaml").write_text(
+            "# renovate: datasource=docker depName=renovate/renovate\n"
+            "RENOVATE_IMAGE: renovate/renovate:44.103.2@sha256:" + "e" * 64 + "\n"
+            "OTHER_IMAGE: ghcr.io/hadolint/hadolint:v2.15.1@sha256:" + "f" * 64 + "\n"
+        )
+        (tmp_path / "renovate.json5").write_text((_REPO_ROOT / "renovate.json5").read_text())
+
+        assert check.unmanaged_image_pins(tmp_path) == [".pins/images.yaml:3"]
 
     def test_a_composite_action_is_in_the_corpus_too(self, tmp_path: Path) -> None:
         """No manager reads `.github/actions/**` at all, so a pin there is worse."""
@@ -1267,6 +1288,103 @@ class TestInjectedRepositoryProblems:
             "## Open\n\n - [ ] chore(deps): update WARN-detector to v2\n\n## Detected Dependencies",
         )
         assert _report(body)["alert"] is False
+
+
+#: The line that opened #3076 on 2026-11-21, verbatim from the dashboard (#12).
+_UNDATED_RELEASE_LINE = (
+    "⚠️ WARN: Some release(s) did not have a releaseTimestamp, but as we're running with "
+    "minimumReleaseAgeBehaviour=timestamp-optional, proceeding. See debug logs for more information"
+)
+
+
+class TestTheUndatedReleaseWarningIsExpectedOnlyWhileConfigured:
+    """#3076 — Renovate's warning for ``timestamp-optional`` is the config's own consequence.
+
+    ``renovate.json5`` sets ``minimumReleaseAgeBehaviour: 'timestamp-optional'``
+    by operator decision (2026-09-24), and Renovate reports every undated
+    release it meets under ``## Repository problems``. The line is excused ONLY
+    while that value is configured, and nothing else is excused with it.
+    """
+
+    @staticmethod
+    def _with_problems(body: str, *lines: str) -> str:
+        return TestInjectedRepositoryProblems._with_problems(body, *lines)
+
+    @staticmethod
+    def _tree_with_config(tmp_path: Path, config: str) -> Path:
+        (tmp_path / "renovate.json5").write_text(config)
+        return tmp_path
+
+    @staticmethod
+    def _undated_findings(report: dict) -> list[str]:
+        return [finding for finding in report["findings"] if "releaseTimestamp" in finding]
+
+    def test_the_checkout_really_configures_timestamp_optional(self) -> None:
+        """The premise of the green case below, measured on the real config."""
+        assert check._timestamp_optional_configured(_REPO_ROOT) is True
+
+    def test_the_line_from_3076_does_not_alert_with_the_real_config(self, healthy_body: str) -> None:
+        body = self._with_problems(healthy_body, _UNDATED_RELEASE_LINE)
+        report = _report(body)
+
+        assert report["alert"] is False, report["findings"]
+        assert report["repository_problems"] == [f"-   {_UNDATED_RELEASE_LINE}"]
+        assert report["expected_repository_warnings"] == report["repository_problems"]
+        assert "#3076" in check.render(report)
+
+    def test_timestamp_optional_in_a_scratch_tree_excuses_it(self, healthy_body: str, tmp_path: Path) -> None:
+        """Positive control for the scratch-tree cases: the same tree shape, only the value differs."""
+        root = self._tree_with_config(tmp_path, "{\n  minimumReleaseAgeBehaviour: 'timestamp-optional',\n}\n")
+        report = check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=root)
+
+        assert self._undated_findings(report) == []
+        assert len(report["expected_repository_warnings"]) == 1
+
+    @pytest.mark.parametrize(
+        "config",
+        [
+            pytest.param("{\n  minimumReleaseAgeBehaviour: 'timestamp-required',\n}\n", id="timestamp-required"),
+            pytest.param("{\n  minimumReleaseAge: '3 days',\n}\n", id="key-absent"),
+            pytest.param(
+                "{\n  // minimumReleaseAgeBehaviour: 'timestamp-optional',\n  minimumReleaseAge: '3 days',\n}\n",
+                id="commented-out",
+            ),
+        ],
+    )
+    def test_without_timestamp_optional_the_line_is_a_finding(
+        self, healthy_body: str, tmp_path: Path, config: str
+    ) -> None:
+        root = self._tree_with_config(tmp_path, config)
+        report = check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=root)
+
+        assert report["alert"] is True
+        assert report["expected_repository_warnings"] == []
+        assert self._undated_findings(report) == [
+            f"Repository problem reported by Renovate: -   {_UNDATED_RELEASE_LINE}"
+        ]
+
+    def test_another_warn_beside_it_still_alerts(self, healthy_body: str) -> None:
+        body = self._with_problems(healthy_body, _UNDATED_RELEASE_LINE, "`WARN: pip-compile error`")
+        report = _report(body)
+
+        assert report["alert"] is True
+        assert report["findings"] == ["Repository problem reported by Renovate: -   `WARN: pip-compile error`"]
+        assert len(report["expected_repository_warnings"]) == 1
+
+    def test_a_different_timestamp_warning_is_still_a_finding(self, healthy_body: str) -> None:
+        """Not a keyword match on `releaseTimestamp`: only the timestamp-optional wording is excused."""
+        other = (
+            "⚠️ WARN: Some release(s) did not have a releaseTimestamp, and as we're running with "
+            "minimumReleaseAgeBehaviour=timestamp-required, they are held"
+        )
+        report = _report(self._with_problems(healthy_body, other))
+
+        assert report["alert"] is True
+        assert report["expected_repository_warnings"] == []
+
+    def test_a_missing_config_is_undetermined_not_clean(self, healthy_body: str, tmp_path: Path) -> None:
+        with pytest.raises(check.DashboardError, match="renovate.json5 could not be read"):
+            check.build_report(self._with_problems(healthy_body, _UNDATED_RELEASE_LINE), repo_root=tmp_path)
 
 
 class TestInjectedInventoryDrift:

@@ -929,7 +929,7 @@ def _get_first_slot_key(
         return None
     location_detail.open(loc_key)
     # The location detail page has multiple DataTables — slots appear first
-    # after the form. We need at least one data-table-row to exist.
+    # after the form. We need at least one keyed DataTable row ([data-row-key]) to exist.
     all_rows = location_detail.get_all_table_row_count()
     if all_rows == 0:
         return None

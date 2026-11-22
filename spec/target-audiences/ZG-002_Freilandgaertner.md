@@ -122,7 +122,7 @@
 
 | REQ | Relevanz | Kernfunktion fuer diese Zielgruppe |
 |-----|----------|-----------------------------------|
-| REQ-001 | Hoch | Species-Felder: frost_sensitivity, sowing_dates, harvest_months, nutrient_demand_level |
+| REQ-001 | Hoch | Species-Felder: frost_sensitivity, sowing_dates, harvest_months, nutrient_demand, nitrogen_fixing |
 | REQ-002 | Kritisch | Beetplanung, CropRotationPlan, Wasserquellen |
 | REQ-003 | Hoch | Phasen fuer Freilandpflanzen (Aussaat->Setzling->Vegetativ->Bluete->Ernte) |
 | REQ-004 | Hoch | Organische Duengung (g/m2, Jauchen), Bodenanalyse |

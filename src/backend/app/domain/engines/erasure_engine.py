@@ -2,10 +2,11 @@
 
 import hashlib
 import hmac
-import re
 
 from app.config.constants import MIN_LOG_PSEUDONYM_SALT_LENGTH
+from app.domain.models.privacy import ANONYMIZED_MARKER as ANONYMIZED_MARKER  # re-exported, see below
 from app.domain.models.privacy import (
+    TOMBSTONE_REGEX,
     AnonymizationRule,
     ErasureExclusion,
     ErasureExecutor,
@@ -15,13 +16,11 @@ from app.domain.models.privacy import (
     ReferenceIndexCleanupRule,
     StorageCleanupRule,
 )
+from app.domain.models.privacy import is_tombstone as _is_tombstone  # one definition (PRIV-201)
 
-#: Marker written into a user reference that outlives the erased user. Mirrors
-#: ``attachment_repository.ANONYMIZED_MARKER`` — the *same* value is required by
-#: REQ-025 AK-OS-02 (attachments) and AK-DA-01 (diary entries), and the two must
-#: not drift apart. Declared here rather than imported so the domain layer stays
-#: free of a data-access import (NFR-001).
-ANONYMIZED_MARKER = "_anonymized"
+# ``ANONYMIZED_MARKER`` (imported above) is the marker written into a user reference that
+# outlives the erased user. It is defined once in :mod:`app.domain.models.privacy` (PRIV-201)
+# and stays importable from here for the readers that already take it from this module.
 
 #: Prefix of the value an :class:`AnonymizationRule` writes into its
 #: ``rename_fields`` (#1700): ``<prefix>`` + :meth:`ErasureEngine.anonymized_rename_value`.
@@ -29,12 +28,10 @@ ANONYMIZED_MARKER = "_anonymized"
 #: slug inside it — so a registration cannot occupy the value first.
 ANONYMIZED_KEY_PREFIX = "anonymized-"
 
-#: The exact shape :meth:`ErasureEngine.compute_tombstone_hash` produces.
-_TOMBSTONE_PATTERN = re.compile(r"anon_[0-9a-f]{16}")
-
-#: :data:`_TOMBSTONE_PATTERN` anchored for an AQL ``REGEX_TEST`` (which searches,
-#: not full-matches). Derived, so the repository cannot spell the shape differently.
-TOMBSTONE_FULLMATCH_REGEX = f"^{_TOMBSTONE_PATTERN.pattern}$"
+#: Both tombstone generations, anchored for an AQL ``REGEX_TEST`` (which searches,
+#: not full-matches). The one definition is :data:`app.domain.models.privacy.TOMBSTONE_REGEX`
+#: (PRIV-201); this name stays for the repositories that already read it from here.
+TOMBSTONE_FULLMATCH_REGEX = TOMBSTONE_REGEX
 
 #: Prefix of :meth:`ErasureEngine.log_subject` — deliberately not ``anon_``, so a
 #: log reference can never be mistaken for (or tested as) a tombstone.
@@ -139,6 +136,105 @@ class ErasureEngine:
             ),
         ),
         AnonymizationRule(
+            # REQ-053 WP 1.8 (GP-NFR-055) — the plan routes write ``plan.plan_updated_by`` on every
+            # structural change. The site belongs to the tenant and stays; only the editor's key goes.
+            # The field sits one object down, which the executor's two-segment path addresses.
+            collection="sites",
+            user_field="plan.plan_updated_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the site and its garden plan belong to a possibly shared tenant and are "
+                "retained; only the reference to the account that last changed the plan is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # #2976 — the account that last saved a rooting protocol, stamped by the server. Stored as the bare
+            # ``author`` until v0114, a name R6 does not see, so the erasure never reached it and every member read
+            # the raw key. The protocol is a tenant's working template and stays; only the reference goes.
+            collection="rooting_protocols",
+            user_field="author_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-017: a rooting protocol is a working template of a possibly shared tenant and is retained; "
+                "only the reference to the account that last saved it is removed and the API shows 'anonymisiert'."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="performed_by_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that carried out the care"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="performed_for_user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account the care was done for (a deputy entry, GP-FR-089)"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that logged the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="voided_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the account that voided the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
+            ),
+        ),
+        AnonymizationRule(
+            collection="care_events",
+            user_field="redacted_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055 / GP-API-034: the care log belongs to the bed of a possibly shared tenant and is "
+                "retained; the reference to the lead that redacted the entry"
+                " is removed and the API shows 'anonymisiert'. "
+                "The PflSchG section 11 proof of a treatment is the treatment_applications row (tombstoned, above); "
+                "the care-log line of a pest_control / ipm entry is the protocol and takes the same marker. "
+                "The free texts of the line stay in the tenant's history, exactly as the text of a diary entry does "
+                "(plant_diary_entries above, REQ-050 section 7.4; operator decision of 2026-10-18, #2411): the lead "
+                "redacts a text that names a person (GP-FR-109), the five-year retention clears the rest."
+            ),
+        ),
+        AnonymizationRule(
             collection="inspections",
             user_field="inspected_by_key",
             replacement_strategy="tombstone_hash",
@@ -146,6 +242,43 @@ class ErasureEngine:
             reason=(
                 "PflSchG section 11: 3-year retention for inspection records. Key pseudonymised, "
                 "free-text inspector name cleared."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-053 GP-NFR-055 / WP 1.7: a plan object belongs to the site's plan of a possibly
+            # shared tenant and is retained; only the author reference is removed.
+            collection="garden_objects",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the garden object is part of the site plan and is retained; "
+                "only the author reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-053 GP-NFR-055 / SR-007 (WP 7.8, #2474): a tenant's bed template is shared master data of a possibly
+            # shared tenant and is retained; only the author reference is removed. A system template has no author.
+            collection="bed_templates",
+            user_field="created_by",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 GP-NFR-055: the bed template belongs to the tenant's catalogue and is retained; "
+                "only the author reference is removed."
+            ),
+        ),
+        AnonymizationRule(
+            # REQ-053 SR-011 — the plan change log names the account that deleted or reshaped the plan. It is the
+            # proof that a deletion happened, so the row stays. Until DEC-16 (spec/privacy PRIV-216, accepted
+            # 2026-11-15) the key became the tombstone hash so the rows of one erased account stayed linkable; neither
+            # argument for a linkable pseudonym holds here (no statutory record, and the Art. 15 export finds the
+            # person's own rows by the live key while the account exists). The rows go after 365 days (R-26) and
+            # with the tenant. Migration v0109 corrects the tombstones written before.
+            collection="garden_plan_audit",
+            user_field="user_key",
+            anonymized_value=ANONYMIZED_MARKER,
+            reason=(
+                "REQ-053 SR-011 / NFR-011 R-26: the plan audit is retained with the plan; the editing account's "
+                "reference is removed at erasure (marker, DEC-16) so the entry names nobody and links nothing."
             ),
         ),
         # REQ-050 §7.4 / REQ-025 AK-DA-01 — the diary entry document itself.
@@ -225,16 +358,22 @@ class ErasureEngine:
         AnonymizationRule(
             # Runs after the storage phase and after the ``pest_reference``
             # delete step: what is left are documentation photos of the tenant
-            # (diary, ipm, harvest, task, plant — already anonymised by the
+            # (diary, ipm, harvest, task, plant, garden_plan_underlay, location —
+            # the bed photos of REQ-053 GP-FR-051 — already anonymised by the
             # storage phase, a no-op here) plus the categories no storage scope
             # names (import, export, id_recognition, tenant_export). Same marker
             # as the storage phase (REQ-025 AK-OS-02).
             collection="attachments",
             user_field="created_by",
             anonymized_value=ANONYMIZED_MARKER,
+            # spec/privacy PRIV-211: a camera or phone file name often carries its owner's name; it is
+            # identifying by construction, not content. The storage phase empties it on the rows it marks
+            # (``anonymize_user_metadata``); this covers the categories no storage scope names.
+            clear_fields=["original_filename"],
             reason=(
                 "NFR-013 section 6.2 / REQ-025 AK-OS-02: attachments of a tenant record are "
-                "retained with the uploader reference replaced; bytes follow their own storage rule."
+                "retained with the uploader reference replaced and the original file name cleared "
+                "(spec/privacy PRIV-211); bytes follow their own storage rule."
             ),
         ),
         AnonymizationRule(
@@ -364,7 +503,9 @@ class ErasureEngine:
             scope="user_diary_attachments",
             description=(
                 "Anonymise metadata for attachments where created_by == user_key "
-                "AND category in {'diary', 'inspection', 'treatment', 'harvest'}. "
+                "AND category in the documentation scope of "
+                "local_fs_adapter._erasure_scope_categories (diary, ipm, harvest, "
+                "post_harvest, task, plant, garden_plan_underlay, location). "
                 "Files stay attached to the tenant record (potential retention via "
                 "NFR-011 R-16/R-17/R-18). The created_by metadata becomes "
                 "'_anonymized'. If STORAGE_KEEP_EXIF_<category>=true, EXIF data is "
@@ -797,6 +938,14 @@ class ErasureEngine:
     # the reason. Each reason below was measured against the write path.
     EXCLUDED_USER_REFERENCES: list[ErasureExclusion] = [
         ErasureExclusion(
+            collection="care_events",
+            user_field="superseded_by_key",
+            reason=(
+                "The key of the care event that supersedes this one (REQ-053 §20.10), a document key of the same "
+                "collection and never an account key; the name only matches the *_by_key shape."
+            ),
+        ),
+        ErasureExclusion(
             collection="watering_events",
             user_field="performed_by",
             reason=(
@@ -825,6 +974,58 @@ class ErasureEngine:
             reason=(
                 "Free text from the request body (tasks/schemas.py WorkflowTemplateCreate.created_by), "
                 "never stamped from the caller's account."
+            ),
+        ),
+        # spec/privacy 08 §3.4 / 09 §5 (v0111): the keyed successors of the free-text fields above. Every
+        # stored value is null — v0111 writes an explicit null and no path stamps an account yet (no request
+        # schema carries the field, PRIV-705). PRIV-E13 stamps them server-side and, in the same change,
+        # replaces each of these exclusions by a marker rule (02: "nach Migration: Marker").
+        ErasureExclusion(
+            collection="watering_events",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="watering_logs",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="maintenance_logs",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="tank_fill_events",
+            user_field="performed_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="nutrient_plans",
+            user_field="author_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
+            ),
+        ),
+        ErasureExclusion(
+            collection="workflow_templates",
+            user_field="created_by_user_key",
+            reason=(
+                "Always null until PRIV-E13: v0111 writes an explicit null and no path stamps an account yet; "
+                "E13 replaces this exclusion by a marker rule when it starts stamping."
             ),
         ),
         ErasureExclusion(
@@ -925,9 +1126,56 @@ class ErasureEngine:
                 names.append(rule.collection)
         return names
 
+    @classmethod
+    def tombstone_allowlist(cls) -> frozenset[tuple[str, str]]:
+        """The ``(collection, field)`` cells where a tombstone may exist (spec/privacy PRIV-204).
+
+        Derived from the inventory, never listed beside it: every ``tombstone_hash``
+        rule of :attr:`ANONYMIZE_COLLECTIONS` and every entry of
+        :attr:`PSEUDONYMIZE_AUDIT_COLLECTIONS`.
+        """
+        cells = {
+            (rule.collection, rule.user_field)
+            for rule in cls.ANONYMIZE_COLLECTIONS
+            if rule.replacement_strategy == "tombstone_hash"
+        }
+        cells |= {(rule.collection, rule.user_field) for rule in cls.PSEUDONYMIZE_AUDIT_COLLECTIONS}
+        return frozenset(cells)
+
+    @classmethod
+    def account_reference_fields(cls) -> frozenset[tuple[str, str]]:
+        """Every ``(collection, field)`` the inventory treats as carrying an account key.
+
+        The anonymisation and pseudonymisation rules plus the ``document`` steps of
+        :attr:`DELETE_STEPS` that match the subject directly. A ``document`` step with
+        ``via`` matches a *parent row's* key, an ``edge`` step an endpoint — neither
+        holds an account key, so neither is listed.
+        """
+        cells = {(rule.collection, rule.user_field) for rule in cls.ANONYMIZE_COLLECTIONS}
+        cells |= {(rule.collection, rule.user_field) for rule in cls.PSEUDONYMIZE_AUDIT_COLLECTIONS}
+        cells |= {
+            (step.collection, step.user_field)
+            for step in cls.DELETE_STEPS
+            if step.kind == "document" and step.via is None and step.user_field is not None
+        }
+        return frozenset(cells)
+
+    @classmethod
+    def tombstone_watch_fields(cls) -> tuple[tuple[str, str], ...]:
+        """Account-reference cells outside the allowlist, sorted: a tombstone there is a defect (PRIV-206).
+
+        What the ``privacy.consistency`` beat counts. Sorted so the metric series and
+        the log line come out in a stable order.
+        """
+        return tuple(sorted(cls.account_reference_fields() - cls.tombstone_allowlist()))
+
     @staticmethod
     def is_tombstone(value: str) -> bool:
-        """True when *value* has the exact shape of a :meth:`compute_tombstone_hash` result.
+        """True when *value* has the exact shape of a tombstone of either generation (PRIV-201, PRIV-238).
+
+        ``anon_`` is :meth:`compute_tombstone_hash`; ``anon2_`` the tenant-bound pseudonym
+        of PRIV-238, which never lands in ``erasure_requests.user_key`` (that stays the
+        instance-wide one), so the argument below holds for both.
 
         The audit pseudonymisation writes this hash into ``erasure_requests.user_key``
         inside the same ArangoDB transaction that removes the user document, so an
@@ -936,7 +1184,7 @@ class ErasureEngine:
         audit rows themselves and rewrite them to a hash of the hash, breaking the
         linkability NFR-011 R-06 keeps the hash for.
         """
-        return _TOMBSTONE_PATTERN.fullmatch(value) is not None
+        return _is_tombstone(value)
 
     @staticmethod
     def anonymized_rename_value(tombstone: str, row_key: str) -> str:

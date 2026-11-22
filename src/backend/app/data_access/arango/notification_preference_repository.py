@@ -19,6 +19,7 @@ from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.domain.engines.apprise_url_secrets import APPRISE_CHANNEL, URLS, URLS_ENCRYPTED, open_config, seal_config
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.interfaces.notification_preference_repository import (
@@ -63,7 +64,7 @@ class ArangoNotificationPreferenceRepository(
     def get_by_user(self, user_key: str) -> NotificationPreferences | None:
         """Get notification preferences for a user."""
         key = self._make_key(user_key)
-        doc = self.collection.get(key)
+        doc = get_document(self.collection, key)
         if doc is None:
             return None
         return self._opened(doc)
@@ -82,7 +83,7 @@ class ArangoNotificationPreferenceRepository(
         if apprise is not None:
             apprise["config"] = seal_config(apprise.get("config") or {}, self._encryption)
 
-        existing = self.collection.get(key)
+        existing = get_document(self.collection, key)
         if existing is None:
             data["_key"] = key
             data["created_at"] = now

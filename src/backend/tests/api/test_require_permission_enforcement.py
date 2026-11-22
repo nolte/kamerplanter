@@ -16,7 +16,7 @@ the genuine engine predicate runs against a genuine role — no mock that never
 becomes a model (#996).
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi import FastAPI, Request
@@ -53,7 +53,7 @@ def _build_app(role: TenantRole) -> tuple[FastAPI, MagicMock]:
     service.get_site.return_value = _site()
     service.create_site.return_value = _site()
     service.update_site.return_value = _site()
-    service.delete_site.return_value = None
+    service.delete_site = AsyncMock(return_value=True)  # async since #2545 (the underlay discard)
     service.get_water_warnings.return_value = []
 
     app = FastAPI()

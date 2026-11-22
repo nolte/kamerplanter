@@ -260,6 +260,7 @@ err_<uuid4>
 | 404 | `ENTITY_NOT_FOUND` | Referenzierte Entität existiert nicht |
 | 409 | `DUPLICATE_ENTRY` | Eintrag mit gleichem Schlüssel existiert bereits |
 | 409 | `WRITE_CONFLICT` | Gleichzeitiger Schreibvorgang hielt denselben Schlüssel; erneut lesen und wiederholen |
+| 422 | `TRANSACTION_TIME_BUDGET_EXCEEDED` | Stream-Transaktion hat ihr Zeitbudget (10 s, REQ-053 GP-NFR-013) überschritten und wurde abgebrochen; nichts geschrieben |
 | 422 | `INCOMPATIBLE_SUBSTRATE` | Substrat ist nicht kompatibel mit Spezies |
 | 422 | `INCOMPATIBLE_COMPANION` | Mischkultur-Konflikt am Standort |
 | 422 | `SLOT_OCCUPIED` | Stellplatz ist bereits belegt |

@@ -140,6 +140,22 @@
 Quellen (§1.8): [Bloom Outlet — Fatsia japonica (Japanese Aralia) Seed Guide](https://bloomoutlet.com/fatsia-japonica-japanese-aralia-seed-guide/) (Keimtemperatur 65–75 °F, 14–21 Tage); [Garden Guides — How To Grow Fatsia From Seed](https://www.gardenguides.com/13428496-how-to-grow-fatsia-from-seed/) (Keimtemperatur, Keimdauer-Varianz 2–4 Wochen bis mehrere Monate); [Gardening Know How — Fatsia Seed Propagation](https://www.gardeningknowhow.com/houseplants/aralia-plants/propagating-fatsia-from-seed.htm) (Kältestratifikation 28–42 Tage bei 1–4 °C, ungleichmäßige Keimung ohne Vorbehandlung); [RP Seeds — Fatsia japonica (Japanese Aralia) 20 seeds](https://www.rpseeds.co.uk/products/fatsia-japonica-japanese-aralia-seeds) (kommerzielle Saatgut-Referenz, frisches Saatgut empfohlen)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow Fatsia" („Fatsias do best in partial shade in fertile soil but they will also tolerate deeper shade"), https://www.rhs.org.uk/plants/fatsia/how-to-grow-fatsia | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -358,3 +374,4 @@ Fatsia japonica,"Zimmeraralie;Japanische Aralie;Japanese Aralia;Paperplant",Aral
 17. [Gardening Know How — Fatsia Seed Propagation](https://www.gardeningknowhow.com/houseplants/aralia-plants/propagating-fatsia-from-seed.htm) — Kältestratifikation
 18. [RP Seeds — Fatsia japonica 20 seeds](https://www.rpseeds.co.uk/products/fatsia-japonica-japanese-aralia-seeds) — Kommerzielle Saatgut-Referenz
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+19. [RHS — How to grow Fatsia (Lichtbedarf)](https://www.rhs.org.uk/plants/fatsia/how-to-grow-fatsia) — „do best in partial shade", gelesen für 1.10

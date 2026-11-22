@@ -120,6 +120,22 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 5.5–6.5 (leicht sauer; vigoröser bei pH 5.5–6.2) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Christmas cactus / how to grow“ (Quick Facts: „Position in bright light but not full sun“; „indirect or filtered light“; Gattungs-/Gruppenseite Weihnachtskaktus, nicht art-spezifisch S. truncata), https://www.rhs.org.uk/plants/christmas-cactus/how-to-grow | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -384,4 +400,5 @@ Schlumbergera truncata,"Weihnachtskaktus;Gliederkaktus;Thanksgiving Cactus;Crab 
 17. [Clemson HGIC — Thanksgiving & Christmas Cacti](https://hgic.clemson.edu/factsheet/thanksgiving-christmas-cacti/) — Thanksgiving-Kaktus blüht "near Thanksgiving" (Ende Nov), 14h Dunkelheit ab Mitte September für 6 Wochen, Frostgrenze < 50°F, Vermehrung 3–5 Glieder/Steckling
 18. [Wisconsin Horticulture Extension — Holiday Cactus](https://hort.extension.wisc.edu/articles/holiday-cactus/) — Gattung blüht "early November into January", Kühlreiz 55–60°F + Kurztag, keine Frosttoleranz, Glied-Stecklinge 2–3 Segmente
 19. [Farmers' Almanac — Thanksgiving vs. Christmas Cactus](https://www.farmersalmanac.com/thanksgiving-cactus-christmas-cactus) — Thanksgiving-Kaktus "Bloom mid to late November", Christmas-Kaktus "mid to late December"
+RHS -- Christmas cactus, How to grow (Quick Facts: „bright light but not full sun“; „indirect or filtered light“; Lichtanspruch, Gruppenseite Schlumbergera/Christmas cactus): https://www.rhs.org.uk/plants/christmas-cactus/how-to-grow
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

@@ -1,9 +1,22 @@
 from datetime import datetime
+from typing import Annotated
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.v1.attachments.schemas import ThumbnailUris
 from app.common.enums import WorkflowTargetType
+from app.domain.models.task_completion import MAX_BATCH_COMPLETION, TaskCompletionDetails
+
+#: The task keys one batch request may carry (#2757, SEC-004): the documented "at most 200 tasks" of
+#: ``POST /tasks/batch/status`` (``MAX_BATCH_COMPLETION``), bounded at the body for every action and for the
+#: delete and assign batches too - before, only ``complete`` was bounded, in the service, after parsing.
+MAX_BATCH_TASK_KEYS = MAX_BATCH_COMPLETION
+#: One task key: ArangoDB generates task keys (numeric strings of at most 20 digits; no code path inserts a task
+#: with its own ``_key``, and an import assigns new keys). 64 leaves room and bounds the body; precedent:
+#: ``ip_allowlist`` in ``app/api/v1/auth/schemas.py``.
+MAX_TASK_KEY_LENGTH = 64
+TaskKey = Annotated[str, Field(min_length=1, max_length=MAX_TASK_KEY_LENGTH)]
 
 # ── Checklist ──
 
@@ -225,7 +238,14 @@ class TaskCreate(BaseModel):
     source_run_ref: str | None = None
     external_ref: str | None = None
     entity_key: str | None = None
-    entity_type: str | None = None
+    entity_type: str | None = Field(
+        default=None,
+        description=(
+            "What the task hangs off: `plant_instance`, `planting_run`, `location` (a bed or area), `tank` or "
+            "`garden_object` (only a compost, water source or storage object, REQ-053 R-7.2). "
+            "Any other value is a 422."
+        ),
+    )
     due_date: datetime | None = None
     scheduled_time: str | None = None
     priority: str = "medium"
@@ -241,6 +261,15 @@ class TaskCreate(BaseModel):
     recurrence_rule: str | None = None
     recurrence_end_date: datetime | None = None
     trigger_phase: str | None = None
+    for_each_plant: bool = Field(
+        default=False,
+        description=(
+            "With `entity_type = location`: create one task per plant standing in the bed instead of one for the "
+            "bed (REQ-053 GP-FR-081), in one transaction, and answer the list of the created tasks. At most 200 "
+            "plants; a care reminder, a recurring task or a machine-produced task is a 422. A bed without plants "
+            "creates nothing."
+        ),
+    )
 
 
 class TaskUpdate(BaseModel):
@@ -286,7 +315,13 @@ class TaskResponse(BaseModel):
     source_run_ref: str | None = None
     external_ref: str | None = None
     entity_key: str | None = None
-    entity_type: str | None = None
+    entity_type: str | None = Field(
+        default=None,
+        description="`plant_instance`, `planting_run`, `location`, `tank` or `garden_object`.",
+    )
+    #: REQ-053 §20.9: a system proposal the user has not accepted yet (pending, shown in its own section).
+    suggested: bool = False
+    suggestion_reason: str | None = None
     due_date: datetime | None = None
     scheduled_time: str | None = None
     status: str
@@ -328,12 +363,21 @@ class PhotoUploadResponse(BaseModel):
     size_bytes: int
 
 
-class TaskCompleteRequest(BaseModel):
+class TaskCompleteRequest(TaskCompletionDetails):
+    """The body of ``POST /tasks/{key}/complete`` (GP-API-031).
+
+    The task fields as before, plus the care fields of :class:`TaskCompletionDetails` (``performed_at``,
+    ``plant_keys``, ``reason``, ``product_ref`` …) that go into the care-log line when the task is bound to a bed.
+    ``extra="forbid"``: ``trigger``, ``task_key``, ``source_ref`` and the performer are the server's (SR-009).
+    """
+
     completion_notes: str | None = None
     actual_duration_minutes: int | None = None
     photo_refs: list[str] = Field(default_factory=list)
     difficulty_rating: int | None = Field(default=None, ge=1, le=5)
     quality_rating: int | None = Field(default=None, ge=1, le=5)
+    #: A buffered completion's id (REQ-053 WP 9.3): a replay answers the task this id closed, never a second close.
+    client_event_id: UUID | None = None
 
 
 class TaskCloneRequest(BaseModel):
@@ -342,31 +386,73 @@ class TaskCloneRequest(BaseModel):
     due_date_offset_days: int | None = None
 
 
+class TaskFanOutRequest(BaseModel):
+    """ "For every plant in the bed" (REQ-053 GP-FR-081): clone a bed task onto each plant standing in it."""
+
+    include_children: bool = Field(default=True, description="Also take the plants of the sub-locations below the bed.")
+    keep_source: bool = Field(
+        default=False,
+        description="Keep the bed task open. By default it is skipped ('for every plant' replaces 'for the bed').",
+    )
+
+
 class TaskReopenRequest(BaseModel):
-    """Empty body — action is implied by the endpoint."""
+    """Optional body of ``POST /tasks/{key}/reopen``; the action is implied by the endpoint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The field-mode "Rückgängig" snackbar (GP-FR-149): the task's care-log line is voided with
+    #: ``void_reason = undo`` in the same transaction as the reopen.
+    undo: bool = False
+
+
+class SuggestionDismissRequest(BaseModel):
+    """Optional body of ``POST /tasks/{key}/dismiss-suggestion`` (REQ-053 GP-API-040)."""
+
+    model_config = ConfigDict(
+        extra="forbid", json_schema_extra={"examples": [{"reason": "Rain is forecast for tomorrow"}]}
+    )
+
+    #: Why the suggestion is dismissed; stored as the closed task's note (``completion_notes``).
+    reason: str | None = Field(default=None, max_length=500, examples=["Rain is forecast for tomorrow"])
 
 
 # ── Batch Operations ──
 
 
-class BatchStatusRequest(BaseModel):
-    task_keys: list[str] = Field(min_length=1)
+class BatchStatusRequest(TaskCompletionDetails):
+    """The body of ``POST /tasks/batch/status`` (GP-API-032).
+
+    ``action = complete`` takes the care fields of :class:`TaskCompletionDetails` for every task (one care event per
+    task, at most 200 tasks, an unknown or foreign key is a 404 for the whole batch).
+    """
+
+    task_keys: list[TaskKey] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
     action: str = Field(description="start, complete, or skip")
     completion_notes: str | None = None
+    client_event_id: UUID | None = Field(
+        default=None,
+        description=(
+            "`complete` only (REQ-053 WP 9.3): the buffered batch's id. Decided per task - a task this batch closed "
+            "before counts as succeeded without a second write."
+        ),
+    )
 
 
 class BatchDeleteRequest(BaseModel):
-    task_keys: list[str] = Field(min_length=1)
+    task_keys: list[TaskKey] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
 
 
 class BatchAssignRequest(BaseModel):
-    task_keys: list[str] = Field(min_length=1)
+    task_keys: list[TaskKey] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
     assigned_to_user_key: str
 
 
 class BatchResultItem(BaseModel):
     key: str
     error: str
+    #: The stable reason, e.g. `task.already_closed` (REQ-053 WP 9.3); `None` for the actions that name none.
+    code: str | None = None
 
 
 class BatchResponse(BaseModel):

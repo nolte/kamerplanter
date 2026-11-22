@@ -26,6 +26,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { getPestDetail } from '@/api/endpoints/ipm';
 import type { PestDetail, TreatmentType } from '@/api/types';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -164,7 +165,7 @@ export default function PestDetailPage() {
         {/* Left: title + meta row */}
         <Box>
           {/* Row 1: page title */}
-          <PageTitle title={l(pest, 'common_name')} sx={{ mb: 0 }} />
+          <PageTitle title={getLocalizedCatalogName(pest, i18n.language)} sx={{ mb: 0 }} />
           {/* Row 2: scientific name + classification chips */}
           <Box
             sx={{
@@ -267,7 +268,7 @@ export default function PestDetailPage() {
             <Box id="pest-detail-images-panel" sx={{ pt: 1 }}>
               <PestImageGallery
                 pestKey={pest.key}
-                pestName={l(pest, 'common_name')}
+                pestName={getLocalizedCatalogName(pest, i18n.language)}
                 detectionSlug={pest.detection_slug ?? null}
               />
             </Box>
@@ -342,7 +343,7 @@ export default function PestDetailPage() {
               {hasTempRange && (
                 <DetailRow
                   label={t('pages.pestDetail.tempRange')}
-                  value={`${pest.optimal_temp_min}\u2013${pest.optimal_temp_max} \u00b0C`}
+                  value={`${pest.optimal_temp_min}–${pest.optimal_temp_max} °C`}
                 />
               )}
               {hasHumidityRange && (
@@ -388,7 +389,7 @@ export default function PestDetailPage() {
                     />
                     <Box>
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {b.common_name}
+                        {getLocalizedCatalogName(b, i18n.language)}
                       </Typography>
                       <Typography
                         variant="caption"

@@ -8,6 +8,7 @@ import pytest
 from app.common.enums import ApplicationMethod, PhaseName, ReminderType, SubstrateType
 from app.common.exceptions import NotFoundError
 from app.domain.models.care_reminder import CareDashboardEntry
+from app.domain.models.location_type import LocationType
 from app.domain.models.nutrient_plan import (
     DeliveryChannel,
     FertilizerDosage,
@@ -15,7 +16,8 @@ from app.domain.models.nutrient_plan import (
     NutrientPlanPhaseEntry,
 )
 from app.domain.models.plant_instance import PlantInstance
-from app.domain.services.print_service import PrintService
+from app.domain.models.site import Location, Site
+from app.domain.services.print_service import LOCATION_LABEL_QR_DEFAULT_MM, PrintService, location_label_url
 from tests.conftest import wire_get_or_raise
 
 
@@ -418,9 +420,11 @@ class TestGeneratePlantLabelsPdf:
         cultivar.name = "San Marzano"
         mock_species_repo.get_cultivar_by_key.return_value = cultivar
 
-        location = MagicMock()
-        location.name = "Growzelt A"
-        mock_site_repo.get_location_by_key.return_value = location
+        # The location name is read through the site anchor (#1397): the location's site belongs to t1.
+        mock_site_repo.get_location_by_key.return_value = Location(
+            _key="loc1", name="Growzelt A", site_key="s1", area_m2=1
+        )
+        mock_site_repo.get_site_by_key.return_value = Site(_key="s1", tenant_key="t1", name="Keller")
 
         mock_plant_repo.resolve_phase_name.return_value = "Vegetative"
 
@@ -634,3 +638,180 @@ class TestGeneratePlantLabelsPdf:
 
         context = mock_print_engine.render_pdf.call_args[0][1]
         assert context["cards"][0]["planted_date"] == "15.03.2026"
+
+
+class TestPlantLabelsTenantIsolation:
+    """#2899 related finding: the plant labels resolved a plant by key alone and printed a foreign tenant's plant."""
+
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_a_foreign_plant_is_not_found_and_nothing_is_rendered(
+        self, mock_qr, service, mock_plant_repo, mock_print_engine
+    ):
+        mock_plant_repo.get_by_key.return_value = _make_plant_instance().model_copy(update={"tenant_key": "t2"})
+
+        with pytest.raises(NotFoundError):
+            service.generate_plant_labels_pdf(tenant_key="t1", tenant_slug="slug", plant_keys=["p1"], fields=["name"])
+
+        mock_print_engine.render_pdf.assert_not_called()
+        mock_qr.assert_not_called()
+
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_a_location_under_a_foreign_site_prints_no_name(
+        self, mock_qr, service, mock_plant_repo, mock_species_repo, mock_site_repo, mock_print_engine
+    ):
+        mock_qr.return_value = "data:image/png;base64,AAAA"
+        mock_plant_repo.get_by_key.return_value = _make_plant_instance()
+        mock_species_repo.get_by_key.return_value = None
+        mock_species_repo.get_cultivar_by_key.return_value = None
+        mock_plant_repo.resolve_phase_name.return_value = ""
+        mock_site_repo.get_location_by_key.return_value = Location(_key="loc1", name="Fremd", site_key="s2", area_m2=1)
+        mock_site_repo.get_site_by_key.return_value = Site(_key="s2", tenant_key="t2", name="Fremde Site")
+
+        service.generate_plant_labels_pdf(tenant_key="t1", tenant_slug="slug", plant_keys=["p1"], fields=["location"])
+
+        assert mock_print_engine.render_pdf.call_args[0][1]["cards"][0]["location"] == ""
+
+
+class _Types:
+    def __init__(self, *types: LocationType) -> None:
+        self._types = {t.key: t for t in types}
+
+    def get_by_key(self, key):
+        return self._types.get(key)
+
+
+@pytest.fixture
+def label_service(mock_site_repo, mock_print_engine) -> PrintService:
+    """A print service with a bed type and a non-bed type; the site repo is the shared MagicMock."""
+    return PrintService(
+        nutrient_plan_service=MagicMock(),
+        care_reminder_service=MagicMock(),
+        fertilizer_repo=MagicMock(),
+        plant_repo=MagicMock(),
+        species_repo=MagicMock(),
+        print_engine=mock_print_engine,
+        site_repo=mock_site_repo,
+        app_base_url="https://app.example.com/",
+        location_type_repo=_Types(  # type: ignore[arg-type]
+            LocationType(_key="raised_bed", name="Hochbeet", name_en="Raised bed", is_bed=True),
+            LocationType(_key="room", name="Raum"),
+        ),
+    )
+
+
+def _place(mock_site_repo, *, location_type_key: str = "raised_bed", area: float = 2.5, tenant: str = "t1") -> None:
+    mock_site_repo.get_location_by_key.return_value = Location(
+        _key="bed1", name="Beet Nord", site_key="s1", location_type_key=location_type_key, area_m2=area
+    )
+    mock_site_repo.get_site_by_key.return_value = Site(_key="s1", tenant_key=tenant, name="Garten")
+
+
+class TestLocationLabelUrl:
+    def test_a_bed_opens_in_field_mode_with_its_sheet(self):
+        url = location_label_url("https://app.example.com/", site_key="s1", location_key="bed1", is_bed=True)
+
+        assert url == "https://app.example.com/standorte/sites/s1/plan?mode=field&bed=bed1"
+
+    def test_another_location_opens_its_page(self):
+        url = location_label_url("https://app.example.com", site_key="s1", location_key="room1", is_bed=False)
+
+        assert url == "https://app.example.com/standorte/locations/room1"
+
+    def test_keys_cannot_add_a_segment_or_a_parameter(self):
+        url = location_label_url("https://a.example", site_key="s/../x", location_key="b&mode=plan", is_bed=True)
+
+        assert url == "https://a.example/standorte/sites/s%2F..%2Fx/plan?mode=field&bed=b%26mode%3Dplan"
+
+
+class TestGenerateLocationLabelPdf:
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_a_bed_label_carries_name_site_type_area_and_the_field_mode_qr(
+        self, mock_qr, label_service, mock_site_repo, mock_print_engine
+    ):
+        mock_qr.return_value = "data:image/png;base64,AAAA"
+        _place(mock_site_repo)
+
+        result = label_service.generate_location_label_pdf("bed1", tenant_key="t1", locale="de")
+
+        assert result == b"%PDF-1.7 mock content"
+        url = "https://app.example.com/standorte/sites/s1/plan?mode=field&bed=bed1"
+        mock_qr.assert_called_once_with(url, LOCATION_LABEL_QR_DEFAULT_MM)
+        template, context, locale = mock_print_engine.render_pdf.call_args[0]
+        assert (template, locale) == ("location_label.html", "de")
+        label = context["label"]
+        assert label["name"] == "Beet Nord" and label["site_name"] == "Garten" and label["type_name"] == "Hochbeet"
+        assert label["area"] == "2,5" and label["qr_url"] == url
+        assert (label["title_key"], label["hint_key"], label["qr_alt_key"]) == (
+            "location_label_title",
+            "location_label_scan_hint",
+            "location_label_qr_alt",
+        )
+
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_english_uses_the_english_type_name_and_a_point(
+        self, mock_qr, label_service, mock_site_repo, mock_print_engine
+    ):
+        mock_qr.return_value = "data:image/png;base64,AAAA"
+        _place(mock_site_repo)
+
+        label_service.generate_location_label_pdf("bed1", tenant_key="t1", qr_size_mm=30, locale="en")
+
+        label = mock_print_engine.render_pdf.call_args[0][1]["label"]
+        assert label["type_name"] == "Raised bed" and label["area"] == "2.5"
+        assert mock_qr.call_args[0][1] == 30
+
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_a_non_bed_without_area_links_its_page_and_prints_no_area(
+        self, mock_qr, label_service, mock_site_repo, mock_print_engine
+    ):
+        mock_qr.return_value = "data:image/png;base64,AAAA"
+        _place(mock_site_repo, location_type_key="room", area=0)
+
+        label_service.generate_location_label_pdf("bed1", tenant_key="t1")
+
+        label = mock_print_engine.render_pdf.call_args[0][1]["label"]
+        assert label["qr_url"] == "https://app.example.com/standorte/locations/bed1"
+        assert label["area"] == "" and label["title_key"] == "location_label_title_location"
+
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_an_unknown_type_shows_the_raw_key_and_is_no_bed(
+        self, mock_qr, label_service, mock_site_repo, mock_print_engine
+    ):
+        mock_qr.return_value = "data:image/png;base64,AAAA"
+        _place(mock_site_repo, location_type_key="custom_thing")
+
+        label_service.generate_location_label_pdf("bed1", tenant_key="t1")
+
+        label = mock_print_engine.render_pdf.call_args[0][1]["label"]
+        assert label["type_name"] == "custom_thing"
+        assert label["qr_url"].endswith("/standorte/locations/bed1")
+
+    @pytest.mark.parametrize("case", ["foreign_site", "absent_location", "absent_site", "empty_tenant"])
+    @patch("app.domain.services.print_service.PrintEngine.generate_qr_code_base64")
+    def test_every_refusal_is_the_same_not_found(self, mock_qr, case, label_service, mock_site_repo, mock_print_engine):
+        _place(mock_site_repo, tenant="t2" if case == "foreign_site" else "t1")
+        if case == "absent_location":
+            mock_site_repo.get_location_by_key.return_value = None
+        if case == "absent_site":
+            mock_site_repo.get_site_by_key.return_value = None
+        tenant = "" if case == "empty_tenant" else "t1"
+
+        with pytest.raises(NotFoundError) as raised:
+            label_service.generate_location_label_pdf("bed1", tenant_key=tenant)
+
+        assert "Location" in str(raised.value) and "Garten" not in str(raised.value)
+        mock_qr.assert_not_called()
+        mock_print_engine.render_pdf.assert_not_called()
+
+    def test_without_a_site_repository_it_refuses(self, mock_print_engine):
+        bare = PrintService(
+            nutrient_plan_service=MagicMock(),
+            care_reminder_service=MagicMock(),
+            fertilizer_repo=MagicMock(),
+            plant_repo=MagicMock(),
+            species_repo=MagicMock(),
+            print_engine=mock_print_engine,
+        )
+
+        with pytest.raises(NotFoundError):
+            bare.generate_location_label_pdf("bed1", tenant_key="t1")

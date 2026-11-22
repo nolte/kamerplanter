@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import Literal, Self
 
@@ -12,6 +13,7 @@ from app.common.enums import (
     HarvestedPart,
     HarvestPattern,
     LightGermination,
+    NutrientDemand,
     NutrientDemandLevel,
     PlantCategory,
     PlantTrait,
@@ -27,6 +29,7 @@ from app.common.enums import (
 )
 from app.domain.calculators.scientific_name import normalize_scientific_name
 from app.domain.models.botanical_family import PhRange
+from app.domain.models.species_names import normalize_names_i18n
 
 # ── Environmental-physiology literals (REQ-001 v4.2) ─────────────────
 type PhotosynthesisType = Literal["c3", "c4", "cam"]
@@ -38,6 +41,65 @@ type SaltToleranceClass = Literal[
     "moderately_tolerant",
     "tolerant",
 ]
+# ── Bed-planning literals (REQ-001 v4.11 ← REQ-053 §16.3 / GP-FR-160, M6 #2325) ──
+#: Confidence of ``nutrient_demand`` as judged from its sources (H-004).
+type NutrientDemandConfidence = Literal["high", "medium", "low"]
+#: Light REQUIREMENT — three levels only, a species never *requires* deep shade.
+#: Distinct from ``ShadeTolerance`` (the tolerance) and never derived from it (E-05).
+type LightRequirement = Literal["full_sun", "partial_shade", "shade"]
+#: Range string like ``spacing_cm``: "80", "60--80", "25-30", "5–10" (seed schema
+#: ``_defs.schema.yaml#/$defs/distance_cm_string``); the 5–1500 cm bound is the validator's.
+DISTANCE_CM_STRING_PATTERN = r"^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$"
+
+# ── Language-tagged vernacular names (REQ-001, #2902) ────────────────
+# The language-code pattern and the key/empty/duplicate normalisation are shared with
+# the IPM catalogue entities (#2936) and live in ``species_names``.
+
+
+def _stripped(name: str) -> str:
+    """``name`` without surrounding whitespace — a typed receiver for the write-route guard."""
+    return name.strip()
+
+
+def validate_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Check and normalize ``common_names_i18n`` against the flat ``common_names`` list.
+
+    Keys must be lowercase language codes (``de``, ``en``, ...). Names are stripped;
+    an empty name is rejected, a duplicate within one language is dropped and a
+    language left with no name is dropped (a missing key and an empty list say the
+    same: no sourced name in that language). Every name must also be in
+    ``common_names``, which stays the flat all-language list search, forms and the
+    CSV import read — the i18n map only says which of those names belongs to which
+    language, it never introduces a name of its own.
+
+    Raises:
+        ValueError: on an invalid key, an empty name or a name not in ``common_names``.
+    """
+    known = {_stripped(name) for name in common_names}
+    normalized = normalize_names_i18n(names_i18n)
+    for language, names in normalized.items():
+        for name in names:
+            if name not in known:
+                raise ValueError(f"common_names_i18n[{language!r}] name {name!r} is not in common_names")
+    return normalized
+
+
+def prune_common_names_i18n(common_names: list[str], names_i18n: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Drop every language-tagged name that is no longer in ``common_names``.
+
+    The edit path's counterpart to :func:`validate_common_names_i18n`: an edit form
+    that does not carry ``common_names_i18n`` keeps the stored map, and a name the
+    user removed from ``common_names`` leaves the language lists with it instead of
+    turning the save into a 422 the user cannot act on.
+    """
+    known = {_stripped(name) for name in common_names}
+    pruned: dict[str, list[str]] = {}
+    for language, names in names_i18n.items():
+        kept = [name for name in names if _stripped(name) in known]
+        if kept:
+            pruned[language] = kept
+    return pruned
+
 
 # ── WateringGuide (embedded on Species/Cultivar) ─────────────────────
 
@@ -289,7 +351,18 @@ class Species(BaseModel):
         description="Internal canonical dedup key derived from scientific_name (REQ-048). "
         "Server-managed, never displayed; the human-facing scientific_name is left untouched.",
     )
+    #: Flat, language-mixed list of every vernacular name — what search, the edit
+    #: form and the CSV import read. Its order carries NO language meaning: a reader
+    #: that shows "the first entry" shows whatever language the seed listed first.
     common_names: list[str] = Field(default_factory=list)
+    #: Language code -> names in preference order (REQ-001, #2902). Says which of the
+    #: ``common_names`` belong to which language; every name is also in
+    #: ``common_names``. Display rule: UI language -> ``de`` -> scientific name.
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Language code (de, en, ...) -> vernacular names in preference order; "
+        "each name is also contained in common_names.",
+    )
     family_key: str | None = None
     genus: str = ""
     hardiness_zones: list[str] = Field(default_factory=list)
@@ -318,8 +391,37 @@ class Species(BaseModel):
     bloom_from_year: int | None = Field(default=None, ge=1, le=10)
     frost_sensitivity: FrostTolerance | None = None
     plant_category: PlantCategory | None = None
+    #: LEGACY feeder class (four values incl. ``nitrogen_fixer``). Superseded by
+    #: ``nutrient_demand`` + ``nitrogen_fixing`` (REQ-053 GP-FR-139, M6 #2325). It scales
+    #: nothing (no EC scaling by feeder class, REQ-053 E-17 variant A); only migration M6
+    #: (v0096) reads it to derive anything. Kept because a retirement crashes the start
+    #: on an alt volume. Never a source for ``nutrient_demand``.
     nutrient_demand_level: NutrientDemandLevel | None = None
     green_manure_suitable: bool = False
+    # ── Zehrerstufe / Fruchtfolge / Beetplanung (REQ-001 v4.11 ← REQ-053 §16.3, M6 #2325) ──
+    # Every value is sourced or absent (E-10): nothing here is defaulted from
+    # ``nutrient_demand_level``, from the family or from a neighbouring field.
+    #: Feeder level heavy_feeder | medium_feeder | light_feeder (GP-FR-138); mandatory for
+    #: crops in the Steckbrief, ``None`` only without a source.
+    nutrient_demand: NutrientDemand | None = None
+    #: Source (URL or citation) backing ``nutrient_demand`` (H-004).
+    nutrient_demand_source: str | None = Field(default=None, max_length=2000)
+    #: Confidence of ``nutrient_demand`` as judged from its sources.
+    nutrient_demand_confidence: NutrientDemandConfidence | None = None
+    #: Nitrogen fixation of the species (orthogonal to the feeder level, K-001).
+    #: ``None`` = unsourced — ``False`` is a claim, not a placeholder (E-10). Not read by
+    #: the rotation validator yet: the species-over-family fallback arrives with the
+    #: rotation work of REQ-053 wave 2 (GP-FR-131/139).
+    nitrogen_fixing: bool | None = None
+    #: Years before the species may return to the same bed — overrides the family
+    #: default ``BotanicalFamily.rotation_pause_years`` (GP-FR-131, K-004).
+    rotation_pause_years: int | None = Field(default=None, ge=0, le=8)
+    #: Row spacing in cm as a range string like ``spacing_cm`` ("80", "60--80"); the
+    #: layout reads the lower value (GP-FR-061, O-11).
+    row_spacing_cm: str | None = Field(default=None, pattern=DISTANCE_CM_STRING_PATTERN)
+    #: Light REQUIREMENT (what the bed must offer) — the basis of ``site_fit``
+    #: (GP-FR-160, E-05). ``shade_tolerance`` is the tolerance and never derives it.
+    light_requirement: LightRequirement | None = None
     # ── Fakultative Kulturführung (REQ-001/REQ-003, ADR-006 E6) ──
     # Capability flag: True marks a species that can be genuinely grown EITHER as an
     # annual OR as a perennial (a frost-tender perennial overwintered indoors vs. re-
@@ -519,11 +621,22 @@ class Species(BaseModel):
         self.scientific_name_normalized = normalize_scientific_name(self.scientific_name)
         return self
 
+    @model_validator(mode="after")
+    def _common_names_i18n_within_common_names(self) -> Self:
+        """Every language-tagged name must be one of ``common_names`` (REQ-001, #2902)."""
+        self.common_names_i18n = validate_common_names_i18n(self.common_names, self.common_names_i18n)
+        return self
+
+    @model_validator(mode="after")
+    def _nitrogen_fixer_is_not_a_heavy_feeder(self) -> Self:
+        """Mirror of the family rule (REQ-053 GP-FR-138): nitrogen fixers are light or medium feeders."""
+        if self.nitrogen_fixing and self.nutrient_demand == NutrientDemand.HEAVY_FEEDER:
+            raise ValueError("nitrogen_fixing=true ist inkompatibel mit nutrient_demand='heavy_feeder'")
+        return self
+
     @field_validator("hardiness_zones")
     @classmethod
     def validate_hardiness_zones(cls, v: list[str]) -> list[str]:
-        import re
-
         for zone in v:
             if not re.match(r"^\d{1,2}[ab]?$", zone):
                 raise ValueError(f"Invalid USDA hardiness zone format: '{zone}'")

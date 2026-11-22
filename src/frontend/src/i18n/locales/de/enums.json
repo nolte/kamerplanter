@@ -26,6 +26,21 @@
       "mqtt": "MQTT",
       "manual": "Manuell"
     },
+    "attachmentCategory": {
+      "diary": "Tagebuch",
+      "ipm": "Pflanzenschutz",
+      "harvest": "Ernte",
+      "post_harvest": "Nachernte",
+      "task": "Aufgabe",
+      "import": "Import",
+      "export": "Export",
+      "id_recognition": "Pflanzenerkennung",
+      "tenant_export": "Garten-Export",
+      "plant": "Pflanzenfoto",
+      "pest_reference": "Schädlings-Referenzbild",
+      "garden_plan_underlay": "Unterlage des Gartenplans",
+      "location": "Beetfoto"
+    },
     "equipmentType": {
       "tool": "Werkzeug",
       "consumable": "Verbrauchsmaterial",
@@ -328,7 +343,8 @@
     "photoperiodType": {
       "short_day": "Kurztagpflanze",
       "long_day": "Langtagpflanze",
-      "day_neutral": "Tagneutral"
+      "day_neutral": "Tagneutral",
+      "unspecified": "Nicht angegeben"
     },
     "cycleType": {
       "annual": "Einjährig",
@@ -385,9 +401,9 @@
       "hydro_solution": "Hydrolösung"
     },
     "nutrientDemand": {
-      "light": "Schwachzehrer",
-      "medium": "Mittelzehrer",
-      "heavy": "Starkzehrer"
+      "heavy_feeder": "Starkzehrer",
+      "medium_feeder": "Mittelzehrer",
+      "light_feeder": "Schwachzehrer"
     },
     "rootDepth": {
       "shallow": "Flach",
@@ -493,7 +509,16 @@
       "north": "Nord",
       "south": "Süd",
       "east": "Ost",
-      "west": "West"
+      "west": "West",
+      "northeast": "Nordost",
+      "southeast": "Südost",
+      "southwest": "Südwest",
+      "northwest": "Nordwest"
+    },
+    "photoperiodSource": {
+      "sourced": "aus dem Steckbrief oder eingetragen",
+      "generated": "aus der Phasenvorlage erzeugt",
+      "default": "Standardwert"
     },
     "plantTrait": {
       "disease_resistant": "Krankheitsresistent",
@@ -659,7 +684,10 @@
       "hardening_off": "Abhärtung",
       "budding": "Knospenbildung",
       "corm_ripening": "Knollenreife",
-      "tuber_formation": "Knollenbildung"
+      "tuber_formation": "Knollenbildung",
+      "drying": "Trocknung",
+      "curing": "Aushärtung",
+      "cloning": "Klonen"
     },
     "waterSource": {
       "tank": "Tank",
@@ -812,7 +840,27 @@
       "cleaning": "Reinigung",
       "care_reminder": "Pflegeerinnerung",
       "seasonal": "Saisonale Aufgabe",
-      "phenological": "Phänologische Aufgabe"
+      "phenological": "Phänologische Aufgabe",
+      "mulching": "Mulchen",
+      "weeding": "Jäten",
+      "soil_loosening": "Bodenlockerung",
+      "sowing": "Aussaat",
+      "pricking_out": "Pikieren",
+      "soil_amendment": "Bodenverbesserung",
+      "liming": "Kalkung",
+      "ph_adjustment": "pH-Anpassung",
+      "ec_check": "EC-/Nährstoffkontrolle",
+      "flush": "Spülen (Flush)",
+      "thinning": "Vereinzeln / Ausdünnen",
+      "hilling": "Anhäufeln",
+      "tillage": "Umbrechen / Einarbeiten",
+      "covering": "Abdecken",
+      "uncovering": "Aufdecken",
+      "ventilating": "Lüften",
+      "clearing": "Beet räumen",
+      "soil_analysis": "Bodenanalyse",
+      "rainfall": "Niederschlag",
+      "pollinating": "Handbestäubung"
     },
     "triggerType": {
       "manual": "Manuell",
@@ -1076,6 +1124,231 @@
       "ai_calls_per_user_day": "KI-Aufrufe je Konto und Tag",
       "ai_calls_per_tenant_day": "KI-Aufrufe des Gartens je Tag",
       "ai_tokens_per_tenant_day": "KI-Tokens des Gartens je Tag"
+    },
+    "bedStatus": {
+      "planned": "Geplant",
+      "active": "Aktiv",
+      "retired": "Stillgelegt"
+    },
+    "sunExposure": {
+      "full_sun": "Volle Sonne",
+      "partial_shade": "Halbschatten",
+      "shade": "Schatten",
+      "deep_shade": "Tiefschatten",
+      "unknown": "Unbekannt"
+    },
+    "growingMediumKind": {
+      "native_soil": "Gewachsener Boden",
+      "raised_bed_mix": "Hochbeetmischung",
+      "potting_mix": "Blumenerde",
+      "mineral_substrate": "Mineralisches Substrat",
+      "other": "Sonstiges"
+    },
+    "soilTexture": {
+      "sand": "Sand",
+      "loamy_sand": "Lehmiger Sand",
+      "sandy_loam": "Sandiger Lehm",
+      "loam": "Lehm",
+      "silt_loam": "Schluffiger Lehm",
+      "clay_loam": "Toniger Lehm",
+      "clay": "Ton",
+      "unknown": "Unbekannt"
+    },
+    "soilDrainage": {
+      "poor": "Schlecht",
+      "moderate": "Mittel",
+      "good": "Gut",
+      "unknown": "Unbekannt"
+    },
+    "siteWaterRegime": {
+      "dry": "Trocken",
+      "fresh": "Frisch",
+      "moist": "Feucht",
+      "wet": "Nass",
+      "unknown": "Unbekannt"
+    },
+    "soilCondition": {
+      "compacted": "Verdichtet",
+      "depleted": "Ausgelaugt",
+      "waterlogged": "Staunass",
+      "crusting": "Verschlämmt",
+      "stony": "Steinig"
+    },
+    "ecMethod": {
+      "saturated_paste": "Sättigungsextrakt (ECe)",
+      "ratio_1_2": "Extrakt 1:2",
+      "ratio_1_5": "Extrakt 1:5",
+      "sensor": "Sonde",
+      "unknown": "Methode unbekannt"
+    },
+    "stoneContentClass": {
+      "none": "Keine",
+      "few": "Wenige",
+      "many": "Viele",
+      "unknown": "Unbekannt"
+    },
+    "phMethod": {
+      "cacl2": "CaCl₂-Lösung",
+      "h2o": "Wasser",
+      "probe_unknown": "Sonde, Methode unbekannt"
+    },
+    "soilParameter": {
+      "ph": "pH-Wert",
+      "ec": "EC (Leitfähigkeit)",
+      "humus": "Humus",
+      "caco3": "Kalkgehalt (CaCO₃)",
+      "n_min": "Nmin (mineralischer Stickstoff)",
+      "p": "Phosphor (P)",
+      "k": "Kalium (K)",
+      "mg": "Magnesium (Mg)",
+      "moisture": "Bodenfeuchte"
+    },
+    "soilUnit": {
+      "pH": "pH",
+      "mS/cm": "mS/cm",
+      "dS/m": "dS/m",
+      "%": "%",
+      "kg_n_per_ha": "kg N/ha",
+      "mg_per_100g": "mg/100 g Boden",
+      "mg_per_l": "mg/l"
+    },
+    "soilAnalysisSource": {
+      "lab": "Labor",
+      "test_kit": "Testset",
+      "sensor": "Sonde/Sensor",
+      "manual": "Manuell"
+    },
+    "soilExtractionMethod": {
+      "cal": "CAL (Labor)",
+      "ammonium_acetate": "Ammoniumacetat",
+      "saturated_paste": "Sättigungsextrakt",
+      "quick_test": "Schnelltest",
+      "sensor": "Sonde/Sensor"
+    },
+    "careUnit": {
+      "l": "Liter",
+      "ml": "Milliliter",
+      "g": "Gramm",
+      "kg": "Kilogramm",
+      "l_per_m2": "Liter pro m²",
+      "g_per_m2": "Gramm pro m²",
+      "cm": "Zentimeter",
+      "pieces": "Stück"
+    },
+    "careMaterial": {
+      "compost": "Kompost",
+      "manure": "Mist",
+      "horn_shavings": "Hornspäne",
+      "straw": "Stroh",
+      "grass_clippings": "Grasschnitt",
+      "bark_mulch": "Rindenmulch",
+      "wood_chips": "Holzhäcksel",
+      "leaves": "Laub",
+      "cardboard": "Pappe",
+      "fleece": "Vlies",
+      "net": "Netz",
+      "foil": "Folie",
+      "frost_cover": "Frostschutz",
+      "rock_dust": "Gesteinsmehl",
+      "biochar": "Pflanzenkohle",
+      "sand": "Sand",
+      "perlite": "Perlite",
+      "coffee_grounds": "Kaffeesatz",
+      "green_manure": "Gründüngung",
+      "sulfur": "Schwefel",
+      "lime": "Kalk",
+      "wood_ash": "Holzasche",
+      "other": "Sonstiges"
+    },
+    "rotationSeverity": {
+      "OK": "unauffällig",
+      "INFO": "Info",
+      "WARNING": "Warnung",
+      "CRITICAL": "kritisch"
+    },
+    "layoutStrategy": {
+      "grid": "Raster",
+      "rows": "Reihen",
+      "triangular": "Versetzt (Dreiecksraster)",
+      "zone": "Fläche",
+      "free": "Freie Positionen"
+    },
+    "rowDirection": {
+      "along_length": "Entlang der Länge",
+      "along_width": "Entlang der Breite"
+    },
+    "irrigationType": {
+      "manual": "Von Hand",
+      "drip": "Tropfbewässerung",
+      "sprinkler": "Regner",
+      "soaker_hose": "Perlschlauch",
+      "sub_irrigation": "Staubewässerung"
+    },
+    "careEventAllocation": {
+      "measured": "Gemessen",
+      "by_area": "Nach Fläche verteilt",
+      "equal": "Zu gleichen Teilen verteilt",
+      "by_demand": "Nach Bedarf verteilt"
+    },
+    "waterSourceKind": {
+      "tap": "Wasserhahn",
+      "rain_barrel": "Regentonne",
+      "well": "Brunnen",
+      "pond": "Teich",
+      "cistern": "Zisterne",
+      "hose_reel": "Schlauchtrommel"
+    },
+    "windowGlazing": {
+      "single": "Einfachverglasung",
+      "double": "Doppel- oder Mehrfachverglasung",
+      "unknown": "Unbekannt"
+    },
+    "lampKind": {
+      "grow_light": "Pflanzenlampe",
+      "ceiling": "Deckenleuchte",
+      "floor": "Stehleuchte"
+    },
+    "sunWindow": {
+      "morning": "Morgens",
+      "midday": "Mittags",
+      "afternoon": "Nachmittags",
+      "all_day": "Ganztägig",
+      "mixed": "Wechselnd",
+      "unknown": "Unbekannt"
+    },
+    "frostRisk": {
+      "low": "Gering",
+      "normal": "Normal",
+      "high": "Hoch",
+      "unknown": "Unbekannt"
+    },
+    "heatRetention": {
+      "none": "Keine",
+      "wall": "Wand",
+      "building": "Gebäude",
+      "unknown": "Unbekannt"
+    },
+    "windExposure": {
+      "sheltered": "Geschützt",
+      "normal": "Normal",
+      "exposed": "Windausgesetzt",
+      "unknown": "Unbekannt"
+    },
+    "accessSide": {
+      "N": "Nord",
+      "E": "Ost",
+      "S": "Süd",
+      "W": "West"
+    },
+    "siteFlag": {
+      "root_competition": "Wurzelkonkurrenz",
+      "allelopathy_risk": "Allelopathie-Risiko"
+    },
+    "wateringVolumeSource": {
+      "fallback_default": "Standardwert",
+      "phase_requirement_profile": "Phasenprofil",
+      "species_watering_guide": "Gießempfehlung der Art",
+      "container_substrate_calculation": "Topf und Substrat"
     }
   }
 }

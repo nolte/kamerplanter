@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { ApiError } from '@/api/errors';
@@ -215,9 +216,10 @@ describe('describeImportRefusal', () => {
         apiError(422, { error_code: 'IMPORT_SOMETHING_NEW', message: 'New rule.' }),
       ),
     ).toMatchObject({ code: 'UNKNOWN', rawCode: 'IMPORT_SOMETHING_NEW', message: 'New rule.' });
+    // #3013: a non-API failure carries the translated generic text, not the exception's message.
     expect(describeImportRefusal(new Error('boom'))).toMatchObject({
       code: 'UNKNOWN',
-      message: 'boom',
+      message: i18n.t('errors.generic'),
     });
   });
 });

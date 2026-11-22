@@ -20,7 +20,7 @@ class TankListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='tank-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -240,7 +240,7 @@ class TankListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_validation_error(self, field_name: str) -> str:
         """Return the validation error text for a form field."""

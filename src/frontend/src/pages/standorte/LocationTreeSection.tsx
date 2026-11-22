@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -57,7 +58,6 @@ interface Props {
 
 export default function LocationTreeSection({ siteKey }: Props) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { handleError } = useApiError();
   const [tree, setTree] = useState<LocationTreeNode[]>([]);
   const [locationTypes, setLocationTypes] = useState<Record<string, { name: string; icon: string | null }>>({});
@@ -124,17 +124,19 @@ export default function LocationTreeSection({ siteKey }: Props) {
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
               {icon}
-              <Typography
+              {/* A real link (#3047); it must not expand or collapse the tree item it labels. */}
+              <Link
+                component={RouterLink}
+                to={`/standorte/locations/${node.key}`}
                 variant="body2"
-                component="span"
-                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/standorte/locations/${node.key}`);
-                }}
+                color="inherit"
+                underline="hover"
+                onClick={(e) => e.stopPropagation()}
+                // Enter follows the link; the tree item must not also toggle on it.
+                onKeyDown={(e) => { if (e.key === 'Enter') e.stopPropagation(); }}
               >
                 {node.name}
-              </Typography>
+              </Link>
             </Box>
             <Box
               sx={{

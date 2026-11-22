@@ -50,7 +50,7 @@ describe('BotanicalFamilyCreateDialog', () => {
     await user.click(screen.getByTestId('form-submit-button'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Muss auf '-aceae' enden/)).toBeTruthy();
+      expect(screen.getByText(i18n.t('validation.botanicalFamilySuffix'))).toBeTruthy();
     });
     expect(onCreated).not.toHaveBeenCalled();
   });

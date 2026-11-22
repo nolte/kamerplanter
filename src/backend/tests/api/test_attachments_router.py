@@ -8,7 +8,9 @@ viewer 403 path, and local-fs token redemption.
 
 from __future__ import annotations
 
+import asyncio
 import io
+import uuid
 
 import pytest
 from fastapi import FastAPI, Request
@@ -20,7 +22,7 @@ from app.api.v1.attachments.tenant_router import router as tenant_attachments_ro
 from app.api.v1.attachments.token_router import router as token_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_attachment_service, get_object_storage
-from app.common.enums import TenantRole
+from app.common.enums import AttachmentCategory, TenantRole
 from app.common.exceptions import KamerplanterError
 from app.common.upload_bounds import MULTIPART_ENVELOPE_BYTES
 from app.config.settings import Settings
@@ -55,7 +57,10 @@ class _FakeRepo:
         return att if att and att.tenant_key == tenant_key else None
 
     def delete(self, key, tenant_key):
-        if self.get(key, tenant_key):
+        record = self.get(key, tenant_key)
+        if record is not None and record.client_event_id:  # the tombstone the Arango repository leaves (WP 9.3)
+            self.tombstones = {*getattr(self, "tombstones", set()), (tenant_key, record.client_event_id)}
+        if record:
             del self._store[key]
             return True
         return False
@@ -68,6 +73,22 @@ class _FakeRepo:
             if a.tenant_key == tenant_key and a.sha256 == sha256:
                 return a
         return None
+
+    def stamp_client_event(self, key, *, tenant_key, client_event_id, digest):
+        record = self._store.get(key)
+        if record is None or record.tenant_key != tenant_key or record.client_event_id is not None:
+            return False
+        self._store[key] = record.model_copy(update={"client_event_id": client_event_id, "client_event_digest": digest})
+        return True
+
+    def client_event_tombstones(self, client_event_ids, *, tenant_key):
+        return {i for (t, i) in getattr(self, "tombstones", set()) if t == tenant_key and i in client_event_ids}
+
+    def find_by_client_event_id(self, *, tenant_key, client_event_id):
+        return next(
+            (a for a in self._store.values() if a.tenant_key == tenant_key and a.client_event_id == client_event_id),
+            None,
+        )
 
     def find_own_by_sha256(self, *, tenant_key, sha256, created_by, category):
         # As the repository answers it (#1770): the uploader's own record only.
@@ -604,3 +625,113 @@ def _restore_delay():
     original = storage_tasks.generate_thumbnails.delay
     yield
     storage_tasks.generate_thumbnails.delay = original
+
+
+class TestClientEventId:
+    """REQ-053 WP 9.3: a buffered bed photo (``category=location``) replayed with its ``client_event_id``."""
+
+    _ID = "9e8d7c6b-5a49-4382-a1b0-c9d8e7f6a5b4"
+
+    def test_a_replay_answers_200_with_the_stored_record(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+
+        def post():
+            return client.post(
+                _base(),
+                files={"file": ("bed.jpg", data, "image/jpeg")},
+                data={"category": "location", "client_event_id": self._ID},
+            )
+
+        first, *replays = [post() for _ in range(3)]
+
+        assert first.status_code == 201, first.text
+        assert [r.status_code for r in replays] == [200, 200]
+        assert all(r.json() == first.json() for r in replays)
+        assert [a.client_event_id for a in service._repo._store.values()] == [self._ID]
+
+    def test_the_same_id_in_another_category_is_409(self, tmp_path):
+        app, _service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+        sent = {"client_event_id": self._ID}
+        files = {"file": ("bed.jpg", data, "image/jpeg")}
+        assert client.post(_base(), files=files, data={"category": "location", **sent}).status_code == 201
+
+        response = client.post(_base(), files=files, data={"category": "diary", **sent})
+
+        assert response.status_code == 409, response.text
+        assert response.json()["error_code"] == "client_event.payload_mismatch"
+
+
+class TestClientEventReviewFindings:
+    """Code review of #2787: the #1770 own-record dedup and the tombstone of a deleted upload."""
+
+    _ID = "2a3b4c5d-6e7f-4801-9a2b-3c4d5e6f7a8b"
+
+    @staticmethod
+    def _post(client, data: bytes, client_id: str | None):
+        form = {"category": "location", **({"client_event_id": client_id} if client_id else {})}
+        return client.post(_base(), files={"file": ("bed.jpg", data, "image/jpeg")}, data=form)
+
+    def test_an_own_record_handed_back_by_the_dedup_is_stamped_with_the_id(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+        plain = self._post(client, data, None)
+
+        first = self._post(client, data, self._ID)
+        replay = self._post(client, data, self._ID)
+
+        assert (plain.status_code, first.status_code, replay.status_code) == (201, 201, 200)
+        assert first.json()["attachment_id"] == plain.json()["attachment_id"] == replay.json()["attachment_id"]
+        assert [a.client_event_id for a in service._repo._store.values()] == [self._ID]
+
+    def test_a_twin_answered_by_the_dedup_is_a_replay_not_a_new_record(self, tmp_path):
+        # The race the unique index cannot see: the twin's record is not yet visible to the id lookup, but the
+        # #1770 dedup hands it back - it carries this very id, so this attempt is a replay (no second feed).
+        _app, service, _adapter = _build(tmp_path)
+        data = _make_jpeg()
+        twin = asyncio.run(
+            service.upload_once(
+                tenant_key="tenant_anna",
+                user_key="user_anna",
+                data=data,
+                mime_type="image/jpeg",
+                original_filename="bed.jpg",
+                category=AttachmentCategory.LOCATION,
+                client_event_id=uuid.UUID(self._ID),
+            )
+        )
+        service._repo.find_by_client_event_id = lambda **_: None  # the twin's record not yet visible to the lookup
+
+        outcome = asyncio.run(
+            service.upload_once(
+                tenant_key="tenant_anna",
+                user_key="user_anna",
+                data=data,
+                mime_type="image/jpeg",
+                original_filename="bed.jpg",
+                category=AttachmentCategory.LOCATION,
+                client_event_id=uuid.UUID(self._ID),
+            )
+        )
+
+        assert (twin.created, twin.replayed) == (True, False)
+        assert (outcome.created, outcome.replayed) == (False, True)
+        assert outcome.attachment.key == twin.attachment.key
+        assert len(service._repo._store) == 1
+
+    def test_a_replay_of_a_deleted_upload_is_404_deleted(self, tmp_path):
+        app, service, _adapter = _build(tmp_path)
+        client = TestClient(app)
+        data = _make_jpeg()
+        attachment_id = self._post(client, data, self._ID).json()["attachment_id"]
+        assert client.delete(_base(f"/{attachment_id}")).status_code in (200, 204)
+
+        response = self._post(client, data, self._ID)
+
+        assert response.status_code == 404, response.text
+        assert response.json()["error_code"] == "client_event.deleted"
+        assert service._repo._store == {}

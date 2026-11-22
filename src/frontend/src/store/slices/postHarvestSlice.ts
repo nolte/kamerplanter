@@ -11,6 +11,7 @@ import type {
   DryingProgressCreate,
 } from '@/api/types';
 import * as api from '@/api/endpoints/postHarvest';
+import { errorKey } from '@/api/errors';
 
 interface PostHarvestState {
   batches: PostHarvestBatch[];
@@ -123,7 +124,7 @@ const postHarvestSlice = createSlice({
       })
       .addCase(fetchPostHarvestBatches.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchPostHarvestBatch.fulfilled, (state, action) => {
         state.currentDetail = action.payload;

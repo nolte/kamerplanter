@@ -127,6 +127,22 @@ Quellen: Missouri Botanical Garden Plant Finder; RHS; NC State Extension / NC St
 Quellen (§1.8): [Homesteading.blog — Growing Echinacea From Seed: Maximizing Germination](https://homesteading.blog/growing-echinacea-seed-cold-stratification) (Keimtemp. 18–20 °C, Stratifikationseffekt 89→98 %, Keimfähigkeit "mindestens 7 Jahre"); [Johnny's Selected Seeds — Echinacea Key Growing Information](https://www.johnnyseeds.com/growers-library/flowers/echinacea/echinacea-key-growing-information.html) (65–70 °F Keimtemp., nicht bedecken); [Coohom — Do Echinacea Seeds Need Light To Germinate](https://www.coohom.com/article/do-echinacea-seeds-need-light-to-germinate) (Lichtkeimer, Keimbeginn ab 5 Tagen bis 3 Wochen); [West Coast Seeds Academy — How to Grow Echinacea](https://www.westcoastseeds.com/blogs/wcs-academy/grow-echinacea) (Lichtkeimer-Bestätigung); [Outside Pride — Purple Coneflower Wild Flower Seed](https://www.outsidepride.com/seed/flower-seed/echinacea/coneflower-purple.html) (90.000–128.000 Samen/lb, Aussaatrate 4 oz/1.000 sq ft); [Montana Native Plants — Growing Echinacea (KR 2010)](https://www.mtnativeplants.org/wp-content/uploads/2018/07/KR-2010-Growing-Echinacea.pdf) (~150.000 Samen/lb)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: keine gelesene Fachquelle mit ausdrücklichem Pflanzabstand (RHS, Clemson HGIC 2009/2025, Penn State Extension 2025, Univ. Illinois Extension nennen keinen Wert; Händlerangaben 40–50 cm zählen nicht) --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (gedeiht in voller Sonne; toleriert lichten Halbschatten, blüht dort aber schwächer) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Echinacea purpurea" (Position: Full sun, Partial shade; Text: „ideally in full sun, although tolerant of some shade"), https://www.rhs.org.uk/plants/41568/echinacea-purpurea/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -269,6 +285,11 @@ Quellen: RHS Aphid Predators; Koppert / UC IPM (Cryptolaemus montrouzieri); Ever
 | Empfohlene Vorfrucht | Beliebig; bevorzugt nährstoffarmer Standort |
 | Empfohlene Nachfrucht | Beliebig |
 | Anbaupause (Jahre) | Keine; Dauerstaude (8–10+ Jahre Standzeit) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3); Dauerstaude ohne Fruchtfolge --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

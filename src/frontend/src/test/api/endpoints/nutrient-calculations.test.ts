@@ -18,6 +18,7 @@ vi.mock('@/api/client', () => ({
 }));
 
 import * as calc from '@/api/endpoints/nutrient-calculations';
+import type { AreaDosingRequest } from '@/api/types';
 
 const client = mocks.client;
 
@@ -38,6 +39,17 @@ describe('nutrient-calculations endpoints', () => {
     const payload = { fertilizer_keys: ['compost'], area_m2: 12 } as never;
     await calc.calculateAreaDosing(payload);
     expect(client.post).toHaveBeenCalledWith('/nutrient-calculations/area-dosing', payload);
+  });
+
+  it('calculateAreaDosing passes species_key through unchanged (REQ-053 E-17)', async () => {
+    client.post.mockResolvedValue({ data: {} });
+    const payload: AreaDosingRequest = { fertilizer_keys: ['compost'], area_m2: 12, species_key: 'sp-1' };
+    await calc.calculateAreaDosing(payload);
+    expect(client.post).toHaveBeenCalledWith('/nutrient-calculations/area-dosing', {
+      fertilizer_keys: ['compost'],
+      area_m2: 12,
+      species_key: 'sp-1',
+    });
   });
 
   it('calculateFlushing posts to flushing', async () => {

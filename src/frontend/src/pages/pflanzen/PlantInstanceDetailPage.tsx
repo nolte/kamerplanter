@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTabUrl } from '@/hooks/useTabUrl';
@@ -46,11 +46,13 @@ import axios from 'axios';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import PageTitle from '@/components/layout/PageTitle';
 import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import EmptyState from '@/components/common/EmptyState';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable from '@/components/common/DataTable';
@@ -80,6 +82,7 @@ import PhaseHistoryTable from '@/pages/durchlaeufe/PhaseHistoryTable';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
 import CareProfileForm from '@/pages/pflege/components/CareProfileForm';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import type { DosagePreset } from '@/pages/pflege/components/CareConfirmDialog';
 import WateringLogCreateDialog from '@/pages/giessprotokoll/WateringLogCreateDialog';
 import type { ChannelPreset } from '@/pages/giessprotokoll/WateringLogCreateDialog';
@@ -104,13 +107,14 @@ import * as careApi from '@/api/endpoints/careReminders';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { ConfirmReminderOptions } from '@/api/endpoints/careReminders';
 import type { PlantInstance, CurrentPhaseResponse, PhaseHistoryEntry, Cultivar, NutrientPlan, NutrientPlanPhaseEntry, Fertilizer, WateringLog, GrowthPhase, Species, Site, Location as SiteLocation, Slot, CareConfirmation, SubstrateType, TaskItem } from '@/api/types';
-import { getPlantDisplayName, getPlantLabel } from '@/utils/plantDisplay';
+import { getPlantDisplayName, getPlantLabel, orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 import SubstrateSelectField from '@/components/form/SubstrateSelectField';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import PlantPhotoGallery from './photos/PlantPhotoGallery';
 import PlantCoverPreview from './photos/PlantCoverPreview';
 import PlantDiaryTab from './diary/PlantDiaryTab';
 import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
+import { captureHandledError } from '@/observability/errorTracking';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -171,6 +175,10 @@ export default function PlantInstanceDetailPage() {
   const [currentPhase, setCurrentPhase] = useState<CurrentPhaseResponse | null>(null);
   const [history, setHistory] = useState<PhaseHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  // A secondary read of `load()` failed (species, location, slots, runs, phases, care
+  // history, plan, ...). Shown once above the tabs with a retry, so a failed read never
+  // passes for "none" (#3037).
+  const [sectionLoadError, setSectionLoadError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [transitionOpen, setTransitionOpen] = useState(false);
@@ -195,7 +203,10 @@ export default function PlantInstanceDetailPage() {
       import('@/api/endpoints/phaseSequences').then((api) =>
         api.getSpeciesPhaseSequence(lc.species_key).then((seq) => {
           if (seq) setPhaseSequenceKey(seq.key);
-        }).catch(() => {}),
+        }).catch((err: unknown) => {
+          // Fallback lookup only: without it the phase-sequence link is not shown.
+          captureHandledError(err, { source: 'PlantInstanceDetailPage.phaseSequence' });
+        }),
       );
     }
   }, []);
@@ -209,6 +220,9 @@ export default function PlantInstanceDetailPage() {
 
   // Nutrient plan assignment state
   const [assignedPlan, setAssignedPlan] = useState<NutrientPlan | null>(null);
+  // The plan read failed: there is no "no plan assigned" to show, and no assign
+  // call to action in its place — the section banner carries the retry (#3037).
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [removePlanOpen, setRemovePlanOpen] = useState(false);
   const [removingPlan, setRemovingPlan] = useState(false);
@@ -223,8 +237,11 @@ export default function PlantInstanceDetailPage() {
   const [recommendedRoMap, setRecommendedRoMap] = useState<Map<number, number>>(new Map());
 
   // Slot picker cascade state
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites, { enabled: tab === 7 });
+  const sitesList = sitesLoad.options;
   const [slotsList, setSlotsList] = useState<Slot[]>([]);
+  const [slotsLoadError, setSlotsLoadError] = useState(false);
 
   // Substrate selector state
   // The complete substrate catalogue through the shared reader (#1560), loaded
@@ -233,6 +250,7 @@ export default function PlantInstanceDetailPage() {
   // filters client-side, so a row that never arrived is unpickable rather than
   // merely off-screen.
   const substrateCatalogue = useCatalogue('substrates', { enabled: tab === 7 });
+  const substrateFieldId = useId();
 
   // Assigned location display (info tab)
   const [assignedSlot, setAssignedSlot] = useState<Slot | null>(null);
@@ -250,6 +268,11 @@ export default function PlantInstanceDetailPage() {
 
   // Care profile state
   const [careProfile, setCareProfile] = useState<import('@/api/types').CareProfile | null>(null);
+  // The failed read's error key together with the plant it was for (#3065): the
+  // effect that clears it runs only after the first render under a new route
+  // key, so the render filters it by key — like the profile by `plant_key`.
+  const [careProfileError, setCareProfileError] = useState<{ plantKey: string; error: string } | null>(null);
+  const [careProfileAttempt, setCareProfileAttempt] = useState(0);
 
   // Watering state
   const [lastWatering, setLastWatering] = useState<CareConfirmation | null>(null);
@@ -275,6 +298,7 @@ export default function PlantInstanceDetailPage() {
     handleSubmit,
     reset,
     setValue,
+    getValues,
     formState: { isDirty },
   } = useForm<EditFormData>({
     resolver: zodResolver(editSchema),
@@ -293,16 +317,33 @@ export default function PlantInstanceDetailPage() {
   const editSiteKey = useWatch({ control, name: 'site_key' });
   const editLocationKey = useWatch({ control, name: 'location_key' });
 
-  // `isCancelled` lets the [key]-effect abandon an in-flight load when the user
-  // navigates to a sibling before it settles. Imperative refreshes (post-mutation)
-  // pass the default no-op guard since they always target the current key.
-  const load = async (isCancelled: () => boolean = () => false) => {
+  // Latest-wins (#3014): every run — the [key]-effect and post-mutation
+  // refreshes alike — supersedes the one before, so a late answer for a sibling
+  // the user navigated away from (or an older refresh) never lands. Every state
+  // write below, including the fire-and-forget ones, checks `isCancelled` first.
+  const beginLoad = useAbortableLoad();
+  // `secondaryOnly` is the section retry (#3037 SCR-003): it re-runs the secondary
+  // reads against the plant already on screen, without the page skeleton and
+  // without `reset(...)`, so unsaved input on the edit tab survives it.
+  const load = async ({ secondaryOnly = false }: { secondaryOnly?: boolean } = {}) => {
     if (!key) return;
-    setLoading(true);
-    try {
-      const p = await plantApi.getPlantInstance(key);
+    const ticket = beginLoad();
+    const isCancelled = () => !ticket.isCurrent();
+    // Reports a failed secondary read and flags it for the retry banner. A 404 is
+    // passed as `absentIsEmpty` where the resource legitimately may not exist.
+    const reportSectionFailure = (source: string, err: unknown, absentIsEmpty = false) => {
       if (isCancelled()) return;
-      setPlant(p);
+      if (absentIsEmpty && isApiError(err) && err.statusCode === 404) return;
+      captureHandledError(err, { source: `PlantInstanceDetailPage.${source}` });
+      setSectionLoadError(true);
+    };
+    const reuse = secondaryOnly && plant?.key === key ? plant : null;
+    if (!reuse) setLoading(true);
+    setSectionLoadError(false);
+    try {
+      const p = reuse ?? (await plantApi.getPlantInstance(key));
+      if (isCancelled()) return;
+      if (!reuse) setPlant(p);
       // Resolve the mother instance for the ancestry link (D10 clonal continuation).
       // Kicked off in the same tick as setPlant (before any further awaits) so the
       // "loading" state batches with the initial render — the raw mother_key never
@@ -313,7 +354,11 @@ export default function PlantInstanceDetailPage() {
         setMotherLoading(true);
         plantApi.getPlantInstance(p.mother_key)
           .then((m) => { if (!isCancelled()) setMotherInstance(m); })
-          .catch(() => { if (!isCancelled()) setMotherInstance(null); })
+          .catch((err: unknown) => {
+            // Only the ancestry link's label is missing; the link itself falls back to the key.
+            captureHandledError(err, { source: 'PlantInstanceDetailPage.mother' });
+            if (!isCancelled()) setMotherInstance(null);
+          })
           .finally(() => { if (!isCancelled()) setMotherLoading(false); });
       } else {
         setMotherInstance(null);
@@ -323,11 +368,19 @@ export default function PlantInstanceDetailPage() {
       if (p.species_key) {
         try {
           loadedSpecies = await speciesApi.getSpecies(p.species_key);
+          if (isCancelled()) return;
           setSpecies(loadedSpecies);
-        } catch {
+        } catch (err) {
+          reportSectionFailure('species', err);
+          if (isCancelled()) return;
           setSpecies(null);
         }
-        speciesApi.listCultivars(p.species_key).then(setCultivarList).catch(() => setCultivarList([]));
+        speciesApi.listCultivars(p.species_key)
+          .then((c) => { if (!isCancelled()) setCultivarList(c); })
+          .catch((err: unknown) => {
+            reportSectionFailure('cultivars', err);
+            if (!isCancelled()) setCultivarList([]);
+          });
       }
       // Resolve site_key: prefer stored value, fall back to location → site derivation
       let resolvedSiteKey: string | null = p.site_key ?? null;
@@ -337,95 +390,163 @@ export default function PlantInstanceDetailPage() {
         try {
           const slot = await sitesApi.getSlot(p.slot_key);
           resolvedLocationKey = slot.location_key;
-        } catch { /* ignore */ }
+        } catch (err) {
+          // Without the slot the location stays unresolved; flagged, not passed off as "no location".
+          reportSectionFailure('slotLocation', err);
+        }
+        if (isCancelled()) return;
       }
       // Resolve location → site + display (also backfill site_key if not stored)
       if (resolvedLocationKey) {
         try {
           const loc = await sitesApi.getLocation(resolvedLocationKey);
+          if (isCancelled()) return;
           setAssignedLocation(loc);
           if (!resolvedSiteKey) resolvedSiteKey = loc.site_key;
-        } catch {
+        } catch (err) {
+          reportSectionFailure('location', err);
+          if (isCancelled()) return;
           setAssignedLocation(null);
         }
-        sitesApi.listSlots(resolvedLocationKey).then(setSlotsList).catch(() => setSlotsList([]));
       } else {
         setAssignedLocation(null);
       }
+      // A section retry must not swap the slot list under an edited location.
+      const slotsLocationKey = reuse ? (getValues('location_key') ?? null) : resolvedLocationKey;
+      if (slotsLocationKey) {
+        sitesApi.listSlots(slotsLocationKey)
+          .then((sl) => {
+            if (isCancelled()) return;
+            setSlotsList(sl);
+            setSlotsLoadError(false);
+          })
+          .catch((err: unknown) => {
+            reportSectionFailure('slots', err);
+            if (isCancelled()) return;
+            setSlotsList([]);
+            setSlotsLoadError(true);
+          });
+      }
       // Resolve slot display
       if (p.slot_key) {
-        sitesApi.getSlot(p.slot_key).then(setAssignedSlot).catch(() => setAssignedSlot(null));
+        sitesApi.getSlot(p.slot_key)
+          .then((sl) => { if (!isCancelled()) setAssignedSlot(sl); })
+          .catch((err: unknown) => {
+            reportSectionFailure('slot', err);
+            if (!isCancelled()) setAssignedSlot(null);
+          });
       } else {
         setAssignedSlot(null);
       }
-      skipLocationReset.current = true;
-      skipSlotReset.current = true;
-      reset({
-        plant_name: p.plant_name,
-        cultivar_key: p.cultivar_key,
-        site_key: resolvedSiteKey,
-        location_key: resolvedLocationKey,
-        slot_key: p.slot_key,
-        substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
-        planted_on: p.planted_on,
-        container_volume_liters: p.container_volume_liters,
-      });
+      if (!reuse) {
+        skipLocationReset.current = true;
+        skipSlotReset.current = true;
+        reset({
+          plant_name: p.plant_name,
+          cultivar_key: p.cultivar_key,
+          site_key: resolvedSiteKey,
+          location_key: resolvedLocationKey,
+          slot_key: p.slot_key,
+          substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
+          planted_on: p.planted_on,
+          container_volume_liters: p.container_volume_liters,
+        });
+      }
       // Load planting runs for this plant
-      plantApi.getPlantRuns(key).then(setPlantRuns).catch(() => setPlantRuns([]));
+      plantApi.getPlantRuns(key)
+        .then((r) => { if (!isCancelled()) setPlantRuns(r); })
+        .catch((err: unknown) => {
+          reportSectionFailure('runs', err);
+          if (!isCancelled()) setPlantRuns([]);
+        });
       try {
         const cp = await phasesApi.getCurrentPhase(key);
+        if (isCancelled()) return;
         setCurrentPhase(cp);
-      } catch {
-        // Phase control may not be configured
+      } catch (err) {
+        // Phase control may not be configured (404); never keep the previous plant's phase.
+        reportSectionFailure('currentPhase', err, true);
+        if (isCancelled()) return;
+        setCurrentPhase(null);
       }
       try {
         const h = await phasesApi.getPhaseHistory(key);
+        if (isCancelled()) return;
         setHistory(h);
-      } catch {
-        // History may be empty
+      } catch (err) {
+        // Never keep the previous plant's history.
+        reportSectionFailure('phaseHistory', err);
+        if (isCancelled()) return;
+        setHistory([]);
       }
       // Load last watering confirmation
       try {
         const hist = await careApi.getHistory(key, 'watering');
+        if (isCancelled()) return;
         setLastWatering(hist.length > 0 ? hist[0] : null);
-      } catch {
+      } catch (err) {
+        reportSectionFailure('lastWatering', err);
+        if (isCancelled()) return;
         setLastWatering(null);
       }
       // Load next pending watering task
       try {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
+        if (isCancelled()) return;
         const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wateringTask ?? null);
-      } catch {
+      } catch (err) {
+        reportSectionFailure('nextWatering', err);
+        if (isCancelled()) return;
         setNextWateringTask(null);
       }
       // Load watering log history
       try {
         const wl = await wateringLogApi.getPlantWateringHistory(key);
+        if (isCancelled()) return;
         setWateringLogs(wl);
-      } catch {
-        // May not have any watering logs
+      } catch (err) {
+        // Never keep the previous plant's log.
+        reportSectionFailure('wateringLogs', err);
+        if (isCancelled()) return;
+        setWateringLogs([]);
       }
       // Load lifecycle growth phases for projected timeline
       try {
         const lc = await phasesApi.getLifecycleConfig(p.species_key);
+        if (isCancelled()) return;
         setLifecycleKey(lc.key);
         const gp = await phasesApi.listGrowthPhases(lc.key);
+        if (isCancelled()) return;
         setGrowthPhases(gp.sort((a, b) => a.sequence_order - b.sequence_order));
-      } catch {
+      } catch (err) {
+        // A species without a lifecycle config answers 404: no projected timeline, not a failure.
+        reportSectionFailure('growthPhases', err, true);
+        if (isCancelled()) return;
         setGrowthPhases([]);
       }
       // Load assigned nutrient plan + Gantt data
       // Falls back to species' default nutrient plan if no plant-specific plan assigned
-      let ap = await planApi.getPlantPlan(key);
-      if (!ap && loadedSpecies?.default_nutrient_plan_key) {
+      let ap: NutrientPlan | null = null;
+      let planFailed = false;
+      try {
+        ap = await planApi.getPlantPlan(key);
+      } catch (err) {
+        // Not "no plan assigned": flagged, and the species default is not offered in its place.
+        reportSectionFailure('plan', err);
+        planFailed = true;
+      }
+      if (!ap && !planFailed && loadedSpecies?.default_nutrient_plan_key) {
         try {
           ap = await planApi.fetchNutrientPlan(loadedSpecies.default_nutrient_plan_key);
-        } catch {
-          // Species default plan may have been deleted
+        } catch (err) {
+          // The species' default plan may have been deleted (404): then there is no plan to show.
+          reportSectionFailure('defaultPlan', err, true);
         }
       }
+      if (isCancelled()) return;
       setAssignedPlan(ap);
+      setPlanLoadFailed(planFailed);
       if (ap) {
         const [pe, f] = await Promise.all([
           planApi.fetchPhaseEntries(ap.key),
@@ -434,6 +555,7 @@ export default function PlantInstanceDetailPage() {
           // sequence that already owns the surrounding loading and error state.
           fertApi.fetchAllFertilizers(),
         ]);
+        if (isCancelled()) return;
         setPlanEntries(pe);
         setFertilizers(f);
       } else {
@@ -441,26 +563,50 @@ export default function PlantInstanceDetailPage() {
         setFertilizers([]);
       }
     } catch (err) {
-      setError(String(err));
+      if (isCancelled()) return;
+      // On a section retry the page is already on screen: flag the section, keep the page.
+      if (reuse) reportSectionFailure('plan', err);
+      else setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
     }
   };
 
+  // The hook aborts the run on unmount; a key change starts a run that supersedes it.
   useEffect(() => {
-    let ignore = false;
-    load(() => ignore);
-    return () => { ignore = true; };
+    load();
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load care profile when switching to Care tab
+  // Load care profile when switching to Care tab.
+  //
+  // The form seeds its fields from the profile object it is handed and re-seeds
+  // when a new object arrives (#3065). Keeping the previous answer on screen
+  // while this read runs would therefore show a stale profile — another plant's
+  // after a key change — and then discard whatever the user typed before the
+  // fresh one landed. The previous answer is dropped first, and an answer for a
+  // superseded read (key or tab changed meanwhile) is ignored.
   useEffect(() => {
-    if (tab === 4 && key) {
-      careApi.getOrCreateProfile(key)
-        .then(setCareProfile)
-        .catch(() => setCareProfile(null));
-    }
-  }, [tab, key]);
+    if (tab !== 4 || !key) return undefined;
+    let cancelled = false;
+    setCareProfile(null); // eslint-disable-line react-hooks/set-state-in-effect -- drop the superseded answer before the read starts (#3065)
+    setCareProfileError(null);
+    careApi.getOrCreateProfile(key)
+      .then((profile) => {
+        if (cancelled) return;
+        setCareProfile(profile);
+        setCareProfileError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // Shown with a retry instead of a skeleton that never resolves (#3037).
+        captureHandledError(err, { source: 'PlantInstanceDetailPage.careProfile' });
+        setCareProfile(null);
+        setCareProfileError({ plantKey: key, error: errorKey(err, 'errors.loadFailed') });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, key, careProfileAttempt]);
 
   // Load every task bound to this plant instance (all categories, all statuses).
   // A dedicated ``loaded``/``error`` state pair replaces the former
@@ -499,12 +645,7 @@ export default function PlantInstanceDetailPage() {
     }
   }, [tab, key, loadPlantTasks]);
 
-  // Load sites + substrates when switching to Edit tab
-  useEffect(() => {
-    if (tab === 7) {
-      sitesApi.listSites(0, 200).then(setSitesList).catch(() => setSitesList([]));
-    }
-  }, [tab]);
+  // Sites load with the Edit tab (`sitesLoad` above), substrates through the shared catalogue.
 
   // Clear location when site changes (except initial load)
   const skipLocationReset = useRef(true);
@@ -526,11 +667,25 @@ export default function PlantInstanceDetailPage() {
       return;
     }
     setSlotsList([]);
+    setSlotsLoadError(false);
     setValue('slot_key', null, { shouldDirty: true });
     if (editLocationKey) {
-      sitesApi.listSlots(editLocationKey).then(setSlotsList).catch(() => setSlotsList([]));
+      sitesApi.listSlots(editLocationKey).then(setSlotsList).catch((err: unknown) => {
+        captureHandledError(err, { source: 'PlantInstanceDetailPage.editSlots' });
+        setSlotsList([]);
+        setSlotsLoadError(true);
+      });
     }
   }, [editLocationKey, setValue]);
+
+  const retrySlots = useCallback(() => {
+    if (!editLocationKey) return;
+    setSlotsLoadError(false);
+    sitesApi.listSlots(editLocationKey).then(setSlotsList).catch((err: unknown) => {
+      captureHandledError(err, { source: 'PlantInstanceDetailPage.editSlots' });
+      setSlotsLoadError(true);
+    });
+  }, [editLocationKey]);
 
   // Fetch recommended RO% for each phase entry when plan + site are available
   useEffect(() => {
@@ -546,7 +701,11 @@ export default function PlantInstanceDetailPage() {
         }
         setRecommendedRoMap(map);
       })
-      .catch(() => setRecommendedRoMap(new Map()));
+      .catch((err: unknown) => {
+        // The RO% recommendation is a hint next to each phase; the plan renders without it.
+        captureHandledError(err, { source: 'PlantInstanceDetailPage.roRecommendation' });
+        setRecommendedRoMap(new Map());
+      });
   }, [assignedPlan?.key, editSiteKey]);
 
   // #1422 gave the phase-transition and care-confirm routes a rank gate, so a viewer
@@ -578,7 +737,9 @@ export default function PlantInstanceDetailPage() {
         const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
         const wt = tasks.find((t) => t.name.endsWith('— watering'));
         setNextWateringTask(wt ?? null);
-      } catch {
+      } catch (err) {
+        // The confirmation is saved; only the refreshed "next watering" hint is missing until the next load.
+        captureHandledError(err, { source: 'PlantInstanceDetailPage.nextWateringRefresh' });
         setNextWateringTask(null);
       }
     } catch (err) {
@@ -723,19 +884,13 @@ export default function PlantInstanceDetailPage() {
   const currentWeek = useMemo(() => {
     // Phase-based calculation: weeks since phase transition + plan entry's week_start
     if (actualPhase?.startedAt && planEntries.length > 0) {
-      const phaseStart = new Date(actualPhase.startedAt);
-      if (!isNaN(phaseStart.getTime())) {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        phaseStart.setHours(0, 0, 0, 0);
-        const diffMs = now.getTime() - phaseStart.getTime();
-        if (diffMs >= 0) {
-          const weeksInPhase = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
-          const sorted = [...planEntries].sort((a, b) => a.sequence_order - b.sequence_order);
-          const phaseEntry = sorted.find((e) => e.phase_name === actualPhase.name);
-          if (phaseEntry) {
-            return phaseEntry.week_start + weeksInPhase - 1;
-          }
+      // UTC calendar days — the server's clock for every week it derives (#3016, BACKEND.md §12a).
+      const weeksInPhase = computeCurrentWeek(actualPhase.startedAt);
+      if (weeksInPhase !== undefined) {
+        const sorted = [...planEntries].sort((a, b) => a.sequence_order - b.sequence_order);
+        const phaseEntry = sorted.find((e) => e.phase_name === actualPhase.name);
+        if (phaseEntry) {
+          return phaseEntry.week_start + weeksInPhase - 1;
         }
       }
     }
@@ -1108,13 +1263,13 @@ export default function PlantInstanceDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="plant-instance-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
-        title={plant ? getPlantLabel(plant, species, assignedCultivar) : t('entities.plantInstance')}
+        title={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : t('entities.plantInstance')}
         action={
           /* This header is the reason R-024 exists: five controls used to wrap,
              and the destructive "remove" button was the one pushed off a 393px
@@ -1184,6 +1339,14 @@ export default function PlantInstanceDetailPage() {
         <Tab label={t('pages.plantPhotos.tabTitle')} data-testid="photos-tab" />
         <Tab label={t('pages.plantDiary.tabTitle')} data-testid="diary-tab" />
       </Tabs>
+
+      {sectionLoadError && (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={() => void load({ secondaryOnly: true })}
+          data-testid="plant-section-load-error"
+        />
+      )}
 
       {tab === 0 && (
         <>
@@ -1706,7 +1869,7 @@ export default function PlantInstanceDetailPage() {
                 )}
 
                 {/* Hint when no nutrient plan assigned */}
-                {!assignedPlan && currentGrowthPhase && (
+                {!assignedPlan && !planLoadFailed && currentGrowthPhase && (
                   <>
                     <Divider sx={{ my: 1.5 }} />
                     <Alert severity="info" variant="outlined" sx={{ py: 0 }}>
@@ -1752,7 +1915,7 @@ export default function PlantInstanceDetailPage() {
                       <Typography variant="h6" sx={{ fontStyle: 'italic' }}>{species.scientific_name}</Typography>
                       {species.common_names.length > 0 && (
                         <Typography variant="body2" color="text.secondary">
-                          {species.common_names.join(', ')}
+                          {orderCommonNamesForLanguage(species, i18n.language).join(', ')}
                         </Typography>
                       )}
                     </Box>
@@ -2059,8 +2222,8 @@ export default function PlantInstanceDetailPage() {
                 </Button>
               </Box>
             </Box>
-          ) : (
-            <Box>
+          ) : planLoadFailed ? null : (
+            <Box data-testid="plant-no-plan-assigned">
               <Alert severity="info" sx={{ mb: 2 }}>
                 {t('pages.nutrientPlans.noPlanAssigned')}
               </Alert>
@@ -2225,7 +2388,7 @@ export default function PlantInstanceDetailPage() {
             ]}
             rows={wateringLogs}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/giessprotokoll/${r.key}`)}
+            getRowHref={(r) => `/giessprotokoll/${r.key}`}
             tableState={wateringLogTableState}
             ariaLabel={t('entities.wateringLog')}
             mobileCardRenderer={(r) => (
@@ -2261,7 +2424,7 @@ export default function PlantInstanceDetailPage() {
       {/* Tab 4: Care Profile */}
       {tab === 4 && (
         <Box sx={{ maxWidth: 1280 }}>
-          {careProfile ? (
+          {careProfile && careProfile.plant_key === key ? (
             <>
               {/* Care-tab profile editing happens inline (#577): the form is always
                   editable directly on the page instead of behind a modal. The
@@ -2286,6 +2449,14 @@ export default function PlantInstanceDetailPage() {
                 onUpdated={(updated) => setCareProfile(updated)}
               />
             </>
+          ) : careProfileError && careProfileError.plantKey === key ? (
+            <ErrorDisplay
+              error={careProfileError.error}
+              onRetry={() => {
+                setCareProfileError(null);
+                setCareProfileAttempt((n) => n + 1);
+              }}
+            />
           ) : (
             <LoadingSkeleton variant="form" />
           )}
@@ -2557,7 +2728,7 @@ export default function PlantInstanceDetailPage() {
                     ]}
                     rows={activeTasks}
                     getRowKey={(row) => row.key}
-                    onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
+                    getRowHref={(row) => `/aufgaben/tasks/${row.key}`}
                     tableState={taskTableState}
                     ariaLabel={t('pages.plantInstances.taskTabActiveSection')}
                     sectionTestId="plant-tasks-active"
@@ -2656,7 +2827,7 @@ export default function PlantInstanceDetailPage() {
                     ]}
                     rows={archivedTasks}
                     getRowKey={(row) => row.key}
-                    onRowClick={(row) => navigate(`/aufgaben/tasks/${row.key}`)}
+                    getRowHref={(row) => `/aufgaben/tasks/${row.key}`}
                     ariaLabel={t('pages.plantInstances.taskTabDoneSection')}
                     sectionTestId="plant-tasks-done"
                     searchable
@@ -2703,7 +2874,7 @@ export default function PlantInstanceDetailPage() {
               onClose={() => setTaskCreateOpen(false)}
               presetEntityKey={key}
               hideEntitySelect
-              presetEntityLabel={plant ? getPlantLabel(plant, species, assignedCultivar) : null}
+              presetEntityLabel={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : null}
               onCreated={() => {
                 setTaskCreateOpen(false);
                 loadPlantTasks();
@@ -2777,6 +2948,7 @@ export default function PlantInstanceDetailPage() {
                     suffix="L"
                   />
                   <SubstrateSelectField
+                    id={substrateFieldId}
                     name="substrate_key"
                     control={control}
                     label={t('pages.plantInstances.substrate')}
@@ -2788,7 +2960,7 @@ export default function PlantInstanceDetailPage() {
                 {/* A failed load is its own state, not an empty picker (#1628). */}
                 <CatalogueLoadError
                   reader={substrateCatalogue}
-                  focusSelector="[data-testid='form-field-substrate_key'] input"
+                  focusTargetId={substrateFieldId}
                 />
                 <FormTextField name="planted_on" control={control} label={t('pages.plantInstances.plantedOn')} helperText={t('pages.plantInstances.plantedOnHelper')} type="date" required />
               </CardContent>
@@ -2802,6 +2974,12 @@ export default function PlantInstanceDetailPage() {
             slots={slotsList}
             variant="card"
           />
+          {sitesLoad.error && (
+            <OptionsLoadError onRetry={sitesLoad.reload} data-testid="plant-edit-sites-load-error" />
+          )}
+          {slotsLoadError && (
+            <OptionsLoadError onRetry={retrySlots} data-testid="plant-edit-slots-load-error" />
+          )}
 
           <Typography variant="caption" color="text.secondary">* {t('common.required')}</Typography>
           <FormActions onCancel={() => setTab(0)} loading={saving} />
@@ -2826,7 +3004,7 @@ export default function PlantInstanceDetailPage() {
 
       <TerminationDialog
         open={removeOpen}
-        plantName={plant ? getPlantLabel(plant, species, assignedCultivar) : ''}
+        plantName={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : ''}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}
         loading={removing}
@@ -2854,7 +3032,7 @@ export default function PlantInstanceDetailPage() {
           open={tagDialogOpen}
           onClose={() => setTagDialogOpen(false)}
           plantKey={plant.key}
-          plantName={getPlantDisplayName(plant, species, assignedCultivar)}
+          plantName={getPlantDisplayName(plant, i18n.language, species, assignedCultivar)}
         />
       )}
 
@@ -2863,7 +3041,7 @@ export default function PlantInstanceDetailPage() {
           open={labelDialogOpen}
           onClose={() => setLabelDialogOpen(false)}
           plantKeys={[plant.key]}
-          plantNames={{ [plant.key]: getPlantDisplayName(plant, species, assignedCultivar) }}
+          plantNames={{ [plant.key]: getPlantDisplayName(plant, i18n.language, species, assignedCultivar) }}
         />
       )}
 
@@ -2886,7 +3064,7 @@ export default function PlantInstanceDetailPage() {
         open={wateringDialogOpen}
         onClose={() => setWateringDialogOpen(false)}
         onConfirm={handleConfirmWatering}
-        plantName={plant ? getPlantDisplayName(plant, species, assignedCultivar) : ''}
+        plantName={plant ? getPlantDisplayName(plant, i18n.language, species, assignedCultivar) : ''}
         reminderType="watering"
         loading={confirmingWatering}
         defaultDosages={dosagePresets?.dosages}

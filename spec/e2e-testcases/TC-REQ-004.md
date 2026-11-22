@@ -2239,7 +2239,7 @@ version: REQ-004 v3.4, REQ-004-A v1.1
   - Kompost: 3–4 L/m²
   - Hornspäne: 80 g/m²
   - Jauche alle 2 Wochen (Mai–August)
-  - Dies basiert auf `nutrient_demand_level = heavy_feeder` (Tomate ist Starkzehrer).
+  - Dies basiert auf `nutrient_demand = heavy_feeder` (Tomate ist Starkzehrer; REQ-004 v3.9, E-17 Variante A).
 
 **Postconditions**:
 - Keine Datenmutation.

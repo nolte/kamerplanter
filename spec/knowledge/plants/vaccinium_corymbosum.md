@@ -113,6 +113,22 @@
 | Boden-pH-Vorzug (min–max) | 4.5–5.5 (Substrat-Ansäuerung praxisüblich ab 4.0; vgl. §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 100–200 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: kein Reihenabstand in gelesener Quelle (RHS nennt 1–2 m Pflanzabstand zwischen Sträuchern, LWG 1,50 m; beides Einzelstrauch-Abstand, kein Reihenabstand) --> | `species.row_spacing_cm` |
+| Quelle Abstände | Pflanzabstand: RHS, „How to grow blueberries“ („space them 1-2m (3¼–6½ft) apart, depending on the variety’s ultimate size“), https://www.rhs.org.uk/fruit/blueberries/grow-your-own; LWG Veitshöchheim, Merkblatt 3163 („Pflanzabstand von 1,50 Meter“), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/3163-kulturheidelbeeren.pdf. Reihenabstand: keine Angabe | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (siehe 1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | LWG Veitshöchheim / Bayerische Gartenakademie, „Kulturheidelbeeren im eigenen Garten“ (Merkblatt 3163) („benötigen einen vollsonnigen Platz im Garten“), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/3163-kulturheidelbeeren.pdf; RHS, „How to grow blueberries“ („fruit well in a sunny position … but they will produce a reasonable crop in partial shade“), https://www.rhs.org.uk/fruit/blueberries/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -291,6 +307,16 @@
 |---------|-------------------|-------|-------------|---------|
 | Alle kalkliebenden Pflanzen | div. | pH-Konflikt; Konkurrenz | severe | `incompatible_with` |
 
+### 6.4 Fruchtfolge-Einordnung (Beetplanung)
+
+| Feld | Wert |
+|------|------|
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | UGA Extension (Univ. of Georgia), Suggested Blueberry Fertilization Timings and Rates, C1163 („Blueberry plants are sensitive to overfertilization, and the nutrient demand of blueberries is low compared to row crops and vegetables“), https://fieldreport.caes.uga.edu/publications/C1163/suggested-blueberry-fertilization-timings-and-rates/; RHS, „How to grow blueberries“ (in regelmäßig gemulchtem Boden keine zusätzliche Düngung nötig; „blueberries dislike excess fertiliser“), https://www.rhs.org.uk/fruit/blueberries/grow-your-own. Keine Quelle verwendet die Begriffe Schwach-/Mittel-/Starkzehrer; Einstufung aus „geringer Nährstoffbedarf“. |
+| Zehrerstufe — Konfidenz | medium (zwei übereinstimmende gelesene Quellen; eine davon nur indirekt, keine nennt den Begriff Zehrerstufe) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Dauerkultur (Obstgehölz), keine gelesene Quelle für eine Anbaupause; Wert bleibt null --> |
+
 ---
 
 ## 7. Ähnliche Arten & Alternativen
@@ -347,4 +373,7 @@ Spartan,Vaccinium corymbosum,USDA,1978,"large_fruit;early;excellent_flavor",–,
 19. [MSU Extension — Invest in pollination for highbush blueberries](https://www.canr.msu.edu/news/invest_in_pollination_for_success_with_highbush_blueberries) — Cross-Pollination-Ertragsvorteil
 20. [Biology Insights — How Long Do Blueberry Bushes Live?](https://biologyinsights.com/how-long-do-blueberry-bushes-live/) — Lebensdauer 20–30 Jahre
 21. [GPN — The R to FR Ratio](https://gpnmag.com/article/r-fr-ratio/) — R:FR / Far-Red-Fraktion Vollsonne vs. Schatten
+22. LWG Veitshöchheim / Bayerische Gartenakademie — Kulturheidelbeeren im eigenen Garten (Merkblatt 3163; vollsonniger Platz, Pflanzabstand 1,50 m): https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/3163-kulturheidelbeeren.pdf
+23. RHS — How to grow blueberries (sonnige Position, Teilschatten möglich; Pflanzabstand 1–2 m; Düngung): https://www.rhs.org.uk/fruit/blueberries/grow-your-own
+24. UGA Extension — Suggested Blueberry Fertilization Timings and Rates, C1163 (Nährstoffbedarf niedrig): https://fieldreport.caes.uga.edu/publications/C1163/suggested-blueberry-fertilization-timings-and-rates/
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

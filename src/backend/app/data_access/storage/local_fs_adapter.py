@@ -240,9 +240,9 @@ class LocalFsStorageAdapter(IObjectStorageAdapter):
                 not entry.is_symlink()  # a link would be unlinked *through*, deleting its target
                 and not entry.name.endswith(".meta.json")
                 and (not prefix_rel or key.startswith(prefix_rel))
+                and (after is None or key > after)
             ):
-                if after is None or key > after:
-                    yield key
+                yield key
 
     def _list_page_sync(self, prefix: str, page_token: str | None, limit: int) -> dict[str, Any]:
         prefix_rel = prefix.replace("\\", "/").strip("/")
@@ -589,6 +589,9 @@ def _erasure_scope_categories():  # type: ignore[no-untyped-def]
             AttachmentCategory.POST_HARVEST,
             AttachmentCategory.TASK,
             AttachmentCategory.PLANT,
+            AttachmentCategory.GARDEN_PLAN_UNDERLAY,
+            # REQ-053 GP-FR-051 (WP 8.18): the photos of a bed belong to the garden like the plan's underlay.
+            AttachmentCategory.LOCATION,
         ),
         # Hard-delete scope: REQ-010 user-contributed pest reference images.
         # No retention obligation, so the binary objects are removed outright
@@ -620,7 +623,8 @@ def _scope_to_categories(scope: str):  # type: ignore[no-untyped-def]
     - ``user_diary_attachments`` → documentation photos that stay attached to
       the tenant record and are only anonymised (``diary``, ``ipm``,
       ``harvest``, ``post_harvest``, ``task``, ``plant`` — ``plant`` is the
-      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5).
+      REQ-034 plant-photo gallery, classified under this scope per REQ-034 §5; ``garden_plan_underlay`` is the
+      plan's background picture, GP-FR-033; ``location`` the photos of a bed, GP-FR-051).
     - ``user_pest_reference_images`` → REQ-010 user-contributed pest reference
       images (``pest_reference``). Hard-deleted (no retention obligation).
 

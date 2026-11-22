@@ -5,7 +5,7 @@ const mockFamilies = [
   {
     key: 'fam-1',
     name: 'Solanaceae',
-    typical_nutrient_demand: 'heavy',
+    typical_nutrient_demand: 'heavy_feeder',
     common_pests: ['aphids', 'whitefly'],
     rotation_category: 'fruit',
     created_at: '2024-01-01T00:00:00Z',
@@ -14,7 +14,7 @@ const mockFamilies = [
   {
     key: 'fam-2',
     name: 'Fabaceae',
-    typical_nutrient_demand: 'light',
+    typical_nutrient_demand: 'light_feeder',
     common_pests: ['bean beetle'],
     rotation_category: 'legume',
     created_at: '2024-01-02T00:00:00Z',
@@ -26,7 +26,10 @@ const mockSpecies = [
   {
     key: 'sp-1',
     scientific_name: 'Solanum lycopersicum',
-    common_names: ['Tomato'],
+    // As the API serves a seeded species (#2902): English first in the flat list,
+    // the language map says which name is which.
+    common_names: ['Tomato', 'Tomate'],
+    common_names_i18n: { de: ['Tomate'], en: ['Tomato'] },
     family_key: 'fam-1',
     genus: 'Solanum',
     hardiness_zones: ['9-11'],
@@ -329,6 +332,14 @@ export const handlers = [
   http.get('/api/v1/species/:key/phase-sequence', () => {
     return HttpResponse.json(null);
   }),
+  // Phase profiles: the API answers 404 for a phase without that profile — the normal
+  // "none" case, which ProfilesSection tells apart from a failed read (#3037).
+  http.get('/api/v1/profiles/requirements/:phaseKey', () =>
+    HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 }),
+  ),
+  http.get('/api/v1/profiles/nutrients/:phaseKey', () =>
+    HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 }),
+  ),
   // Lifecycle config + growth phases (plant-instance create dialog)
   http.get('/api/v1/species/:key/lifecycle', ({ params }) => {
     return HttpResponse.json({
@@ -400,6 +411,8 @@ export const handlers = [
   http.get('/api/v1/t/:tenant/locations', () => {
     return HttpResponse.json(mockLocations);
   }),
+  // REQ-053 WP 3.7: the plant states of a bed (GP-API-054); none unless a test brings its own.
+  http.get('/api/v1/t/:tenant/locations/:key/plant-states', () => HttpResponse.json([])),
   http.get('/api/v1/t/:tenant/locations/:key', ({ params }) => {
     const loc = mockLocations.find((l) => l.key === params.key);
     if (!loc) return HttpResponse.json({ error_id: 'err_1', error_code: 'ENTITY_NOT_FOUND', message: 'Not found', details: [], timestamp: '', path: '', method: '' }, { status: 404 });

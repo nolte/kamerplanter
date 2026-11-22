@@ -402,11 +402,15 @@ def _api_request(
     method: str,
     token: str | None = None,
     data: dict | None = None,
+    *,
+    timeout: float = 15,
 ) -> tuple[int, dict]:
     """Minimal JSON HTTP helper mirroring conftest's ``_api_helpers`` (optional Bearer).
 
     Kept self-contained (no conftest import) so the journey helpers stay a leaf
-    module; the shape matches the seed fixture's urllib usage.
+    module; the shape matches the seed fixture's urllib usage. *timeout* is the
+    socket timeout in seconds; only an arrangement that sends a large body (the
+    plan import of WP 9.6) raises it.
     """
     headers = {"Content-Type": "application/json"}
     if token:
@@ -414,7 +418,7 @@ def _api_request(
     body = _json.dumps(data).encode() if data is not None else None
     req = _urlrequest.Request(url, data=body, headers=headers, method=method)
     try:
-        with _urlrequest.urlopen(req, timeout=15) as resp:
+        with _urlrequest.urlopen(req, timeout=timeout) as resp:
             raw = resp.read()
             return resp.status, (_json.loads(raw) if raw else {})
     except _urlerror.HTTPError as exc:

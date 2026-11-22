@@ -15,7 +15,6 @@ import { renderWithProviders, createStoreWithExpertise } from '../helpers';
 // inline callback wiring can be exercised deterministically.
 vi.mock('@/pages/duengung/PhaseGanttChart', () => ({
   __esModule: true,
-  PHASE_COLORS: { vegetative: '#123456' } as Record<string, string>,
   default: (props: any) => (
     <button data-testid="stub-gantt" onClick={() => props.onEditEntry?.(props.entries[0])}>
       gantt:{props.title}

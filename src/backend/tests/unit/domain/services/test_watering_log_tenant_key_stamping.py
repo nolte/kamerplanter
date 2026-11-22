@@ -137,7 +137,7 @@ def test_confirm_reminder_stamps_caller_tenant_key() -> None:
     log_repo = FakeWateringLogRepo()
     care_service, _ = _care_service(log_repo)
 
-    care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
+    care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT, user_key="user-1")
 
     assert len(log_repo._logs) == 1
     assert log_repo._logs[0].tenant_key == TENANT
@@ -150,7 +150,7 @@ def test_confirm_reminder_for_a_foreign_plant_writes_no_log() -> None:
     care_service, _ = _care_service(log_repo, plant_tenant="tenant-B")
 
     with pytest.raises(NotFoundError):
-        care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
+        care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT, user_key="user-1")
 
     assert log_repo._logs == []
 
@@ -162,7 +162,7 @@ def test_confirm_reminder_log_visible_in_both_global_and_per_plant_views() -> No
     care_service, _ = _care_service(log_repo)
     log_service = _log_service(log_repo)
 
-    care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
+    care_service.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT, user_key="user-1")
 
     global_logs, total = log_service.list_logs(tenant_key=TENANT)
     per_plant_logs = log_service.get_by_plant(PLANT_KEY, tenant_key=TENANT)

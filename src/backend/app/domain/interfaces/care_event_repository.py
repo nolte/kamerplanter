@@ -1,0 +1,197 @@
+"""Persistence of the care log (REQ-053 §13, §20.10; WP 4.1, #2400).
+
+Every read takes the tenant keyword-only without a default: ``care_events`` carry ``tenant_key`` (E-01, §20.13)
+and a foreign event answers exactly like an absent one (``None`` / empty), never a different error.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+
+from app.domain.models.care_event import CareEvent
+from app.domain.models.task_completion import DomainDocument
+
+
+@dataclass(frozen=True)
+class CareEventRow:
+    """A stored event with the display names its account references resolve to (never the keys themselves)."""
+
+    event: CareEvent
+    #: Display name of ``performed_by_user_key``; ``None`` when the account is gone or erased.
+    performed_by_name: str | None = None
+    performed_for_name: str | None = None
+    #: Readable names of ``plant_keys`` in their order (``plant_name``, else ``instance_id``); a plant that is gone
+    #: or belongs to another tenant is left out. The history line names the plant, not its slot (#2514).
+    plant_names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CareEventFilter:
+    """The filters of ``GET /care-events`` (GP-API-034)."""
+
+    location_key: str | None = None
+    plant_key: str | None = None
+    category: str | None = None
+    performed_from: datetime | None = None
+    performed_to: datetime | None = None
+    #: An account key the caller took from the member list; matches ``performed_by_user_key``.
+    performed_by: str | None = None
+    include_superseded: bool = False
+    #: Leave out the entries that were taken back (``voided_at`` set); the log itself lists them.
+    exclude_voided: bool = False
+
+
+@dataclass(frozen=True)
+class PendingPhotos:
+    """The photos an anonymised event still lists; they are deleted first and the references cleared after."""
+
+    event_key: str
+    tenant_key: str
+    attachment_ids: tuple[str, ...]
+
+
+@dataclass
+class AnonymizedBatch:
+    """What one retention batch selected and changed (NFR-011 R-25)."""
+
+    #: Rows read this batch (due and not yet finished); a batch shorter than the limit ends the run.
+    selected: int = 0
+    #: Rows anonymised for the first time.
+    anonymized: int = 0
+    #: Rows that still list photos: deleted by the caller, who then calls :meth:`clear_photo_refs`.
+    pending_photos: list[PendingPhotos] = field(default_factory=list)
+
+
+class ICareEventRepository(ABC):
+    @abstractmethod
+    def get(self, key: str, *, tenant_key: str) -> CareEvent | None:
+        """The event of ``tenant_key`` behind ``key``; absent and foreign both give ``None``."""
+
+    @abstractmethod
+    def get_row(self, key: str, *, tenant_key: str) -> CareEventRow | None:
+        """:meth:`get` with the display names of its account references."""
+
+    @abstractmethod
+    def find_key_by_client_event_id(self, client_event_id: str, *, tenant_key: str) -> str | None:
+        """The key of the tenant's event a buffered write with ``client_event_id`` stored (WP 9.3), else ``None``."""
+
+    @abstractmethod
+    def find_client_round(self, client_round_id: str, *, tenant_key: str, limit: int) -> list[CareEvent]:
+        """The tenant's events of the zone round with ``client_round_id``, read in ONE statement (WP 9.13).
+
+        One snapshot: a reader that meets the commit of a round written with :meth:`insert_many` sees every event of
+        it or none, never a part. At most ``limit`` events, in key order.
+        """
+
+    @abstractmethod
+    def chain(self, key: str, *, tenant_key: str) -> list[CareEvent]:
+        """Every event of ``key``'s supersede chain, oldest first (empty when ``key`` is not the tenant's)."""
+
+    @abstractmethod
+    def list_events(self, criteria: CareEventFilter, *, tenant_key: str, offset: int, limit: int) -> list[CareEventRow]:
+        """One page of the tenant's care log, newest ``performed_at`` first."""
+
+    @abstractmethod
+    def plants_in_locations(self, plant_keys: list[str], location_keys: list[str], *, tenant_key: str) -> set[str]:
+        """The keys among ``plant_keys`` that are the tenant's plants standing in one of ``location_keys``."""
+
+    @abstractmethod
+    def insert(self, event: CareEvent, *, tenant_key: str) -> CareEvent:
+        """Store the event and its edges (``care_event_at``, ``care_event_for`` per plant, ``task_logged_as``).
+
+        ``tenant_key`` must be the event's own: a repository that writes a tenant's row takes the tenant it
+        writes under, so the write cannot name one tenant and store another's.
+        """
+
+    @abstractmethod
+    def plant_keys_standing_in(self, location_keys: list[str], *, tenant_key: str, limit: int) -> list[str]:
+        """The tenant's plants standing in one of ``location_keys`` (not removed), sorted by key, at most ``limit``.
+
+        Whom a dose on the whole bed is attributed to (a care-log entry without ``plant_keys``, #2833). The read is
+        bounded: a caller that refuses an oversized bed asks for one more key than it accepts.
+        """
+
+    @abstractmethod
+    def insert_with_feeding_event(self, event: CareEvent, feeding: DomainDocument, *, tenant_key: str) -> CareEvent:
+        """Store ``feeding`` (a ``feeding_events`` document with its edges) and the event in ONE transaction.
+
+        The event's ``source_ref`` points at the stored feeding event; a refused event insert stores neither
+        (W-007, #2833). ``tenant_key`` must be the event's and the document's own; an event that names a source
+        document already is refused (``ValueError``) - a server caller's reference is never replaced.
+        """
+
+    @abstractmethod
+    def insert_many(self, events: list[CareEvent], *, tenant_key: str) -> list[CareEvent]:
+        """Store every event with its edges in ONE transaction - all or none (a zone's watering round, WP 7.3).
+
+        Every event must carry ``tenant_key``; the result is in the order given.
+        """
+
+    @abstractmethod
+    def insert_backfilled(self, events: list[CareEvent], *, tenant_key: str) -> tuple[int, int]:
+        """Store the events of the M4 backfill (WP 8.1, ``trigger = backfill``) that no event logs yet.
+
+        Every event carries a ``source_ref``; the unique-sparse index on ``(tenant_key, source_ref.collection,
+        source_ref.key)`` is the one authority on "already logged", so a document another writer logged meanwhile
+        is skipped, never duplicated and never an error. Returns ``(written, already_present)``; the two always add
+        up to ``len(events)``.
+        """
+
+    @abstractmethod
+    def supersede(self, predecessor_key: str, event: CareEvent, *, tenant_key: str) -> CareEvent:
+        """In one transaction: store ``event`` and set ``superseded_by_key`` on its predecessor (V-13).
+
+        The specialist document the predecessor wrote itself (a care-log amendment's ``feeding_event``, #2833) is
+        withdrawn in the same transaction; a document the predecessor only mirrors stays.
+
+        Raises:
+            NotFoundError: the predecessor is gone or not the tenant's.
+            PlanError: ``care_event.sequence`` — the predecessor is superseded or voided already.
+        """
+
+    @abstractmethod
+    def supersede_with_feeding_event(
+        self, predecessor_key: str, event: CareEvent, feeding: DomainDocument, *, tenant_key: str
+    ) -> CareEvent:
+        """:meth:`supersede`, and the correction's own ``feeding_event`` stored in the same transaction (#2833).
+
+        The predecessor's own document is withdrawn, ``feeding`` is written and the successor's ``source_ref``
+        names it: a corrected dose replaces the old one in the fertiliser balance instead of adding to it.
+        """
+
+    @abstractmethod
+    def void(self, key: str, *, tenant_key: str, voided_by: str, reason: str, at: datetime) -> CareEvent:
+        """Mark the event voided (``voided_at``, ``voided_by``, ``void_reason``).
+
+        Besides the three columns only the specialist document the event wrote itself (a care-log amendment's
+        ``feeding_event``, #2833) changes: it is withdrawn with its edges in the same transaction.
+
+        Raises:
+            NotFoundError: the event is gone or not the tenant's.
+            PlanError: ``care_event.sequence`` — it is voided or superseded already.
+        """
+
+    @abstractmethod
+    def redact(
+        self, key: str, *, tenant_key: str, redacted_by: str, reason: str, at: datetime
+    ) -> tuple[list[CareEvent], list[str]]:
+        """Redact the whole supersede chain of ``key`` and write the ``garden_plan_audit`` row, in one transaction.
+
+        Returns the redacted events and the attachment ids the chain referenced before.
+        """
+
+    # ── Retention (NFR-011 R-25) — installation-wide sweeps, not tenant reads ──
+
+    @abstractmethod
+    def anonymize_expired(
+        self, *, cutoff: datetime, pflschg_cutoff: datetime, now: datetime, batch: int
+    ) -> AnonymizedBatch:
+        """Anonymise up to ``batch`` events past their period: person fields and free texts go at once.
+
+        The photo references stay until the caller has deleted the objects and calls :meth:`clear_photo_refs`; a row
+        whose photos could not be deleted is selected again by the next run (it is not finished until it lists none).
+        """
+
+    @abstractmethod
+    def clear_photo_refs(self, event_keys: list[str]) -> int:
+        """Remove ``photo_refs`` from the named anonymised events once their objects are gone; the number cleared."""

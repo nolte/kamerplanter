@@ -44,7 +44,13 @@ def _ctx(**services) -> ToolContext:
 @pytest.mark.asyncio
 async def test_list_species_delegates_and_wraps():
     species = [
-        SimpleNamespace(key="sp-1", scientific_name="Solanum lycopersicum", common_names=["Tomato"], genus="Solanum")
+        SimpleNamespace(
+            key="sp-1",
+            scientific_name="Solanum lycopersicum",
+            common_names=["Tomato"],
+            common_names_i18n={"en": ["Tomato"]},
+            genus="Solanum",
+        )
     ]
     # tenant_key kwarg accepted for SEC-003 (the tool scopes the global tool to "").
     svc = SimpleNamespace(list_species=lambda offset, limit, tenant_key=None: (species, 1))
@@ -57,7 +63,12 @@ async def test_list_species_delegates_and_wraps():
 @pytest.mark.asyncio
 async def test_get_species_info_includes_companions():
     species = SimpleNamespace(
-        key="sp-1", scientific_name="Basil", common_names=["Basil"], genus="Ocimum", growth_habit="herb"
+        key="sp-1",
+        scientific_name="Basil",
+        common_names=["Basil"],
+        common_names_i18n={"en": ["Basil"]},
+        genus="Ocimum",
+        growth_habit="herb",
     )
     svc = SimpleNamespace(
         get_species=lambda key, tenant_key=None: species,
@@ -124,9 +135,10 @@ async def test_get_due_care_tasks_filters_actionable():
 async def test_confirm_care_task_preview_and_execute():
     calls = {}
 
-    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
+    def _confirm(plant_key, reminder_type, notes, *, tenant_key, user_key):
         calls["plant_key"] = plant_key
         calls["tenant_key"] = tenant_key
+        calls["user_key"] = user_key
         return SimpleNamespace(key="cc-1")
 
     plant_svc = SimpleNamespace(get_plant=lambda key, tenant_key: SimpleNamespace(key=key))
@@ -142,6 +154,8 @@ async def test_confirm_care_task_preview_and_execute():
     result = await tool.execute(ctx, args)
     assert calls["plant_key"] == "p1"
     assert calls["tenant_key"] == "home"  # SEC-001: tenant threaded for defence-in-depth
+    # #2517: the principal is the performer - here a service account, so its own account key is stored.
+    assert calls["user_key"] == "sa-1"
     assert result.data["confirmation_key"] == "cc-1"
 
 
@@ -154,7 +168,7 @@ async def test_confirm_care_task_rejects_foreign_plant_key():
 
     confirmed = {"called": False}
 
-    def _confirm(plant_key, reminder_type, notes, tenant_key=""):
+    def _confirm(plant_key, reminder_type, notes, *, tenant_key, user_key):
         confirmed["called"] = True
         return SimpleNamespace(key="cc-1")
 

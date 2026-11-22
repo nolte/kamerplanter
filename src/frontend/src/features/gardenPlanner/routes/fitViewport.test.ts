@@ -1,0 +1,146 @@
+import { describe, expect, it } from 'vitest';
+import { bed, gardenObject, planResponse } from '@/test/gardenPlanFixtures';
+import { normalizePlan } from '../model/planModel';
+import { fillViewport, fitIntoCanvas, fitViewport, focusViewport, planContentBounds } from './fitViewport';
+
+describe('planContentBounds', () => {
+  it('is the box around the boundary, the beds and the garden objects', () => {
+    const plan = normalizePlan(
+      planResponse({
+        plan: {
+          boundary: { kind: 'rect', origin: [0, 0], width_m: 10, length_m: 8, rotation_deg: 0 },
+          north_angle_deg: 0,
+          default_grid_m: 0.1,
+          adjacency_factor: 1.5,
+          plan_revision: 1,
+        },
+        locations: [bed('loc_a', 12, 1)],
+        garden_objects: [gardenObject('go_1', -2, 9)],
+      }),
+    );
+    const [minX, minY, maxX, maxY] = planContentBounds(plan) ?? [];
+    expect(minX).toBeLessThanOrEqual(-2);
+    expect(minY).toBe(0);
+    expect(maxX).toBeCloseTo(13.2, 5);
+    expect(maxY).toBeGreaterThanOrEqual(9);
+  });
+
+  it('is null for a plan with nothing placed', () => {
+    const plan = normalizePlan(
+      planResponse({ plan: null, locations: [], garden_objects: [], slots: [], plants: [] }),
+    );
+    expect(planContentBounds(plan)).toBeNull();
+  });
+
+  it('ignores a bed without a geometry (stock data)', () => {
+    const plan = normalizePlan(
+      planResponse({
+        plan: null,
+        locations: [bed('loc_a', 1, 1, { geometry: null, bbox: null })],
+        garden_objects: [],
+      }),
+    );
+    expect(planContentBounds(plan)).toBeNull();
+  });
+});
+
+describe('fitViewport', () => {
+  it('shows the whole box, top-left at (minX, maxY) with a margin', () => {
+    const viewport = fitViewport([0, 0, 10, 5], 600, 1000);
+    const [ox, oy] = viewport.originM;
+    expect(ox).toBeLessThan(0);
+    expect(oy).toBeGreaterThan(5);
+    // 10 m plus margin on both sides fill the width.
+    expect(viewport.widthPx).toBeLessThanOrEqual(600);
+    expect(viewport.pxPerM * (10 + 2 * 0.5)).toBeCloseTo(viewport.widthPx, 0);
+  });
+
+  it('is limited by the height when the drawing is tall', () => {
+    const viewport = fitViewport([0, 0, 2, 20], 600, 300);
+    expect(viewport.heightPx).toBeLessThanOrEqual(300);
+    expect(viewport.widthPx).toBeLessThan(600);
+  });
+
+  it('does not zoom into a tiny drawing beyond the cap', () => {
+    expect(fitViewport([0, 0, 0.2, 0.2], 600, 600).pxPerM).toBe(200);
+  });
+
+  it('survives a degenerate box', () => {
+    const viewport = fitViewport([3, 3, 3, 3], 600, 600);
+    expect(Number.isFinite(viewport.pxPerM)).toBe(true);
+    expect(viewport.widthPx).toBeGreaterThan(0);
+  });
+});
+
+describe('focusViewport (GP-ACC-016)', () => {
+  it('shows the whole bounding box, centred, at a zoom no lower than the fit of the plan', () => {
+    const bounds: [number, number, number, number] = [10, 20, 12, 21];
+    const { pxPerM, originM } = focusViewport(bounds, 800, 600, 4);
+    expect(pxPerM).toBeGreaterThanOrEqual(4);
+    // Every corner of the box lies inside the canvas.
+    for (const [x, y] of [[10, 20], [12, 21]]) {
+      const px = (x - originM[0]) * pxPerM;
+      const py = (originM[1] - y) * pxPerM;
+      expect(px).toBeGreaterThanOrEqual(0);
+      expect(px).toBeLessThanOrEqual(800);
+      expect(py).toBeGreaterThanOrEqual(0);
+      expect(py).toBeLessThanOrEqual(600);
+    }
+    // Centred: the same slack left and right.
+    const left = (10 - originM[0]) * pxPerM;
+    const right = 800 - (12 - originM[0]) * pxPerM;
+    expect(left).toBeCloseTo(right, 5);
+  });
+
+  it('does not zoom out past the fit of the whole plan for a bed larger than the canvas allows', () => {
+    const { pxPerM } = focusViewport([0, 0, 500, 500], 800, 600, 3);
+    expect(pxPerM).toBe(3);
+  });
+
+  it('caps the zoom for a tiny box', () => {
+    expect(focusViewport([0, 0, 0.01, 0.01], 800, 600, 1).pxPerM).toBe(200);
+  });
+});
+
+describe('fillViewport (GP-UX-067: the canvas takes the room it is given)', () => {
+  it('is exactly the given size, at the zoom fitViewport chooses, with the plan in the middle', () => {
+    const viewport = fillViewport([0, 0, 10, 5], 1000, 500);
+    const fitted = fitViewport([0, 0, 10, 5], 1000, 500);
+    expect(viewport.widthPx).toBe(1000);
+    expect(viewport.heightPx).toBe(500);
+    expect(viewport.pxPerM).toBe(fitted.pxPerM);
+    // The centre of the box lands on the centre of the canvas.
+    const centreX = (5 - viewport.originM[0]) * viewport.pxPerM;
+    const centreY = (viewport.originM[1] - 2.5) * viewport.pxPerM;
+    expect(centreX).toBeCloseTo(500, 6);
+    expect(centreY).toBeCloseTo(250, 6);
+  });
+
+  it('keeps a tall plan centred horizontally in a wide canvas', () => {
+    const viewport = fillViewport([0, 0, 2, 20], 800, 400);
+    expect(viewport.widthPx).toBe(800);
+    expect(viewport.heightPx).toBe(400);
+    expect((1 - viewport.originM[0]) * viewport.pxPerM).toBeCloseTo(400, 6);
+  });
+});
+
+describe('fitIntoCanvas (WP 10.5: a panel docked by the selection does not move the plan)', () => {
+  const bounds = [0, 0, 20, 10] as const;
+
+  it('is fillViewport without a reserve', () => {
+    expect(fitIntoCanvas([...bounds], 900, 500)).toEqual(fillViewport([...bounds], 900, 500));
+  });
+
+  it('keeps the zoom and the top-left corner of the wider fit, and draws only the narrower canvas', () => {
+    const before = fitIntoCanvas([...bounds], 1252, 500);
+    const withPanel = fitIntoCanvas([...bounds], 900, 500, 1252);
+    expect(withPanel.pxPerM).toBe(before.pxPerM);
+    expect(withPanel.originM).toEqual(before.originM);
+    expect(withPanel.widthPx).toBe(900);
+    expect(withPanel.heightPx).toBe(500);
+  });
+
+  it('never fits into less than the canvas itself', () => {
+    expect(fitIntoCanvas([...bounds], 900, 500, 400)).toEqual(fillViewport([...bounds], 900, 500));
+  });
+});

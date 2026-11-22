@@ -194,8 +194,9 @@ def _watering_client() -> TestClient:
         return [e for e in events if plant_of[e["plant_keys"][0]][1] == location_key]
 
     aql = ReplayingAql()
-    # Most specific marker first: the stats query also contains ``@@has_slot``.
-    aql.route("LET events = (", stats_by_location)
+    # Most specific marker first: list and stats share the event set (``@@has_slot``, ``LET events``); only the
+    # stats query aggregates by method.
+    aql.route("LET by_method", stats_by_location)
     aql.route("@@has_slot", by_location)
     aql.route("@@edge_col", by_plant)
 

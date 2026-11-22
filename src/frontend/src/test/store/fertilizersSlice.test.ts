@@ -47,7 +47,7 @@ describe('fertilizersSlice', () => {
 
   it('fetchFertilizers.rejected stores the error', () => {
     const state = reducer(undefined, { type: fetchFertilizers.rejected.type, error: { message: 'fail' } });
-    expect(state.error).toBe('fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchFertilizers.rejected falls back to a default message', () => {
@@ -104,7 +104,7 @@ describe('fertilizersSlice thunks', () => {
     mocked.fetchAllFertilizers.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchFertilizers({}));
-    expect(store.getState().fertilizers.error).toBe('load failed');
+    expect(store.getState().fertilizers.error).toBe('errors.loadFailed');
   });
 
   it('fetchFertilizer calls the API and stores the selection', async () => {

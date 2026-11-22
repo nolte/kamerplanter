@@ -18,7 +18,7 @@ new_families:
     common_name_de: "Seerosengewaechse"
     common_name_en: Water Lily family
     order: Nymphaeales
-    typical_nutrient_demand: heavy
+    typical_nutrient_demand: heavy_feeder
     frost_tolerance: moderate
     typical_root_depth: deep
     typical_growth_forms: [herb]
@@ -55,7 +55,10 @@ new_species:
       - method: seed
         months: [4, 5]
         notes: frisches Saatgut, unter Wasser
-    common_names: [Weisse Seerose, White Water Lily, European White Waterlily]
+    common_names: [Weiße Seerose, White Water Lily, European White Waterlily]
+    common_names_i18n:
+      de: [Weiße Seerose]
+      en: [White Water Lily, European White Waterlily]
     genus: Nymphaea
     growth_habit: aquatic
     root_type: fibrous  # rhizomatous -> fibrous
@@ -89,6 +92,13 @@ new_species:
 # ==============================================================================
 # S4  SPECIES ENRICHMENT
 # ==============================================================================
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 species_enrichment: {}
 
 # ==============================================================================

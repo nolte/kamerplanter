@@ -151,6 +151,22 @@ Quellen (§1.8):
 7. Bestehende §1.6-Abstandsangaben (Reihenabstand 25 cm, in der Reihe 10–20 cm nach Vereinzeln) als Berechnungsgrundlage für Aussaatdichte
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 25 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | Plantura, „Bohnenkraut: Pflanzenporträt“ (Reihenabstand 30 cm, Pflanzabstand 25 cm; Ratgeberseite, keine Hochschul-/Kammerquelle), https://www.plantura.garden/kraeuter/bohnenkraut/bohnenkraut-pflanzenportrait | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Plantura, „Bohnenkraut: Pflanzenporträt“ („Sonniger und warmer Standort“), https://www.plantura.garden/kraeuter/bohnenkraut/bohnenkraut-pflanzenportrait | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -427,6 +443,11 @@ Sommer-Bohnenkraut ist einjährig und wird nicht überwintert. Die Pflanze stirb
 | Empfohlene Vorfrucht | Hülsenfrüchte (Fabaceae) oder Brassicaceae; beliebig als Begleitpflanze |
 | Empfohlene Nachfrucht | Beliebig — Bohnenkraut verbessert Bodenstruktur kaum, stört aber nicht |
 | Anbaupause (Jahre) | 2–3 Jahre Pause für Lamiaceae auf gleicher Fläche (Bodenmüdigkeit, Welke-Pilze) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low (nur Sammelgruppe „Kräuter“, Art nicht namentlich) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: kein Familienwert Lamiaceae in botanical_families.yaml und keine gelesene artspezifische Quelle zur Anbaupause --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -511,4 +532,8 @@ Saturn,Satureja hortensis,–,–,high_yield;aromatic,60–70,–,open_pollinate
 18. [SUBA Seeds Company — Summer Savory](https://subaseeds.com/products/herbs/summer-savory/) — Samenzahl/g
 19. [Sow Right Seeds — Growing Summer Savory from Seed](https://sowrightseeds.com/blogs/planters-library/summer-savory-how-to-grow-from-seed) — Lichtkeimer, Keimdauer/-temperatur
 20. [finchandfolly.com — Seed Viability](https://www.finchandfolly.com/seed-viability) / [Empress of Dirt — Seed Viability Chart](https://empressofdirt.net/seed-viability-chart/) — Keimfähigkeitsdauer
+21. Plantura — Bohnenkraut Pflanzenporträt (Reihenabstand 30 cm, Pflanzabstand 25 cm; sonniger, warmer Standort): https://www.plantura.garden/kraeuter/bohnenkraut/bohnenkraut-pflanzenportrait
+22. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+23. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+24. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->

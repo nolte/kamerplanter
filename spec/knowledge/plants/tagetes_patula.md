@@ -130,6 +130,22 @@
 **Quellen (§1.8):** [How to Grow Marigolds — West Coast Seeds](https://www.westcoastseeds.com/blogs/wcs-academy/grow-marigolds) und [Planting French Marigold Seeds — Gardening Know How](https://www.gardeningknowhow.com/ornamental/flowers/marigold/french-marigold-growing.htm) (Keimtemperatur 21–27 °C, Keimdauer 4–14 Tage, Saattiefe ¼ Zoll, Lichtkeimer); [Bonanza French Marigold Flower Seed Mix — Outsidepride](https://www.outsidepride.com/seed/flower-seed/marigold/french-marigold-seeds-bonanza-mix.html) (≈280–300 Korn/g, „Sparky Mix") und [Big Duck Gold F1 Marigold Seeds — UF Seeds](https://www.ufseeds.com/product/big-duck-gold-f1-marigold-seeds/MABDG.html) (354 Korn/g) für die Tausendkornmasse; Keimfähigkeitsdauer analog zu Tagetes erecta (§1.8 dort, [Ramniwas Bagh](https://ramniwasbagh.com/how-to-save-marigold-seeds-for-next-year/) und [Ingenta/Seed Science and Technology](https://www.ingentaconnect.com/content/ista/sst/2004/00000032/00000002/art00020)).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 (Gattungsangabe Tagetes; Aussaat auf 10–20 cm ausdünnen je nach Sortengröße) | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | Gardeners' World, „How to grow marigolds“ (Spacing: 15 cm apart, 30 between rows; gilt für French und African marigolds gemeinsam; Zeitschriftenquelle, schwach; die RHS-Sortenseite nennt keinen Abstand), https://gardenersworld.com/how-to/grow-plants/how-to-grow-marigolds | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tagetes patula ‘Hero Orange’“ (Sortenseite der Art; Position: Full sun; Kulturtext „Grow in moderately fertile, well-drained soil in full sun“), https://www.rhs.org.uk/plants/106256/tagetes-patula-hero-orange-hero-series/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -246,6 +262,11 @@ Tagetes braucht kaum Dünger. Auf mageren Böden blüht sie reicher. Auf überd�
 | Empfohlene Vorfrucht | Nematoden-befallene Kulturen |
 | Empfohlene Nachfrucht | Alle Hauptkulturen (Nematoden-Bekämpfung wirkt nach) |
 | Anbaupause (Jahre) | keine |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Schwachzehrer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung (Tagetes im Zwischenanbau gegen Nematoden bei LKSH erwähnt, aber ohne Zehrerstufe/Anbaupause) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -308,4 +329,6 @@ Tagetes patula,"Studentenblume;Aufrechte Tagetes;Französische Tagetes;French Ma
 15. [Planting French Marigold Seeds — Gardening Know How](https://www.gardeningknowhow.com/ornamental/flowers/marigold/french-marigold-growing.htm) — Saattiefe, Lichtkeimung
 16. [Bonanza French Marigold Flower Seed Mix — Outsidepride](https://www.outsidepride.com/seed/flower-seed/marigold/french-marigold-seeds-bonanza-mix.html) — Saatgutkatalogdaten (~280–300 Korn/g)
 17. [Big Duck Gold F1 Marigold Seeds — UF Seeds](https://www.ufseeds.com/product/big-duck-gold-f1-marigold-seeds/MABDG.html) — Saatgutkatalogdaten (354 Korn/g)
+18. RHS -- Tagetes patula ‘Hero Orange’ (Position: Full sun; Lichtanspruch): https://www.rhs.org.uk/plants/106256/tagetes-patula-hero-orange-hero-series/details
+19. Gardeners' World -- How to grow marigolds (Spacing 15 cm / 30 cm Reihe; Gattung Tagetes, schwach): https://gardenersworld.com/how-to/grow-plants/how-to-grow-marigolds
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

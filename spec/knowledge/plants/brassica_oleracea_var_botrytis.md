@@ -136,6 +136,22 @@
 **Quellen (§1.8):** [Harvest to Table — Cauliflower Seed Starting Tips](https://harvesttotable.com/cauliflower-seed-starting-tips/); [Gardening Tips — Cauliflower Seed Germination, Time, Temperature](https://gardeningtips.in/cauliflower-seed-germination-time-temperature); [Bountiful Gardener — How Deep to Plant Cauliflower Seeds](https://www.bountifulgardener.com/how-deep-to-plant-cauliflower-seeds-sowing-and-transplanting-cauliflower/); [Wikifarmer — Brassica oleracea botrytis Cauliflower seeds](https://wikifarmer.com/brassica-oleracea-botrytis-cauliflower-seeds/); [Green Harvest — Seeds per Gram](https://greenharvest.com.au/SeedOrganic/SeedsPerGram.html); [Osborne Seed / Gardening Channel — Seed Viability Charts](https://www.osborneseed.com/pages/seed-viability-chart); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 50 | `species.spacing_cm` |
+| Reihenabstand (cm) | 50 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern (Bayerische Gartenakademie), „Sä- und Pflanztermine auf einen Blick" (Dateistand 2018), https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf (Blumenkohl: Reihen-/Pflanzabstand 50/50 cm); RHS, „How to grow cauliflowers", https://www.rhs.org.uk/vegetables/cauliflower/grow-your-own (Sommer-/Herbstsorten 45–60 cm zwischen Pflanzen, 60 cm zwischen Reihen) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow cauliflowers", „Choose a sunny site", https://www.rhs.org.uk/vegetables/cauliflower/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -330,6 +346,11 @@ Blumenkohl ist der anspruchsvollste der Kohlarten — sehr empfindlich auf Nähr
 | Empfohlene Vorfrucht | Leguminosen (Erbse, Bohne); Gründüngung |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Feldsalat) |
 | Anbaupause (Jahre) | 4–5 Jahre selbe Familie (Brassicaceae) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Landwirtschaftskammer Schleswig-Holstein, „Fruchtfolge im Garten" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Starkzehrer z. B. Kohl); Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (INNOProdukte, 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer u. a. Blumenkohl); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer-Beet: Kohlarten inkl. Karfiol) |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; LKSH Fruchtfolge im Garten, 2020, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf: Kohl bei den Kreuzblütlern, Hülsenfrüchte als eigene Familie) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -378,3 +399,8 @@ Brassica oleracea var. botrytis,"Blumenkohl;Karfiol;Cauliflower",Brassicaceae,Br
 12. [Penn State Extension — Hydroponics Nutrient Solution Recipe](https://extension.psu.edu/hydroponics-systems-using-the-two-basic-equations-to-calculate-a-nutrient-solution-recipe) — Mikronährstoff-Baseline Mn/Zn/Cu/Mo
 13. [MDPI Agronomy 9(11):677 — Zinc and Iron Biofortification of Brassicaceae Microgreens](https://www.mdpi.com/2073-4395/9/11/677) — Hoagland-Mikronährstoffkonzentrationen für Brassicaceae
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+14. [LWG Bayern (Bayerische Gartenakademie) — Sä- und Pflanztermine auf einen Blick](https://www.lwg.bayern.de/mam/cms06/gartenakademie/dateien/sae_und_pflanztermine.pdf) — Reihen-/Pflanzabstand Blumenkohl 50/50 cm
+15. [RHS — How to grow cauliflowers](https://www.rhs.org.uk/vegetables/cauliflower/grow-your-own) — sonniger Standort, Pflanz- und Reihenabstände
+16. [Landwirtschaftskammer Schleswig-Holstein — Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Starkzehrer Kohl, Pflanzenfamilien, Anbaupause Kohlgewächse 4 Jahre
+17. [Südtiroler Bauernbund — Fruchtfolgen im Gemüsebau (INNOProdukte, 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Starkzehrer Blumenkohl, Anbaupause Kreuzblütler 4–5 Jahre
+18. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Starkzehrer-Beet Kohlarten (Karfiol)

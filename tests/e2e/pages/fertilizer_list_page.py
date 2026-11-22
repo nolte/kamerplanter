@@ -19,7 +19,7 @@ class FertilizerListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='fertilizer-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -276,7 +276,7 @@ class FertilizerListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create form."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_product_name_field_value(self) -> str:
         """Return the current value of the product_name input."""

@@ -126,6 +126,22 @@
 **Quellen (§1.8):** [Growing Thyme: A Complete Guide — Burpee](https://www.burpee.com/blog/thyme_article10024.html) und [Growing Thyme From Seed: A How-To Guide — Savvy Gardening](https://savvygardening.com/growing-thyme-from-seed/) (Keimtemperatur 15–21 °C, Keimdauer 14–28 Tage, Lichtkeimer, Oberflächenaussaat); [Growing Thyme from Seed: How to Plant and Harvest — Meadowlark Journal](https://meadowlarkjournal.com/blog/growing-thyme-from-seed) (Bestätigung Lichtkeimung, Saattiefe); [Vulgaris, Thyme Seed — UF Seeds](https://www.ufseeds.com/product/vulgaris-thyme-seed---1-ounce/THVUG-1oz.html) (4.305 Korn/g Katalogdaten) und allgemeine Saatgut-Viabilitätsreferenzen für Kräuter ([Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/), [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html)) für die Keimfähigkeitsdauer 3–5 Jahre.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 20–30 (je nach Sorte) | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt nur den Pflanzabstand (20–30 cm), keinen Reihenabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Thyme: Grow your own“ („Space plants 20–30cm (8–12in) apart, depending on the variety“), https://www.rhs.org.uk/herbs/thyme/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Thyme: Grow your own“ („Thyme thrives in full sun and free-draining conditions“; „choose a warm, sunny planting location“), https://www.rhs.org.uk/herbs/thyme/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -293,6 +309,16 @@ Hinweis: Wirksam zwischen 13–27 °C, nicht über 30 °C; empfindlich gegen rF 
 | Basilikum | Ocimum basilicum | Unterschiedliche Wasseransprüche | mild | `incompatible_with` |
 | Minze | Mentha spicata | Minze breitet sich aus und überwächst Thymian | mild | `incompatible_with` |
 
+### 6.4 Fruchtfolge-Einordnung (Beetplanung)
+
+| Feld | Wert |
+|------|------|
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low (nur Sammelgruppe „Kräuter“, Art nicht namentlich) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: kein Familienwert Lamiaceae in botanical_families.yaml und keine gelesene artspezifische Quelle zur Anbaupause --> |
+
 ---
 
 ## 7. Ähnliche Arten & Alternativen
@@ -337,4 +363,8 @@ Thymus vulgaris,"Thymian;Echter Thymian;Gartenthymian;Thyme",Lamiaceae,Thymus,pe
 14. [Growing Thyme from Seed: How to Plant and Harvest — Meadowlark Journal](https://meadowlarkjournal.com/blog/growing-thyme-from-seed) — Bestätigung Lichtkeimung
 15. [Vulgaris, Thyme Seed — UF Seeds](https://www.ufseeds.com/product/vulgaris-thyme-seed---1-ounce/THVUG-1oz.html) — Saatgutkatalogdaten (4.305 Korn/g)
 16. [Seed Viability Chart — High Mowing Organic Seeds](https://www.highmowingseeds.com/blog/seed-viability-chart/) und [Seed Storage Guidelines — Johnny's Selected Seeds](https://www.johnnyseeds.com/growers-library/reference-documents/seed-storage-guidelines.html) — Keimfähigkeitsdauer Kräutersaatgut
+17. RHS — Thyme: Grow your own (Pflanzabstand 20–30 cm; volle Sonne): https://www.rhs.org.uk/herbs/thyme/grow-your-own
+18. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+19. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+20. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 -->

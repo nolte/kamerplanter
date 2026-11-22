@@ -90,7 +90,7 @@ describe('authSlice', () => {
       },
     );
     expect(state.isLoading).toBe(false);
-    expect(state.error).toBe('Invalid credentials');
+    expect(state.error).toBe('errors.generic');
     // The page must stay mounted so this error renders — bootstrap stays done.
     expect(state.initialized).toBe(true);
   });
@@ -117,7 +117,7 @@ describe('authSlice', () => {
       error: { message: 'Email already used' },
     });
     expect(state.isLoading).toBe(false);
-    expect(state.error).toBe('Email already used');
+    expect(state.error).toBe('errors.generic');
   });
 
   it('fetchProfile.fulfilled stores the user, authenticates and completes bootstrap', () => {

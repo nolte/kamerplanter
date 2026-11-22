@@ -98,6 +98,33 @@ def _display_text(owner: str) -> str:
     return f"Display name of {owner}"
 
 
+def _nest(field: str, value: Any) -> dict[str, Any]:
+    """``{"a": {"b": value}}`` for ``"a.b"`` — a rule may address a field one object down (REQ-053)."""
+    head, _, rest = field.partition(".")
+    return {head: _nest(rest, value)} if rest else {head: value}
+
+
+def _dig(doc: dict[str, Any], field: str) -> Any:
+    """The value at a dotted path, ``None`` where the chain breaks."""
+    current: Any = doc
+    for part in field.split("."):
+        current = current.get(part) if isinstance(current, dict) else None
+    return current
+
+
+def _flat(doc: dict[str, Any], prefix: str = "") -> list[tuple[str, Any]]:
+    """Every leaf of a document with its dotted path, system attributes left out."""
+    leaves: list[tuple[str, Any]] = []
+    for field, value in doc.items():
+        if not prefix and field.startswith("_"):
+            continue
+        if isinstance(value, dict):
+            leaves.extend(_flat(value, f"{prefix}{field}."))
+        else:
+            leaves.append((f"{prefix}{field}", value))
+    return leaves
+
+
 def _row_key(collection: str, owner: str, suffix: str = "") -> str:
     return f"{owner}-{collection}{suffix}".replace("_", "-")
 
@@ -208,7 +235,7 @@ def _seed(database, plan: ErasurePlan) -> dict[str, dict[str, list[str]]]:
         for owner in (SUBJECT, OTHER):
             doc = {
                 "_key": _row_key(rule.collection, owner, f"-{rule.user_field}"),
-                rule.user_field: owner,
+                **_nest(rule.user_field, owner),
                 "tenant_key": TENANT,
                 "marker": f"marker-{rule.collection}-{owner}",
             }
@@ -375,9 +402,7 @@ def test_every_retained_subject_row_survives_without_a_trace_of_the_subject(data
         if doc is None:
             lost.append(doc_id)
             continue
-        for field, value in doc.items():
-            if field.startswith("_"):
-                continue
+        for field, value in _flat(doc):
             if value == SUBJECT or value == _display_text(SUBJECT):
                 traces.append(f"{doc_id}.{field}={value!r}")
     assert lost == []
@@ -391,8 +416,8 @@ def test_each_rule_writes_its_declared_replacement(database, erased):
     for rule in erased.plan.anonymize:
         expected = tombstone if rule.replacement_strategy == "tombstone_hash" else rule.anonymized_value
         doc = _read(database, f"{rule.collection}/{_row_key(rule.collection, SUBJECT, f'-{rule.user_field}')}")
-        if doc is None or doc.get(rule.user_field) != expected:
-            wrong.append(f"{rule.collection}.{rule.user_field}={None if doc is None else doc.get(rule.user_field)!r}")
+        if doc is None or _dig(doc, rule.user_field) != expected:
+            wrong.append(f"{rule.collection}.{rule.user_field}={None if doc is None else _dig(doc, rule.user_field)!r}")
             continue
         wrong.extend(f"{rule.collection}.{field} not emptied" for field in rule.clear_fields if doc.get(field) != "")
     assert wrong == []

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -39,9 +39,11 @@ import { useNotification } from '@/hooks/useNotification';
 import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as api from '@/api/endpoints/substrates';
 import Chip from '@mui/material/Chip';
 import type { Substrate, Batch, ReusabilityResponse } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 const schema = z.object({
   type: z.enum(['soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat', 'rockwool_slab', 'rockwool_plug', 'vermiculite', 'none', 'orchid_bark', 'pon_mineral', 'sphagnum', 'hydro_solution']),
@@ -120,11 +122,17 @@ export default function SubstrateDetailPage() {
     },
   });
 
-  const load = async () => {
+  // Latest-wins: a late answer for a previously selected substrate must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
+  const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const s = await api.getSubstrate(key);
+      if (stale()) return;
       setSubstrate(s);
       reset({
         type: s.type,
@@ -139,17 +147,20 @@ export default function SubstrateDetailPage() {
         reusable: s.reusable,
         max_reuse_cycles: s.max_reuse_cycles,
       });
-      setBatches(await api.listBatches(key));
+      const loadedBatches = await api.listBatches(key);
+      if (stale()) return;
+      setBatches(loadedBatches);
       // The mix components used to trigger a bounded substrate fetch here; the
       // shared reader does it now, gated on the same condition (#1560).
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  };
+  }, [key, reset, beginLoad]);
 
-  useEffect(() => { load(); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [load]);
 
   const onSubmit = async (data: FormData) => {
     if (!key) return;
@@ -235,7 +246,7 @@ export default function SubstrateDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   const PANEL_GAP = 4;
 
@@ -257,7 +268,7 @@ export default function SubstrateDetailPage() {
           )}
         </Box>
         {canDeleteSubstrate && (
-          <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-delete-button">
+          <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="substrate-delete-button">
             {t('common.delete')}
           </Button>
         )}
@@ -331,8 +342,8 @@ export default function SubstrateDetailPage() {
               {t('pages.substrates.sectionChemistryDesc')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
-              <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
+              <FormNumberField name="ph_base" helpTerm="ph" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} />
+              <FormNumberField name="ec_base_ms" helpTerm="ec" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} />
             </Box>
           </CardContent>
         </Card>
@@ -355,7 +366,7 @@ export default function SubstrateDetailPage() {
                   value: v, label: t(`enums.waterRetention.${v}`),
                 }))}
               />
-              <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+              <FormNumberField name="air_porosity_percent" helpTerm="air_porosity" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
             </FormRow>
             <FormSelectField
               name="buffer_capacity"
@@ -407,7 +418,7 @@ export default function SubstrateDetailPage() {
           columns={batchColumns}
           rows={batches}
           getRowKey={(r) => r.key}
-          onRowClick={(r) => navigate(`/standorte/substrates/batches/${r.key}`)}
+          getRowHref={(r) => `/standorte/substrates/batches/${r.key}`}
           tableState={batchTableState}
           ariaLabel={t('pages.batches.title')}
           mobileCardRenderer={(r) => (

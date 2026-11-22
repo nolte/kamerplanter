@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -16,10 +16,13 @@ import ParkIcon from '@mui/icons-material/Park';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import i18next from 'i18next';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
@@ -38,6 +41,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchBotanicalFamily, clearCurrent } from '@/store/slices/botanicalFamiliesSlice';
 import * as api from '@/api/endpoints/botanicalFamilies';
 import type { Species } from '@/api/types';
+import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 
 const growthHabitValues = [
   'herb',
@@ -60,13 +64,14 @@ const schema = z.object({
     .string()
     .min(1)
     .refine((v) => v.endsWith('aceae'), {
-      message: "Muss auf '-aceae' enden",
+      // Resolved at validation time so the message follows the active language.
+      error: () => i18next.t('validation.botanicalFamilySuffix'),
     }),
   common_name_de: z.string(),
   common_name_en: z.string(),
   order: z.string(),
   description: z.string(),
-  typical_nutrient_demand: z.enum(['light', 'medium', 'heavy']),
+  typical_nutrient_demand: z.enum(['light_feeder', 'medium_feeder', 'heavy_feeder']),
   nitrogen_fixing: z.boolean(),
   typical_root_depth: z.enum(['shallow', 'medium', 'deep']),
   soil_ph_min: z.union([z.number().min(3).max(9), z.literal('')]).nullable(),
@@ -86,7 +91,7 @@ const PANEL_GAP = 4;
 
 export default function BotanicalFamilyDetailPage() {
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const notification = useNotification();
@@ -102,7 +107,13 @@ export default function BotanicalFamilyDetailPage() {
   // nothing here.
   const canEditCatalogue = usePlatformAdmin();
   const [deleting, setDeleting] = useState(false);
-  const [familySpecies, setFamilySpecies] = useState<Species[]>([]);
+  // A failed read is shown with a retry, never as "no species in this family" (#3037).
+  const loadFamilySpecies = useCallback(
+    (): Promise<Species[]> => (key ? api.listSpeciesByFamily(key) : Promise.resolve([])),
+    [key],
+  );
+  const familySpeciesLoad = useAsyncOptions(loadFamilySpecies, { enabled: Boolean(key) });
+  const familySpecies = familySpeciesLoad.options;
 
   const {
     control,
@@ -117,7 +128,7 @@ export default function BotanicalFamilyDetailPage() {
       common_name_en: '',
       order: '',
       description: '',
-      typical_nutrient_demand: 'medium',
+      typical_nutrient_demand: 'medium_feeder',
       nitrogen_fixing: false,
       typical_root_depth: 'medium',
       soil_ph_min: '',
@@ -134,10 +145,6 @@ export default function BotanicalFamilyDetailPage() {
   useEffect(() => {
     if (key) {
       dispatch(fetchBotanicalFamily(key));
-      api
-        .listSpeciesByFamily(key)
-        .then(setFamilySpecies)
-        .catch(() => {});
     }
     return () => {
       dispatch(clearCurrent());
@@ -206,12 +213,22 @@ export default function BotanicalFamilyDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  // The retry re-runs the load in place; it does not leave the page (#3037).
+  if (error) {
+    return (
+      <ErrorDisplay
+        error={error}
+        onRetry={() => {
+          if (key) void dispatch(fetchBotanicalFamily(key));
+        }}
+      />
+    );
+  }
 
   const nutrientDemandOptions = [
-    { value: 'light', label: t('enums.nutrientDemand.light') },
-    { value: 'medium', label: t('enums.nutrientDemand.medium') },
-    { value: 'heavy', label: t('enums.nutrientDemand.heavy') },
+    { value: 'light_feeder', label: t('enums.nutrientDemand.light_feeder') },
+    { value: 'medium_feeder', label: t('enums.nutrientDemand.medium_feeder') },
+    { value: 'heavy_feeder', label: t('enums.nutrientDemand.heavy_feeder') },
   ];
 
   const rootDepthOptions = [
@@ -245,7 +262,7 @@ export default function BotanicalFamilyDetailPage() {
         title={current?.name ?? t('entities.botanicalFamily')}
         action={
           canEditCatalogue ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)}>
               {t('common.delete')}
             </Button>
           ) : undefined
@@ -481,7 +498,13 @@ export default function BotanicalFamilyDetailPage() {
         )}
       </Typography>
 
-      {familySpecies.length === 0 ? (
+      {familySpeciesLoad.error ? (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={familySpeciesLoad.reload}
+          data-testid="family-species-load-error"
+        />
+      ) : familySpecies.length === 0 ? (
         <EmptyState
           message={t('pages.botanicalFamilies.noSpeciesInFamily')}
           actionLabel={t('pages.botanicalFamilies.showAllSpeciesFiltered')}
@@ -493,7 +516,7 @@ export default function BotanicalFamilyDetailPage() {
             <ListItemButton key={s.key} component={RouterLink} to={`/stammdaten/species/${s.key}`}>
               <ListItemText
                 primary={s.scientific_name}
-                secondary={s.common_names.join(', ') || undefined}
+                secondary={orderCommonNamesForLanguage(s, i18n.language).join(', ') || undefined}
                 slotProps={{ primary: { variant: 'body2' } }}
               />
               <ParkIcon fontSize="small" sx={{ color: 'text.disabled', ml: 1 }} />

@@ -63,13 +63,14 @@ describe('SuccessionPlanDialog', () => {
       'Neuer Staffelplan',
     );
 
-    // Pick a species from the autocomplete (mockSpecies has "Tomato").
+    // Pick a species from the autocomplete. mockSpecies lists "Tomato" first; the
+    // German UI leads the option with the German name (#2902).
     const speciesInput = screen
       .getByTestId('form-field-species_key')
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    const option = await screen.findByText('Tomato');
+    const option = await screen.findByText('Tomate, Tomato');
     await user.click(option);
 
     await user.click(screen.getByTestId('form-submit-button'));
@@ -157,6 +158,46 @@ describe('SuccessionPlanDialog', () => {
     expect(capturedBody!.location_key).toBe('loc-1');
   });
 
+  it('sends the time in the bed per batch, and null once it is cleared (GP-FR-074)', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.put('/api/v1/t/:tenant/succession-plans/:key', async ({ params, request }) => {
+        const body = (await request.json()) as Record<string, unknown>;
+        bodies.push(body);
+        return HttpResponse.json({ ...existingPlan, key: params.key as string, ...body });
+      }),
+    );
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const { unmount } = renderWithProviders(
+      <SuccessionPlanDialog open plan={existingPlan} onClose={() => {}} onSaved={onSaved} />,
+    );
+    await screen.findByText('Staffelanbau bearbeiten');
+    const duration = screen.getByTestId('form-field-batch_duration_days').querySelector('input')!;
+    expect(duration.value).toBe('');
+    await user.type(duration, '42');
+    await user.click(screen.getByTestId('form-submit-button'));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    expect(bodies[0].batch_duration_days).toBe(42);
+    unmount();
+
+    renderWithProviders(
+      <SuccessionPlanDialog
+        open
+        plan={{ ...existingPlan, batch_duration_days: 42 }}
+        onClose={() => {}}
+        onSaved={onSaved}
+      />,
+    );
+    await screen.findByText('Staffelanbau bearbeiten');
+    const filled = screen.getByTestId('form-field-batch_duration_days').querySelector('input')!;
+    expect(filled.value).toBe('42');
+    await user.clear(filled);
+    await user.click(screen.getByTestId('form-submit-button'));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
+    expect(bodies[1].batch_duration_days).toBeNull();
+  });
+
   it('recomputes the live batch preview from the schedule window', async () => {
     const user = userEvent.setup();
     renderWithProviders(
@@ -198,7 +239,7 @@ describe('SuccessionPlanDialog', () => {
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    await user.click(await screen.findByText('Tomato'));
+    await user.click(await screen.findByText('Tomate, Tomato'));
 
     // Cultivar select becomes enabled and renders the mapped option.
     const cultivarField = await screen.findByTestId('form-field-cultivar_key');
@@ -225,7 +266,7 @@ describe('SuccessionPlanDialog', () => {
       .querySelector('input')!;
     await user.click(speciesInput);
     await user.type(speciesInput, 'Tom');
-    await user.click(await screen.findByText('Tomato'));
+    await user.click(await screen.findByText('Tomate, Tomato'));
 
     // Set an end date before the start date (start defaults to today).
     // FormDateField has no testid, so locate it by its label.

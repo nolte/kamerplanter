@@ -55,6 +55,7 @@ describe('ModulesSettingsTab', () => {
       'phases',
       'automation',
       'post_harvest',
+      'garden_planner',
     ]) {
       expect(screen.getByTestId(`module-switch-${key}`)).toBeInTheDocument();
     }

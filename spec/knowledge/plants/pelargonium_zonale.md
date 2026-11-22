@@ -139,6 +139,23 @@
 Quellen (§1.8): [Thompson & Morgan — Raising F1 Hybrid Geraniums from Seed](https://www.thompson-morgan.com/raising-f1-geraniums-from-seed); [Flower Patch Farmhouse — Grow Geraniums from Seed (Pelargoniums)](https://www.flowerpatchfarmhouse.com/grow-geraniums-from-seed-pelargoniums/); [Horticulture.co.uk — Seed Sowing Geraniums](https://horticulture.co.uk/geraniums/sowing/); [Dave's Garden — Propagation: Geranium seed germination](https://davesgarden.com/community/forums/t/1227563/); [Carol J. Michel — Pelargonium Seeds](https://caroljmichel.com/pelargonium-seeds/); [Scented Leaf — Growing pelargoniums from seeds](http://blog.scentedleaf.com/2010/12/growing-pelargoniums-from-seeds.html); [Senior Gardening — Growing Geraniums from Seed](http://www.senior-gardening.com/features/seed_geraniums-2009.html)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS-Artseite und RHS-Pelargonien-Leitfaden nennen keinen Pflanzabstand (Leitfaden verweist nur auf Bedding-/Container-Seiten); Max Spread 0,5–1 m ist kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (Balkon-/Kübelpflanze, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Artseite „Pelargonium zonale“: Position „Full sun, Partial shade“ und Kulturtext „full sun or partial shade“ ohne Vorzug; RHS-Leitfaden (Gattung): „Most flower best in full sun … Zonal cultivars will tolerate some shade“ — Gattungsaussage, keine eindeutige Standortstufe der Art --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -364,4 +381,6 @@ Pelargonium zonale,"Zimmerpelargonie;Zonale Geranie;Stehende Geranie;Zonal Geran
 25. [Carol J. Michel — Pelargonium Seeds](https://caroljmichel.com/pelargonium-seeds/) — Scarifizierungs-Technik, Keimraten-Vergleich (90–100% vs. <1%)
 26. [Scented Leaf — Growing pelargoniums from seeds](http://blog.scentedleaf.com/2010/12/growing-pelargoniums-from-seeds.html) — Nick+Soak-Methode, Keimung in 2 Tagen nach Vorbehandlung
 27. [Senior Gardening — Growing Geraniums from Seed](http://www.senior-gardening.com/features/seed_geraniums-2009.html) — Keimdauer bis 20 Tage, Anzuchtpraxis
+28. [RHS — Pelargonium zonale](https://www.rhs.org.uk/plants/12407/pelargonium-zonale/details) — Position „Full sun, Partial shade“ ohne Vorzug; kein Pflanzabstand angegeben
+29. [RHS — How to grow pelargoniums (Growing Guide)](https://www.rhs.org.uk/plants/pelargonium/growing-guide) — „Most flower best in full sun … Zonal cultivars will tolerate some shade“; kein Pflanzabstand angegeben
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

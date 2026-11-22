@@ -111,6 +111,22 @@
 **Hinweis:** Die Art ist sehr anpassungsfähig an die Lichtmenge — sie bevorzugt volle Sonne bzw. helles Licht (bis ~6 h direkte Sonne verträglich), toleriert aber auch Halbschatten und niedrige Lichtmengen bei reduziertem Wachstum (`partial_shade` bildet die Schattentoleranz ab, nicht die optimale Lichtstufe). Das Wurzelsystem ist flach und rhizombildend; sandige, durchlässige Substrate bzw. Felsspalten. Hohe Salz- und Trockentoleranz (geeignet für Küstenstandorte), aber sehr empfindlich gegen Staunässe — Wurzelfäule durch Überwässerung ist die Haupt-Todesursache. Der pH-Vorzug 6.0–6.5 liegt innerhalb der in §1.6/§2.3 genannten breiteren Kulturspanne pH 5.5–7.0.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | NC State Extension Plant Toolbox, „Dracaena angolensis", https://plants.ces.ncsu.edu/plants/dracaena-angolensis/ (Light: Dappled Sunlight; Partial Shade = 2–6 h direkte Sonne; Fensterplatz hell, im Sommer nur Morgensonne) | — |
+
 ---
 
 ## 2. Wachstumsphasen

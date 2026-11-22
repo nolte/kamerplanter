@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -16,6 +17,8 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as harvestApi from '@/api/endpoints/harvest';
 import type { HarvestIndicator } from '@/api/types';
 
@@ -55,10 +58,13 @@ export default function ObservationCreateDialog({
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
-  const [indicators, setIndicators] = useState<HarvestIndicator[]>([]);
-  const [loadingIndicators, setLoadingIndicators] = useState(false);
+  // A failed read is shown with a retry, never as an empty picker (#3037).
+  const loadIndicators = useCallback((): Promise<HarvestIndicator[]> => harvestApi.getIndicators(), []);
+  const indicatorsLoad = useAsyncOptions(loadIndicators, { enabled: open });
+  const indicators = indicatorsLoad.options;
+  const loadingIndicators = indicatorsLoad.loading;
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       indicator_key: '',
@@ -68,16 +74,10 @@ export default function ObservationCreateDialog({
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open) {
-      setLoadingIndicators(true);
-      harvestApi
-        .getIndicators()
-        .then(setIndicators)
-        .catch(() => setIndicators([]))
-        .finally(() => setLoadingIndicators(false));
-
       reset({
         indicator_key: '',
         observer: '',
@@ -102,14 +102,14 @@ export default function ObservationCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="observation-create-dialog-title" data-testid="observation-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="observation-create-dialog-title" data-testid="observation-create-dialog">
       <DialogTitle id="observation-create-dialog-title">{t('pages.harvest.createObservation')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -128,6 +128,9 @@ export default function ObservationCreateDialog({
               label: `${t(`enums.harvestIndicatorType.${i.indicator_type}`)} (${i.measurement_unit || '—'})`,
             }))}
           />
+          {indicatorsLoad.error && (
+            <OptionsLoadError onRetry={indicatorsLoad.reload} data-testid="observation-indicators-load-error" />
+          )}
           <FormTextField
             name="observer"
             control={control}
@@ -165,6 +168,6 @@ export default function ObservationCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

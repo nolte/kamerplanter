@@ -20,7 +20,7 @@ class WateringLogListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='watering-log-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-watering-log-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     # Linked plant chips of a row (Chip mounted on a RouterLink → a real
     # anchor). Addressed by the *per-plant* hook the product emits in both
     # layouts, `plant-link-<plant key>`, rather than by the container that
@@ -452,8 +452,7 @@ class WateringLogListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        btn = self.wait_for_element_clickable(self.FORM_CANCEL)
-        self.scroll_and_click(btn)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def select_option(self, field_testid: str, value_text: str) -> None:
         """Open a `FormSelectField` and pick the option carrying *value_text*.

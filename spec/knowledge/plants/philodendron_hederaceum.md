@@ -117,6 +117,23 @@
 **Hinweis:** *Lichtkompensationspunkt (light compensation point):* Als isomorpher Unterwuchs-Aroid mit hoher Schattentoleranz fängt *P. hederaceum* Schwachlicht effizient ab; der echte Kompensationspunkt (Netto-Photosynthese = 0) ist nicht numerisch publiziert. Praktisch beginnt sichtbares Wachstum erst oberhalb ca. 50 PPFD — das ist eine Wachstums-Untergrenze, NICHT der Kompensationspunkt und gehört daher nicht ins LCP-Feld. *Wurzeltiefe:* flaches, fibröses (faseriges) Wurzelsystem, in Topfkultur effektiv flach (15–30 cm); trocknet schneller ab als aufrechte Arten. *Staunässe (waterlogging):* sehr empfindlich, Staunässe führt rasch zu Wurzelfäule — durchlässiges Substrat und Topf-Drainage zwingend. *Salztoleranz:* salzempfindlich; Akkumulation aus Leitungswasser/Dünger verursacht braune Blattspitzen, Substrat sollte monatlich durchgespült werden. *Boden-pH:* Quellen nennen leicht sauer bis neutral (überlappend ca. 5.5–7.0); der eingetragene Bereich 6.0–7.0 harmonisiert mit §1.6 (Substrat-Empfehlung) und §2.3 (Nährstoffprofile derselben Datei).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Philodendron hederaceum“ (Position: Partial shade; Kulturtext „bright but diffused light“), https://www.rhs.org.uk/plants/514461/philodendron-hederaceum/details | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -335,4 +352,5 @@ Lemon Lime,Philodendron hederaceum,"ornamental;chartreuse_leaves",clone
 14. [Gardener's Path — Philodendron Brown Leaves (soluble salts)](https://gardenerspath.com/plants/houseplants/philodendron-brown-leaves/) — Salzempfindlichkeit, Substrat-Spülung
 15. [Greg — Heartleaf Philodendron Roots](https://greg.app/heartleaf-philodendron-roots/) — flaches/fibröses Wurzelsystem, Staunässe-Empfindlichkeit
 16. [Greg — Best Soil for Philodendron hederaceum (pH)](https://greg.app/philodendron-hederaceum-var-hederaceum-soil/) — Boden-pH-Vorzug (leicht sauer bis neutral)
+17. [RHS — Philodendron hederaceum](https://www.rhs.org.uk/plants/514461/philodendron-hederaceum/details) — Position „Partial shade“; Kulturtext „bright but diffused light“
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

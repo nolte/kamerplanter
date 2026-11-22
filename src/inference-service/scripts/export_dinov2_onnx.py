@@ -29,6 +29,15 @@ import hashlib
 import json
 from pathlib import Path
 
+# The hub repository pinned to one commit. An unpinned `facebookresearch/dinov2`
+# resolves the default branch at build time, so two builds of the same tree
+# could export different graphs. Pinning also lets the load skip torch.hub's
+# fork validation, which calls the GitHub REST API unauthenticated and failed
+# the image build with "HTTP Error 403: rate limit exceeded" on a shared CI
+# runner (#2991, delivery run 43945322812). The zipball download that remains
+# goes to github.com, not to the rate-limited API.
+DINOV2_HUB_REPO = "facebookresearch/dinov2:7764ea0f912e53c92e82eb78a2a1631e92725fc8"
+
 # Embedding dimensionality per DINOv2 architecture (REQ-029-A 2.3).
 ARCH_DIM = {
     "dinov2_vits14": 384,
@@ -58,9 +67,9 @@ def export(arch: str, input_size: int, output_dir: Path, opset: int) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     onnx_path = output_dir / "model.onnx"
 
-    print(f"Loading {arch} from facebookresearch/dinov2 (Apache-2.0 backbone) ...")
+    print(f"Loading {arch} from {DINOV2_HUB_REPO} (Apache-2.0 backbone) ...")
     # Verify LICENSE in the repo before relying on this in production.
-    model = torch.hub.load("facebookresearch/dinov2", arch)
+    model = torch.hub.load(DINOV2_HUB_REPO, arch, trust_repo=True, skip_validation=True)
     model.eval()
 
     dummy = torch.randn(1, 3, input_size, input_size, dtype=torch.float32)

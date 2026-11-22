@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 
 from app.common.enums import ReminderType
 from app.common.types import CareProfileKey
+from app.domain.models.care_event import CareEvent
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
 
 
@@ -53,6 +55,32 @@ class ICareReminderRepository(ABC):
 
     @abstractmethod
     def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation: ...
+
+    def find_confirmation_by_completion(
+        self, plant_key: str, completion_client_event_id: str
+    ) -> CareConfirmation | None:
+        """The confirmation a buffered task completion already recorded for ``plant_key`` (REQ-053 WP 9.3).
+
+        Not abstract: a repository that keeps no such marker finds none, and the follow-up then runs as before.
+        """
+        return None
+
+    @abstractmethod
+    def create_confirmation_logged(
+        self,
+        confirmation: CareConfirmation,
+        *,
+        profile_key: str,
+        plant_key: str,
+        event_for: Callable[[str], CareEvent | None],
+    ) -> CareConfirmation:
+        """Store the confirmation, its edges and - when ``event_for`` returns one - its care event, atomically.
+
+        ``event_for(confirmation_key)`` builds the care event of the stored confirmation (``None``: the plant
+        stands in no bed, so there is nothing to log, GP-FR-106). All writes are one transaction: an abort
+        leaves neither the confirmation nor the event, and a confirmation never exists without its line in the bed
+        log when the plant has a bed.
+        """
 
     @abstractmethod
     def get_confirmations_by_plant(

@@ -351,8 +351,10 @@ celery_app = Celery(
 celery_app.conf.update(
     include=[
         "app.tasks.actuator_tasks",
+        "app.tasks.adjacency",
         "app.tasks.ai_tasks",
         "app.tasks.auth_tasks",
+        "app.tasks.care_events_consistency",
         "app.tasks.care_tasks",
         "app.tasks.climate_tasks",
         "app.tasks.dormancy_checks",
@@ -367,6 +369,7 @@ celery_app.conf.update(
         "app.tasks.pest_dataset_tasks",
         "app.tasks.pest_image_tasks",
         "app.tasks.phase_transitions",
+        "app.tasks.privacy_consistency",
         "app.tasks.reference_contribution_tasks",
         "app.tasks.reference_image_tasks",
         "app.tasks.retention_tasks",
@@ -407,6 +410,20 @@ celery_app.conf.update(
         "storage-cleanup-orphaned-task-photos-daily": {
             "task": "app.tasks.storage_tasks.cleanup_orphaned_task_photos",
             "schedule": crontab(hour=3, minute=40),
+        },
+        # REQ-053 GP-FR-051 — collect bed photos (category ``location``) that were uploaded but never linked to a
+        # bed, or whose discard failed after the bed write committed. 03:50, after the task-photo sweep and before
+        # the object reconciliation, so the objects these records held are seen there the same night.
+        "storage-cleanup-orphaned-location-photos-daily": {
+            "task": "app.tasks.storage_tasks.cleanup_orphaned_location_photos",
+            "schedule": crontab(hour=3, minute=50),
+        },
+        # #2715 item 1 — collect garden-plan underlays uploaded but never named by a site, or left behind by a
+        # discard that failed after the underlay write committed. 04:00, after the bed-photo sweep and before the
+        # object reconciliation, so the objects these records held are seen there the same night.
+        "storage-cleanup-orphaned-underlays-daily": {
+            "task": "app.tasks.storage_tasks.cleanup_orphaned_underlays",
+            "schedule": crontab(hour=4, minute=0),
         },
         # #1834 — reconcile the object store against the attachment catalogue.
         # 04:10, after the task-photo sweep; report-only until the operator sets
@@ -568,6 +585,28 @@ celery_app.conf.update(
         "retention-purge-tenant-erasure-records-daily": {
             "task": "retention.purge_expired_tenant_erasure_records",
             "schedule": crontab(hour=4, minute=50),  # 04:50 UTC daily, after the row purge
+        },
+        # NFR-011 R-25 (REQ-053 GP-NFR-055): care events of the bed log past their five years.
+        "retention-anonymize-care-events-daily": {
+            "task": "retention.anonymize_expired_care_events",
+            "schedule": crontab(hour=4, minute=55),  # 04:55 UTC daily
+        },
+        # NFR-011 R-26 (REQ-053 GP-NFR-055): the plan change log past its year. Its own task, no master task.
+        "retention-purge-garden-plan-audit-daily": {
+            "task": "retention.purge_expired_garden_plan_audit",
+            "schedule": crontab(hour=5, minute=0),  # 05:00 UTC daily
+        },
+        # REQ-053 GP-FR-105 (WP 8.2): domain events of the last days without a care event are logged
+        # (trigger=backfill). Own task, no master task; a clock time, so a beat restart does not move it.
+        "care-events-consistency-daily": {
+            "task": "care_events.consistency",
+            "schedule": crontab(hour=5, minute=10),  # 05:10 UTC daily, after the retention sweeps
+        },
+        # spec/privacy PRIV-206 / DEC-28 (E04): tombstones outside the allowlist are counted, never corrected.
+        # Read-only, its own task (NFR-011 §3.1); after the care-event job, which is the one that copies keys.
+        "privacy-consistency-daily": {
+            "task": "privacy.consistency",
+            "schedule": crontab(hour=5, minute=20),  # 05:20 UTC daily
         },
     },
 )

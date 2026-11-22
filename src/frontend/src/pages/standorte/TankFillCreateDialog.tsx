@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Alert from '@mui/material/Alert';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -59,7 +60,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
   const [saving, setSaving] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
 
-  const { control, handleSubmit, reset, watch, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       fill_type: 'full_change',
@@ -74,6 +75,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -106,14 +108,14 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open}
+    <FormDialog control={control} fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
@@ -193,6 +195,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
           <FormRow>
             <FormNumberField
               name="target_ec_ms"
+              helpTerm="ec"
               control={control}
               label={t('pages.tanks.targetEc')}
               helperText={t('pages.tanks.targetEcHelper')}
@@ -202,6 +205,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
             />
             <FormNumberField
               name="target_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.tanks.targetPh')}
               helperText={t('pages.tanks.targetPhHelper')}
@@ -217,6 +221,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
           <FormRow>
             <FormNumberField
               name="measured_ec_ms"
+              helpTerm="ec"
               control={control}
               label={t('pages.tanks.measuredEc')}
               helperText={t('pages.tanks.measuredEcHelper')}
@@ -226,6 +231,7 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
             />
             <FormNumberField
               name="measured_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.tanks.measuredPh')}
               helperText={t('pages.tanks.measuredPhHelper')}
@@ -255,6 +261,6 @@ export default function TankFillCreateDialog({ open, onClose, tankKey, onCreated
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

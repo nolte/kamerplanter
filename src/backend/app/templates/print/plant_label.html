@@ -169,7 +169,7 @@
             {% endif %}
         </div>
         <div class="label-card-qr">
-            <img src="{{ card.qr_data_uri }}" alt="QR">
+            <img src="{{ card.qr_data_uri }}" alt="{{ labels.plant_label_qr_alt }}{% if card.name %}: {{ card.name }}{% endif %}">
         </div>
     </div>
 {% endfor %}

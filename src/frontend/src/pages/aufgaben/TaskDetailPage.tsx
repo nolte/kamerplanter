@@ -46,6 +46,8 @@ import { z } from 'zod';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import TaskOriginBadge from '@/components/common/TaskOriginBadge';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -57,15 +59,18 @@ import FormRow from '@/components/form/FormRow';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as taskApi from '@/api/endpoints/tasks';
+import { attachmentUri } from '@/api/endpoints/attachments';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import * as speciesApi from '@/api/endpoints/species';
-import type { PlantInstance } from '@/api/types';
+import type { PlantInstance, Species } from '@/api/types';
 import type { TaskItem, TaskComment, TaskAuditEntry, ChecklistItem } from '@/api/types';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import AuthImage from '@/components/common/AuthImage';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
+import { errorKey } from '@/api/errors';
 
 /**
  * Legacy care tasks stored instruction as "care:<type>:<id>" keys.
@@ -240,8 +245,11 @@ export default function TaskDetailPage() {
   const { canDelete } = useTenantPermissions();
 
   const [task, setTask] = useState<TaskItem | null>(null);
-  const [plantName, setPlantName] = useState<string | null>(null);
-  const [plantInfo, setPlantInfo] = useState<{ plant: PlantInstance; speciesName: string; cultivarName: string | null } | null>(null);
+  // The loaded plant/species; their names are derived in the render so they follow
+  // the UI language (#2902).
+  const [namedPlant, setNamedPlant] = useState<PlantInstance | null>(null);
+  const [plantInfo, setPlantInfo] = useState<{ plant: PlantInstance; species: Species; cultivarName: string | null } | null>(null);
+  const plantName = namedPlant ? getPlantDisplayName(namedPlant, i18n.language) : null;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -263,6 +271,8 @@ export default function TaskDetailPage() {
 
   // Comments state
   const [comments, setComments] = useState<TaskComment[]>([]);
+  // A failed read is shown with a retry, never as "no comments" / "no history" (#3037).
+  const [commentsError, setCommentsError] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [editingCommentKey, setEditingCommentKey] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -270,6 +280,7 @@ export default function TaskDetailPage() {
 
   // History state
   const [history, setHistory] = useState<TaskAuditEntry[]>([]);
+  const [historyError, setHistoryError] = useState(false);
 
   // Checklist add state
   const [newChecklistText, setNewChecklistText] = useState('');
@@ -325,33 +336,46 @@ export default function TaskDetailPage() {
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const fetched = await taskApi.getTask(key);
+      if (stale()) return;
       setTask(fetched);
       setPhotoRefs(fetched.photo_refs ?? []);
       setPersistedPhotoRefs(fetched.photo_refs ?? []);
       if (fetched.entity_type === 'plant_instance' && fetched.entity_key) {
         plantApi.getPlantInstance(fetched.entity_key)
           .then(async (p) => {
-            setPlantName(getPlantDisplayName(p));
+            if (stale()) return;
+            setNamedPlant(p);
             try {
               const sp = await speciesApi.getSpecies(p.species_key);
-              const speciesName = sp.common_names?.[0] || sp.scientific_name;
               let cultivarName: string | null = null;
               if (p.cultivar_key) {
                 const cvList = await speciesApi.listCultivars(p.species_key);
                 const cv = cvList.find((c) => c.key === p.cultivar_key);
                 if (cv) cultivarName = cv.name;
               }
-              setPlantInfo({ plant: p, speciesName, cultivarName });
-            } catch {
-              setPlantInfo(null);
+              if (stale()) return;
+              setPlantInfo({ plant: p, species: sp, cultivarName });
+            } catch (err) {
+              // The species/cultivar only enrich the plant's tooltip; the plant name and link stay.
+              captureHandledError(err, { source: 'TaskDetailPage.plantInfo' });
+              if (!stale()) setPlantInfo(null);
             }
           })
-          .catch(() => setPlantName(null));
+          .catch((err: unknown) => {
+            // The plant name is a label next to the task; without it the entity key link still applies.
+            captureHandledError(err, { source: 'TaskDetailPage.namedPlant' });
+            if (!stale()) setNamedPlant(null);
+          });
       }
       resetEdit({
         name: fetched.name,
@@ -373,19 +397,22 @@ export default function TaskDetailPage() {
       });
       setError(null);
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, resetEdit, resetCompletion]);
+  }, [key, resetEdit, resetCompletion, beginLoad]);
 
   const loadComments = useCallback(async () => {
     if (!key) return;
     try {
       const data = await taskApi.listTaskComments(key);
       setComments(data);
-    } catch {
-      // silently fail
+      setCommentsError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'TaskDetailPage.comments' });
+      setCommentsError(true);
     }
   }, [key]);
 
@@ -394,8 +421,10 @@ export default function TaskDetailPage() {
     try {
       const data = await taskApi.getTaskHistory(key);
       setHistory(data);
-    } catch {
-      // silently fail
+      setHistoryError(false);
+    } catch (err) {
+      captureHandledError(err, { source: 'TaskDetailPage.history' });
+      setHistoryError(true);
     }
   }, [key]);
 
@@ -602,7 +631,7 @@ export default function TaskDetailPage() {
   const canReopen = task?.status === 'completed' || task?.status === 'skipped';
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!task) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const rawInstruction = (i18n.language === 'de' && task.instruction_de) ? task.instruction_de : task.instruction;
@@ -815,10 +844,11 @@ export default function TaskDetailPage() {
                       title={plantInfo ? (
                         <Box sx={{ p: 0.5 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                            {getPlantDisplayName(plantInfo.plant)}
+                            {getPlantDisplayName(plantInfo.plant, i18n.language)}
                           </Typography>
                           <Typography variant="caption" sx={{ display: 'block' }}>
-                            {t('entities.species')}: {plantInfo.speciesName}
+                            {t('entities.species')}:{' '}
+                            {getLocalizedCommonName(plantInfo.species, i18n.language) ?? plantInfo.species.scientific_name}
                           </Typography>
                           {plantInfo.cultivarName && (
                             <Typography variant="caption" sx={{ display: 'block' }}>
@@ -999,7 +1029,7 @@ export default function TaskDetailPage() {
                   {task.photo_refs.map((ref, i) => (
                     <AuthImage
                       key={ref}
-                      uri={taskApi.taskPhotoUri(ref)}
+                      uri={attachmentUri(ref)}
                       alt={t('pages.tasks.photoAlt', { index: i + 1 })}
                       width={120}
                       height={120}
@@ -1242,7 +1272,14 @@ export default function TaskDetailPage() {
               {t('pages.tasks.tabComments')} ({comments.length})
             </Typography>
 
-            {comments.length === 0 && (
+            {commentsError && (
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadComments()}
+                data-testid="task-comments-load-error"
+              />
+            )}
+            {!commentsError && comments.length === 0 && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {t('pages.tasks.noComments')}
               </Typography>
@@ -1340,7 +1377,14 @@ export default function TaskDetailPage() {
               {t('pages.tasks.tabHistory')} ({history.length})
             </Typography>
 
-            {history.length === 0 && (
+            {historyError && (
+              <OptionsLoadError
+                messageKey="errors.loadFailed"
+                onRetry={() => void loadHistory()}
+                data-testid="task-history-load-error"
+              />
+            )}
+            {!historyError && history.length === 0 && (
               <Typography variant="body2" color="text.secondary">
                 {t('pages.tasks.noHistory')}
               </Typography>

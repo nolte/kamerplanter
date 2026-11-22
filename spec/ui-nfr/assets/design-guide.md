@@ -411,7 +411,7 @@ Freiraum um das Logo = Halbe Hoehe der Bildmarke auf jeder Seite
 | Gewicht | Bold (700) |
 | Groesse | Relativ zur Bildmarke: Versalhoehe = ca. 30% der Bildmarkenhoehe |
 
-**Hinweis:** Die Logo-Typografie ist NICHT identisch mit der UI-Typografie (Roboto). Das Logo hat eine eigene Schriftwelt.
+**Hinweis:** Die Logo-Typografie ist NICHT identisch mit der UI-Typografie (System-Schriftstapel, siehe 11.1). Das Logo hat eine eigene Schriftwelt.
 
 ### 4.5 Stilbeschreibung fuer Bildgeneratoren
 
@@ -871,18 +871,20 @@ Stilbeschreibung:
 
 ### 11.1 UI-Typografie (implementiert)
 
+Die UI lädt keine Web-Schrift. Sie nutzt den System-Schriftstapel `system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif` (`src/frontend/src/theme/typography.ts`, Betreiberentscheidung 2026-11-18, #3021): Jede Plattform zeigt ihre eigene UI-Schrift, und es gibt keine zusätzliche Abhängigkeit und keinen Font-Download.
+
 | Rolle | Font | Groesse | Gewicht | Zeilenhoehe |
 |-------|------|---------|---------|-------------|
-| H1 | Roboto | 2rem (32px) | 600 (Semi-Bold) | 1.2 |
-| H2 | Roboto | 1.75rem (28px) | 600 | 1.3 |
-| H3 | Roboto | 1.5rem (24px) | 600 | 1.3 |
-| H4 | Roboto | 1.25rem (20px) | 600 | 1.4 |
-| H5 | Roboto | 1.125rem (18px) | 600 | 1.4 |
-| H6 | Roboto | 1rem (16px) | 600 | 1.5 |
-| Body1 | Roboto | 1rem (16px) | 400 | 1.5 |
-| Body2 | Roboto | 0.875rem (14px) | 400 | 1.43 |
-| Caption | Roboto | 0.75rem (12px) | 400 | 1.66 |
-| Button | Roboto | — | 600 | — |
+| H1 | System | 2rem (32px) | 600 (Semi-Bold) | 1.2 |
+| H2 | System | 1.75rem (28px) | 600 | 1.3 |
+| H3 | System | 1.5rem (24px) | 600 | 1.3 |
+| H4 | System | 1.25rem (20px) | 600 | 1.4 |
+| H5 | System | 1.125rem (18px) | 600 | 1.4 |
+| H6 | System | 1rem (16px) | 600 | 1.5 |
+| Body1 | System | 1rem (16px) | 400 | 1.5 |
+| Body2 | System | 0.875rem (14px) | 400 | 1.43 |
+| Caption | System | 0.75rem (12px) | 400 | 1.66 |
+| Button | System | — | 600 | — |
 
 ### 11.2 Logo-Typografie (eigenstaendig)
 

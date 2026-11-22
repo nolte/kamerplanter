@@ -124,6 +124,22 @@
 - **Boden-pH:** Quellen geben 6.0–7.0 als tolerierte Spanne an; der Vorzugswert 6.0–6.5 ist mit §1.6 und §2.3 dieser Datei harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Ficus benjamina" (Position: Full sun; unter Glas „full or filtered light"), https://www.rhs.org.uk/plants/7197/ficus-benjamina/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -368,3 +384,4 @@ Twilight,Ficus benjamina,"ornamental;variegated;small_leaves",clone
 16. [Wikipedia — Metaphycus helvolus](https://en.wikipedia.org/wiki/Metaphycus_helvolus) — Schlupfwespe gegen Weichschildläuse (Coccus hesperidum), Wirtsspezifität
 17. [Nature's Control — Cryptolaemus montrouzieri (Mealybug Destroyer)](https://naturescontrol.com/opencart/mealybugs-pirate-bugs-lacewings-ladybugs-Mealybug-Destroyers-Cryptolaemus-montrouzieri-Orius-insidiosis) — Marienkäfer gegen Schmierläuse, Ausbringrate
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+18. [RHS — Ficus benjamina](https://www.rhs.org.uk/plants/7197/ficus-benjamina/details) — Position (Full sun), Lichtbedarf unter Glas

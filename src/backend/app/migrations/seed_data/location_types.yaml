@@ -1,9 +1,16 @@
 # yaml-language-server: $schema=./schemas/location_types.schema.yaml
+#
+# is_bed / supports_layout: REQ-053 GP-FR-040, §9.2a (W-016.1), REQ-002 v4.6 §LocationType.
+# Every is_bed type supports a layout; tent and shelf support a layout without being beds.
+# Existing volumes get the two flags stamped by migration v0094; this file only seeds
+# rows that do not exist yet.
 location_types:
   - key: zone
     name: Zone
     name_en: Zone
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: AccountTree
     sort_order: 1
 
@@ -11,6 +18,8 @@ location_types:
     name: Zuhause
     name_en: Home
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Landscape
     sort_order: 5
 
@@ -18,6 +27,8 @@ location_types:
     name: Garten
     name_en: Garden
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Park
     sort_order: 10
 
@@ -25,6 +36,8 @@ location_types:
     name: "Gewächshaus"
     name_en: Greenhouse
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Warehouse
     sort_order: 20
 
@@ -32,6 +45,8 @@ location_types:
     name: "Gebäude"
     name_en: Building
     is_indoor: true
+    is_bed: false
+    supports_layout: false
     icon: Home
     sort_order: 30
 
@@ -39,6 +54,8 @@ location_types:
     name: Zimmer
     name_en: Room
     is_indoor: true
+    is_bed: false
+    supports_layout: false
     icon: MeetingRoom
     sort_order: 40
 
@@ -46,6 +63,8 @@ location_types:
     name: Balkon
     name_en: Balcony
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Balcony
     sort_order: 50
 
@@ -53,6 +72,8 @@ location_types:
     name: Terrasse
     name_en: Terrace
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Deck
     sort_order: 60
 
@@ -60,6 +81,8 @@ location_types:
     name: Grow-Zelt
     name_en: Grow Tent
     is_indoor: true
+    is_bed: false
+    supports_layout: true
     icon: Campaign
     sort_order: 70
 
@@ -67,13 +90,53 @@ location_types:
     name: Beet
     name_en: Bed
     is_indoor: false
+    is_bed: true
+    supports_layout: true
     icon: Grass
     sort_order: 80
+
+  - key: raised_bed
+    name: Hochbeet
+    name_en: Raised Bed
+    is_indoor: false
+    is_bed: true
+    supports_layout: true
+    icon: Deck
+    sort_order: 82
+
+  - key: greenhouse_bed
+    name: "Gewächshausbeet"
+    name_en: Greenhouse Bed
+    is_indoor: false
+    is_bed: true
+    supports_layout: true
+    icon: Grass
+    sort_order: 84
+
+  - key: cold_frame
+    name: "Frühbeet"
+    name_en: Cold Frame
+    is_indoor: false
+    is_bed: true
+    supports_layout: true
+    icon: Window
+    sort_order: 86
+
+  - key: planter
+    name: "Pflanzkübel / Topf-Gruppe"
+    name_en: Planter
+    is_indoor: false
+    is_bed: true
+    supports_layout: true
+    icon: Inventory2
+    sort_order: 88
 
   - key: shelf
     name: Regal
     name_en: Shelf
     is_indoor: true
+    is_bed: false
+    supports_layout: true
     icon: Shelves
     sort_order: 90
 
@@ -81,5 +144,7 @@ location_types:
     name: Topf-/Container-Gruppe
     name_en: Container Group
     is_indoor: false
+    is_bed: false
+    supports_layout: false
     icon: Inventory2
     sort_order: 100

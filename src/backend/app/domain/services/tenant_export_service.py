@@ -80,6 +80,7 @@ from app.common.enums import (
 from app.common.exceptions import (
     ExportAlreadyRunningError,
     ForbiddenError,
+    ImagePixelLimitError,
     MemberLimitReachedError,
     NotFoundError,
     PayloadTooLargeError,
@@ -91,6 +92,7 @@ from app.common.exceptions import (
 )
 from app.common.log_privacy import log_subject, log_tenant
 from app.domain.engines.membership_engine import MembershipEngine
+from app.domain.engines.storage.exif_stripper import UnreadableImageError
 from app.domain.engines.tenant_export_engine import (
     ARCHIVE_FORMAT,
     ARCHIVE_STORAGE_CATEGORY,
@@ -138,6 +140,9 @@ from app.domain.services.step_up_service import StepUpVerifier
 from app.domain.services.tenant_service import TenantService
 
 logger = structlog.get_logger()
+
+#: Settings an import never carries over: the new tenant starts ``undeclared`` (spec/privacy/09 §4, DEC-30).
+_UNDECLARED_ON_IMPORT = frozenset({"record_keeping", "organization_kind"})
 
 _PLATFORM_TENANT_KEY = "platform"
 
@@ -236,6 +241,7 @@ class TenantExportService:
         allowed_mime_types: Callable[[str], list[str]] | None = None,
         max_object_bytes: int | None = None,
         readings: IObservationRepository | None = None,
+        stored_body: Callable[[bytes, str], bytes] | None = None,
     ) -> None:
         if exports_per_day < 1:
             raise ValueError("exports_per_day must be at least 1")
@@ -260,6 +266,9 @@ class TenantExportService:
         self._signing_key = signing_key or None
         self._allowed_mime_types = allowed_mime_types
         self._max_object_bytes = max_object_bytes
+        # #2715 item 3 — ``attachment_service.imported_object_body``: an imported photo is
+        # EXIF/GPS-stripped exactly when an uploaded one would be. ``None`` stores the archive's bytes as they are.
+        self._stored_body = stored_body
         #: ``None`` without TimescaleDB (``TIMESCALEDB_ENABLED=false``): the archive then has no readings part.
         self._readings: IObservationRepository | None = readings
 
@@ -849,6 +858,12 @@ class TenantExportService:
             engine = TenantImportEngine(archive, target_tenant_key="", member_accounts={})
             engine.validate_documents()
             self._check_objects(archive)
+            # #2715 item 3 (review E): the bytes the target stores are settled here, in the verification both the
+            # request (the preview the admin confirms) and the run perform - an undecodable or oversized image is a
+            # refusal before the confirmation, not a failed run. The quota, the rows' ``sha256``/``byte_size``
+            # (:func:`_object_facts`) and the stored objects all follow these bytes; the run re-verifies the
+            # stored original upload, so an object is stripped once per phase, never twice in a row.
+            archive = self._with_stored_bodies(archive)
         except TenantArchiveError as exc:
             raise TenantImportRefusedError(exc.code, str(exc), exc.entries) from exc
         level = self._store.migration_level()
@@ -897,24 +912,44 @@ class TenantExportService:
                 entries=refused,
             )
 
-    def _catalogue_rows(self, engine: TenantImportEngine) -> tuple[set[str], list[str]]:
-        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced."""
+    def _catalogue_rows(
+        self,
+        needs: tuple[dict[str, set[str]], dict[str, set[str]]],
+        *,
+        resolve_optional: bool = True,
+    ) -> tuple[set[str], list[str]]:
+        """``(existing "<collection>/<key>", missing "<collection>/<key>")`` of every catalogue row referenced.
+
+        *needs* is :meth:`TenantImportEngine.catalogue_needs` - ``(refusing, optional)`` from one pass over the
+        archive (D7). Provenance references (#2528, the optional half) are resolved too - an existing system row
+        must land in ``existing`` or the rewrite would clear a valid key - but a missing one is not a refusal: the
+        rewrite clears and counts it. A caller that only wants ``missing`` passes ``resolve_optional=False`` and
+        skips the lookups whose answer it would discard.
+        """
         existing: set[str] = set()
         missing: list[str] = []
         catalogues = TenantExportEngine.global_catalogues()
-        for targets, keys in engine.catalogue_requirements().items():
-            found: set[str] = set()
-            for collection in targets.split("|"):
-                # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
-                # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
-                hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
-                existing.update(f"{collection}/{key}" for key in hits)
-                found |= hits
-            missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
+        refusing_needs, optional_needs = needs
+        requirements: list[tuple[dict[str, set[str]], bool]] = [(refusing_needs, True)]
+        if resolve_optional:
+            requirements.append((optional_needs, False))
+        needed: dict[str, set[str]]
+        targets: str
+        for needed, refusing in requirements:
+            for targets, keys in needed.items():
+                found: set[str] = set()
+                for collection in targets.split("|"):
+                    # I10 — no row of a pure catalogue is a tenant's: a legacy ``tenant_key`` stamp on one
+                    # (v0004, kept on operator-created harvest indicators by v0070) is not ownership.
+                    hits = self._store.existing_global_keys(collection, sorted(keys), any_row=collection in catalogues)
+                    existing.update(f"{collection}/{key}" for key in hits)
+                    found |= hits
+                if refusing:
+                    missing.extend(f"{targets.split('|')[0]}/{key}" for key in sorted(keys - found))
         return existing, sorted(missing)
 
     def _missing_catalogue_entries(self, engine: TenantImportEngine) -> list[str]:
-        return self._catalogue_rows(engine)[1]
+        return self._catalogue_rows(engine.catalogue_needs(), resolve_optional=False)[1]
 
     def _resolve_member_mapping(
         self, archive: TenantArchive, member_mapping: dict[str, dict[str, Any]]
@@ -1128,6 +1163,9 @@ class TenantExportService:
         raw_settings = source.get("settings")
         description: str | None = raw_description if isinstance(raw_description, str) else None
         tenant_settings: dict[str, Any] = raw_settings if isinstance(raw_settings, dict) else {}
+        # PRIV-409 / DEC-30: the record-keeping duty is declared for this tenant, never inherited from an archive —
+        # a personal source's ``none`` or a migration default would silently shorten a legal retention here.
+        tenant_settings = {k: v for k, v in tenant_settings.items() if k not in _UNDECLARED_ON_IMPORT}
         tenant_key = new_document_key()
         if before_founding is not None:
             before_founding(tenant_key)
@@ -1151,7 +1189,7 @@ class TenantExportService:
                 founder_scopes=list(owner_grant.admin_scopes) if owner_grant is not None else None,
                 tenant_key=tenant_key,
             )
-            existing_global, missing = self._catalogue_rows(engine)
+            existing_global, missing = self._catalogue_rows(engine.catalogue_needs())
             if missing:
                 raise TenantImportRefusedError(
                     "IMPORT_MISSING_CATALOG_ENTRIES", "catalogue entries vanished during the import", missing
@@ -1196,6 +1234,9 @@ class TenantExportService:
                     beat()
                 report["objects"] = len(objects_written)
             report["members"] = len({m.user_key for m in members} | {owner})
+            if engine.nulled_references:
+                # REQ-056 §8.4 / §13.5 (#2528): how many references the import had to clear - a count, no keys.
+                report["nulled_references"] = engine.nulled_references
             for part, stated_rows in sorted(archive.ignored_parts.items()):
                 # Format 1's reader does not import optional parts (readings, #2138): said, not hidden.
                 report[f"not_imported:{part}"] = stated_rows
@@ -1241,6 +1282,33 @@ class TenantExportService:
         self._entitlements.require_for_new_tenant(
             plan_key, EntitlementDimension.PHOTOS_PER_INSTANCE, projected=photos, subject=plant
         )
+
+    def _with_stored_bodies(self, archive: TenantArchive) -> TenantArchive:
+        """The archive with every object replaced by the bytes this installation stores for it (#2715 item 3).
+
+        An archive object is a photo some installation stored - possibly one with ``STORAGE_STRIP_EXIF`` off, an
+        older release, or an archive edited by hand - so its EXIF/GPS block is this installation's to remove, the
+        same way an upload's is. A strippable image that does not decode as its claimed type, or lies above the
+        stored-object ceiling, refuses the import (``IMPORT_FORMAT_UNSUPPORTED``, nothing is written); every other
+        admitted type is kept unchanged (``imported_object_body``).
+        """
+        if self._stored_body is None or not archive.objects:
+            return archive
+        types = self._object_types(archive)
+        objects: dict[str, bytes] = {}
+        refused: list[str] = []
+        for path, data in archive.objects.items():
+            try:
+                objects[path] = self._stored_body(data, (types.get(path) or "").lower().strip())
+            except ImagePixelLimitError:
+                refused.append(f"objects/{path}: larger than the image pixel limit")
+            except UnreadableImageError:
+                refused.append(f"objects/{path}: not a readable image of its stated type")
+        if refused:
+            raise TenantImportRefusedError(
+                "IMPORT_FORMAT_UNSUPPORTED", "the archive carries images this installation does not accept", refused
+            )
+        return archive.model_copy(update={"objects": objects})
 
     @staticmethod
     def _object_types(archive: TenantArchive) -> dict[str, str]:

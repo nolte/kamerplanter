@@ -124,6 +124,22 @@
 **Hinweis Standortqualität:** Schatten-/Sonnentoleranz nach UF/IFAS "Part shade — prefers warm, sunny locations, but tolerates some shade; protect from hot afternoon sun", in Mitteleuropa (USDA 9–11 nur als Kübel-/Zimmerpflanze) entspricht das hellem, indirektem Licht. Hohe Salztoleranz (UF/IFAS: "Tolerance to soil and foliar salt exposure is high") qualitativ belegt, daher Klasse `tolerant`; ein quantitativer ECe-Schwellenwert (Bezugsgröße Substrat-ECe, nicht Gießwasser-EC) ist nicht publiziert. Boden-pH-Vorzug harmonisiert mit der pH-Angabe 6.0–7.0 in §2.3 (leicht sauer bis neutral). Staunässe-Toleranz `sensitive` wegen hoher Anfälligkeit für Wurzelfäule (vgl. §5.2).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: Quelle nennt Spanne ohne Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — (RHS, „Dracaena trifasciata", https://www.rhs.org.uk/plants/530138/dracaena-trifasciata/details: Position „Full sun, Partial shade"; unter Glas „bright filtered light", im Freien „full sun" — kein bevorzugter Standort, daher kein Wert gesetzt) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -383,3 +399,4 @@ Futura Superba,Dracaena trifasciata,"ornamental;variegated;compact",clone
 13. [ScienceDirect — Cryptolaemus montrouzieri overview](https://www.sciencedirect.com/topics/agricultural-and-biological-sciences/cryptolaemus-montrouzieri) — Marienkäfer gegen Schmierläuse, Ausbringrate
 14. [Biology Insights — Snake Plant Temperature Tolerance and Ideal Conditions](https://biologyinsights.com/snake-plant-temperature-tolerance-and-ideal-conditions/) — Optimaltemperatur 18–27/29°C, Mindesttemperatur 10°C
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+15. [RHS — Dracaena trifasciata](https://www.rhs.org.uk/plants/530138/dracaena-trifasciata/details) — Position Full sun/Partial shade ohne bevorzugte Stufe (kein light_requirement gesetzt)

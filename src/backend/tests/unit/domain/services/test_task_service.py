@@ -284,7 +284,7 @@ class TestListTasksWithEntityFilter:
 
 class TestRecurrenceComputation:
     """Fix #6 (#367): recurrence rules are parsed as iCal RRULE via dateutil,
-    with a legacy croniter fallback for any historically persisted cron string."""
+    RRULE only since M5 (#2325) — no cron fallback."""
 
     # Monday, 2026-01-05 at 12:00 UTC — reference point for all cases.
     _AFTER = datetime(2026, 1, 5, 12, 0, tzinfo=UTC)
@@ -323,11 +323,9 @@ class TestRecurrenceComputation:
         assert next_dt is not None
         assert next_dt.tzinfo is not None
 
-    def test_legacy_cron_string_falls_back_to_croniter(self, service):
-        # A pre-RRULE cron expression (daily at 09:00) is tolerated as legacy.
-        next_dt = service._compute_next_recurrence("0 9 * * *", self._AFTER)
-
-        assert next_dt == datetime(2026, 1, 6, 9, 0, tzinfo=UTC)
+    def test_a_cron_string_is_no_longer_advanced(self, service):
+        # M5 (#2325): the croniter fallback is gone; a cron rule yields no next occurrence.
+        assert service._compute_next_recurrence("0 9 * * *", self._AFTER) is None
 
     def test_empty_rule_returns_none(self, service):
         assert service._compute_next_recurrence("", self._AFTER) is None

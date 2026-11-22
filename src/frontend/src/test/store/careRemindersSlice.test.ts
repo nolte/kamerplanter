@@ -19,6 +19,8 @@ const baseState = {
   loading: false,
   dashboardLoaded: false,
   error: null,
+  profileRequestId: null,
+  profileError: null,
 };
 
 function makeStore() {
@@ -60,9 +62,57 @@ describe('careRemindersSlice', () => {
     expect(rejected.error).toBe('errors.loadFailed');
   });
 
+  /** A `fetchProfile` lifecycle action as RTK dispatches it: the arg and the request it belongs to. */
+  function profileAction(phase: 'pending' | 'fulfilled' | 'rejected', plantKey: string, requestId: string, payload?: unknown) {
+    return {
+      type: fetchProfile[phase].type,
+      payload,
+      error: phase === 'rejected' ? {} : undefined,
+      meta: { arg: { plantKey }, requestId },
+    };
+  }
+
   it('fetchProfile.fulfilled stores the current profile', () => {
-    const state = reducer(baseState, { type: fetchProfile.fulfilled.type, payload: { key: 'cp1' } });
+    const asked = reducer(baseState, profileAction('pending', 'pl1', 'r1'));
+    const state = reducer(asked, profileAction('fulfilled', 'pl1', 'r1', { key: 'cp1' }));
     expect(state.currentProfile).toEqual({ key: 'cp1' });
+  });
+
+  // #3065: the slice is shared by every profile editor. Asking for plant B must
+  // drop plant A's profile at once, and A's late answer must not replace B's.
+  it('fetchProfile.pending drops the previous profile and a late answer of an earlier request is discarded', () => {
+    const loadedA = { ...baseState, currentProfile: { key: 'cpA', plant_key: 'plA' } as never, profileRequestId: 'rA' };
+    const askedB = reducer(loadedA, profileAction('pending', 'plB', 'rB'));
+    expect(askedB.currentProfile).toBeNull();
+    expect(askedB.profileRequestId).toBe('rB');
+
+    expect(reducer(askedB, profileAction('fulfilled', 'plA', 'rA', { key: 'cpA' })).currentProfile).toBeNull();
+    expect(reducer(askedB, profileAction('rejected', 'plA', 'rA')).profileError).toBeNull();
+  });
+
+  // Same plant, two reads: close and reopen the editor for A while the first
+  // read is still in flight. A plant-key guard lets the first answer through.
+  it('drops the late answer of an earlier request for the same plant after a clear', () => {
+    let state = reducer(baseState, profileAction('pending', 'plA', 'r1'));
+    state = reducer(state, clearCurrentProfile());
+    state = reducer(state, profileAction('pending', 'plA', 'r2'));
+    state = reducer(state, profileAction('fulfilled', 'plA', 'r2', { key: 'cpA-2' }));
+    state = reducer(state, profileAction('fulfilled', 'plA', 'r1', { key: 'cpA-1' }));
+    expect(state.currentProfile).toEqual({ key: 'cpA-2' });
+  });
+
+  it('fetchProfile.rejected for the current request sets the profile error', () => {
+    const asked = reducer(baseState, profileAction('pending', 'pl1', 'r1'));
+    const state = reducer(asked, profileAction('rejected', 'pl1', 'r1'));
+    expect(state.profileError).toBe('errors.loadFailed');
+    expect(state.currentProfile).toBeNull();
+  });
+
+  it('clearCurrentProfile drops the request marker so a late answer cannot land', () => {
+    const asked = reducer(baseState, profileAction('pending', 'pl1', 'r1'));
+    const cleared = reducer(asked, clearCurrentProfile());
+    expect(cleared.profileRequestId).toBeNull();
+    expect(reducer(cleared, profileAction('fulfilled', 'pl1', 'r1', { key: 'cp1' })).currentProfile).toBeNull();
   });
 
   it('confirmCareReminder.fulfilled removes the matching dashboard entry', () => {
@@ -97,7 +147,7 @@ describe('careRemindersSlice thunks', () => {
     mocked.getDashboard.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchDashboard());
-    expect(store.getState().careReminders.error).toBe('load failed');
+    expect(store.getState().careReminders.error).toBe('errors.loadFailed');
   });
 
   it('fetchProfile forwards its args and stores the profile', async () => {

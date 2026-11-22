@@ -114,6 +114,22 @@
 > **Hinweise:** Lichtkompensationspunkt als funktionstyp-typische Spanne für sonnen-/halbschattentolerante C3-Laubgehölze (Forsythia-spezifische Messwerte nicht publiziert); Lichtsättigung dieses Typs liegt deutlich höher (≈ 800–1000 µmol/m²/s) — diese Sättigungswerte gehören NICHT ins LCP-Feld. Schatten-/Sonnentoleranz: Forsythie toleriert Halbschatten (partial_shade), blüht aber in voller Sonne deutlich reicher → Einstufung `full_sun`. Salztoleranz: in Streusalz-/Straßenrand-Verzeichnissen mehrfach als salzverträglich gelistet (NC State, Küsten-/Roadside-Listen); eine Extension-Quelle führt Salz nicht als Stärke → daher konservativ `moderately_tolerant` statt `tolerant`; Bezugsgröße wäre Substrat-ECe, nicht Gießwasser-EC. Boden-pH-Vorzug quellentreu auf den in §1.6/§2.3 verwendeten Korridor 6,0–7,5 harmonisiert; die Art ist darüber hinaus pH-adaptiv (sauer bis alkalisch).
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 45–60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow forsythia" (Growing Guide), https://www.rhs.org.uk/plants/forsythia/growing-guide („To make a dense, formal hedge, space plants 45–60cm apart"; bei lockerer Hecke bis 90 cm; Wert gilt für Heckenpflanzung, nicht für Solitärstellung) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow forsythia" (Growing Guide) („They prefer a sunny spot, but will tolerate light shade"), https://www.rhs.org.uk/plants/forsythia/growing-guide | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -318,3 +334,4 @@ Forsythia × intermedia,"Forsythie;Goldflieder;Border Forsythia",Oleaceae,Forsyt
 10. [Old Farmer's Almanac — Forsythia](https://www.almanac.com/plant/forsythia) / [The Plant Aide — Forsythia-Lebensdauer](https://www.theplantaide.com/articles/66923.html) — Lebensdauer 25–40 Jahre, Wurzeltiefe ca. 30–45 cm
 11. [Koppert — Aphidoletes aphidimyza (Aphidend)](https://www.koppert.com/aphidend/) / [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Nützling-Ausbringraten und Etablierung gegen Blattläuse
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+12. [RHS — How to grow forsythia (Growing Guide)](https://www.rhs.org.uk/plants/forsythia/growing-guide) — Standort (sonnig, toleriert leichten Schatten), Pflanzabstand Hecke 45–60 cm

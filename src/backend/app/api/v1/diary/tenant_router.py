@@ -43,9 +43,11 @@ from app.common.datetimes import now_utc
 from app.common.dependencies import get_plant_diary_service, get_plant_instance_service
 from app.common.enums import DiaryAnalysisState, DiaryEntryType
 from app.common.exceptions import NotFoundError
+from app.common.locale import get_request_locale
 from app.domain.interfaces.plant_diary_repository import DiaryOverviewFilter
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_diary_service import (
     PlantDiaryService,
@@ -66,9 +68,12 @@ class _PlantContext:
     survive must not be looked up once per row.
     """
 
-    def __init__(self, plant_service: PlantInstanceService, tenant_key: str) -> None:
+    def __init__(
+        self, plant_service: PlantInstanceService, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> None:
         self._service = plant_service
         self._tenant_key = tenant_key
+        self._language = language
         self._plants: dict[str, PlantInstance | None] = {}
         self._species: dict[str, str | None] = {}
 
@@ -88,7 +93,11 @@ class _PlantContext:
             species = self._service.resolve_species(species_key, tenant_key=self._tenant_key)
             name: str | None = None
             if species is not None:
-                name = species.scientific_name or (species.common_names[0] if species.common_names else None)
+                # The row names the species scientifically; a vernacular name only stands in for a missing one,
+                # in the request's language (#2902).
+                name = species.scientific_name or localized_vernacular_name(
+                    species.common_names, species.common_names_i18n, self._language
+                )
             self._species[species_key] = name
         return self._species[species_key]
 
@@ -126,6 +135,7 @@ def list_tenant_diary(
     ctx: TenantContext = Depends(get_current_tenant),
     diary_service: PlantDiaryService = Depends(get_plant_diary_service),
     plant_service: PlantInstanceService = Depends(get_plant_instance_service),
+    language: str = Depends(get_request_locale),
 ) -> DiaryOverviewResponse:
     """List the diary entries of all the tenant's plants (REQ-050 §2.5.2).
 
@@ -159,7 +169,7 @@ def list_tenant_diary(
         limit=limit,
     )
 
-    context = _PlantContext(plant_service, ctx.tenant_key)
+    context = _PlantContext(plant_service, ctx.tenant_key, language)
     # One instant for the whole page: every lease on it is judged against the
     # same clock, so two rows cannot disagree about whether "now" is past a
     # deadline, and a single row's state and its claim timestamp cannot be

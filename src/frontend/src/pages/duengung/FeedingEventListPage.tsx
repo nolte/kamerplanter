@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -16,12 +16,13 @@ import type { FeedingEvent, PlantInstance } from '@/api/types';
 import { getPlantLabel } from '@/utils/plantDisplay';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import FeedingEventCreateDialog from './FeedingEventCreateDialog';
+import { formatFeedingAmount } from './feedingEventDose';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export default function FeedingEventListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { events, loading } = useAppSelector((s) => s.feedingEvents);
   const [createOpen, setCreateOpen] = useState(false);
   const [plantMap, setPlantMap] = useState<Map<string, PlantInstance>>(new Map());
@@ -53,7 +54,10 @@ export default function FeedingEventListPage() {
       setPlantMap(map);
     }
 
-    resolve().catch(() => {});
+    resolve().catch((err: unknown) => {
+      // Display enrichment only: rows show the plant key instead of its name.
+      captureHandledError(err, { source: 'FeedingEventListPage.plantNames' });
+    });
     return () => { cancelled = true; };
   }, [plantKeys]);
 
@@ -71,7 +75,7 @@ export default function FeedingEventListPage() {
       label: t('pages.feedingEvents.plantKey'),
       render: (r) => {
         const plant = plantMap.get(r.plant_key);
-        const name = plant ? getPlantLabel(plant) : r.plant_key;
+        const name = plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
         return (
           <Chip
             icon={<SpaIcon />}
@@ -89,7 +93,7 @@ export default function FeedingEventListPage() {
       },
       searchValue: (r) => {
         const plant = plantMap.get(r.plant_key);
-        return plant ? getPlantLabel(plant) : r.plant_key;
+        return plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
       },
     },
     {
@@ -100,10 +104,13 @@ export default function FeedingEventListPage() {
     },
     {
       id: 'volume',
-      label: t('pages.feedingEvents.volumeApplied'),
-      render: (r) => `${r.volume_applied_liters} L`,
+      // A solution's litres or a top dress's dose (#2903) - never "0 L" for compost.
+      label: t('pages.feedingEvents.amount'),
+      render: (r) => formatFeedingAmount(t, r),
       align: 'right',
-      searchValue: (r) => String(r.volume_applied_liters),
+      // A number for a solution, so the column keeps sorting by litres; a top dress's dose as shown.
+      searchValue: (r) =>
+        r.volume_applied_liters > 0 ? String(r.volume_applied_liters) : formatFeedingAmount(t, r),
     },
     {
       id: 'isSupplemental',
@@ -121,7 +128,7 @@ export default function FeedingEventListPage() {
       align: 'right',
       searchValue: (r) => r.measured_ec_after != null ? String(r.measured_ec_after) : '',
     },
-  ], [t, plantMap]);
+  ], [t, plantMap, i18n.language]);
 
   return (
     <Box data-testid="feeding-event-list-page">
@@ -142,7 +149,7 @@ export default function FeedingEventListPage() {
         columns={columns}
         rows={events}
         loading={loading}
-        onRowClick={(r) => navigate(`/duengung/feeding-events/${r.key}`)}
+        getRowHref={(r) => `/duengung/feeding-events/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.feedingEvents.create')}
         onEmptyAction={() => setCreateOpen(true)}
@@ -151,7 +158,7 @@ export default function FeedingEventListPage() {
         ariaLabel={t('pages.feedingEvents.title')}
         mobileCardRenderer={(r) => {
           const plant = plantMap.get(r.plant_key);
-          const plantName = plant ? getPlantLabel(plant) : r.plant_key;
+          const plantName = plant ? getPlantLabel(plant, i18n.language) : r.plant_key;
           return (
             <MobileCard
               title={plantName}
@@ -179,7 +186,7 @@ export default function FeedingEventListPage() {
                   : []),
               ]}
               fields={[
-                { id: 'volume', label: t('pages.feedingEvents.volumeApplied'), value: `${r.volume_applied_liters} L` },
+                { id: 'volume', label: t('pages.feedingEvents.amount'), value: formatFeedingAmount(t, r) },
                 ...(r.measured_ec_after != null
                   ? [{ id: 'ecAfter', label: t('pages.feedingEvents.ecAfter'), value: `${r.measured_ec_after} mS/cm` }]
                   : []),

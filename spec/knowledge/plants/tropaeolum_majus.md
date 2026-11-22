@@ -132,6 +132,22 @@
 Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Nasturtium-Zeile: 220 Samen/oz, 8 Samen/g, Cover Seed: Yes, 65–70 °F)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Biology Insights — How to Germinate Nasturtium Seeds](https://biologyinsights.com/how-to-germinate-nasturtium-seeds/); [Plant Grower World — Nasturtium Seed Germination Time Secrets Revealed](https://plantgrowerworld.com/nasturtium-germination-time-secrets-revealed/); [Almanac — Planting and Growing Nasturtiums from Seed](https://www.almanac.com/plant/nasturtiums); [Territorial Seed — Night And Day Nasturtium Seed](https://territorialseed.com/products/nasturtium-night-and-day); [Seed to Fork — Nicking Nasturtium Seeds (Scarification)](https://seedtofork.com/nicking-nasturtium/); [Fontana Seeds — Everything you need to know about Nasturtium Seeds (Soak/Presoak)](https://www.fontanaseeds.com/pages/everything-you-need-to-know-about-nasturtium-seeds); [Gardenek — How to Collect and Store Nasturtium Seeds (Viability 3–5 Jahre)](https://gardenek.com/how-to-collect-and-store-nasturtium-seeds/); [Meadowlark Journal — How to Harvest Nasturtium Seeds](https://meadowlarkjournal.com/blog/harvest-nasturtium-seeds); [nimrod.bio — Seeds Per Gram Chart](https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30 (ausdünnen auf ca. 30 cm Abstand) | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Grow it: Nasturtium“ („rows should be spaced about 30cm apart“; „thin them out to about 30cm apart“; Kinder-/Familienseite der RHS, einfache Quelle), https://www.rhs.org.uk/education-learning/children-young-people/family-activities/grow-it/nasturtium | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow annual nasturtiums“ („Nasturtiums like a sunny spot“; „A sunny position encourages abundant flowering“), https://www.rhs.org.uk/plants/nasturtiums/annual-nasturtiums/how-to-grow-annual-nasturtiums; RHS, „Grow it: Nasturtium“, https://www.rhs.org.uk/education-learning/children-young-people/family-activities/grow-it/nasturtium | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -255,6 +271,11 @@ Kapuzinerkresse auf mageren Böden halten! Auf nährstoffreichen Böden oder nac
 | Empfohlene Vorfrucht | beliebig |
 | Empfohlene Nachfrucht | beliebig |
 | Anbaupause (Jahre) | keine |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine gelesene Fruchtfolge-Quelle nennt die Kapuzinerkresse namentlich; Bestandswert Schwachzehrer oben ohne Quelle, unverändert --> |
+| Zehrerstufe — Quelle | Gelesen: Südtiroler Bauernbund 2022, LKSH, Natur im Garten Burgenland, LK NRW — keine nennt Kapuzinerkresse/Tropaeolum |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine gelesene Quelle für eine Abweichung --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -313,4 +334,6 @@ Tropaeolum majus,"Große Kapuzinerkresse;Kapuzinerkresse;Garden Nasturtium;India
 11. [Greg.app — Garden Nasturtium Roots](https://greg.app/garden-nasturtium-roots/) — fibröses, flaches Wurzelsystem, Wurzeltiefe 15–30 cm
 12. [Koppert — Aphidius colemani (parasitic wasp)](https://www.koppertus.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Ausbringrate 0,25–4/m², Mumien nach 10–14 Tagen
 13. [Koppert — Aphidoletes aphidimyza (predatory gall midge)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Ausbringrate 1–10/m², Inkompatibilität mit Chrysoperla
+14. RHS -- How to grow annual nasturtiums (sunny spot; Lichtanspruch): https://www.rhs.org.uk/plants/nasturtiums/annual-nasturtiums/how-to-grow-annual-nasturtiums
+15. RHS -- Grow it: Nasturtium (Reihe 30 cm, Abstand 30 cm): https://www.rhs.org.uk/education-learning/children-young-people/family-activities/grow-it/nasturtium
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

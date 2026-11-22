@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { TFunction } from 'i18next';
-import type { SiteType } from '@/api/types';
+import type { ReachThresholds, Site, SiteType, SunClassThresholds, WindowThresholds } from '@/api/types';
+import {
+  DEFAULT_REACH_THRESHOLDS,
+  DEFAULT_SUN_CLASS_THRESHOLDS,
+  DEFAULT_WINDOW_THRESHOLDS,
+} from '@/features/gardenPlanner/model/siteThresholds';
 
 /**
  * Shared form contract for the site create dialog and the site detail edit form
@@ -51,6 +56,21 @@ export function isWeatherRelevantSiteType(type: SiteType | undefined | null): bo
  */
 const coordinate = z.union([z.literal(''), z.number()]);
 
+/** Upper bounds of the garden-planning thresholds, as the backend models them (WP 8.24). */
+const MAX_SUN_HOURS = 24;
+const MAX_REACH_M = 1000;
+
+/** Hours of direct sun: more than 0, at most a day (GP-FR-164). */
+const sunHours = z.number().gt(0).max(MAX_SUN_HOURS);
+/** A reach threshold in metres: more than 0 (GP-FR-166). */
+const reachMetres = z.number().gt(0).max(MAX_REACH_M);
+/** How close a path must come to a bed edge, metres: 0 (touching) up to 1 m (#2703, `MAX_PATH_ACCESS_DISTANCE_M`). */
+export const MAX_PATH_ACCESS_DISTANCE_M = 1;
+const pathDistanceMetres = z.number().min(0).max(MAX_PATH_ACCESS_DISTANCE_M);
+/** The radius around a window for the sun-window suggestion, metres: more than 0 up to 10 m (GP-FR-181, WP 10.7). */
+export const MAX_WINDOW_SUGGESTION_RADIUS_M = 10;
+const windowRadiusMetres = z.number().gt(0).max(MAX_WINDOW_SUGGESTION_RADIUS_M);
+
 export const siteFormSchema = z.object({
   name: z.string().min(1),
   type: z.enum(SITE_TYPE_VALUES),
@@ -59,6 +79,22 @@ export const siteFormSchema = z.object({
   climate_zone: z.string(),
   total_area_m2: z.number().min(0),
   timezone: z.string(),
+  // REQ-053 GP-FR-164/166 (WP 8.24): the garden-planning thresholds of the site.
+  sun_class_thresholds: z.object({
+    full_sun_min_hours: sunHours,
+    partial_shade_min_hours: sunHours,
+    shade_min_hours: sunHours,
+    reference_month: z.number().int().min(1).max(12),
+    reference_day: z.number().int().min(1).max(31),
+  }),
+  reach_thresholds: z.object({
+    both_sides_m: reachMetres,
+    one_side_m: reachMetres,
+    path_access_max_distance_m: pathDistanceMetres,
+  }),
+  window_thresholds: z.object({
+    suggestion_radius_m: windowRadiusMetres,
+  }),
 });
 
 export type SiteFormData = z.infer<typeof siteFormSchema>;
@@ -99,8 +135,93 @@ export function buildSiteResolver(t: TFunction) {
           message: t('pages.sites.gpsLonRange'),
         });
       }
+      refineThresholds(data, ctx, t);
     }),
   );
+}
+
+/**
+ * The cross-field rules of the thresholds, as the backend models them (`SunClassThresholds`,
+ * `ReachThresholds`): the sun-class bounds strictly descending, the reference day a real day of the
+ * year, one-side reach not above two-side reach. The server answers 422 to the same values.
+ */
+function refineThresholds(data: SiteFormData, ctx: z.RefinementCtx, t: TFunction): void {
+  const sun = data.sun_class_thresholds;
+  if (!(sun.full_sun_min_hours > sun.partial_shade_min_hours)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sun_class_thresholds', 'partial_shade_min_hours'],
+      message: t('pages.sites.thresholds.partialBelowFull'),
+    });
+  }
+  if (!(sun.partial_shade_min_hours > sun.shade_min_hours)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sun_class_thresholds', 'shade_min_hours'],
+      message: t('pages.sites.thresholds.shadeBelowPartial'),
+    });
+  }
+  if (!isDayOfYear(sun.reference_month, sun.reference_day)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['sun_class_thresholds', 'reference_day'],
+      message: t('pages.sites.thresholds.noSuchDay'),
+    });
+  }
+  const reach = data.reach_thresholds;
+  if (reach.one_side_m > reach.both_sides_m) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['reach_thresholds', 'one_side_m'],
+      message: t('pages.sites.thresholds.oneAboveBoth'),
+    });
+  }
+}
+
+/** Whether month and day name a day of a leap year (29 February counts). */
+export function isDayOfYear(month: number, day: number): boolean {
+  if (!Number.isInteger(month) || !Number.isInteger(day)) return false;
+  const date = new Date(Date.UTC(2000, month - 1, day));
+  return date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+/** The form values of the thresholds from what the site answered; the defaults where it sent none. */
+type ThresholdFields = Pick<SiteFormData, 'sun_class_thresholds' | 'reach_thresholds' | 'window_thresholds'>;
+type SiteThresholdValues = Pick<Site, 'sun_class_thresholds' | 'reach_thresholds' | 'window_thresholds'>;
+
+export function thresholdsToFields(site: SiteThresholdValues | null | undefined): ThresholdFields {
+  return {
+    sun_class_thresholds: { ...(site?.sun_class_thresholds ?? DEFAULT_SUN_CLASS_THRESHOLDS) },
+    // Merged over the defaults: a backend before #2703 sends no path distance.
+    reach_thresholds: { ...DEFAULT_REACH_THRESHOLDS, ...site?.reach_thresholds },
+    window_thresholds: { ...(site?.window_thresholds ?? DEFAULT_WINDOW_THRESHOLDS) },
+  };
+}
+
+function sameValues<T extends object>(a: T, b: T): boolean {
+  return (Object.keys(a) as (keyof T)[]).every((key) => a[key] === b[key]);
+}
+
+/**
+ * The thresholds the edit sends: a part the user did not change goes out as `null`, which keeps what is stored
+ * (the server stores nothing for a site that never had them, so a later change of the defaults reaches it).
+ */
+export function thresholdsToPayload(
+  data: ThresholdFields,
+  site: SiteThresholdValues | null | undefined,
+): {
+  sun_class_thresholds: SunClassThresholds | null;
+  reach_thresholds: ReachThresholds | null;
+  window_thresholds: WindowThresholds | null;
+} {
+  const before = thresholdsToFields(site);
+  return {
+    sun_class_thresholds: sameValues(data.sun_class_thresholds, before.sun_class_thresholds)
+      ? null
+      : data.sun_class_thresholds,
+    reach_thresholds: sameValues(data.reach_thresholds, before.reach_thresholds) ? null : data.reach_thresholds,
+    window_thresholds: sameValues(data.window_thresholds, before.window_thresholds) ? null : data.window_thresholds,
+  };
 }
 
 /** Maps the two coordinate fields to the API `gps_coordinates` tuple (or null). */

@@ -231,7 +231,7 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <Typography
             variant="subtitle1"
-            component="h3"
+            component="h2"
             sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexGrow: 1, minWidth: 0, m: 0 }}
           >
             <GridViewIcon color="primary" fontSize="small" aria-hidden="true" sx={{ flexShrink: 0 }} />

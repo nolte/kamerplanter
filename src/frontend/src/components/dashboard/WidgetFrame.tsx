@@ -2,6 +2,7 @@ import { Suspense, useState, createElement, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import { visuallyHidden } from '@mui/utils';
 import CardActionArea from '@mui/material/CardActionArea';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
@@ -121,9 +122,6 @@ export default function WidgetFrame({
       <CardActionArea
         component={RouterLink}
         to={navigateTo}
-        aria-label={t('dashboard.nav.openWidget', {
-          widget: t(`dashboard.widgets.${instance.widget_key}.label`),
-        })}
         sx={{
           display: 'block',
           height: '100%',
@@ -142,6 +140,15 @@ export default function WidgetFrame({
         data-testid={`widget-nav-${instance.widget_key}`}
       >
         {widgetNode}
+        {/* Label in name (#3017, L-11; WCAG 2.5.3): the link is named by its visible content — the
+            widget's own heading and figures — and this hidden phrase only adds what it does. A former
+            `aria-label` replaced the visible text, so a voice-control user saying what they saw on the
+            panel matched nothing. */}
+        <Box component="span" sx={visuallyHidden}>
+          {t('dashboard.nav.openWidget', {
+            widget: t(`dashboard.widgets.${instance.widget_key}.label`),
+          })}
+        </Box>
         {/* Decorative "this panel opens a page" affordance. Hover/focus tint
             alone is not a persistent cue on touch devices (no :hover state),
             which is the primary usage environment (Mobile-First) — so a small,

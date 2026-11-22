@@ -1,9 +1,12 @@
 import { tenantClient as client } from '../client';
 import type {
+  ActiveChannel,
   AdoptPlantsResponse,
   BatchCreatePlantsResponse,
   BatchRemoveRequest,
   BatchRemoveResponse,
+  MixedCultureCreate,
+  MixedCultureResponse,
   RunTransitionRequest,
   RunTransitionResponse,
   NutrientPlanAssignResponse,
@@ -38,6 +41,12 @@ export async function listPlantingRuns(
 
 export async function getPlantingRun(key: string): Promise<PlantingRun> {
   const { data } = await client.get<PlantingRun>(`${BASE}/${key}`);
+  return data;
+}
+
+/** #2463: the per-species runs of a mixed culture on one bed, created in one transaction. */
+export async function createMixedCulture(payload: MixedCultureCreate): Promise<MixedCultureResponse> {
+  const { data } = await client.post<MixedCultureResponse>(`${BASE}/mixed-culture`, payload);
   return data;
 }
 
@@ -200,6 +209,15 @@ export async function removeRunNutrientPlan(
   runKey: string,
 ): Promise<void> {
   await client.delete(`${BASE}/${runKey}/nutrient-plan`);
+}
+
+/**
+ * The channels the server applies to this run today (#3016). Without `current_week` the server picks the
+ * week itself — whole UTC days since `started_at` — so this is the single source of the run's dosages.
+ */
+export async function getActiveChannels(runKey: string): Promise<ActiveChannel[]> {
+  const { data } = await client.get<ActiveChannel[]>(`${BASE}/${runKey}/active-channels`);
+  return data;
 }
 
 // ── Phase timeline ──────────────────────────────────────────────────

@@ -16,12 +16,27 @@ from app.domain.models.ipm import (
 )
 
 
+class _DiseaseRepository(BaseArangoRepository[Disease]):
+    """The ``diseases`` collection: an update replaces ``common_names_i18n`` whole (#2936).
+
+    ArangoDB merges object values by default, so a language removed from the map - by a
+    ``PUT`` with fewer languages or ``{}``, or by a seed that dropped an unsourced name -
+    would survive every write. The map is a value: what the model holds is what is stored.
+    """
+
+    _update_doc_merges_objects = False
+
+
 class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
     _model_cls = Pest
+    #: The pest's ``common_names_i18n`` is a value like a disease's (#2955): an update
+    #: replaces it whole, so a language removed from the map leaves the stored row too.
+    #: ``Pest`` carries no other object field the switch could affect.
+    _update_doc_merges_objects = False
 
     def __init__(self, db: StandardDatabase) -> None:
         super().__init__(db, col.PESTS)
-        self._diseases = BaseArangoRepository[Disease](db, col.DISEASES, Disease)
+        self._diseases = _DiseaseRepository(db, col.DISEASES, Disease)
         self._treatments = BaseArangoRepository[Treatment](db, col.TREATMENTS, Treatment)
         self._inspections = BaseArangoRepository[Inspection](db, col.INSPECTIONS, Inspection)
         self._applications = BaseArangoRepository[TreatmentApplication](
@@ -62,7 +77,13 @@ class ArangoIpmRepository(BaseArangoRepository[Pest], IIpmRepository):
         return super().create(pest)
 
     def update_pest(self, key: PestKey, pest: Pest) -> Pest:
-        return super().update(key, pest)
+        # ``common_name_de`` is derived from ``common_names_i18n["de"]`` (#2955). The
+        # default write drops ``None`` fields, which would leave a stale German name in
+        # the row after the map lost its ``de`` entry - and the next read would put it
+        # back into the map. Named in ``merged``, a ``None`` removes the attribute.
+        written = self._update_doc(key, pest, merged={"common_name_de": pest.common_name_de})
+        updated: Pest = self._wrap(written)
+        return updated
 
     def delete_pest(self, key: PestKey) -> bool:
         pest_id = f"{col.PESTS}/{key}"

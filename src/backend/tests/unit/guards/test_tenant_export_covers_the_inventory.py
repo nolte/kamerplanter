@@ -37,7 +37,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.domain.engines.tenant_erasure_engine import TenantErasureEngine
-from app.domain.engines.tenant_export_engine import TenantExportEngine
+from app.domain.engines.tenant_export_engine import TenantExportEngine, TenantReference
 from app.domain.models.ha_publish_setting import HaPublishSetting
 from tests.support.execution_guards import find_project_root
 from tests.unit.guards.test_tenant_scoped_reads_are_derived import build_inventory
@@ -48,6 +48,16 @@ _APP = find_project_root(Path(__file__)) / "app"
 _MODELS_BY_HAND: dict[str, type[BaseModel] | str] = {
     "ha_publish_settings": HaPublishSetting,  # written by a raw repository, the model is the shape
     "diagnosis_requests": "declared and indexed in collections.py; no code path writes it (inventory comment)",
+    # REQ-053 M1 (#2323, WP 1.4) created the collections. ``garden_objects`` is bound to its model
+    # by ``ArangoGardenObjectRepository`` since WP 1.7 (#2326); the other three get their models and
+    # repositories in waves 2/4, which replace these rows by the derived binding.
+    # Written by the bed-status change since WP 1.9 (#2328), which makes ``CareEvent`` (app/domain/models/care_event.py)
+    # the model — but binding it here would put its key fields under the export's reference declarations
+    # (``performed_by_user_key``, ``supersedes_key``) and its ``product_ref`` / ``source_ref`` under the secret
+    # check. That belongs with the care-event API and its export rows: REQ-053 WP 4.1.
+    "care_events": "written by the bed-status change (WP 1.9); the model is bound with the care-event API in WP 4.1",
+    # ``irrigation_zones`` is bound to ``IrrigationZone`` by ``ArangoIrrigationZoneRepository`` since WP 7.1 (#2467).
+    # ``bed_templates`` is bound to ``BedTemplate`` by ``ArangoBedTemplateRepository`` since WP 7.8 (#2474).
 }
 
 
@@ -249,3 +259,46 @@ class TestEveryEdgeCollectionIsDecided:
 
     def test_an_access_grant_is_never_imported(self) -> None:
         assert "tenant_has_access" in TenantExportEngine.EXCLUDED_EDGES
+
+
+class TestTheProvenanceContract:
+    """#2528 (REQ-056 §8.4 step 1): a *provenance* reference is cleared and counted instead of refusing the archive.
+
+    That relaxation is only sound for a copy's origin in a hybrid catalogue: an ``internal`` reference whose row may
+    be a global catalogue row of the target. The set of provenance paths is pinned here - adding one is a reviewed
+    decision (a field the import may silently clear), not a side effect of a new declaration.
+    """
+
+    def test_the_provenance_paths_are_exactly_the_reviewed_ones(self) -> None:
+        paths = {
+            f"{collection}.{path}"
+            for collection, refs in (
+                ("*", TenantExportEngine.FIELD_REFERENCES),
+                *TenantExportEngine.COLLECTION_REFERENCES.items(),
+            )
+            for path, ref in refs.items()
+            if ref.provenance
+        }
+        assert paths == {"locations.template_key", "locations.soil_profile.substrate_key"}
+
+    def test_a_provenance_reference_outside_a_hybrid_catalogue_fails_validation(self, monkeypatch) -> None:
+        refs = {**TenantExportEngine.COLLECTION_REFERENCES}
+        refs["locations"] = {
+            **refs["locations"],
+            "site_key": TenantReference(kind="internal", targets=("sites",), provenance=True),
+        }
+        monkeypatch.setattr(TenantExportEngine, "COLLECTION_REFERENCES", refs)
+
+        with pytest.raises(ValueError, match=r"locations\.site_key: provenance .*'sites'"):
+            TenantExportEngine.validate()
+
+    def test_a_provenance_reference_must_be_internal(self, monkeypatch) -> None:
+        refs = {**TenantExportEngine.COLLECTION_REFERENCES}
+        refs["locations"] = {
+            **refs["locations"],
+            "template_key": TenantReference(kind="global", targets=("bed_templates",), provenance=True),
+        }
+        monkeypatch.setattr(TenantExportEngine, "COLLECTION_REFERENCES", refs)
+
+        with pytest.raises(ValueError, match=r"locations\.template_key: provenance .*internal"):
+            TenantExportEngine.validate()

@@ -20,6 +20,7 @@ from collections.abc import Callable
 from app.common.enums import DataOrigin
 from app.domain.interfaces.knowledge_service import ConfidenceLevel, QuestionContext
 from app.domain.models.species import Species
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
 
 #: A parent-species resolver (``parent_species_key -> Species | None``).
 ParentResolver = Callable[[str], Species | None]
@@ -51,7 +52,9 @@ class AiContextBuilder:
         if species.origin != DataOrigin.TENANT:
             return (species.scientific_name, None, ConfidenceLevel.HIGH)
 
-        first_common = species.common_names[0] if species.common_names else None
+        # The cultivar hint when the scientific name is missing, in the knowledge
+        # base's canonical language (#2902).
+        vernacular = localized_vernacular_name(species.common_names, species.common_names_i18n, CANONICAL_NAME_LANGUAGE)
 
         parent_key = getattr(species, "parent_species_key", None)
         if parent_key and self._parent_resolver is not None:
@@ -59,14 +62,14 @@ class AiContextBuilder:
             if parent is not None and parent.origin != DataOrigin.TENANT:
                 return (
                     parent.scientific_name,
-                    species.scientific_name or first_common,
+                    species.scientific_name or vernacular,
                     ConfidenceLevel.MEDIUM,
                 )
 
         if species.genus:
             return (
                 f"{species.genus} sp.",
-                species.scientific_name or first_common,
+                species.scientific_name or vernacular,
                 ConfidenceLevel.LOW,
             )
 
@@ -76,7 +79,7 @@ class AiContextBuilder:
             if family_name:
                 return (family_name, species.scientific_name, ConfidenceLevel.LOW)
 
-        return (None, species.scientific_name or first_common, ConfidenceLevel.NONE)
+        return (None, species.scientific_name or vernacular, ConfidenceLevel.NONE)
 
     def build_base_context(
         self,

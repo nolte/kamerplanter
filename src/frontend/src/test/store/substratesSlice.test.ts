@@ -64,7 +64,7 @@ describe('substratesSlice', () => {
       type: fetchSubstrates.rejected.type,
       error: { message: 'Fail' },
     });
-    expect(state.error).toBe('Fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchSubstrate.fulfilled sets current', () => {

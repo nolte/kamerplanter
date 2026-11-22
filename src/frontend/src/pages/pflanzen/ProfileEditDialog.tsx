@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -8,7 +8,8 @@ import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -76,10 +77,11 @@ export default function ProfileEditDialog({
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: buildDefaults(reqProfile, nutProfile),
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   useEffect(() => {
     if (open) {
@@ -129,14 +131,14 @@ export default function ProfileEditDialog({
       notification.success(t('common.save'));
       onSaved();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="profile-edit-dialog"
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth data-testid="profile-edit-dialog"
       aria-labelledby="profile-edit-dialog-title">
       <DialogTitle id="profile-edit-dialog-title">
         {phaseName} — {t('pages.profiles.editTitle')}
@@ -157,19 +159,23 @@ export default function ProfileEditDialog({
                 {t('pages.profiles.requirementsDesc')}
               </Typography>
               <FormRow>
-                <FormNumberField name="req.light_ppfd_target" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 μmol/m²/s" autoFocus />
-                <FormNumberField name="req.photoperiod_hours" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
+                <FormNumberField name="req.light_ppfd_target" helpTerm="ppfd" control={control} label={t('pages.profiles.lightPpfd')} min={0} suffix="PPFD" helperText="0–2000 μmol/m²/s" autoFocus />
+                <FormNumberField name="req.photoperiod_hours" helpTerm="photoperiod" control={control} label={t('pages.profiles.photoperiodHours')} min={0} max={24} step={0.5} suffix="h" helperText="0–24 h" />
               </FormRow>
+              {/* #2857: the server stores the saved light hours as entered (`sourced`); say so before saving. */}
+              <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 2 }} data-testid="profile-photoperiod-source-hint">
+                {t('pages.profiles.photoperiodSourceHint')}
+              </Typography>
               <FormRow>
                 <FormNumberField name="req.temperature_day_c" control={control} label={t('pages.profiles.tempDay')} step={0.5} suffix="°C" helperText="18–30 °C" />
                 <FormNumberField name="req.temperature_night_c" control={control} label={t('pages.profiles.tempNight')} step={0.5} suffix="°C" helperText="15–25 °C" />
               </FormRow>
               <FormRow>
-                <FormNumberField name="req.humidity_day_percent" control={control} label={t('pages.profiles.humidityDay')} min={0} max={100} suffix="%" helperText="40–70 %" />
-                <FormNumberField name="req.humidity_night_percent" control={control} label={t('pages.profiles.humidityNight')} min={0} max={100} suffix="%" helperText="45–75 %" />
+                <FormNumberField name="req.humidity_day_percent" helpTerm="rh" control={control} label={t('pages.profiles.humidityDay')} min={0} max={100} suffix="%" helperText="40–70 %" />
+                <FormNumberField name="req.humidity_night_percent" helpTerm="rh" control={control} label={t('pages.profiles.humidityNight')} min={0} max={100} suffix="%" helperText="45–75 %" />
               </FormRow>
               <FormRow>
-                <FormNumberField name="req.vpd_target_kpa" control={control} label={t('pages.profiles.vpdTarget')} min={0} step={0.1} suffix="kPa" helperText="0.8–1.5 kPa" />
+                <FormNumberField name="req.vpd_target_kpa" helpTerm="vpd" control={control} label={t('pages.profiles.vpdTarget')} min={0} step={0.1} suffix="kPa" helperText="0.8–1.5 kPa" />
                 <FormNumberField name="req.co2_ppm" control={control} label="CO₂ (ppm)" min={0} suffix="ppm" helperText="400–1500 ppm" />
               </FormRow>
               <FormRow>
@@ -189,7 +195,7 @@ export default function ProfileEditDialog({
                 {t('pages.profiles.nutrientsDesc')}
               </Typography>
               <FormRow>
-                <FormNumberField name="nut.npk_n" control={control} label={`N (${t('pages.profiles.npkRatio')})`} min={0} helperText={t('pages.profiles.npkHelper')} />
+                <FormNumberField name="nut.npk_n" helpTerm="npk" control={control} label={`N (${t('pages.profiles.npkRatio')})`} min={0} helperText={t('pages.profiles.npkHelper')} />
                 <FormNumberField name="nut.npk_p" control={control} label="P" min={0} />
               </FormRow>
               <FormRow>
@@ -197,8 +203,8 @@ export default function ProfileEditDialog({
                 <span />
               </FormRow>
               <FormRow>
-                <FormNumberField name="nut.target_ec_ms" control={control} label="EC" min={0} step={0.1} suffix="mS/cm" helperText="0.5–3.5 mS/cm" />
-                <FormNumberField name="nut.target_ph" control={control} label="pH" min={0} max={14} step={0.1} helperText="5.5–7.0" />
+                <FormNumberField name="nut.target_ec_ms" helpTerm="ec" control={control} label="EC" min={0} step={0.1} suffix="mS/cm" helperText="0.5–3.5 mS/cm" />
+                <FormNumberField name="nut.target_ph" helpTerm="ph" control={control} label="pH" min={0} max={14} step={0.1} helperText="5.5–7.0" />
               </FormRow>
               <FormRow>
                 <FormNumberField name="nut.calcium_ppm" control={control} label="Ca (ppm)" min={0} suffix="ppm" />
@@ -211,7 +217,7 @@ export default function ProfileEditDialog({
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.save')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
 

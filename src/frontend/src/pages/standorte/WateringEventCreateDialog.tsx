@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -12,7 +12,9 @@ import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -79,7 +81,7 @@ export default function WateringEventCreateDialog({
   const firstPlantKey = plantKeys?.[0];
   const { suggestion: volumeSuggestion } = useWateringVolumeSuggestion(firstPlantKey);
 
-  const { control, handleSubmit, reset, setValue } = useForm<FormData>({
+  const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       application_method: 'drench',
@@ -98,6 +100,7 @@ export default function WateringEventCreateDialog({
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   // Pre-fill suggested volume when it becomes available
   useEffect(() => {
@@ -145,14 +148,14 @@ export default function WateringEventCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="watering-event-create-dialog-title" data-testid="watering-event-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="watering-event-create-dialog-title" data-testid="watering-event-create-dialog">
       <DialogTitle id="watering-event-create-dialog-title">{t('pages.wateringEvents.create')}</DialogTitle>
       <DialogContent>
         {warnings.map((w, i) => (
@@ -209,6 +212,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="target_ec"
+              helpTerm="ec"
               control={control}
               label={t('pages.wateringEvents.targetEc')}
               helperText={t('pages.wateringEvents.targetEcHelper')}
@@ -217,6 +221,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="target_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.wateringEvents.targetPh')}
               helperText={t('pages.wateringEvents.targetPhHelper')}
@@ -231,6 +236,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="measured_ec"
+              helpTerm="ec"
               control={control}
               label={t('pages.wateringEvents.measuredEc')}
               min={0}
@@ -238,6 +244,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="measured_ph"
+              helpTerm="ph"
               control={control}
               label={t('pages.wateringEvents.measuredPh')}
               min={0}
@@ -251,6 +258,7 @@ export default function WateringEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="runoff_ec"
+              helpTerm="runoff"
               control={control}
               label={t('pages.wateringEvents.runoffEc')}
               helperText={t('pages.wateringEvents.runoffEcHelper')}
@@ -259,6 +267,7 @@ export default function WateringEventCreateDialog({
             />
             <FormNumberField
               name="runoff_ph"
+              helpTerm="runoff"
               control={control}
               label={t('pages.wateringEvents.runoffPh')}
               min={0}
@@ -320,6 +329,6 @@ export default function WateringEventCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

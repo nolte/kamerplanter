@@ -126,6 +126,11 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
   'stammdaten/companion-planting',
   'standorte/sites',
   'standorte/sites/:key',
+  // REQ-053 WP 2.3: readable for every member (GP-API-001 "Alle Rollen"); the editor tools of WP 2.4
+  // gate their writes in the page ("Ab Gärtner", §21.8), as the site detail page does.
+  'standorte/sites/:key/plan',
+  // REQ-053 WP 8.13 (GP-FR-135): a read of the rotation matrix, open to every member; the year dialog gates its write.
+  'standorte/sites/:key/rotation-matrix',
   'standorte/locations/:key',
   'standorte/slots/:key',
   'standorte/watering-events',
@@ -215,6 +220,8 @@ export const UNGATED_ROUTES: readonly string[] = [
   'stammdaten/activities',
   'stammdaten/activities/:key',
   'stammdaten/import',
+  // REQ-053 WP 4.5 (GP-FR-107) — a read of the tenant's care log, open to every member; the list has no write.
+  'standorte/historie',
   'standorte/substrates',
   'standorte/substrates/:key',
   'standorte/substrates/batches/:key',

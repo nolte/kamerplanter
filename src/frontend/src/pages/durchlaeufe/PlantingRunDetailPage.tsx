@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +31,9 @@ import DialogActions from '@mui/material/DialogActions';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import type { Column } from '@/components/common/DataTable';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
@@ -48,6 +51,7 @@ import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useWateringVolumeSuggestion } from '@/hooks/useWateringVolumeSuggestion';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
@@ -61,6 +65,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import * as harvestApi from '@/api/endpoints/harvest';
 import { quickConfirmWatering } from '@/api/endpoints/wateringConfirm';
 import type {
+  ActiveChannel,
   NutrientPlanPhaseEntry,
   Fertilizer,
   SpeciesPhaseTimeline,
@@ -73,7 +78,7 @@ import type {
   Species,
   Cultivar,
 } from '@/api/types';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
@@ -81,6 +86,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import { errorKey } from '@/api/errors';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -97,7 +103,7 @@ export default function PlantingRunDetailPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
@@ -127,7 +133,17 @@ export default function PlantingRunDetailPage() {
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
 
   // Species/cultivar name resolution for entries table
-  const [speciesMap, setSpeciesMap] = useState<Map<string, string>>(new Map());
+  // Cultivar names + loaded species; the species name is derived in the render so it
+  // follows the UI language (#2902).
+  const [cultivarNames, setCultivarNames] = useState<Map<string, string>>(new Map());
+  const [loadedSpecies, setLoadedSpecies] = useState<Map<string, Species>>(new Map());
+  const speciesMap = useMemo(() => {
+    const names = new Map(cultivarNames);
+    for (const [sk, sp] of loadedSpecies) {
+      names.set(sk, getLocalizedCommonName(sp, i18n.language) ?? sp.scientific_name);
+    }
+    return names;
+  }, [cultivarNames, loadedSpecies, i18n.language]);
   const [locationName, setLocationName] = useState<string>('');
   const [siteKeyFromLocation, setSiteKeyFromLocation] = useState<string | null>(null);
 
@@ -155,9 +171,21 @@ export default function PlantingRunDetailPage() {
   const [fertilizers, setFertilizers] = useState<Fertilizer[]>([]);
   const [resolvedTank, setResolvedTank] = useState<{ key: string; name: string; volumeLiters: number } | null>(null);
   const [phaseTimelines, setPhaseTimelines] = useState<SpeciesPhaseTimeline[]>([]);
+  // The channels and dosages the server applies this week (#3016) — never recomputed client-side.
+  const [activeChannels, setActiveChannels] = useState<ActiveChannel[] | null>(null);
 
   // Site list for edit dialog
-  const [sitesList, setSitesList] = useState<Site[]>([]);
+  // Secondary reads that failed (location/tank, plants; plan/schedule/timeline) — shown with a retry
+  // above the tabs instead of reading as "none" (#3037).
+  const [sectionLoadError, setSectionLoadError] = useState(false);
+  const [wateringLoadError, setWateringLoadError] = useState(false);
+  // Which watering legs failed: the tab then shows neither "no plan assigned" with
+  // its assign call to action nor "no schedule" in their place (#3037).
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
+  const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
+  const loadSites = useCallback((): Promise<Site[]> => siteApi.listSites(0, 200), []);
+  const sitesLoad = useAsyncOptions(loadSites);
+  const sitesList = sitesLoad.options;
 
   // Full species/cultivar data for details tab
   const [speciesDataForTab, setSpeciesDataForTab] = useState<Species | null>(null);
@@ -167,27 +195,37 @@ export default function PlantingRunDetailPage() {
   const [phaseSequenceKey, setPhaseSequenceKey] = useState<string | null>(null);
 
   // Derived nutrient data via custom hook
-  const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at);
+  const nutrientData = useRunNutrientData(planEntries, phaseTimelines, run?.started_at, activeChannels);
 
   // Track dirty state for UnsavedChangesGuard (edit dialog has own form)
   const isDirty = false;
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
+    setSectionLoadError(false);
     try {
       const r = await runApi.getPlantingRun(key);
+      if (stale()) return;
       setRun(r);
       if (r.location_key) {
         try {
           const loc = await siteApi.getLocation(r.location_key);
+          if (stale()) return;
           setSiteKeyFromLocation(loc.site_key);
           setLocationName(loc.name);
           if (loc.tank_key) {
             const tk = await tankApi.getTank(loc.tank_key);
+            if (stale()) return;
             setResolvedTank({ key: tk.key, name: tk.name, volumeLiters: tk.volume_liters });
           } else {
             const allTanks = await tankApi.listTanks(0, 200);
+            if (stale()) return;
             const match = allTanks.find((tk) => tk.location_key === r.location_key);
             if (match) {
               setResolvedTank({ key: match.key, name: match.name, volumeLiters: match.volume_liters });
@@ -195,9 +233,14 @@ export default function PlantingRunDetailPage() {
               setResolvedTank(null);
             }
           }
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          captureHandledError(err, { source: 'PlantingRunDetailPage.location' });
           setResolvedTank(null);
           setLocationName('');
+          // Never keep the previous run's site after a sibling switch.
+          setSiteKeyFromLocation(null);
+          setSectionLoadError(true);
         }
       } else {
         setResolvedTank(null);
@@ -205,16 +248,18 @@ export default function PlantingRunDetailPage() {
         setSiteKeyFromLocation(null);
       }
       const e = await runApi.listEntries(key);
+      if (stale()) return;
       setEntries(e);
       const uniqueSpeciesKeys = [...new Set(e.map((entry) => entry.species_key))];
       const nameMap = new Map<string, string>();
+      const speciesByKey = new Map<string, Species>();
       let firstSpecies: Species | null = null;
       let firstCultivar: Cultivar | null = null;
       await Promise.all(
         uniqueSpeciesKeys.map(async (sk) => {
           try {
             const sp = await speciesApi.getSpecies(sk);
-            nameMap.set(sk, sp.common_names?.length > 0 ? sp.common_names[0] : sp.scientific_name);
+            speciesByKey.set(sk, sp);
             // Store full species for the first entry (monoculture detail card)
             if (!firstSpecies && e.length > 0 && e[0].species_key === sk) {
               firstSpecies = sp;
@@ -227,12 +272,20 @@ export default function PlantingRunDetailPage() {
                 if (!firstCultivar && e.length > 0 && e[0].cultivar_key === ent.cultivar_key) {
                   firstCultivar = cv;
                 }
-              } catch { /* ok */ }
+              } catch (err) {
+                // A cultivar name only labels the entry; the entry itself is listed.
+                captureHandledError(err, { source: 'PlantingRunDetailPage.cultivar' });
+              }
             }
-          } catch { /* ok */ }
+          } catch (err) {
+            // A species only labels the entry; the entry itself is listed.
+            captureHandledError(err, { source: 'PlantingRunDetailPage.species' });
+          }
         }),
       );
-      setSpeciesMap(nameMap);
+      if (stale()) return;
+      setCultivarNames(nameMap);
+      setLoadedSpecies(speciesByKey);
       setSpeciesDataForTab(firstSpecies);
       setCultivarDataForTab(firstCultivar);
       // Load phase sequence for the first species (monoculture)
@@ -240,27 +293,35 @@ export default function PlantingRunDetailPage() {
       if (primarySpeciesKey) {
         phaseSequenceApi
           .getSpeciesPhaseSequence(primarySpeciesKey)
-          .then((seq) => setPhaseSequenceKey(seq?.key ?? null))
-          .catch(() => setPhaseSequenceKey(null));
+          .then((seq) => { if (!stale()) setPhaseSequenceKey(seq?.key ?? null); })
+          .catch((err: unknown) => {
+            // Only the link to the species' phase sequence is missing; the phases tab still renders.
+            captureHandledError(err, { source: 'PlantingRunDetailPage.phaseSequence' });
+            if (!stale()) setPhaseSequenceKey(null);
+          });
       } else {
         setPhaseSequenceKey(null);
       }
       try {
         const p = await runApi.listRunPlants(key, true);
+        if (stale()) return;
         setPlants(p);
-      } catch {
-        // Plants may not exist yet
+      } catch (err) {
+        // A run without plants answers with an empty list; a failure is not "no plants".
+        if (stale()) return;
+        captureHandledError(err, { source: 'PlantingRunDetailPage.plants' });
+        setSectionLoadError(true);
       }
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key]);
+  }, [key, beginLoad]);
 
   useEffect(() => {
     load();
-    siteApi.listSites(0, 200).then(setSitesList).catch(() => {});
   }, [load]);
 
   // Dynamic breadcrumbs
@@ -276,40 +337,64 @@ export default function PlantingRunDetailPage() {
   // Clear dynamic breadcrumbs on unmount
   useEffect(() => () => { dispatch(setBreadcrumbs([])); }, [dispatch]);
 
+  const beginWateringLoad = useAbortableLoad();
   const loadWateringData = useCallback(async () => {
     if (!key) return;
+    const ticket = beginWateringLoad();
+    const stale = () => !ticket.isCurrent();
     setWateringLoading(true);
+    setWateringLoadError(false);
     try {
+      // Each leg degrades on its own so the others still render, but a failed leg is
+      // reported and announced with a retry — a missing plan must not read as "no plan
+      // assigned" (#3037).
+      const failedLegs = new Set<string>();
+      const degrade = <T,>(source: string, fallback: T) => (err: unknown): T => {
+        captureHandledError(err, { source: `PlantingRunDetailPage.${source}` });
+        failedLegs.add(source);
+        return fallback;
+      };
       const [planResult, calendar, timelines] = await Promise.all([
-        runApi.getRunNutrientPlan(key).catch(() => ({ plan: null })),
-        runApi.getWateringSchedule(key, 90).catch(() => null),
-        runApi.getPhaseTimeline(key).catch(() => [] as SpeciesPhaseTimeline[]),
+        runApi.getRunNutrientPlan(key).catch(degrade('nutrientPlan', { plan: null })),
+        runApi.getWateringSchedule(key, 90).catch(degrade<WateringScheduleCalendarResponse | null>('wateringSchedule', null)),
+        runApi.getPhaseTimeline(key).catch(degrade<SpeciesPhaseTimeline[]>('phaseTimeline', [])),
       ]);
+      if (stale()) return;
+      setWateringLoadError(failedLegs.size > 0);
+      setPlanLoadFailed(failedLegs.has('nutrientPlan'));
+      setScheduleLoadFailed(failedLegs.has('wateringSchedule'));
       setAssignedPlan(planResult.plan);
       setWateringCalendar(calendar);
       setPhaseTimelines(timelines);
       if (planResult.plan) {
         const planKey = (planResult.plan as { key?: string }).key ?? '';
         if (planKey) {
-          const [fetchedEntries, ferts] = await Promise.all([
+          const [fetchedEntries, ferts, channels] = await Promise.all([
             planApi.fetchPhaseEntries(planKey),
             // The complete catalogue (#1560); one leg of an imperative sequence
             // whose surrounding loading and error state already covers it.
             fertApi.fetchAllFertilizers(),
+            runApi.getActiveChannels(key),
           ]);
+          if (stale()) return;
           setPlanEntries(fetchedEntries);
           setFertilizers(ferts);
+          setActiveChannels(channels);
         }
       } else {
         setPlanEntries([]);
         setFertilizers([]);
+        setActiveChannels(null);
       }
     } catch (err) {
-      handleError(err);
+      if (stale()) return;
+      // One cause, one message: the section banner announces it with a retry, no toast.
+      captureHandledError(err, { source: 'PlantingRunDetailPage.wateringData' });
+      setWateringLoadError(true);
     } finally {
-      setWateringLoading(false);
+      if (!stale()) setWateringLoading(false);
     }
-  }, [key, handleError]);
+  }, [key, beginWateringLoad]);
 
   // Load watering data for details tab (tab 0), phases tab (tab 2), and nutrient+watering tab (tab 3)
   useEffect(() => {
@@ -479,9 +564,9 @@ export default function PlantingRunDetailPage() {
   const plantColumns: Column<PlantInRun>[] = [
     { id: 'instanceId', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
     { id: 'plantName', label: t('pages.plantInstances.plantName'), render: (r) => {
-      const name = getPlantDisplayName(r);
+      const name = getPlantDisplayName(r, i18n.language);
       return name === r.instance_id ? '—' : name;
-    }, searchValue: (r) => getPlantDisplayName(r) },
+    }, searchValue: (r) => getPlantDisplayName(r, i18n.language) },
     { id: 'currentPhase', label: t('pages.plantInstances.currentPhase'), render: (r) => r.current_phase ? <Chip label={r.current_phase} size="small" color="primary" /> : '—', searchValue: (r) => r.current_phase ?? '' },
     { id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on },
     { id: 'removedOn', label: t('pages.plantInstances.removedOn'), render: (r) => r.removed_on ?? '—' },
@@ -512,7 +597,7 @@ export default function PlantingRunDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
 
   return (
     <Box data-testid="planting-run-detail-page">
@@ -572,6 +657,7 @@ export default function PlantingRunDetailPage() {
               </Button>
               {canDelete && (
                 <Button
+                  variant="outlined"
                   color="error"
                   startIcon={<DeleteIcon />}
                   onClick={() => setDeleteOpen(true)}
@@ -636,6 +722,17 @@ export default function PlantingRunDetailPage() {
         <Tab id="tab-nutrient-watering" label={t('pages.plantingRuns.tabNutrientWatering')} data-testid="nutrient-plan-tab" />
         <Tab id="tab-activity-plan" label={t('pages.activityPlan.tabTitle')} data-testid="activity-plan-tab" />
       </Tabs>
+
+      {(sectionLoadError || (wateringLoadError && (tab === 0 || tab === 2 || tab === 3))) && (
+        <OptionsLoadError
+          messageKey="errors.loadFailed"
+          onRetry={() => {
+            if (sectionLoadError) void load();
+            if (wateringLoadError) void loadWateringData();
+          }}
+          data-testid="run-section-load-error"
+        />
+      )}
 
       {/* Tab 0: Details */}
       {tab === 0 && run && (
@@ -741,13 +838,14 @@ export default function PlantingRunDetailPage() {
                         {grouped[phase].map((p) => (
                           <ListItemButton
                             key={p.key}
-                            onClick={() => navigate(`/pflanzen/plant-instances/${p.key}`)}
+                            component={RouterLink}
+                            to={`/pflanzen/plant-instances/${p.key}`}
                             data-testid={`phase-plant-${p.key}`}
                           >
                             <ListItemText
-                              primary={getPlantDisplayName(p)}
+                              primary={getPlantDisplayName(p, i18n.language)}
                               secondary={[
-                                getPlantDisplayName(p) === p.instance_id ? null : p.instance_id,
+                                getPlantDisplayName(p, i18n.language) === p.instance_id ? null : p.instance_id,
                                 p.planted_on,
                                 p.detached_at ? t('pages.plantingRuns.detached') : null,
                                 p.removed_on ? t('pages.plantInstances.removedOn') + ': ' + p.removed_on : null,
@@ -771,6 +869,8 @@ export default function PlantingRunDetailPage() {
           runStatus={run?.status}
           wateringLoading={wateringLoading}
           assignedPlan={assignedPlan}
+          planLoadFailed={planLoadFailed}
+          scheduleLoadFailed={scheduleLoadFailed}
           nutrientData={nutrientData}
           fertilizers={fertilizers}
           wateringCalendar={wateringCalendar}
@@ -801,6 +901,8 @@ export default function PlantingRunDetailPage() {
           open={editDialogOpen}
           run={run}
           sitesList={sitesList}
+          sitesLoadError={sitesLoad.error}
+          onRetrySites={sitesLoad.reload}
           initialSiteKey={siteKeyFromLocation}
           onClose={() => setEditDialogOpen(false)}
           onSaved={(updated) => {
@@ -862,8 +964,10 @@ export default function PlantingRunDetailPage() {
         onClose={() => setEndRunOpen(false)}
         maxWidth="xs"
         fullWidth
+        data-testid="end-run-dialog"
+        aria-labelledby="end-run-dialog-title"
       >
-        <DialogTitle>{t('pages.plantingRuns.endRun')}</DialogTitle>
+        <DialogTitle id="end-run-dialog-title">{t('pages.plantingRuns.endRun')}</DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>
             {t('pages.plantingRuns.endRunConfirm', {

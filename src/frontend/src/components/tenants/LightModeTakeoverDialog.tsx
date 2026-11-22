@@ -20,7 +20,9 @@ import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchProfile } from '@/store/slices/authSlice';
 import { loadMyTenants, switchTenant } from '@/store/slices/tenantSlice';
+import { clearOfflineData } from '@/pwa/offlineData';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
+import { captureHandledError } from '@/observability/errorTracking';
 
 /** The counts the dialog lists, in this order; a zero count is left out. */
 const COUNT_FIELDS: readonly (keyof TakeoverResourceCounts)[] = [
@@ -70,7 +72,8 @@ export default function LightModeTakeoverDialog() {
       .then((result) => {
         if (!cancelled) setStatus(result);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'LightModeTakeoverDialog.status' });
         // The probe is a convenience: an older backend or a failed request shows no dialog.
         if (!cancelled) setStatus(null);
       });
@@ -92,6 +95,10 @@ export default function LightModeTakeoverDialog() {
     await dispatch(fetchProfile());
     if (result.accepted && result.tenant_slug) {
       await dispatch(loadMyTenants());
+      // REQ-053 WP 9.1 (G-W9 b): a tenant switch empties the service worker's API
+      // cache and IndexedDB before the new tenant becomes active. Pinned by
+      // test/guards/offlineDataClearedOnSessionChange.test.ts.
+      await clearOfflineData();
       dispatch(switchTenant(result.tenant_slug));
     }
     setDecision(null);

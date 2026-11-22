@@ -196,7 +196,8 @@ describe('NotificationSettingsTab — test send', () => {
 
     await user.click(await screen.findByTestId('test-send-email'));
     await waitFor(() =>
-      expect(screen.getByText(/network boom/)).toBeInTheDocument(),
+      // #3013: the translated generic text, never the exception's own message.
+      expect(screen.getByText(i18n.t('errors.generic'))).toBeInTheDocument(),
     );
   });
 });
@@ -209,18 +210,48 @@ describe('NotificationSettingsTab — save failure', () => {
 
     await user.click(await screen.findByTestId('notification-settings-save'));
     await waitFor(() =>
-      expect(screen.getByText(/save failed/)).toBeInTheDocument(),
+      expect(screen.getByText(i18n.t('errors.generic'))).toBeInTheDocument(),
     );
   });
 
-  it('keeps defaults and stops loading when the initial load fails', async () => {
-    api.getPreferences.mockRejectedValue(new Error('load failed'));
-    api.getChannelStatus.mockRejectedValue(new Error('load failed'));
+  it('shows the failed load with a retry instead of the defaults (#3037)', async () => {
+    api.getPreferences.mockRejectedValueOnce(new Error('load failed'));
+    api.getChannelStatus.mockRejectedValueOnce(new Error('load failed'));
     renderWithProviders(<NotificationSettingsTab />);
 
-    // The channels section still renders from the built-in defaults.
+    // The built-in defaults are not shown as if they were stored: saving them
+    // would overwrite the user's real preferences.
+    const retry = await screen.findByRole('button', { name: i18n.t('common.retry') });
+    expect(screen.queryByTestId('channel-toggle-home_assistant')).toBeNull();
+
+    await userEvent.setup().click(retry);
     expect(
       await screen.findByTestId('channel-toggle-home_assistant'),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the editor when only the channel status fails, and shows the status as unknown (#3037)', async () => {
+    api.getChannelStatus.mockRejectedValueOnce(new Error('status failed'));
+    const user = userEvent.setup();
+    renderWithProviders(<NotificationSettingsTab />);
+
+    // The preferences loaded: the form and its save action are there.
+    expect(await screen.findByTestId('channel-toggle-email')).toBeInTheDocument();
+    expect(screen.getByTestId('notification-settings-save')).toBeInTheDocument();
+    // The status is unknown, not "not configured" and not "available".
+    expect(await screen.findByTestId('channel-status-load-error')).toBeInTheDocument();
+    expect(screen.getByTestId('channel-status-email')).toHaveTextContent(
+      i18n.t('pages.notifications.settings.channelStatusUnknown'),
+    );
+    expect(screen.queryByText(i18n.t('pages.notifications.settings.channelNotConfigured'))).toBeNull();
+
+    // The status retry reloads the status only.
+    await user.click(screen.getByTestId('channel-status-load-error-retry'));
+    await waitFor(() =>
+      expect(screen.getByTestId('channel-status-email')).toHaveTextContent(
+        i18n.t('pages.notifications.settings.channelAvailable'),
+      ),
+    );
+    expect(api.getPreferences).toHaveBeenCalledTimes(1);
   });
 });

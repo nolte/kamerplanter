@@ -33,7 +33,11 @@ import pytest
 APP = Path(__file__).resolve().parents[3] / "app"
 
 _LOOKUP_ATTRS = {"get_species", "get_species_or_raise", "get_species_by_key", "resolve_species", "_resolve_species"}
-_RESOLVER_NAMES = {"readable_species", "_require_readable_species", "_species_is_readable"}
+#: ``_row_labels`` builds the plant-row label memo (#3032) whose species resolver runs under the tenant;
+#: a reader that follows ``p.species_key`` through it resolves. That the memo really is built with a
+#: tenant resolver is pinned by :func:`test_the_plant_row_label_memo_resolves_under_the_tenant`.
+_ROW_LABEL_MEMO = ("app/api/v1/plant_instances/tenant_router.py", "_row_labels")
+_RESOLVER_NAMES = {"readable_species", "_require_readable_species", "_species_is_readable", _ROW_LABEL_MEMO[1]}
 _TENANT_KWARGS = {"tenant_key"}
 _TENANT_POSITION = 3
 
@@ -55,11 +59,17 @@ _CARE = "app/domain/services/care_reminder_service.py:CareReminderService"
 _READERS: dict[str, tuple[str, str]] = {
     "app/domain/services/planting_run_service.py:PlantingRunService.add_entry": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.create_plants": (_RESOLVES, ""),
-    "app/domain/services/planting_run_service.py:PlantingRunService.create_run": (_RESOLVES, ""),
+    "app/domain/services/planting_run_service.py:PlantingRunService._checked_new_run": (_RESOLVES, ""),
+    "app/domain/services/planting_run_service.py:PlantingRunService._stamp_mixed_draft": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.get_phase_timeline": (_RESOLVES, ""),
+    # REQ-053 W-015 (#2830): thinning stamps plants with the reserving entry's species and reads its phase data.
+    "app/domain/services/slot_thinning_service.py:SlotThinningService._run_and_entry": (_RESOLVES, ""),
     "app/domain/services/planting_run_service.py:PlantingRunService.update_entry": (_RESOLVES, ""),
     "app/domain/services/propagation_service.py:PropagationService._require_event_references": (_RESOLVES, ""),
-    "app/domain/services/succession_plan_service.py:SuccessionPlanService.create_plan": (_RESOLVES, ""),
+    # A clonal pup inherits the mother's species only when her tenant may read it (#2082).
+    "app/domain/services/plant_instance_service.py:PlantInstanceService._spawn_pup": (_RESOLVES, ""),
+    # create_plan and its dry run (preview_plan, MCP #2776) share the check.
+    "app/domain/services/succession_plan_service.py:SuccessionPlanService._checked_new_plan": (_RESOLVES, ""),
     "app/tasks/irrigation_tasks.py:_resolve_species_kc": (_RESOLVES, ""),
     "app/api/v1/overwintering_profiles/tenant_router.py:auto_generate_overwintering_profile": (_RESOLVES, ""),
     "app/api/v1/plant_instances/tenant_router.py:_to_response": (_RESOLVES, ""),
@@ -95,6 +105,10 @@ _READERS: dict[str, tuple[str, str]] = {
         _LISTED,
         _NEIGHBOUR_NAME_REASON,
     ),
+    # REQ-053 WP 3.4 (#2394): the bed-level rotation check resolves every species under the tenant. The timeline's own
+    # lookups moved into ``TimelineResolver.species`` (WP 8.12, #2655), which calls ``readable_species`` with the
+    # tenant it was built for; it takes a bare ``key``, so this selector no longer sees the timeline reader.
+    "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.visible_species": (_RESOLVES, ""),
     "app/domain/engines/crop_rotation_validator.py:CropRotationValidator.validate_planting": (
         _LISTED,
         _ROTATION_REASON,
@@ -225,6 +239,15 @@ def test_every_listed_reader_names_its_reason() -> None:
 def test_the_scan_is_not_vacuous(population) -> None:
     assert len(population) >= 25, len(population)
     assert sum(1 for v, _ in _READERS.values() if v == _RESOLVES) >= 15
+
+
+def test_the_plant_row_label_memo_resolves_under_the_tenant() -> None:
+    """``_row_labels`` counts as a tenant resolver only because its species resolver takes the tenant."""
+    rel, name = _ROW_LABEL_MEMO
+    tree = ast.parse((APP.parent / rel).read_text(encoding="utf-8"))
+    memo = next(node for qual, node in _function_nodes(rel, tree) if qual == f"{rel}:{name}")
+
+    assert _resolves(memo), f"{rel}:{name} no longer resolves the species under the tenant"
 
 
 # -- selftests: the guard can fail ------------------------------------------------------

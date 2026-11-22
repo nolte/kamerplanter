@@ -419,16 +419,13 @@ describe('PhaseDefinitionDetailPage', () => {
         items: [makePlantInstanceInPhase({ key: 'pi-42' })],
       };
       useDefinition(makeDefinition(), [], plants);
-      const user = userEvent.setup();
 
       renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
       const plantLink = await screen.findByTestId('plant-in-phase-row-pi-42');
-      await user.click(plantLink);
-
-      expect(mockNavigate).toHaveBeenCalledWith('/pflanzen/plant-instances/pi-42');
+      expect(plantLink.closest('a')).toHaveAttribute('href', '/pflanzen/plant-instances/pi-42');
     });
 
     it('displays plant location and slot in the table', async () => {
@@ -508,16 +505,13 @@ describe('PhaseDefinitionDetailPage', () => {
         makePhaseDefinitionSpecies({ key: 'sp-tomato', scientific_name: 'Solanum lycopersicum' }),
       ];
       useDefinition(makeDefinition(), [], { total: 0, items: [] }, species);
-      const user = userEvent.setup();
 
       renderAsAdmin(<PhaseDefinitionDetailPage />, {
         route: '/phasen/definitionen/def-1',
       });
 
       const speciesLink = await screen.findByTestId('species-in-phase-row-sp-tomato');
-      await user.click(speciesLink);
-
-      expect(mockNavigate).toHaveBeenCalledWith('/stammdaten/species/sp-tomato');
+      expect(speciesLink.closest('a')).toHaveAttribute('href', '/stammdaten/species/sp-tomato');
     });
 
     it('displays typical duration for each species in the phase', async () => {

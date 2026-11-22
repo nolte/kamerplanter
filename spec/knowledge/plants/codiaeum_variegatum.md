@@ -116,6 +116,22 @@
 | Boden-pH-Vorzug (soil pH preference) | 4.5–6.5 (sauer–schwach sauer; niedrigerer pH intensiviert Blattfärbung; harmonisiert mit §1.6/§2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Codiaeum variegatum var. pictum" (Position: Partial shade; „in good light but shaded from hot sun"; RHS-Eintrag auf Varietätsebene, ein Art-Eintrag wurde nicht gefunden), https://www.rhs.org.uk/plants/43307/codiaeum-variegatum-var-pictum-v/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -323,4 +339,5 @@ Codiaeum variegatum,"Croton;Wunderstrauch;Garden Croton;Joseph's Coat",Euphorbia
 8. [University of Wisconsin Horticulture — Croton, Codiaeum variegatum](https://hort.extension.wisc.edu/articles/croton-codiaeum-variegatum/) — Standort, Temperatur, Schädlinge
 9. [Koppert — Phytoseiulus persimilis](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) & [Neoseiulus cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) & [Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützlings-Ausbringraten, Etablierung
 10. [University of Minnesota IPM — Greenhouse Biological Control of Mites](https://pesticidecert.cfans.umn.edu/sites/pesticidecert.cfans.umn.edu/files/2022-07/2022_krischik_gh_mites.pdf) — Ausbringraten Raubmilben, Klimaansprüche
+11. [RHS — Codiaeum variegatum var. pictum](https://www.rhs.org.uk/plants/43307/codiaeum-variegatum-var-pictum-v/details) — Standort (Position: Partial shade; in good light but shaded from hot sun), Lichtanspruch
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

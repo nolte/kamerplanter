@@ -26,6 +26,10 @@ class WorkflowTemplate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     created_by: str = Field(default="", max_length=200)
+    #: The account that created the template (spec/privacy ``08`` §3.4, PRIV-E13): set by the server only,
+    #: never from a request body (PRIV-705). ``None`` until E13 stamps it; v0111 wrote an explicit
+    #: ``null`` on every older template of an active tenant. ``created_by`` stays the free-text label.
+    created_by_user_key: str | None = None
     version: str = Field(default="1.0", max_length=20)
     species_compatible: list[str] = Field(default_factory=list)
     growth_system: str | None = None
@@ -152,6 +156,15 @@ class Task(BaseModel):
     #: same ``(tenant_key, source)`` updates the existing task instead of
     #: creating a duplicate (idempotent machine creation, #1082 AC-3).
     external_ref: str | None = None
+    # ── REQ-053 §20.9 suggestion flag (migration M3, #2325) — orthogonal to ``origin`` ──
+    #: ``True`` for a task the system proposes (rotation hint, succession, phenology)
+    #: and the user has not accepted yet; ``False`` for every user-created and every
+    #: accepted task. Migration v0095 stamps ``False`` on the stored stock once; a row
+    #: imported later from an older archive may still lack it, so an AQL reader
+    #: filters null-safe (``t.suggested != true``), never ``== false``.
+    suggested: bool = False
+    #: Why the system proposed it (short, user-facing); ``None`` unless ``suggested``.
+    suggestion_reason: str | None = None
     entity_key: str | None = None
     entity_type: str | None = None
     # Watering/feeding tasks are scoped to a planting run rather than a single
@@ -178,6 +191,10 @@ class Task(BaseModel):
     checklist: list[ChecklistItem] = Field(default_factory=list)
     assigned_to_user_key: str | None = None
     recurrence_rule: str | None = None
+    #: A legacy rule that is neither an RRULE nor a losslessly convertible cron line, parked
+    #: unchanged by migration v0097 (#2346); ``recurrence_rule`` is then ``None``. Never written
+    #: by the API; the owner sets an RRULE to resume recurrence.
+    recurrence_rule_unconvertible: str | None = None
     recurrence_end_date: datetime | None = None
     parent_recurring_task_key: str | None = None
     trigger_phase: str | None = None
@@ -186,6 +203,12 @@ class Task(BaseModel):
     reopened_from_status: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    #: The id of the buffered write that completed this task (REQ-053 WP 9.3), unique per tenant (sparse index,
+    #: v0106). It stays after a reopen: a late replay of that completion answers the task as it is instead of
+    #: closing it again over the user's undo. A later completion with an id of its own replaces it.
+    completion_client_event_id: str | None = None
+    #: The digest of the completion request (:func:`~app.domain.models.client_event.client_event_digest`).
+    completion_client_event_digest: str | None = None
     activity_key: str | None = None
     template_key: str | None = None
     workflow_execution_key: str | None = None

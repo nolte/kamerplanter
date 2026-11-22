@@ -47,7 +47,7 @@ describe('plantingRunsSlice', () => {
 
   it('fetchPlantingRuns.rejected stores the error', () => {
     const state = reducer(undefined, { type: fetchPlantingRuns.rejected.type, error: { message: 'fail' } });
-    expect(state.error).toBe('fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchPlantingRuns.rejected falls back to a default message', () => {
@@ -81,7 +81,7 @@ describe('plantingRunsSlice thunks', () => {
     mocked.listPlantingRuns.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchPlantingRuns({}));
-    expect(store.getState().plantingRuns.error).toBe('load failed');
+    expect(store.getState().plantingRuns.error).toBe('errors.loadFailed');
   });
 
   it('fetchPlantingRun calls getPlantingRun and stores the selection', async () => {

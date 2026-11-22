@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { visuallyHidden } from '@mui/utils';
 import Backdrop from '@mui/material/Backdrop';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,6 +33,16 @@ export default function KioskTimeoutOverlay({
   onContinue,
 }: KioskTimeoutOverlayProps) {
   const { t } = useTranslation();
+
+  // The visible countdown ticks every second; announcing every tick (the former `aria-live="assertive"` on
+  // it) made a screen reader talk without pause and drowned out the button (#3017, W-07). The opening of
+  // the alertdialog already reads the countdown through `aria-describedby`; after that only every tenth
+  // second and the final five are spoken, politely.
+  const [spokenSeconds, setSpokenSeconds] = useState<number | null>(null);
+  const isMilestone = remainingSeconds % 10 === 0 || remainingSeconds === 5;
+  if (open && isMilestone && spokenSeconds !== remainingSeconds) {
+    setSpokenSeconds(remainingSeconds);
+  }
 
   return (
     <Modal
@@ -73,9 +85,12 @@ export default function KioskTimeoutOverlay({
         <Typography id="kiosk-timeout-title" variant="h3" component="h2" sx={{ fontWeight: 700 }}>
           {t('pages.kiosk.timeout.title')}
         </Typography>
-        <Typography id="kiosk-timeout-desc" variant="h5" component="p" aria-live="assertive">
+        <Typography id="kiosk-timeout-desc" variant="h5" component="p">
           {t('pages.kiosk.timeout.countdown', { seconds: remainingSeconds })}
         </Typography>
+        <Box role="status" aria-live="polite" sx={visuallyHidden} data-testid="kiosk-timeout-announcement">
+          {spokenSeconds !== null ? t('pages.kiosk.timeout.countdown', { seconds: spokenSeconds }) : ''}
+        </Box>
         <Button
           variant="contained"
           size="large"

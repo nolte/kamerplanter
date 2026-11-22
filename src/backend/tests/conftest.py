@@ -76,8 +76,10 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
     Deselected, not skipped: a skip would count against every tier's
     ``--max-skipped`` floor, and a deselection is reported as such. A hook rather
-    than ``-m``: the required guards lane already passes ``-m 'not advisory'``, and a
-    second ``-m`` in ``addopts`` would be overridden by it, silently.
+    than ``-m`` in ``addopts``: any ``-m`` on a command line overrides the one in
+    ``addopts``, silently — the required guards lane passed ``-m 'not advisory'``
+    until #1683 promoted those files (2026-11-22), and the next lane to pass one
+    would drop the deselection without a word.
     """
     if config.getoption("--lane-inputs-drift"):
         return
@@ -214,7 +216,6 @@ def sample_location_data():
         "area_m2": 4.0,
         "light_type": "led",
         "irrigation_system": "drip",
-        "dimensions": (2.0, 2.0, 2.0),
     }
 
 

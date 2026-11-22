@@ -1,5 +1,6 @@
 import client from '../client';
 import type {
+  CommonNamesI18n,
   PhaseDefinition,
   PhaseDefinitionCreate,
   PhaseDefinitionSpecies,
@@ -131,10 +132,16 @@ export async function clonePhaseSequence(
   return data;
 }
 
-export async function listSpeciesForSequence(
-  key: string,
-): Promise<{ key: string; scientific_name: string; common_names: string[] }[]> {
-  const { data } = await client.get<{ key: string; scientific_name: string; common_names: string[] }[]>(
+/** A species bound to a phase sequence (GET /phase-sequences/{key}/species). */
+export interface PhaseSequenceSpecies {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  common_names_i18n?: CommonNamesI18n;
+}
+
+export async function listSpeciesForSequence(key: string): Promise<PhaseSequenceSpecies[]> {
+  const { data } = await client.get<PhaseSequenceSpecies[]>(
     `/phase-sequences/${key}/species`,
   );
   return data;

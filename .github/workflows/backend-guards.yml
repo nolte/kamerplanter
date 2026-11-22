@@ -106,8 +106,9 @@ jobs:
   # WRONG for this job, and the difference is the input set.
   #
   # MEASURED 2026-09-20 on this tree (a `sys.addaudithook` over `open`, around
-  # `pytest tests/unit/api tests/unit/guards`). The read set of THIS job is not
-  # yet recorded under `.github/lane-inputs/` (#1683): the `strace` recorder
+  # `pytest tests/unit/api tests/unit/guards`). At that date the read set of
+  # THIS job was not yet recorded under `.github/lane-inputs/` (#1683; it is
+  # now, see "RE-MEASURED" below): the `strace` recorder
   # (`scripts/ci/lane_inputs.py`, #1596) refuses a red run, and on a workstation
   # this job's `--max-skipped 0` trips on the hash-verification falsifiers that
   # skip without the pinned uv or without `CI` set. The manifest is recorded in
@@ -147,6 +148,30 @@ jobs:
   #
   # "No" is the finding, not a deferral. Re-open it only with a new measurement
   # of the input set, not with a new opinion about it.
+  #
+  # RE-MEASURED 2026-11-17 FOR #2581, this time against the CI-recorded
+  # manifest (.github/lane-inputs/backend-guards--guards.yaml, recorded
+  # 2026-11-16 at a5203ae05). Its `reads` cover 6879 of the 6881 files tracked
+  # at c3535bd1f, the base of #2581 (unread: the recorder's own marker plugin
+  # `scripts/ci/lane_inputs_pytest/lane_inputs_markers.py`, and
+  # `test_nginx_security_headers_parity.py`, added after the recording) and
+  # list 520 of the 521 tracked directories (missing: only
+  # `scripts/ci/lane_inputs_pytest/`). Reproduce from the checkout root:
+  #
+  #   git ls-files | python3 -c "import sys, yaml; t = set(sys.stdin.read().split()); \
+  #     r = set(yaml.safe_load(open('.github/lane-inputs/backend-guards--guards.yaml'))['reads']); \
+  #     d = {'/'.join(p.split('/')[:i]) + '/' for p in t for i in range(1, p.count('/') + 1)}; \
+  #     print(len(t & r), len(t), len(d & r), len(d), sorted(t - r), sorted(d - r))"
+  #
+  # Under the coverage rule of `test_lane_filters_cover_measured_inputs.py` (a
+  # listed directory counts as covered only if the filter selects a file ADDED
+  # there), the filter derived from this manifest selects every path a pull
+  # request can touch — it is `'**'`, i.e. no gate. And the job could not take
+  # one anyway: `backend--lint-test.yaml` delegates 34 `accepted_gaps` here
+  # (`covered_by: backend-guards.yml/guards`), and that guard's
+  # `_delegation_findings` refuses a delegate whose job has a paths-filter
+  # step. The job stays ungated; re-open only if a guard narrows its
+  # whole-tree reads.
   #
   # BECAUSE THIS LANE IS UNFILTERED, OTHER LANES DELEGATE TO IT (#1596).
   # `backend.yml`'s `lint-test` job runs the whole unit tier, which contains the
@@ -211,15 +236,15 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -243,17 +268,24 @@ jobs:
         # would leave the required lane green. The failure names every skip
         # reason; raising the number belongs in the commit that justifies it.
         #
-        # `-m 'not advisory'` deselects the guards not promoted to this lane —
-        # today exactly `test_lane_filters_cover_measured_inputs.py` (#1596);
-        # promoting it is #1683's decision. Its rules that hold the committed
-        # manifests against the live workflows need a recording and run in NO
-        # pull-request lane (#1794): tests/conftest.py deselects the
-        # `lane_inputs_drift` marker unless `--lane-inputs-drift` is given, which
-        # only lane-inputs.yml (weekly/dispatch on develop) passes. The rest of the
-        # file runs in `task test:backend:unit` (`pytest tests/unit/`). The markers
-        # are registered in pyproject.toml; `grep -rn "mark.advisory" tests/` names
-        # every file the flag excludes. Deselected is not skipped: `--max-skipped 0`
-        # still counts every skip.
+        # THE LANE-INPUT GUARDS RUN HERE SINCE 2026-11-22 (#1683). Until then
+        # `-m 'not advisory'` deselected the two files carrying that marker —
+        # test_lane_filters_cover_measured_inputs.py (#1596) and
+        # test_record_legs_provide_the_measured_jobs_environment.py — and both ran
+        # only in the advisory unit tier of backend.yml. PROMOTED ON MEASURED
+        # HISTORY (NFR-018 §4): the last 200 develop runs of backend.yml since
+        # 2026-11-02 were 183 success, 6 failure, 11 cancelled, and the log of
+        # every failure was searched — none came from either file. With no file
+        # left on it, the marker and the `-m` are gone. What still stays out of
+        # this lane: the rules that hold the committed manifests against the live
+        # workflows need a recording and run in NO pull-request lane (#1794) —
+        # they drifted every week for six weeks (bot pull requests #2459, #2554,
+        # #2633, #2837, #2988, #3031), which would block feature pull requests.
+        # tests/conftest.py deselects the `lane_inputs_drift` marker unless
+        # `--lane-inputs-drift` is given, which only lane-inputs.yml
+        # (weekly/dispatch on develop) passes; test_lane_inputs_drift_runs_only_in_its_lane.py
+        # holds both halves. Deselected is not skipped: `--max-skipped 0` still
+        # counts every skip.
         #
         # THE NAMED FILES AFTER THE TWO DIRECTORIES (#1741) are the tests of the
         # unit, contract and API tiers that read the frontend tree or the e2e
@@ -273,6 +305,14 @@ jobs:
         # longer starts. Such a break surfaces on the next backend pull request or
         # the Monday backend.yml schedule. Holding the reader, not only the path,
         # is #1749.
+        #
+        # tests/unit/test_reach_garden_plan_helpers.py (#2448) reads the reach probe
+        # project/reach-probes/endpoint-sites-plan-read-model-answers.yml, a path
+        # backend.yml's filter leaves to this lane (`project/**`, covered_by in
+        # .github/lane-inputs/backend--lint-test.yaml). #1749 holds the READER, so
+        # the module runs here (twelve tests, about a second) rather than the path
+        # moving into backend.yml's filter, which would start only the advisory
+        # full suite and no required check (lane-inputs run 41237292582).
         run: >-
           pytest tests/unit/api tests/unit/guards
           tests/unit/test_seed_catalogue_page_size_check.py
@@ -283,11 +323,12 @@ jobs:
           tests/unit/test_e2e_seed_log_redaction.py
           tests/unit/test_e2e_tc_id_scope.py
           tests/unit/test_gherkin_line_classification.py
+          tests/unit/test_reach_garden_plan_helpers.py
           tests/contracts/test_plant_property_enum_sync.py
           tests/contracts/test_dashboard_widgets_contract.py
           tests/contracts/test_notification_channels_contract.py
           tests/api/test_notification_act_role_gate.py
-          -q --max-skipped 0 -m 'not advisory'
+          -q --max-skipped 0
 
   # THE SECOND REQUIRED CHECK IN THIS LANE, AND WHY A 2–3-MINUTE JOB WITH A
   # SERVICE CONTAINER SITS IN THE "FAST" LANE (#1432).
@@ -356,7 +397,7 @@ jobs:
         # comment here: that belongs to the custom regex manager for image
         # strings in workflow `env:` values, and adding one would claim a
         # mechanism that is not the one doing the work.
-        image: arangodb:3.12@sha256:4bc086d5050ca7ea11c6d00a36d8b910c838bb54ad553f8c1b715769d3499bcf
+        image: arangodb:3.12@sha256:e48adfc58986a10e0316aa23ccae95ca580d880a41c76a8f0df68f9c29b470f2
         env:
           # A throwaway root password for a container that lives for one job and
           # is reachable from nothing else. It matches the tier's default so the
@@ -382,7 +423,7 @@ jobs:
         # service of THIS job and not a second job, so the required context
         # `Integration tests (ArangoDB)` keeps one runner slot and one queue
         # wait (see the relevance step below).
-        image: timescale/timescaledb:2.30.2-pg16@sha256:6f139d56042989bd35f50ba5986e492cd32e35cc6778c50be2659add298dc09f
+        image: timescale/timescaledb:2.32.0-pg16@sha256:2f87efeaec6fbdd3ba4a6993b921c05d069cd8e980792cb23c7c5f32a6fe68a7
         credentials:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -593,9 +634,9 @@ jobs:
 
       - name: Setup Python
         if: env.RUN_INTEGRATION == 'true'
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Set up Task
@@ -622,7 +663,7 @@ jobs:
         # The cache key is src/backend/uv.lock rather than the action's default
         # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
         # five locks, and four of them have nothing to do with this job.
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true

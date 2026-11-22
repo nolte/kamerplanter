@@ -18,6 +18,7 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.tenant_erasure_executor import tenant_row_filter
 from app.domain.interfaces.tenant_export_store import (
     ITenantDataStore,
@@ -106,7 +107,7 @@ class ArangoTenantDataStore(ITenantDataStore):
         return str(level) if level is not None else None
 
     def tenant_document(self, tenant_key: str) -> dict[str, Any] | None:
-        doc = cast(dict[str, Any] | None, self._db.collection(col.TENANTS).get(tenant_key))
+        doc = get_document(self._db.collection(col.TENANTS), tenant_key)
         return dict(doc) if doc else None
 
     def _collections(self) -> list[dict[str, Any]]:

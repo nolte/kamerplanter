@@ -4,16 +4,20 @@ from typing import Any, cast
 
 from arango.cursor import Cursor
 from arango.database import StandardDatabase
-from arango.exceptions import DocumentInsertError, DocumentUpdateError
+from arango.exceptions import AQLQueryExecuteError, DocumentInsertError, DocumentUpdateError
 
 from app.common.enums import ReminderType, TaskCategory, TaskStatus
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, WriteConflictError
 from app.common.types import TaskKey, WorkflowExecutionKey, WorkflowTemplateKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.client_event_tombstones import record_tombstone, tombstoned_ids
+from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.query_builder import aql_field
-from app.data_access.arango.tenant_scope import tenant_union_predicate
+from app.data_access.arango.tenant_scope import readable_or_null, tenant_union_predicate
+from app.data_access.arango.transactions import StreamTransaction, stream_transaction
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import (
     Task,
     TaskAuditEntry,
@@ -30,6 +34,17 @@ ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
     "location": col.LOCATIONS,
     "tank": col.TANKS,
 }
+
+#: Entity types a **task** may hang off but a workflow execution may not (REQ-053 §20.9, K-5). Kept apart from
+#: :data:`ENTITY_TYPE_TO_COLLECTION` because that map doubles as the closed
+#: :class:`~app.common.enums.WorkflowTargetType` set (``wf_executing`` edge), and a garden object is never a workflow
+#: target. A plain string allowlist, not an enum: ``Task.entity_type`` stays a free string (Enum-Retirement trap).
+TASK_ONLY_ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {
+    "garden_object": col.GARDEN_OBJECTS,
+}
+
+#: The full set a task's ``has_task`` edge can start from; the entity guard verifies exactly this set.
+TASK_ENTITY_TYPE_TO_COLLECTION: dict[str, str] = {**ENTITY_TYPE_TO_COLLECTION, **TASK_ONLY_ENTITY_TYPE_TO_COLLECTION}
 
 
 #: The owner of a ``WorkflowExecution`` (bound to ``we``), as AQL ``LET``\ s.
@@ -62,6 +77,46 @@ _EXECUTION_OWNER = f"""
             : (tank != null ? tank.tenant_key
             : (run_doc != null ? run_doc.tenant_key
             : (loc_site != null ? loc_site.tenant_key : null)))
+"""
+
+#: The species ``stored_sp`` a row names by a stored key, when ``@tenant_key`` may read it (own, global or granted),
+#: else ``null``: a key on a row is not proof of read access (#1963, #2082).
+_READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_sp")
+
+#: The name fields of the species ``sp`` a row projection joined, for :func:`_pop_species_display_name`. The query
+#: only carries them; the display rule (#2902) is applied once, in Python - not re-spelled per query in AQL.
+_SPECIES_NAME_FIELDS = (
+    "sp_found: sp != null, "
+    "sp_common_names: sp != null ? sp.common_names : null, "
+    "sp_common_names_i18n: sp != null ? sp.common_names_i18n : null, "
+    "sp_scientific_name: sp != null ? sp.scientific_name : null"
+)
+_SPECIES_NAME_KEYS = ("sp_found", "sp_common_names", "sp_common_names_i18n", "sp_scientific_name")
+
+
+def _pop_species_display_name(row: dict[str, Any], language: str) -> str:
+    """Take the :data:`_SPECIES_NAME_FIELDS` off ``row`` and return the species' display name ('' without a species).
+
+    In ``language``, the request's (#2902).
+    """
+    name = (
+        localized_common_name(row["sp_common_names"], row["sp_common_names_i18n"], row["sp_scientific_name"], language)
+        if row["sp_found"]
+        else ""
+    )
+    for field in _SPECIES_NAME_KEYS:
+        del row[field]
+    return name
+
+
+#: The tasks buffered completions closed (REQ-053 WP 9.3), one query for a whole batch. ``SORT`` keeps the answer
+#: deterministic on a volume where v0106 could not create the unique index (two rows under one id).
+_TASKS_BY_COMPLETION_CLIENT_IDS = """
+FOR t IN @@tasks
+    FILTER t.tenant_key == @tenant_key AND t.completion_client_event_id IN @client_event_ids
+    SORT t._key
+    LIMIT @limit
+    RETURN t
 """
 
 
@@ -213,7 +268,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         count_vars = dict(bind_vars)
         bind_vars["offset"] = offset
         bind_vars["limit"] = limit
-        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
         items = [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
         if not count:
             return items, None
@@ -243,8 +298,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [WorkflowTemplate(**self._from_doc(doc)) for doc in cursor]
 
     def get_workflow_template_by_key(self, key: WorkflowTemplateKey) -> WorkflowTemplate | None:
-        coll = self._db.collection(col.WORKFLOW_TEMPLATES)
-        doc = coll.get(key)
+        doc = get_document(self._db.collection(col.WORKFLOW_TEMPLATES), key)
         return WorkflowTemplate(**self._from_doc(doc)) if doc else None
 
     def get_workflow_template_or_raise(self, key: WorkflowTemplateKey) -> WorkflowTemplate:
@@ -329,7 +383,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [WorkflowPhase(**self._from_doc(doc)) for doc in cursor]
 
     def get_phase_by_key(self, key: str) -> WorkflowPhase | None:
-        doc = self._db.collection(col.WORKFLOW_PHASES).get(key)
+        doc = get_document(self._db.collection(col.WORKFLOW_PHASES), key)
         return WorkflowPhase(**self._from_doc(doc)) if doc else None
 
     def get_phase_or_raise(self, key: str) -> WorkflowPhase:
@@ -382,7 +436,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         for item in phase_orders:
             coll.update({"_key": item["key"], "phase_order": item["phase_order"], "updated_at": now})
         if phase_orders:
-            first = coll.get(phase_orders[0]["key"])
+            first = get_document(coll, phase_orders[0]["key"])
             if first:
                 wf_key = first.get("workflow_template_key", "")
                 return self.get_phases_for_workflow(wf_key)
@@ -425,7 +479,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [TaskTemplate(**self._from_doc(doc)) for doc in cursor]
 
     def get_task_template_by_key(self, key: str) -> TaskTemplate | None:
-        doc = self._db.collection(col.TASK_TEMPLATES).get(key)
+        doc = get_document(self._db.collection(col.TASK_TEMPLATES), key)
         return TaskTemplate(**self._from_doc(doc)) if doc else None
 
     def get_task_template_or_raise(self, key: str) -> TaskTemplate:
@@ -587,7 +641,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         entity_key = None
         target_type = None
         if task.entity_key and task.entity_type:
-            entity_collection = ENTITY_TYPE_TO_COLLECTION.get(task.entity_type)
+            entity_collection = TASK_ENTITY_TYPE_TO_COLLECTION.get(task.entity_type)
             entity_key = task.entity_key
             target_type = task.entity_type
 
@@ -644,21 +698,98 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         doc = next(cursor, None)
         return Task(**self._from_doc(doc)) if doc else None
 
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[Task]:
+        """Served by the unique ``(tenant_key, completion_client_event_id)`` index (v0106); tenant-anchored, bounded."""
+        self._require_tenant_key(tenant_key, "find_tasks_by_completion_client_event_ids")
+        if not client_event_ids:
+            return []
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                _TASKS_BY_COMPLETION_CLIENT_IDS,
+                bind_vars=cast(
+                    "dict[str, Any]",
+                    {
+                        "@tasks": col.TASKS,
+                        "tenant_key": tenant_key,
+                        "client_event_ids": list(client_event_ids),
+                        "limit": len(client_event_ids),
+                    },
+                ),
+            ),
+        )
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        self._require_tenant_key(tenant_key, "client_event_tombstones")
+        return tombstoned_ids(self._db, client_event_ids, tenant_key=tenant_key)
+
     def update_task(self, key: TaskKey, task: Task) -> Task:
         return super().update(key, task)
 
+    def resolve_suggestion(
+        self,
+        key: TaskKey,
+        *,
+        tenant_key: str,
+        changes: dict[str, Any],
+        open_statuses: Sequence[str] | None = None,
+    ) -> Task | None:
+        self._require_tenant_key(tenant_key, "resolve_suggestion")
+        if not changes:
+            raise ValueError("resolve_suggestion needs at least one field to write.")
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            "FILTER doc._key == @key AND doc.tenant_key == @tenant_key AND doc.suggested == true "
+            "FILTER @open_statuses == null OR doc.status IN @open_statuses "
+            f"UPDATE doc WITH MERGE(@changes, {{ updated_at: @now }}) IN {col.TASKS} "
+            "OPTIONS { keepNull: true, mergeObjects: false } "
+            "RETURN NEW"
+        )
+        bind_vars: dict[str, Any] = {
+            "key": key,
+            "tenant_key": tenant_key,
+            # System attributes never ride along: ``_key``/``_id``/``_rev`` of the caller cannot redirect the write.
+            "changes": {name: value for name, value in changes.items() if not name.startswith("_")},
+            "open_statuses": list(open_statuses) if open_statuses is not None else None,
+            "now": self._now(),
+        }
+        try:
+            cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == 1200:  # write-write conflict: another writer held the task
+                raise WriteConflictError(col.TASKS, "the task was changed at the same time") from exc
+            raise
+        doc = next(iter(cursor), None)
+        return Task(**self._from_doc(doc)) if doc else None
+
+    def clear_parked_recurrence(self, key: TaskKey) -> None:
+        # ``keep_none=False`` removes an attribute set to ``null``; the field is no model field, so no other writer
+        # of the task touches it. Absent attribute: the update is a no-op apart from the unchanged document.
+        self.collection.update({"_key": key, "recurrence_rule_unconvertible": None}, keep_none=False)
+
     def delete_task(self, key: TaskKey) -> bool:
         task_id = f"{col.TASKS}/{key}"
+        # A task a buffered completion closed leaves a tombstone, so a late replay does not report it done (WP 9.3).
+        stored = get_document(self.collection, key)
         # Cascade-delete comments and audit entries for this task
         self.delete_comments_for_task(key)
         self._delete_audit_entries_for_task(key)
         # Delete outbound edges (instance_of, task_blocks from this task)
-        for edge_col in [col.INSTANCE_OF, col.TASK_BLOCKS]:
+        for edge_col in [col.INSTANCE_OF, col.TASK_BLOCKS, col.TASK_CLONED_FROM]:
             self.delete_edges(edge_col, task_id)
-        # Delete inbound edges (has_task, wf_generated, task_blocks to this task)
-        for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS]:
+        # Delete inbound edges (has_task, wf_generated, task_blocks, task_cloned_from to this task)
+        for edge_col in [col.HAS_TASK, col.WF_GENERATED, col.TASK_BLOCKS, col.TASK_CLONED_FROM]:
             self.delete_edges(edge_col, task_id, direction="inbound")
-        return super().delete(key)
+        deleted = super().delete(key)
+        if deleted and stored and stored.get("completion_client_event_id"):
+            record_tombstone(
+                self._db,
+                tenant_key=str(stored.get("tenant_key") or ""),
+                client_event_id=str(stored["completion_client_event_id"]),
+                kind="task_completion",
+            )
+        return deleted
 
     def clear_assignee(self, *, tenant_key: str, user_key: str) -> int:
         """Unassign *user_key* from every task of *tenant_key* (#2114); the count of tasks changed."""
@@ -812,6 +943,106 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         if category:
             filters["category"] = category
         return self.get_all_tasks(offset, limit, filters, tenant_key=tenant_key, origins=origins)
+
+    def get_pending_tasks_in_locations(
+        self,
+        location_keys: Sequence[str],
+        limit: int,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """Pending tasks bound to one of ``location_keys`` or to a plant standing in one (GP-FR-080, GP-API-030).
+
+        The same two bindings the plan's badge counter adds up (``garden_plan_repository._task_counters``). The list
+        differs from the badge in two deliberate ways: it is the queue's ``pending`` set (a started task is not in
+        ``/tasks/queue`` either) and it keeps suggestions, which the care tab shows in a section of their own
+        (GP-FR-086) while the badge does not count them. The keys are the caller's already-verified subtree;
+        the tenant predicate is still in the query, and a removed plant's task does not surface.
+        An empty ``location_keys`` matches nothing (never "no filter").
+        """
+        self._require_tenant_key(tenant_key, "get_pending_tasks_in_locations")
+        if not location_keys:
+            return []
+        query = (
+            f"FOR doc IN {col.TASKS} "
+            "FILTER doc.tenant_key == @tenant_key AND doc.status == 'pending' "
+            "LET _plant = doc.entity_type == 'plant_instance' "
+            f"? DOCUMENT(CONCAT('{col.PLANT_INSTANCES}/', doc.entity_key)) : null "
+            "FILTER (doc.entity_type == 'location' AND doc.entity_key IN @location_keys) "
+            "OR (_plant != null AND _plant.tenant_key == @tenant_key AND _plant.removed_on == null "
+            "AND _plant.location_key IN @location_keys)"
+        )
+        bind_vars: dict[str, Any] = {"tenant_key": tenant_key, "location_keys": list(location_keys)}
+        if category:
+            query += " FILTER doc.category == @category"
+            bind_vars["category"] = category
+        if origins is not None:
+            query += " FILTER doc.origin IN @origins"
+            bind_vars["origins"] = list(origins)
+        query += " SORT DATE_TIMESTAMP(doc.due_date) ASC, doc._key ASC LIMIT @limit RETURN doc"
+        bind_vars["limit"] = limit
+        cursor = self._db.aql.execute(query, bind_vars=bind_vars)
+        return [Task(**self._from_doc(doc)) for doc in cursor]
+
+    def get_clone_entity_keys(self, source_key: str, *, tenant_key: str) -> set[str]:
+        """The entities that already hold a clone of ``source_key`` (``task_cloned_from``), inside ``tenant_key``."""
+        self._require_tenant_key(tenant_key, "get_clone_entity_keys")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"FOR e IN {col.TASK_CLONED_FROM} FILTER e._to == @source "
+                "LET clone = DOCUMENT(e._from) "
+                "FILTER clone != null AND clone.tenant_key == @tenant_key AND clone.entity_key != null "
+                "RETURN DISTINCT clone.entity_key",
+                bind_vars={"source": f"{col.TASKS}/{source_key}", "tenant_key": tenant_key},
+            ),
+        )
+        return {str(key) for key in cursor}
+
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        """Record that ``clone_key`` was cloned from ``source_key`` (``task_cloned_from``, clone → source)."""
+        self.create_edge(col.TASK_CLONED_FROM, f"{col.TASKS}/{clone_key}", f"{col.TASKS}/{source_key}")
+
+    def create_tasks_atomic(self, tasks: Sequence[Task], *, tenant_key: str) -> list[Task]:
+        """The tasks with their ``has_task`` and ``instance_of`` edges in one stream transaction (#2462): all, or none.
+
+        ``instance_of`` (task → task template) is written for a task that names its template, as
+        :meth:`create_task` does: the tasks a bed template brings (GP-FR-087, #2897) keep the same link to their
+        template as the tasks of a workflow run.
+        """
+        self._require_tenant_key(tenant_key, "create_tasks_atomic")
+        if any(task.tenant_key != tenant_key for task in tasks):
+            raise ValueError("create_tasks_atomic writes only tasks of the given tenant.")
+        with stream_transaction(self._db, write=(col.TASKS, col.HAS_TASK, col.INSTANCE_OF), entity="task") as txn:
+            stored_docs = [self._insert_in(txn, task) for task in tasks]
+        return [self.wrap_document(doc) for doc in stored_docs]
+
+    def _insert_in(self, txn: StreamTransaction, task: Task) -> dict[str, Any]:
+        """One task and its edges inside the transaction; the stored task document."""
+        txn.check_budget()
+        stored: dict[str, Any] = txn.collection(col.TASKS).insert(self.insert_payload(task), return_new=True)["new"]
+        task_id = f"{col.TASKS}/{stored['_key']}"
+        entity_type = task.entity_type or ""
+        if task.entity_key and entity_type in TASK_ENTITY_TYPE_TO_COLLECTION:
+            txn.collection(col.HAS_TASK).insert(
+                {
+                    "_from": f"{TASK_ENTITY_TYPE_TO_COLLECTION[entity_type]}/{task.entity_key}",
+                    "_to": task_id,
+                    "created_at": stored["created_at"],
+                    "target_type": entity_type,
+                }
+            )
+        if task.template_key:
+            txn.collection(col.INSTANCE_OF).insert(
+                {
+                    "_from": task_id,
+                    "_to": f"{col.TASK_TEMPLATES}/{task.template_key}",
+                    "created_at": stored["created_at"],
+                }
+            )
+        return stored
 
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]:
         """Overdue tasks **of one tenant** (#927, found alongside the five).
@@ -1157,7 +1388,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         return [TaskComment(**self._from_doc(doc)) for doc in cursor]
 
     def get_comment_by_key(self, key: str) -> TaskComment | None:
-        doc = self._db.collection(col.TASK_COMMENTS).get(key)
+        doc = get_document(self._db.collection(col.TASK_COMMENTS), key)
         return TaskComment(**self._from_doc(doc)) if doc else None
 
     def get_comment_or_raise(self, key: str) -> TaskComment:
@@ -1339,12 +1570,17 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         self._db.aql.execute(delete_query, bind_vars={"key": wf_key})
         return count
 
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]:
-        """Return species_name and the tenant's assigned entity count per workflow key.
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> dict[str, dict]:
+        """Return species_name (in ``language``, #2902) and the tenant's assigned entity count per workflow key.
 
         A system template is shared, its tasks are not: counted over every tenant,
         ``entity_count`` told each tenant how many entities *all* tenants ran the
         template on (#1708). Only ``tenant_key``'s tasks count.
+
+        The template's species is named only when the tenant may read it: a template may
+        carry a stored key to another tenant's private species (#1963).
         """
         self._require_tenant_key(tenant_key, "get_workflow_usage_stats")
         if not wf_keys:
@@ -1352,12 +1588,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
         query = f"""
         FOR wf_key IN @wf_keys
           LET wf = DOCUMENT(CONCAT('{col.WORKFLOW_TEMPLATES}/', wf_key))
-          LET sp = wf.species_key != null
+          LET stored_sp = wf.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', wf.species_key))
             : null
-          LET species_name = sp != null
-            ? (LENGTH(sp.common_names) > 0 ? sp.common_names[0] : sp.scientific_name)
-            : ''
+          LET sp = {_READABLE_STORED_SPECIES}
           LET tt_keys = (
             FOR tt IN {col.TASK_TEMPLATES}
               FILTER tt.workflow_template_key == wf_key
@@ -1369,18 +1603,33 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
               FILTER t.tenant_key == @tenant_key
               RETURN DISTINCT t.entity_key
           )
-          RETURN {{ wf_key: wf_key, species_name: species_name, entity_count: LENGTH(entity_keys) }}
+          RETURN {{
+            wf_key: wf_key,
+            {_SPECIES_NAME_FIELDS},
+            entity_count: LENGTH(entity_keys)
+          }}
         """
         cursor = self._db.aql.execute(query, bind_vars={"wf_keys": wf_keys, "tenant_key": tenant_key})
         result: dict[str, dict] = {}
         for row in cursor:
-            result[row["wf_key"]] = {"species_name": row["species_name"], "entity_count": row["entity_count"]}
+            result[row["wf_key"]] = {
+                "species_name": _pop_species_display_name(row, language),
+                "entity_count": row["entity_count"],
+            }
         return result
 
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self,
+        template_key: str,
+        *,
+        tenant_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[dict]:
         """Return ``tenant_key``'s executions of a template, newest first, with enriched entity info.
+
+        ``species_name`` is the plant's species display name in ``language`` (#2902).
 
         ``WorkflowExecution`` carries no ``tenant_key``; it belongs to the entity
         it runs on. A shared system template is readable by every tenant, so
@@ -1409,12 +1658,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           FILTER owner == @tenant_key
           SORT DATE_TIMESTAMP(we.created_at) DESC, we._key DESC
           LIMIT @offset, @limit
-          LET sp = plant != null AND plant.species_key != null
+          LET stored_sp = plant != null AND plant.species_key != null
             ? DOCUMENT(CONCAT('{col.SPECIES}/', plant.species_key))
             : null
-          LET species_name = sp != null
-            ? (LENGTH(sp.common_names) > 0 ? sp.common_names[0] : sp.scientific_name)
-            : ''
+          LET sp = {_READABLE_STORED_SPECIES}
           LET entity_name = plant != null
             ? (plant.plant_name || plant.instance_id || ekey)
             : (loc != null ? loc.name : (tank != null ? tank.name : (run_doc != null ? run_doc.name : ekey)))
@@ -1424,7 +1671,7 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
             entity_type: etype,
             entity_name: entity_name,
             plant_removed: plant != null AND plant.removed_on != null,
-            species_name: species_name,
+            {_SPECIES_NAME_FIELDS},
             completion_percentage: we.completion_percentage,
             on_schedule: we.on_schedule,
             started_at: we.started_at,
@@ -1432,7 +1679,10 @@ class ArangoTaskRepository(BaseArangoRepository[Task], ITaskRepository):
           }}
         """
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return list(cursor)
+        rows: list[dict[str, Any]] = list(cursor)
+        for row in rows:
+            row["species_name"] = _pop_species_display_name(row, language)
+        return rows
 
     # ── Dashboard counts (REQ-009) ──
 

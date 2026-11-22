@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +30,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as companionApi from '@/api/endpoints/companionPlanting';
 import type { CompatibleSpecies, IncompatibleSpecies } from '@/api/types';
-import { getPrimaryCommonName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 
 interface SpeciesCompanionTabProps {
@@ -49,7 +49,7 @@ export default function SpeciesCompanionTab({
   speciesName,
   fullScreen,
 }: SpeciesCompanionTabProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
 
@@ -57,6 +57,7 @@ export default function SpeciesCompanionTab({
   // asked for one page of 200 against 207 seeded species, and every filter here
   // runs client-side, so the seven that never arrived read as "no such species".
   const speciesCatalogue = useCatalogue('species');
+  const targetSpeciesSelectId = useId();
   const [compatible, setCompatible] = useState<CompatibleSpecies[]>([]);
   const [incompatible, setIncompatible] = useState<IncompatibleSpecies[]>([]);
   const [companionLoading, setCompanionLoading] = useState(false);
@@ -172,7 +173,7 @@ export default function SpeciesCompanionTab({
                 <List dense disablePadding>
                   {compatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (
@@ -248,7 +249,7 @@ export default function SpeciesCompanionTab({
                 <List dense disablePadding>
                   {incompatible.map((c) => {
                     const commonName =
-                      getPrimaryCommonName(c.common_names, c.scientific_name) ?? c.species_key;
+                      getLocalizedCommonName(c, i18n.language) ?? c.species_key;
                     const showScientific =
                       !!c.scientific_name && c.scientific_name !== commonName;
                     return (
@@ -309,8 +310,10 @@ export default function SpeciesCompanionTab({
         onClose={() => setCompanionDialogType(null)}
         maxWidth="sm"
         fullWidth
+        data-testid="species-companion-dialog"
+        aria-labelledby="species-companion-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="species-companion-dialog-title">
           {companionDialogType === 'compatible'
             ? t('pages.companionPlanting.addCompatible')
             : t('pages.companionPlanting.addIncompatible')}
@@ -331,6 +334,9 @@ export default function SpeciesCompanionTab({
             disabled={speciesCatalogue.status !== 'ready'}
             sx={{ mt: 1, mb: 2 }}
             data-testid="target-species-select"
+            // Lands on the `role="combobox"` trigger — the focus target after a
+            // catalogue retry (`CatalogueLoadError` below).
+            slotProps={{ select: { SelectDisplayProps: { id: targetSpeciesSelectId } } }}
           >
             {speciesCatalogue.items
               .filter((s) => s.key !== speciesKey)
@@ -343,7 +349,7 @@ export default function SpeciesCompanionTab({
           {/* A failed load is its own state, not an empty picker (#1628). */}
           <CatalogueLoadError
             reader={speciesCatalogue}
-            focusSelector="[data-testid='target-species-select'] [role='combobox']"
+            focusTargetId={targetSpeciesSelectId}
           />
           {companionDialogType === 'compatible' && (
             <TextField

@@ -27,6 +27,11 @@ YAMLs:
     flowering_strategy   species.yaml:lifecycle_overrides[<name>] / lifecycle_configs
     growth_determinacy   species.yaml:lifecycle_overrides[<name>] / lifecycle_configs
 
+Since #2857 the check also compares ``species.yaml:steckbrief_phase_photoperiods`` -- the light hours a Steckbrief
+states for the default phases of a species -- with the ``requirement_profiles.photoperiod_hours`` row under the cited
+``#### Phase:`` heading (:func:`find_phase_photoperiod_drifts`). There a missing Steckbrief row *is* a drift: the seed
+may carry no light hours the Steckbrief does not state (E-10).
+
 A comparison only fires when *both* sides carry a value. ``growth_determinacy``
 is wired but currently **latent**: no Steckbrief yet exposes the
 ``lifecycle_configs.growth_determinacy`` anchor (0/210), so the seed side is
@@ -454,6 +459,71 @@ def find_drifts(
     return drifts, unmatched
 
 
+#: The KA anchor of a Steckbrief phase's light hours (``requirement_profiles.photoperiod_hours``).
+_PHOTOPERIOD_ANCHOR = "requirement_profiles.photoperiod_hours"
+_PHASE_HEADING = re.compile(r"^\s*#{4}\s+Phase:\s*(?P<name>.+?)\s*$")
+_ANY_HEADING = re.compile(r"^\s*#")
+_FIRST_NUMBER = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _stated_phase_hours(steckbrief: Path, heading: str) -> str | None:
+    """The photoperiod-type figure of the light-hours row under ``#### Phase: <heading>``; ``None`` when absent.
+
+    The first number of the value cell is the figure for the photoperiod type ("18/6 (Photoperiod); 18-20
+    (Autoflower)" -> ``18``, "12/12" -> ``12``); the variants after it are not compared.
+    """
+    in_phase = False
+    lines: list[str] = steckbrief.read_text(encoding="utf-8").splitlines()
+    for line in lines:
+        match = _PHASE_HEADING.match(line)
+        if match is not None:
+            in_phase = match.group("name") == heading
+            continue
+        if in_phase and _ANY_HEADING.match(line):
+            in_phase = False
+        if not in_phase:
+            continue
+        cells = _row_cells(line)
+        if cells is None or len(cells) < 3 or f"`{_PHOTOPERIOD_ANCHOR}`" not in cells[2]:
+            continue
+        number = _FIRST_NUMBER.search(_HTML_COMMENT.sub("", cells[1]))
+        if number is None:
+            return None
+        figure: str = number.group(0)
+        return figure.replace(",", ".")
+    return None
+
+
+def find_phase_photoperiod_drifts(root: Path) -> list[Drift]:
+    """``species.yaml`` ``steckbrief_phase_photoperiods`` against the Steckbrief rows it cites (#2857).
+
+    Every listed phase must name a Steckbrief heading whose light-hours row states the same figure; a missing file,
+    heading or row is a drift too, so the seed can never carry hours the Steckbrief does not state (E-10).
+    """
+    species_yaml = _seed_dir(root) / "species.yaml"
+    block: dict[str, Any] = _load_yaml(species_yaml).get("steckbrief_phase_photoperiods") or {}
+    drifts: list[Drift] = []
+    for scientific_name, entry in block.items():
+        steckbrief: Path = _plants_dir(root) / str(entry["steckbrief"])
+        phases: dict[str, dict[str, Any]] = entry["phases"]
+        for phase_name, row in phases.items():
+            seed_value = f"{float(row['hours']):g}"
+            stated = _stated_phase_hours(steckbrief, str(row["steckbrief_phase"])) if steckbrief.is_file() else None
+            if stated is not None and f"{float(stated):g}" == seed_value:
+                continue
+            drifts += [
+                Drift(
+                    scientific_name=str(scientific_name),
+                    attribute=f"photoperiod_hours[{phase_name}]",
+                    steckbrief_value=f"{float(stated):g}" if stated is not None else "<no row>",
+                    seed_value=seed_value,
+                    steckbrief_file=steckbrief.name,
+                    seed_source="species.yaml:steckbrief_phase_photoperiods",
+                )
+            ]
+    return drifts
+
+
 def _allowlist_index() -> dict[tuple[str, str], AllowedDiscrepancy]:
     return {(_normalize_name(a.scientific_name), a.attribute): a for a in ALLOWED_DISCREPANCIES}
 
@@ -464,6 +534,7 @@ def check(root: Path | None = None) -> CheckResult:
     root = root or repo_root()
     seed = load_seed_attributes(_seed_dir(root))
     drifts, unmatched = find_drifts(_plants_dir(root), seed)
+    drifts += find_phase_photoperiod_drifts(root)
 
     allow = _allowlist_index()
     matched_keys: set[tuple[str, str]] = set()

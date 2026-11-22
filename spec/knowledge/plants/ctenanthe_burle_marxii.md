@@ -117,6 +117,22 @@
 **Hinweis:** Als Regenwald-Unterwuchsart (understory) ist *Ctenanthe burle-marxii* ausgesprochen schattentolerant (`shade`); echte Vollsonne (`full_sun`) verbrennt die Blätter. Der Lichtkompensationspunkt (light compensation point, Netto-Photosynthese = 0) liegt im für tropische Schatten-Herbarten typischen Bereich von 10–25 µmol/m²/s (allgemeiner Familien-/Funktionstyp-Wert, kein artspezifischer Messwert). Sättigungs- und Optimumwerte gehören NICHT in dieses Feld; die kulturelle PPFD-Empfehlung (80–250 µmol/m²/s, §2.2) liegt deutlich oberhalb des Kompensationspunkts. Marantaceen sind familienweit stark salzempfindlich (`sensitive`) und reagieren besonders auf Fluorid, Chlorid und harte Wassersalze mit Blattspitzennekrose — daher weiches, kalkarmes Wasser (§3.2/§4.1). Die ECe-Schwelle (Substrat-ECe nach Maas-Hoffman, NICHT Gießwasser-EC) ist konsistent mit der Klasse `sensitive` mit < 2 dS/m angesetzt, jedoch nicht artspezifisch belegt. Der Boden-pH-Vorzug von 5.6–6.5 (leicht sauer/acidic) ist quellentreu übernommen und überschneidet sich mit dem in §1.6/§2.3 genannten operativen Topf-pH-Korridor (6.0–7.0) im Band 6.0–6.5.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Ctenanthe burle-marxii" (Position: Partial shade; Aspect: West- oder East-facing; Innenkultur „bright, indirect light"), https://www.rhs.org.uk/plants/5026/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -324,4 +340,5 @@ Ctenanthe burle-marxii,"Fischgräten-Gebetsblume;Ctenanthe;Fishbone Prayer Plant
 17. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Schmierlaus-Nützling, Ausbringrate
 18. [Koppert — Neoseiulus (Amblyseius) cucumeris](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Thrips-Nützling, Ausbringrate 50–100/m²
 19. [Annals of Botany 2020 — PAR und R:FR unter Kronenschatten](https://academic.oup.com/aob/article/126/4/635/5650896) — R:FR im Unterwuchs (Far-Red-Fraction)
+20. [RHS — Ctenanthe burle-marxii](https://www.rhs.org.uk/plants/5026/wd/details) — Lichtanspruch (Position: Partial shade; Aspect: West- oder East-facing; Innenkultur bright, indirect light)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

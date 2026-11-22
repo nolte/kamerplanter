@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useForm, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
@@ -140,7 +141,7 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
     setError,
     setValue,
     formState: { isDirty },
-  } = useForm<FormData>({
+  } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: planToForm(plan),
   });
@@ -191,7 +192,8 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       open={open}
       onClose={saving ? undefined : onClose}
       fullScreen={fullScreen}
@@ -331,6 +333,6 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

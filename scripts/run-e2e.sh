@@ -44,6 +44,10 @@ export UID GID
 E2E_FERNET_KEY="$(python3 scripts/e2e_fernet_key.py)" || { echo "cannot provide E2E_FERNET_KEY" >&2; exit 2; }
 export E2E_FERNET_KEY
 if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::add-mask::$E2E_FERNET_KEY"; fi
+# The test image has no .git; the protocol header reads the commit and branch from here.
+E2E_GIT_SHA="${E2E_GIT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
+E2E_GIT_BRANCH="${E2E_GIT_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)}"
+export E2E_GIT_SHA E2E_GIT_BRANCH
 
 # Determine run mode
 PROFILE="light"
@@ -261,13 +265,14 @@ echo "Reports: $REPORT_DIR/"
 echo "  - logs/        Container logs (backend, frontend, selenium, ...)"
 echo "  - screenshots/ Selenium screenshots"
 echo "  - protokoll.md Test protocol"
-# The runner writes a single merged JUnit XML (xdist-aware) which the protocol
+# Each pytest pass writes one merged JUnit XML (xdist-aware) which the protocol
 # plugin relocates into the container report dir; the cp move above carries it
-# here. Surface it so CI consumers know where the machine-readable report is.
-JUNIT_FILE=$(find "$REPORT_DIR" -maxdepth 1 -type f -name "junit-*.xml" 2>/dev/null | head -1)
-if [ -n "$JUNIT_FILE" ]; then
+# here. The parallel profiles run two passes (tests/e2e/two_pass_entrypoint.sh,
+# #3032), so there are two: <stem>.xml and <stem>-bulk-seed.xml. Surface every
+# one so CI consumers know where the machine-readable reports are.
+find "$REPORT_DIR" -maxdepth 1 -type f -name "junit-*.xml" 2>/dev/null | sort | while read -r JUNIT_FILE; do
     echo "  - $(basename "$JUNIT_FILE")  JUnit XML report (CI-consumable, per-testcase tc_id)"
-fi
+done
 echo ""
 
 exit $EXIT_CODE

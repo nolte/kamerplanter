@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
+import FormDialogCancelButton from '@/components/form/FormDialogCancelButton';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -16,7 +18,7 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Typography from '@mui/material/Typography';
-import { useForm, Controller } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -159,7 +161,7 @@ export default function DeliveryChannelDialog({
   const [activeStep, setActiveStep] = useState(0);
   const isEdit = !!existingChannel;
 
-  const { control, handleSubmit, reset, watch, formState } = useForm<FormData>({
+  const { control, handleSubmit, reset, watch, formState } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: buildDefaults(existingChannel),
     mode: 'onChange',
@@ -254,7 +256,8 @@ export default function DeliveryChannelDialog({
   };
 
   return (
-    <Dialog
+    <FormDialog
+      control={control}
       fullScreen={fullScreen}
       open={open}
       onClose={onClose}
@@ -310,6 +313,7 @@ export default function DeliveryChannelDialog({
               />
               <FormNumberField
                 name="target_ec_ms"
+                helpTerm="ec"
                 control={control}
                 label={t('pages.deliveryChannels.targetEc')}
                 min={0}
@@ -321,6 +325,7 @@ export default function DeliveryChannelDialog({
               />
               <FormNumberField
                 name="target_ph"
+                helpTerm="ph"
                 control={control}
                 label={t('pages.deliveryChannels.targetPh')}
                 min={0}
@@ -558,7 +563,7 @@ export default function DeliveryChannelDialog({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={onClose}>{t('common.cancel')}</Button>
+          <FormDialogCancelButton onCancel={onClose} />
           {activeStep > 0 && (
             <Button onClick={() => setActiveStep((s) => s - 1)}>
               {t('common.back')}
@@ -583,6 +588,6 @@ export default function DeliveryChannelDialog({
           )}
         </DialogActions>
       </Form>
-    </Dialog>
+    </FormDialog>
   );
 }

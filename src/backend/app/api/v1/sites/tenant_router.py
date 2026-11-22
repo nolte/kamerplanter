@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 
 from app.api.mapping import to_response
 from app.api.v1.hardiness_zones.schemas import HardinessZoneResponse, SiteHardinessResponse
@@ -8,6 +8,7 @@ from app.api.v1.locations.schemas import LocationTreeNode
 from app.api.v1.sites.schemas import SiteCreate, SiteResponse, WaterSourceWarningSchema
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
 from app.common.auth import get_current_tenant, require_permission, require_tenant_role
+from app.common.cache_control import allow_offline_read_cache
 from app.common.dependencies import (
     get_hardiness_zone_service,
     get_plant_instance_service,
@@ -16,7 +17,7 @@ from app.common.dependencies import (
     get_tank_service,
 )
 from app.common.enums import TenantRole
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.openapi_responses import CONFLICT_RESPONSE, NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.models.hardiness_zone import HardinessZone
@@ -37,6 +38,9 @@ def _site_response(site: Site, service: SiteService) -> SiteResponse:
     return to_response(
         site,
         SiteResponse,
+        sun_class_thresholds=site.effective_sun_class_thresholds,
+        reach_thresholds=site.effective_reach_thresholds,
+        window_thresholds=site.effective_window_thresholds,
         water_config_warnings=[
             WaterSourceWarningSchema(code=w.code, message=w.message, severity=w.severity) for w in warnings
         ],
@@ -90,11 +94,17 @@ def _build_tree(
 
 @router.get("", response_model=list[SiteResponse])
 def list_sites(
+    response: Response,
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
 ):
-    """List the tenant's sites (paginated)."""
+    """List the tenant's sites (paginated).
+
+    Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): one of the three reads the service worker
+    keeps for the garden plan offline, in the user's and tenant's own namespace.
+    """
+    allow_offline_read_cache(response)
     items = service.list_sites_window(pagination.offset, pagination.limit, tenant_key=ctx.tenant_key)
     return [_site_response(s, service) for s in items]
 
@@ -147,14 +157,17 @@ def update_site(
     return _site_response(updated, service)
 
 
-@router.delete("/{key}", status_code=204)
-def delete_site(
+@router.delete("/{key}", status_code=204, responses={**CONFLICT_RESPONSE})
+async def delete_site(
     key: Annotated[str, Path(description="Document key of the site.")],
     ctx: TenantContext = Depends(require_permission(ResourceType.SITE, Action.DELETE)),
     service: SiteService = Depends(get_site_service),
 ):
-    """Delete a site."""
-    service.delete_site(key, tenant_key=ctx.tenant_key)
+    """Delete a site with its locations, slots, garden objects, zones and weather data; care history stays.
+
+    409 ``site.has_active_plants`` while a plant not yet removed stands on the site; nothing is deleted then.
+    """
+    await service.delete_site(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
 
 
 @router.get("/{key}/hardiness", response_model=SiteHardinessResponse)

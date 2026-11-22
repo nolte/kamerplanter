@@ -12,7 +12,13 @@ from slowapi.errors import RateLimitExceeded
 from app.api.v1.auth.router import limiter, process_memory_limiter
 from app.api.v1.openapi_tags import OPENAPI_TAGS
 from app.api.v1.router import api_router
-from app.common.body_limit import RequestBodyLimitMiddleware, RouteBodyCeiling, request_body_limit_bytes
+from app.common.body_limit import (
+    RequestBodyLimitMiddleware,
+    RouteBodyCeiling,
+    RoutePatternCeiling,
+    request_body_limit_bytes,
+)
+from app.common.cache_control import API_DEFAULT_CACHE_CONTROL
 from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
 from app.common.error_handlers import (
     app_error_handler,
@@ -20,6 +26,7 @@ from app.common.error_handlers import (
     validation_error_handler,
 )
 from app.common.exceptions import KamerplanterError
+from app.common.gc_policy import freeze_startup_heap
 from app.common.log_privacy import loggable_path, redact_text_in_flight, register_route_source
 from app.common.middleware import request_id_middleware
 from app.common.rate_limit import rate_limit_exceeded_with_retry_after
@@ -31,6 +38,7 @@ from app.data_access.external.registration import register_external_adapters
 from app.domain.engines.encryption_engine import is_usable_fernet_key
 from app.observability.error_tracking import init_error_tracking, resolve_release
 from app.observability.event_user import error_event_user
+from app.observability.garden_plan_metrics import record_client_event_indexes
 from app.observability.metrics import MetricsMiddleware, start_configured_metrics_server, stop_metrics_server
 
 # Redaction before anything below can log (#1832): error tracking, adapter
@@ -184,7 +192,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     conn = get_connection()
     db = conn.connect()
-    ensure_collections(db)
+    # REQ-053 WP 9.3: a client-event unique index a dirty volume blocks is retried every boot and alerted on.
+    record_client_event_indexes(ensure_collections(db))
     logger.info("database_ready")
 
     # NFR-016 / ADR-005: versioned, tracked, lock-guarded migrations run FIRST
@@ -276,6 +285,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # NFR-007 metrics on their own port (#2129); off unless METRICS_PORT is set.
     metrics_server = start_configured_metrics_server()
+
+    # Last step of start-up: what is alive now lives as long as the process; keep it out of every full
+    # collection a request triggers (GP-NFR-030 p95, #2526).
+    freeze_startup_heap()
 
     yield
 
@@ -419,6 +432,19 @@ def _route_body_ceilings() -> tuple[RouteBodyCeiling, ...]:
     )
 
 
+def _route_pattern_ceilings() -> tuple[RoutePatternCeiling, ...]:
+    """REQ-053 GP-NFR-051 - the garden-plan import takes a 5 MB JSON file (the global JSON ceiling is 1 MiB)."""
+    from app.api.v1.garden_plan.tenant_router import PLAN_IMPORT_MAX_BODY_BYTES, PLAN_IMPORT_PATH_PATTERN
+
+    return (
+        RoutePatternCeiling(
+            method="POST",
+            pattern=re.compile(r"/api/v[0-9]+" + PLAN_IMPORT_PATH_PATTERN),
+            max_body_bytes=PLAN_IMPORT_MAX_BODY_BYTES,
+        ),
+    )
+
+
 # #2254 — body ceiling and upload spool budget, enforced before FastAPI parses a
 # multipart body (which it does before any route code or dependency runs).
 # Registered first, so it is the innermost user middleware: its 413/503 answers
@@ -429,6 +455,7 @@ app.add_middleware(
     spool_budget_bytes=settings.upload_spool_budget_mb * 1024 * 1024,
     spool_wait_seconds=settings.upload_spool_wait_seconds,
     route_ceilings=_route_body_ceilings(),
+    pattern_ceilings=_route_pattern_ceilings(),
 )
 
 
@@ -450,15 +477,19 @@ async def security_headers_middleware(request: Request, call_next) -> Response: 
     # CDN-based Swagger UI; relaxing CSP for them would defeat the
     # purpose, so the deployment is expected to disable those endpoints
     # in production (NFR-014 §3.2 / kamerplanter-debug-endpoints.yaml).
-    response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    # A default, not an override: the garden-plan SVG download names its own policy (REQ-053 GP-NFR-052 (e),
+    # ``default-src 'none'``), and a middleware that wrote last would have discarded it.
+    if "content-security-policy" not in response.headers:
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     # MT-044 (#2144): tenant-private JSON must not be kept by a shared proxy or the
     # browser cache after logout or a tenant switch. A default, not an override: a
     # route that decided its own caching keeps it (attachment and pest-image
     # downloads answer ``private, no-cache`` with an ETag, token downloads
-    # ``no-store`` (#2254), the SSE stream ``no-cache``).
+    # ``no-store`` (#2254), the SSE stream ``no-cache``, the three offline reads of the garden plan
+    # ``private, no-cache`` (REQ-053 §32.6 Pkt. 13, ``app/common/cache_control.py``).
     if request.url.path.startswith(_NO_STORE_PREFIX) and "cache-control" not in response.headers:
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["Cache-Control"] = API_DEFAULT_CACHE_CONTROL
     return response
 
 
@@ -472,6 +503,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
+    # The garden-plan exports report their scale and an A3 suggestion in headers (REQ-053 WP 5.2); a cross-origin
+    # SPA reads response headers only when they are exposed.
+    expose_headers=["Content-Disposition", "X-Plan-Scale", "X-Plan-Suggested-Paper"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

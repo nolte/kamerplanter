@@ -176,7 +176,14 @@ def create_species(
     # visible to all.
     # The service re-stamps the owner from the ``tenant_key`` passed by name (#2107);
     # it is the same resolved value, so the model and the service cannot disagree.
-    species = Species(**body.model_dump(), origin=DataOrigin.TENANT, tenant_key=tenant_key)
+    # ``common_names_i18n`` is optional on the wire (``None`` = not sent); a create
+    # that does not send it stores no language map (#2902).
+    species = Species(
+        **body.model_dump(exclude={"common_names_i18n"}),
+        common_names_i18n=body.common_names_i18n or {},
+        origin=DataOrigin.TENANT,
+        tenant_key=tenant_key,
+    )
     created = service.create_species(
         species, tenant_key=tenant_key, caller_role=ctx.role, is_platform_admin=is_platform_admin
     )
@@ -199,13 +206,18 @@ def update_species(
     a platform admin, and the caller's *own* species requires a writing domain
     role (a viewer is refused).
     """
-    species = Species(**body.model_dump())
+    species = Species(
+        **body.model_dump(exclude={"common_names_i18n"}),
+        common_names_i18n=body.common_names_i18n or {},
+    )
     updated = service.update_species(
         key,
         species,
         tenant_key=ctx.tenant_key,
         caller_role=ctx.role,
         is_platform_admin=is_platform_admin,
+        # An edit body without the language map keeps the stored one (#2902).
+        keep_stored_common_names_i18n=body.common_names_i18n is None,
     )
     return _species_response(updated, family_repo)
 

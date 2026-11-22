@@ -47,6 +47,21 @@ export const CATALOGUE_PAGE_SIZE = MAX_PAGE_SIZE;
  */
 const MAX_PAGES = 1000;
 
+/** What {@link fetchAllPages} reports to its `onPage` callback after each page. */
+export interface PageProgress {
+  /** Zero-based index of the page just received. */
+  pageIndex: number;
+  /** True when this was the last page (a short one, or the loop bound was hit). */
+  done: boolean;
+}
+
+/**
+ * Called with every page as it arrives, before the next one is requested. Lets
+ * a list render its first page at once and grow while the rest is still in
+ * flight, instead of holding its loading state for the whole catalogue (#3032).
+ */
+export type OnPage<T> = (batch: T[], progress: PageProgress) => void;
+
 /**
  * Loads every page of a list endpoint until a short page comes back.
  *
@@ -56,18 +71,22 @@ const MAX_PAGES = 1000;
  *
  * @param loadPage Fetches one page. Receives `offset` and `limit`.
  * @param pageSize Rows per request; defaults to {@link CATALOGUE_PAGE_SIZE}.
+ * @param onPage Optional progress callback, called once per received page.
  * @returns Every row, in the order the endpoint returned them.
  */
 export async function fetchAllPages<T>(
   loadPage: (offset: number, limit: number) => Promise<T[]>,
   pageSize: number = CATALOGUE_PAGE_SIZE,
+  onPage?: OnPage<T>,
 ): Promise<T[]> {
   const all: T[] = [];
   let offset = 0;
   for (let page = 0; page < MAX_PAGES; page += 1) {
     const batch = await loadPage(offset, pageSize);
     all.push(...batch);
-    if (batch.length < pageSize) break;
+    const done = batch.length < pageSize || page === MAX_PAGES - 1;
+    onPage?.(batch, { pageIndex: page, done });
+    if (done) break;
     offset += pageSize;
   }
   return all;

@@ -32,6 +32,8 @@ const PAGE_KEYS = [
   'plantsPerBatchHelper',
   'reminderDaysBefore',
   'reminderDaysBeforeHelper',
+  'batchDurationDays',
+  'batchDurationDaysHelper',
   'location',
   'notes',
   'batches',

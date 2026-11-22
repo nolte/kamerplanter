@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
@@ -45,7 +44,6 @@ const FERTILIZER_TYPES = [
 export default function FertilizerListPage() {
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
   const { fertilizers, loading } = useAppSelector((s) => s.fertilizers);
   const [createOpen, setCreateOpen] = useState(false);
   const [favFilterActive, setFavFilterActive] = useState(false);
@@ -166,12 +164,14 @@ export default function FertilizerListPage() {
     {
       id: 'npk',
       label: 'NPK',
+      helpTerm: 'npk',
       render: (r) => `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}`,
       searchValue: (r) => `${r.npk_ratio[0]}-${r.npk_ratio[1]}-${r.npk_ratio[2]}`,
     },
     {
       id: 'ec_contribution_per_ml',
       label: t('pages.fertilizers.ecContribution'),
+      helpTerm: 'ec',
       render: (r) => `${r.ec_contribution_per_ml.toFixed(3)} mS/ml`,
       align: 'right',
       searchValue: (r) => String(r.ec_contribution_per_ml),
@@ -338,7 +338,7 @@ export default function FertilizerListPage() {
         columns={columns}
         rows={filteredFertilizers}
         loading={loading}
-        onRowClick={(r) => navigate(`/duengung/fertilizers/${r.key}`)}
+        getRowHref={(r) => `/duengung/fertilizers/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.fertilizers.create')}
         onEmptyAction={() => setCreateOpen(true)}

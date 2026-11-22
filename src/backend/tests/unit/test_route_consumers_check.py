@@ -232,9 +232,121 @@ class TestTheRouteOperand:
         ``GET /admin/platform/tenant-imports/{import_key}``. No consumer in the tree yet — the UI is
         REQ-056 §15, open — so all eight are reported candidates, used through the API directly
         (runbook ``docs/*/deployment/tenant-export-import.md``).
+
+        +4: the garden plan (REQ-053 WP 1.8, #2327): ``GET /t/{slug}/sites/{key}/plan``, ``PUT …/plan/boundary``,
+        ``POST …/plan/batch`` and ``GET …/plan/audit``. The editor that consumes them is WP 2.1+ (frontend), open —
+        so all four are reported candidates until it lands.
+
+        +10: the single resources of the plan (REQ-053 WP 1.9, #2328):
+        ``GET|POST /t/{slug}/sites/{key}/garden-objects``, ``GET|PATCH|DELETE /t/{slug}/garden-objects/{key}``,
+        ``PATCH /t/{slug}/locations/{key}``, ``GET …/summary``,
+        ``POST …/status``, ``POST …/slots/batch`` and ``PATCH /t/{slug}/slots/{key}``. Their consumer is the bed
+        view and the editor (WP 2.x/3.x, frontend), open — all ten are reported candidates until it lands.
+
+        +1: the layout preview (REQ-053 WP 3.1, #2391): ``POST /t/{slug}/locations/{key}/planting-layout/preview``.
+        Its consumer is the planting dialog (WP 3.6, frontend), open — a reported candidate until it lands.
+
+        +6: the care log (REQ-053 WP 4.1, #2400): ``GET|POST /t/{slug}/care-events``, ``GET …/{key}``,
+        ``POST …/{key}/supersede``, ``…/void`` and ``…/redact``. Their consumer is the history tab and the field
+        mode (WP 4.4/4.5, frontend), open — all six are reported candidates until it lands.
+
+        +5: the reservation and bed actions (REQ-053 WP 3.2, #2392): ``POST|DELETE /t/{slug}/planting-runs/{key}/
+        plan-slots[/{slot_key}]``, ``GET /t/{slug}/locations/{key}/plantings``, ``POST …/clear`` and
+        ``POST …/quick-planting``. Their consumers are the planting dialog and the field mode (WP 3.6/5.1,
+        frontend), open — all five are reported candidates until it lands.
+
+        +1: the "for every plant" fan-out (REQ-053 WP 4.2, #2412): ``POST /t/{slug}/tasks/{key}/fan-out``. Its
+        consumer is the bed care tab's create dialog (WP 4.4, frontend), open — a reported candidate until it lands.
+
+        +3: the garden-plan exports (REQ-053 WP 5.2, #2431): ``GET /t/{slug}/sites/{key}/plan/render.svg``,
+        ``GET …/plan/export`` and ``GET /t/{slug}/print/garden-plan/{site_key}``. Their consumer is the export dialog
+        (WP 5.3, frontend), open — all three are reported candidates until it lands.
+
+        +4: the bed-level rotation (REQ-053 WP 3.4, #2394): ``POST /t/{slug}/locations/{key}/validate-planting``,
+        ``GET …/rotation``, ``POST …/history/backfill`` and ``DELETE …/history/backfill/{care_event_key}``. Their
+        consumers are the planting dialog (WP 3.6) and the history tab (WP 4.5, frontend), open — all four are
+        reported candidates until it lands.
+
+        +1: the combined bed history (REQ-053 WP 4.5, #2423): ``GET /t/{slug}/locations/{key}/history``. The history
+        tab (``features/gardenPlanner/history/``) consumes it, so it is no candidate; the count is of mounted
+        operations, which is why it still rises. The same tab consumes ``GET …/rotation`` and the backfill pair.
+
+        +1: the plan import (REQ-053 WP 5.3, #2432): ``POST /t/{slug}/sites/{key}/plan/import``. Its consumer is the
+        import wizard (``features/gardenPlanner/io``), which lands in the same change - the operation is consumed.
+
+        +1: the plant states of a bed (REQ-053 WP 3.7, #2397): ``GET /t/{slug}/locations/{key}/plant-states``. Its
+        consumer is the bed view's plan tab (``features/gardenPlanner/planting/plantStateApi.ts``), which lands in the
+        same change - the operation is consumed.
+
+        +6: the irrigation zones (REQ-053 WP 7.1, #2467): ``GET|POST /t/{slug}/sites/{key}/irrigation-zones``,
+        ``GET|PATCH|DELETE /t/{slug}/irrigation-zones/{key}`` and ``PUT …/{key}/locations``. Their consumer is the
+        zone panel (WP 7.6, frontend), open - all six are reported candidates until it lands.
+
+        +2: the zone status and the watering round (REQ-053 WP 7.3, #2469):
+        ``GET /t/{slug}/irrigation-zones/{key}/status`` and ``POST …/{key}/log-watering``. Same open consumer
+        (the zone panel, WP 7.6 / 7.7).
+
+        +5: the bed templates (REQ-053 WP 7.8/7.9, #2474, #2475): ``GET|POST /t/{slug}/bed-templates``,
+        ``PATCH|DELETE /t/{slug}/bed-templates/{key}`` and ``POST /t/{slug}/sites/{key}/plan/place-template``. Their
+        consumer is the template picker (WP 7.10, frontend), open - all five are reported candidates until it lands.
+
+        +1: the mixed-culture create (REQ-053, #2463): ``POST /t/{slug}/planting-runs/mixed-culture``. The planting
+        dialog (``features/gardenPlanner/planting/plantingApi.ts``) consumes it in the same change.
+
+        +2: the plan underlay (REQ-053 WP 7.14, #2480): ``PUT|DELETE /t/{slug}/sites/{key}/plan/underlay``. The
+        underlay dialog (``features/gardenPlanner/underlay/underlayApi.ts``, WP 7.15) consumes both in the same
+        change. The PDF option (``underlay=true``) is a query parameter of an existing route, not a new operation.
+
+        +2: the snapshots of a replace import (REQ-053 WP 7.19, #2485): ``GET /t/{slug}/sites/{key}/plan/snapshots``
+        and ``POST …/plan/snapshots/{audit_key}/restore``. The import wizard (``features/gardenPlanner/io/``)
+        consumes both in the same change. (WP 7.18 adds query parameters to existing operations, no route.)
+
+        +1: the new season (REQ-053 WP 7.16/7.17, #2482, #2483): ``POST /t/{slug}/sites/{key}/plan/new-season``. The
+        season dialog (``features/gardenPlanner/season/``) consumes it in the same change.
+
+        +1: the rotation matrix of a site (REQ-053 WP 8.12, #2655): ``GET /t/{slug}/sites/{key}/rotation-matrix``. Its
+        consumer, the matrix view, is the next package of the lane (WP 8.13, #2656); until it lands the route is
+        reachable through the API and the OpenAPI document only.
+
+        +1: the follow-up crop recommendation (REQ-053 WP 8.14, #2657): ``GET /t/{slug}/locations/{key}/
+        succession-recommendation``. The history tab consumes it in the same change.
+
+        +1: the soil analyses of a bed (REQ-053 WP 8.7, #2650): ``GET /t/{slug}/locations/{key}/soil-analyses``. Its
+        consumer is the analysis history in the soil tab (``features/gardenPlanner/bed/bedApi.ts``, WP 8.8, #2651).
+
+        +1: the companion layer of a bed (REQ-053 WP 8.15, #2658): ``GET /t/{slug}/locations/{key}/companion-edges``.
+        Its consumer, the "Mischkultur" layer of the plan renderer, is the second member of the same group (#2659).
+
+        +4: the photos of a bed (REQ-053 WP 8.18, #2661): ``GET|POST /t/{slug}/locations/{key}/photos``,
+        ``PUT …/photos/cover`` and ``DELETE …/photos/{attachment_id}``. Their consumer, the gallery tab, the cover in
+        the bed header and field mode, is the next package of the group (WP 8.19, #2662).
+
+        +1: the CSV bed list import (REQ-053 WP 8.26, #2669): ``POST /t/{slug}/sites/{key}/beds/import-csv``. Its
+        consumer, the CSV step of the import wizard, is the second member of the same group (WP 8.27, #2670).
+
+        +2: the decision on a suggested task (REQ-053 WP 8.17, #2660, GP-API-040): ``POST /t/{slug}/tasks/{key}/
+        accept-suggestion`` and ``…/dismiss-suggestion``. The suggestions section of the bed care tab
+        (``features/gardenPlanner/care/careApi.ts``) consumes both in the same change.
+
+        +2: the template exchange (REQ-053 WP 9.9, #2749, GP-API-070/071): ``GET /t/{slug}/bed-templates/{key}/
+        export`` and ``POST /t/{slug}/bed-templates/import``. The template panel
+        (``features/gardenPlanner/templates/templateExchange.ts``) consumes both in the same change.
+
+        +1: "rain - skipped" of a watering round (REQ-053 WP 9.13, #2753, GP-FR-117): ``POST /t/{slug}/
+        irrigation-zones/{key}/rain-skipped``. The watering-round dialog (``features/gardenPlanner/zones/zonesApi.ts``,
+        ``logZoneRainSkipped``) consumes it in the same change.
+
+        +3: sowing and thinning a row or zone (REQ-053 WP 10.9, #2830, Anhang A 60): ``PUT /t/{slug}/slots/{key}/
+        sowing``, ``GET …/slots/{key}/thinning`` and ``POST …/slots/{key}/thinning``. The planting tab
+        (``features/gardenPlanner/planting/plantingApi.ts``: ``sowSlot``, ``getThinningPlan``, ``thinSlot``) consumes
+        all three in the same change.
+
+        +1: the bed QR label (REQ-053 GP-UX-028 / GP-FR-052, #2899): ``GET /t/{slug}/print/location-label/
+        {location_key}``. The bed view's label dialog (``api/endpoints/print.ts``, ``downloadLocationLabelPdf``)
+        consumes it in the same change.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 832
+        assert len(checker.collect_operations(app)) == 908
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

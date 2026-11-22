@@ -30,7 +30,12 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
-import { useSnackbar } from 'notistack';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { useAsyncOptions } from '@/hooks/useAsyncOptions';
+import { captureHandledError } from '@/observability/errorTracking';
+import { useNotification } from '@/hooks/useNotification';
 import {
   fetchAdminUsers,
   fetchAdminTenants,
@@ -61,7 +66,7 @@ export default function AdminEditUserPage() {
   const { key } = useParams<{ key: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
 
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -100,7 +105,7 @@ export default function AdminEditUserPage() {
   // Memberships
   const [memberships, setMemberships] = useState<AdminUserMembership[]>([]);
   const [membershipsLoading, setMembershipsLoading] = useState(false);
-  const [allTenants, setAllTenants] = useState<AdminTenant[]>([]);
+  const [membershipsError, setMembershipsError] = useState(false);
   const [showAddTenant, setShowAddTenant] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<AdminTenant | null>(null);
   const [selectedRole, setSelectedRole] = useState<TenantRole>('viewer');
@@ -152,23 +157,29 @@ export default function AdminEditUserPage() {
   }, [key, reloadToken]);
 
   // Load memberships
+  // #3013 (A-01): a failed load renders an error with retry, never "no memberships".
+  const beginMembershipsLoad = useAbortableLoad();
   const loadMemberships = useCallback(async () => {
     if (!key) return;
+    const ticket = beginMembershipsLoad();
     setMembershipsLoading(true);
+    setMembershipsError(false);
     try {
-      setMemberships(await fetchUserMemberships(key));
-    } catch { /* ignore */ }
-    finally { setMembershipsLoading(false); }
-  }, [key]);
+      const loaded = await fetchUserMemberships(key);
+      if (ticket.isCurrent()) setMemberships(loaded);
+    } catch (err) {
+      captureHandledError(err, { source: 'AdminEditUserPage.memberships' });
+      if (ticket.isCurrent()) setMembershipsError(true);
+    } finally {
+      if (ticket.isCurrent()) setMembershipsLoading(false);
+    }
+  }, [key, beginMembershipsLoad]);
 
   useEffect(() => { loadMemberships(); }, [loadMemberships]);
 
-  // Lazy-load tenants
-  useEffect(() => {
-    if (showAddTenant && allTenants.length === 0) {
-      fetchAdminTenants().then(setAllTenants).catch(() => {});
-    }
-  }, [showAddTenant, allTenants.length]);
+  // Lazy-load tenants when the picker opens; a failure shows a retry next to it.
+  const tenantsLoad = useAsyncOptions(fetchAdminTenants, { enabled: showAddTenant });
+  const allTenants: AdminTenant[] = tenantsLoad.options;
 
   const availableTenants = allTenants.filter(
     (t) => t.is_active && !memberships.some((m) => m.tenant_key === t.key),
@@ -197,9 +208,9 @@ export default function AdminEditUserPage() {
     try {
       const updated = await updateAdminUser(user.key, buildUpdate(user));
       setUser(updated);
-      enqueueSnackbar(t('common.saved'), { variant: 'success' });
+      notification.success(t('common.saved'));
     } catch (err) {
-      enqueueSnackbar(parseApiError(err), { variant: 'error' });
+      notification.error(parseApiError(err, t));
     } finally {
       setSaving(false);
     }
@@ -215,7 +226,7 @@ export default function AdminEditUserPage() {
     });
     setUser(updated);
     setConfirmTrustRaise(false);
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    notification.success(t('common.saved'));
   };
 
   // Erasing another account is a step-up (#1814): the TARGET's e-mail typed
@@ -225,7 +236,7 @@ export default function AdminEditUserPage() {
     if (!user) return;
     await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
     setConfirmDelete(false);
-    enqueueSnackbar(t('pages.auth.adminUserDeletionAccepted'), { variant: 'success' });
+    notification.success(t('pages.auth.adminUserDeletionAccepted'));
     navigate('/settings#platform');
   };
 
@@ -248,7 +259,7 @@ export default function AdminEditUserPage() {
     setSelectedRole('viewer');
     setShowAddTenant(false);
     setConfirmAdd(false);
-    enqueueSnackbar(t('pages.auth.adminMemberAdded'), { variant: 'success' });
+    notification.success(t('pages.auth.adminMemberAdded'));
   };
 
   // The admin's OWN step-up (#2009); a rejection propagates to the dialog,
@@ -259,7 +270,7 @@ export default function AdminEditUserPage() {
     await removeUserFromTenant(key, removed.membership_key, toCredentialStepUpBody(credentials));
     setMemberships((prev) => prev.filter((x) => x.membership_key !== removed.membership_key));
     setMembershipToRemove(null);
-    enqueueSnackbar(t('pages.auth.adminMemberRemoved'), { variant: 'success' });
+    notification.success(t('pages.auth.adminMemberRemoved'));
   };
 
   // Choosing another role only opens the confirmation (#2032): the select keeps showing the
@@ -281,7 +292,7 @@ export default function AdminEditUserPage() {
     );
     setMemberships((prev) => prev.map((x) => (x.membership_key === membership.membership_key ? updated : x)));
     setRoleChange(null);
-    enqueueSnackbar(t('common.saved'), { variant: 'success' });
+    notification.success(t('common.saved'));
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
@@ -304,7 +315,7 @@ export default function AdminEditUserPage() {
   if (!user) return <Alert severity="error">{t('pages.admin.userNotFound')}</Alert>;
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }} data-testid="admin-edit-user-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
         <IconButton onClick={() => navigate('/settings#platform')} data-testid="back-btn">
           <ArrowBackIcon />
@@ -342,7 +353,7 @@ export default function AdminEditUserPage() {
                 data-testid="edit-user-email"
               />
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField label="Key" value={user.key} disabled sx={{ flex: 1 }} />
+                <TextField label={t('pages.auth.adminUserKey')} value={user.key} disabled sx={{ flex: 1 }} />
                 <TextField
                   label={t('pages.auth.adminUserLastLogin')}
                   value={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '—'}
@@ -447,10 +458,12 @@ export default function AdminEditUserPage() {
                   onChange={(_, v) => setSelectedTenant(v)}
                   renderInput={(params) => <TextField {...params} label={t('pages.auth.adminSelectOrg')} data-testid="add-tenant-input" />}
                   sx={{ flex: 1, minWidth: 220 }}
+                  loading={tenantsLoad.loading}
                 />
+                {tenantsLoad.error && <OptionsLoadError onRetry={tenantsLoad.reload} data-testid="add-tenant-load-error" />}
                 <FormControl size="small" sx={{ minWidth: 140 }}>
-                  <InputLabel>{t('pages.auth.adminMemberRole')}</InputLabel>
-                  <Select value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
+                  <InputLabel id="admin-user-member-role-label">{t('pages.auth.adminMemberRole')}</InputLabel>
+                  <Select labelId="admin-user-member-role-label" value={selectedRole} label={t('pages.auth.adminMemberRole')} onChange={(e) => setSelectedRole(e.target.value as TenantRole)}>
                     <MenuItem value="lead">{t('enums.tenantRole.lead')}</MenuItem>
                     <MenuItem value="grower">{t('enums.tenantRole.grower')}</MenuItem>
                     <MenuItem value="viewer">{t('enums.tenantRole.viewer')}</MenuItem>
@@ -467,7 +480,9 @@ export default function AdminEditUserPage() {
             )}
 
             {/* Memberships table */}
-            {membershipsLoading ? (
+            {membershipsError ? (
+              <ErrorDisplay error="pages.auth.adminUserMembershipsLoadFailed" onRetry={() => void loadMemberships()} />
+            ) : membershipsLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress /></Box>
             ) : (
               <TableContainer>

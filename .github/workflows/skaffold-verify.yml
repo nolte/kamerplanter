@@ -54,6 +54,7 @@ on:
       - ".audits/**"
       - ".claude/**"
       - ".github/**"
+      - ".pins/**"
       - ".taskfiles/**"
       - ".vscode/**"
       - "brand/**"
@@ -114,7 +115,7 @@ jobs:
         # 2026-09-19. That floating version is coupled to the skaffold pin in
         # .github/actions/setup-skaffold; see the note there. No Renovate manager covers either, so
         # neither moves on a reviewed bump.
-        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
 
       - name: Setup Skaffold
         # The pinned skaffold (2.24.0 — 2.17.2 cannot drive helm 4; the reason

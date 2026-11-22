@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { useAppDispatch, useAppSelector, useAppStore } from '@/store/hooks';
 import {
   fetchProfile,
   refreshAccessToken,
@@ -37,22 +37,23 @@ function processQueue(error: unknown, token: string | null) {
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
-  const accessToken = useAppSelector((s) => s.auth.accessToken);
+  const store = useAppStore();
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
-  const tokenRef = useRef(accessToken);
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    tokenRef.current = accessToken;
-  }, [accessToken]);
+  // True while the start-up bootstrap loads profile, tenants and preferences
+  // itself, so the "after login" effect below does not load them a second time (#3022).
+  const bootstrapping = useRef(true);
 
   // Request interceptor: attach Bearer token (skip in light mode)
   useEffect(() => {
     if (isLightMode) return;
 
+    // The token is read from the store at request time, not from a ref synced by
+    // an effect: the retry after a refresh runs before the next render, and a
+    // stale header there costs a second `/auth/refresh` against its rate limit (#3022).
     const addAuth = (config: InternalAxiosRequestConfig) => {
-      if (tokenRef.current && config.headers) {
-        config.headers.Authorization = `Bearer ${tokenRef.current}`;
+      const token = store.getState().auth.accessToken;
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     };
@@ -64,7 +65,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
       client.interceptors.request.eject(requestInterceptor);
       tenantClient.interceptors.request.eject(tenantRequestInterceptor);
     };
-  }, []);
+  }, [store]);
 
   // Response interceptor: auto-refresh on 401 (skip in light mode)
   useEffect(() => {
@@ -185,6 +186,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     } catch {
       // Timeout or error — clear auth state so UI exits loading
       dispatch(clearAuth());
+    } finally {
+      bootstrapping.current = false;
     }
   }, [dispatch]);
 
@@ -194,7 +197,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   // Fetch profile, tenants and preferences after login
   useEffect(() => {
-    if (isAuthenticated && !isRefreshing) {
+    if (isAuthenticated && !isRefreshing && !bootstrapping.current) {
       const profile = dispatch(fetchProfile());
       dispatch(loadMyTenants());
       const preferences = dispatch(fetchPreferences());

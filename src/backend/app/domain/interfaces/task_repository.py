@@ -159,7 +159,44 @@ class ITaskRepository(ABC):
         ...
 
     @abstractmethod
+    def find_tasks_by_completion_client_event_ids(self, client_event_ids: list[str], *, tenant_key: str) -> list[Task]:
+        """The tenant's tasks buffered completions with one of ``client_event_ids`` closed (REQ-053 WP 9.3)."""
+        ...
+
+    @abstractmethod
+    def client_event_tombstones(self, client_event_ids: list[str], *, tenant_key: str) -> set[str]:
+        """The ids among ``client_event_ids`` whose task was deleted since (WP 9.3 tombstones)."""
+        ...
+
+    @abstractmethod
     def update_task(self, key: TaskKey, task: Task) -> Task: ...
+
+    @abstractmethod
+    def resolve_suggestion(
+        self,
+        key: TaskKey,
+        *,
+        tenant_key: str,
+        changes: dict[str, Any],
+        open_statuses: Sequence[str] | None = None,
+    ) -> Task | None:
+        """Write ``changes`` onto a suggestion only while it still is one (REQ-053 GP-API-040).
+
+        One statement: the predicate (``tenant_key``, ``suggested == true`` and, if given, ``status`` in
+        ``open_statuses``) and the write are evaluated on the same document, so an accept and a dismiss racing on
+        the same task cannot both win, and a concurrent edit of the task is never overwritten by a stale copy -
+        only the named ``changes`` (stored values: strings, booleans, ``None``) are merged in. ``None`` when the
+        predicate no longer holds (or the task is gone); the caller re-reads to name the reason.
+        """
+
+    @abstractmethod
+    def clear_parked_recurrence(self, key: TaskKey) -> None:
+        """Drop ``recurrence_rule_unconvertible`` from the stored task (REQ-053 v1.5 §12.2, #2411 item 4).
+
+        The one-off migration M5 parks a Cron rule it cannot convert in that field and sets ``recurrence_rule`` to
+        ``null``; when the owner sets a new RRULE the parked value has been answered. It is no model field and no
+        API field; the attribute is removed and a task without one is left as it is.
+        """
 
     @abstractmethod
     def delete_task(self, key: TaskKey) -> bool: ...
@@ -225,6 +262,37 @@ class ITaskRepository(ABC):
         category: str | None = None,
         origins: Sequence[str] | None = None,
     ) -> tuple[list[Task], int]: ...
+
+    @abstractmethod
+    def get_pending_tasks_in_locations(
+        self,
+        location_keys: Sequence[str],
+        limit: int,
+        *,
+        tenant_key: str,
+        category: str | None = None,
+        origins: Sequence[str] | None = None,
+    ) -> list[Task]:
+        """Pending tasks bound to one of ``location_keys`` or to a plant standing in one, inside ``tenant_key``."""
+        ...
+
+    @abstractmethod
+    def get_clone_entity_keys(self, source_key: str, *, tenant_key: str) -> set[str]:
+        """The entities that already hold a clone of ``source_key``, inside ``tenant_key``."""
+        ...
+
+    @abstractmethod
+    def create_task_cloned_from_edge(self, clone_key: str, source_key: str) -> None:
+        """Write the ``task_cloned_from`` edge clone → source."""
+        ...
+
+    @abstractmethod
+    def create_tasks_atomic(self, tasks: Sequence[Task], *, tenant_key: str) -> list[Task]:
+        """Insert ``tasks`` with their ``has_task`` edges in ONE transaction: all of them, or none (#2462).
+
+        Every task must carry ``tenant_key``; a task of another tenant raises ``ValueError`` and writes nothing.
+        """
+        ...
 
     @abstractmethod
     def get_overdue_tasks(self, *, tenant_key: str) -> list[Task]: ...
@@ -350,11 +418,13 @@ class ITaskRepository(ABC):
     def delete_task_templates_for_workflow(self, wf_key: str) -> int: ...
 
     @abstractmethod
-    def get_workflow_usage_stats(self, wf_keys: list[str], *, tenant_key: str) -> dict[str, dict]: ...
+    def get_workflow_usage_stats(
+        self, wf_keys: list[str], *, tenant_key: str, language: str = "de"
+    ) -> dict[str, dict]: ...
 
     @abstractmethod
     def get_executions_for_template(
-        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50
+        self, template_key: str, *, tenant_key: str, offset: int = 0, limit: int = 50, language: str = "de"
     ) -> list[dict]: ...
 
     # ── Batch ──

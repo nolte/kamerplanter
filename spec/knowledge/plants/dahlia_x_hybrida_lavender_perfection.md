@@ -142,6 +142,22 @@ Für maximale Blütengrösse bei Dinner-Plate-Typ:
 | Boden-pH-Vorzug (min–max) | 6.5–7.0 (Oregon State Extension, Swan Island Dahlias, Old Farmer's Almanac: pH 6.5–7.0 maximiert Nährstoffverfügbarkeit. Harmonisiert mit §1.6/§2.3, die 6.0–6.5 als Topf-Untergrenze nennen — gemeinsamer Optimalbereich ~6.5; bei pH > 7.0 Fe/Mn-Chlorose, vgl. §1.6) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („Space plants about 60cm (2ft) apart"; größere Sorten brauchen mehr Platz; Gattungsangabe, nicht sortenspezifisch); Longfield Gardens, „How far apart should I plant dahlia tubers", https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers (30–46 cm Standard, Dinnerplate 46–61 cm) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow dahlias" (Growing Guide), https://www.rhs.org.uk/plants/dahlia/growing-guide („need a warm, sheltered, sunny spot"; Blühschwäche bei Beschattung) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -520,6 +536,11 @@ Dahlia 'Lavender Perfection' wird in Mitteleuropa als Knollenstaude mit jährlic
 | Empfohlene Vorfrucht | Hülsenfrüchte (Fabaceae: Bohnen, Erbsen, Lupinen) — N-Anreicherung im Boden; oder Gründüngung (Phacelia, Inkarnatklee) |
 | Empfohlene Nachfrucht | Lauchgewächse (Alliaceae: Zwiebeln, Lauch, Knoblauch) — andere Familien, Schädlingsunterbrechung; oder Wurzelgemüse |
 | Anbaupause (Jahre) | 3–4 Jahre (Verticillium und Sclerotinia können sich im Boden anreichern; Fruchtfolge unterbricht Erregerzyklus) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Asteraceae 3) --> |
 
 **Fruchtfolge-Empfehlung für Dahlienbeet:**
 - Jahr 1: Dahlie + Tagetes (Nematoden-Abwehr)
@@ -626,3 +647,4 @@ Lavender Perfection,Dahlia pinnata,unbekannt,unbekannt,'ornamental;dinnerplate;f
 24. [Love Dahlias — Dahlia Problems and Troubleshooting](https://lovedahlias.com/blogs/blog/dahlia-problems-and-troubleshooting-the-real-reasons-and-fixes) — Salzanreicherung im Topf, wöchentliches Auswaschen (Salzempfindlichkeit)
 25. [USU Extension — Salinity and Plant Tolerance](https://extension.usu.edu/irrigation/research/salinity-and-plant-tolerance) — Maas-Hoffman-Konzept (Schwelle/Slope), geringe Datenlage zur Salztoleranz von Zierblumen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+26. [Longfield Gardens — How far apart should I plant dahlia tubers](https://www.longfield-gardens.com/blogs/dahlia-care/how-far-apart-should-i-plant-dahlia-tubers) — Pflanzabstand je Dahlientyp (spacing_cm)

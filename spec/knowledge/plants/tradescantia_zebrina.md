@@ -114,6 +114,22 @@
 **Hinweis (Standortqualität):** Understory-/Uferart aus tropischen Wäldern; gedeiht im lichten Halbschatten bis hellen indirekten Licht. Direkte Vollsonne wird zwar toleriert, lässt aber die silberne Panaschierung verblassen (Blatt wird durchgehend purpurn). Der niedrige Lichtkompensationspunkt (10–30 µmol/m²/s) ist typisch für schattentolerante Krautpflanzen. Salzempfindlich: regelmäßiges Durchspülen des Substrats alle 2–3 Monate gegen Salzakkumulation (Blattspitzennekrose). Der hier genannte pH-Vorzug 5.5–6.5 (leicht sauer) ist enger als die in §1.6 genannte tolerierte Substratspanne 6.0–7.0; beide Spannen überlappen im optimalen Bereich um pH 6.0–6.5.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tradescantia zebrina“ (Position: Full sun, Partial shade; Kulturtext Zimmerkultur: "in bright filtered light", draußen "in sun or shade"), https://www.rhs.org.uk/plants/79575/tradescantia-zebrina/details — RHS-Position nennt Full sun und Partial shade (Toleranz); als Anspruch gilt der Kulturtext der Zimmerkultur (helles gefiltertes Licht). | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -326,4 +342,5 @@ Tradescantia zebrina,"Dreimasterblume;Silbrige Tradescantie;Wandering Dude;Silve
 18. [Koppert — Aphidoletes aphidimyza](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/aphidoletes-aphidimyza/) — Gallmücke gegen Blattläuse, Ausbringrate
 19. [Sound Horticulture — Aphidius colemani Tech Sheet](https://soundhorticulture.com/pages/aphidius-colemani-tech-sheet) — Schlupfwespe gegen Blattläuse, Ausbringrate
 20. [Bugs for Growers — Biocontrol of Fungus Gnats](https://blog.bugsforgrowers.com/natural-predators/entomopathogenic-nematodes/beneficial-nematodes/two-biocontrol-agents-for-effective-control-of-fungus-gnats/) — Steinernema feltiae Ausbringrate gegen Trauermücken
+RHS -- Tradescantia zebrina (Position/Aspect: Full sun, Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/79575/tradescantia-zebrina/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

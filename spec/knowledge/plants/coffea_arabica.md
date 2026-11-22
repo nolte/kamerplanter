@@ -148,6 +148,22 @@
 - [ResearchGate — Germination and early seedling growth of three Arabica coffee varieties at four seed soaking water temperatures](https://researchgate.net/publication/370441611_Germination_and_early_seedling_growth_of_three_Arabica_coffee_varieties_at_four_seed_soaking_water_temperatures) — Einweich-Vorbehandlung (presoak), Raumtemperaturwasser optimal
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Coffea arabica" (Position: Partial shade; Aspect: East- oder West-facing), https://www.rhs.org.uk/plants/4159/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -376,6 +392,11 @@ Coffea arabica bevorzugt leicht saure Substrate (pH 6.0–6.5). Normales Leitung
 | Empfohlene Vorfrucht | — |
 | Empfohlene Nachfrucht | — |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zimmerpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle, da keine Zehrerstufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Rubiaceae: kein Familienwert belegt) --> |
 
 ---
 
@@ -431,4 +452,5 @@ Coffea arabica,Kaffeepflanze;Arabica-Kaffee;Coffee Plant,Rubiaceae,Coffea,perenn
 25. [RHS – Coffea arabica Plant Details](https://www.rhs.org.uk/plants/4159/coffea-arabica/details) — Blüte in Blattachseln im Sommer ab ca. 4 Jahren, Härtegrad H1a (Winterschutz > 15 °C)
 26. [UK Houseplants – Coffee Plants (Coffea arabica)](https://www.ukhouseplants.com/plants/coffee-plants-coffea-arabica) — Blüte im Frühsommer (mehrere Wochen), Blattschäden irreversibel unter 15 °C, H1a
 27. [Epic Gardening – Arabica Coffee Plants](https://www.epicgardening.com/arabica-coffee/) — Blüte Frühjahr/Sommer, Fruchtbildung 3–5 Jahre, Vermehrung via Samen (Keimung 6–8 Wochen) und Stecklinge (Bewurzelung wenige Monate)
+28. [RHS – Coffea arabica Plant Details (Position/Aspect)](https://www.rhs.org.uk/plants/4159/wd/details) — Lichtanspruch (Position: Partial shade; Aspect: East- oder West-facing)
 <!-- /Quelle: growing-phase-auditor 2026-07-03 -->

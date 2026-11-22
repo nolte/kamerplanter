@@ -32,6 +32,18 @@ name: Renovate Health
 # That deduplication is a deliberate operator decision (2026-09-16), not an
 # accident of shape: a red scheduled run is invisible after a week of red
 # scheduled runs, while an issue carries the history and can be answered.
+#
+# SECOND JOB, issue #3060 — `stale-image-upstreams`. The same blind spot one
+# level down: Renovate asks "is there a newer tag in THIS repository?" and
+# cannot ask "does this repository still receive tags?". `nginxinc/
+# nginx-unprivileged` stopped receiving pushes on 2026-10-19 when upstream moved
+# to `nginx/nginx-unprivileged`; the pin looked up to date for a month and ten
+# security fixes were never offered (#3040, repaired by #3061). The job lives
+# HERE rather than in a workflow of its own because it is the same question
+# ("is the green Renovate picture true?"), on the same trigger (a fact that
+# changes with no commit in this repository), with the same contract. It is a
+# separate JOB because it shares nothing with the dashboard read: neither may
+# take the other down, and its alert is a separate issue with its own label.
 
 on:
   schedule:
@@ -80,9 +92,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Fetch the Dependency Dashboard body
@@ -175,7 +187,7 @@ jobs:
                 await github.rest.issues.createComment({
                   owner: context.repo.owner, repo: context.repo.repo,
                   issue_number: existing.number,
-                  body: `Resolved: the dashboard reports no repository problems and \`pep621\` extracts from all ${report.expected_pep621_files.length} locked trees again, as of ${runUrl}. Closing.`,
+                  body: `Resolved: the dashboard reports no unexpected repository problems and \`pep621\` extracts from all ${report.expected_pep621_files.length} locked trees again, as of ${runUrl}. Closing.`,
                 });
                 await github.rest.issues.update({
                   owner: context.repo.owner, repo: context.repo.repo,
@@ -232,6 +244,152 @@ jobs:
                 owner: context.repo.owner, repo: context.repo.repo,
                 issue_number: existing.number,
                 body: `Still drifting as of ${runUrl}: ${report.findings.length} finding(s).`,
+              });
+              core.notice(`Updated existing alert issue #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: TITLE, body, labels: [LABEL, 'dependencies'],
+              });
+              core.notice(`Opened alert issue #${created.data.number}.`);
+            }
+
+  stale-image-upstreams:
+    name: Ask each pinned third-party image's registry when it last received a tag
+    runs-on: ubuntu-latest
+    # Measured 2026-11-20: 17 images, about 70 anonymous GETs, 30 seconds. The
+    # bound covers three attempts with a 20-second timeout on a slow registry.
+    timeout-minutes: 10
+    # `issues: write` for the one alert issue, granted here and not at workflow
+    # level (see above). No `packages` scope: every registry read is anonymous.
+    # The job's GITHUB_TOKEN exists for the issue step ALONE — the script step
+    # is handed no token and sends none to a registry.
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this job uses git after the checkout, and the script
+          # step talks to third-party registries: the token is not left in
+          # `.git/config` beside it.
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.15'
+          allow-prereleases: true
+
+      - name: Read the newest tag date of every pinned third-party image
+        # The inventory is read from the checkout (Dockerfiles, compose files,
+        # workflow image values, .pins/, Helm values) and printed image by
+        # image, so the log always says what was looked at.
+        #
+        # Undetermined (a registry unreachable or rate-limiting after the
+        # retries, an empty inventory, an unreadable pin) exits non-zero => the
+        # run goes red and the issue step below no-ops (no report file). A
+        # determined result writes the report and exits 0, stale or not.
+        run: python3 scripts/ci/check_stale_image_upstreams.py stale-image-report.json
+
+      - name: Open, update or close the stale-upstream issue
+        # Same shape as the job above, for the same reasons: only on a
+        # DETERMINED result, and never through a cancellation.
+        if: ${{ !cancelled() && hashFiles('stale-image-report.json') != '' }}
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          # Read via process.env, never interpolated into the script body.
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('stale-image-report.json', 'utf8'));
+            // Its own label, so this alert and the dashboard alert above never
+            // find — and overwrite or close — each other's issue. GitHub
+            // creates the label on the first `issues.create`.
+            const LABEL = 'stale-image-upstream';
+            const TITLE = 'A pinned third-party image\'s upstream repository stopped receiving tags (#3060)';
+            const runUrl = process.env.RUN_URL;
+
+            // Dedup anchor: the single open issue carrying our label AND our
+            // exact title. One issue is updated; a new one is NOT opened per
+            // run (#3040 and its nine duplicates are what that looks like).
+            // The title is part of the anchor because a label can be put on
+            // any issue by hand: an issue somebody labelled `stale-image-upstream`
+            // themselves must not have its body overwritten or be closed by
+            // this job.
+            const open = (await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: LABEL,
+            })).data.filter(i => !i.pull_request && i.title === TITLE);
+            const existing = open[0];
+
+            if (!report.alert) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number,
+                  body: `Resolved: all ${report.images.length} pinned third-party images sit on a repository that received activity inside its window, as of ${runUrl}. Closing.`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`Image upstreams active again — closed alert issue #${existing.number}.`);
+              } else {
+                core.notice(`All ${report.images.length} pinned third-party image upstreams are active.`);
+              }
+              return;
+            }
+
+            const findings = [];
+            for (const finding of report.findings) {
+              findings.push(`- ${finding}`);
+            }
+            const rows = [];
+            for (const image of report.images) {
+              const measured = image.age_days === null
+                ? image.signal
+                : `${image.newest_activity.slice(0, 10)} (${image.age_days} d, ${image.signal})`;
+              rows.push(`| \`${image.image}\` | ${image.status} | ${measured} | ${image.threshold_days} d |`);
+            }
+
+            const body = [
+              `The scheduled check found **${report.findings.length}** problem(s) while asking the registries when each pinned third-party image last received a tag.`,
+              '',
+              'A repository that stopped receiving tags looks "up to date" to Renovate for as long as nobody asks. `nginxinc/nginx-unprivileged` did exactly that from 2026-10-19 on, after upstream moved to `nginx/nginx-unprivileged` (#3060).',
+              '',
+              '## Findings',
+              '',
+              ...findings,
+              '',
+              '## Every image as measured',
+              '',
+              '| Image | Status | Newest activity | Window |',
+              '|---|---|---|---|',
+              ...rows,
+              '',
+              `Run: ${runUrl}`,
+              '',
+              '## Triage',
+              '',
+              '1. Look at the upstream project: did it move to another registry or namespace, was it renamed, or is it archived? The registry page of the old repository usually says nothing — the project\'s README, release notes or Dockerfile do.',
+              '2. If it moved, change the image name everywhere it is referenced (the finding lists the places) and in `renovate.json5` in the same pull request, as #3061 did.',
+              '3. If the project is alive and simply releases rarely, give the image a wider window in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py`, with the measured release cadence as the reason.',
+              '4. If the project is abandoned, the pin is a decision to take, not a number to widen: replace the image.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `Still stale as of ${runUrl}: ${report.findings.length} finding(s).`,
               });
               core.notice(`Updated existing alert issue #${existing.number}.`);
             } else {

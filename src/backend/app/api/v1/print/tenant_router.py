@@ -4,15 +4,22 @@ from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 
-from app.api.v1.auth.router import limiter, user_rate_limit_key
-from app.common.auth import get_current_tenant
-from app.common.dependencies import get_print_service
+from app.api.v1.auth.router import limiter, tenant_rate_limit_key, user_rate_limit_key
+from app.api.v1.garden_plan.export_options import PLAN_EXPORT_TENANT_SCOPE, plan_svg_options
+from app.common.auth import get_budgeted_tenant, get_current_tenant
+from app.common.dependencies import get_garden_plan_export_service, get_print_service
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.config.settings import settings
+from app.domain.engines.plan_svg_engine import PlanSvgOptions
 from app.domain.models.tenant_context import TenantContext
-from app.domain.services.print_service import PrintService
+from app.domain.services.garden_plan_export_service import (
+    GardenPlanExportService,
+    require_parcel_list_for_assignment,
+)
+from app.domain.services.print_service import LOCATION_LABEL_QR_DEFAULT_MM, PrintService
 
 router = APIRouter(prefix="/print", tags=["print"], responses=NOT_FOUND_RESPONSE)
 
@@ -126,3 +133,102 @@ def export_plant_labels_pdf(
             "Content-Disposition": 'attachment; filename="plant-labels.pdf"',
         },
     )
+
+
+@router.get("/location-label/{location_key}")
+@limiter.limit(settings.rate_limit_export, key_func=user_rate_limit_key)
+def export_location_label_pdf(
+    request: Request,
+    location_key: Annotated[str, Path(description="Document key of the bed (or other location).")],
+    qr_size_mm: int = Query(
+        LOCATION_LABEL_QR_DEFAULT_MM, ge=20, le=60, description="QR-code edge length in millimetres."
+    ),
+    locale: str = Query("de", pattern="^(de|en)$", description="Document language: de or en."),
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PrintService = Depends(get_print_service),
+) -> StreamingResponse:
+    """A printable bed label as PDF (REQ-053 GP-FR-052, GP-UX-028): name, site, type, area and a QR code.
+
+    For a bed the QR code opens the bed in field mode of its site's plan
+    (``/standorte/sites/{site_key}/plan?mode=field&bed={location_key}``); for any other location it opens the
+    location page. The link carries no token: a scan without a session goes through the sign-in and back. Every
+    member may print it. 404 when the location does not exist or its site belongs to another tenant.
+    """
+    pdf_bytes = service.generate_location_label_pdf(
+        location_key,
+        tenant_key=ctx.tenant_key,
+        qr_size_mm=qr_size_mm,
+        locale=locale,
+    )
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="bed-label-{location_key}.pdf"',
+        },
+    )
+
+
+@router.get("/garden-plan/{site_key}")
+@limiter.limit(settings.rate_limit_plan_export, key_func=user_rate_limit_key)
+@limiter.shared_limit(
+    settings.rate_limit_plan_export_tenant, scope=PLAN_EXPORT_TENANT_SCOPE, key_func=tenant_rate_limit_key
+)
+async def export_garden_plan_pdf(
+    request: Request,
+    site_key: Annotated[str, Path(description="Document key of the site.")],
+    options: PlanSvgOptions = Depends(plan_svg_options),
+    bed_list: bool = Query(False, description="Add a second page listing the beds (name, area, status, sun)."),
+    parcel_list: bool = Query(
+        False,
+        description=(
+            "Add a page listing the beds as parcels (GP-FR-176): identifier (running number in plan order and "
+            "bed name), area and irrigation zone."
+        ),
+    ),
+    include_assignment: bool = Query(
+        False,
+        description=(
+            "`parcel_list=true` only: add the column with the display names of the members a bed is assigned to. "
+            "Off by default (SR-024): personal data enters the PDF only on request. Without `parcel_list=true` "
+            "it is 422 `export.assignment_needs_parcel_list`."
+        ),
+    ),
+    underlay: bool = Query(
+        False,
+        description=(
+            "Print the site's background picture (GP-FR-033) under the plan. Off by default: an aerial view or "
+            "photo can reveal where someone lives, so it is printed only when asked for."
+        ),
+    ),
+    ctx: TenantContext = Depends(get_budgeted_tenant),
+    service: GardenPlanExportService = Depends(get_garden_plan_export_service),
+) -> StreamingResponse:
+    """The garden plan to scale as PDF (GP-API-007, GP-FR-142): scale bar, north arrow, legend, title block.
+
+    Default A4 landscape with the finest scale at which the plan fits; ``X-Plan-Suggested-Paper: a3`` when A4
+    would need a scale coarser than 1:200. Carries no notes or coordinates, and member names only in the
+    parcel list's assignment column (``parcel_list=true&include_assignment=true``, SR-024 opt-in).
+    ``underlay=true`` lays the site's background picture under the plan; without it the PDF never carries one.
+    422 ``plan.does_not_fit`` when a fixed scale does not fit the paper, ``plan.empty`` when there is nothing to draw.
+    """
+    # Refused before anything is loaded - the underlay is an attachment read (#2750 review).
+    require_parcel_list_for_assignment(parcel_list=parcel_list, include_assignment=include_assignment)
+    picture = await service.load_underlay(site_key, tenant_key=ctx.tenant_key) if underlay else None
+    pdf = await run_in_threadpool(
+        service.render_pdf,
+        site_key,
+        tenant_key=ctx.tenant_key,
+        options=options,
+        bed_list=bed_list,
+        parcel_list=parcel_list,
+        include_assignment=include_assignment,
+        underlay=picture,
+    )
+    headers = {
+        "Content-Disposition": f'attachment; filename="{pdf.filename}"',
+        "X-Plan-Scale": f"1:{pdf.scale}",
+    }
+    if pdf.suggest_a3:
+        headers["X-Plan-Suggested-Paper"] = "a3"
+    return StreamingResponse(BytesIO(pdf.content), media_type="application/pdf", headers=headers)

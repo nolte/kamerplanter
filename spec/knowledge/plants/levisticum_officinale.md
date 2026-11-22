@@ -141,6 +141,22 @@ Quellen (§1.8):
 4. [SurvivalGardenSeeds — Lovage: The Forgotten Herb Every Garden Needs](https://survivalgardenseeds.com/blogs/survival-garden-training/lovage-the-forgotten-herb) — Kurzlebigkeit des Saatguts (Umbelliferae-typisch)
 5. [Seed Needs — Lovage Herb Seeds For Planting](https://www.seedneeds.com/products/lovage-herb-seeds-for-planting) — Saatgutzähldichte (Basis TKM-Schätzung)
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–45 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine belastbare Quelle für einen Reihenabstand (RHS nennt nur den Abstand zwischen Pflanzen) --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow Lovage" („Allow 30–45cm (12–18in) between plants to start with"; Pflanze kann nach einigen Jahren bis ca. 1 m breit werden — widerspricht dem in 1.6 genannten Platzbedarf 80–100), https://www.rhs.org.uk/herbs/lovage/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS-Quellen widersprechen sich (Artseite: Position „Full sun", „prefers ... in full sun"; Grow-your-own-Guide: „sunny or partially shaded spot", „light shade if available, although lovage will also be fine in full sun") --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -317,6 +333,11 @@ Liebstöckel ist ein kräftiger Mittelzehrer mit hohem Stickstoffbedarf für die
 | Empfohlene Vorfrucht | Leguminosen oder Gründüngung |
 | Empfohlene Nachfrucht | Starkzehrer (Kohl) profitieren vom Humus-Aufbau |
 | Anbaupause (Jahre) | 3–4 Jahre Apiaceae auf gleicher Fläche |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fachquelle ordnet Liebstöckel einer Zehrerstufe zu (Landwirtschaftskammer NRW 2020 nennt nur die Sammelgruppe „Kräuter" als Schwachzehrer; Südtiroler Bauernbund 2022 führt Liebstöckel nicht; Ratgeberseiten widersprechen sich und sind keine belastbaren Quellen) --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Quelle für Zehrerstufe --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4; Südtiroler Bauernbund 2022 nennt für Doldenblütler 4–5 Jahre, Liebstöckel nicht namentlich) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -387,4 +408,7 @@ Levisticum officinale,"Liebstöckel;Maggikraut;Suppengrün;Lovage",Apiaceae,Levi
 15. [Koppert — Aphidend (Aphidoletes aphidimyza)](https://www.koppert.com/aphidend/) — Gallmücke gegen Blattläuse, Ausbringung
 16. [Sound Horticulture — Aphidius / Aphidoletes](https://soundhorticulture.com/pages/aphids) — Ausbringraten, Etablierungszeiten Blattlaus-Nützlinge
 17. [Wikipedia — Phasmarhabditis hermaphrodita](https://en.wikipedia.org/wiki/Phasmarhabditis_hermaphrodita) — Schnecken-Nematode, Ausbringrate, Wirkungszeit
+18. [RHS — How to grow Lovage](https://www.rhs.org.uk/herbs/lovage/grow-your-own) — Pflanzabstand 30–45 cm zu Beginn, Standort sonnig bis halbschattig
+19. [Südtiroler Bauernbund — Merkblatt „Fruchtfolgen im Gemüsebau" (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Anbaupause Doldenblütler 4–5 Jahre (Liebstöckel nicht namentlich genannt)
+20. [Landwirtschaftskammer NRW — „Fruchtfolge im Gemüsegarten planen" (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Zehrergruppen (Kräuter nur als Sammelgruppe)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

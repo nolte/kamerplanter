@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{#- REQ-053 GP-FR-052 / GP-UX-028: one label for a bed (or any other location) with a QR code.
+    The QR code carries `qr_url`; the same URL is the link target of the code, so the PDF can be
+    opened on a screen as well. Everything printed is autoescaped (PrintEngine). -#}
+
+{% block extra_styles %}
+@page {
+    size: A4 portrait;
+    margin: 15mm;
+}
+
+.location-label {
+    width: 148mm;
+    min-height: 105mm;
+    border: 0.5pt solid #999;
+    border-radius: 3mm;
+    padding: 6mm;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6mm;
+}
+
+.location-label-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.location-label-name {
+    font-size: 20pt;
+    font-weight: 700;
+    line-height: 1.15;
+    margin-bottom: 3mm;
+    overflow-wrap: anywhere;
+}
+
+.location-label-detail {
+    font-size: 11pt;
+    color: #333;
+    margin-bottom: 1.5mm;
+    overflow-wrap: anywhere;
+}
+
+.location-label-detail .field-label {
+    font-weight: 600;
+    color: #555;
+}
+
+.location-label-hint {
+    font-size: 9pt;
+    color: #555;
+    margin-top: 4mm;
+    border-top: 0.3pt solid #ddd;
+    padding-top: 2mm;
+}
+
+.location-label-qr {
+    flex-shrink: 0;
+}
+
+.location-label-qr img {
+    display: block;
+    width: {{ qr_size_mm }}mm;
+    height: {{ qr_size_mm }}mm;
+}
+
+.cut-hint {
+    font-size: 7pt;
+    color: #999;
+    margin-top: 2mm;
+    font-style: italic;
+}
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="margin-bottom: 5mm; padding-bottom: 3mm;">
+    <h1 style="font-size: 14pt;">{{ labels[label.title_key] }}</h1>
+    <span class="meta">{{ labels.generated }}: {{ generated_date }}</span>
+</div>
+
+<div class="location-label">
+    <div class="location-label-content">
+        <div class="location-label-name">{{ label.name }}</div>
+        {% if label.site_name %}
+        <div class="location-label-detail"><span class="field-label">{{ labels.location_label_site }}:</span> {{ label.site_name }}</div>
+        {% endif %}
+        {% if label.type_name %}
+        <div class="location-label-detail"><span class="field-label">{{ labels.location_label_type }}:</span> {{ label.type_name }}</div>
+        {% endif %}
+        {% if label.area %}
+        <div class="location-label-detail"><span class="field-label">{{ labels.location_label_area }}:</span> {{ label.area }} m²</div>
+        {% endif %}
+        <div class="location-label-hint">{{ labels[label.hint_key] }}</div>
+    </div>
+    <div class="location-label-qr">
+        <a href="{{ label.qr_url }}"><img src="{{ label.qr_data_uri }}" alt="{{ labels[label.qr_alt_key] }}: {{ label.name }}"></a>
+    </div>
+</div>
+<div class="cut-hint">{{ labels.cut_marks_hint }}</div>
+{% endblock %}

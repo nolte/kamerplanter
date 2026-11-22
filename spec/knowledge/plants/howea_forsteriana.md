@@ -141,6 +141,22 @@ Quellen (§1.8):
 4. [ABCeeds — Premium Kentia Palm Seeds](https://www.abceeds.com.au/shop/plant-seed-shop/palm-seed-shop/howea-forsteriana/) — Einweichen, Skarifikation, Saattiefe
 5. [MyPalmShop — How to care for Howea forsteriana](https://www.mypalmshop.com/blog/tips-care-howea-forsteriana) — Keimtemperatur, Saattiefe
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Howea forsteriana", https://www.rhs.org.uk/plants/8845/howea-forsteriana/details (Position: „Partial shade"; Kultur: „in bright light but with protection from the sun") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -361,4 +377,5 @@ Howea forsteriana,"Kentia-Palme;Paradiespalme;Kentia Palm;Sentry Palm",Arecaceae
 13. [UF/IFAS — Manganese Deficiency in Palms (ENH1015/EP267)](https://ask.ifas.ufl.edu/publication/EP267) — Mn-Empfindlichkeit der Palmen, „Frizzletop", pH/Wurzeltemperatur-Einfluss
 14. [Koppert — Cryptolaemus montrouzieri](https://www.koppert.com/crop-protection/biological-pest-control/predatory-insects/cryptolaemus-montrouzieri/) — Nützling gegen Schmierläuse, Ausbringrate
 15. [Interiorlandscaping.co.uk — Biological Controls](http://www.interiorlandscaping.co.uk/Biologica.htm) — Ausbringraten Phytoseiulus persimilis, Metaphycus helvolus, Cryptolaemus montrouzieri
+16. [RHS — Howea forsteriana](https://www.rhs.org.uk/plants/8845/howea-forsteriana/details) — Lichtanspruch (Position: Partial shade)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

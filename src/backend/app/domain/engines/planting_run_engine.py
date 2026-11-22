@@ -59,6 +59,5 @@ class PlantingRunEngine:
                 raise ValueError("Clone runs require a source_plant_key.")
             if len(entries) != 1:
                 raise ValueError("Clone runs must have exactly one entry.")
-        elif run_type == PlantingRunType.MONOCULTURE:
-            if len(entries) != 1:
-                raise ValueError("Monoculture runs must have exactly one entry.")
+        elif run_type == PlantingRunType.MONOCULTURE and len(entries) != 1:
+            raise ValueError("Monoculture runs must have exactly one entry.")

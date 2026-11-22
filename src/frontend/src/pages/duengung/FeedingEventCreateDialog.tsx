@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -11,7 +11,9 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useFieldArray } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -23,6 +25,8 @@ import FormRow from '@/components/form/FormRow';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import * as api from '@/api/endpoints/feeding-events';
 import * as plantApi from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
@@ -68,14 +72,17 @@ export default function FeedingEventCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
+  // A failed read is shown with a retry, never as an empty picker (#3037).
+  const [plantsError, setPlantsError] = useState(false);
+  const [plantsAttempt, setPlantsAttempt] = useState(0);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       plant_key: plantKey ?? '',
@@ -93,16 +100,22 @@ export default function FeedingEventCreateDialog({
       notes: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (open && !plantKey) {
       setLoadingPlants(true);
+      setPlantsError(false);
       plantApi
         .listPlantInstances()
         .then(setPlants)
-        .catch(() => setPlants([]))
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'FeedingEventCreateDialog.plants' });
+          setPlants([]);
+          setPlantsError(true);
+        })
         .finally(() => setLoadingPlants(false));
     }
-  }, [open, plantKey]);
+  }, [open, plantKey, plantsAttempt]);
 
   useEffect(() => {
     if (open) {
@@ -138,14 +151,14 @@ export default function FeedingEventCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="feeding-event-create-dialog-title" data-testid="feeding-event-create-dialog">
       <DialogTitle id="feeding-event-create-dialog-title">{t('pages.feedingEvents.create')}</DialogTitle>
       <DialogContent>
         <Form onSubmit={handleSubmit(onSubmit)}>
@@ -167,8 +180,14 @@ export default function FeedingEventCreateDialog({
               disabled={loadingPlants}
               options={plants.map((p) => ({
                 value: p.key,
-                label: getPlantLabel(p),
+                label: getPlantLabel(p, i18n.language),
               }))}
+            />
+          )}
+          {!plantKey && plantsError && (
+            <OptionsLoadError
+              onRetry={() => setPlantsAttempt((n) => n + 1)}
+              data-testid="feeding-plants-load-error"
             />
           )}
           <FormSelectField
@@ -201,6 +220,7 @@ export default function FeedingEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="measured_ec_before"
+              helpTerm="ec"
               control={control}
               label={t('pages.feedingEvents.ecBefore')}
               min={0}
@@ -210,6 +230,7 @@ export default function FeedingEventCreateDialog({
             />
             <FormNumberField
               name="measured_ec_after"
+              helpTerm="ec"
               control={control}
               label={t('pages.feedingEvents.ecAfter')}
               min={0}
@@ -220,6 +241,7 @@ export default function FeedingEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="measured_ph_before"
+              helpTerm="ph"
               control={control}
               label={t('pages.feedingEvents.phBefore')}
               min={0}
@@ -229,6 +251,7 @@ export default function FeedingEventCreateDialog({
             />
             <FormNumberField
               name="measured_ph_after"
+              helpTerm="ph"
               control={control}
               label={t('pages.feedingEvents.phAfter')}
               min={0}
@@ -243,6 +266,7 @@ export default function FeedingEventCreateDialog({
           <FormRow>
             <FormNumberField
               name="runoff_ec"
+              helpTerm="runoff"
               control={control}
               label={t('pages.feedingEvents.runoffEc')}
               min={0}
@@ -252,6 +276,7 @@ export default function FeedingEventCreateDialog({
             />
             <FormNumberField
               name="runoff_ph"
+              helpTerm="runoff"
               control={control}
               label={t('pages.feedingEvents.runoffPh')}
               min={0}
@@ -261,6 +286,7 @@ export default function FeedingEventCreateDialog({
           </FormRow>
           <FormNumberField
             name="runoff_volume_liters"
+            helpTerm="runoff"
             control={control}
             label={t('pages.feedingEvents.runoffVolume')}
             min={0}
@@ -316,6 +342,6 @@ export default function FeedingEventCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

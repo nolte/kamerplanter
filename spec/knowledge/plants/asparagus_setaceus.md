@@ -134,6 +134,22 @@
 **Quellen (§1.8):** [RHS — Asparagus setaceus](https://www.rhs.org.uk/plants/27185/asparagus-setaceus/details); [Gardenia.net — Asparagus setaceus](https://www.gardenia.net/plant/asparagus-setaceus-asparagus-fern-grow-care-tips); [Gardening Plants and Flowers — How To Grow Asparagus Fern From Seeds](https://gardening-plant.com/blogs/news/how-to-grow-asparagus-fern-from-seeds); [Outsidepride — Planting Instructions for Asparagus Fern](https://www.outsidepride.com/resources/planting/asparagus-fern-planting/); [johnysfarm.com — Grow Asparagus Fern from Seed](https://johnysfarm.com/how-to-grow-asparagus-fern-from-seed/); [treeshrubseeds.com — Asparagus sprengeri Seed Description (Kongener-Vergleichswert TKG)](https://www.treeshrubseeds.com/specieslist?id=295&ID2=2).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Asparagus setaceus" (Position „Partial shade"; „bright filtered light sheltered from hot sun"), https://www.rhs.org.uk/plants/27185/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -337,6 +353,11 @@ Hohe Luftfeuchtigkeit ist für Asparagus setaceus wichtiger als Düngung. Trocke
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Zimmerpflanze |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zimmerpflanze, keine Beetkultur — keine Fruchtfolge-Quelle --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -393,3 +414,6 @@ Asparagus setaceus,Federspargel;Plumosa-Farn;Asparagus Fern,Asparagaceae,Asparag
 17. [Healthy Houseplants – Asparagus Fern Complete Care Guide](https://www.healthyhouseplants.com/indoor-houseplants/asparagus-fern-a-complete-care-guide/) — keine echte Dormanz, nur Wachstumsverlangsamung; Kälteschäden unter 13 °C (55 °F)
 18. [Plantura – Zierspargel Pflanzenportrait](https://www.plantura.garden/zimmerpflanzen/zierspargel/zierspargel-pflanzenportait) — "meist nicht winterhart", keine vollständige Dormanz, Umzugsschwelle ~15 °C
 <!-- /Quelle: growing-phase-auditor Audit 2026-07 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+19. [RHS — Asparagus setaceus](https://www.rhs.org.uk/plants/27185/wd/details) — Position „Partial shade", helles gefiltertes Licht, Schutz vor praller Sonne (Lichtanspruch 1.10)
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

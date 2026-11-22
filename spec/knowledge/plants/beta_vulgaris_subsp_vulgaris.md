@@ -158,6 +158,22 @@ Hinweise:
 **Quellen (§1.8):** [RHS — How to grow Beetroot](https://www.rhs.org.uk/vegetables/beetroot/grow-your-own); [West Coast Seeds — Seeds per gram](https://www.westcoastseeds.com/blogs/glossary/seeds-per-gram); [nimrod.bio — Vegetable Seeds Per Gram (PDF-Tabelle)](https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf); [idseed.org — Beta vulgaris L. subsp. vulgaris Fact Sheet](https://seedidguide.idseed.org/fact_sheets/34042/); [Garden Betty — A Guide to Seeds That Need Light (or Total Darkness) to Germinate](https://gardenbetty.com/seed-germination-light-darkness/); [Harvest to Table — Vegetable Seed Germination Special Requirements](https://harvesttotable.com/vegetable-seed-germination-special-requirements/); [Osborne Seed — Seed Viability Chart](https://www.osborneseed.com/pages/seed-viability-chart); [Gardening Channel — Seed Life Chart](https://www.gardeningchannel.com/seed-life-chart-how-long-will-seeds-last/).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 10 | `species.spacing_cm` |
+| Reihenabstand (cm) | 30 | `species.row_spacing_cm` |
+| Quelle Abstände | LWG Bayern (Bayerische Landesanstalt für Weinbau und Gartenbau), Flyer „Rote Bete – Beta vulgaris subsp. vulgaris" (Dateistand 2025), https://www.lwg.bayern.de/mam/cms06/landespflege/dateien/lwg_kwg_rote_beete_flyer_bf.pdf („Abstand in Reihe 10 cm, Reihenabstand 30 cm"); bestätigt durch RHS, „How to grow beetroot", https://www.rhs.org.uk/vegetables/beetroot/grow-your-own (10 cm Einzelsaat/Pflanzen, 30 cm Reihenabstand) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow beetroot", „Choose a sunny site", https://www.rhs.org.uk/vegetables/beetroot/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -455,6 +471,11 @@ Hinweis: Die Ernterueben werden ausgegraben und eingelagert (dig_and_store), nic
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae), Getreide, Kartoffeln -- lockerer, stickstoffreicher Boden |
 | Empfohlene Nachfrucht | Schwachzehrer (Feldsalat, Radieschen) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Amaranthaceae (Rote Bete, Mangold, Spinat, Zuckerruebe) auf gleicher Flaeche |
+| Zehrerstufe | medium_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (INNOProdukte, 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Tabelle 2: Mittelzehrer u. a. Rote Bete, Mangold); Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Mittelzehrer-Beet: Mangold, Rote Rüben) |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; LKSH Fruchtfolge im Garten, 2020, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf: Rote Bete bei den Gänsefußgewächsen, Hülsenfrüchte als eigene Familie) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Amaranthaceae 3) --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -558,3 +579,8 @@ Bull's Blood,Beta vulgaris subsp. vulgaris,,,ornamental;heirloom,60,,open_pollin
 25. Gardener's Path -- How to Prevent Beet Plants from Bolting: "After the first year, beets send out flowers, which turn into seeds and then the plant dies" (monokarpe Bluehstrategie): https://gardenerspath.com/plants/vegetables/bolting-beets/
 26. NC State Extension Gardener Plant Toolbox -- Beta vulgaris Leaf Beet Group: Bluete im 2. Jahr, danach Samenbildung und Absterben: https://plants.ces.ncsu.edu/plants/beta-vulgaris-leaf-beet-group/
 <!-- /Quelle: growing-phase-auditor 2026-07 -->
+27. LWG Bayern (Bayerische Landesanstalt fuer Weinbau und Gartenbau) -- Flyer "Rote Bete" (Pflanzabstand 10 cm, Reihenabstand 30 cm): https://www.lwg.bayern.de/mam/cms06/landespflege/dateien/lwg_kwg_rote_beete_flyer_bf.pdf
+28. RHS -- How to grow Beetroot (Standort "sunny site", Saat-/Pflanzabstand 10 cm, Reihenabstand 30 cm): https://www.rhs.org.uk/vegetables/beetroot/grow-your-own
+29. Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (INNOProdukte, 2022; Zehrerstufen, Anbaupausen): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+30. Natur im Garten Burgenland -- Fruchtfolge im Gemuesegarten (April 2022; Zehrerstufen-Beete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+31. Landwirtschaftskammer Schleswig-Holstein -- Fruchtfolge im Garten (2020; Pflanzenfamilien, Anbaupause): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf

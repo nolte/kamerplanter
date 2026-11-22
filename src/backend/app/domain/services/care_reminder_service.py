@@ -19,6 +19,7 @@ from app.common.enums import (
 from app.common.exceptions import DuplicateError, NotFoundError, WriteConflictError
 from app.common.log_privacy import log_tenant
 from app.data_access.arango.base_repository import get_all_pages
+from app.domain.engines.care_event_backfill_mapper import CARE_CONFIRMATIONS, TRIGGER_REMINDER, BedAnchor, map_document
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.interfaces.care_reminder_repository import ICareReminderRepository
@@ -34,19 +35,23 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.interfaces.watering_log_repository import IWateringLogRepository
+from app.domain.models.care_event import CareEvent
 from app.domain.models.care_reminder import (
     SEASON_STATE_FIELDS,
     CareConfirmation,
     CareDashboardEntry,
     CareProfile,
 )
+from app.domain.models.client_event import is_client_event_conflict
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Cultivar, Species, WateringGuide
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_common_name
 from app.domain.models.task import Task
 from app.domain.models.watering_log import WateringLog, WateringLogFertilizer
 from app.domain.services.fertilizer_references import assert_fertilizers_visible
+from app.domain.services.location_ownership import SiteAnchorSource, find_owned_location
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 from app.domain.services.species_visibility import readable_species
 
@@ -361,6 +366,11 @@ _RACE_REREAD_ATTEMPTS = 6
 _RACE_REREAD_INTERVAL_SECONDS = 0.05
 
 
+def _NO_EVENT(_confirmation_key: str) -> CareEvent | None:  # noqa: N802 - a constant function, named like one
+    """The ``event_for`` of a confirmation that has nothing to log in a bed."""
+    return None
+
+
 class CareReminderService:
     def __init__(
         self,
@@ -379,8 +389,12 @@ class CareReminderService:
         notification_propagation: NotificationPropagationService | None = None,
         family_name_resolver: Callable[[str], str | None] | None = None,
         fertilizer_repo: IFertilizerRepository | None = None,
+        site_repo: SiteAnchorSource | None = None,
     ) -> None:
         self._repo = care_repo
+        #: REQ-053 GP-FR-106 (WP 8.3): resolves the bed (location -> site -> tenant) a confirmation is logged in.
+        #: Without it no care event is written - the optional-collaborator rule of this service.
+        self._site_repo = site_repo
         self._fertilizer_repo = fertilizer_repo
         self._engine = engine
         self._recurrence = recurrence or RecurrenceEngine()
@@ -890,6 +904,74 @@ class CareReminderService:
             return plant_key
         return plant.plant_name or plant.instance_id or plant_key
 
+    def _bed_event_for(
+        self,
+        plant: PlantInstance | None,
+        reminder_type: ReminderType,
+        *,
+        tenant_key: str,
+        performed_at: datetime,
+        user_key: str,
+        volume_liters: float | None = None,
+    ) -> Callable[[str], CareEvent | None]:
+        """The care event of a confirmation (REQ-053 GP-FR-106, WP 8.3), as a function of the stored confirmation's key.
+
+        A plant that stands in no bed - a house plant without a location, a location whose site is not the tenant's
+        - has nothing to log: the function answers ``None`` and the confirmation is stored alone, with no error.
+        Otherwise the bed is the plant's location, tenant and site are the **site's**, and the event is made by
+        the mapper of the M4 backfill (``trigger = reminder``): one mapping per source, whoever writes it.
+        ``volume_liters`` is the volume the caller typed; none is invented.
+
+        ``user_key`` is the confirming caller and becomes the event's performer and author (REQ-053 §32.8 Pkt. 2,
+        #2517). It has no default: every entry path - REST, the notification action, the task queue, MCP - must
+        name its caller, so a new path cannot store a confirmation without a performer by forgetting it.
+        """
+        if plant is None or self._site_repo is None:
+            return _NO_EVENT
+        # The bed is the plant's location; a plant placed in a slot only (written before v0100) stands in the
+        # slot's location - the same walk the backfill scan makes, so live and backfilled lines agree.
+        location_key = plant.location_key
+        if not location_key and plant.slot_key:
+            slot = self._site_repo.get_slot_by_key(plant.slot_key)
+            location_key = slot.location_key if slot is not None else None
+        if not location_key:
+            return _NO_EVENT
+        location = find_owned_location(self._site_repo, location_key, tenant_key)
+        site = self._site_repo.get_site_by_key(location.site_key) if location is not None else None
+        if location is None or site is None or not site.tenant_key or site.tenant_key != tenant_key:
+            return _NO_EVENT
+        plant_key = plant.key or ""
+        anchor = BedAnchor(
+            tenant_key=site.tenant_key,
+            site_key=location.site_key,
+            location_key=location.key or location_key,
+            plant_keys=(plant_key,) if plant_key else (),
+        )
+
+        def build(confirmation_key: str) -> CareEvent | None:
+            try:
+                return map_document(
+                    CARE_CONFIRMATIONS,
+                    {"_key": confirmation_key, "reminder_type": reminder_type.value},
+                    anchor,
+                    performed_at,
+                    trigger=TRIGGER_REMINDER,
+                    performed_by_user_key=user_key or None,
+                    # The confirming caller recorded the line and may correct it (GP-NFR-054, GP-API-036).
+                    created_by=user_key or None,
+                    quantity=volume_liters,
+                    unit="l" if volume_liters else None,
+                )
+            except ValueError as exc:  # pydantic's ValidationError is one
+                # The care log is a mirror of the confirmation: a line the model refuses must not block the user's
+                # confirmation. The consistency job (WP 8.2) closes the gap with the same mapper.
+                logger.error(
+                    "care_confirmation.event_refused", reminder_type=reminder_type.value, error_type=type(exc).__name__
+                )
+                return None
+
+        return build
+
     def confirm_reminder(
         self,
         plant_key: str,
@@ -901,9 +983,12 @@ class CareReminderService:
         measured_ec: float | None = None,
         measured_ph: float | None = None,
         tenant_key: str,
-        user_key: str = "",
+        user_key: str,
     ) -> CareConfirmation:
         """Confirm a care reminder for a plant ``tenant_key`` owns.
+
+        ``user_key`` (keyword-only, no default) is the confirming caller: the performer of the care event the
+        confirmation logs (REQ-053 §32.8 Pkt. 2, #2517) and the recipient of the follow-up care notification.
 
         SEC-001 / #2107: the plant is verified against ``tenant_key`` (keyword-only,
         no default) before any care state is touched. A foreign or unknown key
@@ -911,7 +996,7 @@ class CareReminderService:
         existence is not disclosed across the boundary. Until #2107 the check ran
         only ``if tenant_key`` — an opt-in the REST route did not opt into for months.
         """
-        self._require_owned_plant(plant_key, tenant_key)
+        plant = self._require_owned_plant(plant_key, tenant_key)
 
         # #1713: the fertilizer lines are request values and end up on the
         # WateringLog below. Checked against the tenant the log will carry, and
@@ -972,9 +1057,19 @@ class CareReminderService:
             notes=notes,
             interval_at_time=self._get_current_interval(profile, reminder_type),
         )
-        created = self._repo.create_confirmation(confirmation)
-        if created.key and profile.key:
-            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        created = self._repo.create_confirmation_logged(
+            confirmation,
+            profile_key=profile.key or "",
+            plant_key=plant_key,
+            event_for=self._bed_event_for(
+                plant,
+                reminder_type,
+                tenant_key=tenant_key,
+                performed_at=now,
+                user_key=user_key,
+                volume_liters=volume_liters if is_feeding_type else None,
+            ),
+        )
 
         # Apply adaptive learning
         if profile.adaptive_learning_enabled:
@@ -1197,6 +1292,8 @@ class CareReminderService:
         task: Task,
         *,
         tenant_key: str,
+        user_key: str,
+        completion_client_event_id: str | None = None,
     ) -> Task | None:
         """Mirror a completed care-reminder task into the plant's care state (REQ-022).
 
@@ -1212,15 +1309,27 @@ class CareReminderService:
         the tenant every write is verified against: a task or plant belonging to
         another tenant is refused (:meth:`_resolve_care_task_context`, SEC-001).
 
+        ``user_key`` (keyword-only, no default) is the completing caller and becomes the performer of the care event
+        the confirmation logs, exactly as on the dashboard path (REQ-053 §32.8 Pkt. 2, #2517).
+
         Non-care tasks, non-plant entities, foreign tasks/plants and plants without
         a care profile are no-ops. Returns the newly scheduled follow-up watering
         task, or ``None``.
+
+        REQ-053 WP 9.3: a buffered completion (``completion_client_event_id``, the id of the completing *request* -
+        never read from the task, whose stored id may be an earlier completion's) confirms exactly once. Its replay
+        runs this again - a first attempt may have died between the commit and this follow-up - and a confirmation
+        that is there already is written neither twice nor with a second watering log. The next occurrence keeps
+        its own dedup (#768) and is tried again.
         """
         context = self._resolve_care_task_context(task, tenant_key)
         if context is None:
             return None
         plant_key, profile, reminder_type = context
 
+        completion_id = completion_client_event_id
+        if completion_id and self._repo.find_confirmation_by_completion(plant_key, completion_id) is not None:
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
         confirmation = CareConfirmation(
             plant_key=plant_key,
             care_profile_key=profile.key or "",
@@ -1230,12 +1339,38 @@ class CareReminderService:
             task_key=task.key,
             notes=task.completion_notes,
             interval_at_time=self._engine._get_interval_days(profile, reminder_type),
+            completion_client_event_id=completion_id,
         )
-        created = self._repo.create_confirmation(confirmation)
-        if created.key and profile.key:
-            self._repo.create_confirmation_edges(created.key, profile.key, plant_key)
+        try:
+            self._repo.create_confirmation_logged(
+                confirmation,
+                profile_key=profile.key or "",
+                plant_key=plant_key,
+                event_for=self._bed_event_for(
+                    self._owned_plant(plant_key, tenant_key),
+                    reminder_type,
+                    tenant_key=tenant_key,
+                    performed_at=confirmation.confirmed_at,
+                    user_key=user_key,
+                ),
+            )
+        except DuplicateError as exc:
+            # A concurrent replay of the same completion confirmed first (the unique index of v0106).
+            if not (completion_id and is_client_event_conflict(exc.details)):
+                raise
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
+        except WriteConflictError:
+            # 1200: the twin's confirmation may still be uncommitted - only a confirmation that is there now counts.
+            if not completion_id or self._repo.find_confirmation_by_completion(plant_key, completion_id) is None:
+                raise
+            return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
         self.complete_care_task_with_log(task.key or "", plant_key, reminder_type, tenant_key=tenant_key)
+        return self._next_watering_after(profile, reminder_type, task, tenant_key=tenant_key)
 
+    def _next_watering_after(
+        self, profile: CareProfile, reminder_type: ReminderType, task: Task, *, tenant_key: str
+    ) -> Task | None:
+        """The next watering occurrence after a confirmed watering task; ``None`` for every other reminder."""
         if reminder_type != ReminderType.WATERING:
             return None
 
@@ -1526,8 +1661,12 @@ class CareReminderService:
         hemisphere: str = "north",
         *,
         tenant_key: str,
+        language: str = CANONICAL_NAME_LANGUAGE,
     ) -> list[CareDashboardEntry]:
         """Build the care dashboard for all active plants of a tenant.
+
+        ``language`` words the species names (the request's locale, #2902); a caller
+        without a request keeps the canonical language.
 
         Loads the tenant's plant instances (excluding removed plants), resolves
         the contextual data each plant needs (species name, current growth phase,
@@ -1539,10 +1678,10 @@ class CareReminderService:
         ``tenant_key`` is keyword-only without a default (#2107): an empty tenant
         lists nothing (:meth:`_build_plant_data_for_tenant`).
         """
-        plant_data = self._build_plant_data_for_tenant(tenant_key)
+        plant_data = self._build_plant_data_for_tenant(tenant_key, language=language)
         return self._dashboard_entries(plant_data, hemisphere)
 
-    def _build_plant_data_for_tenant(self, tenant_key: str) -> list[dict]:
+    def _build_plant_data_for_tenant(self, tenant_key: str, *, language: str = CANONICAL_NAME_LANGUAGE) -> list[dict]:
         """Assemble ``plant_data`` dicts for the tenant's active plants.
 
         Each dict carries the fields :meth:`get_care_dashboard` consumes:
@@ -1572,7 +1711,18 @@ class CareReminderService:
                 {
                     "plant_key": plant_key,
                     "plant_name": plant.plant_name or plant.instance_id or "",
-                    "species_name": (species.common_names[0] if species and species.common_names else None),
+                    # In the request's language (#2902).
+                    "species_name": (
+                        localized_common_name(
+                            species.common_names,
+                            species.common_names_i18n,
+                            species.scientific_name,
+                            language,
+                        )
+                        or None
+                        if species
+                        else None
+                    ),
                     "current_phase": self._resolve_current_phase_name(plant.current_phase_key),
                     "has_nutrient_plan": self._has_nutrient_plan(plant_key, plant.tenant_key),
                     # REQ-022 §3.2 winter-reminder gating context (B1).

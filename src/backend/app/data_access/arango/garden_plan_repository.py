@@ -1,0 +1,2136 @@
+"""The garden plan's read model and its transactional batch write (REQ-053 §21.1, §21.3, GP-NFR-013).
+
+``locations``, ``slots`` and ``garden_objects`` carry no ``tenant_key`` (E-01, #2107):
+the site is the owner, so every read here joins the site by key and filters on
+*its* tenant inside the query — the predicate is in the statement, never in a
+field of the row (§22.3 T-04).
+
+The write is **one** stream transaction (``transactions.stream_transaction``):
+inside it the site's ``plan_revision`` is read and compared before anything is
+written, so the revision check and the writes cannot be separated by another
+request. Everything the batch needs to *validate* was read before the transaction
+opened (containment and overlap are CPU work, GP-NFR-013); only the check and the
+writes run inside.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+from typing import Any, cast
+
+import structlog
+from arango.cursor import Cursor
+from arango.database import StandardDatabase
+from arango.exceptions import AQLQueryExecuteError, DocumentUpdateError
+from pydantic import BaseModel
+
+from app.common.datetimes import today_utc
+from app.common.enums import AttachmentCategory, PhotoperiodSource, PhotoperiodType
+from app.common.exceptions import (
+    NotFoundError,
+    PlanError,
+    PlanRevisionConflictError,
+    PlanValidationError,
+    WriteConflictError,
+)
+from app.common.types import SiteKey
+from app.data_access.arango import collections as col
+from app.data_access.arango.care_event_repository import (
+    CARE_EVENT_WRITE_COLLECTIONS,
+    SOIL_PROFILE_READ_COLLECTIONS,
+    write_care_event,
+    write_soil_profile_edit,
+)
+from app.data_access.arango.conflicts import WRITE_WRITE_CONFLICT
+from app.data_access.arango.document_reads import model_or_conflict, readable_rows
+from app.data_access.arango.garden_object_repository import ArangoGardenObjectRepository
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
+from app.data_access.arango.guarded_update import StoredValue, update_if_unchanged
+from app.data_access.arango.irrigation_zone_repository import ZONE_EDGES
+from app.data_access.arango.query_builder import aql_field
+from app.data_access.arango.slot_rules_fence import (
+    SLOT_RULES_REVISION,
+    SlotRulesConflictError,
+    lock_bed,
+    require_fence,
+    take_slot_rules,
+)
+from app.data_access.arango.tenant_scope import tenant_union_with_grants_predicate
+from app.data_access.arango.transactions import StreamTransaction, TransactionCollection, stream_transaction
+from app.data_access.arango.watering_queries import last_waterings
+from app.domain.calculators.overdue_calculator import start_of_utc_day
+from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
+from app.domain.engines.slot_reservation_engine import LIVE_RUN_STATUSES
+from app.domain.interfaces.garden_plan_repository import (
+    MAX_AREA_TYPES,
+    MAX_PHOTOPERIOD_PLANTS,
+    IGardenPlanRepository,
+    PlanReadData,
+    SoilProfileEdit,
+)
+from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
+from app.domain.models.garden_object import GardenObject
+from app.domain.models.garden_plan import (
+    MAX_SLOTS_PER_SITE,
+    BedCounters,
+    PlanAuditEntry,
+    PlanAuditRecord,
+    PlanBatchOutcome,
+    PlanBatchWrite,
+    PlanSnapshotEntry,
+    PlantShortInfo,
+    SlotBatchOutcome,
+    SlotBatchWrite,
+    SlotRuleBasis,
+    SlotSpeciesHint,
+    TaskCounter,
+)
+from app.domain.models.garden_plan_import import MAX_SNAPSHOTS_PER_SITE
+from app.domain.models.site import DEFAULT_ADJACENCY_FACTOR, DEFAULT_GRID_M, Location, SiteUnderlay, Slot
+from app.domain.models.tent_hint import PhaseLabel, PlantPhotoperiod
+
+logger = structlog.get_logger()
+
+#: The site exists and belongs to ``@tenant_key`` — the anchor of every read below.
+_OWNED_BY_SITE = """
+    LET site = DOCUMENT(CONCAT(@sites, @site_key))
+    FILTER site != null AND site.tenant_key == @tenant_key
+"""
+
+#: The same anchor for a loop variable named ``l`` (a location): its site exists and is the tenant's.
+_OWNED_BY_LOCATION_SITE = """
+    LET site = DOCUMENT(CONCAT(@sites, l.site_key))
+    FILTER site != null AND site.tenant_key == @tenant_key
+"""
+
+#: The caller's locations that hang off *this* site of *this* tenant, as ``l`` - the anchor of both slot reads
+#: (``load_active_slots``, ``load_slot_rule_basis``), written once so the fenced read cannot drift from the plain one.
+_OWNED_LOCATIONS = f"""
+    FOR l IN @@locations
+        FILTER l._key IN @location_keys AND l.site_key == @site_key
+        {_OWNED_BY_LOCATION_SITE}
+"""
+
+#: The slots of ``l``: live ones, or all with ``@include_archived``; only ``@slot_keys`` when that is not null.
+_SLOTS_OF_LOCATION = """
+    FOR s IN @@slots
+        FILTER s.location_key == l._key AND (@include_archived OR s.archived_at == null)
+            AND (@slot_keys == null OR s._key IN @slot_keys)
+        RETURN s
+"""
+
+
+def _slot_read_binds(
+    site_key: str, location_keys: list[str], *, tenant_key: str, include_archived: bool, slot_keys: list[str] | None
+) -> dict[str, Any]:
+    return {
+        "@locations": col.LOCATIONS,
+        "@slots": col.SLOTS,
+        "location_keys": sorted(set(location_keys)),
+        "site_key": site_key,
+        "sites": f"{col.SITES}/",
+        "tenant_key": tenant_key,
+        "include_archived": include_archived,
+        "slot_keys": sorted(set(slot_keys)) if slot_keys is not None else None,
+    }
+
+
+_OPEN_TASK_STATUSES = ("pending", "in_progress")
+
+#: Location columns ``PATCH /locations`` writes as a sub-path merge, not whole (#2569): the plan batch writes
+#: ``site_conditions.sun_profile`` of the same value outside the PATCH's read (#2538).
+_MERGED_LOCATION_COLUMNS: frozenset[str] = frozenset({"site_conditions"})
+
+#: Cursor batch of the read model's row-heavy queries (slots, plants): the "large" class of §25.1 (3 000 slots,
+#: 2 000 plants) in one round trip each instead of one per 1 000 rows (python-arango's default), #2526.
+_READ_MODEL_BATCH_SIZE = 5_000
+
+
+_LOCATION_EDGES = edges_touching(col.LOCATIONS)
+_SLOT_EDGES = edges_touching(col.SLOTS)
+_OBJECT_EDGES = edges_touching(col.GARDEN_OBJECTS)
+
+#: Collections the batch transaction writes: the documents, the audit, and every edge a deleted vertex may carry.
+_BATCH_WRITE = tuple(
+    dict.fromkeys(
+        (
+            col.SITES,
+            col.LOCATIONS,
+            col.SLOTS,
+            col.GARDEN_OBJECTS,
+            col.GARDEN_PLAN_AUDIT,
+            # A deleted water source is unlinked from its zones (``water_source_key``), REQ-053 WP 7.1.
+            col.IRRIGATION_ZONES,
+            # The import (WP 7.2) creates and replaces zones: the zone, its site edge and every edge on it.
+            *(edge for edge, _ in ZONE_EDGES),
+            *CARE_EVENT_WRITE_COLLECTIONS,
+            col.CONTAINS,
+            col.HAS_GARDEN_OBJECT,
+            *(edge for edge, _ in (*_LOCATION_EDGES, *_SLOT_EDGES, *_OBJECT_EDGES)),
+        )
+    )
+)
+_BATCH_READ = (col.USERS, col.PLANT_INSTANCES)
+
+#: Collections a slot batch writes: the slots, their ``has_slot`` edge and every other edge a deleted slot may carry.
+_SLOT_BATCH_WRITE = tuple(dict.fromkeys((col.LOCATIONS, col.SLOTS, col.HAS_SLOT, *(edge for edge, _ in _SLOT_EDGES))))
+#: ``run_planned_at`` is read for the reservation re-check; it is declared for writing already when a slot edge.
+_SLOT_BATCH_READ = tuple(c for c in (col.RUN_PLANNED_AT,) if c not in _SLOT_BATCH_WRITE)
+
+
+class _LostTheRace(Exception):  # noqa: N818 — a control-flow signal inside the module, never leaves it
+    """Another writer saved the plan between this transaction's snapshot and its first write."""
+
+
+#: The site's tenant, its plan and the display name of the account that last changed it.
+_SITE_REVISION_QUERY = """
+FOR s IN @@sites
+    FILTER s._key == @site_key
+    RETURN {
+        tenant_key: s.tenant_key,
+        plan: s.plan,
+        changed_by: s.plan.plan_updated_by == null
+            ? null
+            : DOCUMENT(CONCAT(@users, s.plan.plan_updated_by)).display_name
+    }
+"""
+
+
+def _now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _dump(model: BaseModel, **options: Any) -> dict[str, Any]:
+    """``model_dump`` through a receiver typed as the pydantic base (see the call-graph sweep's blind-spot ceiling)."""
+    return model.model_dump(**options)
+
+
+def _revalidated(model: Location | GardenObject) -> Location | GardenObject:
+    """The model run through its own validation again: a service may have mutated it after construction (#968)."""
+    if isinstance(model, Location):
+        return Location(**_dump(model, by_alias=True))
+    return GardenObject(**_dump(model, by_alias=True))
+
+
+def _insert_doc(model: Location | GardenObject) -> dict[str, Any]:
+    """A model as the document to insert, re-validated on the way (the #968 rule for hand-written writers)."""
+    data = _dump(_revalidated(model), by_alias=True, exclude_none=True, mode="json")
+    data.pop("_key", None)
+    return data
+
+
+def _slot_cross_validated(slot: Slot) -> tuple[StoredValue, ...]:
+    """The columns of ``slot`` the model validates against each other, as preconditions of a slot write (#2727).
+
+    The capacity bound and the geometry kind both follow ``slot_role``; a row without a column reads as the
+    model default.
+    """
+    fields = Slot.model_fields
+    return (
+        StoredValue(("slot_role",), slot.slot_role.value, fields["slot_role"].default.value),
+        StoredValue(("capacity_plants",), slot.capacity_plants, fields["capacity_plants"].default),
+        StoredValue(("geometry", "kind"), slot.geometry.kind.value if slot.geometry is not None else None),
+    )
+
+
+def _soil_reads(soil: SoilProfileEdit | None, *, with_sites: bool = True) -> tuple[str, ...]:
+    """What a soil edit reads besides the bed (#2706): the bed's site and its soil analyses."""
+    if soil is None:
+        return ()
+    return (*SOIL_PROFILE_READ_COLLECTIONS, col.CARE_EVENTS) if with_sites else (col.CARE_EVENTS,)
+
+
+def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit | None) -> None:
+    """The ``soil_profile`` of a PATCH, through the one derivation, in the column write's transaction (#2706)."""
+    if soil is None:
+        return
+    write_soil_profile_edit(
+        txn,
+        location_key,
+        tenant_key=soil.tenant_key,
+        profile=soil.profile,
+        check_last_analysis_at=soil.check_last_analysis_at,
+        expected_last_analysis_at=soil.expected_last_analysis_at,
+    )
+
+
+def _text_or_none(value: object) -> str | None:
+    """A stored text that is a non-empty string; anything else reads as absent."""
+    return value if isinstance(value, str) and value else None
+
+
+def _phase_label_or_none(row: dict[str, Any]) -> PhaseLabel | None:
+    """The plant's phase with both display names; ``None`` without a phase code (no phase, or it does not resolve)."""
+    code = _text_or_none(row.get("phase_code"))
+    if code is None:
+        return None
+    return PhaseLabel(
+        code=code,
+        display_name=_text_or_none(row.get("phase_display_name")) or "",
+        display_name_de=_text_or_none(row.get("phase_display_name_de")) or "",
+    )
+
+
+def _photoperiod_or_none(value: object) -> float | None:
+    """A stored ``photoperiod_hours`` as a number of hours in ``0..24``; anything else is unknown (E-10)."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    hours = float(value)
+    return hours if 0.0 <= hours <= 24.0 else None
+
+
+def _photoperiod_source_or_none(value: object) -> PhotoperiodSource | None:
+    """A stored ``photoperiod_source``; missing or a value this code does not know is ``None`` (origin unknown)."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return PhotoperiodSource(value)
+    except ValueError:
+        return None
+
+
+def _photoperiod_type_or_none(value: object) -> PhotoperiodType | None:
+    """A stored ``photoperiod_type``; missing or a value this code does not know is ``None`` (not classified)."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return PhotoperiodType(value)
+    except ValueError:
+        return None
+
+
+class ArangoGardenPlanRepository(IGardenPlanRepository):
+    def __init__(self, db: StandardDatabase) -> None:
+        self._db = db
+        self._objects = ArangoGardenObjectRepository(db)
+
+    # ── Reads ─────────────────────────────────────────────────────────
+
+    def _locations(self, site_key: SiteKey, tenant_key: str) -> list[Location]:
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            FOR l IN @@col
+                FILTER l.site_key == @site_key
+                {_OWNED_BY_SITE}
+                SORT l.depth ASC, l.z_order ASC, l._key ASC
+                RETURN l
+            """,
+                bind_vars={
+                    "@col": col.LOCATIONS,
+                    "site_key": site_key,
+                    "sites": f"{col.SITES}/",
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return [Location(**doc) for doc in cursor]
+
+    def load_structure(self, site_key: SiteKey, *, tenant_key: str) -> tuple[list[Location], list[GardenObject]]:
+        if not tenant_key:
+            raise ValueError("load_structure needs a tenant_key (an empty tenant is no tenant, #2107).")
+        return (
+            self._locations(site_key, tenant_key),
+            self._objects.get_garden_objects_by_site(site_key, tenant_key=tenant_key),
+        )
+
+    def load_read_model(
+        self,
+        site_key: SiteKey,
+        *,
+        tenant_key: str,
+        include_plants: bool,
+        include_tasks: bool,
+        skip_unreadable_slots: bool = True,
+        as_of: date | None = None,
+    ) -> PlanReadData:
+        locations, objects = self.load_structure(site_key, tenant_key=tenant_key)
+        location_keys = [loc.key for loc in locations if loc.key]
+        data = PlanReadData(locations=locations, garden_objects=objects)
+        data.plan_updated_by_name = self._editor_name(site_key, tenant_key)
+        slot_to_bed: dict[str, str] = {}
+        if location_keys:
+            # The keys come from the owned locations above, so the slot query needs no tenant of its own.
+            rows = self._slot_rows(location_keys)
+            # Every slot of the beds, archived ones too: the "last watered" lookup below maps a watering event's
+            # slots to their bed over all of them, and reads that map from here instead of querying it again.
+            slot_to_bed = {row["_key"]: row["location_key"] for row in rows}
+            live = [row for row in rows if row.get("archived_at") is None]
+            data.slots = (
+                readable_rows(Slot, live, read="load_read_model")
+                if skip_unreadable_slots
+                else [model_or_conflict(Slot, row, entity="Slot") for row in live]
+            )
+        if include_plants and location_keys:
+            data.plants = self._plants(location_keys, tenant_key, as_of)
+            data.slot_planned_from = self._slot_planned_from(
+                location_keys, {slot.key for slot in data.slots if slot.key}, tenant_key
+            )
+        if include_tasks and location_keys:
+            data.task_counters = self._task_counters(location_keys, tenant_key)
+            data.last_watered = {
+                key: found.at
+                for key, found in last_waterings(
+                    self._db, location_keys, tenant_key=tenant_key, now=datetime.now(UTC), slot_to_bed=slot_to_bed
+                ).items()
+            }
+        object_keys = [obj.key for obj in objects if obj.key]
+        if include_tasks and object_keys:
+            data.object_task_counters = self._object_task_counters(object_keys, tenant_key)
+        return data
+
+    def _slot_rows(self, location_keys: list[str]) -> list[dict[str, Any]]:
+        """Every slot of the beds, ordered by bed and sequence: a live slot whole, an archived one as a stub.
+
+        A live slot (``archived_at == null``) without ``_id``/``_rev``, which no model reads; an archived one as
+        ``{_key, location_key, archived_at}`` - the history only counts for the slot-to-bed map, and its document
+        does not travel. One batch for the large class (3 000 slots) rather than one round trip per 1 000 rows.
+        """
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR s IN @@col
+                FILTER s.location_key IN @location_keys
+                SORT s.location_key ASC, s.sequence ASC, s._key ASC
+                RETURN s.archived_at == null
+                    ? UNSET(s, "_id", "_rev")
+                    : {_key: s._key, location_key: s.location_key, archived_at: s.archived_at}
+            """,
+                bind_vars={"@col": col.SLOTS, "location_keys": location_keys},
+                batch_size=_READ_MODEL_BATCH_SIZE,
+            ),
+        )
+        return list(cursor)
+
+    def _slot_planned_from(self, location_keys: list[str], live_slots: set[str], tenant_key: str) -> dict[str, date]:
+        """Per slot, the first ``planned_from`` of a live run of the tenant whose window has not ended (GP-FR-074).
+
+        Read from the runs of the owned beds outwards (``run.location_key``, then the run's ``run_planned_at``
+        edges by ``_from``): a run reserves only slots of its own bed and keeps that bed while it reserves
+        (``run.reserved_bed_fixed``), and a site has far fewer live runs than slots - asking the edge index for
+        every one of 3 000 slot ids cost ~8 % of the large class's ``GET /plan``. The tenant predicate sits on
+        the run (a slot carries none, E-01). A window that ended before today (UTC) is history, not a
+        reservation the plan announces; ``live_slots`` (the slots read above) drops an archived slot.
+        """
+        if not location_keys or not live_slots:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR run IN @@runs
+                FILTER run.tenant_key == @tenant_key AND run.location_key IN @location_keys AND run.status IN @live
+                FOR e IN @@edges
+                    FILTER e._from == run._id AND (e.planned_until == null OR e.planned_until >= @today)
+                    COLLECT slot = e._to AGGREGATE first = MIN(e.planned_from)
+                    RETURN {slot_key: PARSE_IDENTIFIER(slot).key, planned_from: first}
+            """,
+                bind_vars={
+                    "@runs": col.PLANTING_RUNS,
+                    "@edges": col.RUN_PLANNED_AT,
+                    "location_keys": location_keys,
+                    "today": today_utc().isoformat(),
+                    "tenant_key": tenant_key,
+                    "live": sorted(LIVE_RUN_STATUSES),
+                },
+            ),
+        )
+        return {
+            row["slot_key"]: date.fromisoformat(row["planned_from"])
+            for row in cursor
+            if row["slot_key"] in live_slots and isinstance(row.get("planned_from"), str)
+        }
+
+    def _editor_name(self, site_key: SiteKey, tenant_key: str) -> str | None:
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET site = DOCUMENT(CONCAT(@sites, @site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key
+            LET by = site.plan.plan_updated_by
+            RETURN by == null ? null : DOCUMENT(CONCAT(@users, by)).display_name
+            """,
+                bind_vars={
+                    "sites": f"{col.SITES}/",
+                    "users": f"{col.USERS}/",
+                    "site_key": site_key,
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return next(cursor, None)
+
+    def _plants(self, location_keys: list[str], tenant_key: str, as_of: date | None = None) -> list[PlantShortInfo]:
+        if as_of is not None:
+            return self._plants_as_of(location_keys, tenant_key, as_of)
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@col
+                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
+                SORT p.location_key ASC, p._key ASC
+                RETURN {
+                    key: p._key,
+                    instance_id: p.instance_id,
+                    species_key: p.species_key,
+                    phase_key: p.current_phase_key,
+                    slot_key: p.slot_key,
+                    location_key: p.location_key
+                }
+            """,
+                bind_vars={"@col": col.PLANT_INSTANCES, "tenant_key": tenant_key, "location_keys": location_keys},
+                batch_size=_READ_MODEL_BATCH_SIZE,
+            ),
+        )
+        return [PlantShortInfo(**row) for row in cursor]
+
+    def _plants_as_of(self, location_keys: list[str], tenant_key: str, as_of: date) -> list[PlantShortInfo]:
+        """The plants that stood in the beds on ``as_of``: ``planted_on <= as_of < removed_on`` (GP-API-001, #2901).
+
+        The date window sits in the same tenant-scoped statement as the bed filter, never after it. An open
+        ``removed_on`` counts as standing. A row without ``planted_on`` (a legacy row) cannot be dated and stays
+        out. ``planted_on``/``removed_on`` are stored as ISO dates, so the string comparison is the date one.
+
+        ``phase_key`` is ``null`` on purpose: ``current_phase_key`` is today's phase, not the phase on ``as_of``.
+        """
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@col
+                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys
+                    AND p.planted_on != null AND p.planted_on <= @as_of
+                    AND (p.removed_on == null OR p.removed_on > @as_of)
+                SORT p.location_key ASC, p._key ASC
+                RETURN {
+                    key: p._key,
+                    instance_id: p.instance_id,
+                    species_key: p.species_key,
+                    phase_key: null,
+                    slot_key: p.slot_key,
+                    location_key: p.location_key
+                }
+            """,
+                bind_vars={
+                    "@col": col.PLANT_INSTANCES,
+                    "tenant_key": tenant_key,
+                    "location_keys": location_keys,
+                    "as_of": as_of.isoformat(),
+                },
+                batch_size=_READ_MODEL_BATCH_SIZE,
+            ),
+        )
+        return [PlantShortInfo(**row) for row in cursor]
+
+    def _task_counters(self, location_keys: list[str], tenant_key: str) -> dict[str, TaskCounter]:
+        """Open tasks per location: tasks on the location itself plus those on plants standing in it.
+
+        Suggestions (``suggested = true``) are proposals, not work, and are not counted. The
+        ``!= true`` form is null-safe for rows imported before migration v0095.
+        """
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR t IN @@tasks
+                FILTER t.tenant_key == @tenant_key
+                    AND t.status IN @open
+                    AND t.suggested != true
+                    AND t.entity_type IN ["location", "plant_instance"]
+                LET loc = t.entity_type == "location"
+                    ? t.entity_key
+                    : DOCUMENT(CONCAT(@plants, t.entity_key)).location_key
+                FILTER loc IN @location_keys
+                COLLECT location = loc AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
+                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@today_start)
+                        ? 1 : 0)
+                RETURN {location, open_count, overdue, next_due}
+            """,
+                bind_vars={
+                    "@tasks": col.TASKS,
+                    "tenant_key": tenant_key,
+                    "open": list(_OPEN_TASK_STATUSES),
+                    "plants": f"{col.PLANT_INSTANCES}/",
+                    "location_keys": location_keys,
+                    "today_start": start_of_utc_day(datetime.now(UTC)).isoformat(),
+                },
+            ),
+        )
+        return {
+            row["location"]: TaskCounter(
+                open_task_count=row["open_count"],
+                overdue_task_count=int(row["overdue"] or 0),
+                next_due_at=row["next_due"],
+            )
+            for row in cursor
+        }
+
+    def _object_task_counters(self, object_keys: list[str], tenant_key: str) -> dict[str, TaskCounter]:
+        """Open tasks per garden object (compost, water source, storage — REQ-053 R-7.2), suggestions not counted."""
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR t IN @@tasks
+                FILTER t.tenant_key == @tenant_key
+                    AND t.status IN @open
+                    AND t.suggested != true
+                    AND t.entity_type == "garden_object"
+                    AND t.entity_key IN @object_keys
+                COLLECT object = t.entity_key AGGREGATE open_count = COUNT(1), next_due = MIN(t.due_date),
+                    overdue = SUM(t.due_date != null AND DATE_TIMESTAMP(t.due_date) < DATE_TIMESTAMP(@today_start)
+                        ? 1 : 0)
+                RETURN {object, open_count, overdue, next_due}
+            """,
+                bind_vars={
+                    "@tasks": col.TASKS,
+                    "tenant_key": tenant_key,
+                    "open": list(_OPEN_TASK_STATUSES),
+                    "object_keys": object_keys,
+                    "today_start": start_of_utc_day(datetime.now(UTC)).isoformat(),
+                },
+            ),
+        )
+        return {
+            row["object"]: TaskCounter(
+                open_task_count=row["open_count"],
+                overdue_task_count=int(row["overdue"] or 0),
+                next_due_at=row["next_due"],
+            )
+            for row in cursor
+        }
+
+    def load_slot_species_hints(self, location_key: str, *, tenant_key: str) -> list[SlotSpeciesHint]:
+        """See the interface. Only species the tenant may read (own ∪ global ∪ granted, #1092) are answered (#2709).
+
+        The write paths check the species of a plant and of a run entry under that rule, but a stored key is no
+        proof of access: a plant written before the check keeps its key (the changed-only rule), and a revoked
+        grant leaves every bound key behind. So the read cuts the keys with the visible set itself - a species
+        the reader may not see is neither a key nor a spacing in the answer. A row that fails
+        :class:`SlotSpeciesHint` is logged and left out.
+        """
+        if not tenant_key:
+            raise ValueError("load_slot_species_hints needs a tenant_key (an empty tenant is no tenant, #2107).")
+        visible, visible_binds = tenant_union_with_grants_predicate(tenant_key, doc_var="sp")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            LET l = DOCUMENT(CONCAT(@locations, @location_key))
+            FILTER l != null
+            LET site = DOCUMENT(CONCAT(@sites, l.site_key))
+            FILTER site != null AND site.tenant_key == @tenant_key
+            LET bed_slots = (
+                FOR s IN @@slots FILTER s.location_key == @location_key AND s.archived_at == null RETURN s._key
+            )
+            LET slot_ids = (FOR k IN bed_slots RETURN CONCAT(@slots, k))
+            LET from_plants = (
+                FOR p IN @@plants
+                    FILTER p.tenant_key == @tenant_key AND p.slot_key IN bed_slots AND p.removed_on == null
+                    RETURN {{slot_key: p.slot_key, species_key: p.species_key}}
+            )
+            LET from_runs = (
+                FOR e IN @@planned
+                    FILTER e._to IN slot_ids AND e.planned_species_key != null
+                    LET run = DOCUMENT(e._from)
+                    // SEC-004: the run itself must be the tenant's, not only live (defence in depth: the bed is).
+                    FILTER run.status IN @live_statuses AND run.tenant_key == @tenant_key
+                    RETURN {{slot_key: PARSE_IDENTIFIER(e._to).key, species_key: e.planned_species_key}}
+            )
+            FOR r IN APPEND(from_plants, from_runs)
+                LET sp = DOCUMENT(CONCAT(@species, r.species_key))
+                FILTER sp != null AND {visible}
+                RETURN {{
+                    slot_key: r.slot_key,
+                    species_key: r.species_key,
+                    spacing_cm: sp.spacing_cm,
+                    row_spacing_cm: sp.row_spacing_cm,
+                    mature_width_cm: sp.mature_width_cm,
+                    growth_habit: sp.growth_habit
+                }}
+            """,
+                bind_vars={
+                    "locations": f"{col.LOCATIONS}/",
+                    "sites": f"{col.SITES}/",
+                    "slots": f"{col.SLOTS}/",
+                    "species": f"{col.SPECIES}/",
+                    "@slots": col.SLOTS,
+                    "@plants": col.PLANT_INSTANCES,
+                    "@planned": col.RUN_PLANNED_AT,
+                    "location_key": location_key,
+                    "tenant_key": tenant_key,
+                    "live_statuses": sorted(LIVE_RUN_STATUSES),
+                    **visible_binds,
+                },
+            ),
+        )
+        return readable_rows(SlotSpeciesHint, cursor, read="load_slot_species_hints")
+
+    def load_active_slots(
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+        slot_keys: list[str] | None = None,
+    ) -> list[Slot]:
+        if not tenant_key:
+            raise ValueError("load_active_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return []
+        # A location counts only when it hangs off *this* site of *this* tenant — the keys are the caller's.
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"{_OWNED_LOCATIONS} FOR s IN ({_SLOTS_OF_LOCATION}) RETURN s",
+                bind_vars=_slot_read_binds(
+                    site_key,
+                    location_keys,
+                    tenant_key=tenant_key,
+                    include_archived=include_archived,
+                    slot_keys=slot_keys,
+                ),
+            ),
+        )
+        return [model_or_conflict(Slot, doc, entity="Slot") for doc in cursor]
+
+    def load_slot_rule_basis(
+        self,
+        site_key: SiteKey,
+        location_keys: list[str],
+        *,
+        tenant_key: str,
+        include_archived: bool = False,
+    ) -> SlotRuleBasis:
+        if not tenant_key:
+            raise ValueError("load_slot_rule_basis needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return SlotRuleBasis(locations={}, revisions={}, slots=[])
+        # One statement, one snapshot (#2773): the fence is read together with the frame and the slots it guards -
+        # the same location and slot filter as ``load_active_slots``, so the two reads cannot drift apart.
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""{_OWNED_LOCATIONS}
+                RETURN {{
+                    location: l,
+                    revision: l.{aql_field(SLOT_RULES_REVISION)} || 0,
+                    slots: ({_SLOTS_OF_LOCATION})
+                }}""",
+                bind_vars=_slot_read_binds(
+                    site_key, location_keys, tenant_key=tenant_key, include_archived=include_archived, slot_keys=None
+                ),
+            ),
+        )
+        locations: dict[str, Location] = {}
+        revisions: dict[str, int] = {}
+        slots: list[Slot] = []
+        for row in cursor:
+            location = model_or_conflict(Location, row["location"], entity="Location")
+            key = location.key or ""
+            locations[key] = location
+            revisions[key] = int(row["revision"])
+            slots += [model_or_conflict(Slot, doc, entity="Slot") for doc in row["slots"]]
+        return SlotRuleBasis(locations=locations, revisions=revisions, slots=slots)
+
+    def bed_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
+        if not location_type_keys:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                "FOR t IN @@col FILTER t._key IN @keys RETURN {key: t._key, is_bed: t.is_bed == true}",
+                bind_vars={"@col": col.LOCATION_TYPES, "keys": sorted(set(location_type_keys))},
+            ),
+        )
+        return {row["key"]: row["is_bed"] for row in cursor}
+
+    def layout_type_flags(self, location_type_keys: list[str]) -> dict[str, bool]:
+        if not location_type_keys:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t._key IN @keys
+                    RETURN {key: t._key, supports_layout: t.supports_layout == true OR t.is_bed == true}
+                """,
+                bind_vars={"@col": col.LOCATION_TYPES, "keys": sorted(set(location_type_keys))},
+            ),
+        )
+        return {row["key"]: row["supports_layout"] for row in cursor}
+
+    def area_type_keys(self) -> list[str]:
+        bind_vars: dict[str, Any] = {"@col": col.LOCATION_TYPES, "limit": MAX_AREA_TYPES}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t.is_bed != true AND t.supports_layout != true
+                    SORT t._key
+                    LIMIT @limit
+                    RETURN t._key
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [str(key) for key in cursor]
+
+    def bed_type_keys(self) -> list[str]:
+        bind_vars: dict[str, Any] = {"@col": col.LOCATION_TYPES, "limit": MAX_AREA_TYPES}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                FOR t IN @@col
+                    FILTER t.is_bed == true
+                    SORT t._key
+                    LIMIT @limit
+                    RETURN t._key
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [str(key) for key in cursor]
+
+    def load_location_photoperiods(self, location_key: str, *, tenant_key: str) -> list[PlantPhotoperiod]:
+        if not tenant_key:
+            raise ValueError("load_location_photoperiods needs a tenant_key (an empty tenant is no tenant, #2107).")
+        # Anchored at the location (#2832 SEC-002): first the location's slots (``slots.location_key`` leads two
+        # persistent indexes), then the tenant's plants standing there by ``location_key`` or by one of those slots,
+        # so ``LIMIT`` cuts a small set. The plants are filtered on their own ``tenant_key`` stamp (a slot carries
+        # none); species, phases and profiles are catalogue documents reached from them.
+        bind_vars: dict[str, Any] = {
+            "@plants": col.PLANT_INSTANCES,
+            "@slots": col.SLOTS,
+            "@has_lifecycle": col.HAS_LIFECYCLE,
+            "@consists_of": col.CONSISTS_OF,
+            "@requires_profile": col.REQUIRES_PROFILE,
+            "entries": col.PHASE_SEQUENCE_ENTRIES,
+            "definitions": col.PHASE_DEFINITIONS,
+            "phases": col.GROWTH_PHASES,
+            "species": col.SPECIES,
+            "tenant_key": tenant_key,
+            "location": location_key,
+            "limit": MAX_PHOTOPERIOD_PLANTS,
+            "slot_limit": MAX_SLOTS_PER_SITE,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+                LET location_slots = (
+                    FOR s IN @@slots
+                        FILTER s.location_key == @location
+                        LIMIT @slot_limit
+                        RETURN s._key
+                )
+                FOR p IN @@plants
+                    FILTER p.tenant_key == @tenant_key AND p.removed_on == null
+                    FILTER p.location_key == @location OR (p.location_key == null AND p.slot_key IN location_slots)
+                    SORT p._key ASC
+                    LIMIT @limit
+                    LET entry = p.current_phase_key == null ? null : DOCUMENT(@entries, p.current_phase_key)
+                    LET definition = entry == null ? null : DOCUMENT(@definitions, entry.phase_definition_key)
+                    LET legacy = (p.current_phase_key == null OR entry != null)
+                        ? null
+                        : DOCUMENT(@phases, p.current_phase_key)
+                    LET phase_code = entry != null
+                        ? (definition == null ? null : definition.name)
+                        : (legacy == null ? null : legacy.name)
+                    // A legacy growth phase is the plant's own key: the id wins. A sequence entry carries no growth
+                    // phase id, only its definition's name - bridged to the growth phase of that name in the
+                    // species' lifecycle, and only when exactly one matches. Two or none: unknown, never guessed.
+                    LET candidates = (legacy != null OR phase_code == null) ? [] : (
+                        FOR lifecycle IN 1..1 OUTBOUND CONCAT(@species, "/", p.species_key) @@has_lifecycle
+                            FOR candidate IN 1..1 OUTBOUND lifecycle @@consists_of
+                                FILTER candidate.name == phase_code
+                                LIMIT 2
+                                RETURN candidate
+                    )
+                    LET growth_phase = legacy != null ? legacy : (LENGTH(candidates) == 1 ? candidates[0] : null)
+                    // The species' photoperiod type (#2857): day-neutral plants leave the conflict, short-day ones
+                    // in flowering are checked for a long-day profile.
+                    LET species_lifecycle = (p.species_key == null OR p.species_key == "") ? null : FIRST(
+                        FOR lc IN 1..1 OUTBOUND CONCAT(@species, "/", p.species_key) @@has_lifecycle
+                            SORT lc._key ASC
+                            LIMIT 1
+                            RETURN lc
+                    )
+                    LET profile = growth_phase == null ? null : FIRST(
+                        FOR requirement IN 1..1 OUTBOUND growth_phase @@requires_profile
+                            SORT requirement._key ASC
+                            LIMIT 1
+                            RETURN requirement
+                    )
+                    RETURN {
+                        plant_key: p._key,
+                        display_name: p.plant_name || p.instance_id || p._key,
+                        phase_code: phase_code,
+                        phase_name: entry != null
+                            ? (definition == null ? null : (definition.display_name || definition.name))
+                            : (legacy == null ? null : (legacy.display_name || legacy.name)),
+                        // Both catalogue names, unresolved: the client words the phase in its own language (#2889).
+                        phase_display_name: entry != null
+                            ? (definition == null ? null : definition.display_name)
+                            : (legacy == null ? null : legacy.display_name),
+                        phase_display_name_de: entry != null
+                            ? (definition == null ? null : definition.display_name_de)
+                            : (legacy == null ? null : legacy.display_name_de),
+                        photoperiod_hours: profile == null ? null : profile.photoperiod_hours,
+                        // Where the hours came from (#2857); null without a profile or for one stored before.
+                        photoperiod_source: profile == null ? null : profile.photoperiod_source,
+                        photoperiod_type: species_lifecycle == null ? null : species_lifecycle.photoperiod_type,
+                        critical_day_length_hours: species_lifecycle == null
+                            ? null
+                            : species_lifecycle.critical_day_length_hours
+                    }
+                """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [
+            PlantPhotoperiod(
+                plant_key=str(row["plant_key"]),
+                phase_name=_text_or_none(row["phase_name"]),
+                photoperiod_hours=_photoperiod_or_none(row["photoperiod_hours"]),
+                phase_code=_text_or_none(row["phase_code"]),
+                display_name=_text_or_none(row["display_name"]) or str(row["plant_key"]),
+                phase_label=_phase_label_or_none(row),
+                photoperiod_source=_photoperiod_source_or_none(row["photoperiod_source"]),
+                photoperiod_type=_photoperiod_type_or_none(row["photoperiod_type"]),
+                critical_day_length_hours=_photoperiod_or_none(row["critical_day_length_hours"]),
+            )
+            for row in cursor
+        ]
+
+    def count_active_plants(self, location_keys: list[str], *, tenant_key: str) -> int:
+        if not tenant_key:
+            raise ValueError("count_active_plants needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return 0
+        # The keys come from the site's owned structure, and a plant standing in one blocks the delete whatever
+        # its own ``tenant_key`` says: a stamp that is missing or wrong must not let a plant be orphaned (V-09).
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            RETURN LENGTH(
+                FOR p IN @@col
+                    FILTER p.location_key IN @location_keys AND p.removed_on == null
+                    RETURN 1
+            )
+            """,
+                bind_vars={"@col": col.PLANT_INSTANCES, "location_keys": location_keys},
+            ),
+        )
+        return int(next(cursor, 0))
+
+    def locations_with_active_plants(self, location_keys: list[str], *, tenant_key: str) -> set[str]:
+        if not tenant_key:
+            raise ValueError("locations_with_active_plants needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return set()
+        # No ``tenant_key`` filter, like ``count_active_plants``: the keys come from the site's owned structure and a
+        # plant whose own stamp is missing or wrong must still keep its bed from being deleted (V-09).
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@col
+                FILTER p.removed_on == null AND p.location_key IN @location_keys
+                RETURN DISTINCT p.location_key
+            """,
+                bind_vars={"@col": col.PLANT_INSTANCES, "location_keys": location_keys},
+            ),
+        )
+        return set(cursor)
+
+    def list_audit(self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int) -> list[PlanAuditEntry]:
+        if not tenant_key:
+            raise ValueError("list_audit needs a tenant_key (an empty tenant is no tenant, #2107).")
+        bind_vars: dict[str, Any] = {
+            "@col": col.GARDEN_PLAN_AUDIT,
+            "site_key": site_key,
+            "tenant_key": tenant_key,
+            "users": f"{col.USERS}/",
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@col
+                FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key
+                SORT a.revision DESC, DATE_TIMESTAMP(a.at) DESC, a._key DESC
+                LIMIT @offset, @limit
+                RETURN {
+                    revision: a.revision, op: a.op, entity: a.entity, key: a.key,
+                    summary: a.summary, at: a.at,
+                    changed_by_name: a.user_key == null ? null : DOCUMENT(CONCAT(@users, a.user_key)).display_name
+                }
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [PlanAuditEntry(**row) for row in cursor]
+
+    def list_import_snapshots(
+        self, site_key: SiteKey, *, tenant_key: str, offset: int, limit: int
+    ) -> list[PlanSnapshotEntry]:
+        if not tenant_key:
+            raise ValueError("list_import_snapshots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        bind_vars: dict[str, Any] = {
+            "@col": col.GARDEN_PLAN_AUDIT,
+            "site_key": site_key,
+            "tenant_key": tenant_key,
+            "users": f"{col.USERS}/",
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@col
+                FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                    AND a.snapshot != null
+                SORT a.revision DESC, DATE_TIMESTAMP(a.at) DESC, a._key DESC
+                LIMIT @offset, @limit
+                RETURN {
+                    audit_key: a._key, revision: a.revision, summary: a.summary, at: a.at,
+                    changed_by_name: a.user_key == null ? null : DOCUMENT(CONCAT(@users, a.user_key)).display_name,
+                    locations: LENGTH(a.snapshot.locations || []),
+                    garden_objects: LENGTH(a.snapshot.garden_objects || []),
+                    slots: LENGTH(a.snapshot.slots || []),
+                    zones: LENGTH(a.snapshot.zones || [])
+                }
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [PlanSnapshotEntry(**row) for row in cursor]
+
+    def load_import_snapshot(self, site_key: SiteKey, audit_key: str, *, tenant_key: str) -> dict[str, Any] | None:
+        if not tenant_key:
+            raise ValueError("load_import_snapshot needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@col
+                FILTER a._key == @audit_key AND a.site_key == @site_key AND a.tenant_key == @tenant_key
+                    AND a.op == "import_snapshot" AND a.snapshot != null
+                LIMIT 1
+                RETURN a.snapshot
+            """,
+                bind_vars={
+                    "@col": col.GARDEN_PLAN_AUDIT,
+                    "audit_key": audit_key,
+                    "site_key": site_key,
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        rows = list(cursor)
+        return rows[0] if rows else None
+
+    # ── The batch ─────────────────────────────────────────────────────
+
+    def apply_plan_batch(self, write: PlanBatchWrite) -> PlanBatchOutcome:
+        try:
+            with stream_transaction(
+                self._db,
+                write=_BATCH_WRITE,
+                read=_BATCH_READ,
+                entity="garden_plan",
+                time_budget_seconds=write.time_budget_seconds,
+            ) as txn:
+                stored_plan, revision = self._check_revision(txn, write)
+                # V-04 of a reshaped bed and a season's copy were checked against slots read outside the revision.
+                # A miss is the plan's own revision conflict: the editor reloads the plan it knows how to reload.
+                self._refuse_unfenced_slot_inserts(write)
+                try:
+                    take_slot_rules(txn, write.slot_rules_revisions)
+                except SlotRulesConflictError:
+                    raise _LostTheRace from None
+                now = _now()
+                new_revision = revision + 1
+                key_map: dict[str, str] = {}
+                released_photo_refs: list[str] = []
+
+                # A bed that is retired holds no plant either (V-09); re-checked here for the same reason as below.
+                self._refuse_changed_status(txn, write.status_from)
+                self._refuse_active_plants(
+                    txn, [key for key, fields in write.location_updates if fields.get("bed_status") == "retired"]
+                )
+                released_photo_refs = self._delete_locations(txn, write)
+                txn.check_budget()
+                self._delete_objects(txn, write)
+                self._delete_zones(txn, write)
+                self._insert_zones(txn, write, key_map, now)
+                self._insert_locations(txn, write, key_map, now)
+                self._insert_slots(txn, write, key_map, now)
+                self._update_locations(txn, write, now)
+                self._insert_objects(txn, write, key_map, now)
+                self._link_zone_water_sources(txn, write, key_map, now)
+                self._update_objects(txn, write, now)
+                txn.check_budget()
+                self._write_site(txn, write, stored_plan, new_revision, now)
+                self._write_audit(txn, write, new_revision, now)
+                self._write_care_events(txn, write, now)
+        except _LostTheRace:
+            # The transaction is aborted; the winner's revision is what the loser is told about.
+            raise self._conflict_after_race(write) from None
+        return PlanBatchOutcome(
+            plan_revision=new_revision, key_map=key_map, released_photo_refs=tuple(released_photo_refs)
+        )
+
+    @staticmethod
+    def _refuse_unfenced_slot_inserts(write: PlanBatchWrite) -> None:
+        """Slots copied into a bed that exists already need the fence their check read (#2773).
+
+        Only a bed inserted by this very write (a ``temp_key`` of ``location_inserts``) has no sibling to race with;
+        a write that names any other bed without its revision is a programming error.
+        """
+        inserted = {temp for temp, _ in write.location_inserts}
+        unfenced = sorted(
+            {bed for bed, _ in write.slot_inserts if bed not in inserted and bed not in write.slot_rules_revisions}
+        )
+        if unfenced:
+            raise ValueError(f"PlanBatchWrite inserts slots into existing beds without their fence (#2773): {unfenced}")
+
+    def _conflict_after_race(self, write: PlanBatchWrite) -> PlanRevisionConflictError:
+        """The 409 for a writer that lost the race for the site document (V-14), read after its abort."""
+        rows = list(
+            cast("Cursor", self._db.aql.execute(_SITE_REVISION_QUERY, bind_vars=self._site_revision_binds(write)))
+        )
+        if not rows or rows[0]["tenant_key"] != write.tenant_key:
+            raise NotFoundError("Site", write.site_key)
+        plan = rows[0]["plan"] or {}
+        committed = int(plan.get("plan_revision") or 0)
+        if committed <= write.expected_revision:
+            # The winner holds the site document and has not committed yet, so the committed state is still the
+            # one this writer read. It was overtaken: the revision to reload is at least the next one, and who
+            # saved it is not known yet.
+            return PlanRevisionConflictError(
+                current_revision=write.expected_revision + 1, changed_by=None, changed_at=None
+            )
+        return PlanRevisionConflictError(
+            current_revision=committed, changed_by=rows[0]["changed_by"], changed_at=plan.get("plan_updated_at")
+        )
+
+    @staticmethod
+    def _site_revision_binds(write: PlanBatchWrite) -> dict[str, Any]:
+        return {"@sites": col.SITES, "users": f"{col.USERS}/", "site_key": write.site_key}
+
+    def _check_revision(self, txn: StreamTransaction, write: PlanBatchWrite) -> tuple[dict[str, Any] | None, int]:
+        rows = list(txn.aql.execute(_SITE_REVISION_QUERY, bind_vars=self._site_revision_binds(write)))
+        if not rows or not write.tenant_key or rows[0]["tenant_key"] != write.tenant_key:
+            raise NotFoundError("Site", write.site_key)
+        plan = rows[0]["plan"]
+        revision = int((plan or {}).get("plan_revision") or 0)
+        if revision != write.expected_revision or revision != write.basis_revision:
+            raise PlanRevisionConflictError(
+                current_revision=revision,
+                changed_by=rows[0]["changed_by"],
+                changed_at=(plan or {}).get("plan_updated_at"),
+            )
+        self._take_revision(txn, write, revision)
+        return plan, revision
+
+    def _take_revision(self, txn: StreamTransaction, write: PlanBatchWrite, revision: int) -> None:
+        """Compare-and-swap the revision first, so two writers at the same revision cannot both get past it.
+
+        Reading ``plan_revision`` alone is not enough: both transactions read ``N`` from their snapshot and pass,
+        and the loser would fail at the *end* on the site document's write-write conflict (``conflict.write``) —
+        a correct abort with the wrong answer. Updating the document here, as the first write, makes the loser
+        fail at this statement, where the conflict is read as what it is: someone else saved first (V-14).
+        """
+        try:
+            taken = list(
+                txn.aql.execute(
+                    """
+                FOR s IN @@sites
+                    FILTER s._key == @site_key AND s.tenant_key == @tenant_key
+                        AND (s.plan.plan_revision || 0) == @revision
+                    UPDATE s WITH { plan: { plan_revision: @next } } IN @@sites
+                    RETURN 1
+                """,
+                    bind_vars={
+                        "@sites": col.SITES,
+                        "site_key": write.site_key,
+                        "tenant_key": write.tenant_key,
+                        "revision": revision,
+                        "next": revision + 1,
+                    },
+                )
+            )
+        except AQLQueryExecuteError as exc:
+            if exc.error_code == WRITE_WRITE_CONFLICT:
+                raise _LostTheRace from exc
+            raise
+        if not taken:
+            raise _LostTheRace
+
+    def _delete_locations(self, txn: StreamTransaction, write: PlanBatchWrite) -> list[str]:
+        """Remove the beds with their slots and edges; returns the photo ids they held (WP 8.18, read here)."""
+        keys = write.location_deletes
+        if not keys:
+            return []
+        self._refuse_active_plants(txn, keys)
+        # A child created through a path outside the plan revision after the service read the tree would be
+        # orphaned by the edge cascade below: refuse, the client reloads and deletes again.
+        orphaned = list(
+            txn.aql.execute(
+                "FOR l IN @@col FILTER l.parent_location_key IN @keys AND l._key NOT IN @keys LIMIT 1 RETURN 1",
+                bind_vars={"@col": col.LOCATIONS, "keys": keys},
+            )
+        )
+        if orphaned:
+            raise WriteConflictError("garden_plan", "a location below the deleted one was created concurrently")
+        location_ids = [f"{col.LOCATIONS}/{key}" for key in keys]
+        slot_ids = list(
+            txn.aql.execute(
+                "FOR s IN @@slots FILTER s.location_key IN @keys RETURN s._id",
+                bind_vars={"@slots": col.SLOTS, "keys": keys},
+            )
+        )
+        if slot_ids:
+            for edge, field in _SLOT_EDGES:
+                remove_edges(txn, edge, field, slot_ids)
+            txn.aql.execute(
+                "FOR s IN @@slots FILTER s.location_key IN @keys REMOVE s IN @@slots",
+                bind_vars={"@slots": col.SLOTS, "keys": keys},
+            )
+        for edge, field in _LOCATION_EDGES:
+            remove_edges(txn, edge, field, location_ids)
+        removed: list[list[str] | None] = list(
+            txn.aql.execute(
+                "FOR l IN @@col FILTER l._key IN @keys REMOVE l IN @@col RETURN OLD.photo_refs",
+                bind_vars={"@col": col.LOCATIONS, "keys": keys},
+            )
+        )
+        return [str(ref) for refs in removed for ref in (refs or [])]
+
+    @staticmethod
+    def _refuse_changed_status(txn: StreamTransaction, status_from: dict[str, str]) -> None:
+        """V-10 inside the transaction: the bed still has the status the transition was validated from."""
+        if not status_from:
+            return
+        rows = list(
+            txn.aql.execute(
+                'FOR l IN @@col FILTER l._key IN @keys RETURN {key: l._key, status: l.bed_status || "active"}',
+                bind_vars={"@col": col.LOCATIONS, "keys": sorted(status_from)},
+            )
+        )
+        stored = {row["key"]: row["status"] for row in rows}
+        for key, expected in status_from.items():
+            if key not in stored:
+                raise NotFoundError("Location", key)
+            if stored[key] != expected:
+                raise PlanError(
+                    "bed_status.changed",
+                    "The bed status was changed by someone else; reload and try again.",
+                    status_code=409,
+                    field="bed_status",
+                    current=stored[key],
+                )
+
+    @staticmethod
+    def _refuse_active_plants(txn: StreamTransaction, keys: list[str]) -> None:
+        """V-09 inside the transaction: a plant placed after the service's read must not be orphaned."""
+        if not keys:
+            return
+        active = list(
+            txn.aql.execute(
+                """
+            RETURN LENGTH(
+                FOR p IN @@plants
+                    FILTER p.location_key IN @keys AND p.removed_on == null
+                    RETURN 1
+            )
+            """,
+                bind_vars={"@plants": col.PLANT_INSTANCES, "keys": keys},
+            )
+        )[0]
+        if active:
+            raise PlanError(
+                "location.has_active_plants",
+                "A location with active plants cannot be deleted or retired.",
+                status_code=409,
+                active_plant_count=int(active),
+            )
+
+    def _delete_objects(self, txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        keys = write.object_deletes
+        if not keys:
+            return
+        ids = [f"{col.GARDEN_OBJECTS}/{key}" for key in keys]
+        for edge, field in _OBJECT_EDGES:
+            remove_edges(txn, edge, field, ids)
+        # The edge cascade above cut ``zone_supplied_by``; the zone's own ``water_source_key`` goes with it, so a
+        # zone never names a water source that is gone (REQ-053 §20.11, WP 7.1).
+        txn.aql.execute(
+            """
+            FOR z IN @@zones
+                FILTER z.tenant_key == @tenant_key AND z.site_key == @site_key AND z.water_source_key IN @keys
+                UPDATE z WITH { water_source_key: null, updated_at: @now } IN @@zones OPTIONS { keepNull: false }
+            """,
+            bind_vars={
+                "@zones": col.IRRIGATION_ZONES,
+                "tenant_key": write.tenant_key,
+                "site_key": write.site_key,
+                "keys": keys,
+                "now": _now(),
+            },
+        )
+        txn.aql.execute(
+            "FOR o IN @@col FILTER o._key IN @keys REMOVE o IN @@col",
+            bind_vars={"@col": col.GARDEN_OBJECTS, "keys": keys},
+        )
+
+    @staticmethod
+    def _delete_zones(txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        """The zones a ``replace`` import removes (WP 7.2): the document and every edge on it.
+
+        Under the write's tenant and site only. The service chose zones that cover no bed that stays; a bed that
+        stays and was assigned to one meanwhile (``zone_covers`` survives the location delete above) makes this
+        a conflict instead of a bed that names a zone that is gone.
+        """
+        keys = write.zone_deletes
+        if not keys:
+            return
+        ids = [f"{col.IRRIGATION_ZONES}/{key}" for key in keys]
+        still_covering = list(
+            txn.aql.execute(
+                "FOR e IN @@covers FILTER e._from IN @ids LIMIT 1 RETURN 1",
+                bind_vars={"@covers": col.ZONE_COVERS, "ids": ids},
+            )
+        )
+        if still_covering:
+            raise WriteConflictError("garden_plan", "a bed was assigned to a zone of the replaced plan concurrently")
+        for edge, field in ZONE_EDGES:
+            remove_edges(txn, edge, field, ids)
+        txn.aql.execute(
+            """
+            FOR z IN @@zones
+                FILTER z._key IN @keys AND z.tenant_key == @tenant_key AND z.site_key == @site_key
+                REMOVE z IN @@zones
+            """,
+            bind_vars={
+                "@zones": col.IRRIGATION_ZONES,
+                "keys": keys,
+                "tenant_key": write.tenant_key,
+                "site_key": write.site_key,
+            },
+        )
+
+    @staticmethod
+    def _insert_zones(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        """The zones of an import, under the write's tenant and site, with their ``has_irrigation_zone`` edge.
+
+        The water source is linked after the objects exist (:meth:`_link_zone_water_sources`); the technical
+        coupling is never part of an import (GP-FR-141), so the stored coupling fields keep their defaults.
+        """
+        if not write.zone_inserts:
+            return
+        zones = txn.collection(col.IRRIGATION_ZONES)
+        has_zone = txn.collection(col.HAS_IRRIGATION_ZONE)
+        for temp_key, zone in write.zone_inserts:
+            doc = _dump(zone, by_alias=True, exclude_none=True, mode="json")
+            for name in ("_key", "water_source_key", "actuator_key", "flow_rate_ha_entity_id"):
+                doc.pop(name, None)
+            doc["flow_rate_source"] = "manual"
+            doc["tenant_key"] = write.tenant_key
+            doc["site_key"] = write.site_key
+            doc["created_at"] = doc["updated_at"] = now
+            key = zones.insert(doc, return_new=False)["_key"]
+            key_map[temp_key] = key
+            has_zone.insert(
+                {"_from": f"{col.SITES}/{write.site_key}", "_to": f"{col.IRRIGATION_ZONES}/{key}", "created_at": now}
+            )
+            txn.check_budget()
+
+    @staticmethod
+    def _link_zone_water_sources(
+        txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str
+    ) -> None:
+        """Point each imported zone at the water source it names in the file (a temp key of this write)."""
+        for temp_key, zone in write.zone_inserts:
+            source = key_map.get(zone.water_source_key or "")
+            if source is None:
+                continue
+            zone_key = key_map[temp_key]
+            txn.aql.execute(
+                "UPDATE @key WITH { water_source_key: @source } IN @@zones",
+                bind_vars={"@zones": col.IRRIGATION_ZONES, "key": zone_key, "source": source},
+            )
+            txn.collection(col.ZONE_SUPPLIED_BY).insert(
+                {
+                    "_from": f"{col.IRRIGATION_ZONES}/{zone_key}",
+                    "_to": f"{col.GARDEN_OBJECTS}/{source}",
+                    "created_at": now,
+                }
+            )
+
+    def _insert_locations(
+        self, txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str
+    ) -> None:
+        collection = txn.collection(col.LOCATIONS)
+        contains = txn.collection(col.CONTAINS)
+        self._take_import_zones(txn, write, key_map, now)
+        for temp_key, location in write.location_inserts:
+            doc = _insert_doc(location)
+            parent = doc.get("parent_location_key")
+            if parent in key_map:
+                parent = doc["parent_location_key"] = key_map[parent]
+            doc["site_key"] = write.site_key
+            if doc.get("irrigation_zone_key") in key_map:  # a zone of this write: its temp key becomes the real one
+                doc["irrigation_zone_key"] = key_map[doc["irrigation_zone_key"]]
+            doc["created_at"] = doc["updated_at"] = now
+            created = collection.insert(doc, return_new=True)
+            key = created["_key"]
+            key_map[temp_key] = key
+            origin = f"{col.LOCATIONS}/{parent}" if parent else f"{col.SITES}/{write.site_key}"
+            contains.insert({"_from": origin, "_to": f"{col.LOCATIONS}/{key}", "created_at": now})
+            zone_key = doc.get("irrigation_zone_key")
+            if zone_key:
+                # The import keeps a zone of this site, taken above in this transaction; the edge follows the field.
+                txn.collection(col.ZONE_COVERS).insert(
+                    {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": f"{col.LOCATIONS}/{key}", "created_at": now}
+                )
+            txn.check_budget()
+
+    @staticmethod
+    def _take_import_zones(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        """Take every zone the inserted beds name, inside the transaction and under the write's tenant and site.
+
+        The import service resolved the zones before the transaction (GP-NFR-058); a zone deleted since then — or a
+        delete running right now, which holds the zone's document — must not leave a bed naming it and an edge on a
+        zone that is gone. The ``UPDATE`` makes a concurrent ``delete_zone`` conflict; a zone that vanished is a 409.
+        """
+        zone_keys = sorted(
+            {
+                str(location.irrigation_zone_key)
+                for _, location in write.location_inserts
+                if location.irrigation_zone_key and location.irrigation_zone_key not in key_map
+            }
+        )
+        if not zone_keys:
+            return
+        taken = list(
+            txn.aql.execute(
+                """
+            FOR z IN @@zones
+                FILTER z._key IN @keys AND z.tenant_key == @tenant_key AND z.site_key == @site_key
+                UPDATE z WITH { updated_at: @now } IN @@zones
+                RETURN NEW._key
+            """,
+                bind_vars={
+                    "@zones": col.IRRIGATION_ZONES,
+                    "keys": zone_keys,
+                    "tenant_key": write.tenant_key,
+                    "site_key": write.site_key,
+                    "now": now,
+                },
+            )
+        )
+        if len(taken) != len(zone_keys):
+            raise WriteConflictError("garden_plan", "an irrigation zone of the imported plan was removed concurrently")
+
+    @staticmethod
+    def _insert_slots(txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        """Slots of the locations this write inserted (the plan import) or of existing beds the caller resolved
+        under the tenant (new season, WP 7.16): two bulk inserts, not 8 000 round trips."""
+        if not write.slot_inserts:
+            return
+        docs: list[dict[str, Any]] = []
+        for location_key, slot in write.slot_inserts:
+            doc = _dump(slot, by_alias=True, exclude_none=True, mode="json")
+            doc.pop("_key", None)
+            doc["location_key"] = key_map.get(location_key, location_key)
+            doc["created_at"] = doc["updated_at"] = now
+            docs.append(doc)
+        created = txn.collection(col.SLOTS).insert_many(docs, return_new=False)
+        txn.check_budget()
+        txn.collection(col.HAS_SLOT).insert_many(
+            [
+                {
+                    "_from": f"{col.LOCATIONS}/{doc['location_key']}",
+                    "_to": f"{col.SLOTS}/{meta['_key']}",
+                    "created_at": now,
+                }
+                for doc, meta in zip(docs, created, strict=True)
+            ]
+        )
+        txn.check_budget()
+
+    def _update_locations(self, txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+        collection = txn.collection(col.LOCATIONS)
+        for key, fields in write.location_updates:
+            self._replace_fields(collection, key, fields, now)
+        for key, sun_profile in write.location_sun_profiles:
+            self._write_sun_profile(collection, key, sun_profile, now)
+
+    def _insert_objects(self, txn: StreamTransaction, write: PlanBatchWrite, key_map: dict[str, str], now: str) -> None:
+        collection = txn.collection(col.GARDEN_OBJECTS)
+        edges = txn.collection(col.HAS_GARDEN_OBJECT)
+        for temp_key, garden_object in write.object_inserts:
+            doc = _insert_doc(garden_object)
+            parent = doc.get("parent_location_key")
+            if parent in key_map:
+                doc["parent_location_key"] = key_map[parent]
+            doc["site_key"] = write.site_key
+            doc["created_by"] = write.editor_key
+            doc["created_at"] = doc["updated_at"] = now
+            created = collection.insert(doc, return_new=True)
+            key_map[temp_key] = created["_key"]
+            edges.insert(
+                {
+                    "_from": f"{col.SITES}/{write.site_key}",
+                    "_to": f"{col.GARDEN_OBJECTS}/{created['_key']}",
+                    "created_at": now,
+                }
+            )
+            txn.check_budget()
+
+    def _update_objects(self, txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+        collection = txn.collection(col.GARDEN_OBJECTS)
+        for key, fields in write.object_updates:
+            self._replace_fields(collection, key, fields, now)
+
+    @staticmethod
+    def _write_sun_profile(collection: TransactionCollection, key: str, sun_profile: dict[str, Any], now: str) -> None:
+        """Write ``site_conditions.sun_profile`` and nothing else of ``site_conditions`` (#2538).
+
+        ``PATCH /locations`` writes the microclimate, wind, slope … outside the plan revision; a whole-column
+        write of the value the batch read would revert them (a frost risk back, ``frost_exposed`` left set).
+        ``merge=True`` merges the nested objects into the stored ones - a stored ``null`` becomes the object -
+        and ``keep_none=False`` removes a sun-profile key the batch cleared.
+        """
+        try:
+            collection.update(
+                {"_key": key, "site_conditions": {"sun_profile": sun_profile}, "updated_at": now},
+                merge=True,
+                keep_none=False,
+            )
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # the document is gone: another writer removed it after our read
+                raise WriteConflictError("garden_plan", "a document of the plan was removed concurrently") from exc
+            raise
+
+    @staticmethod
+    def _replace_fields(collection: TransactionCollection, key: str, fields: dict[str, Any], now: str) -> None:
+        """Write *only* the fields the batch changed (the service computed the diff against what it read).
+
+        Writing the whole model back would overwrite, with the value read before the transaction, every
+        field another path changed in the meantime without raising the plan revision (``PUT /locations``,
+        status, soil, slot routes — §21.2 "outside the revision"). ``merge=False`` replaces a changed object
+        whole (a geometry that changes kind must not keep the old kind's keys); ``keep_none=False`` removes a
+        field the batch cleared.
+        """
+        try:
+            collection.update({"_key": key, **fields, "updated_at": now}, merge=False, keep_none=False)
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # the document is gone: another writer removed it after our read
+                raise WriteConflictError("garden_plan", "a document of the plan was removed concurrently") from exc
+            raise
+
+    def _write_site(
+        self,
+        txn: StreamTransaction,
+        write: PlanBatchWrite,
+        stored_plan: dict[str, Any] | None,
+        new_revision: int,
+        now: str,
+    ) -> None:
+        plan: dict[str, Any] = (
+            dict(stored_plan)
+            if stored_plan
+            else {
+                "north_angle_deg": 0.0,
+                "default_grid_m": DEFAULT_GRID_M,
+                "adjacency_factor": DEFAULT_ADJACENCY_FACTOR,
+            }
+        )
+        if write.boundary is not None:
+            plan["boundary"] = write.boundary.model_dump(mode="json")
+        if write.north_angle_deg is not None:
+            plan["north_angle_deg"] = write.north_angle_deg
+        if write.default_grid_m is not None:
+            plan["default_grid_m"] = write.default_grid_m
+        if write.adjacency_factor is not None:
+            plan["adjacency_factor"] = write.adjacency_factor
+        plan["plan_revision"] = new_revision
+        plan["plan_updated_at"] = now
+        plan["plan_updated_by"] = write.editor_key
+        site_update: dict[str, Any] = {"_key": write.site_key, "plan": plan, "updated_at": now}
+        if write.total_area_m2 is not None:
+            site_update["total_area_m2"] = write.total_area_m2
+        # ``merge=False`` replaces the nested ``plan`` object whole: the dict above is the complete plan.
+        txn.collection(col.SITES).update(site_update, merge=False)
+
+    @staticmethod
+    def _write_care_events(txn: StreamTransaction, write: PlanBatchWrite, now: str) -> None:
+        """The care events of the write (a bed-status change), each with its ``care_event_at`` edge to the bed."""
+        if not write.care_events:
+            return
+        for event in write.care_events:
+            write_care_event(txn, event, now)
+
+    def _write_audit(self, txn: StreamTransaction, write: PlanBatchWrite, revision: int, now: str) -> None:
+        audit = txn.collection(col.GARDEN_PLAN_AUDIT)
+        if write.snapshot is not None:
+            snapshot = PlanAuditRecord(
+                tenant_key=write.tenant_key,
+                site_key=write.site_key,
+                revision=revision,
+                user_key=write.editor_key,
+                op="import_snapshot",
+                entity="site",
+                key=write.site_key,
+                summary=write.snapshot_summary,
+                at=datetime.fromisoformat(now),
+                snapshot=write.snapshot,
+            )
+            audit.insert(_dump(snapshot, mode="json"))
+            self._prune_snapshots(txn, write)
+        entry: dict[str, str]
+        for entry in write.audit:
+            record = PlanAuditRecord(
+                tenant_key=write.tenant_key,
+                site_key=write.site_key,
+                revision=revision,
+                user_key=write.editor_key,
+                op=entry["op"],
+                entity=entry["entity"],
+                key=entry["key"],
+                summary=entry.get("summary", ""),
+                at=datetime.fromisoformat(now),
+            )
+            audit.insert(_dump(record, mode="json"))
+
+    @staticmethod
+    def _prune_snapshots(txn: StreamTransaction, write: PlanBatchWrite) -> None:
+        """Keep the newest :data:`MAX_SNAPSHOTS_PER_SITE` snapshots of the site, in the order the list shows them.
+
+        GP-NFR-055 (#2542 W-2): every ``replace`` and restore stores a whole plan, so without a cap a site's
+        snapshots grew until the yearly purge. Only ``import_snapshot`` rows of this site and tenant are removed;
+        the change log rows around them stay. Both branches filter like ``list_import_snapshots`` (``snapshot !=
+        null``): only rows the listing shows are counted and removed, so a row it hides is neither kept in place of
+        a real snapshot nor deleted unseen. Runs after the insert, inside the batch transaction: the new row is
+        among the kept ones (highest revision) and an aborted batch prunes nothing.
+        """
+        txn.aql.execute(
+            """
+            LET keep = (
+                FOR a IN @@col
+                    FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                        AND a.snapshot != null
+                    SORT a.revision DESC, DATE_TIMESTAMP(a.at) DESC, a._key DESC
+                    LIMIT @cap
+                    RETURN a._key
+            )
+            FOR a IN @@col
+                FILTER a.site_key == @site_key AND a.tenant_key == @tenant_key AND a.op == "import_snapshot"
+                    AND a.snapshot != null AND a._key NOT IN keep
+                REMOVE a IN @@col
+            """,
+            bind_vars={
+                "@col": col.GARDEN_PLAN_AUDIT,
+                "site_key": write.site_key,
+                "tenant_key": write.tenant_key,
+                "cap": MAX_SNAPSHOTS_PER_SITE,
+            },
+        )
+
+    def purge_audit_before(self, cutoff: datetime, *, batch: int) -> int:
+        """Hard-delete up to ``batch`` audit rows with ``at`` before ``cutoff`` (NFR-011 R-26, REQ-053 GP-NFR-055).
+
+        A row whose ``at`` cannot be read as an instant is never selected (``DATE_TIMESTAMP`` of it is ``null``,
+        which would order below every cutoff).
+        """
+        bind_vars: dict[str, Any] = {
+            "@audit": col.GARDEN_PLAN_AUDIT,
+            "cutoff": cutoff.astimezone(UTC).isoformat(),
+            "batch": batch,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@audit
+                LET at = DATE_TIMESTAMP(a.at)
+                FILTER at != null AND at < DATE_TIMESTAMP(@cutoff)
+                LIMIT @batch
+                REMOVE a IN @@audit
+                RETURN 1
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return sum(1 for _ in cursor)
+
+    # ── Single resources (WP 1.9) ─────────────────────────────────────
+
+    def load_bed_counters(self, location_keys: list[str], *, tenant_key: str) -> dict[str, BedCounters]:
+        if not tenant_key:
+            raise ValueError("load_bed_counters needs a tenant_key (an empty tenant is no tenant, #2107).")
+        rows: dict[str, dict[str, Any]] = {}
+        if not location_keys:
+            return {}
+        plants = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR p IN @@plants
+                FILTER p.tenant_key == @tenant_key AND p.location_key IN @location_keys AND p.removed_on == null
+                COLLECT location = p.location_key INTO species = p.species_key
+                RETURN {location, count: LENGTH(species), species: UNIQUE(species)}
+            """,
+                bind_vars={"@plants": col.PLANT_INSTANCES, "tenant_key": tenant_key, "location_keys": location_keys},
+            ),
+        )
+        for row in plants:
+            rows[row["location"]] = {
+                "active_plant_count": row["count"],
+                "species_keys": sorted(k for k in row["species"] if k),
+            }
+        for location, counter in self._task_counters(location_keys, tenant_key).items():
+            rows[location] = {
+                **rows.get(location, {}),
+                "open_task_count": counter.open_task_count,
+                "overdue_task_count": counter.overdue_task_count,
+                "next_due_at": counter.next_due_at,
+            }
+        events = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@events
+                FILTER e.tenant_key == @tenant_key AND e.location_key IN @location_keys AND e.voided_at == null
+                COLLECT location = e.location_key AGGREGATE last = MAX(e.performed_at)
+                RETURN {location, last}
+            """,
+                bind_vars={"@events": col.CARE_EVENTS, "tenant_key": tenant_key, "location_keys": location_keys},
+            ),
+        )
+        for row in events:
+            rows[row["location"]] = {**rows.get(row["location"], {}), "last_care_at": row["last"]}
+        # Validated here, so the stored ISO strings reach the caller as datetimes.
+        return {location: BedCounters.model_validate(values) for location, values in rows.items()}
+
+    # ── The bed list as a download (WP 8.25) ──────────────────────────
+
+    def location_type_names(self, location_type_keys: list[str]) -> dict[str, LocationTypeName]:
+        if not location_type_keys:
+            return {}
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                "FOR t IN @@col FILTER t._key IN @keys RETURN {key: t._key, name: t.name, name_en: t.name_en}",
+                bind_vars={"@col": col.LOCATION_TYPES, "keys": sorted(set(location_type_keys))},
+            ),
+        )
+        return {
+            row["key"]: LocationTypeName(name=row["name"], name_en=row["name_en"] or None)
+            for row in cursor
+            if row["name"]
+        }
+
+    def irrigation_zone_names(self, site_key: SiteKey, *, tenant_key: str) -> dict[str, str]:
+        if not tenant_key:
+            raise ValueError("irrigation_zone_names needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR z IN @@zones
+                FILTER z.tenant_key == @tenant_key AND z.site_key == @site_key
+                RETURN {key: z._key, name: z.name}
+            """,
+                bind_vars={"@zones": col.IRRIGATION_ZONES, "tenant_key": tenant_key, "site_key": site_key},
+            ),
+        )
+        return {row["key"]: row["name"] for row in cursor if row["name"]}
+
+    def location_assignees(self, location_keys: list[str], *, tenant_key: str) -> list[BedAssignee]:
+        if not tenant_key:
+            raise ValueError("location_assignees needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not location_keys:
+            return []
+        # The tenant is checked on the assignment *and* on the membership it names: an assignment row is written by
+        # the tenant service only, but a membership of another tenant must never lend a name to this list.
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR a IN @@assignments
+                FILTER a.tenant_key == @tenant_key AND a.location_key IN @location_keys
+                LET m = DOCUMENT(CONCAT(@memberships, a.membership_key))
+                FILTER m != null AND m.tenant_key == @tenant_key AND m.is_active != false
+                LET u = DOCUMENT(CONCAT(@users, m.user_key))
+                RETURN {location_key: a.location_key, user_key: m.user_key, display_name: u.display_name}
+            """,
+                bind_vars={
+                    "@assignments": col.LOCATION_ASSIGNMENTS,
+                    "memberships": f"{col.MEMBERSHIPS}/",
+                    "users": f"{col.USERS}/",
+                    "tenant_key": tenant_key,
+                    "location_keys": location_keys,
+                },
+            ),
+        )
+        return [
+            BedAssignee(
+                location_key=row["location_key"],
+                user_key=row["user_key"],
+                display_name=row["display_name"],
+            )
+            for row in cursor
+        ]
+
+    def count_active_slots(self, site_key: SiteKey, *, tenant_key: str) -> int:
+        if not tenant_key:
+            raise ValueError("count_active_slots needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                f"""
+            RETURN LENGTH(
+                FOR l IN @@locations
+                    FILTER l.site_key == @site_key
+                    {_OWNED_BY_LOCATION_SITE}
+                    FOR s IN @@slots
+                        FILTER s.location_key == l._key AND s.archived_at == null
+                        RETURN 1
+            )
+            """,
+                bind_vars={
+                    "@locations": col.LOCATIONS,
+                    "@slots": col.SLOTS,
+                    "site_key": site_key,
+                    "sites": f"{col.SITES}/",
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return int(next(cursor, 0))
+
+    def update_location_fields(
+        self, location_key: str, fields: dict[str, Any], *, soil: SoilProfileEdit | None = None
+    ) -> None:
+        if "irrigation_zone_key" in fields:
+            self._update_location_fields_with_zone(location_key, fields, soil)
+            return
+        with stream_transaction(self._db, write=(col.LOCATIONS,), read=_soil_reads(soil), entity="location") as txn:
+            self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, _now())
+            _write_soil(txn, location_key, soil)
+
+    @staticmethod
+    def _write_location_columns(
+        collection: TransactionCollection, location_key: str, fields: dict[str, Any], now: str
+    ) -> None:
+        """The column write of ``PATCH /locations`` - both paths of :meth:`update_location_fields` (#2569).
+
+        A column of ``_MERGED_LOCATION_COLUMNS`` carries only the parts the PATCH sent and is merged into the
+        stored object (``merge=True``: a stored ``null`` becomes the object; ``keep_none=False``: a ``None``
+        removes the stored key, nested too). Every other column is replaced whole (``merge=False``: a soil
+        profile must not keep keys the new one dropped) and a ``None`` removes it - so does ``None`` for a
+        merged column, which clears the whole value. Two updates, because ArangoDB takes one merge mode per
+        update; the caller runs them in one transaction.
+        """
+        merged = {
+            name: value for name, value in fields.items() if name in _MERGED_LOCATION_COLUMNS and value is not None
+        }
+        replaced = {name: value for name, value in fields.items() if name not in merged}
+        try:
+            collection.update({"_key": location_key, **replaced, "updated_at": now}, merge=False, keep_none=False)
+            if merged:
+                collection.update({"_key": location_key, **merged}, merge=True, keep_none=False)
+        except DocumentUpdateError as exc:
+            if exc.error_code == 1202:  # document not found: removed after the service read it
+                raise NotFoundError("Location", location_key) from exc
+            raise
+
+    def set_site_underlay(
+        self, site_key: SiteKey, *, tenant_key: str, underlay: SiteUnderlay | None
+    ) -> tuple[bool, str | None]:
+        """Write the underlay into the plan, and **touch the attachment it names in the same transaction** (#2545).
+
+        The touch (``updated_at``) is what makes a concurrent :meth:`ArangoAttachmentRepository.remove_if_unreferenced`
+        of that picture safe: both write the attachment record, so whichever commits second conflicts (``1200`` ->
+        ``WriteConflictError``) instead of one site naming a picture another request just deleted. A record already
+        gone is 422 ``reference.not_found``. A plan batch holding the site document makes this write conflict the
+        same way (409), never a 500; the batch writes the plan it read inside its own transaction, so neither
+        writer's value is lost silently.
+        """
+        if not tenant_key:
+            raise ValueError("set_site_underlay needs a tenant_key (an empty tenant is no tenant, #2107).")
+        now = _now()
+        with stream_transaction(self._db, write=(col.SITES, col.ATTACHMENTS), entity="site") as txn:
+            sites = list(
+                txn.aql.execute(
+                    """
+                FOR s IN @@sites
+                    FILTER s._key == @site_key AND s.tenant_key == @tenant_key AND s.plan != null
+                    RETURN {previous: s.plan.underlay.attachment_key}
+                """,
+                    bind_vars={"@sites": col.SITES, "site_key": site_key, "tenant_key": tenant_key},
+                )
+            )
+            if not sites:
+                return False, None
+            if underlay is not None:
+                self._bind_underlay_attachment(txn, underlay.attachment_key, tenant_key=tenant_key, now=now)
+            txn.aql.execute(
+                """
+                UPDATE {_key: @site_key} WITH { plan: { underlay: @underlay }, updated_at: @now } IN @@sites
+                    OPTIONS { mergeObjects: true, keepNull: false }
+                """,
+                bind_vars={
+                    "@sites": col.SITES,
+                    "site_key": site_key,
+                    "underlay": _dump(underlay, mode="json") if underlay is not None else None,
+                    "now": now,
+                },
+            )
+        return True, sites[0]["previous"]
+
+    @staticmethod
+    def _bind_underlay_attachment(txn: StreamTransaction, attachment_key: str, *, tenant_key: str, now: str) -> None:
+        """Touch the tenant's ``garden_plan_underlay`` record inside *txn*; 422 ``reference.not_found`` without one.
+
+        A record removed after this transaction's snapshot is still read here, and its update then conflicts
+        (``1200``, measured against ArangoDB 3.12): the caller gets ``WriteConflictError`` from the transaction.
+        """
+        touched = list(
+            txn.aql.execute(
+                """
+            FOR a IN @@attachments
+                FILTER a._key == @key AND a.tenant_key == @tenant_key AND a.category == @category
+                UPDATE a WITH { updated_at: @now } IN @@attachments
+                RETURN 1
+            """,
+                bind_vars={
+                    "@attachments": col.ATTACHMENTS,
+                    "key": attachment_key,
+                    "tenant_key": tenant_key,
+                    "category": AttachmentCategory.GARDEN_PLAN_UNDERLAY.value,
+                    "now": now,
+                },
+            )
+        )
+        if not touched:
+            raise PlanValidationError([(None, "attachment_key", ERROR_REFERENCE_NOT_FOUND, {})])
+
+    def _update_location_fields_with_zone(
+        self, location_key: str, fields: dict[str, Any], soil: SoilProfileEdit | None = None
+    ) -> None:
+        """The column write of a PATCH that changes the bed's zone, with its ``zone_covers`` edge (WP 7.1).
+
+        One transaction: the new zone's document is taken first (a zone deleted after the service resolved it is
+        422 ``reference.not_found``, a zone being deleted right now conflicts), then the bed's columns, then the
+        edge — the bed's old edge is removed whichever zone held it, so a bed stays in at most one zone.
+
+        The zone is taken **under the bed's own site and that site's tenant** (read from the stored bed inside the
+        transaction): the method takes no tenant (a location carries none, E-01), so the predicate is the bed's
+        anchor — a zone of another site or another tenant is ``reference.not_found`` and nothing is written.
+        """
+        zone_key = fields["irrigation_zone_key"]
+        location_id = f"{col.LOCATIONS}/{location_key}"
+        now = _now()
+        with stream_transaction(
+            self._db,
+            write=(col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS),
+            read=(col.SITES, *_soil_reads(soil, with_sites=False)),
+            entity="location",
+        ) as txn:
+            if zone_key:
+                taken = list(
+                    txn.aql.execute(
+                        """
+                    LET bed = DOCUMENT(CONCAT(@locations, @location_key))
+                    LET site = bed == null ? null : DOCUMENT(CONCAT(@sites, bed.site_key))
+                    FOR z IN @@zones
+                        FILTER site != null AND z._key == @key
+                            AND z.site_key == bed.site_key AND z.tenant_key == site.tenant_key
+                        UPDATE z WITH { updated_at: @now } IN @@zones
+                        RETURN 1
+                    """,
+                        bind_vars={
+                            "@zones": col.IRRIGATION_ZONES,
+                            "locations": f"{col.LOCATIONS}/",
+                            "sites": f"{col.SITES}/",
+                            "location_key": location_key,
+                            "key": zone_key,
+                            "now": now,
+                        },
+                    )
+                )
+                if not taken:
+                    raise PlanValidationError([(None, "irrigation_zone_key", ERROR_REFERENCE_NOT_FOUND, {})])
+            self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, now)
+            _write_soil(txn, location_key, soil)
+            remove_edges(txn, col.ZONE_COVERS, "_to", [location_id])
+            if zone_key:
+                txn.collection(col.ZONE_COVERS).insert(
+                    {"_from": f"{col.IRRIGATION_ZONES}/{zone_key}", "_to": location_id, "created_at": now}
+                )
+
+    def update_slot_fields(
+        self, slot_key: str, fields: dict[str, Any], *, read: Slot, slot_rules: tuple[str, int] | None
+    ) -> None:
+        # Nested objects replaced whole (``merge_objects=False``) and nulls removed, as a PATCH writes them; a
+        # vanished slot is a NotFoundError, a changed one a WriteConflictError (``update_if_unchanged``).
+        data = {**fields, "updated_at": _now()}
+        expected = _slot_cross_validated(read)
+        if slot_rules is None:
+            update_if_unchanged(
+                self._db,
+                col.SLOTS,
+                slot_key,
+                data,
+                expected=expected,
+                entity="Slot",
+                keep_null=False,
+                merge_objects=False,
+            )
+            return
+        # V-04/V-06 ran against the bed's basis: the fence and the slot are one transaction (#2773).
+        location_key, revision = slot_rules
+        with stream_transaction(self._db, write=(col.LOCATIONS, col.SLOTS), entity="Slot") as txn:
+            take_slot_rules(txn, {location_key: revision})
+            update_if_unchanged(
+                txn,
+                col.SLOTS,
+                slot_key,
+                data,
+                expected=expected,
+                entity="Slot",
+                keep_null=False,
+                merge_objects=False,
+            )
+
+    def irrigation_zone_site_key(self, zone_key: str, *, tenant_key: str) -> str | None:
+        if not tenant_key:
+            raise ValueError("irrigation_zone_site_key needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET zone = DOCUMENT(CONCAT(@zones, @key))
+            FILTER zone != null AND zone.tenant_key == @tenant_key
+            RETURN zone.site_key
+            """,
+                bind_vars={"zones": f"{col.IRRIGATION_ZONES}/", "key": zone_key, "tenant_key": tenant_key},
+            ),
+        )
+        return next(cursor, None)
+
+    def substrate_visible(self, substrate_key: str, *, tenant_key: str) -> bool:
+        if not tenant_key:
+            raise ValueError("substrate_visible needs a tenant_key (an empty tenant is no tenant, #2107).")
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET substrate = DOCUMENT(CONCAT(@substrates, @key))
+            RETURN substrate != null AND (substrate.tenant_key == null OR substrate.tenant_key IN ["", @tenant_key])
+            """,
+                bind_vars={"substrates": f"{col.SUBSTRATES}/", "key": substrate_key, "tenant_key": tenant_key},
+            ),
+        )
+        return bool(next(cursor, False))
+
+    def reserved_among(self, candidates: list[str], *, tenant_key: str) -> set[str]:
+        if not tenant_key:
+            raise ValueError("reserved_among needs a tenant_key (an empty tenant is no tenant, #2107).")
+        if not candidates:
+            return set()
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            FOR e IN @@edges
+                FILTER e._to IN @ids
+                LET run = DOCUMENT(e._from)
+                FILTER run != null AND run.tenant_key == @tenant_key
+                RETURN DISTINCT PARSE_IDENTIFIER(e._to).key
+            """,
+                bind_vars={
+                    "@edges": col.RUN_PLANNED_AT,
+                    "ids": [f"{col.SLOTS}/{key}" for key in candidates],
+                    "tenant_key": tenant_key,
+                },
+            ),
+        )
+        return set(cursor)
+
+    def replace_slots(self, write: SlotBatchWrite) -> SlotBatchOutcome:
+        created_keys: list[str] = []
+        with stream_transaction(
+            self._db,
+            write=_SLOT_BATCH_WRITE,
+            read=_SLOT_BATCH_READ,
+            entity="slots",
+            time_budget_seconds=write.time_budget_seconds,
+        ) as txn:
+            now = _now()
+            require_fence(write.slot_rules_revision, write.inserts, write="SlotBatchWrite")
+            # The bed's one write: the fence with the revision, the plain lock for a batch that only removes.
+            lock_bed(txn, write.location_key, now, revision=write.slot_rules_revision)
+            self._remove_slots(txn, write.delete_keys)
+            slots = txn.collection(col.SLOTS)
+            edges = txn.collection(col.HAS_SLOT)
+            for slot in write.inserts:
+                doc = _dump(slot, by_alias=True, exclude_none=True, mode="json")
+                doc.pop("_key", None)
+                doc["location_key"] = write.location_key
+                doc["created_at"] = doc["updated_at"] = now
+                created = slots.insert(doc, return_new=True)
+                created_keys.append(created["_key"])
+                edges.insert(
+                    {
+                        "_from": f"{col.LOCATIONS}/{write.location_key}",
+                        "_to": f"{col.SLOTS}/{created['_key']}",
+                        "created_at": now,
+                    }
+                )
+                txn.check_budget()
+        return SlotBatchOutcome(created_keys=created_keys, deleted_count=len(write.delete_keys))
+
+    def _remove_slots(self, txn: StreamTransaction, keys: list[str]) -> None:
+        """Delete slots that are still unoccupied and unreserved — re-checked here, after the service's read."""
+        if not keys:
+            return
+        ids = [f"{col.SLOTS}/{key}" for key in keys]
+        taken = list(
+            txn.aql.execute(
+                """
+            RETURN LENGTH(
+                FOR s IN @@slots
+                    FILTER s._key IN @keys AND (s.currently_occupied == true OR s.archived_at != null)
+                    RETURN 1
+            ) + LENGTH(FOR e IN @@reserved FILTER e._to IN @ids RETURN 1)
+            """,
+                bind_vars={"@slots": col.SLOTS, "keys": keys, "@reserved": col.RUN_PLANNED_AT, "ids": ids},
+            )
+        )[0]
+        if taken:
+            raise WriteConflictError("slots", "a slot to replace was occupied or reserved concurrently")
+        for edge, field_name in _SLOT_EDGES:
+            remove_edges(txn, edge, field_name, ids)
+        txn.aql.execute(
+            "FOR s IN @@slots FILTER s._key IN @keys REMOVE s IN @@slots",
+            bind_vars={"@slots": col.SLOTS, "keys": keys},
+        )

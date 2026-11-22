@@ -188,6 +188,8 @@ PARENT_CHAINS: dict[str, tuple[tuple[str, str], ...]] = {
     col.SENSORS: (("tank_key", col.TANKS), ("site_key", col.SITES), ("location_key", col.LOCATIONS)),
     col.LOCATIONS: (("site_key", col.SITES),),
     col.SLOTS: (("location_key", col.LOCATIONS),),
+    # REQ-053 §20.4 (E-01): a garden object belongs to its site like a location does.
+    col.GARDEN_OBJECTS: (("site_key", col.SITES),),
     col.TASK_COMMENTS: (("task_key", col.TASKS),),
     col.TASK_AUDIT_ENTRIES: (("task_key", col.TASKS),),
     # ``entity_key`` is polymorphic over ``entity_type`` — every target owns it.
@@ -838,6 +840,18 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "filter is the scope, measured in tests/integration/test_ai_provider_system_default_reach.py; no "
         "route writes ai_provider_configs at all, so no tenant can place a row there (#2110)",
     ),
+    ("ArangoSpeciesRepository", "get_global_by_scientific_name"): Exclusion(
+        "catalogue",
+        "admits only GLOBAL species rows (FILTER tenant_key == null OR ''), never a tenant's - the filter is the "
+        "scope, measured in tests/integration/test_seed_catalogue_species.py; the seed loaders resolve their YAML "
+        "names through it so catalogue writes never land on a tenant's species (#2857 SEC-001)",
+    ),
+    ("ArangoBedTemplateRepository", "global_task_template_keys"): Exclusion(
+        "catalogue",
+        "admits only the GLOBAL task templates (FILTER tenant_key == '' OR null), never a tenant's - the filter "
+        "is the scope, measured in tests/integration/test_bed_template_repository.py; it resolves the references "
+        "of a system bed template, which only a platform admin writes (#2529), and returns keys the caller sent",
+    ),
     # The three ArangoActivityRepository reads left this list with #2119 (MT-023): each now
     # takes tenant_key keyword-only and carries the hybrid-union predicate.
     # The ones below became subjects in #2102, when a traversal's vertex collection began to
@@ -956,6 +970,14 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         via="get_by_scientific_name",
         check="_authorize_tenant_owned_write",
     ),
+    ("ArangoPlantingReservationRepository", "place_run_layout"): Exclusion(
+        "verified",
+        "the only read is the bed's slot-rule fence (#2773), a compare-and-raise on the bed the caller resolved under "
+        "the tenant; the service checks the run's tenant before it writes the run's layout",
+        witness="app.domain.services.planting_reservation_service::PlantingReservationService.place_layout",
+        via="place_run_layout",
+        check="verify_tenant_ownership",
+    ),
     ("ArangoTaskRepository", "get_task_templates_for_workflow"): Exclusion(
         "verified",
         "task templates are read by their workflow template, whose hybrid read access the route "
@@ -965,8 +987,21 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         check="get_workflow_template",
     ),
     # ── system ─────────────────────────────────────────────────────────────
+    ("ArangoCareEventGapReader", "candidates"): Exclusion(
+        "system",
+        "the daily care_events.consistency job (REQ-053 WP 8.2) walks the installation on purpose; it never writes "
+        "from the row's own tenant stamp: the mapper takes tenant and site from the bed's site (a document stamped "
+        "with another tenant is counted, not written) and the Celery task asks ActiveTenants before every write — "
+        "measured in tests/integration/test_care_events_consistency.py",
+    ),
     ("ArangoAttachmentRepository", "find_orphaned_task_photos"): Exclusion(
         "system", "the orphaned task-photo sweep of the storage Celery task (#1393)"
+    ),
+    ("ArangoAttachmentRepository", "find_orphaned_photos"): Exclusion(
+        "system",
+        "the installation-wide orphan sweeps of the storage Celery tasks, by category: task (#1393) and location "
+        "(never-linked bed photos, #2661); each row is deleted through the tenant-scoped AttachmentService "
+        "under its own tenant_key",
     ),
     ("ArangoAttachmentRepository", "held_storage_keys"): Exclusion(
         "system",
@@ -975,6 +1010,9 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
     ),
     ("ArangoAttachmentRepository", "count_undated_orphaned_task_photos"): Exclusion(
         "system", "held-count of the same installation-wide orphan sweep (#1806 GDPR-003)"
+    ),
+    ("ArangoAttachmentRepository", "count_undated_orphaned_photos"): Exclusion(
+        "system", "held-count of the same installation-wide orphan sweeps, by category (#1806 GDPR-003, #2661)"
     ),
     ("ArangoAiAuditRepository", "count_undated"): Exclusion(
         "system", "held-count of the installation-wide ai_audit_log retention task (#1806 GDPR-003)"

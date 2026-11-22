@@ -42,9 +42,9 @@ CHART="${1:-helm/kamerplanter}"
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 CHART_VALUES="${CHART}/values.yaml"
 
-image="${NGINX_IMAGE:-$(sed -n 's/^FROM \(nginxinc\/nginx-unprivileged[^ ]*\) AS prod$/\1/p' "${REPO}/src/frontend/Dockerfile")}"
+image="${NGINX_IMAGE:-$(sed -n 's/^FROM \(nginx\/nginx-unprivileged[^ ]*\) AS prod$/\1/p' "${REPO}/src/frontend/Dockerfile")}"
 if [[ -z "${image}" ]]; then
-  echo "::error::no 'FROM nginxinc/nginx-unprivileged… AS prod' line in src/frontend/Dockerfile" >&2
+  echo "::error::no 'FROM nginx/nginx-unprivileged… AS prod' line in src/frontend/Dockerfile" >&2
   exit 1
 fi
 
@@ -73,10 +73,16 @@ mkdir -p "${work}/image" "${work}/chart"
 cp "${REPO}/src/frontend/nginx.conf" "${work}/image/default.conf"
 cp "${REPO}/src/frontend/nginx-security-headers.inc" "${work}/image/"
 
-# chart configuration: exactly what the ConfigMap mounts
+# chart configuration: exactly what the ConfigMap mounts — every key, because
+# the chart mounts the whole ConfigMap over /etc/nginx/conf.d and default.conf
+# includes nginx-security-headers.inc from there (#2816)
 helm template kamerplanter "${CHART}" |
-  yq e 'select(.kind == "ConfigMap" and .metadata.name == "kamerplanter") | .data["default.conf"]' - \
-    >"${work}/chart/default.conf"
+  yq e 'select(.kind == "ConfigMap" and .metadata.name == "kamerplanter") | .data' -o=json - \
+    >"${work}/chart.json"
+for key in $(jq -r 'keys[]' "${work}/chart.json"); do
+  jq -r --arg k "${key}" '.[$k]' "${work}/chart.json" >"${work}/chart/${key}"
+done
+rm -f "${work}/chart.json"
 if [[ ! -s "${work}/chart/default.conf" ]]; then
   echo "::error::the chart rendered no ConfigMap 'kamerplanter' with a default.conf" >&2
   exit 1

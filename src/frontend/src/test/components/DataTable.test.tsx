@@ -235,6 +235,44 @@ describe('DataTable', () => {
     expect(onClick).toHaveBeenCalledWith(rows[0]);
   });
 
+  it('triggers onRowClick on Space key', () => {
+    const onClick = vi.fn();
+    render(
+      <DataTable
+        columns={columns}
+        rows={[rows[0]]}
+        getRowKey={(r) => r.id}
+        onRowClick={onClick}
+      />,
+    );
+    fireEvent.keyDown(screen.getByTestId('data-table-row'), { key: ' ' });
+    expect(onClick).toHaveBeenCalledWith(rows[0]);
+  });
+
+  it('does not trigger onRowClick for keys pressed on a nested control', () => {
+    const onClick = vi.fn();
+    const actionColumns = [
+      ...columns,
+      {
+        id: 'action',
+        label: 'Action',
+        render: () => <button type="button">row action</button>,
+      },
+    ];
+    render(
+      <DataTable
+        columns={actionColumns}
+        rows={[rows[0]]}
+        getRowKey={(r) => r.id}
+        onRowClick={onClick}
+      />,
+    );
+    const action = screen.getByRole('button', { name: 'row action' });
+    fireEvent.keyDown(action, { key: 'Enter' });
+    fireEvent.keyDown(action, { key: ' ' });
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
   it('filters rows by search', () => {
     const tableState = makeTableState({ search: 'alice' });
     render(

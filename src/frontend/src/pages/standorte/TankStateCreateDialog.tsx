@@ -1,20 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Box from '@mui/material/Box';
 import Form from '@/components/form/Form';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
-import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/tanks';
@@ -47,7 +46,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       ph: null,
@@ -60,6 +59,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
       orp_mv: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -85,14 +85,14 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open}
+    <FormDialog control={control} fullScreen={fullScreen} open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
@@ -105,31 +105,27 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
             {t('pages.tanks.sectionWaterQuality')}
           </Typography>
           <FormRow>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-              <FormNumberField
-                name="ph"
-                control={control}
-                label="pH"
-                helperText={t('pages.tanks.phHelper')}
-                min={0}
-                max={14}
-                inputMode="decimal"
-                autoFocus
-              />
-              <HelpTooltip term="ph" iconOnly />
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-              <FormNumberField
-                name="ec_ms"
-                control={control}
-                label="EC"
-                helperText={t('pages.tanks.ecHelper')}
-                suffix="mS/cm"
-                inputMode="decimal"
-                min={0}
-              />
-              <HelpTooltip term="ec" iconOnly />
-            </Box>
+            <FormNumberField
+              name="ph"
+              helpTerm="ph"
+              control={control}
+              label="pH"
+              helperText={t('pages.tanks.phHelper')}
+              min={0}
+              max={14}
+              inputMode="decimal"
+              autoFocus
+            />
+            <FormNumberField
+              name="ec_ms"
+              helpTerm="ec"
+              control={control}
+              label="EC"
+              helperText={t('pages.tanks.ecHelper')}
+              suffix="mS/cm"
+              inputMode="decimal"
+              min={0}
+            />
           </FormRow>
           <FormRow>
             <FormNumberField
@@ -183,6 +179,7 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
           <FormRow>
             <FormNumberField
               name="dissolved_oxygen_mgl"
+              helpTerm="dissolved_oxygen"
               control={control}
               label={t('pages.tanks.dissolvedOxygenShort')}
               helperText={t('pages.tanks.dissolvedOxygenHelper')}
@@ -209,6 +206,6 @@ export default function TankStateCreateDialog({ open, onClose, tankKey, onCreate
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

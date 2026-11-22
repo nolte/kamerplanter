@@ -290,9 +290,20 @@ defaults:
 jobs:
   lint-test:
     runs-on: ubuntu-latest
+    # 3.15 is both the floor `requires-python` declares and the interpreter the
+    # backend image runs (src/backend/Dockerfile). The leg stays a one-entry
+    # matrix on purpose: its check run keeps the name `lint-test (3.15)` it had
+    # while it ran advisory next to a 3.14 leg (#2616), so nothing that reads the
+    # check by name has to move. The 3.14 leg was dropped when the floor moved
+    # to 3.15 — both legs had been identical over the 25 runs before. Neither
+    # name is a required context on `develop`; those are
+    # `static / Static CI Tests`, `lint-test-build (22)`,
+    # `Write-route and tree guards` and `Integration tests (ArangoDB)`, plus the
+    # ruleset's two.
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.14']
+        python-version: ['3.15']
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -303,7 +314,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -330,7 +341,7 @@ jobs:
         # The cache key is src/backend/uv.lock rather than the action's default
         # `**/pyproject.toml` + `**/uv.lock` glob: since #1374 this repository has
         # five locks, and four of them have nothing to do with this job.
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -355,6 +366,18 @@ jobs:
         run: |
           task deps:sync
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Assert the environment runs Python ${{ matrix.python-version }}
+        # `task deps:sync` lets uv discover the interpreter; setup-python puts
+        # the matrix version first on PATH, but the runner image ships Pythons
+        # of its own, and a leg whose venv resolved one of those would report
+        # the matrix name over results it did not produce. A job-level
+        # UV_PYTHON would pin it, but the lane-inputs record legs replay this
+        # job's env (#1683) and have no stand-in for a matrix value — so the
+        # interpreter is measured here instead of pinned.
+        env:
+          EXPECTED: ${{ matrix.python-version }}
+        run: .venv/bin/python -c "import os, sys; v = f'{sys.version_info[0]}.{sys.version_info[1]}'; sys.exit(0 if v == os.environ['EXPECTED'] else f'venv runs Python {v}, matrix says ' + os.environ['EXPECTED'])"
 
       # Invoked through the Taskfile so the pipeline and a contributor run the
       # identical thing (continuous-integration §E). Before this, `ruff format
@@ -501,9 +524,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Set up Task
@@ -517,7 +540,7 @@ jobs:
       - name: Install uv
         # One pin, read from `[tool.uv].required-version` — see the long note on
         # the same step in backend.yml's `lint-test` job (#1383).
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version-file: src/backend/pyproject.toml
           enable-cache: true
@@ -658,4 +681,4 @@ jobs:
           pip-licenses \
             --from=mixed \
             --ignore-packages python-dateutil uvloop qrcode pyphen \
-            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 AND BSD-2-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'
+            --allow-only='MIT;MIT License;MIT-0;MIT-CMU;MIT OR Apache-2.0;BSD License;BSD-2-Clause;BSD-3-Clause;BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;Apache License 2.0;Apache Software License;Apache-2.0;Apache-2.0 AND MIT;Apache-2.0 AND BSD-2-Clause;Apache-2.0 OR BSD-2-Clause;Apache-2.0 OR BSD-3-Clause;ISC License (ISCL);ISC;Python Software Foundation License;PSF-2.0;Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;LGPL-2.1-or-later;LGPL-3.0-only;The Unlicense (Unlicense)'

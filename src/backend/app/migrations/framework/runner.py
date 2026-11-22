@@ -22,6 +22,7 @@ from app.migrations.framework.report import (
     MigrationReport,
     NonLinearHistoryError,
 )
+from app.migrations.framework.report_store import persist_report, redact_details
 from app.migrations.support.retired_indexes import RETIRED_INDEXES, RetiredIndex, enforce_retired_indexes
 
 logger = structlog.get_logger()
@@ -152,15 +153,22 @@ class MigrationRunner:
                 report = migration.up(db, dry_run=dry_run)
                 duration_ms = (time.perf_counter() - start) * 1000.0
                 report.duration_ms = round(duration_ms, 3)
-                if report.precondition_unmet and not dry_run:
-                    # The migration did no work because a precondition was absent
-                    # (M-1: leave it AND every later migration pending so a later
-                    # boot retries it in order; do NOT record it applied).
+                if migration.kind is not None:
+                    # spec/privacy PRIV-701: the operator's proof of a privacy migration, dry run included.
+                    persist_report(db, migration, report)
+                if (report.precondition_unmet or report.incomplete) and not dry_run:
+                    # Either no work was done because a precondition was absent, or part of it was done and
+                    # part not (a tenant failed, or the after-check found rows left, spec/privacy PRIV-718).
+                    # M-1: leave it AND every later migration pending so a later boot retries it in order —
+                    # idempotently; do NOT record it applied.
                     logger.warning(
-                        "migration_precondition_unmet_left_pending",
+                        "migration_incomplete_left_pending"
+                        if report.incomplete
+                        else "migration_precondition_unmet_left_pending",
                         version=migration.version,
                         name=migration.name,
-                        details=report.details,
+                        # PRIV-701: a privacy migration's details reach the log only through the redaction filter.
+                        details=redact_details(report.details)[0] if migration.kind is not None else report.details,
                     )
                     reports.append(report)
                     break

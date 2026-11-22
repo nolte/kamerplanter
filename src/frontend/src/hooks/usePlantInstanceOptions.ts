@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listPlantInstances } from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export interface PlantInstanceOptionsState {
   instances: PlantInstance[];
   loading: boolean;
+  /** True when the load failed — render `OptionsLoadError` instead of an empty picker (#3037). */
+  error: boolean;
+  /** Re-run a failed load. */
+  reload: () => void;
 }
 
 /**
@@ -23,17 +28,24 @@ export interface PlantInstanceOptionsState {
 export function usePlantInstanceOptions(enabled = true): PlantInstanceOptionsState {
   const [instances, setInstances] = useState<PlantInstance[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const reload = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
+      setError(false);
       try {
         const result = await listPlantInstances(0, 200);
         if (!cancelled) setInstances(result);
-      } catch {
-        if (!cancelled) setInstances([]);
+      } catch (err) {
+        captureHandledError(err, { source: 'usePlantInstanceOptions' });
+        if (cancelled) return;
+        setInstances([]);
+        setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -42,7 +54,7 @@ export function usePlantInstanceOptions(enabled = true): PlantInstanceOptionsSta
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, attempt]);
 
-  return useMemo(() => ({ instances, loading }), [instances, loading]);
+  return useMemo(() => ({ instances, loading, error, reload }), [instances, loading, error, reload]);
 }

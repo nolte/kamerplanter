@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -16,7 +16,9 @@ import ListItemText from '@mui/material/ListItemText';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Form from '@/components/form/Form';
@@ -79,7 +81,7 @@ interface Props {
    */
   hideEntitySelect?: boolean;
   /**
-   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, ...)``), shown
+   * Speaking label for ``presetEntityKey`` (e.g. ``getPlantLabel(plant, language, ...)``), shown
    * as a locked context field and in the dialog title when ``hideEntitySelect`` is set —
    * so it stays clear which plant the task is created for even without the selector.
    */
@@ -96,14 +98,14 @@ export default function TaskCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: '',
@@ -122,6 +124,7 @@ export default function TaskCreateDialog({
       checklist: [],
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const [checklistInput, setChecklistInput] = useState('');
 
@@ -171,14 +174,14 @@ export default function TaskCreateDialog({
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="task-create-dialog-title" data-testid="task-create-dialog">
       <DialogTitle id="task-create-dialog-title">
         {hideEntitySelect && presetEntityLabel
           ? t('pages.tasks.createTaskForPlant', { plant: presetEntityLabel })
@@ -296,7 +299,7 @@ export default function TaskCreateDialog({
               render={({ field }) => (
                 <Autocomplete
                   options={plants}
-                  getOptionLabel={(p) => getPlantLabel(p)}
+                  getOptionLabel={(p) => getPlantLabel(p, i18n.language)}
                   loading={loadingPlants}
                   value={plants.find((p) => p.key === field.value) ?? null}
                   onChange={(_, value) => field.onChange(value?.key ?? null)}
@@ -437,6 +440,6 @@ export default function TaskCreateDialog({
           />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

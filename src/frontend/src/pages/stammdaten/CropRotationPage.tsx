@@ -30,6 +30,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
@@ -38,8 +39,9 @@ import * as rotationApi from '@/api/endpoints/cropRotation';
 import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import type { BotanicalFamily, RotationCountsMap, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
-type NutrientDemandFilter = '' | 'heavy' | 'medium' | 'light';
+type NutrientDemandFilter = '' | 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 
 const HARDY_FROST_TOLERANCES = new Set(['hardy', 'very_hardy']);
 
@@ -87,6 +89,9 @@ export default function CropRotationPage() {
   // has not run yet), so a wait keyed on "no skeleton is visible" is satisfied
   // before loading has begun at all.
   const [catalogLoading, setCatalogLoading] = useState(true);
+  // A failed family read is shown with a retry, never as "no family found" (#3037).
+  const [familiesError, setFamiliesError] = useState(false);
+  const [familiesAttempt, setFamiliesAttempt] = useState(0);
   const [successorsLoading, setSuccessorsLoading] = useState(false);
   // The family whose successors `successors` currently holds. React commits one
   // render between `setSelectedKey` and the effect that fetches for it, carrying
@@ -119,32 +124,53 @@ export default function CropRotationPage() {
     Promise.all([
       familiesApi
         .listAllBotanicalFamilies()
-        .then((f) => { if (!cancelled) setFamilies(f); })
-        .catch(() => {}),
+        .then((f) => {
+          if (cancelled) return;
+          setFamilies(f);
+          setFamiliesError(false);
+        })
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'CropRotationPage.families' });
+          if (!cancelled) setFamiliesError(true);
+        }),
       rotationApi
         .getRotationCounts()
         .then((c) => { if (!cancelled) setRotationCounts(c); })
-        .catch(() => {}),
+        .catch((err: unknown) => {
+          // Badge enrichment only: the options show no successor count.
+          captureHandledError(err, { source: 'CropRotationPage.counts' });
+        }),
     ]).finally(() => { if (!cancelled) setCatalogLoading(false); });
     return () => { cancelled = true; };
+  }, [familiesAttempt]);
+
+  const retryFamilies = useCallback(() => {
+    setCatalogLoading(true);
+    setFamiliesAttempt((n) => n + 1);
   }, []);
 
   useEffect(() => {
-    if (!selectedKey) return;
+    if (!selectedKey) return undefined;
+    // A superseded family's answer is dropped (#3014): landing after the current
+    // one it would show the wrong successors and set `loadedKey` to the old
+    // family, keeping `successorsPending` true and the skeleton up for good.
+    let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- set loading before async fetch
     setSuccessorsLoading(true);
     rotationApi
       .getSuccessors(selectedKey)
-      .then(setSuccessors)
-      .catch((err) => handleError(err))
+      .then((s) => { if (!cancelled) setSuccessors(s); })
+      .catch((err) => { if (!cancelled) handleError(err); })
       .finally(() => {
+        if (cancelled) return;
         // Also on the error path: `loadedKey` records which family the rendered
         // successors belong to, so leaving it behind would keep
         // `successorsPending` true forever and pin the page to a skeleton.
         setLoadedKey(selectedKey);
         setSuccessorsLoading(false);
       });
-  }, [selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
+  }, [selectedKey, handleError]);
 
   const successorCountOf = useCallback(
     (familyKey: string): number => rotationCounts[familyKey] ?? 0,
@@ -240,7 +266,7 @@ export default function CropRotationPage() {
   };
 
   return (
-    <>
+    <Box data-testid="crop-rotation-page">
       <PageTitle title={t('pages.cropRotation.title')} />
 
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -302,9 +328,9 @@ export default function CropRotationPage() {
           data-testid="filter-nutrient-demand"
         >
           <MenuItem value="">{t('pages.cropRotation.filterAll')}</MenuItem>
-          <MenuItem value="heavy">{t('enums.nutrientDemand.heavy')}</MenuItem>
-          <MenuItem value="medium">{t('enums.nutrientDemand.medium')}</MenuItem>
-          <MenuItem value="light">{t('enums.nutrientDemand.light')}</MenuItem>
+          <MenuItem value="heavy_feeder">{t('enums.nutrientDemand.heavy_feeder')}</MenuItem>
+          <MenuItem value="medium_feeder">{t('enums.nutrientDemand.medium_feeder')}</MenuItem>
+          <MenuItem value="light_feeder">{t('enums.nutrientDemand.light_feeder')}</MenuItem>
         </TextField>
         {/* Inline explanation of the domain "Zehrer" classes (REQ-567/A): a
             touch-and-keyboard-reachable info affordance spelling out what
@@ -350,6 +376,9 @@ export default function CropRotationPage() {
       {/* onKeyDownCapture runs before MUI's own Enter/Arrow handling on the input
           (capture phase, so it can never be shadowed by an internal stopPropagation),
           giving the Shift+F favorite shortcut a safe, non-interfering hook. */}
+      {familiesError && !catalogLoading && (
+        <OptionsLoadError onRetry={retryFamilies} data-testid="crop-rotation-families-load-error" />
+      )}
       <Box onKeyDownCapture={handleFavoriteShortcut}>
         <Autocomplete
           fullWidth
@@ -643,8 +672,9 @@ export default function CropRotationPage() {
         maxWidth="sm"
         fullWidth
         data-testid="crop-rotation-dialog"
+        aria-labelledby="crop-rotation-dialog-title"
       >
-        <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
+        <DialogTitle id="crop-rotation-dialog-title">{t('pages.cropRotation.addSuccessor')}</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             {t('pages.cropRotation.addSuccessorHint')}
@@ -681,6 +711,6 @@ export default function CropRotationPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </Box>
   );
 }

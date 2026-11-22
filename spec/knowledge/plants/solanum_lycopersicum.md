@@ -160,6 +160,22 @@ Hinweis: Keimtemperatur min/max und Saattiefe/Keimdauer decken sich mit den bere
 - Nimrod BioSciences -- Vegetable Seeds Per Gram Chart (Tomate: 250--380 Samen/g): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 45–60 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt für Tomaten keinen Reihenabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Tomatoes: Grow your own“ („Space plants 45–60cm (18–24in) apart“; kein Reihenabstand genannt), https://www.rhs.org.uk/vegetables/tomatoes/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Tomatoes: Grow your own“ („Pick the warmest, brightest spot that's protected from wind“; Container: Vollsonne), https://www.rhs.org.uk/vegetables/tomatoes/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -502,6 +518,11 @@ Tomate als Wildart hat keine nennenswerten Resistenzen. Resistenzen werden ueber
 | Empfohlene Vorfrucht | Huelsenfruechte (Fabaceae) -- Stickstoff-Fixierung; Graeser/Getreide (Poaceae) -- Bodenstruktur |
 | Empfohlene Nachfrucht | Salat, Spinat, Radieschen (Schwachzehrer); Bohnen, Erbsen (Fabaceae -- N-Fixierer) |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Solanaceae auf gleicher Flaeche (Phytophthora, Fusarium, Nematoden-Belastung) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Tomate: Starkzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Starkzehrer: Kohlarten, Kartoffeln, Gurken, Kürbisarten und Tomaten), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Beet: Paradeiser), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | high (drei unabhängige Quellen übereinstimmend) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | Familienwert gilt (Solanaceae 4 Jahre; SBB 2022 Tabelle 1: Nachtschattengewächse inkl. Tomate 4 Jahre, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -608,4 +629,8 @@ Roma VF,Solanum lycopersicum,USDA,,determinate;paste_type,75,fusarium;verticilli
 29. CFIA (Canadian Food Inspection Agency) -- The Biology of Solanum lycopersicum L. (Tomato): "a herbaceous perennial in frost-free climates, but is cultivated as an annual crop"; indeterminierte Sorten "continue to grow and produce fruit throughout the growing season": https://inspection.canada.ca/en/plant-health/plant-varieties/novel-traits/applicants/directive-94-08/biology-documents/solanum-lycopersicum
 30. NC State Extension Gardener Plant Toolbox -- Solanum lycopersicum: gelistet als "Annual" UND "Perennial (Herbaceous Perennial)"; "Tomatoes are usually grown as an annual, but in frost-free climates, they are perennials": https://plants.ces.ncsu.edu/plants/solanum-lycopersicum/
 31. Missouri Botanical Garden -- Tomatoes Factsheet (indeterminierte/vine-Typen produzieren fortlaufend neue Bluetenstaende/Trusses ueber die Saison, gestaffelte Ernte) + RHS -- How to grow Tomatoes (Cordon-Tomaten setzen 7 Trusses im Gewaechshaus / 4 Trusses im Freiland vor Kappung -- mehrfache aufeinanderfolgende Bluetenstaende): https://www.missouribotanicalgarden.org/Portals/0/Gardening/Gardening%20Help/Factsheets/Tomatoes46.pdf ; https://www.rhs.org.uk/advice/grow-your-own/vegetables/tomatoes
+32. RHS — Tomatoes: Grow your own (Pflanzabstand 45–60 cm; wärmster, hellster Standort): https://www.rhs.org.uk/vegetables/tomatoes/grow-your-own
+33. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+34. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+35. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

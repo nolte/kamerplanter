@@ -115,6 +115,22 @@
 > Der pH-Vorzug 5.5–6.5 (sauer bis schwach sauer) harmonisiert mit dem Nährlösungs-pH 6.0–6.5 in §2.3.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | NC State Extension, „Aphelandra squarrosa" (Lichtkategorien „Dappled Sunlight", „Partial Shade"; „does best … warm, bright, indirect light"), https://plants.ces.ncsu.edu/plants/aphelandra-squarrosa/; RHS, „Aphelandra squarrosa", Position „Full sun, Partial shade", https://rhs.org.uk/plants/26768/aphelandra-squarrosa/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -322,6 +338,11 @@ Aphelandra ist empfindlich gegen Überdüngung. Kalkarmes oder weiches Wasser is
 | Nährstoffbedarf | Mittelzehrer |
 | Fruchtfolge-Kategorie | Zimmerpflanze |
 | Anbaupause (Jahre) | — |
+| Zehrerstufe | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: nicht belegt --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zimmerpflanze ohne Beetkultur — keine Quelle für eine Anbaupause --> |
 
 ---
 
@@ -365,6 +386,7 @@ Aphelandra squarrosa,Zebrapflanze;Glanzkölbchen;Zebra Plant,Acanthaceae,Aphelan
 15. [Journals of the University of Chicago – Origin of C4 Photosynthesis in Acanthaceae (Blepharis)](https://www.journals.uchicago.edu/doi/full/10.1086/683011) — Acanthaceae überwiegend C3, C4 nur in Sektion Acanthodium (Beleg C3 für Aphelandra)
 16. [Penn State Extension – Hydroponics: Essential Nutrients](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Referenzbereiche Mn/Zn/Cu/Mo
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [RHS – Aphelandra squarrosa](https://rhs.org.uk/plants/26768/aphelandra-squarrosa/details) — Position „Full sun, Partial shade" (Lichtbedarf 1.10)
 
 ---
 

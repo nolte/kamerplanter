@@ -1,10 +1,11 @@
 from datetime import UTC
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
 from app.api.mapping import to_response
-from app.api.v1.plant_instances.schemas import ActiveChannelResponse, CultivarSummary, SpeciesSummary
+from app.api.v1.plant_instances.row_labels import PlantRowLabels
+from app.api.v1.plant_instances.schemas import ActiveChannelResponse
 from app.api.v1.planting_runs.diary_schemas import (
     DiaryEntryCreateRequest,
     DiaryEntryResponse,
@@ -15,23 +16,31 @@ from app.api.v1.planting_runs.diary_schemas import (
 from app.api.v1.planting_runs.schemas import (
     AdoptPlantsRequest,
     AdoptPlantsResponse,
+    BatchCreatePlantsRequest,
     BatchCreatePlantsResponse,
     BatchRemoveRequest,
     BatchRemoveResponse,
     BatchUpdatePhaseDatesRequest,
     BatchUpdatePhaseDatesResponse,
+    ContainerVolumeWarningResponse,
     DetachPlantRequest,
     DetachPlantResponse,
     EntryCreate,
     EntryResponse,
     EntryUpdate,
+    MixedCultureCreate,
+    MixedCultureResponse,
+    MixedCultureRunCreate,
     NutrientPlanAssignRequest,
     NutrientPlanAssignResponse,
     PhaseSummary,
+    PlanSlotsRequest,
+    PlanSlotsResponse,
     PlantingRunCreate,
     PlantingRunResponse,
     PlantingRunUpdate,
     PlantInRunResponse,
+    ReservedSlotResponse,
     RunTransitionRequest,
     RunTransitionResponse,
     WateringScheduleCalendarResponse,
@@ -41,21 +50,30 @@ from app.common.dependencies import (
     get_nutrient_plan_service,
     get_plant_diary_service,
     get_plant_instance_service,
+    get_planting_reservation_service,
     get_planting_run_service,
     get_species_repo,
 )
-from app.common.enums import PlantingRunStatus
+from app.common.enums import PlantingRunStatus, PlantingRunType
 from app.common.exceptions import NotFoundError
-from app.common.openapi_responses import NOT_FOUND_RESPONSE
+from app.common.openapi_responses import (
+    CONFLICT_RESPONSE,
+    FORBIDDEN_RESPONSE,
+    NOT_FOUND_RESPONSE,
+    VALIDATION_RESPONSE,
+    ErrorResponse,
+)
 from app.common.pagination import PaginationParams, get_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.plant_diary_entry import PlantDiaryEntry
+from app.domain.models.planting_reservation import MixedRunDraft
 from app.domain.models.planting_run import PlantingRun, PlantingRunEntry
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_diary_service import PlantDiaryService
 from app.domain.services.plant_instance_service import PlantInstanceService
+from app.domain.services.planting_reservation_service import PlantingReservationService
 from app.domain.services.planting_run_service import PlantingRunService
 from app.domain.services.species_visibility import readable_species
 
@@ -107,6 +125,89 @@ def create_run(
         entries = [PlantingRunEntry(**e.model_dump()) for e in body.entries]
     created = service.create_run(run, entries, tenant_key=ctx.tenant_key)
     return _run_response(created)
+
+
+def _mixed_draft(body: MixedCultureCreate, item: MixedCultureRunCreate, tenant_key: str) -> MixedRunDraft:
+    """One run of the request as the service takes it; the tenant is the caller's, never the body's."""
+    entry: EntryCreate = item.entry
+    return MixedRunDraft(
+        run=PlantingRun(
+            name=item.name,
+            run_type=PlantingRunType.MONOCULTURE,
+            location_key=body.location_key,
+            planned_start_date=body.planned_start_date,
+            planned_from=body.planned_from,
+            planned_until=body.planned_until,
+            plan_role=body.plan_role,
+            rotation_override_reason=body.rotation_override_reason,
+            source=body.source,
+            notes=item.notes,
+            tenant_key=tenant_key,
+        ),
+        entry=PlantingRunEntry(**dict(entry)),
+        free_points=tuple((x, y) for x, y in item.free_points),
+        container_volume_l=item.container_volume_l,
+    )
+
+
+#: The 422s of ``POST /mixed-culture`` by ``error_code`` (SCR-006), so a generated client sees the overlap code.
+_MIXED_CULTURE_VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
+    422: {
+        "model": ErrorResponse,
+        "description": (
+            "`layout.row_assignment_overlap`: two entries with a row layout (`grid`, `rows`, `triangular`) claim "
+            "the same row; `details[0].conflicts` lists at most 20 pairs as `{runs: [i, j], rows, rows_total}` "
+            "(at most 50 rows each), `details[0].pairs_total` and `details[0].truncated` say what was cut. "
+            "`layout.spacing_required`, `layout.too_many_positions`, `plan.quota_exceeded`: an entry's layout "
+            "cannot be computed or breaks a limit. `VALIDATION_ERROR`: the body is invalid, or a species or "
+            "cultivar is unknown or another tenant's (`reference.not_found`)."
+        ),
+    },
+}
+
+
+@router.post(
+    "/mixed-culture",
+    response_model=MixedCultureResponse,
+    status_code=201,
+    responses={**FORBIDDEN_RESPONSE, **NOT_FOUND_RESPONSE, **CONFLICT_RESPONSE, **_MIXED_CULTURE_VALIDATION_RESPONSE},
+)
+def create_mixed_culture(
+    body: MixedCultureCreate,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.CREATE)),
+    service: PlantingRunService = Depends(get_planting_run_service),
+) -> MixedCultureResponse:
+    """Create the per-species runs of a mixed culture on one bed in one transaction (#2463).
+
+    Either every run (with its entry, layout slots and reservations) is created or none is: a refusal leaves
+    nothing behind, so the caller needs no rollback (and no lead role to take one back). The bed's layout is
+    computed for all entries together. Runs are `planned`, `monoculture`, one entry each.
+
+    Every row belongs to one entry (GP-FR-070): two entries with a row layout whose `row_assignment` sets
+    overlap answer `422 layout.row_assignment_overlap` before anything is computed or written. The row index
+    (0-based) refers to the entry's own row grid; entries with different row spacing, direction or margins can
+    still place plants close together although their index sets are disjoint.
+
+    `warnings` lists the runs whose `container_volume_l` lies below the lower value of their species'
+    `recommended_container_volume_l` (W-016.5, `container.volume_below_recommendation`); they are created anyway.
+    A bed whose `irrigation_system` is `hydro` or `nft` gets no pot warning (the roots grow in the solution). The
+    warnings never fail the request: the runs are stored first, a failure while reading them answers `warnings: []`.
+    """
+    drafts = [_mixed_draft(body, item, ctx.tenant_key) for item in body.runs]
+    created = service.create_mixed_culture(body.location_key, drafts, tenant_key=ctx.tenant_key, role=ctx.role)
+    warnings = service.container_volume_warnings(body.location_key, drafts, tenant_key=ctx.tenant_key)
+    return MixedCultureResponse(
+        runs=[_run_response(run) for run in created],
+        warnings=[
+            ContainerVolumeWarningResponse(
+                run_index=warning.run_index,
+                species_key=warning.species_key,
+                container_volume_l=warning.container_volume_l,
+                recommended_container_volume_l=warning.recommended_l,
+            )
+            for warning in warnings
+        ],
+    )
 
 
 @router.get("/{key}", response_model=PlantingRunResponse)
@@ -201,12 +302,65 @@ def delete_entry(
 @router.post("/{key}/create-plants", response_model=BatchCreatePlantsResponse, status_code=201)
 def batch_create_plants(
     key: Annotated[str, Path(description="Document key of the planting run.")],
+    body: BatchCreatePlantsRequest | None = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.CREATE)),
     service: PlantingRunService = Depends(get_planting_run_service),
 ):
-    """Create plant instances in bulk from a planting run's entries."""
-    result = service.create_plants(key, tenant_key=ctx.tenant_key)
+    """Create plant instances in bulk from a planting run's entries (GP-API-023).
+
+    With `assign_to_slots` (the default) the plants stand on the slots the run reserved, per entry in
+    `sequence` order, and on free slots of the bed after that; slots left over stay reserved.
+    """
+    options = body or BatchCreatePlantsRequest()
+    result = service.create_plants(
+        key, tenant_key=ctx.tenant_key, assign_to_slots=options.assign_to_slots, planted_on=options.planted_on
+    )
     return BatchCreatePlantsResponse(**result)
+
+
+@router.post(
+    "/{key}/plan-slots",
+    response_model=PlanSlotsResponse,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+)
+def plan_slots(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    body: PlanSlotsRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> PlanSlotsResponse:
+    """Set or replace the run's reservation of slots for one entry (GP-API-021, GP-FR-065).
+
+    `slot_keys` must be slots of the run's bed (422 `reference.not_found` otherwise). A slot another run reserves
+    in an overlapping time window, or where a plant stands whose run ends after `planned_from`, is 409
+    `slot.already_planned {conflicting_run_key, overlap_from, overlap_until}` (V-08); several runs may share a
+    slot at disjoint times. An empty list releases the entry's reservation.
+    """
+    planned = service.plan_slots(
+        key, tenant_key=ctx.tenant_key, role=ctx.role, entry_key=body.entry_key, slot_keys=body.slot_keys
+    )
+    return PlanSlotsResponse(
+        run_key=planned.run_key,
+        entry_key=planned.entry_key,
+        planned_from=planned.planned_from,
+        planned_until=planned.planned_until,
+        slots=[ReservedSlotResponse(slot_key=slot_key, sequence=sequence) for slot_key, sequence in planned.slots],
+    )
+
+
+@router.delete(
+    "/{key}/plan-slots/{slot_key}",
+    status_code=204,
+    responses={**FORBIDDEN_RESPONSE},
+)
+def release_plan_slot(
+    key: Annotated[str, Path(description="Document key of the planting run.")],
+    slot_key: Annotated[str, Path(description="Document key of the reserved slot.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.PLANTING_RUN, Action.UPDATE)),
+    service: PlantingReservationService = Depends(get_planting_reservation_service),
+) -> None:
+    """Release one reserved slot (GP-API-022). A grower may while the run is `planned`; afterwards the lead (SR-010)."""
+    service.release_slot(key, slot_key, tenant_key=ctx.tenant_key, role=ctx.role)
 
 
 @router.post("/{key}/adopt-plants", response_model=AdoptPlantsResponse)
@@ -293,29 +447,14 @@ def list_plants(
     service.get_run(key, tenant_key=ctx.tenant_key)
     plants = service.get_plants(key, include_detached)
 
-    # Resolve denormalized species/cultivar labels with a per-request cache to
-    # avoid N+1 lookups for plants that share a species or cultivar.
-    species_cache: dict[str, SpeciesSummary | None] = {}
-    cultivar_cache: dict[str, CultivarSummary | None] = {}
-
-    def _species_summary(species_key: str) -> SpeciesSummary | None:
-        if not species_key:
-            return None
-        if species_key not in species_cache:
-            # #2082: a legacy plant may carry another tenant's private species key.
-            sp = readable_species(species_repo, species_key, ctx.tenant_key)
-            species_cache[species_key] = (
-                SpeciesSummary(scientific_name=sp.scientific_name, common_names=sp.common_names) if sp else None
-            )
-        return species_cache[species_key]
-
-    def _cultivar_summary(cultivar_key: str | None) -> CultivarSummary | None:
-        if not cultivar_key:
-            return None
-        if cultivar_key not in cultivar_cache:
-            cv = species_repo.get_cultivar_by_key(cultivar_key)
-            cultivar_cache[cultivar_key] = CultivarSummary(name=cv.name) if cv else None
-        return cultivar_cache[cultivar_key]
+    # Resolve denormalized species/cultivar labels once per distinct key (#3032).
+    # #2082: a legacy plant may carry another tenant's private species key — it
+    # resolves to None through ``readable_species``. Phase names are not resolved
+    # here; ``current_phase`` comes from the run's plant rows as before.
+    labels = PlantRowLabels(
+        resolve_species=lambda species_key: readable_species(species_repo, species_key, ctx.tenant_key),
+        resolve_cultivar=lambda cultivar_key: species_repo.get_cultivar_by_key(cultivar_key),
+    )
 
     return [
         PlantInRunResponse(
@@ -327,8 +466,8 @@ def list_plants(
             planted_on=p.get("planted_on", "1970-01-01"),
             removed_on=p.get("removed_on"),
             current_phase=p.get("current_phase", ""),
-            species=_species_summary(p.get("species_key", "")),
-            cultivar=_cultivar_summary(p.get("cultivar_key")),
+            species=labels.species(p.get("species_key", "")),
+            cultivar=labels.cultivar(p.get("cultivar_key")),
             detached_at=p.get("_edge_detached_at"),
             detach_reason=p.get("_edge_detach_reason"),
         )

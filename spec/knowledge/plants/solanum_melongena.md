@@ -157,6 +157,22 @@ Hinweis: Keimtemperatur min (18°C) und Saattiefe/Keimdauer decken sich mit den 
 - Vital Seeds -- Seeds per Gram (Aubergine: 240--390 Samen/g ≈ 2.6--4.2 g/1000): https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt für Auberginen keinen Reihenabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Aubergines: Grow your own“ („Space plants 60cm (2ft) apart“; kein Reihenabstand genannt), https://www.rhs.org.uk/vegetables/aubergines/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Aubergines: Grow your own“ („need the hottest, sunniest position“), https://www.rhs.org.uk/vegetables/aubergines/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -461,6 +477,11 @@ In Mitteleuropa wird die Aubergine ueblicherweise einjaehrig kultiviert. Eine Ue
 | Empfohlene Vorfrucht | Huelsenfrüchte (Leguminosen: Erbse, Bohne) |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Spinat) oder Gruenduengung |
 | Anbaupause (Jahre) | 3–4 Jahre selbe Familie (Phytophthora, Verticillium) |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Aubergine: Starkzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Starkzehrer-Beet: Melanzani), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; LKSH und LK NRW nennen Aubergine nicht namentlich als Zehrerklasse |
+| Zehrerstufe — Konfidenz | medium (zwei Quellen, nicht ≥3) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | Familienwert gilt (Solanaceae 4 Jahre; SBB 2022 Tabelle 1: Nachtschattengewächse inkl. Aubergine 4 Jahre, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -559,4 +580,7 @@ Diamond F1,Solanum melongena,65–75,dark_purple;hybrid;disease_tolerant,hybrid 
 20. PFAF — Solanum melongena (ergaenzender Zitatbeleg zu Quelle 2): "a PERENNIAL growing to 1m... usually cultivated as an annual... A short-lived perennial plant"; "is not frost-hardy, though it can be grown as an annual in temperate zones" — https://pfaf.org/user/Plant.aspx?LatinName=Solanum+melongena
 21. Missouri Botanical Garden — Eggplant Factsheet: Eggplants "though perennial in warm areas, typically ... grown as warm-season annuals" in temperate climates — https://www.missouribotanicalgarden.org/Portals/0/Gardening/Gardening%20Help/Factsheets/Eggplant15.pdf
 22. RHS — Solanum melongena (ergaenzender Zitatbeleg zu Quelle 1): "In the wild it is perennial, but in the UK it is treated as an annual as it isn't hardy" — https://www.rhs.org.uk/plants/105486/solanum-melongena/details
+23. RHS — Aubergines: Grow your own (Pflanzabstand 60 cm; heißester, sonnigster Standort): https://www.rhs.org.uk/vegetables/aubergines/grow-your-own
+24. Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022) — Tabelle 1 Anbaupausen, Tabelle 2 Zehrerklassen: https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf
+25. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

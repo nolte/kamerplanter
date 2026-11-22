@@ -33,6 +33,10 @@ def seed_location_types(db: StandardDatabase) -> None:
             "name": lt["name"],
             "name_en": lt["name_en"],
             "is_indoor": lt["is_indoor"],
+            # REQ-053 GP-FR-040 / §9.2a. Rows that predate the flags are stamped by
+            # migration v0094; this loader never updates an existing row.
+            "is_bed": lt["is_bed"],
+            "supports_layout": lt["supports_layout"],
             "icon": lt["icon"],
             "sort_order": lt["sort_order"],
             "is_system": True,

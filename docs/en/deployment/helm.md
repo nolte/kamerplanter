@@ -190,6 +190,8 @@ controllers:
 
 The frontend is served behind nginx. The nginx configuration is automatically mounted as a ConfigMap and proxies `/api/` requests to the backend.
 
+The same nginx sends the container image's security headers on every path: Content-Security-Policy (including `worker-src` and `manifest-src`), `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`. Only HSTS is deliberately missing; the ingress sets it (see [Ingress](#ingress)). <!-- #2816 -->
+
 #### ArangoDB
 
 ```yaml
@@ -283,6 +285,21 @@ Do not route `/api` straight to the backend Service: the backend NetworkPolicy a
               - plants.example.com
     ```
 
+#### Checking HSTS and security headers
+
+HSTS (HTTP Strict Transport Security: the browser uses only HTTPS for the host) belongs to the ingress, not the pod: TLS ends at the ingress, and browsers ignore HSTS over unencrypted HTTP. So the frontend nginx deliberately sends no `Strict-Transport-Security` header, and `kubectl port-forward` keeps working.
+
+- **ingress-nginx:** Sends HSTS by default (one year) for every host listed under `ingress.main.tls`. So list every public host there. You can control it with the `hsts` key in the controller ConfigMap.
+- **Traefik:** Set `stsSeconds` in a Headers middleware and attach it to the ingress.
+
+```sh
+kubectl port-forward svc/kamerplanter-frontend 8080:80
+curl -sI http://localhost:8080/ | grep -i content-security-policy   # contains worker-src 'self'
+curl -sI https://<your-host>/ | grep -i strict-transport-security   # comes from the ingress
+```
+
+The port-forward proves the CSP comes from the pod. The HSTS line appears only over HTTPS through the ingress, not through the port-forward.
+
 #### Upload limit (request body)
 
 The frontend nginx accepts request bodies up to `storage.maxFileSizeMb` + 1 MiB (default: `26m`). The extra MiB covers the multipart envelope of an upload: an attachment of the full allowed size reaches the backend, a slightly larger one gets a clear `413` answer from there, and anything above the limit is refused by nginx itself with `413`. Without this setting the limit was nginx's default of 1 MiB, and every larger upload failed at the proxy.
@@ -300,11 +317,11 @@ Valkey is both cache and Celery broker: the tasks wait in it for the worker. The
 ```yaml title="values.yaml (default)"
 valkey:
   deploymentStrategy: Recreate
-  dataStorage:
+  persistence:
     enabled: true
-    requestedSize: 1Gi
-    keepPvc: true
-  valkeyConfig: |
+    size: 1Gi
+    keepOnUninstall: true
+  extraConfig: |
     maxmemory 256mb
     maxmemory-policy noeviction
     appendonly yes
@@ -317,7 +334,7 @@ valkey:
       memory: 640Mi    # at least twice maxmemory
 ```
 
-- **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The Valkey chart calls the size `requestedSize` — it does not read a `size` key.
+- **Own volume:** Valkey keeps its data on a `PersistentVolumeClaim` (`kamerplanter-valkey`, 1 GiB, `ReadWriteOnce`). It survives `helm uninstall`. The keys follow the Valkey chart from version 1.0 on (`persistence`, `extraConfig`); it refuses the older names `dataStorage` and `valkeyConfig`.
 - **`Recreate`:** the old Valkey pod ends before the new one starts. A `ReadWriteOnce` volume attaches to one node; a new pod next to the old one could not reach the volume from another node.
 - **`noeviction` rather than an eviction policy:** when memory is full, Valkey refuses new writes instead of silently dropping waiting tasks. A full memory thus shows up as an error.
 - **`appendonly yes`** records every change (written to disk once per second); after a restart the tasks of the last seconds are back too.
@@ -325,10 +342,10 @@ valkey:
 - **Watch the memory:** with `noeviction` a full Valkey reports errors (`OOM command not allowed`) instead of losing tasks — backend and worker can then no longer queue tasks. Set up an alert on `used_memory` relative to `maxmemory` (for example from 80 %) so you can step in first.
 
 !!! info "On upgrade"
-    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart does not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once (`Recreate`).
+    Up to this version Valkey's `/data` sat on an ephemeral `emptyDir`: the chart set `valkey.dataStorage.size`, a key the Valkey chart of that time did not know, so no volume was created. Every Valkey restart lost the waiting tasks. The upgrade creates the volume and restarts Valkey once (`Recreate`).
 
     - **One-time loss of waiting tasks:** whatever is queued at the restart is lost. Let the queue drain first — for example scale Celery Beat to 0 (`kubectl scale deployment kamerplanter-celery-beat --replicas=0`), wait until the worker has processed everything, then upgrade; Beat starts again with the upgrade. Beat queues scheduled tasks again at their next run anyway.
-    - **A StorageClass is a prerequisite:** the volume names no StorageClass. If your cluster has no default StorageClass, the volume — and with it Valkey — stays `Pending`; without the broker no component can queue tasks. Check with `kubectl get storageclass` (marked `(default)`), or name a StorageClass explicitly in `valkey.dataStorage.className`.
+    - **A StorageClass is a prerequisite:** the volume names no StorageClass. If your cluster has no default StorageClass, the volume — and with it Valkey — stays `Pending`; without the broker no component can queue tasks. Check with `kubectl get storageclass` (marked `(default)`), or name a StorageClass explicitly in `valkey.persistence.storageClass`.
     - **Reinstallation:** the volume survives `helm uninstall`. On start Valkey replays its append-only file — including the tasks of an old installation. Delete the PVC `kamerplanter-valkey` before reinstalling if those should not run.
 
 !!! warning "Valkey without password and without TLS"

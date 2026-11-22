@@ -58,11 +58,10 @@ new_species:
         notes: Knotensteckling mit Luftwurzel
       - method: layering
         months: [4, 5, 6]
-    common_names:
-      - "Adansonii"
-      - "Fensterblatt"
-      - "Monkey Mask"
-      - "Swiss Cheese Vine"
+    common_names: ["Adansonii", "Fensterblatt", "Monkey Mask", "Swiss Cheese Vine", "Lochpflanze", "Monkey Mask Monstera", "Swiss Cheese Plant", "Monkey Mask Plant", "Five Holes Plant"]
+    common_names_i18n:
+      de: ["Lochpflanze", "Fensterblatt"]
+      en: ["Monkey Mask Monstera", "Swiss Cheese Plant", "Monkey Mask Plant", "Five Holes Plant", "Monkey Mask", "Swiss Cheese Vine"]
     genus: Monstera
     plant_category: tropical_foliage
     growth_habit: vine
@@ -92,6 +91,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Neoregelia carolinae"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -99,10 +106,10 @@ new_species:
       - method: offset
         months: [4, 5, 6]
         notes: Kindel nach der Blüte abtrennen
-    common_names:
-      - "Nestrosette"
-      - "Karminrote Neoregelia"
-      - "Blushing Bromeliad"
+    common_names: ["Nestrosette", "Karminrote Neoregelia", "Blushing Bromeliad", "Errötendes Bromeliad", "Cartwheel Bromeliad"]
+    common_names_i18n:
+      de: ["Errötendes Bromeliad", "Nestrosette", "Karminrote Neoregelia"]
+      en: ["Blushing Bromeliad", "Cartwheel Bromeliad"]
     genus: Neoregelia
     plant_category: tropical_foliage
     growth_habit: epiphyte
@@ -131,6 +138,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Nephrolepis exaltata"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -144,11 +158,10 @@ new_species:
       - method: spore
         months: [4, 5, 6]
         notes: langwierig
-    common_names:
-      - "Schwertfarn"
-      - "Nephrolepis"
-      - "Boston Fern"
-      - "Sword Fern"
+    common_names: ["Schwertfarn", "Nephrolepis", "Boston Fern", "Sword Fern", "Bostonfarn"]
+    common_names_i18n:
+      de: ["Schwertfarn", "Bostonfarn"]
+      en: ["Boston Fern", "Sword Fern", "Nephrolepis"]
     genus: Nephrolepis
     plant_category: tropical_foliage
     growth_habit: fern
@@ -180,6 +193,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Opuntia microdasys"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -197,11 +218,10 @@ new_species:
         notes: Glied antrocknen lassen; Glochiden vorsichtig
       - method: seed
         months: [5, 6, 7]
-    common_names:
-      - "Hasenohr-Kaktus"
-      - "Goldstachel-Kaktus"
-      - "Bunny Ears Cactus"
-      - "Angel Wings Cactus"
+    common_names: ["Hasenohr-Kaktus", "Goldstachel-Kaktus", "Bunny Ears Cactus", "Angel Wings Cactus", "Hasenohren-Kaktus", "Polka-Dot-Kaktus", "Bunny Ears", "Angel Wings", "Polka Dot Cactus"]
+    common_names_i18n:
+      de: ["Hasenohren-Kaktus", "Polka-Dot-Kaktus", "Hasenohr-Kaktus", "Goldstachel-Kaktus"]
+      en: ["Bunny Ears", "Bunny Ears Cactus", "Angel Wings", "Polka Dot Cactus", "Angel Wings Cactus"]
     genus: Opuntia
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -234,6 +254,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Oxalis triangularis"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -243,11 +271,10 @@ new_species:
         notes: Brutzwiebeln/Rhizomstücke
       - method: division
         months: [3, 4]
-    common_names:
-      - "Lila Sauerklee"
-      - "Glücksklee"
-      - "Purple Shamrock"
-      - "False Shamrock"
+    common_names: ["Lila Sauerklee", "Glücksklee", "Purple Shamrock", "False Shamrock", "Dreiecksklee", "Wood Sorrel"]
+    common_names_i18n:
+      de: ["Lila Sauerklee", "Glücksklee", "Dreiecksklee"]
+      en: ["Purple Shamrock", "False Shamrock", "Wood Sorrel"]
     genus: Oxalis
     plant_category: bulb_tuber
     growth_habit: bulb_geophyte
@@ -285,6 +312,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pachira aquatica"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -303,12 +338,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: semi_hardwood
         notes: Bodenwärme
-    common_names:
-      - "Glückskastanie"
-      - "Malabar-Kastanie"
-      - "Pachira"
-      - "Money Tree"
-      - "Guiana Chestnut"
+    common_names: ["Glückskastanie", "Malabar-Kastanie", "Pachira", "Money Tree", "Guiana Chestnut", "Saba Nut"]
+    common_names_i18n:
+      de: ["Glückskastanie", "Malabar-Kastanie", "Pachira"]
+      en: ["Money Tree", "Guiana Chestnut", "Saba Nut"]
     genus: Pachira
     plant_category: tropical_foliage
     growth_habit: tree
@@ -336,6 +369,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.8
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pelargonium zonale"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -355,11 +396,10 @@ new_species:
       - method: seed
         months: [2, 3, 4]
         notes: Vorkultur ab Spätwinter
-    common_names:
-      - "Geranie"
-      - "Zonalpelargonie"
-      - "Zonal Geranium"
-      - "Horseshoe Geranium"
+    common_names: ["Geranie", "Zonalpelargonie", "Zonal Geranium", "Horseshoe Geranium", "Zimmerpelargonie", "Zonale Geranie", "Stehende Geranie", "Garden Geranium"]
+    common_names_i18n:
+      de: ["Zimmerpelargonie", "Zonale Geranie", "Stehende Geranie", "Geranie", "Zonalpelargonie"]
+      en: ["Zonal Geranium", "Horseshoe Geranium", "Garden Geranium"]
     genus: Pelargonium
     plant_category: balcony_plant
     growth_habit: subshrub
@@ -385,6 +425,14 @@ new_species:
     support_required: false
     nutrient_demand_level: heavy_feeder
     frost_sensitivity: sensitive
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Peperomia obtusifolia"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -396,10 +444,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names:
-      - "Zwergpfeffer"
-      - "Baby Rubber Plant"
-      - "Pepper Face"
+    common_names: ["Zwergpfeffer", "Baby Rubber Plant", "Pepper Face", "Baby-Gummipflanze", "Stumpfblättrige Peperomie", "American Rubber Plant"]
+    common_names_i18n:
+      de: ["Baby-Gummipflanze", "Stumpfblättrige Peperomie", "Zwergpfeffer"]
+      en: ["Baby Rubber Plant", "American Rubber Plant", "Pepper Face"]
     genus: Peperomia
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -428,6 +476,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Phalaenopsis hybrida"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -441,6 +497,9 @@ new_species:
       - "Schmetterlingsorchidee"
       - "Phalaenopsis"
       - "Moth Orchid"
+    common_names_i18n:
+      de: ["Schmetterlingsorchidee", "Phalaenopsis"]
+      en: ["Moth Orchid"]
     genus: Phalaenopsis
     plant_category: orchid
     growth_habit: epiphyte
@@ -474,6 +533,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.0
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Philodendron hederaceum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -484,10 +551,10 @@ new_species:
         notes: Knotensteckling
       - method: layering
         months: [4, 5, 6]
-    common_names:
-      - "Kletter-Philodendron"
-      - "Herzblatt-Philodendron"
-      - "Heartleaf Philodendron"
+    common_names: ["Kletter-Philodendron", "Herzblatt-Philodendron", "Heartleaf Philodendron", "Sweetheart Plant"]
+    common_names_i18n:
+      de: ["Herzblatt-Philodendron", "Kletter-Philodendron"]
+      en: ["Heartleaf Philodendron", "Sweetheart Plant"]
     genus: Philodendron
     plant_category: tropical_foliage
     growth_habit: vine
@@ -519,6 +586,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Pilea peperomioides"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -529,11 +604,10 @@ new_species:
       - method: cutting
         months: [3, 4, 5]
         wood_stage: herbaceous
-    common_names:
-      - "Ufopflanze"
-      - "Chinesischer Geldbaum"
-      - "Chinese Money Plant"
-      - "Pancake Plant"
+    common_names: ["Ufopflanze", "Chinesischer Geldbaum", "Chinese Money Plant", "Pancake Plant", "Chinesische Geldpflanze", "Bauchnabelpflanze", "UFO Plant"]
+    common_names_i18n:
+      de: ["Chinesische Geldpflanze", "Bauchnabelpflanze", "Ufopflanze", "Chinesischer Geldbaum"]
+      en: ["Chinese Money Plant", "Pancake Plant", "UFO Plant"]
     genus: Pilea
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -555,6 +629,14 @@ new_species:
     support_required: false
     nutrient_demand_level: light_feeder
     frost_sensitivity: sensitive
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Platycerium bifurcatum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -565,11 +647,10 @@ new_species:
       - method: spore
         months: [4, 5, 6]
         notes: Sporen langwierig
-    common_names:
-      - "Geweihfarn"
-      - "Elchgeweihfarn"
-      - "Staghorn Fern"
-      - "Elkhorn Fern"
+    common_names: ["Geweihfarn", "Elchgeweihfarn", "Staghorn Fern", "Elkhorn Fern", "Hirschgeweihfarn", "Common Staghorn Fern"]
+    common_names_i18n:
+      de: ["Geweihfarn", "Hirschgeweihfarn", "Elchgeweihfarn"]
+      en: ["Staghorn Fern", "Common Staghorn Fern", "Elkhorn Fern"]
     genus: Platycerium
     plant_category: tropical_foliage
     growth_habit: fern
@@ -599,6 +680,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Plectranthus verticillatus"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -607,11 +696,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: herbaceous
         notes: sehr leicht im Wasser
-    common_names:
-      - "Harfenstrauch"
-      - "Schwedischer Efeu"
-      - "Swedish Ivy"
-      - "Wax Plant"
+    common_names: ["Harfenstrauch", "Schwedischer Efeu", "Swedish Ivy", "Wax Plant", "Kreuzblume", "Creeping Charlie"]
+    common_names_i18n:
+      de: ["Schwedischer Efeu", "Kreuzblume", "Harfenstrauch"]
+      en: ["Swedish Ivy", "Creeping Charlie", "Wax Plant"]
     genus: Plectranthus
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -637,6 +725,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhipsalis baccifera"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -654,10 +750,10 @@ new_species:
         notes: Glieder antrocknen lassen
       - method: seed
         months: [5, 6, 7]
-    common_names:
-      - "Korallenkaktus"
-      - "Binsenkaktus"
-      - "Mistletoe Cactus"
+    common_names: ["Korallenkaktus", "Binsenkaktus", "Mistletoe Cactus", "Mistelkaktus", "Spaghetti-Kaktus", "Spaghetti Cactus"]
+    common_names_i18n:
+      de: ["Mistelkaktus", "Spaghetti-Kaktus", "Korallenkaktus", "Binsenkaktus"]
+      en: ["Mistletoe Cactus", "Spaghetti Cactus"]
     genus: Rhipsalis
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -686,6 +782,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Rhododendron simsii"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -697,11 +801,10 @@ new_species:
       - method: layering
         months: [6, 7, 8]
         notes: Absenker im Sommer
-    common_names:
-      - "Zimmerazalee"
-      - "Indische Azalee"
-      - "Indoor Azalea"
-      - "Sims' Azalea"
+    common_names: ["Zimmerazalee", "Indische Azalee", "Indoor Azalea", "Sims' Azalea", "Topf-Azalee", "Pot Azalea", "Indian Azalea"]
+    common_names_i18n:
+      de: ["Zimmerazalee", "Indische Azalee", "Topf-Azalee"]
+      en: ["Sims' Azalea", "Pot Azalea", "Indian Azalea", "Indoor Azalea"]
     genus: Rhododendron
     plant_category: indoor_houseplant
     growth_habit: shrub
@@ -735,6 +838,14 @@ new_species:
     soil_ph_preference:
       min_ph: 4.5
       max_ph: 6
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Schefflera arboricola"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -745,11 +856,10 @@ new_species:
       - method: layering
         months: [4, 5, 6]
         notes: Abmoosen bei verkahlten Pflanzen
-    common_names:
-      - "Kleine Strahlenaralie"
-      - "Schefflera"
-      - "Dwarf Umbrella Tree"
-      - "Hawaiian Umbrella Tree"
+    common_names: ["Kleine Strahlenaralie", "Schefflera", "Dwarf Umbrella Tree", "Hawaiian Umbrella Tree", "Zwergschefflera", "Strahlenaralie", "Umbrella Plant"]
+    common_names_i18n:
+      de: ["Zwergschefflera", "Strahlenaralie", "Kleine Strahlenaralie", "Schefflera"]
+      en: ["Dwarf Umbrella Tree", "Umbrella Plant", "Schefflera", "Hawaiian Umbrella Tree"]
     genus: Schefflera
     plant_category: tropical_foliage
     growth_habit: shrub
@@ -779,6 +889,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Schlumbergera truncata"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -787,11 +905,10 @@ new_species:
         months: [4, 5, 6, 7, 8]
         wood_stage: herbaceous
         notes: Glieder antrocknen lassen, nach Blüte
-    common_names:
-      - "Weihnachtskaktus"
-      - "Gliederkaktus"
-      - "Christmas Cactus"
-      - "Holiday Cactus"
+    common_names: ["Weihnachtskaktus", "Gliederkaktus", "Christmas Cactus", "Holiday Cactus", "Thanksgiving Cactus", "Crab Cactus", "Lobster Cactus"]
+    common_names_i18n:
+      de: ["Weihnachtskaktus", "Gliederkaktus"]
+      en: ["Thanksgiving Cactus", "Crab Cactus", "Lobster Cactus", "Christmas Cactus", "Holiday Cactus"]
     genus: Schlumbergera
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -821,6 +938,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Sedum morganianum"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -832,10 +957,10 @@ new_species:
       - method: cutting
         months: [5, 6, 7]
         wood_stage: herbaceous
-    common_names:
-      - "Eselsschwanz"
-      - "Donkey's Tail"
-      - "Burro's Tail"
+    common_names: ["Eselsschwanz", "Donkey's Tail", "Burro's Tail", "Lamb's Tail"]
+    common_names_i18n:
+      de: ["Eselsschwanz"]
+      en: ["Donkey's Tail", "Burro's Tail", "Lamb's Tail"]
     genus: Sedum
     plant_category: succulent_cactus
     growth_habit: succulent
@@ -867,6 +992,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6
       max_ph: 7
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Soleirolia soleirolii"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -877,10 +1010,10 @@ new_species:
       - method: cutting
         months: [4, 5, 6]
         wood_stage: herbaceous
-    common_names:
-      - "Bubikopf"
-      - "Baby's Tears"
-      - "Mind-Your-Own-Business"
+    common_names: ["Bubikopf", "Baby's Tears", "Mind-Your-Own-Business", "Zartmoos", "Irish Moss"]
+    common_names_i18n:
+      de: ["Bubikopf", "Zartmoos"]
+      en: ["Baby's Tears", "Mind-Your-Own-Business", "Irish Moss"]
     genus: Soleirolia
     plant_category: indoor_houseplant
     growth_habit: groundcover
@@ -912,6 +1045,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.0
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: null  # MISSING: light_requirement — no sourced value in Steckbrief (E-10)
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Stephanotis floribunda"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -922,10 +1063,10 @@ new_species:
         notes: halbreife Triebe, mit Bodenwärme
       - method: layering
         months: [5, 6, 7]
-    common_names:
-      - "Brautstrauch"
-      - "Madagaskarjasmin"
-      - "Madagascar Jasmine"
+    common_names: ["Brautstrauch", "Madagaskarjasmin", "Madagascar Jasmine", "Bridal Wreath", "Wax Flower"]
+    common_names_i18n:
+      de: ["Brautstrauch", "Madagaskarjasmin"]
+      en: ["Madagascar Jasmine", "Bridal Wreath", "Wax Flower"]
     genus: Stephanotis
     plant_category: indoor_houseplant
     growth_habit: vine
@@ -953,6 +1094,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Strelitzia reginae"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -974,6 +1122,9 @@ new_species:
       - "Königin-Strelitzie"
       - "Bird of Paradise"
       - "Crane Flower"
+    common_names_i18n:
+      de: ["Paradiesvogelblume", "Königin-Strelitzie"]
+      en: ["Bird of Paradise", "Crane Flower"]
     genus: Strelitzia
     plant_category: tropical_foliage
     growth_habit: herb
@@ -1005,6 +1156,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 7.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Streptocarpus hybridus"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1015,10 +1174,10 @@ new_species:
         notes: Blattquerschnitte oder Mittelrippe
       - method: division
         months: [3, 4, 5]
-    common_names:
-      - "Drehfrucht"
-      - "Streptocarpus"
-      - "Cape Primrose"
+    common_names: ["Drehfrucht", "Streptocarpus", "Cape Primrose", "Kap-Primel", "Twisted Fruit"]
+    common_names_i18n:
+      de: ["Kap-Primel", "Drehfrucht"]
+      en: ["Cape Primrose", "Twisted Fruit", "Streptocarpus"]
     genus: Streptocarpus
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -1050,6 +1209,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Stromanthe sanguinea"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1057,11 +1223,10 @@ new_species:
       - method: division
         months: [4, 5, 6]
         notes: beim Umtopfen teilen
-    common_names:
-      - "Stromanthe Triostar"
-      - "Sanguinea"
-      - "Triostar Stromanthe"
-      - "Never Never Plant"
+    common_names: ["Stromanthe Triostar", "Sanguinea", "Triostar Stromanthe", "Never Never Plant", "Prayer Plant"]
+    common_names_i18n:
+      de: ["Stromanthe Triostar", "Sanguinea"]
+      en: ["Triostar Stromanthe", "Never Never Plant", "Prayer Plant"]
     genus: Stromanthe
     plant_category: tropical_foliage
     growth_habit: herb
@@ -1092,6 +1257,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Tillandsia usneoides"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1103,10 +1276,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: herbaceous
         notes: Strähnen teilen
-    common_names:
-      - "Spanisches Moos"
-      - "Louisianamoos"
-      - "Spanish Moss"
+    common_names: ["Spanisches Moos", "Louisianamoos", "Spanish Moss", "Old Man's Beard"]
+    common_names_i18n:
+      de: ["Spanisches Moos", "Louisianamoos"]
+      en: ["Spanish Moss", "Old Man's Beard"]
     genus: Tillandsia
     plant_category: tropical_foliage
     growth_habit: epiphyte
@@ -1137,6 +1310,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.0
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Tradescantia zebrina"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1145,11 +1325,10 @@ new_species:
         months: [4, 5, 6]
         wood_stage: herbaceous
         notes: sehr leicht im Wasser
-    common_names:
-      - "Dreimasterblume"
-      - "Silbrige Tradescantie"
-      - "Wandering Dude"
-      - "Silver Inch Plant"
+    common_names: ["Dreimasterblume", "Silbrige Tradescantie", "Wandering Dude", "Silver Inch Plant", "Wandernder Jude", "Spiderwort"]
+    common_names_i18n:
+      de: ["Dreimasterblume", "Silbrige Tradescantie", "Wandernder Jude"]
+      en: ["Wandering Dude", "Silver Inch Plant", "Spiderwort"]
     genus: Tradescantia
     plant_category: indoor_houseplant
     growth_habit: herb
@@ -1182,6 +1361,14 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Vriesea splendens"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1189,10 +1376,10 @@ new_species:
       - method: offset
         months: [7, 8, 9]
         notes: Kindel nach der Blüte abnehmen
-    common_names:
-      - "Flammendes Schwert"
-      - "Vriesea"
-      - "Flaming Sword"
+    common_names: ["Flammendes Schwert", "Vriesea", "Flaming Sword", "Flaming Sword Bromeliad"]
+    common_names_i18n:
+      de: ["Flammendes Schwert", "Vriesea"]
+      en: ["Flaming Sword Bromeliad", "Flaming Sword"]
     genus: Vriesea
     plant_category: tropical_foliage
     growth_habit: epiphyte
@@ -1226,6 +1413,13 @@ new_species:
     soil_ph_preference:
       min_ph: 5.5
       max_ph: 6.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Yucca elephantipes"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1237,11 +1431,10 @@ new_species:
       - method: offset
         months: [4, 5, 6]
         notes: Kindel abtrennen
-    common_names:
-      - "Yucca-Palme"
-      - "Riesen-Palmlilie"
-      - "Spineless Yucca"
-      - "Stick Yucca"
+    common_names: ["Yucca-Palme", "Riesen-Palmlilie", "Spineless Yucca", "Stick Yucca", "Elefantenfuß-Yucca", "Riesen-Yucca", "Giant Yucca", "Soft-Tip Yucca"]
+    common_names_i18n:
+      de: ["Yucca-Palme", "Elefantenfuß-Yucca", "Riesen-Yucca", "Riesen-Palmlilie"]
+      en: ["Spineless Yucca", "Stick Yucca", "Giant Yucca", "Soft-Tip Yucca"]
     genus: Yucca
     plant_category: indoor_houseplant
     growth_habit: tree
@@ -1272,6 +1465,13 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.5
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Zamioculcas zamiifolia"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1283,11 +1483,10 @@ new_species:
       - method: division
         months: [4, 5, 6]
         notes: Rhizom teilen
-    common_names:
-      - "Zamioculcas"
-      - "Glücksfeder"
-      - "ZZ Plant"
-      - "Zanzibar Gem"
+    common_names: ["Zamioculcas", "Glücksfeder", "ZZ Plant", "Zanzibar Gem", "Eternityplant"]
+    common_names_i18n:
+      de: ["Zamioculcas", "Glücksfeder", "Eternityplant"]
+      en: ["Eternityplant", "ZZ Plant", "Zanzibar Gem"]
     genus: Zamioculcas
     plant_category: tropical_foliage
     # A4 reclassification (#453 WP-10): CAM succulent with water-storing rhizomes/tubers
@@ -1318,6 +1517,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: partial_shade
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
   - scientific_name: "Zantedeschia aethiopica"
     allows_harvest: false  # #1002: ornamental — its Steckbrief records no Erntemonate
@@ -1328,12 +1535,10 @@ new_species:
       - method: offset
         months: [7, 8, 9]
         notes: Tochterknollen abtrennen
-    common_names:
-      - "Calla"
-      - "Weiße Calla"
-      - "Zimmercalla"
-      - "Calla Lily"
-      - "Arum Lily"
+    common_names: ["Calla", "Weiße Calla", "Zimmercalla", "Calla Lily", "Arum Lily", "Sumpfcalla", "White Arum Lily", "Garden Calla"]
+    common_names_i18n:
+      de: ["Calla", "Weiße Calla", "Zimmercalla", "Sumpfcalla"]
+      en: ["Calla Lily", "Arum Lily", "White Arum Lily", "Garden Calla"]
     genus: Zantedeschia
     plant_category: bulb_tuber
     growth_habit: bulb_geophyte
@@ -1366,6 +1571,14 @@ new_species:
     soil_ph_preference:
       min_ph: 6.0
       max_ph: 7.0
+    # SECTION MISSING: 6.1 Fruchtfolge-Einordnung not in source document
+    row_spacing_cm: null  # MISSING: row_spacing_cm — no sourced value in Steckbrief (E-10)
+    light_requirement: full_sun
+    nutrient_demand: null  # MISSING: nutrient_demand — no sourced value in Steckbrief (E-10)
+    nutrient_demand_source: null  # MISSING: nutrient_demand_source — no sourced value in Steckbrief (E-10)
+    nutrient_demand_confidence: null  # MISSING: nutrient_demand_confidence — no sourced value in Steckbrief (E-10)
+    nitrogen_fixing: null  # MISSING: nitrogen_fixing — no sourced value in Steckbrief (E-10)
+    rotation_pause_years: null  # MISSING: rotation_pause_years — no sourced value in Steckbrief (E-10)
 
 # ──────────────────────────────────────────────
 # 4. Species Enrichment (keine — alle 29 sind neu)

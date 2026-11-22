@@ -89,7 +89,7 @@ Ein Import legt **immer einen neuen Garten** an. Er führt nie in einen bestehen
 
 - **Mitglieder zuordnen:** Das Archiv kennt die Mitglieder nur über ihre alte interne Kennung (`user_key` in `members.jsonl`). Für jedes Mitglied, das im neuen Garten wieder dabei sein soll, nennst du die E-Mail-Adresse eines **bestehenden** Kontos in der Zielinstallation (es muss **aktiv** sein — ein deaktiviertes Konto lehnt der Import ab) **und die Rolle und Zusatzberechtigungen**, die diese Person bekommt. Die Rollen im Archiv sind nur ein Hinweis; der Import übernimmt deine Angabe. Nicht zugeordnete Mitglieder entfallen; Einträge, die sie verfasst haben, tragen danach das Pseudonym `_anonymized`.
 - **Eigentümer:** Der neue Garten gehört dem dienstältesten zugeordneten Mitglied, dem du Leitung und Verwaltung gibst — mit genau den Zusatzberechtigungen, die du ihm gibst (gibst du nur `management`, bekommt es nicht zusätzlich `technical`). Ordnest du keines zu, gehört er dir mit beiden Zusatzberechtigungen, bis du ihn übergibst; so hat jeder importierte Garten jemanden, der ihn verwalten kann. Im Sicherheitsprotokoll stehst in beiden Fällen du als Handelnde:r jeder angelegten Mitgliedschaft.
-- **Katalog:** Die Zielinstallation braucht alle globalen Katalogeinträge, auf die das Archiv verweist (Arten, Familien, Schädlinge …). Fehlt einer, lehnt der Import mit der Liste ab, und nichts wird geschrieben.
+- **Katalog:** Die Zielinstallation braucht alle globalen Katalogeinträge, auf die das Archiv verweist (Arten, Familien, Schädlinge …). Fehlt einer, lehnt der Import mit der Liste ab, und nichts wird geschrieben. Ausnahme: Die Beetvorlage oder das Substrat eines Beets, die weder im Archiv noch im Katalog stehen, lassen den Import nicht scheitern — der Import entfernt diesen Verweis am Beet und importiert das Beet ohne Vorlage bzw. Substrat.
 
 ### Ablauf
 
@@ -103,7 +103,7 @@ curl -X POST https://<deine-instanz>/api/v1/admin/platform/tenant-imports \
 
 Optional wählst du mit `-F "plan_key=<plan>"` den Plan des neuen Gartens; sonst bekommt er den Standardplan. Deine Bestätigung ist an diese Datei gebunden: Bestätigst du statt mit dem Passwort mit einem Token einer frischen Anmeldung, forderst du es für das Ziel `archive:<die ersten 32 Hex-Zeichen des SHA-256 der Datei>` an (`sha256sum garden.zip | cut -c1-32`). Die Antwort ist `202` mit dem Schlüssel des Imports und `verified` (siehe [Signatur](#signatur)).
 
-Solange der Import schreibt, hat der neue Garten den Zustand **Wird importiert**: Niemand kann ihn öffnen, und die Mitgliedschaften werden erst am Ende aktiv. Den Stand und am Ende den Bericht (Anzahl je Datenart, keine Inhalte) liest du so:
+Solange der Import schreibt, hat der neue Garten den Zustand **Wird importiert**: Niemand kann ihn öffnen, und die Mitgliedschaften werden erst am Ende aktiv. Den Stand und am Ende den Bericht (Anzahl je Datenart, keine Inhalte; über null auch `nulled_references`, die Zahl der Verweise, die der Import entfernen musste) liest du so:
 
 ```bash
 curl https://<deine-instanz>/api/v1/admin/platform/tenant-imports/<import-key> \
@@ -121,7 +121,7 @@ Den Stand liest du wie den Import selbst nur angemeldet als Person, nicht mit ei
 | `422 IMPORT_FORMAT_UNSUPPORTED` | keine ZIP-Datei, unbekanntes Format, zu viele oder zu große Dateien, ein Archiv, das entpackt zu groß würde (eine Datei mehr als 100-fach komprimiert, mehr als 250 000 Datensätze in einer Datei oder 1 000 000 insgesamt, mehr als 128 MiB Datensätze oder 1 GiB insgesamt, eine Zeile über 1 MiB oder mehr als 5 000 000 JSON-Werte insgesamt), ein Datensatz, der nicht zum archivierten Garten gehört, eine Datei eines Typs, den diese Installation nicht annimmt (zum Beispiel SVG), oder das Archiv stammt aus einer neueren Installation | ein von Kamerplanter geschriebenes Archiv verwenden; Zielinstallation aktualisieren |
 | `422 IMPORT_CHECKSUM_MISMATCH` | eine Datei im Archiv passt nicht zur Prüfsumme in `manifest.json` oder fehlt — das Archiv ist beschädigt | eine unbeschädigte Kopie verwenden |
 | `422 IMPORT_UNDECLARED_REFERENCE` | das Archiv enthält ein Verweisfeld, das diese Installation nicht kennt | beide Installationen auf denselben Stand bringen |
-| `422 IMPORT_MISSING_CATALOG_ENTRIES` | Katalogeinträge fehlen; die Liste steht in `details` | Katalog der Zielinstallation ergänzen (Seed-Stand prüfen) |
+| `422 IMPORT_MISSING_CATALOG_ENTRIES` | Katalogeinträge fehlen (ausgenommen Beetvorlage und Substrat eines Beets, deren Verweis der Import entfernt); die Liste steht in `details` | Katalog der Zielinstallation ergänzen (Seed-Stand prüfen) |
 | `422 IMPORT_MEMBER_NOT_FOUND` | eine Zuordnung nennt kein Mitglied des Archivs oder kein bestehendes, aktives Konto | Zuordnung korrigieren |
 | `422 MEMBER_LIMIT_REACHED` | der Zielplan lässt weniger Mitglieder zu, als der neue Garten hätte — gezählt werden alle zugeordneten Konten und der Eigentümer (bestätigst du kein Mitglied als Leitung mit Verwaltung, bist das du) | weniger Mitglieder zuordnen oder einen Plan mit mehr Mitgliedern wählen (`plan_key`) |
 | `409 STORAGE_QUOTA_EXCEEDED` | die Dateien des Archivs sind größer als das Speicherkontingent des Zielplans (gezählt wie im laufenden Garten: jede Datei einmal) | einen Plan mit mehr Speicher wählen |

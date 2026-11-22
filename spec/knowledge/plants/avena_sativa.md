@@ -127,6 +127,22 @@
 **Quellen (§1.8):** [NDSU Agriculture — Oat Production in North Dakota](https://ag.ndsu.edu/publications/crops/oat-production-in-north-dakota); [ScienceDirect — Germination response of Oat (Avena sativa L.) to temperature and salinity using halothermal time model](https://www.sciencedirect.com/science/article/pii/S2667064X23001306); [Agri Farming — Oats Seed Germination, Period, Temperature, Process](https://www.agrifarming.in/oats-seed-germination-period-temperature-process); [Alberta Grains — Thousand kernel weight](https://www.albertagrains.com/the-growing-point/articles-library/thousand-kernel-weight); [Alberta Agriculture — Using 1,000 Kernel Weight for Calculating Seeding Rates (Agdex 100/22-1)](https://www1.agric.gov.ab.ca/$department/deptdocs.nsf/all/agdex81/$file/100_22-1.pdf); [Iowa State Extension — Fine-Tune Oat Seeding Rate This Spring](https://crops.extension.iastate.edu/cropnews/2016/03/fine-tune-oat-seeding-rate-spring); [SARE — Wild Oat (Lichtinhibition bei kongenerischer Art)](https://www.sare.org/publications/manage-weeds-on-your-farm/wild-oat/); [eos.com — Oats: A Guide On How To Raise Productivity Of The Crop (Saattiefe nach Bodenart)](https://eos.com/crop-management-guide/oats-growth-stages/); [Johnny's Selected Seeds — Seed Viability & Storage Guidelines](https://www.johnnyseeds.com/growers-library/methods-tools-supplies/harvesting-handling-storage/seed-storage-guidelines.html).
 <!-- /Quelle: Seed-Profile-Backfill Batch 3 (2026-07-04) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Drillsaat-Bestandskultur — Quelle nennt Saatstärke (280–380 Körner/m²), keinen Pflanzabstand in der Reihe --> | `species.spacing_cm` |
+| Reihenabstand (cm) | 10–14 | `species.row_spacing_cm` |
+| Quelle Abstände | Landesforschungsanstalt für Landwirtschaft und Fischerei Mecklenburg-Vorpommern (LFA MV), „Sommer- und Winterhafer — Anbautelegramm" (Gülzow 2025), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1682613 (Sommerhafer: „Reihenweite: 10–14 cm" = Drillreihenabstand; weicht von 12–15 in 1.6 teilweise ab) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Avena sativa (oat)" (Position „Full sun"; „thrives in moist, but well-drained soil in full sun"), https://www.rhs.org.uk/plants/105559/avena-sativa/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -375,6 +391,11 @@ Hafer ist anspruchsloser als Weizen — er wächst auf leichteren, auch leicht s
 | Empfohlene Vorfrucht | Hülsenfrüchte (Leguminosen), Kartoffel, Raps |
 | Empfohlene Nachfrucht | Hülsenfrüchte, Gemüse (Starkzehrer), Winterweizen |
 | Anbaupause (Jahre) | 2–3 Jahre Pause vor erneutem Getreideanbau (gleiche Familie) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fruchtfolge-Quelle ordnet Hafer einer Zehrerstufe zu (LFA MV 2025 nennt nur „eher extensive" Düngung) --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Zehrerstufe belegt --> |
+| Stickstofffixierer | false (keine Leguminose; LFA MV, „Sommer- und Winterhafer — Anbautelegramm" (2025), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1682613 führt Hafer als Getreide und „Leguminosen" als eigene Vorfruchtgruppe) |
+| Anbaupause (Jahre, Art-Abweichung) | 4 (Art-Override, da Familienwert Poaceae unbelegt; LFA MV, „Sommer- und Winterhafer — Anbautelegramm" (2025), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1682613: Anbaupause mindestens 4 Jahre, Hafer nicht selbstverträglich, Hafernematoden) |
 
 **Besonderheit:** Hafer gilt als "Gesunder" in der Getreidefruchtfolge — er unterbricht Weizenkrankheiten (kein geteilter Wirt für Weizenpathogene). Ideal nach Weizen oder Gerste als Sanierungsfrucht. Als Gründüngung nach Sommerkulturen sehr wertvoll — unterdrückt Unkraut, bindet Stickstoff im Aufwuchs, schützt vor Erosion.
 
@@ -451,3 +472,6 @@ Zorro,Avena sativa,"early;crown_rust_tolerant",90,certified
 13. [RHS — Avena sativa (oat)](https://www.rhs.org.uk/plants/105559/avena-sativa/details) — Sonnenstellung, Boden-pH-Vorzug
 14. [Hoagland solution — Wikipedia](https://en.wikipedia.org/wiki/Hoagland_solution) — allgemeine Mikronährstoff-Referenz (Mn/Zn/Cu/Mo), nicht artspezifisch
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+<!-- Quelle: REQ-053 WP 0.5b (E-10) -->
+15. [Landesforschungsanstalt für Landwirtschaft und Fischerei Mecklenburg-Vorpommern (LFA MV) — Sommer- und Winterhafer, Anbautelegramm (Gülzow 2025)](https://www.landwirtschaft-mv.de/serviceassistent/download?id=1682613) — Reihenweite Sommerhafer 10–14 cm; Anbaupause mindestens 4 Jahre (Hafer in der Fruchtfolge nicht selbstverträglich; Hafernematoden); Leguminosen als günstige Vorfrucht
+<!-- /Quelle: REQ-053 WP 0.5b (E-10) -->

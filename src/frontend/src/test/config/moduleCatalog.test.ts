@@ -58,3 +58,19 @@ describe('moduleCatalog — path ownership (REQ-042)', () => {
     expect(findModuleByPath('/totally/unmapped')).toBeUndefined();
   });
 });
+
+describe('moduleCatalog — garden_planner (REQ-053, REQ-042 §1.3 / §4.3)', () => {
+  it('is a non-core module visible from the beginner level, so it works in light mode', () => {
+    const def = moduleCatalog.garden_planner;
+    expect(def.core).toBe(false);
+    expect(def.defaultLevel).toBe('beginner');
+    expect(def.category).toBe('care_planning');
+    expect(def.requiresSmartHome).toBe(false);
+    expect(def.navPaths).toEqual(['/standorte/sites/:key/plan']);
+  });
+
+  it('is not resolved by path: a concrete plan path stays with the core locations module', () => {
+    // REQ-042 §4.3 - the route is gated by module key (ModuleGuard moduleKey) instead.
+    expect(findModuleByPath('/standorte/sites/site_1/plan')?.key).toBe('locations');
+  });
+});

@@ -68,7 +68,8 @@ export type PropagationMethod =
   | 'self_seeding';
 export type WoodStage = 'softwood' | 'semi_hardwood' | 'hardwood' | 'herbaceous';
 export type PropagationDifficulty = 'easy' | 'moderate' | 'difficult';
-export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral';
+/** #2857: `unspecified` = nobody classified the species (the default); `day_neutral` is a statement. */
+export type PhotoperiodType = 'short_day' | 'long_day' | 'day_neutral' | 'unspecified';
 export type CycleType = 'annual' | 'biennial' | 'perennial';
 export type StressTolerance = 'low' | 'medium' | 'high';
 export type TransitionTriggerType = 'time_based' | 'manual' | 'event_based' | 'conditional';
@@ -90,14 +91,17 @@ export type SubstrateType =
   | 'pon_mineral'
   | 'sphagnum'
   | 'hydro_solution';
-export type NutrientDemand = 'light' | 'medium' | 'heavy';
+/** Feeder level — mirrors `app.common.enums.NutrientDemand` since REQ-053 M6 (#2325). */
+export type NutrientDemand = 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 export type RootDepth = 'shallow' | 'medium' | 'deep';
 export type FrostTolerance = 'sensitive' | 'moderate' | 'hardy' | 'very_hardy';
 export type Suitability = 'yes' | 'limited' | 'no';
 export type PollinationType = 'insect' | 'wind' | 'self';
 export type WaterRetention = 'low' | 'medium' | 'high';
 export type BufferCapacity = 'low' | 'medium' | 'high';
-export type Orientation = 'north' | 'south' | 'east' | 'west';
+/** Compass orientation of a location; the intercardinal values are additive (REQ-053 GP-FR-168). */
+export type Orientation =
+  'north' | 'south' | 'east' | 'west' | 'northeast' | 'southeast' | 'southwest' | 'northwest';
 export type PlantTrait =
   | 'disease_resistant'
   | 'pest_resistant'
@@ -214,6 +218,8 @@ export interface BotanicalFamily {
   description: string;
   typical_nutrient_demand: NutrientDemand;
   nitrogen_fixing: boolean;
+  /** REQ-053 GP-FR-131 (M6): years before the family may return to a bed; null = unsourced. */
+  rotation_pause_years: number | null;
   typical_root_depth: RootDepth;
   soil_ph_preference: PhRange | null;
   frost_tolerance: FrostTolerance;
@@ -235,6 +241,7 @@ export interface BotanicalFamilyCreate {
   description?: string;
   typical_nutrient_demand?: NutrientDemand;
   nitrogen_fixing?: boolean;
+  rotation_pause_years?: number | null;
   typical_root_depth?: RootDepth;
   soil_ph_preference?: PhRange | null;
   frost_tolerance?: FrostTolerance;
@@ -310,11 +317,22 @@ export interface Toxicity {
   severity: ToxicitySeverity | null;
 }
 
+/**
+ * Language code (`de`, `en`, ...) -> vernacular names in preference order (REQ-001,
+ * #2902). Every name is also in the flat `common_names`. A missing key or `{}` means
+ * "no sourced name in that language" / "names not language-tagged".
+ */
+export type CommonNamesI18n = Partial<Record<string, string[]>>;
+
 export interface Species {
   key: string;
   origin?: DataOrigin;
   scientific_name: string;
+  /** Flat all-language name list (search, forms, CSV import); its order carries no language. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   family_key: string | null;
   family_name: string | null;
   genus: string;
@@ -353,10 +371,18 @@ export interface Species {
   mature_height_cm: string | null;
   mature_width_cm: string | null;
   spacing_cm: string | null;
+  /** REQ-053 GP-FR-061 - range string like `spacing_cm`; the lower bound is the default. */
+  row_spacing_cm?: string | null;
+  /** REQ-053 GP-FR-160 (E-05) - what a bed must offer; the demand side of `site_fit`. */
+  light_requirement?: 'full_sun' | 'partial_shade' | 'shade' | null;
+  /** How far down the sun ladder the species still grows; widens the yellow zone of `site_fit`. */
+  shade_tolerance?: 'full_sun' | 'partial_shade' | 'shade' | 'deep_shade' | null;
   indoor_suitable: Suitability | null;
   balcony_suitable: Suitability | null;
   greenhouse_recommended: boolean;
   support_required: boolean;
+  /** Root-zone waterlogging tolerance; with the bed's drainage it gives the `waterlogging_risk` hint (GP-FR-161). */
+  waterlogging_tolerance?: 'sensitive' | 'moderate' | 'tolerant' | null;
   watering_guide: WateringGuide | null;
   default_nutrient_plan_key: string | null;
   /**
@@ -540,6 +566,41 @@ export interface WaterSourceWarning {
 
 export type HardinessZoneSource = 'manual' | 'derived_gps' | 'derived_postal' | 'frostline_us';
 
+/**
+ * Where the sun classes of a site begin (REQ-053 GP-FR-164): the lower bound of each class in hours of direct
+ * sun on the reference day; `deep_shade` is everything below `shade_min_hours`. Strictly descending, all > 0.
+ */
+export interface SunClassThresholds {
+  full_sun_min_hours: number;
+  partial_shade_min_hours: number;
+  shade_min_hours: number;
+  reference_month: number;
+  reference_day: number;
+}
+
+/** How wide a bed may be before it is out of reach, metres (REQ-053 GP-FR-166); one side never above both. */
+export interface ReachThresholds {
+  both_sides_m: number;
+  one_side_m: number;
+  /** How close a `path` object must come to a bed edge to make that side reachable, 0-1 m (#2703; default 0.3). */
+  path_access_max_distance_m: number;
+}
+
+/** How close a window must be to a location for "Aus Fenster vorschlagen", metres (GP-FR-181); > 0, at most 10. */
+export interface WindowThresholds {
+  suggestion_radius_m: number;
+}
+
+/** The plan part of `GET /sites/{key}` (`SitePlanSchema`); the boundary and the editor read the plan route. */
+export interface SitePlanSettings {
+  north_angle_deg: number;
+  /** The plan's snap grid in metres (GP-FR-011). */
+  default_grid_m: number;
+  adjacency_factor: number;
+  plan_revision: number;
+  plan_updated_at?: string | null;
+}
+
 export interface Site {
   key: string;
   name: string;
@@ -557,6 +618,13 @@ export interface Site {
   hardiness_zone_source?: HardinessZoneSource;
   hardiness_zone_resolved_at?: string | null;
   mean_annual_minimum_c?: number | null;
+  /** The effective values: stored ones, else the defaults (WP 8.24). Absent from an older backend. */
+  sun_class_thresholds?: SunClassThresholds;
+  reach_thresholds?: ReachThresholds;
+  /** The effective window radius (WP 10.7); absent from an older backend. */
+  window_thresholds?: WindowThresholds;
+  /** The garden plan's settings (REQ-053 §20.2); `null`/absent = a site without a garden plan. */
+  plan?: SitePlanSettings | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -599,6 +667,10 @@ export interface SiteCreate {
   last_frost_date_avg?: string | null;
   first_frost_date_avg?: string | null;
   eisheilige_date?: string | null;
+  /** Omitted or `null` keeps the stored values on an edit (WP 8.24). */
+  sun_class_thresholds?: SunClassThresholds | null;
+  reach_thresholds?: ReachThresholds | null;
+  window_thresholds?: WindowThresholds | null;
 }
 
 // Locations
@@ -615,14 +687,25 @@ export interface Location {
   orientation: Orientation | null;
   light_type: LightType;
   irrigation_system: IrrigationSystem;
-  dimensions: [number, number, number];
   lights_on: string | null;
   lights_off: string | null;
   use_dynamic_sunrise: boolean;
   frost_exposed: boolean | null;
   tank_key: string | null;
+  /** W-016.8: the location's own neighbourhood factor; `null` = the site's applies. Absent from an older backend. */
+  adjacency_factor?: number | null;
+  /** W-016.2/3: lamp height, canopy distance, fixture footprint - stored for a later light model. */
+  lighting?: LocationLighting | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** The artificial light of a tent or shelf level (W-016.2/3); every value optional, nothing computed from it yet. */
+export interface LocationLighting {
+  lamp_height_cm?: number | null;
+  canopy_distance_cm?: number | null;
+  /** The fixture's footprint in the location's bed frame (rect, circle or polygon); set through the API only. */
+  fixture_geometry?: Record<string, unknown> | null;
 }
 
 export interface LocationCreate {
@@ -634,7 +717,6 @@ export interface LocationCreate {
   orientation?: Orientation | null;
   light_type?: LightType;
   irrigation_system?: IrrigationSystem;
-  dimensions?: [number, number, number];
   lights_on?: string | null;
   lights_off?: string | null;
   use_dynamic_sunrise?: boolean;
@@ -660,6 +742,10 @@ export interface LocationType {
   name_en: string | null;
   icon: string | null;
   is_indoor: boolean;
+  /** REQ-053 GP-FR-040: a bed type (bed, raised_bed, planter, greenhouse_bed, cold_frame). */
+  is_bed: boolean;
+  /** REQ-053 §9.2a: may carry a geometry with slot layout (every bed type plus tent, shelf). */
+  supports_layout: boolean;
   is_system: boolean;
   sort_order: number;
   description: string | null;
@@ -671,7 +757,6 @@ export interface Slot {
   key: string;
   slot_id: string;
   location_key: string;
-  position: [number, number];
   capacity_plants: number;
   currently_occupied: boolean;
   last_sanitization: string | null;
@@ -682,7 +767,6 @@ export interface Slot {
 export interface SlotCreate {
   slot_id: string;
   location_key: string;
-  position?: [number, number];
   capacity_plants?: number;
 }
 
@@ -792,6 +876,9 @@ export interface ReusabilityResponse {
 export interface PlantSpeciesSummary {
   scientific_name: string;
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
 }
 
 /** Denormalized cultivar fields embedded in plant responses for readable labels. */
@@ -1007,11 +1094,19 @@ export interface LifecycleConfigCreate {
 
 // Profiles
 
+/**
+ * Where a profile's `photoperiod_hours` came from (#2857, REQ-003): `sourced` = Steckbrief or entered by a person,
+ * `generated` = the generator's phase-name table, `default` = fallback nobody chose. Set by the server only.
+ */
+export type PhotoperiodSource = 'sourced' | 'generated' | 'default';
+
 export interface RequirementProfile {
   key: string;
   phase_key: string;
   light_ppfd_target: number;
   photoperiod_hours: number;
+  /** `null` = stored before the provenance existed (origin unknown). Absent from create/update bodies. */
+  photoperiod_source?: PhotoperiodSource | null;
   light_spectrum: Record<string, number>;
   temperature_day_c: number;
   temperature_night_c: number;
@@ -1074,16 +1169,22 @@ export interface NutrientProfileCreate {
 export interface CompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
-  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  /** Flat all-language common-name list; its order carries no language meaning. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   score: number;
 }
 
 export interface IncompatibleSpecies {
   species_key: string;
   scientific_name: string | null;
-  /** Language-mixed common-name list (DE first by convention); UI leads with [0]. */
+  /** Flat all-language common-name list; its order carries no language meaning. */
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   reason: string;
 }
 
@@ -1276,6 +1377,13 @@ export interface PlantingRunEntryCreate {
   id_prefix: string;
   spacing_cm?: number | null;
   notes?: string | null;
+  // REQ-053 GP-FR-060 - the layout of the entry in the bed.
+  row_spacing_cm?: number | null;
+  row_direction?: 'along_length' | 'along_width' | null;
+  edge_margin_along_cm?: number | null;
+  edge_margin_across_cm?: number | null;
+  layout_strategy?: 'grid' | 'rows' | 'triangular' | 'zone' | 'free' | null;
+  row_assignment?: number[] | null;
 }
 
 /**
@@ -1582,6 +1690,12 @@ export interface PlantingRun {
   succession_sequence?: number | null;
   succession_total?: number | null;
   clone_from_run_key?: string | null;
+  // REQ-053 GP-FR-065/132 - the planning window and the reason a crop-rotation hint was overridden.
+  plan_role?: 'main_crop' | 'green_manure' | 'fallow';
+  rotation_override_reason?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  source?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -1595,6 +1709,49 @@ export interface PlantingRunCreate {
   source_plant_key?: string | null;
   notes?: string | null;
   entries?: PlantingRunEntryCreate[];
+  // REQ-053 GP-FR-065/132
+  plan_role?: 'main_crop' | 'green_manure';
+  rotation_override_reason?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  source?: string | null;
+}
+
+/** #2463 - one species of a mixed culture: its run's name, its single entry and, for `free`, its points. */
+export interface MixedCultureRunCreate {
+  name: string;
+  notes?: string | null;
+  entry: PlantingRunEntryCreate;
+  /** Bed-frame points (m) of a `free` entry; each becomes a reserved position of the run. */
+  free_points?: [number, number][];
+  container_volume_l?: number | null;
+}
+
+/** `POST /planting-runs/mixed-culture`: every run of a mixed culture on one bed, written atomically. */
+export interface MixedCultureCreate {
+  location_key: string;
+  runs: MixedCultureRunCreate[];
+  planned_start_date?: string | null;
+  planned_from?: string | null;
+  planned_until?: string | null;
+  plan_role?: 'main_crop' | 'green_manure';
+  rotation_override_reason?: string | null;
+  source?: string | null;
+}
+
+/** W-016.5: a run whose pot lies below its species' recommended volume - created anyway. */
+export interface ContainerVolumeWarning {
+  code: 'container.volume_below_recommendation';
+  run_index: number;
+  species_key: string;
+  container_volume_l: number;
+  recommended_container_volume_l: number;
+}
+
+export interface MixedCultureResponse {
+  runs: PlantingRun[];
+  /** Absent from an older backend. */
+  warnings?: ContainerVolumeWarning[];
 }
 
 export interface PlantingRunUpdate {
@@ -1619,6 +1776,8 @@ export interface SuccessionPlan {
   completed_batches: number;
   status: SuccessionPlanStatus;
   reminder_days_before: number;
+  /** Days one batch holds its slots of the bed (GP-FR-074); `null` = open end. */
+  batch_duration_days?: number | null;
   location_key: string | null;
   notes: string | null;
   created_at: string | null;
@@ -1634,6 +1793,7 @@ export interface SuccessionPlanCreate {
   end_date: string;
   plants_per_batch: number;
   reminder_days_before?: number;
+  batch_duration_days?: number | null;
   location_key?: string | null;
   notes?: string | null;
 }
@@ -1646,6 +1806,7 @@ export interface SuccessionPlanUpdate {
   end_date?: string;
   plants_per_batch?: number;
   reminder_days_before?: number;
+  batch_duration_days?: number | null;
   location_key?: string | null;
   notes?: string | null;
   status?: SuccessionPlanStatus;
@@ -2343,6 +2504,34 @@ export interface DeliveryChannel {
   method_params: MethodParams | null;
 }
 
+/** One fertilizer of an active channel, ordered by the fertilizer's `mixing_priority` (server-sorted). */
+export interface ActiveChannelDosage {
+  fertilizer_key: string;
+  product_name: string;
+  ml_per_liter: number;
+  optional: boolean;
+  mixing_priority: number;
+}
+
+/**
+ * A delivery channel the server resolved as active for a run or plant (`ActiveChannelResponse`): the
+ * enabled channels of the plan entry the server applies this week, with that entry's phase and week range.
+ */
+export interface ActiveChannel {
+  channel_id: string;
+  label: string;
+  application_method: ApplicationMethod;
+  target_ec_ms: number | null;
+  target_ph: number | null;
+  plan_key: string;
+  plan_name: string;
+  entry_key: string | null;
+  phase_name: PhaseName;
+  week_start: number;
+  week_end: number;
+  dosages: ActiveChannelDosage[];
+}
+
 export interface DeliveryChannelCreate {
   channel_id: string;
   label?: string;
@@ -2454,6 +2643,25 @@ export interface FeedingEvent {
   runoff_volume_liters: number | null;
   channel_id: string | null;
   notes: string | null;
+  /**
+   * REQ-053: a dose logged in the care log or by a bed task (#2903). A top dress (compost, a dry
+   * fertiliser) has no volume - `volume_applied_liters` is `0` then - and carries the dose here.
+   */
+  location_key?: string | null;
+  /** Every plant of the dose; empty when only `plant_key` names it (a feeding from the REQ-004 form). */
+  plant_keys?: string[];
+  task_key?: string | null;
+  product_key?: string | null;
+  /** The product as named in free text (no catalogue entry). */
+  product_label?: string | null;
+  /** Code of `enums.careMaterial` or free text. */
+  material?: string | null;
+  dose_quantity?: number | null;
+  /** Code of `enums.careUnit`. */
+  dose_unit?: string | null;
+  /** For a dose per m², the total for the bed. */
+  quantity_total?: number | null;
+  quantity_total_unit?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -2690,6 +2898,9 @@ export interface AreaDosingRequest {
   fertilizer_keys: string[];
   area_m2?: number | null;
   location_key?: string | null;
+  /** The species the bed is dosed for; its `nitrogen_fixing` flag drives the N warning (REQ-053 E-17). */
+  species_key?: string | null;
+  /** @deprecated Use `species_key`. Only `nitrogen_fixer` has an effect (enables the N warning). */
   demand_level?: NutrientDemandLevel | null;
 }
 
@@ -2877,7 +3088,10 @@ export type PlantPart = 'leaf' | 'stem' | 'root' | 'flower' | 'fruit';
 export interface Pest {
   key: string;
   scientific_name: string;
+  /** The stored (English) name; display via `getLocalizedCatalogName` (#2955). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
+  /** Compatibility read: the first name of `common_names_i18n.de` (#2955). */
   common_name_de: string | null;
   pest_type: string;
   lifecycle_days: number | null;
@@ -2914,6 +3128,7 @@ export interface Pest {
 export interface PestCreate {
   scientific_name: string;
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pest_type?: string;
   lifecycle_days?: number | null;
   optimal_temp_min?: number | null;
@@ -2935,6 +3150,7 @@ export interface PestCreate {
 export interface PestUpdate {
   scientific_name?: string;
   common_name?: string;
+  common_names_i18n?: CommonNamesI18n;
   pest_type?: string;
   lifecycle_days?: number | null;
   optimal_temp_min?: number | null;
@@ -2956,7 +3172,9 @@ export interface PestUpdate {
 export interface Beneficial {
   key: string;
   slug: string;
+  /** The stored (German) name; display via `getLocalizedCatalogName` (#2936). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   scientific_name: string;
   description: string | null;
   preys_on: string[];
@@ -3014,7 +3232,9 @@ export interface Disease {
   key: string;
   origin?: DataOrigin;
   scientific_name: string;
+  /** The stored (English) name; display via `getLocalizedCatalogName` (#2936). */
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type: string;
   incubation_period_days: number | null;
   environmental_triggers: string[];
@@ -3027,6 +3247,7 @@ export interface Disease {
 export interface DiseaseCreate {
   scientific_name: string;
   common_name: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type: string;
   incubation_period_days?: number | null;
   environmental_triggers?: string[];
@@ -3037,6 +3258,7 @@ export interface DiseaseCreate {
 export interface DiseaseUpdate {
   scientific_name?: string;
   common_name?: string;
+  common_names_i18n?: CommonNamesI18n;
   pathogen_type?: string;
   incubation_period_days?: number | null;
   environmental_triggers?: string[];
@@ -3108,7 +3330,10 @@ export interface TreatmentUpdate {
 export interface TreatmentTargetRef {
   key: string;
   common_name: string;
+  /** Compatibility read for pests (the first German name, #2955); `null` for diseases. */
   common_name_de: string | null;
+  /** Pests and diseases name their languages here (#2936, #2955); display via `getLocalizedCatalogName`. */
+  common_names_i18n?: CommonNamesI18n;
   scientific_name: string;
 }
 
@@ -3474,6 +3699,7 @@ export interface PostHarvestBatchDetail {
 
 export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'cancelled';
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+/** Mirrors `app.common.enums.TaskCategory` (36 values; REQ-053 §12.1 added the bed-care set, #2325). */
 export type TaskCategory =
   | 'maintenance'
   | 'watering'
@@ -3482,10 +3708,36 @@ export type TaskCategory =
   | 'pest_control'
   | 'harvest'
   | 'pruning'
+  | 'ausgeizen'
   | 'transplant'
+  | 'ipm'
+  | 'observation'
   | 'monitoring'
   | 'cleaning'
-  | 'care_reminder';
+  | 'care_reminder'
+  | 'seasonal'
+  | 'phenological'
+  // REQ-053 §12.1 bed care
+  | 'mulching'
+  | 'weeding'
+  | 'soil_loosening'
+  | 'sowing'
+  | 'pricking_out'
+  | 'soil_amendment'
+  | 'liming'
+  | 'ph_adjustment'
+  | 'ec_check'
+  | 'flush'
+  | 'thinning'
+  | 'hilling'
+  | 'tillage'
+  | 'covering'
+  | 'uncovering'
+  | 'ventilating'
+  | 'clearing'
+  | 'soil_analysis'
+  | 'rainfall'
+  | 'pollinating';
 export type TriggerType = 'manual' | 'time_based' | 'event_based' | 'conditional';
 export type SkillLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
 export type DifficultyLevel = 'beginner' | 'intermediate' | 'advanced' | 'expert';
@@ -3575,6 +3827,9 @@ export interface PhaseDefinitionSpecies {
   key: string;
   scientific_name: string;
   common_names: string[];
+  /** Language code -> names in preference order (REQ-001, #2902). Display via
+   * `getLocalizedCommonName` (UI language -> `de` -> scientific name), never `common_names[0]`. */
+  common_names_i18n?: CommonNamesI18n;
   typical_duration_days: number;
   illustration: string;
 }
@@ -3591,6 +3846,8 @@ export interface PlantInstanceInPhase {
   species_key: string;
   species_scientific_name: string | null;
   species_common_names: string[];
+  /** Language map of the species' common names (REQ-001, #2902). */
+  species_common_names_i18n?: CommonNamesI18n;
   location_key: string | null;
   location_name: string | null;
   slot_key: string | null;
@@ -5029,7 +5286,8 @@ export interface TaskTemplateUpdateRequest {
  * account deletion left without anybody who can administer it (#2134); `importing` is a tenant a
  * platform admin's import is still writing (#2138).
  */
-export type TenantStatus = 'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
+export type TenantStatus =
+  'active' | 'suspended' | 'pending_deletion' | 'orphaned' | 'deleted' | 'importing';
 
 /**
  * Response of `DELETE /tenants/{slug}` and `DELETE /admin/platform/tenants/{key}`.
@@ -5343,10 +5601,7 @@ export type TenantExportOrigin = 'tenant_management' | 'platform_admin';
 
 /** The only failure reasons the backend puts on the record — never an exception text. */
 export type TenantExportFailureReason =
-  | 'too_large'
-  | 'tenant_not_exportable'
-  | 'storage_unavailable'
-  | 'internal_error';
+  'too_large' | 'tenant_not_exportable' | 'storage_unavailable' | 'internal_error';
 
 /**
  * One tenant export request — `TenantExportResponse` of `POST/GET /tenants/{slug}/exports`.
@@ -5372,12 +5627,7 @@ export interface TenantExport {
  * `cleanup_pending` when a failed run left rows the hourly sweep still has to remove.
  */
 export type TenantImportStatus =
-  | 'pending'
-  | 'validating'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cleanup_pending';
+  'pending' | 'validating' | 'running' | 'completed' | 'failed' | 'cleanup_pending';
 
 /**
  * One tenant import — `TenantImportResponse` of `POST /admin/platform/tenant-imports` and
@@ -5813,7 +6063,10 @@ export interface PestBoundingBox {
 export interface PestFinding {
   label: string;
   category: PestFindingCategory;
+  /** The taxon's German name, or the adapter's own label outside the taxonomy. */
   common_name: string;
+  /** Language code -> names (REQ-010 v1.9, #2955); absent on findings stored before it. */
+  common_names_i18n?: Partial<Record<string, string[]>>;
   confidence: number;
   mode: PestFindingMode;
   bounding_box: PestBoundingBox | null;
@@ -5860,7 +6113,10 @@ export interface PestCreateInspectionResult {
 
 export interface PestCoverageEntry {
   label: string;
+  /** The taxon's German name. */
   common_name: string;
+  /** Language code -> names (REQ-010 v1.9, #2955). */
+  common_names_i18n?: Partial<Record<string, string[]>>;
   category: string;
   scientific_name: string;
   gbif_taxon_key: string | null;

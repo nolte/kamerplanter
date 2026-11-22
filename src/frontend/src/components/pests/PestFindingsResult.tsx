@@ -12,6 +12,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 import type { ExperienceLevel } from '@/api/types';
 import type { PestDetectionResult, PestFinding } from '@/api/types';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 interface PestFindingsResultProps {
   /** The detection result to render (findings, abstention, disclaimer flags). */
@@ -55,7 +56,7 @@ export default function PestFindingsResult({
   onAddToGallery,
   canAddToGallery = false,
 }: PestFindingsResultProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const directFindings = useMemo(
     () => (result.findings ?? []).filter((f) => f.bounding_box != null),
@@ -99,13 +100,17 @@ export default function PestFindingsResult({
           {directFindings.map((f, i) => (
             <Tooltip
               key={`${f.label}-${i}`}
-              title={t('pages.pests.boundingBoxLabel', { name: f.common_name })}
+              title={t('pages.pests.boundingBoxLabel', {
+                name: getLocalizedCatalogName(f, i18n.language),
+              })}
               placement="top"
             >
               <Box
                 data-testid="pest-bounding-box"
                 role="img"
-                aria-label={t('pages.pests.boundingBoxLabel', { name: f.common_name })}
+                aria-label={t('pages.pests.boundingBoxLabel', {
+                  name: getLocalizedCatalogName(f, i18n.language),
+                })}
                 tabIndex={0}
                 sx={{
                   position: 'absolute',
@@ -141,7 +146,7 @@ export default function PestFindingsResult({
                     textOverflow: 'ellipsis',
                   }}
                 >
-                  {f.common_name}
+                  {getLocalizedCatalogName(f, i18n.language)}
                 </Typography>
               </Box>
             </Tooltip>
@@ -158,7 +163,12 @@ export default function PestFindingsResult({
 
       {/* Beneficial hint (§9.1 / Szenario 3). */}
       {hasBeneficial && (
-        <Alert severity="success" icon={<FavoriteIcon />} sx={{ mb: 2 }} data-testid="pest-beneficial">
+        <Alert
+          severity="success"
+          icon={<FavoriteIcon />}
+          sx={{ mb: 2 }}
+          data-testid="pest-beneficial"
+        >
           {t('pages.pests.beneficial')}
         </Alert>
       )}
@@ -184,7 +194,7 @@ export default function PestFindingsResult({
               data-testid="pest-finding"
               aria-label={t('pages.pests.findingAriaLabel', {
                 index: i + 1,
-                name: f.common_name,
+                name: getLocalizedCatalogName(f, i18n.language),
                 category: t(`enums.pestCategory.${f.category}`),
                 confidence: Math.round(f.confidence * 100),
               })}
@@ -192,9 +202,15 @@ export default function PestFindingsResult({
               <Stack
                 direction="row"
                 spacing={1}
-                sx={{ alignItems: 'center', flexWrap: 'wrap', mb: f.category !== 'beneficial' ? 1 : 0 }}
+                sx={{
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  mb: f.category !== 'beneficial' ? 1 : 0,
+                }}
               >
-                <Typography variant="subtitle2">{f.common_name}</Typography>
+                <Typography variant="subtitle2">
+                  {getLocalizedCatalogName(f, i18n.language)}
+                </Typography>
                 <Chip
                   size="small"
                   color={f.category === 'beneficial' ? 'success' : 'default'}
@@ -235,8 +251,15 @@ export default function PestFindingsResult({
                   }
                   onClick={() => handleAdd(f.matched_pest_key as string)}
                   data-testid="pest-detection-add-to-gallery"
-                  aria-label={t('pages.pests.addToGalleryAriaLabel', { name: f.common_name })}
-                  sx={{ display: 'flex', mt: 0.5, mb: f.category !== 'beneficial' ? 1 : 0, minHeight: 44 }}
+                  aria-label={t('pages.pests.addToGalleryAriaLabel', {
+                    name: getLocalizedCatalogName(f, i18n.language),
+                  })}
+                  sx={{
+                    display: 'flex',
+                    mt: 0.5,
+                    mb: f.category !== 'beneficial' ? 1 : 0,
+                    minHeight: 44,
+                  }}
                 >
                   {addedPestKeys.includes(f.matched_pest_key)
                     ? t('pages.pests.addToGallerySuccess')

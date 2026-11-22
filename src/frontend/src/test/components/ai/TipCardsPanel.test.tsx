@@ -287,4 +287,14 @@ describe('isSiteRelative', () => {
     expect(isSiteRelative(undefined)).toBe(false);
     expect(isSiteRelative('')).toBe(false);
   });
+
+  // #3012: browsers read `\` as `/`, so each of these is the protocol-relative `//evil.com`.
+  it.each(['/\\evil.com', '/\t/evil.com', '/%5Cevil.com', '/%5cevil.com', '//evil.com', 'javascript:alert(1)'])(
+    'refuses %j',
+    async (vector) => {
+      const { isSiteRelative } = await import('@/components/ai/TipCardsPanel');
+
+      expect(isSiteRelative(vector)).toBe(false);
+    },
+  );
 });

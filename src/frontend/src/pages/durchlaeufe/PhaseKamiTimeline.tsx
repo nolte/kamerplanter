@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { PhaseTimelineEntry } from '@/api/types';
+import { getPhaseColor } from '@/theme/domainColors';
 
 // ── Kami phase illustrations ────────────────────────────────────────
 import kamiGermination from '@/assets/brand/illustrations/phases/timeline-kami-phase-germination.svg';
@@ -64,56 +65,6 @@ const KAMI_PHASE_IMAGES: Record<string, string> = {
   short_day_induction: kamiShortDayInduction,
 };
 
-const PHASE_COLORS: Record<string, string> = {
-  germination: '#a5d6a7',
-  seedling: '#81c784',
-  vegetative: '#4caf50',
-  flowering: '#f48fb1',
-  ripening: '#ffcc80',
-  fruiting: '#ffcc80',
-  harvest: '#ffb74d',
-  drying: '#bcaaa4',
-  curing: '#a1887f',
-  flushing: '#90caf9',
-  juvenile: '#c5e1a5',
-  climbing: '#aed581',
-  mature: '#66bb6a',
-  dormancy: '#b0bec5',
-  senescence: '#ef9a9a',
-  establishment: '#a5d6a7',
-  pup_establishment: '#a5d6a7',
-  pre_bloom: '#ce93d8',
-  recovery: '#80cbc4',
-  sprouting: '#c5e1a5',
-  hardening_off: '#b2dfdb',
-  budding: '#ce93d8',
-  corm_ripening: '#ffcc80',
-  tuber_formation: '#ffcc80',
-  active_growth: '#4caf50',
-  spring_growth: '#66bb6a',
-  autumn_growth_bloom: '#f48fb1',
-  growth_bloom: '#f48fb1',
-  bud_formation: '#ce93d8',
-  bract_coloring: '#ce93d8',
-  autumn_ripening: '#ffcc80',
-  bulbil_establishment: '#a5d6a7',
-  rooting: '#a5d6a7',
-  sprout_formation: '#c5e1a5',
-  young_palm: '#c5e1a5',
-  cool_rest: '#b0bec5',
-  rest: '#b0bec5',
-  rest_phase: '#b0bec5',
-  rest_after_bloom: '#b0bec5',
-  summer_rest: '#b0bec5',
-  summer_dormancy: '#b0bec5',
-  winter_rest: '#b0bec5',
-  winter_dormancy: '#b0bec5',
-  dry_storage: '#bcaaa4',
-  winter_hull_change: '#ef9a9a',
-  short_day_induction: '#7e57c2',
-  leaf_phase: '#81c784',
-};
-
 /** Normalize scientific name to i18n slug: "Monstera deliciosa" → "monstera_deliciosa" */
 function toSpeciesSlug(scientificName: string): string {
   return scientificName.toLowerCase().replace(/[.×]/g, '').replace(/\s+/g, '_');
@@ -155,7 +106,7 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
     >
       {phases.map((p, idx) => {
         const phaseKey = p.phase_name.toLowerCase();
-        const color = PHASE_COLORS[phaseKey] ?? '#e0e0e0';
+        const color = getPhaseColor(theme, phaseKey);
         const kamiImg = KAMI_PHASE_IMAGES[phaseKey];
         const isCurrent = p.status === 'current';
         const isCompleted = p.status === 'completed';
@@ -204,6 +155,7 @@ export default function PhaseKamiTimeline({ phases, speciesName }: PhaseKamiTime
                     src={kamiImg}
                     alt=""
                     aria-hidden="true"
+                    loading="lazy"
                     sx={{
                       width: { xs: 56, sm: 72, md: 88 },
                       height: { xs: 56, sm: 72, md: 88 },

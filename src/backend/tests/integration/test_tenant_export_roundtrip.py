@@ -43,7 +43,9 @@ import hashlib
 import io
 import json
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -53,6 +55,7 @@ from arango import ArangoClient
 
 from app.common.async_bridge import run_async
 from app.common.exceptions import MemberLimitReachedError, TenantImportRefusedError
+from app.config.settings import Settings
 from app.data_access.arango.invitation_repository import ArangoInvitationRepository
 from app.data_access.arango.location_assignment_repository import ArangoLocationAssignmentRepository
 from app.data_access.arango.membership_repository import ArangoMembershipRepository
@@ -71,8 +74,10 @@ from app.domain.engines.invitation_engine import InvitationEngine
 from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_tenant_archive
+from app.domain.engines.tenant_import_engine import TenantImportEngine
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
+from app.domain.services.attachment_service import imported_object_body
 from app.domain.services.entitlement_service import EntitlementService
 from app.domain.services.security_audit_service import SecurityAuditService
 from app.domain.services.tenant_export_service import StepUpFactors, TenantExportService
@@ -149,6 +154,16 @@ def _seed_catalogue(db) -> None:
     )
 
 
+def _underlay(attachment_key: str) -> dict[str, Any]:
+    return {
+        "attachment_key": attachment_key,
+        "calibration": {"p1_px": [100, 200], "p2_px": [500, 200], "distance_m": 4.0},
+        "origin": [1.0, 5.0],
+        "rotation_deg": 0.0,
+        "opacity": 0.5,
+    }
+
+
 def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
     """A small but connected tenant: places, plants, diary, IPM, a task, a photo and edges."""
     db.collection("tenants").insert(
@@ -191,7 +206,21 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
     k = {
         name: f"{tenant}-{name}" for name in ("site", "loc", "slot", "plant", "sp-own", "diary", "insp", "task", "att")
     }
-    db.collection("sites").insert({"_key": k["site"], "tenant_key": tenant, "name": f"Site {tenant} {marker}"})
+    db.collection("sites").insert(
+        {
+            "_key": k["site"],
+            "tenant_key": tenant,
+            "name": f"Site {tenant} {marker}",
+            # REQ-053 GP-FR-033: the plan's underlay names the tenant's own attachment (rewritten on import).
+            "plan": {
+                "plan_revision": 1,
+                "north_angle_deg": 0.0,
+                "default_grid_m": 0.1,
+                "adjacency_factor": 1.5,
+                "underlay": _underlay(k["att"]),
+            },
+        }
+    )
     db.collection("locations").insert({"_key": k["loc"], "site_key": k["site"], "name": "Bed 1"})
     db.collection("slots").insert({"_key": k["slot"], "location_key": k["loc"], "slot_id": "S1"})
     db.collection("species").insert(
@@ -278,11 +307,18 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
 
 
 SIGNING_KEY = b"integration-installation-key-0123456789"
+_PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 SALT = "tenant-export-salt-not-a-secret-0123456789"
 
 
 def _service(
-    db, storage_root: Path, *, signing_key: bytes | None = SIGNING_KEY, readings: Any = None
+    db,
+    storage_root: Path,
+    *,
+    signing_key: bytes | None = SIGNING_KEY,
+    readings: Any = None,
+    stored_body: Callable[[bytes, str], bytes] | None = None,
+    allowed_mime_types: Callable[[str], list[str]] | None = None,
 ) -> TenantExportService:
     from app.data_access.arango.tenant_erasure_executor import ArangoTenantErasureExecutor
     from app.data_access.arango.tenant_erasure_repository import ArangoTenantErasureRepository
@@ -326,9 +362,10 @@ def _service(
         security_audit=audit,
         entitlements=entitlements,
         signing_key=signing_key,
-        allowed_mime_types=lambda category: ["image/jpeg", "image/png", "image/webp"],
+        allowed_mime_types=allowed_mime_types or (lambda category: list(_PHOTO_TYPES)),
         max_object_bytes=10 * 1024 * 1024,
         readings=readings,
+        stored_body=stored_body,
     )
 
 
@@ -566,6 +603,77 @@ def test_a_missing_catalogue_entry_refuses_and_writes_nothing(source, target, tm
     assert [d["reason"] for d in refused.value.details] == ["pests/pest-1"]
     assert target.collection("tenants").count() == tenants_before
     assert target.collection("tenant_import_requests").count() == 0
+
+
+def test_a_bed_whose_template_and_substrate_are_gone_imports_with_the_references_cleared(
+    source, target, tmp_path, monkeypatch
+) -> None:
+    """#2528 (REQ-056 §8.4 step 1): a bed's template and substrate are provenance. Gone from both the archive and
+    the target's catalogue, they are cleared and counted - not a refusal. A bed naming a system template the target
+    has keeps it (the positive control: provenance keys are still resolved against the catalogue).
+
+    The dangling state is seeded by removing the rows directly - the repository delete would release the bed
+    (WP-A) and the archive would carry no dangling key at all."""
+    seeded = _seed_tenant(source, A)
+    system_template = {"_key": "sys_bed_2x1", "name": "System bed", "location_type_key": "bed"}
+    source.collection("bed_templates").insert(system_template)
+    target.collection("bed_templates").insert(system_template)
+    source.collection("bed_templates").insert({"_key": "tpl-own", "tenant_key": A, "name": "Own"})
+    source.collection("substrates").insert({"_key": "sub-own", "tenant_key": A, "name": "Own mix"})
+    source.collection("locations").update(
+        {"_key": seeded["loc"], "template_key": "tpl-own", "soil_profile": {"substrate_key": "sub-own"}}
+    )
+    source.collection("locations").insert(
+        {"_key": "loc-sys", "site_key": seeded["site"], "name": "Bed 2", "template_key": "sys_bed_2x1"}
+    )
+    source.collection("bed_templates").delete("tpl-own")
+    source.collection("substrates").delete("sub-own")
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+    passes = {"needs": 0, "rows": 0}
+    real_needs, real_rows = TenantImportEngine._catalogue_needs, TenantExportService._catalogue_rows
+
+    def counted_needs(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["needs"] += 1
+        return real_needs(self, *args, **kwargs)
+
+    def counted_rows(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        passes["rows"] += 1
+        return real_rows(self, *args, **kwargs)
+
+    monkeypatch.setattr(TenantImportEngine, "_catalogue_needs", counted_needs)
+    monkeypatch.setattr(TenantExportService, "_catalogue_rows", counted_rows)
+
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and finished.status == "completed", finished
+    # D7: one archive pass per catalogue check. ``_verified_archive`` runs at the request and again when the run
+    # re-reads the upload, then the run resolves the rows it writes against: three checks, three passes.
+    assert passes == {"needs": 3, "rows": 3}
+    beds = {
+        doc["name"]: doc
+        for doc in target.aql.execute(
+            "FOR s IN sites FILTER s.tenant_key == @t FOR l IN locations FILTER l.site_key == s._key RETURN l",
+            bind_vars={"t": finished.target_tenant_key},
+        )
+    }
+    assert beds["Bed 1"].get("template_key") is None
+    assert (beds["Bed 1"].get("soil_profile") or {}).get("substrate_key") is None
+    assert beds["Bed 2"]["template_key"] == "sys_bed_2x1"
+    assert finished.report["nulled_references"] >= 2
 
 
 def test_a_failure_mid_import_leaves_no_tenant_behind(source, target, tmp_path) -> None:
@@ -823,6 +931,23 @@ def test_without_a_confirmed_lead_the_admin_owns_the_import_with_both_scopes(sou
     )
 
 
+def test_an_import_never_inherits_the_record_keeping_declaration(source, target, tmp_path) -> None:
+    """PRIV-409 / DEC-30 — the imported tenant starts undeclared; an archive's ``none`` or ``legacy`` is dropped."""
+    _seed_tenant(source, A)
+    source.collection("tenants").update(
+        {"_key": A, "settings": {"record_keeping": "none", "organization_kind": "unknown_legacy", "keep": 1}}
+    )
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    dst = _service(target, tmp_path / "dst")
+
+    finished = _request_and_run(dst, archive, {})
+
+    assert finished.status == "completed", finished
+    settings = target.collection("tenants").get(finished.target_tenant_key).get("settings") or {}
+    assert "record_keeping" not in settings or settings["record_keeping"] is None
+    assert "organization_kind" not in settings or settings["organization_kind"] is None
+
+
 def test_the_request_names_the_tenant_before_it_exists(source, target, tmp_path) -> None:
     """I3 — no moment in which a founded tenant is named by no request the sweep reads."""
     _seed_tenant(source, A)
@@ -939,6 +1064,154 @@ def test_an_attachments_size_and_hash_come_from_its_object(target, tmp_path) -> 
 
     row = target.collection("attachments").get(outcome.key_mapping["attachments"]["a1"])
     assert (row["byte_size"], row["sha256"]) == (len(photo), hashlib.sha256(photo).hexdigest())
+
+
+def _photo_with_gps(size: tuple[int, int] = (32, 24), mode: str = "RGB") -> bytes:
+    """A real JPEG carrying an EXIF block with a GPS latitude - what a phone writes into an aerial photo."""
+    from PIL import Image
+
+    image = Image.new(mode, size, 90)
+    exif = Image.Exif()
+    exif[0x010F] = "PhoneMaker"  # Make
+    exif.get_ifd(0x8825)[2] = (52.0, 31.0, 12.0)  # GPSLatitude
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+def _object_archive(data: bytes, *, mime_type: str = "image/jpeg", extension: str = "jpg") -> bytes:
+    """An unsigned archive with one garden-plan underlay and its object, written the way the export writes it."""
+    path = f"garden_plan_underlay/2026/10/u1.{extension}"
+    row = {
+        "_key": "u1",
+        "tenant_key": "ten-src",
+        "storage_key": f"t/ten-src/{path}",
+        "mime_type": mime_type,
+        "byte_size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "original_filename": f"u1.{extension}",
+        "created_by": "_anonymized",
+        "category": "garden_plan_underlay",
+    }
+    buffer = io.BytesIO()
+    writer = TenantArchiveWriter(buffer, max_bytes=None)
+    writer.write_json("tenant.json", {"name": "Aerial", "slug": "aerial"})
+    writer.write_lines("collections/attachments.jsonl", [[row]])
+    writer.write_lines("members.jsonl", [[]])
+    writer.write_object(path, data)
+    writer.finish({"format": "kamerplanter-tenant-export/1", "source_tenant_key": "ten-src"})
+    return buffer.getvalue()
+
+
+def _stored_object(service: TenantExportService, storage_key: str) -> bytes:
+    async def read() -> bytes:
+        stream = await service._storage.get_object(storage_key)  # type: ignore[union-attr]
+        return b"".join([chunk async for chunk in stream])
+
+    return run_async(read())
+
+
+def _imported_underlay(db, service: TenantExportService, archive: bytes) -> tuple[dict[str, Any], bytes]:
+    finished = _request_and_run(service, archive, {})
+    assert finished.status == "completed", finished
+    rows = list(
+        db.aql.execute(
+            "FOR a IN attachments FILTER a.tenant_key == @t RETURN a", bind_vars={"t": finished.target_tenant_key}
+        )
+    )
+    (row,) = rows
+    return row, _stored_object(service, row["storage_key"])
+
+
+def _importing(db, tmp_path: Path, *, strip: bool = True, types: tuple[str, ...] = _PHOTO_TYPES) -> TenantExportService:
+    return _service(
+        db,
+        tmp_path / "dst",
+        stored_body=partial(imported_object_body, Settings(storage_strip_exif=strip)),
+        allowed_mime_types=lambda category: list(types),
+    )
+
+
+def test_an_imported_photo_loses_its_exif_like_an_uploaded_one(target, tmp_path) -> None:
+    """#2715 item 3 - the import stores the bytes the upload pipeline would: no EXIF/GPS block, and the row's size
+    and hash are those of the stored bytes (the quota and the dedup read them)."""
+    from PIL import Image
+
+    photo = _photo_with_gps()
+    assert Image.open(io.BytesIO(photo)).getexif().get_ifd(0x8825), "the fixture must carry GPS to prove anything"
+
+    row, stored = _imported_underlay(target, _importing(target, tmp_path), _object_archive(photo))
+
+    assert stored != photo
+    assert not Image.open(io.BytesIO(stored)).getexif(), "EXIF survived the import"
+    assert (row["byte_size"], row["sha256"]) == (len(stored), hashlib.sha256(stored).hexdigest())
+
+
+def test_with_the_strip_switched_off_the_import_keeps_the_bytes(target, tmp_path) -> None:
+    """``STORAGE_STRIP_EXIF=false`` is the operator's switch for both paths: the import does not strip either."""
+    photo = _photo_with_gps()
+
+    _row, stored = _imported_underlay(target, _importing(target, tmp_path, strip=False), _object_archive(photo))
+
+    assert stored == photo
+
+
+def test_a_truncated_photo_with_gps_is_refused_in_the_preview_not_stored_unstripped(target, tmp_path) -> None:
+    """#2715 review D/E: the strip fails closed for a strippable type, and the refusal comes with the request the
+    admin confirms (the verification), before anything is stored or dispatched."""
+    photo = _photo_with_gps()
+    truncated = photo[: len(photo) // 2]
+    assert b"Exif" in truncated, "the GPS APP1 block must survive the cut to prove anything"
+    service = _importing(target, tmp_path)
+    archive = _object_archive(truncated)
+
+    with pytest.raises(TenantImportRefusedError) as refused:
+        service.request_import(
+            io.BytesIO(archive),
+            size_bytes=len(archive),
+            requester=_person(ADMIN),
+            authenticated_with_api_key=False,
+            member_mapping={},
+            plan_key=None,
+            factors=StepUpFactors(password="pw"),
+            client_ip=None,
+        )
+
+    assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+    assert any("not a readable image" in detail["reason"] for detail in refused.value.details)
+    assert target.collection("tenant_import_requests").count() == 0
+
+
+def test_bytes_that_are_no_image_of_the_stated_type_are_refused(target, tmp_path) -> None:
+    service = _importing(target, tmp_path)
+    archive = _object_archive(b"%PDF-1.7 not a photo at all")
+
+    with pytest.raises(TenantImportRefusedError) as refused:
+        service._verified_archive(io.BytesIO(archive))
+
+    assert refused.value.error_code == "IMPORT_FORMAT_UNSUPPORTED"
+
+
+def test_a_stored_image_above_the_upload_ceiling_but_within_the_stored_one_imports(target, tmp_path) -> None:
+    """#2715 review B: objects stored before #2108 may hold up to 80 MPx; an old tenant's export re-imports."""
+    from PIL import Image
+
+    big = _photo_with_gps(size=(7100, 7100), mode="L")  # 50.4 MPx: above the 40 MPx upload ceiling
+
+    _row, stored = _imported_underlay(target, _importing(target, tmp_path), _object_archive(big))
+
+    reopened = Image.open(io.BytesIO(stored))
+    assert reopened.size == (7100, 7100) and not reopened.getexif()
+
+
+def test_an_unstrippable_type_the_category_admits_is_kept_unchanged(target, tmp_path) -> None:
+    """#2715 review C: a HEIC stored before #2139 is not refused; it is kept as it is (the strip cannot touch it)."""
+    heic = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00heicmif1 stored before 2139"
+    service = _importing(target, tmp_path, types=(*_PHOTO_TYPES, "image/heic"))
+
+    _row, stored = _imported_underlay(target, service, _object_archive(heic, mime_type="image/heic", extension="heic"))
+
+    assert stored == heic
 
 
 def test_a_legacy_stamped_catalogue_row_counts_as_present(target, tmp_path) -> None:
@@ -1132,3 +1405,42 @@ def test_the_sweep_takes_the_oldest_stale_imports_first(target) -> None:
 
     assert len(stale) == 100
     assert "imp-0100" in {request.key for request in stale}
+
+
+def test_an_underlay_whose_attachment_is_not_in_the_archive_is_dropped_and_the_sites_stay_readable(
+    source, target, tmp_path
+) -> None:
+    """REQ-053 GP-FR-033: an unresolvable attachment key must not leave a half underlay that no model can read."""
+    from app.data_access.arango.site_repository import ArangoSiteRepository
+
+    seeded = _seed_tenant(source, A)
+    source.collection("sites").update(
+        {"_key": seeded["site"], "plan": {"underlay": _underlay("an-attachment-the-archive-lacks")}},
+        merge=True,
+    )
+    archive = _export(_service(source, tmp_path / "src"), source, A)
+    target.collection("users").insert(
+        {"_key": "new-lead", "email": "new-lead@example.com", "display_name": "New lead", "account_type": "human"}
+    )
+    dst = _service(target, tmp_path / "dst")
+    accepted = dst.request_import(
+        io.BytesIO(archive),
+        size_bytes=len(archive),
+        requester=_person(ADMIN),
+        authenticated_with_api_key=False,
+        member_mapping={f"{A}-{LEAD}": _grant("new-lead@example.com")},
+        plan_key=None,
+        factors=StepUpFactors(password="pw"),
+        client_ip=None,
+    )
+    finished = run_async(dst.run_import(accepted.key or ""))
+
+    assert finished is not None and finished.status == "completed", finished
+    new_tenant = finished.target_tenant_key or ""
+    imported = list(
+        target.aql.execute("FOR s IN sites FILTER s.tenant_key == @t RETURN s", bind_vars={"t": new_tenant})
+    )
+    assert len(imported) == 1 and "underlay" not in imported[0]["plan"], imported
+    # every read of the tenant's sites goes through the model: it must not raise
+    sites, total = ArangoSiteRepository(target).get_all_sites(tenant_key=new_tenant)
+    assert total == 1 and sites[0].plan is not None and sites[0].plan.underlay is None

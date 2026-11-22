@@ -155,6 +155,22 @@ Hinweis: Dill bildet eine empfindliche Pfahlwurzel (taproot) mit effektiver Durc
 - Aussaatdichte: eigene Pflanzabstand-Angabe §1.6 (Steckbrief); [Wikifarmer — Anethum graveolens Dill seeds](https://wikifarmer.com/library/en/article/anethum-graveolens-dill-seeds) (Direktsaat-Reihenkultur mit vergleichbarem Pflanzabstand als Quervalidierung der Größenordnung)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 8–15 | `species.spacing_cm` |
+| Reihenabstand (cm) | 25 | `species.row_spacing_cm` |
+| Quelle Abstände | Reihenabstand: Sächsische Landesanstalt für Landwirtschaft, „Dill – Anethum graveolens L. Anbauverfahren" (Krautdill/Dillspitzen 25 cm), https://publikationen.sachsen.de/bdb/artikel/13556/documents/15351; DLR Rheinland-Pfalz, „Anbau- und Sortenhinweise für den Gemüseanbau in Rheinland-Pfalz: Dill 2024/2025" (Blattdill 20–30 cm), https://www.dlr-rnh.rlp.de/Internet/global/themen.nsf/40ad5b908f55ed25c1257acb00570bd9/1ef319fcf05534dbc125876e002d5a6f/$FILE/Dill.pdf. Abstand in der Reihe: University of Wisconsin–Madison Extension, „Dill, Anethum graveolens" (Vereinzeln auf 3–6 in = 7,6–15 cm; Reihenabstand dort nicht genannt), https://hort.extension.wisc.edu/articles/dill-anethum-graveolens/ | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | University of Wisconsin–Madison Extension, „Dill, Anethum graveolens" („does best in full sun"), https://hort.extension.wisc.edu/articles/dill-anethum-graveolens/ | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -459,6 +475,11 @@ Dill hat generell wenig natuerliche Resistenzen. Die Hauptstrategie ist schnelle
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Tomate) oder Huelsenfruechte |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Radieschen) oder Gruenduengung |
 | Anbaupause (Jahre) | 3--4 Jahre fuer Apiaceae (Moehre, Sellerie, Petersilie, Fenchel) auf gleicher Flaeche |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Fachquelle ordnet Dill ausdrücklich einer Zehrerstufe zu (LKSH nennt nur „Kräuter" pauschal als Schwachzehrer; LfULG Sachsen und DLR RLP geben nur Düngemengen, keine Stufe) --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine Stufe belegt --> |
+| Stickstofffixierer | false (keine Leguminose; LKSH „Fruchtfolge im Garten" führt Dill unter Doldenblütler und Hülsenfrüchte als eigene Familie, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Apiaceae 4) — LfULG Sachsen: mind. 4 Jahre zu allen Doldenblütlern; DLR RLP: mind. 3 Jahre; SBB 2022: Doldenblütler 4–5 Jahre --> |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -558,3 +579,8 @@ Bouquet,Anethum graveolens,,,compact;early_maturing,45,,open_pollinated
 24. Mattmagnusson -- Growing dill: complete guide (Pfahlwurzel, Wurzeltiefe 30--46 cm): https://mattmagnusson.com/growing-dill/ -- effektive Wurzeltiefe, Direktsaat wegen Pfahlwurzel
 25. Healthy Houseplants -- Dill (Anethum graveolens) Growing Guide: https://www.healthyhouseplants.com/indoor-houseplants/dill-anethum-graveolens-growing-guide-care-tips-and-uses/ -- Keimtemperatur/-dauer, Standortbedingungen, Staunaesse-Empfindlichkeit
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+26. Saechsische Landesanstalt fuer Landwirtschaft -- Dill, Anethum graveolens L., Anbauverfahren: https://publikationen.sachsen.de/bdb/artikel/13556/documents/15351 -- Reihenabstand Krautdill/Dillspitzen 25 cm, Anbaupause mind. 4 Jahre zu Doldenbluetlern
+27. DLR Rheinland-Pfalz -- Anbau- und Sortenhinweise fuer den Gemuesebau in Rheinland-Pfalz: Dill, Freiland 2024/2025 (30.01.2024): https://www.dlr-rnh.rlp.de/Internet/global/themen.nsf/40ad5b908f55ed25c1257acb00570bd9/1ef319fcf05534dbc125876e002d5a6f/$FILE/Dill.pdf -- Reihenabstand Blattdill 20--30 cm, Fruchtfolge mind. 3 Jahre
+28. University of Wisconsin-Madison Extension -- Dill, Anethum graveolens: https://hort.extension.wisc.edu/articles/dill-anethum-graveolens/ -- Vereinzeln auf 3--6 in, Vollsonne
+29. Landwirtschaftskammer Schleswig-Holstein -- Fruchtfolge im Garten (Informationen zum Pflanzenschutz): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf -- Doldenblutler (inkl. Dill) vs. Huelsenfruechte als getrennte Familien
+30. Suedtiroler Bauernbund -- Merkblatt Fruchtfolgen im Gemuesebau (Oktober 2022): https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf -- Doldenblutler (inkl. Dill) 4--5 Jahre Anbaupause, Schmetterlingsbluetler getrennt

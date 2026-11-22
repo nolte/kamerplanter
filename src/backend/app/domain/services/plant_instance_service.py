@@ -13,7 +13,7 @@ from app.common.enums import (
     TerminationType,
     TransitionTrigger,
 )
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
@@ -27,6 +27,7 @@ from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.interfaces.planting_reservation_repository import IPlantingReservationRepository
 from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
@@ -44,6 +45,7 @@ from app.domain.models.survival_stats import (
 )
 from app.domain.services.location_ownership import require_owned_site
 from app.domain.services.propagation_service import PropagationService
+from app.domain.services.slot_occupancy import plants_standing_on, require_free_position
 from app.domain.services.species_visibility import readable_species
 
 if TYPE_CHECKING:
@@ -74,8 +76,12 @@ class PlantInstanceService:
         overwintering_service: OverwinteringProfileService | None = None,
         substrate_service: SubstrateService | None = None,
         species_service: SpeciesService | None = None,
+        reservation_repo: IPlantingReservationRepository | None = None,
     ) -> None:
         self._repo = plant_repo
+        # REQ-053 GP-UX-071 (#2913): a position a live run reserves takes no single plant. Optional so the service
+        # stays constructible in pure-domain contexts; wired in production (`get_plant_instance_service`).
+        self._reservation_repo = reservation_repo
         self._site_repo = site_repo
         self._rotation = rotation_validator
         self._companion = companion_engine
@@ -496,13 +502,25 @@ class PlantInstanceService:
         except Exception:  # noqa: BLE001 — never fail plant creation for this
             logger.error("care_profile_bootstrap_failed", plant_key=created.key, exc_info=True)
 
-    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
-        """Create ``plant`` in ``tenant_key``.
+    def preview_plant(self, plant: PlantInstance, *, tenant_key: str) -> PlantInstance:
+        """What :meth:`create_plant` would store, with every one of its checks and nothing written (#2719).
 
-        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
-        plant before anything is resolved, so every reference check below — site,
-        species, substrate, slot — runs against the caller's tenant rather than
-        against whatever the model happened to carry.
+        The MCP ``create_plant`` dry run. Besides the checks :meth:`create_plant` makes itself, the two the
+        write makes inside the repository run here as well: the tenant of ``cultivar_key`` (the #948 owned
+        reference) and the tenant-unique ``instance_id`` (409, #2065). Returns the plant as it would be stored —
+        tenant stamped, initial phase resolved — so a dry run and the real call cannot disagree on validity.
+        """
+        self._checked_new_plant(plant, False, tenant_key=tenant_key)
+        self._repo.verify_references(plant)
+        if self._repo.get_by_instance_id(plant.instance_id, tenant_key=tenant_key) is not None:
+            raise DuplicateError("PlantInstance", "instance_id", plant.instance_id)
+        return plant
+
+    def _checked_new_plant(self, plant: PlantInstance, skip_validation: bool, *, tenant_key: str) -> bool:
+        """Stamp and check a new plant for :meth:`create_plant` / :meth:`preview_plant`; reads only.
+
+        Resolves the initial phase onto ``plant`` and returns whether a caller-supplied phase is an
+        actual-state capture (a non-first phase, #539 gap 2).
         """
         if not tenant_key:
             raise ValueError("create_plant is tenant-scoped and requires a non-empty tenant_key (#2107).")
@@ -515,6 +533,10 @@ class PlantInstanceService:
         # neighbourhood tenant-scoped, so a foreign slot yields no findings and
         # *passes* — the reference has to be refused before it is interpreted.
         self._resolve_references(plant)
+        # REQ-053 GP-UX-071 (#2913): a position holds one plant. Integrity, not advice - so not behind
+        # `skip_validation`. The slot is the caller's: `_resolve_references` resolved it above.
+        if plant.slot_key:
+            self._require_free_position(plant.slot_key, tenant_key)
 
         if not skip_validation and plant.slot_key:
             # Both engines read the slot's neighbourhood/history, which is
@@ -556,7 +578,18 @@ class PlantInstanceService:
             is_actual_state_capture = bool(first_key) and plant.current_phase_key != first_key
         elif first_key:
             plant.current_phase_key = first_key
-        else:
+        return is_actual_state_capture
+
+    def create_plant(self, plant: PlantInstance, skip_validation: bool = False, *, tenant_key: str) -> PlantInstance:
+        """Create ``plant`` in ``tenant_key``.
+
+        ``tenant_key`` is keyword-only without a default (#2107) and stamped onto the
+        plant before anything is resolved, so every reference check below — site,
+        species, substrate, slot — runs against the caller's tenant rather than
+        against whatever the model happened to carry.
+        """
+        is_actual_state_capture = self._checked_new_plant(plant, skip_validation, tenant_key=tenant_key)
+        if not plant.current_phase_key:
             # No phase could be resolved at all: the species has neither a bound
             # PhaseSequence nor a LifecycleConfig with growth phases. Until #1006 this
             # branch did not exist — creation fell through silently and produced a plant
@@ -597,12 +630,8 @@ class PlantInstanceService:
             )
             self._phase_repo.create_phase_history(history)
 
-        # Mark slot as occupied
         if plant.slot_key:
-            slot = self._site_repo.get_slot_by_key(plant.slot_key)
-            if slot:
-                slot.currently_occupied = True
-                self._site_repo.update_slot(plant.slot_key, slot)
+            self._occupy_slot(plant.slot_key)
 
         # REQ-047 §3.4 — eager overwintering materialisation. A plant created on an
         # outdoor/greenhouse site derives its winter profile immediately, instead of
@@ -700,11 +729,11 @@ class PlantInstanceService:
     def _spawn_pup(self, mother: PlantInstance) -> PlantInstance | None:
         """Create the pup instance, its lineage edge and a clone PropagationEvent.
 
-        The pup inherits ``tenant_key``, ``species_key``, ``cultivar_key`` and the
-        mother's **location** — but NOT the slot (R4): the mother lives on senescent
-        and still occupies it. ``planted_on`` is the terminal-transition date. The
-        pup's phase is forced to ``pup_establishment`` when the species models it,
-        else falls back to the first sequence phase (R2).
+        The pup inherits ``tenant_key``, ``species_key`` (only one the tenant may read —
+        otherwise no pup is spawned), ``cultivar_key`` and the mother's **location** —
+        but NOT the slot (R4): the mother lives on senescent and still occupies it.
+        ``planted_on`` is the terminal-transition date. The pup's phase is forced to
+        ``pup_establishment`` when the species models it, else falls back to the first sequence phase (R2).
 
         Idempotency (R7 / Fix #1) is keyed on the **existence of the pup document**,
         not merely the lineage edge. The pup's ``instance_id`` is the deterministic
@@ -730,6 +759,19 @@ class PlantInstanceService:
         if self._repo.has_descendants(mother.key):
             logger.warning(
                 "clonal_pup_spawn_skipped_existing_descendant",
+                mother_key=mother.key,
+                tenant=log_tenant(mother.tenant_key),
+            )
+            return None
+
+        # The pup bypasses `create_plant`, so the species reference is resolved here. A mother written before
+        # that reference was verified may name a species her tenant cannot read (#2082); such a row keeps its
+        # key (changed-only rule), but a NEW row must not inherit it. No pup rather than a pup without species.
+        if self._species_repo is not None and not readable_species(
+            self._species_repo, mother.species_key, mother.tenant_key
+        ):
+            logger.warning(
+                "clonal_pup_spawn_skipped_unreadable_species",
                 mother_key=mother.key,
                 tenant=log_tenant(mother.tenant_key),
             )
@@ -890,9 +932,49 @@ class PlantInstanceService:
         # is never dialled — see :meth:`_resolve_references` for why changed-only is
         # the correct semantics here and not merely the cheap one.
         self._resolve_references(plant, previous=existing)
+        # REQ-053 GP-UX-071 (#2913): a move onto a position takes it like a new plant does - one plant per
+        # position, none on a live run's reservation. Only a slot the plant moves *to*: staying put re-checks
+        # nothing (the plant itself stands there).
+        moved_slot = plant.slot_key != existing.slot_key
+        if moved_slot and plant.slot_key:
+            self._require_free_position(plant.slot_key, tenant_key)
         updated = self._repo.update(key, plant)
+        if moved_slot:
+            # The stored plant names its new slot now, so it no longer counts as standing on the old one.
+            if existing.slot_key:
+                self._release_slot(existing.slot_key, tenant_key=tenant_key, leaving=key)
+            if plant.slot_key:
+                self._occupy_slot(plant.slot_key)
         self._sync_overwintering_on_move(updated, old_site_key)
         return updated
+
+    # ── Slot occupancy (REQ-053 GP-UX-071, #2727) ────────────────────
+
+    def _require_free_position(self, slot_key: str, tenant_key: str) -> None:
+        """Refuse a single plant on a taken ``position`` slot (409); rows and zones take several plants."""
+        slot = self._site_repo.get_slot_by_key(slot_key)
+        if slot is not None:
+            require_free_position(
+                slot,
+                plants=self._repo,
+                reservations=self._reservation_repo,
+                tenant_key=tenant_key,
+                today=today_utc(),
+            )
+
+    def _occupy_slot(self, slot_key: str) -> None:
+        """Mark the slot occupied - the flag alone (#2727): writing back a whole slot read earlier reverted a
+        PATCH /slots (role, geometry, capacity) that landed in between."""
+        if self._site_repo.get_slot_by_key(slot_key) is not None:
+            self._site_repo.set_slot_occupied(slot_key, True)
+
+    def _release_slot(self, slot_key: str, *, tenant_key: str, leaving: str) -> None:
+        """Free the slot's flag only when no plant is left on it (``<= 1`` freed a zone while a second plant
+        still stood on it, #2727 review)."""
+        if self._site_repo.get_slot_by_key(slot_key) is not None and not plants_standing_on(
+            self._repo, slot_key, tenant_key=tenant_key, leaving=leaving
+        ):
+            self._site_repo.set_slot_occupied(slot_key, False)
 
     # ── REQ-047 §3.4 overwintering-profile sync ──────────────────────────
 
@@ -1041,13 +1123,9 @@ class PlantInstanceService:
         # instances left (a run may contain several plants).
         self._delete_orphaned_run_tasks(key, tenant_key=plant.tenant_key)
 
+        # ``removed_on`` is already set above, so the removed plant is not among those left on the slot.
         if plant.slot_key:
-            slot = self._site_repo.get_slot_by_key(plant.slot_key)
-            if slot:
-                active = self._repo.get_active_by_slot(plant.slot_key, tenant_key=plant.tenant_key)
-                if len(active) <= 1:
-                    slot.currently_occupied = False
-                    self._site_repo.update_slot(plant.slot_key, slot)
+            self._release_slot(plant.slot_key, tenant_key=plant.tenant_key, leaving=key)
 
         return updated
 

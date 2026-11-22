@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import (
     ClimactericClass,
@@ -15,15 +16,29 @@ from app.common.enums import (
 )
 from app.domain.models.species import (
     GrowingPeriod,
+    LightRequirement,
     PhotosynthesisType,
     PropagationConfig,
+    ShadeTolerance,
+    Toxicity,
     WateringGuide,
+    WaterloggingTolerance,
+    validate_common_names_i18n,
 )
 
 
 class SpeciesCreate(BaseModel):
     scientific_name: str
     common_names: list[str] = Field(default_factory=list)
+    #: Language code -> names in preference order (REQ-001, #2902). ``None`` = not
+    #: sent: a create stores no language map, an edit keeps the stored one (minus any
+    #: name removed from ``common_names``). Sent, every name must be in
+    #: ``common_names`` — otherwise 422, never a silent append.
+    common_names_i18n: dict[str, list[str]] | None = Field(
+        default=None,
+        description="Language code (de, en, ...) -> vernacular names in preference order. "
+        "Each name must also be contained in common_names. Omit to keep the stored map on update.",
+    )
     family_key: str | None = None
     genus: str = ""
     hardiness_zones: list[str] = Field(default_factory=list)
@@ -65,11 +80,26 @@ class SpeciesCreate(BaseModel):
     watering_guide: WateringGuide | None = None
     default_nutrient_plan_key: str | None = None
 
+    @model_validator(mode="after")
+    def _common_names_i18n_within_common_names(self) -> Self:
+        """Reject a language-tagged name that is not in ``common_names`` as 422 (BACKEND.md §5.4).
+
+        The domain ``Species`` model enforces the same rule; checking it here turns a
+        bad request into a ``RequestValidationError`` instead of a bare pydantic
+        error raised inside the handler, which would surface as a 500.
+        """
+        if self.common_names_i18n is not None:
+            self.common_names_i18n = validate_common_names_i18n(self.common_names, self.common_names_i18n)
+        return self
+
 
 class SpeciesResponse(BaseModel):
     key: str
     scientific_name: str
     common_names: list[str]
+    #: Language code -> names in preference order (REQ-001, #2902); display rule:
+    #: UI language -> ``de`` -> scientific name, never "first entry of common_names".
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     family_key: str | None
     family_name: str | None = None
     genus: str
@@ -105,6 +135,16 @@ class SpeciesResponse(BaseModel):
     mature_height_cm: str | None = None
     mature_width_cm: str | None = None
     spacing_cm: str | None = None
+    #: REQ-053 GP-FR-061: the Steckbrief row spacing (range string) the planting dialog prefills from.
+    row_spacing_cm: str | None = None
+    #: What a bed must offer (GP-FR-160, E-05) — the demand side of ``site_fit``.
+    light_requirement: LightRequirement | None = None
+    #: How far down the sun ladder the species still grows (the yellow zone of ``site_fit``).
+    shade_tolerance: ShadeTolerance | None = None
+    #: With the bed's drainage it gives the planting dialog's ``waterlogging_risk`` hint (GP-FR-161).
+    waterlogging_tolerance: WaterloggingTolerance | None = None
+    #: The species detail page's pet/child toxicity warning (REQ-001, ``ToxicityBadge``).
+    toxicity: Toxicity | None = None
     indoor_suitable: Suitability | None = None
     balcony_suitable: Suitability | None = None
     greenhouse_recommended: bool = False

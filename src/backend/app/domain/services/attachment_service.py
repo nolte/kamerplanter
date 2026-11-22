@@ -30,27 +30,35 @@ written, so a rejected upload never leaves orphan objects:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import cast
+from uuid import UUID
 
 import httpx
 import structlog
+from pydantic import BaseModel
 
 from app.common.enums import AttachmentCategory, CaptureDevice, EntitlementDimension
 from app.common.exceptions import (
+    ClientEventDeletedError,
+    ClientEventMismatchError,
+    DuplicateError,
     FileTooLargeError,
     InvalidFileTypeError,
     ValidationError,
     VirusScanRejectedError,
+    WriteConflictError,
 )
-from app.common.image_bounds import image_dimensions
+from app.common.image_bounds import STORED_IMAGE_MAX_PIXELS, image_dimensions
 from app.common.log_privacy import log_subject, log_tenant
 from app.common.url_safety import validate_server_side_url
 from app.config.settings import Settings
-from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format
+from app.domain.engines.storage.exif_stripper import ExifStripper, is_strippable_format, strip_exif
 from app.domain.engines.storage.magic_byte_validator import _SNIFF_LEN, MagicByteValidator
 from app.domain.engines.storage.storage_key_builder import StorageKeyBuilder
 from app.domain.engines.storage.thumbnail_generator import (
@@ -62,10 +70,54 @@ from app.domain.engines.storage.thumbnail_generator import (
 from app.domain.interfaces.attachment_repository import IAttachmentRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.rendition_dispatch_claims import IRenditionDispatchClaims
+from app.domain.interfaces.storage_release_retry_repository import IStorageReleaseRetryRepository
 from app.domain.models.attachment import Attachment
+from app.domain.models.client_event import (
+    ClientEventStamp,
+    client_event_digest,
+    is_client_event_conflict,
+    same_digest,
+)
 from app.domain.services.entitlement_service import EntitlementService
 
 logger = structlog.get_logger()
+
+#: Storage deletes in flight at once when a batch of removed records releases its objects (#2715 item 6): a site
+#: delete can let go of several hundred photos, each an object plus renditions; one at a time made the DELETE answer
+#: late, all at once would flood the object store.
+OBJECT_RELEASE_CONCURRENCY = 8
+
+
+@dataclass(eq=False)
+class ObjectReleaseError(Exception):
+    """The records of a batch delete were removed, some of their stored objects were not (#2715 review SEC-S02).
+
+    Raised by :meth:`AttachmentService.delete_many_if_unreferenced` only without a retry store, after every key was
+    tried. ``removed`` is how many records the committed transaction deleted, ``attachment_ids`` names the records
+    whose objects (or renditions) stayed and ``objects`` counts those objects. Ids, never object keys: a storage key
+    embeds the tenant (``t/{tenant}/...``).
+    """
+
+    removed: int
+    attachment_ids: list[str]
+    objects: int
+
+    def __str__(self) -> str:
+        return f"{self.objects} stored object(s) of {len(self.attachment_ids)} removed record(s) were not released"
+
+
+@dataclass(frozen=True)
+class UploadOutcome:
+    """An upload with a ``client_event_id`` (REQ-053 WP 9.3): the record, and whether it was stored before."""
+
+    attachment: Attachment
+    replayed: bool = False
+    #: ``True`` only for a record this upload wrote - not a replay, not the uploader's own record (#1770 dedup);
+    #: what a caller feeds on (the DINOv2 reference, REQ-034 §4) happens once per record.
+    created: bool = False
+    #: What the caller's ``admit`` check answered (e.g. the plant whose gallery quota it checked); ``None`` when
+    #: it did not run (a replay) or there was none.
+    admitted: object = None
 
 
 @dataclass(frozen=True)
@@ -86,6 +138,50 @@ async def _bytes_stream(data: bytes) -> AsyncIterator[bytes]:
     yield data
 
 
+def accepted_mime_types(settings: Settings, category: str) -> list[str]:
+    """The types this installation stores for *category*.
+
+    The category whitelist, minus - while EXIF stripping is on - every image type the strip cannot re-encode
+    (#2139): it would be stored with its EXIF/GPS block, whatever a per-category override admits. The upload
+    pipeline and the tenant-archive import (#2715 item 3) both ask here, so neither admits what the other refuses.
+    """
+    allowed = settings.allowed_mime_types_for_category(category)
+    if settings.storage_strip_exif:
+        allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
+    return allowed
+
+
+def stored_body(settings: Settings, data: bytes, mime_type: str, *, stripper: ExifStripper | None = None) -> bytes:
+    """The bytes this installation stores for *data*: EXIF-stripped images unless ``STORAGE_STRIP_EXIF`` is off.
+
+    Shared by the upload pipeline and the tenant-archive import (#2715 item 3), so an imported photo keeps no more
+    metadata than an uploaded one. Raises ``ImagePixelLimitError`` above the decode ceiling (#2108).
+    """
+    if settings.storage_strip_exif and mime_type.startswith("image/"):
+        return (stripper or ExifStripper()).strip(data, mime_type)
+    return data
+
+
+def imported_object_body(settings: Settings, data: bytes, mime_type: str) -> bytes:
+    """The bytes a tenant-archive import stores for an object of *mime_type* (#2715 item 3 and its review).
+
+    An archive object was **stored** by some installation, so it is judged like a stored object, not an upload:
+
+    * a strippable image type (JPEG/PNG/WEBP) is stripped under the stored-object ceiling
+      (``STORED_IMAGE_MAX_PIXELS``, 80 MPx - objects stored before #2108 were admitted under Pillow's defaults), and
+      **strictly**: bytes that do not decode as the claimed format raise
+      :class:`~app.domain.engines.storage.exif_stripper.UnreadableImageError`, never come back unstripped;
+    * every other admitted type (a document, or an image type the strip cannot re-encode that the category's
+      whitelist admits - HEIC/GIF stored before #2139) is kept as it is: the import does not refuse what the
+      installation held lawfully before.
+
+    With ``STORAGE_STRIP_EXIF`` off nothing is re-encoded, as for an upload.
+    """
+    if settings.storage_strip_exif and is_strippable_format(mime_type):
+        return strip_exif(data, mime_type, max_pixels=STORED_IMAGE_MAX_PIXELS, strict=True)
+    return data
+
+
 class AttachmentService:
     """Upload / serve / delete attachments (NFR-013 §5.1)."""
 
@@ -101,9 +197,12 @@ class AttachmentService:
         key_builder: StorageKeyBuilder | None = None,
         rendition_claims: IRenditionDispatchClaims | None = None,
         entitlements: EntitlementService | None = None,
+        release_retries: IStorageReleaseRetryRepository | None = None,
     ) -> None:
         self._storage = storage
         self._repo = attachment_repo
+        # #2630 — where a delete that failed after the record was gone is owed; ``None``: the failure propagates.
+        self._release_retries = release_retries
         self._settings = settings
         # REQ-056 §7.4 (#2142) — the tenant's storage quota comes from its plan (``null`` = the instance
         # setting ``STORAGE_TENANT_QUOTA_MB``). ``get_attachment_service`` wires the plan resolution; a service
@@ -149,6 +248,40 @@ class AttachmentService:
         contribution deletes its attachment record when it is withdrawn, so two
         contributions of one photo must not share one record, #1770).
         """
+        attachment, _created = await self._pipeline(
+            tenant_key=tenant_key,
+            user_key=user_key,
+            data=data,
+            mime_type=mime_type,
+            original_filename=original_filename,
+            category=category,
+            capture_device=capture_device,
+            reuse_own_record=reuse_own_record,
+            stamp=None,
+            sha256=None,
+        )
+        return attachment
+
+    async def _pipeline(
+        self,
+        *,
+        tenant_key: str,
+        user_key: str,
+        data: bytes,
+        mime_type: str,
+        original_filename: str,
+        category: AttachmentCategory,
+        capture_device: CaptureDevice,
+        reuse_own_record: bool,
+        stamp: ClientEventStamp | None,
+        sha256: str | None,
+    ) -> tuple[Attachment, bool]:
+        """The upload pipeline; ``(record, created)`` - ``False`` when the #1770 dedup handed back an own record.
+
+        ``stamp`` (REQ-053 WP 9.3) is stored on a record this upload creates; the unique index
+        ``(tenant_key, client_event_id)`` then refuses a concurrent twin (:class:`DuplicateError`), and the twin's
+        freshly written object is deleted again. ``sha256`` is the bytes' hash when the caller has it already.
+        """
         mime_type = (mime_type or "").lower().strip()
         max_bytes = self._settings.storage_max_file_size_mb * 1024 * 1024
 
@@ -156,11 +289,7 @@ class AttachmentService:
         self._enforce_quota(tenant_key, incoming_bytes=len(data))
 
         # 2. MIME whitelist (category-resolved).
-        allowed = self._settings.allowed_mime_types_for_category(category.value)
-        if self._settings.storage_strip_exif:
-            # #2139 — an image type the strip cannot re-encode would be stored
-            # with its EXIF/GPS block, whatever a per-category override admits.
-            allowed = [m for m in allowed if not m.startswith("image/") or is_strippable_format(m)]
+        allowed = self.accepted_mime_types(category.value)
         if mime_type not in allowed:
             raise InvalidFileTypeError(mime_type, allowed)
 
@@ -191,7 +320,7 @@ class AttachmentService:
         #    rule — gets a record of their own that shares the stored object.
         #    Erasure selects records by ``created_by`` and ``category``, and bytes
         #    go only when the last record holding them does.
-        sha256 = hashlib.sha256(data).hexdigest()
+        sha256 = sha256 or hashlib.sha256(data).hexdigest()
         own = (
             self._repo.find_own_by_sha256(tenant_key=tenant_key, sha256=sha256, created_by=user_key, category=category)
             if reuse_own_record
@@ -205,13 +334,13 @@ class AttachmentService:
                 category=category.value,
                 byte_size=own.byte_size,
             )
-            return own
+            return own, False
         held = self._repo.find_by_sha256(tenant_key, sha256)
         # Only an object stored under the type this upload was validated as: the
         # linked record is served with the object's type, and the whitelist and
         # magic-byte check above ran for *this* category and type.
         if held is not None and held.mime_type == mime_type and await self._object_exists(held.storage_key):
-            return await self._link_to_stored_object(
+            linked = await self._link_to_stored_object(
                 held,
                 tenant_key=tenant_key,
                 user_key=user_key,
@@ -219,10 +348,12 @@ class AttachmentService:
                 original_filename=original_filename,
                 category=category,
                 capture_device=capture_device,
+                stamp=stamp,
             )
+            return linked, True
 
         # 7. EXIF strip for images (unless disabled).
-        body = self._stored_body(data, mime_type)
+        body = self.stored_body(data, mime_type)
 
         # 8. Build key + write bytes.
         created_at = datetime.now(UTC)
@@ -252,9 +383,17 @@ class AttachmentService:
             # Client-declared provenance (#1137). Recorded at ingestion because
             # EXIF is stripped in step 5 — a device hint not captured here is gone.
             capture_device=capture_device,
+            client_event_id=stamp.client_event_id if stamp else None,
+            client_event_digest=stamp.digest if stamp else None,
             created_at=created_at,
         )
-        created = self._repo.create(attachment)
+        try:
+            created = self._repo.create(attachment)
+        except DuplicateError, WriteConflictError:
+            # A concurrent attempt of the same buffered upload won the unique index (WP 9.3): the object written
+            # above belongs to no record. Remove it; the caller reads the winner.
+            await self._delete_object_quietly(storage_key, tenant_key=tenant_key)
+            raise
 
         # 10. Audit log — never log bytes / presign URLs / filename (NFR-013 §9.2).
         logger.info(
@@ -270,7 +409,139 @@ class AttachmentService:
         if can_render(mime_type):
             self._dispatch_thumbnails(created)
 
-        return created
+        return created, True
+
+    @staticmethod
+    def _upload_stamp(
+        client_event_id: UUID,
+        *,
+        user_key: str,
+        sha256: str,
+        category: AttachmentCategory,
+        scope: Mapping[str, str] | None,
+    ) -> ClientEventStamp:
+        """The id and digest of a buffered upload: uploader, category, the bytes' hash and the carrier (``scope``)."""
+        digest = client_event_digest(
+            {"user": user_key, "category": category.value, "sha256": sha256, "scope": dict(scope or {})}
+        )
+        return ClientEventStamp(str(client_event_id), digest)
+
+    def _replayed_upload(self, stamp: ClientEventStamp, *, tenant_key: str) -> Attachment | None:
+        stored = self._repo.find_by_client_event_id(tenant_key=tenant_key, client_event_id=stamp.client_event_id)
+        if stored is None:
+            return None
+        if not same_digest(stored.client_event_digest, stamp.digest):
+            raise ClientEventMismatchError()
+        return stored
+
+    async def upload_once(
+        self,
+        *,
+        tenant_key: str,
+        user_key: str,
+        data: bytes,
+        mime_type: str,
+        original_filename: str,
+        category: AttachmentCategory,
+        client_event_id: UUID | None,
+        capture_device: CaptureDevice = CaptureDevice.UNKNOWN,
+        scope: Mapping[str, str] | None = None,
+        admit: Callable[[], object] | None = None,
+    ) -> UploadOutcome:
+        """:meth:`upload` with the replay rule of a buffered upload (REQ-053 WP 9.3).
+
+        Without a ``client_event_id`` this is :meth:`upload`. With one, the record of an earlier attempt is answered
+        (``replayed``) **before** ``admit`` runs - the caller's quota or gallery check, so a replay of a stored
+        photo is answered even when the gallery is full by now. A deleted record's id answers 404
+        ``client_event.deleted``. Otherwise the pipeline runs and stamps the id on the record it creates; a
+        concurrent twin loses the unique index and answers the winner's record. When the #1770 dedup hands back the
+        uploader's own record, a record without an id is stamped with this one, a record with this id is a replay.
+        ``created`` is ``True`` only for a record this call wrote. 409 ``client_event.payload_mismatch`` when the id
+        names other bytes, another category, another uploader or another carrier (``scope``).
+        """
+        sha256: str | None = None
+        stamp: ClientEventStamp | None = None
+        if client_event_id is not None:
+            sha256 = hashlib.sha256(data).hexdigest()
+            stamp = self._upload_stamp(
+                client_event_id, user_key=user_key, sha256=sha256, category=category, scope=scope
+            )
+            stored = self._replayed_upload(stamp, tenant_key=tenant_key)
+            if stored is not None:
+                return UploadOutcome(stored, replayed=True)
+            if self._repo.client_event_tombstones([stamp.client_event_id], tenant_key=tenant_key):
+                raise ClientEventDeletedError()
+        admitted = admit() if admit is not None else None
+        try:
+            attachment, created = await self._pipeline(
+                tenant_key=tenant_key,
+                user_key=user_key,
+                data=data,
+                mime_type=mime_type,
+                original_filename=original_filename,
+                category=category,
+                capture_device=capture_device,
+                reuse_own_record=True,
+                stamp=stamp,
+                sha256=sha256,
+            )
+        except DuplicateError as exc:
+            if stamp is None or not is_client_event_conflict(exc.details):
+                raise
+            return self._lost_race(stamp, tenant_key=tenant_key, error=exc)
+        except WriteConflictError as exc:
+            if stamp is None:
+                raise
+            return self._lost_race(stamp, tenant_key=tenant_key, error=exc)
+        if stamp is None or created:
+            return UploadOutcome(attachment, created=created, admitted=admitted)
+        return self._own_record_outcome(attachment, stamp, tenant_key=tenant_key)
+
+    def _lost_race(self, stamp: ClientEventStamp, *, tenant_key: str, error: Exception) -> UploadOutcome:
+        """A twin of this buffered upload stored first: answer its record (re-raise ``error`` if there is none)."""
+        stored = self._replayed_upload(stamp, tenant_key=tenant_key)
+        if stored is None:
+            raise error
+        logger.info("attachment_upload_replayed", tenant=log_tenant(tenant_key), attachment_id=stored.key)
+        return UploadOutcome(stored, replayed=True)
+
+    def _own_record_outcome(self, own: Attachment, stamp: ClientEventStamp, *, tenant_key: str) -> UploadOutcome:
+        """The #1770 dedup handed back the uploader's own record for these bytes: stamp it, or read it as a replay."""
+        if own.client_event_id == stamp.client_event_id:
+            # A concurrent twin of this very upload created it a moment ago.
+            if not same_digest(own.client_event_digest, stamp.digest):
+                raise ClientEventMismatchError()
+            return UploadOutcome(own, replayed=True)
+        if own.client_event_id is None:
+            try:
+                stamped = self._repo.stamp_client_event(
+                    own.key or "", tenant_key=tenant_key, client_event_id=stamp.client_event_id, digest=stamp.digest
+                )
+            except (DuplicateError, WriteConflictError) as exc:
+                return self._lost_race(stamp, tenant_key=tenant_key, error=exc)
+            if stamped:
+                # Through the pydantic base (the call-graph sweep's blind-spot ceiling, #2039).
+                record: BaseModel = own
+                update = {"client_event_id": stamp.client_event_id, "client_event_digest": stamp.digest}
+                return UploadOutcome(cast("Attachment", record.model_copy(update=update)))
+            stored = self._replayed_upload(stamp, tenant_key=tenant_key)  # a twin stamped it first
+            if stored is not None:
+                return UploadOutcome(stored, replayed=True)
+        # The record belongs to another buffered upload of the same bytes: answer it, keep its id.
+        return UploadOutcome(own)
+
+    async def _delete_object_quietly(self, storage_key: str, *, tenant_key: str) -> None:
+        """Remove the object a refused record would have held, unless a record holds it after all (#1770).
+
+        A failure is logged, never raised - the caller's error is the one to answer, and the orphan sweep is the
+        backstop.
+        """
+        if self._repo.storage_keys_held_elsewhere(tenant_key=tenant_key, storage_keys=[storage_key], excluding=[]):
+            return
+        try:
+            await self._storage.delete_object(storage_key)
+        except Exception as exc:  # noqa: BLE001 - the caller's error is the one to answer
+            logger.warning("attachment_orphan_delete_failed", error_type=type(exc).__name__)
 
     async def _link_to_stored_object(
         self,
@@ -282,6 +553,7 @@ class AttachmentService:
         original_filename: str,
         category: AttachmentCategory,
         capture_device: CaptureDevice,
+        stamp: ClientEventStamp | None = None,
     ) -> Attachment:
         """Give *user_key* a record of their own over the object *held* points at (#1770).
 
@@ -309,6 +581,8 @@ class AttachmentService:
                 category=category,
                 storage_key=held.storage_key,
                 capture_device=capture_device,
+                client_event_id=stamp.client_event_id if stamp else None,
+                client_event_digest=stamp.digest if stamp else None,
                 created_at=created_at,
             )
         )
@@ -316,7 +590,7 @@ class AttachmentService:
         if not await self._object_exists(held.storage_key):
             await self._storage.put_object(
                 held.storage_key,
-                _bytes_stream(self._stored_body(data, held.mime_type)),
+                _bytes_stream(self.stored_body(data, held.mime_type)),
                 held.mime_type,
                 metadata={"tenant_key": tenant_key, "category": category.value},
             )
@@ -350,11 +624,13 @@ class AttachmentService:
         except OSError, ValueError:
             return
 
-    def _stored_body(self, data: bytes, mime_type: str) -> bytes:
-        """The bytes the pipeline stores for *data*: EXIF-stripped images unless disabled."""
-        if self._settings.storage_strip_exif and mime_type.startswith("image/"):
-            return self._exif.strip(data, mime_type)
-        return data
+    def accepted_mime_types(self, category: str) -> list[str]:
+        """:func:`accepted_mime_types` under this service's settings."""
+        return accepted_mime_types(self._settings, category)
+
+    def stored_body(self, data: bytes, mime_type: str) -> bytes:
+        """:func:`stored_body` under this service's settings and EXIF stripper."""
+        return stored_body(self._settings, data, mime_type, stripper=self._exif)
 
     async def _object_exists(self, storage_key: str) -> bool:
         from app.common.exceptions import NotFoundError
@@ -580,9 +856,7 @@ class AttachmentService:
             # records each saw the other one. Asked again once this record is gone,
             # at least one of them sees no holder, so the object does not outlive
             # every record (#1770 review SEC-001).
-            for key in self._object_keys(attachment):
-                await self._storage.delete_object(key)
-            shared = False
+            shared = await self._release_object(attachment, tenant_key)
         logger.info(
             "attachment_deleted",
             tenant=log_tenant(tenant_key),
@@ -591,6 +865,191 @@ class AttachmentService:
             shared_object_retained=shared,
         )
         return deleted
+
+    async def delete_if_unreferenced(self, attachment_id: str, tenant_key: str) -> bool:
+        """Delete the attachment unless a carrier still references it (a redacted care event let go of it, #2400).
+
+        The reference scan is the one the task-photo route and the orphan sweep share (the tenant-scoped scan of
+        :meth:`IAttachmentRepository.task_photo_delete_state`): a photo another task, plant gallery, diary entry,
+        care event or site underlay still names stays — sha256 deduplication gives one stored object to several
+        carriers, and deleting it would strand their references. Idempotent: an unknown id returns ``False``.
+
+        **The record goes first, in the transaction of the scan** (:meth:`IAttachmentRepository.remove_if_unreferenced`,
+        #2545): a separate scan and delete let a carrier written between them point at nothing. A write committed on
+        the record while the remove is open makes it conflict (``WriteConflictError``), and the conflict does not say
+        whether that writer names the record: a carrier binding it does (``set_site_underlay``), a writer that only
+        updates it does not (``mark_renditions_failed``, #2630). **The remove is therefore tried once more**, in a
+        fresh transaction whose scan sees the committed write: a carrier now naming the record keeps it (the scan
+        answers ``None``), a writer that does not lets it go. Exactly two attempts, no loop; a second conflict (a
+        writer still open, or a new one) keeps the picture — the safe direction — and logs
+        ``attachment_delete_skipped_concurrent_write``.
+
+        The stored object follows unless another record holds it; a storage call failing after the
+        commit leaves an object no record holds — never a reference to a missing picture. That object is recorded
+        as an owed release (#2630) and the reconciliation run deletes exactly it later, unless a record holds it
+        again by then; the global ``STORAGE_RECONCILE_DELETE_ENABLED`` stays off.
+
+        The repository calls are synchronous (python-arango) and run in a worker thread, off the event loop.
+        """
+        try:
+            removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
+        except WriteConflictError:
+            # A committed rival write is read by the second transaction's scan, which decides (#2630); a rival
+            # still open conflicts again and the picture stays.
+            logger.info("attachment_delete_retried_after_conflict", tenant=log_tenant(tenant_key))
+            try:
+                removed = await asyncio.to_thread(self._repo.remove_if_unreferenced, attachment_id, tenant_key)
+            except WriteConflictError:
+                logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key))
+                return False
+        if removed is None:
+            return False
+        shared = await self._release_object(removed, tenant_key)
+        logger.info(
+            "attachment_deleted",
+            tenant=log_tenant(tenant_key),
+            attachment_id=attachment_id,
+            category=removed.category.value,
+            shared_object_retained=shared,
+        )
+        return True
+
+    async def delete_many_if_unreferenced(
+        self, attachment_ids: Iterable[str], tenant_key: str, *, category: AttachmentCategory
+    ) -> int:
+        """:meth:`delete_if_unreferenced` for the photos a committed bed or site delete let go of (#2715 item 6).
+
+        One call, one reference scan: the records go in **one** transaction
+        (:meth:`IAttachmentRepository.remove_unreferenced`) instead of one scan and one transaction per photo inside
+        the DELETE request. Only records of *category* are considered. The rule is unchanged - a record any carrier
+        still names stays, sha256-shared objects stay while another record holds them. A conflict is asked once
+        more in a fresh transaction, like the single delete; a second conflict keeps every photo of the batch (the
+        safe direction, ``attachment_delete_skipped_concurrent_write``) for the nightly orphan sweep.
+
+        The stored objects of the removed records are then released in chunks of
+        :data:`OBJECT_RELEASE_CONCURRENCY` storage calls, each chunk asking right before its deletes whether another
+        record holds the object by now; a failed object is owed to the reconciliation run as in
+        :meth:`_release_object`. Returns how many records went.
+
+        **Records and objects are reported apart.** The records are committed away before any storage call, so a
+        storage failure without a retry store does not make the batch "fail": it raises :class:`ObjectReleaseError`
+        carrying the number of removed records and the ids of the records whose objects stayed, so the caller counts
+        what was deleted and names only what was not.
+        """
+        ids = list({attachment_id: None for attachment_id in attachment_ids})
+        if not ids:
+            return 0
+        removed: list[Attachment] | None = None
+        for _attempt in range(2):
+            try:
+                removed = await asyncio.to_thread(self._repo.remove_unreferenced, ids, tenant_key, category=category)
+                break
+            except WriteConflictError:
+                continue
+        if removed is None:
+            logger.info("attachment_delete_skipped_concurrent_write", tenant=log_tenant(tenant_key), count=len(ids))
+            return 0
+        if not removed:
+            return 0
+        logger.info(
+            "attachments_deleted",
+            tenant=log_tenant(tenant_key),
+            attachment_ids=[attachment.key for attachment in removed],
+            category=category.value,
+        )
+        await self._release_objects(removed, tenant_key)
+        return len(removed)
+
+    async def _release_objects(self, removed: list[Attachment], tenant_key: str) -> None:
+        """Release the stored objects of already removed records, bounded in parallel (#2715 item 6).
+
+        :meth:`_release_object` for a batch: a record outside its tenant's namespace keeps its object (#2138
+        SEC-004), an object another record holds stays (#1770). The deletes run in chunks of
+        :data:`OBJECT_RELEASE_CONCURRENCY`, and **each chunk asks ``storage_keys_held_elsewhere`` right before its own
+        deletes** (#2715 review SEC-S01): asked once for the whole batch, a dedup upload of the same bytes linking to
+        an object while earlier chunks were deleting (``_link_to_stored_object``) widened the window between the
+        holder check and the delete from two storage calls to the whole batch. Every key is tried; the failed ones
+        are owed to the reconciliation run (#2630). Without a retry store an :class:`ObjectReleaseError` follows once
+        all keys were tried - the records are gone either way.
+        """
+        own = [attachment for attachment in removed if self.in_own_namespace(attachment)]
+        pairs = [(key, attachment) for attachment in own for key in self._object_keys(attachment)]
+        failed: list[tuple[str, Attachment]] = []
+        error: BaseException | None = None
+        for start in range(0, len(pairs), OBJECT_RELEASE_CONCURRENCY):
+            chunk = pairs[start : start + OBJECT_RELEASE_CONCURRENCY]
+            held = await asyncio.to_thread(
+                self._repo.storage_keys_held_elsewhere,
+                tenant_key=tenant_key,
+                storage_keys=list({attachment.storage_key: None for _key, attachment in chunk}),
+                excluding=[],
+            )
+            doomed = [(key, attachment) for key, attachment in chunk if attachment.storage_key not in held]
+            outcomes = await asyncio.gather(
+                *(self._storage.delete_object(key) for key, _attachment in doomed), return_exceptions=True
+            )
+            failed += [
+                pair for pair, outcome in zip(doomed, outcomes, strict=True) if isinstance(outcome, BaseException)
+            ]
+            error = error or next((outcome for outcome in outcomes if isinstance(outcome, BaseException)), None)
+        if error is None:
+            return
+        # The exception type only: a storage error text embeds the object path (tenant).
+        logger.warning(
+            "attachment_object_release_failed",
+            error_type=type(error).__name__,
+            objects=len(failed),
+            outside_namespace=len(removed) - len(own),
+        )
+        if self._release_retries is None:
+            raise ObjectReleaseError(
+                removed=len(removed),
+                attachment_ids=list({str(attachment.key): None for _key, attachment in failed}),
+                objects=len(failed),
+            ) from error
+        object_keys = [key for key, _attachment in failed]
+        await asyncio.to_thread(self._release_retries.owe_release, tenant_key=tenant_key, object_keys=object_keys)
+        logger.info("attachment_object_release_owed", tenant=log_tenant(tenant_key), objects=len(failed))
+
+    async def _release_object(self, attachment: Attachment, tenant_key: str) -> bool:
+        """Delete the stored object and renditions of an already removed record; ``True`` when they were kept.
+
+        Kept while another record holds the object (#1770), asked after this record is gone so the last of two
+        concurrent deletes sees no holder; never deleted outside the record's own namespace (#2138 SEC-004).
+        """
+        if not self.in_own_namespace(attachment):
+            logger.warning("attachment_outside_namespace", tenant=log_tenant(tenant_key))
+            return True
+        held = await asyncio.to_thread(
+            self._repo.storage_keys_held_elsewhere,
+            tenant_key=tenant_key,
+            storage_keys=[attachment.storage_key],
+            excluding=[],
+        )
+        if attachment.storage_key in held:
+            return True
+        # The record was committed away before this runs, so a storage error can no longer roll anything back: the
+        # object would stay with no record holding it (#2630). Every key is tried; each failed one is recorded as an
+        # owed release, which the reconciliation run retries for exactly that object (operator decision 2026-11-09,
+        # not the global ``STORAGE_RECONCILE_DELETE_ENABLED``). Without a retry store, or when recording fails too,
+        # the error propagates as before.
+        failed: list[str] = []
+        error: Exception | None = None
+        for key in self._object_keys(attachment):
+            try:
+                await self._storage.delete_object(key)
+            except Exception as exc:  # noqa: BLE001 — every key is tried; the failures are owed below
+                failed.append(key)
+                error = error or exc
+                # The exception type only: a storage error text embeds the object path (tenant).
+                logger.warning("attachment_object_release_failed", error_type=type(exc).__name__)
+        if error is None:
+            return False
+        if self._release_retries is None:
+            raise error
+        await asyncio.to_thread(self._release_retries.owe_release, tenant_key=tenant_key, object_keys=failed)
+        logger.info("attachment_object_release_owed", tenant=log_tenant(tenant_key), objects=len(failed))
+        return False
 
     def _object_keys(self, attachment: Attachment) -> list[str]:
         """The stored object of *attachment* and its renditions."""
@@ -673,4 +1132,4 @@ class AttachmentService:
         return self._repo.list_by_tenant(tenant_key, category, offset, limit)
 
 
-__all__ = ["AttachmentService", "DownloadTarget"]
+__all__ = ["AttachmentService", "DownloadTarget", "ObjectReleaseError"]

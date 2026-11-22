@@ -15,7 +15,11 @@ class LoginPage(BasePage):
     PATH = "/login"
 
     # ── Locators ────────────────────────────────────────────────────────
-    HEADING = (By.CSS_SELECTOR, "h5")
+    #: The page's top-level heading. Keyed on the element, not on the MUI
+    #: variant: since #3017 the title is ``<Typography variant="h5"
+    #: component="h1">`` (the login page brings its own landmark and ``h1``),
+    #: so a bare ``h5`` matched nothing and every login timed out.
+    HEADING = (By.CSS_SELECTOR, "[data-testid='login-page'] h1")
     EMAIL_INPUT = (By.CSS_SELECTOR, "input[type='email']")
     PASSWORD_INPUT = (By.CSS_SELECTOR, "input[type='password']")
     REMEMBER_ME_CHECKBOX = (By.CSS_SELECTOR, "input[type='checkbox']")

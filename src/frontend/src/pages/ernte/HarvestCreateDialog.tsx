@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -15,6 +15,8 @@ import FormNumberField from '@/components/form/FormNumberField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useFieldViolations } from '@/hooks/useFieldViolations';
 import * as harvestApi from '@/api/endpoints/harvest';
 import * as plantApi from '@/api/endpoints/plantInstances';
@@ -60,14 +62,17 @@ export default function HarvestCreateDialog({
 }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
+  // A failed read is shown with a retry, never as "no plants available" (#3037).
+  const [plantsError, setPlantsError] = useState(false);
+  const [plantsAttempt, setPlantsAttempt] = useState(0);
 
-  const { control, handleSubmit, reset, setError } = useForm<FormData>({
+  const { control, handleSubmit, reset, setError } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       plant_key: plantKey ?? '',
@@ -87,13 +92,18 @@ export default function HarvestCreateDialog({
   useEffect(() => {
     if (open && !plantKey) {
       setLoadingPlants(true);
+      setPlantsError(false);
       plantApi
         .listPlantInstances()
         .then(setPlants)
-        .catch(() => setPlants([]))
+        .catch((err: unknown) => {
+          captureHandledError(err, { source: 'HarvestCreateDialog.plants' });
+          setPlants([]);
+          setPlantsError(true);
+        })
         .finally(() => setLoadingPlants(false));
     }
-  }, [open, plantKey]);
+  }, [open, plantKey, plantsAttempt]);
 
   useEffect(() => {
     if (open) {
@@ -137,7 +147,7 @@ export default function HarvestCreateDialog({
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="harvest-create-dialog-title" data-testid="harvest-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="harvest-create-dialog-title" data-testid="harvest-create-dialog">
       <DialogTitle id="harvest-create-dialog-title">{t('pages.harvest.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -160,14 +170,20 @@ export default function HarvestCreateDialog({
               required
               disabled={loadingPlants || plants.length === 0}
               helperText={
-                !loadingPlants && plants.length === 0
+                !loadingPlants && !plantsError && plants.length === 0
                   ? t('pages.harvest.noPlantsAvailable')
                   : undefined
               }
               options={plants.map((p) => ({
                 value: p.key,
-                label: getPlantLabel(p),
+                label: getPlantLabel(p, i18n.language),
               }))}
+            />
+          )}
+          {!plantKey && plantsError && (
+            <OptionsLoadError
+              onRetry={() => setPlantsAttempt((n) => n + 1)}
+              data-testid="harvest-plants-load-error"
             />
           )}
           <FormTextField
@@ -222,6 +238,6 @@ export default function HarvestCreateDialog({
           />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

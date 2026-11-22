@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 from app.common.enums import ApplicationMethod, WaterSource
+from app.domain.models.privacy import PERSON_LABEL_MAX_LENGTH
 
 
 class FertilizerSnapshot(BaseModel):
@@ -50,6 +51,13 @@ class WateringEvent(BaseModel):
     runoff_ec: float | None = Field(default=None, ge=0)
     water_source: WaterSource | None = None
     performed_by: str | None = None
+    #: The account that did the work (spec/privacy ``08`` §3.4, PRIV-E13): set by the server only, never
+    #: from a request body (PRIV-705). ``None`` until E13 stamps it; v0111 wrote an explicit ``null`` on
+    #: every older row of an active tenant. ``performed_by`` is deprecated for one release — v0111 copied
+    #: it into the label.
+    performed_by_user_key: str | None = None
+    #: A third party who did the work: free text, never an account key (SR-006).
+    performed_by_label: str | None = Field(default=None, max_length=PERSON_LABEL_MAX_LENGTH)
     task_key: str | None = None
     channel_id: str | None = None
     notes: str | None = None

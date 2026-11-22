@@ -8,16 +8,6 @@
 
 version: "3"
 
-vars:
-  # The Renovate CLI used by `renovate:dry-run`, pinned by tag AND digest.
-  # A floating `:latest` here would make the dry-run's verdict a function of
-  # whatever Renovate shipped that morning — the same reproducibility defect the
-  # nuclei binary pin records (#1177), where the meaning of "validated" changed
-  # under an unchanged repository. Aged by the Taskfile custom manager in
-  # renovate.json5 (added with this target), so the pin cannot rot either.
-  # renovate: datasource=docker depName=renovate/renovate
-  RENOVATE_IMAGE: renovate/renovate:44.149.1@sha256:0423c5dfb1488df5716b6584032b3bcf7091ad7a3bc547c5707f047da7a30674
-
 tasks:
   renovate:dry-run:
     desc: |
@@ -90,6 +80,18 @@ tasks:
       empty — annoying, but it breaks nothing.
 
       Requires Docker.
+    vars:
+      # The Renovate CLI image, pinned by tag AND digest in .pins/images.yaml
+      # (moved out of this Taskfile by #2581 — see that file for why). Read
+      # lazily as a TASK-LEVEL dynamic var so only this task touches .pins/.
+      RENOVATE_IMAGE:
+        sh: |
+          v=$(sed -n 's/^RENOVATE_IMAGE:[[:space:]]*//p' "{{.ROOT_DIR}}/.pins/images.yaml")
+          if [ -z "$v" ] || [ "$(printf '%s\n' "$v" | wc -l)" -ne 1 ]; then
+            echo "RENOVATE_IMAGE: expected exactly one non-empty pin in .pins/images.yaml" >&2
+            exit 1
+          fi
+          printf '%s\n' "$v"
     cmds:
       - |
         set -euo pipefail

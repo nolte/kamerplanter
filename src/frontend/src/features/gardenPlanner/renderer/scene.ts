@@ -1,0 +1,354 @@
+/**
+ * The renderer-independent part of a frame: which objects are in, in which order and at which
+ * level of detail. `SvgPlanRenderer` turns a {@link Scene} into DOM, `HeadlessPlanRenderer` hands
+ * it to tests, so culling, LOD and ordering are asserted once, without a DOM.
+ */
+import { ICON_MIN_PX, LABEL_MIN_PX, labelFontPx, markersVisible } from './lod';
+import { fitLabel, labelAnchorOf, labelWeight, resolveLabelCollisions, type LabelCandidate } from './labelLayout';
+import { isAreaEntry, markerIndex, shapeEntries, type MarkerEntry, type ShapeEntry } from './planIndex';
+import { ATTENTION_PRIORITY, type AttentionCode } from '../model/plantState';
+import type { PlanModel } from '../model/planModel';
+import type { GardenObject, PlanLocation } from '../model/types';
+import type { PlantMarkerState, RenderOptions, RenderSelection, Viewport } from './types';
+import { cullBoundsM, intersects } from './viewport';
+
+export interface SceneShape {
+  entry: ShapeEntry;
+  selected: boolean;
+  /** A refused save named this object (GP-UX-017). */
+  invalid: boolean;
+  /** Roving tabindex 0 (GP-NFR-068); every other object is -1. */
+  tabStop: boolean;
+  /**
+   * The object is wide enough on screen for its name (GP-NFR-067: 60 px). The overlays that sit beside the name
+   * (zone number, condition glyphs, watering days) follow this gate.
+   */
+  showLabel: boolean;
+  /**
+   * The name as drawn, at its anchor (GP-UX-047): shortened with "…", `null` when the object has no name, is below
+   * the LOD gate or gave way to the label of a larger object.
+   */
+  label: SceneLabel | null;
+  /** Garden objects only. */
+  showIcon: boolean;
+  /** Dimensions are printed for the selection only (GP-NFR-067). */
+  showDimensions: boolean;
+  plantCount: number;
+}
+
+/** A name on the plan: the (shortened) text and its centre in metres, plan frame. */
+export interface SceneLabel {
+  text: string;
+  x: number;
+  y: number;
+}
+
+/** An individually drawn marker: every marker of the entered bed, and a selected one anywhere. */
+export interface SceneMarker {
+  entry: MarkerEntry;
+  selected: boolean;
+  /** Only the plants of the entered bed are focus targets. */
+  interactive: boolean;
+  tabStop: boolean;
+  /**
+   * The state the plant-state layer draws on a marker outside the entered bed (GP-UX-061). Such a marker is
+   * decorative like a batch: the hover bubble and the focus stay in the bed view.
+   */
+  layerState?: PlantMarkerState;
+}
+
+/**
+ * The remaining markers of a bed, drawn as ONE path: they are decorative (the bed's label carries
+ * the count), so a bed of 20 plants costs one DOM node instead of 20 - which is what keeps the
+ * "large" class inside the DOM budget (GP-ACC-033). Hit testing reads the model, not these nodes.
+ */
+export interface SceneMarkerBatch {
+  locationKey: string;
+  markers: MarkerEntry[];
+}
+
+/** One summary per bed whose markers would be closer than 10 px (GP-NFR-067). */
+export interface SceneCluster {
+  locationKey: string;
+  /** Every plant of the bed: what the accessible name announces, with or without the filter. */
+  count: number;
+  /**
+   * The number drawn in the circle: `count`, or under "only plants that need attention" the plants the filter keeps
+   * (those with a badge plus those whose state is not known yet).
+   */
+  shownCount: number;
+  /** Where the circle sits, in metres: at the bed's label anchor, a line above its name when that is drawn. */
+  x: number;
+  y: number;
+  /** Plants of the bed that need attention, when their states are known (GP-FR-190); else `null`. */
+  attention: number | null;
+  /** The highest-priority reason among them (GP-UX-060). */
+  topBadge: AttentionCode | null;
+}
+
+export interface Scene {
+  /** Paint order = DOM order: boundary, areas, paths, then beds and objects in reading order. */
+  shapes: SceneShape[];
+  markers: SceneMarker[];
+  markerBatches: SceneMarkerBatch[];
+  clusters: SceneCluster[];
+  tabStopKey: string | null;
+  /**
+   * The nodes a drag can move - every shape and every individually drawn marker - by key. Built once per scene, so a
+   * renderer's drag preview finds its node without a scan per pointer move (GP-NFR-033).
+   */
+  nodes: ReadonlyMap<string, SceneNode>;
+}
+
+/** A node of its own in the scene: a shape or an individually drawn marker. */
+export type SceneNode = { kind: 'shape'; item: SceneShape } | { kind: 'marker'; item: SceneMarker };
+
+/** Row (north first) then column by the bounding box (GP-NFR-020), after layer and z-order. */
+export function compareDomOrder(a: ShapeEntry, b: ShapeEntry): number {
+  return (
+    b.layer - a.layer ||
+    a.zOrder - b.zOrder ||
+    b.bbox[3] - a.bbox[3] ||
+    a.bbox[0] - b.bbox[0] ||
+    (a.key < b.key ? -1 : a.key > b.key ? 1 : 0)
+  );
+}
+
+function screenSize(entry: ShapeEntry, pxPerM: number): [number, number] {
+  return [(entry.bbox[2] - entry.bbox[0]) * pxPerM, (entry.bbox[3] - entry.bbox[1]) * pxPerM];
+}
+
+/** GP-NFR-067: a name from 60 px of on-screen width; the boundary and a caption (its text is the drawing) have none. */
+function labelGate(entry: ShapeEntry, pxPerM: number): boolean {
+  return entry.kind !== 'boundary' && !isCaption(entry) && screenSize(entry, pxPerM)[0] >= LABEL_MIN_PX;
+}
+
+/** A caption (GP-UX-071): drawn as its own text, so it has no type icon, no name label and no printed size. */
+function isCaption(entry: ShapeEntry): boolean {
+  return entry.kind === 'gardenObject' && (entry.source as GardenObject).object_type === 'text_label';
+}
+
+/** GP-NFR-067: a garden object's type icon from 24 px. */
+function showIcon(entry: ShapeEntry, pxPerM: number): boolean {
+  const [widthPx, heightPx] = screenSize(entry, pxPerM);
+  return entry.kind === 'gardenObject' && !isCaption(entry) && Math.max(widthPx, heightPx) >= ICON_MIN_PX;
+}
+
+/**
+ * A cluster beside a drawn name sits this many font sizes above the label anchor: below it the "last watered" layer
+ * writes its days, the condition glyphs take the bottom band.
+ */
+const CLUSTER_ABOVE_LABEL_EM = 1.5;
+
+function nameOf(entry: ShapeEntry): string {
+  if (entry.kind === 'location') return (entry.source as PlanLocation).name;
+  if (entry.kind === 'gardenObject') return (entry.source as GardenObject).label;
+  return '';
+}
+
+/**
+ * The names drawn this frame (GP-UX-047): every object past the LOD gate with a name, at its label anchor, shortened
+ * to the room there; where two labels overlap, the larger object keeps its name.
+ */
+function sceneLabels(kept: readonly ShapeEntry[], pxPerM: number, fontPx: number): Map<string, SceneLabel> {
+  const candidates: LabelCandidate[] = [];
+  kept.forEach((entry, order) => {
+    if (!labelGate(entry, pxPerM)) return;
+    const text = fitLabel(nameOf(entry), entry.geometry, pxPerM, fontPx);
+    if (!text) return;
+    const [x, y] = labelAnchorOf(entry.geometry).point;
+    const yields = isAreaEntry(entry);
+    candidates.push({
+      key: entry.key,
+      text,
+      x,
+      y,
+      withIcon: showIcon(entry, pxPerM),
+      weight: labelWeight(entry),
+      order,
+      ...(yields ? { yields } : {}),
+    });
+  });
+  const shown = resolveLabelCollisions(candidates, pxPerM, fontPx);
+  const labels = new Map<string, SceneLabel>();
+  for (const { key, text, x, y } of candidates) {
+    if (shown.has(key)) labels.set(key, { text, x, y });
+  }
+  return labels;
+}
+
+interface AttentionSummary extends Pick<SceneCluster, 'attention' | 'topBadge'> {
+  /** Plants of the bed whose state is not known (not read yet, or the layer is off). */
+  unknown: number;
+}
+
+/**
+ * Plants that need attention among the markers (`null` when no plant of the bed has a known state), the top reason
+ * and how many plants have no known state.
+ */
+function attentionOf(markers: readonly MarkerEntry[], states: RenderOptions['plantStates']): AttentionSummary {
+  const plants = markers.filter((marker) => marker.kind === 'plant').length;
+  if (!states) return { attention: null, topBadge: null, unknown: plants };
+  let known = 0;
+  let attention = 0;
+  let top: AttentionCode | null = null;
+  for (const marker of markers) {
+    if (marker.kind !== 'plant') continue;
+    const state = states[marker.key];
+    if (!state) continue;
+    known += 1;
+    if (state.badge === null) continue;
+    attention += 1;
+    if (top === null || ATTENTION_PRIORITY.indexOf(state.badge) < ATTENTION_PRIORITY.indexOf(top)) top = state.badge;
+  }
+  return { attention: known > 0 ? attention : null, topBadge: top, unknown: plants - known };
+}
+
+/**
+ * The beds whose plants the plant-state layer needs (GP-UX-061, #2488): placed beds with plants, within the cull
+ * window, at marker LOD. Below that LOD a bed is one cluster, which reads states already loaded but never asks for
+ * them - so the layer's requests grow with what is drawn in detail, not with the size of the site.
+ */
+export function markerLodBedKeys(model: PlanModel, viewport: Viewport): string[] {
+  const cull = cullBoundsM(viewport);
+  const keys: string[] = [];
+  for (const bed of markerIndex(model).values()) {
+    if (bed.plantCount === 0 || !model.locations[bed.locationKey]?.geometry) continue;
+    if (!intersects(bed.bbox, cull) || !markersVisible(bed.minSpacingM, viewport.pxPerM)) continue;
+    keys.push(bed.locationKey);
+  }
+  return keys;
+}
+
+export function buildScene(
+  model: PlanModel,
+  viewport: Viewport,
+  selection: RenderSelection,
+  options: Pick<
+    RenderOptions,
+    'enteredLocationKey' | 'plantStates' | 'invalidKeys' | 'plantStateLayer' | 'fieldMode' | 'dimensionsOnOverlay'
+  >,
+): Scene {
+  const cull = cullBoundsM(viewport);
+  const { pxPerM } = viewport;
+  const selected = selection.selectedKeys;
+  const markers = markerIndex(model);
+  const entered = options.enteredLocationKey ?? null;
+  const layer = options.plantStateLayer ?? null;
+  const layerStates = layer?.states ?? null;
+  const attentionOnly = layer?.attentionOnly ?? false;
+
+  // A focus target stays rendered outside the viewport (GP-NFR-069): culling never removes it.
+  const kept = shapeEntries(model).filter(
+    (entry) =>
+      entry.key === selection.focusKey || selected.has(entry.key) || intersects(entry.bbox, cull),
+  );
+  kept.sort(compareDomOrder);
+  const labels = sceneLabels(kept, pxPerM, labelFontPx(options.fieldMode));
+  const clusterLift = (CLUSTER_ABOVE_LABEL_EM * labelFontPx(options.fieldMode)) / pxPerM;
+
+  const sceneMarkers: SceneMarker[] = [];
+  const markerBatches: SceneMarkerBatch[] = [];
+  const clusters: SceneCluster[] = [];
+  for (const entry of kept) {
+    if (entry.kind !== 'location') continue;
+    const bed = markers.get(entry.key);
+    if (!bed) continue;
+    if (markersVisible(bed.minSpacingM, pxPerM)) {
+      const isEntered = entry.key === entered;
+      // Per plant: under the filter a plant whose state is not known yet keeps its plain marker (unknown is not
+      // "nothing to do"); an empty slot goes once any plant of the bed has a known state.
+      const bedKnown =
+        attentionOnly && layerStates !== null && bed.markers.some((marker) => marker.key in layerStates);
+      const rest: MarkerEntry[] = [];
+      for (const marker of bed.markers) {
+        const isSelected = selected.has(marker.key);
+        if (isEntered) {
+          sceneMarkers.push({ entry: marker, selected: isSelected, interactive: true, tabStop: false });
+          continue;
+        }
+        // The layer: a plant with a known state is drawn with its channels; "only plants that need attention"
+        // lets a known plant without a badge go - a selected marker always stays.
+        const state = layerStates && marker.kind === 'plant' ? layerStates[marker.key] : undefined;
+        if (attentionOnly && !isSelected) {
+          if (marker.kind === 'plant' ? state !== undefined && !state.badge : bedKnown) continue;
+        }
+        if (state || isSelected) {
+          sceneMarkers.push({
+            entry: marker,
+            selected: isSelected,
+            interactive: false,
+            tabStop: false,
+            ...(state ? { layerState: state } : {}),
+          });
+        } else {
+          rest.push(marker);
+        }
+      }
+      if (rest.length > 0) markerBatches.push({ locationKey: entry.key, markers: rest });
+    } else if (bed.plantCount > 0) {
+      const { unknown, ...summary } = attentionOf(bed.markers, layerStates ?? options.plantStates);
+      // Per plant as above: under the filter the circle shows the plants that need attention plus those not known
+      // yet, and the cluster goes only when every plant is known and none needs attention. The accessible name
+      // always names the total.
+      const keptByFilter = (summary.attention ?? 0) + unknown;
+      if (attentionOnly && keptByFilter === 0) continue;
+      const [ax, ay] = labelAnchorOf(entry.geometry).point;
+      clusters.push({
+        locationKey: bed.locationKey,
+        count: bed.plantCount,
+        shownCount: attentionOnly ? keptByFilter : bed.plantCount,
+        x: ax,
+        // Never on top of the name: a circle with a count over the bed's label would hide it (GP-UX-047).
+        y: labels.has(entry.key) ? ay + clusterLift : ay,
+        ...summary,
+      });
+    }
+  }
+
+  const shapes: SceneShape[] = kept.map((entry) => {
+    return {
+      entry,
+      selected: selected.has(entry.key),
+      invalid: options.invalidKeys?.has(entry.key) ?? false,
+      tabStop: false,
+      showLabel: labelGate(entry, pxPerM),
+      label: labels.get(entry.key) ?? null,
+      showIcon: showIcon(entry, pxPerM),
+      // The editor prints the selection's dimensions on its overlay, clear of the handles (GP-UX-047).
+      showDimensions:
+        entry.kind !== 'boundary' && !isCaption(entry) && selected.has(entry.key) && !options.dimensionsOnOverlay,
+      plantCount: markers.get(entry.key)?.plantCount ?? 0,
+    };
+  });
+
+  // Roving tabindex: one tab stop on the current level. Inside an entered bed that is a plant,
+  // else an object; the stop is the focus key, else the first selected, else the first in DOM order.
+  const interactiveMarkers = sceneMarkers.filter((marker) => marker.interactive);
+  const level: { key: string; selected: boolean; boundary: boolean }[] =
+    interactiveMarkers.length > 0
+      ? interactiveMarkers.map((m) => ({ key: m.entry.key, selected: m.selected, boundary: false }))
+      : shapes.map((s) => ({
+          key: s.entry.key,
+          selected: s.selected,
+          boundary: s.entry.kind === 'boundary',
+        }));
+  // The boundary encloses everything and is painted first; it is the default stop only when alone.
+  const tabStopKey =
+    level.find((item) => item.key === selection.focusKey)?.key ??
+    level.find((item) => item.selected)?.key ??
+    level.find((item) => !item.boundary)?.key ??
+    level[0]?.key ??
+    null;
+  for (const shape of shapes) {
+    shape.tabStop = interactiveMarkers.length === 0 && shape.entry.key === tabStopKey;
+  }
+  for (const marker of interactiveMarkers) marker.tabStop = marker.entry.key === tabStopKey;
+
+  // Keys are unique per collection only (a slot may share its key with a bed or a garden object): the shape wins,
+  // as it did when the drag preview searched the shapes first.
+  const nodes = new Map<string, SceneNode>();
+  for (const item of sceneMarkers) nodes.set(item.entry.key, { kind: 'marker', item });
+  for (const item of shapes) nodes.set(item.entry.key, { kind: 'shape', item });
+  return { shapes, markers: sceneMarkers, markerBatches, clusters, tabStopKey, nodes };
+}

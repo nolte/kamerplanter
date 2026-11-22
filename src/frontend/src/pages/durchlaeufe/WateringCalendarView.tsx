@@ -16,6 +16,7 @@ import OpacityIcon from '@mui/icons-material/Opacity';
 import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { ChannelCalendarEntry, PhaseTimelineEntry } from '@/api/types';
+import { getPhaseColor } from '@/theme/domainColors';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -33,25 +34,6 @@ function formatDateISO(year: number, month: number, day: number): string {
   const d = String(day).padStart(2, '0');
   return `${year}-${m}-${d}`;
 }
-
-// ── Phase colors ────────────────────────────────────────────────────
-
-const PHASE_COLORS: Record<string, string> = {
-  germination: '#a5d6a7',
-  seedling: '#81c784',
-  vegetative: '#4caf50',
-  flowering: '#f48fb1',
-  ripening: '#ffcc80',
-  harvest: '#ffb74d',
-  drying: '#bcaaa4',
-  curing: '#a1887f',
-  flushing: '#90caf9',
-  juvenile: '#c5e1a5',
-  climbing: '#aed581',
-  mature: '#66bb6a',
-  dormancy: '#b0bec5',
-  senescence: '#ef9a9a',
-};
 
 // ── Channel color palette ────────────────────────────────────────────
 
@@ -202,14 +184,14 @@ export default function WateringCalendarView({
           map.set(day, {
             name: p.phase_name,
             displayName: p.display_name || p.phase_name,
-            color: PHASE_COLORS[p.phase_name.toLowerCase()] ?? '#e0e0e0',
+            color: getPhaseColor(theme, p.phase_name),
           });
           break;
         }
       }
     }
     return map;
-  }, [phases, currentYear, currentMonth]);
+  }, [phases, currentYear, currentMonth, theme]);
 
   // Group entries by day number for the current month
   const entriesByDay = useMemo(() => {
@@ -316,13 +298,13 @@ export default function WateringCalendarView({
       {/* Header: nav + month/year */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <IconButton size="small" onClick={goPrev} aria-label={t('common.back')}>
+          <IconButton size="small" onClick={goPrev} aria-label={t('pages.calendar.previousMonth')}>
             <ChevronLeftIcon />
           </IconButton>
           <Typography variant="subtitle1" sx={{ fontWeight: 600, minWidth: 160, textAlign: 'center' }}>
             {formatMonthYear}
           </Typography>
-          <IconButton size="small" onClick={goNext} aria-label={t('common.next')}>
+          <IconButton size="small" onClick={goNext} aria-label={t('pages.calendar.nextMonth')}>
             <ChevronRightIcon />
           </IconButton>
         </Box>

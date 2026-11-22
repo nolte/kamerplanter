@@ -25,11 +25,16 @@ import type {
   SpeciesPhaseTimeline,
 } from '@/api/types';
 import type { RunNutrientData } from '@/hooks/useRunNutrientData';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface PlantingRunNutrientWateringTabProps {
   runStatus: PlantingRunStatus | undefined;
   wateringLoading: boolean;
   assignedPlan: Record<string, unknown> | null;
+  /** The plan read failed: neither "no plan assigned" nor the assign call to action is shown. */
+  planLoadFailed?: boolean;
+  /** The schedule read failed: "no schedule" is not shown in its place. */
+  scheduleLoadFailed?: boolean;
   nutrientData: RunNutrientData;
   fertilizers: Fertilizer[];
   wateringCalendar: WateringScheduleCalendarResponse | null;
@@ -47,6 +52,8 @@ export default function PlantingRunNutrientWateringTab({
   runStatus,
   wateringLoading,
   assignedPlan,
+  planLoadFailed = false,
+  scheduleLoadFailed = false,
   nutrientData,
   fertilizers,
   wateringCalendar,
@@ -60,7 +67,7 @@ export default function PlantingRunNutrientWateringTab({
   onOpenConfirmDialog,
 }: PlantingRunNutrientWateringTabProps) {
   const { t } = useTranslation();
-  const { currentDosages, currentWeek, adaptedEntries } = nutrientData;
+  const { currentDosages, currentWeek, ganttWeek, adaptedEntries } = nutrientData;
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   // Fetch recommended RO% for each phase entry when plan + site are available
@@ -79,7 +86,11 @@ export default function PlantingRunNutrientWateringTab({
         }
         setRecommendedRoMap(map);
       })
-      .catch(() => setRecommendedRoMap(new Map()));
+      .catch((err: unknown) => {
+        // The RO% recommendation is a hint next to each phase; the plan renders without it.
+        captureHandledError(err, { source: 'PlantingRunNutrientWateringTab.roRecommendation' });
+        setRecommendedRoMap(new Map());
+      });
   }, [planKey, siteKey]);
 
   return (
@@ -126,8 +137,8 @@ export default function PlantingRunNutrientWateringTab({
                 </Button>
               </Box>
             </Box>
-          ) : (
-            <Box>
+          ) : planLoadFailed ? null : (
+            <Box data-testid="run-no-plan-assigned">
               <Alert severity="info" sx={{ mb: 2 }}>
                 {t('pages.nutrientPlans.noPlanAssigned')}
               </Alert>
@@ -176,7 +187,7 @@ export default function PlantingRunNutrientWateringTab({
                 entries={adaptedEntries}
                 fertilizers={fertilizers}
                 title=""
-                currentWeek={currentWeek}
+                currentWeek={ganttWeek}
               />
               {(() => {
                 const sorted = [...adaptedEntries].sort((a, b) => a.sequence_order - b.sequence_order);
@@ -191,7 +202,7 @@ export default function PlantingRunNutrientWateringTab({
                         entries={vegEntries}
                         fertilizers={fertilizers}
                         title={t('pages.gantt.vegetativeDetail')}
-                        currentWeek={currentWeek}
+                        currentWeek={ganttWeek}
                         recommendedRoMap={recommendedRoMap}
                       />
                     )}
@@ -200,7 +211,7 @@ export default function PlantingRunNutrientWateringTab({
                         entries={flowerEntries}
                         fertilizers={fertilizers}
                         title={t('pages.gantt.floweringDetail')}
-                        currentWeek={currentWeek}
+                        currentWeek={ganttWeek}
                         recommendedRoMap={recommendedRoMap}
                       />
                     )}
@@ -220,7 +231,7 @@ export default function PlantingRunNutrientWateringTab({
                 </Typography>
               </Box>
 
-              {!wateringCalendar || !wateringCalendar.has_schedule ? (
+              {scheduleLoadFailed ? null : !wateringCalendar || !wateringCalendar.has_schedule ? (
                 <Alert severity="info">
                   {t('pages.wateringSchedule.noPlan')}
                 </Alert>

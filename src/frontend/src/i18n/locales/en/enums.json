@@ -26,6 +26,21 @@
       "mqtt": "MQTT",
       "manual": "Manual"
     },
+    "attachmentCategory": {
+      "diary": "Diary",
+      "ipm": "Plant protection",
+      "harvest": "Harvest",
+      "post_harvest": "Post-harvest",
+      "task": "Task",
+      "import": "Import",
+      "export": "Export",
+      "id_recognition": "Plant identification",
+      "tenant_export": "Garden export",
+      "plant": "Plant photo",
+      "pest_reference": "Pest reference image",
+      "garden_plan_underlay": "Garden plan underlay",
+      "location": "Bed photo"
+    },
     "equipmentType": {
       "tool": "Tool",
       "consumable": "Consumable",
@@ -328,7 +343,8 @@
     "photoperiodType": {
       "short_day": "Short Day",
       "long_day": "Long Day",
-      "day_neutral": "Day Neutral"
+      "day_neutral": "Day Neutral",
+      "unspecified": "Not specified"
     },
     "cycleType": {
       "annual": "Annual",
@@ -385,9 +401,9 @@
       "hydro_solution": "Hydro Solution"
     },
     "nutrientDemand": {
-      "light": "Light Feeder",
-      "medium": "Medium Feeder",
-      "heavy": "Heavy Feeder"
+      "heavy_feeder": "Heavy Feeder",
+      "medium_feeder": "Medium Feeder",
+      "light_feeder": "Light Feeder"
     },
     "rootDepth": {
       "shallow": "Shallow",
@@ -493,7 +509,16 @@
       "north": "North",
       "south": "South",
       "east": "East",
-      "west": "West"
+      "west": "West",
+      "northeast": "Northeast",
+      "southeast": "Southeast",
+      "southwest": "Southwest",
+      "northwest": "Northwest"
+    },
+    "photoperiodSource": {
+      "sourced": "from the species profile or entered",
+      "generated": "generated from the phase template",
+      "default": "default value"
     },
     "plantTrait": {
       "disease_resistant": "Disease Resistant",
@@ -659,7 +684,10 @@
       "hardening_off": "Hardening Off",
       "budding": "Budding",
       "corm_ripening": "Corm Ripening",
-      "tuber_formation": "Tuber Formation"
+      "tuber_formation": "Tuber Formation",
+      "drying": "Drying",
+      "curing": "Curing",
+      "cloning": "Cloning"
     },
     "waterSource": {
       "tank": "Tank",
@@ -812,7 +840,27 @@
       "cleaning": "Cleaning",
       "care_reminder": "Care Reminder",
       "seasonal": "Seasonal Task",
-      "phenological": "Phenological Task"
+      "phenological": "Phenological Task",
+      "mulching": "Mulching",
+      "weeding": "Weeding",
+      "soil_loosening": "Soil Loosening",
+      "sowing": "Sowing",
+      "pricking_out": "Pricking Out",
+      "soil_amendment": "Soil Amendment",
+      "liming": "Liming",
+      "ph_adjustment": "pH Adjustment",
+      "ec_check": "EC / Nutrient Check",
+      "flush": "Flush",
+      "thinning": "Thinning",
+      "hilling": "Hilling",
+      "tillage": "Tillage",
+      "covering": "Covering",
+      "uncovering": "Uncovering",
+      "ventilating": "Ventilating",
+      "clearing": "Bed Clearing",
+      "soil_analysis": "Soil Analysis",
+      "rainfall": "Rainfall",
+      "pollinating": "Hand Pollination"
     },
     "triggerType": {
       "manual": "Manual",
@@ -1076,6 +1124,231 @@
       "ai_calls_per_user_day": "AI calls per account and day",
       "ai_calls_per_tenant_day": "AI calls of the garden per day",
       "ai_tokens_per_tenant_day": "AI tokens of the garden per day"
+    },
+    "bedStatus": {
+      "planned": "Planned",
+      "active": "Active",
+      "retired": "Retired"
+    },
+    "sunExposure": {
+      "full_sun": "Full sun",
+      "partial_shade": "Partial shade",
+      "shade": "Shade",
+      "deep_shade": "Deep shade",
+      "unknown": "Unknown"
+    },
+    "growingMediumKind": {
+      "native_soil": "Native soil",
+      "raised_bed_mix": "Raised bed mix",
+      "potting_mix": "Potting mix",
+      "mineral_substrate": "Mineral substrate",
+      "other": "Other"
+    },
+    "soilTexture": {
+      "sand": "Sand",
+      "loamy_sand": "Loamy sand",
+      "sandy_loam": "Sandy loam",
+      "loam": "Loam",
+      "silt_loam": "Silt loam",
+      "clay_loam": "Clay loam",
+      "clay": "Clay",
+      "unknown": "Unknown"
+    },
+    "soilDrainage": {
+      "poor": "Poor",
+      "moderate": "Moderate",
+      "good": "Good",
+      "unknown": "Unknown"
+    },
+    "siteWaterRegime": {
+      "dry": "Dry",
+      "fresh": "Fresh",
+      "moist": "Moist",
+      "wet": "Wet",
+      "unknown": "Unknown"
+    },
+    "soilCondition": {
+      "compacted": "Compacted",
+      "depleted": "Depleted",
+      "waterlogged": "Waterlogged",
+      "crusting": "Crusting",
+      "stony": "Stony"
+    },
+    "ecMethod": {
+      "saturated_paste": "Saturated paste (ECe)",
+      "ratio_1_2": "1:2 extract",
+      "ratio_1_5": "1:5 extract",
+      "sensor": "Probe",
+      "unknown": "Method unknown"
+    },
+    "stoneContentClass": {
+      "none": "None",
+      "few": "Few",
+      "many": "Many",
+      "unknown": "Unknown"
+    },
+    "phMethod": {
+      "cacl2": "CaCl2 solution",
+      "h2o": "Water",
+      "probe_unknown": "Probe, method unknown"
+    },
+    "soilParameter": {
+      "ph": "pH",
+      "ec": "EC (conductivity)",
+      "humus": "Humus",
+      "caco3": "Lime content (CaCO₃)",
+      "n_min": "Nmin (mineral nitrogen)",
+      "p": "Phosphorus (P)",
+      "k": "Potassium (K)",
+      "mg": "Magnesium (Mg)",
+      "moisture": "Soil moisture"
+    },
+    "soilUnit": {
+      "pH": "pH",
+      "mS/cm": "mS/cm",
+      "dS/m": "dS/m",
+      "%": "%",
+      "kg_n_per_ha": "kg N/ha",
+      "mg_per_100g": "mg/100 g soil",
+      "mg_per_l": "mg/l"
+    },
+    "soilAnalysisSource": {
+      "lab": "Lab",
+      "test_kit": "Test kit",
+      "sensor": "Probe/sensor",
+      "manual": "Manual"
+    },
+    "soilExtractionMethod": {
+      "cal": "CAL (lab)",
+      "ammonium_acetate": "Ammonium acetate",
+      "saturated_paste": "Saturated paste",
+      "quick_test": "Quick test",
+      "sensor": "Probe/sensor"
+    },
+    "careUnit": {
+      "l": "Litres",
+      "ml": "Millilitres",
+      "g": "Grams",
+      "kg": "Kilograms",
+      "l_per_m2": "Litres per m²",
+      "g_per_m2": "Grams per m²",
+      "cm": "Centimetres",
+      "pieces": "Pieces"
+    },
+    "careMaterial": {
+      "compost": "Compost",
+      "manure": "Manure",
+      "horn_shavings": "Horn shavings",
+      "straw": "Straw",
+      "grass_clippings": "Grass clippings",
+      "bark_mulch": "Bark mulch",
+      "wood_chips": "Wood chips",
+      "leaves": "Leaves",
+      "cardboard": "Cardboard",
+      "fleece": "Fleece",
+      "net": "Net",
+      "foil": "Foil",
+      "frost_cover": "Frost cover",
+      "rock_dust": "Rock dust",
+      "biochar": "Biochar",
+      "sand": "Sand",
+      "perlite": "Perlite",
+      "coffee_grounds": "Coffee grounds",
+      "green_manure": "Green manure",
+      "sulfur": "Sulfur",
+      "lime": "Lime",
+      "wood_ash": "Wood ash",
+      "other": "Other"
+    },
+    "rotationSeverity": {
+      "OK": "no issue",
+      "INFO": "info",
+      "WARNING": "warning",
+      "CRITICAL": "critical"
+    },
+    "layoutStrategy": {
+      "grid": "Grid",
+      "rows": "Rows",
+      "triangular": "Staggered (triangular)",
+      "zone": "Zone",
+      "free": "Free positions"
+    },
+    "rowDirection": {
+      "along_length": "Along the length",
+      "along_width": "Along the width"
+    },
+    "irrigationType": {
+      "manual": "By hand",
+      "drip": "Drip irrigation",
+      "sprinkler": "Sprinkler",
+      "soaker_hose": "Soaker hose",
+      "sub_irrigation": "Sub-irrigation"
+    },
+    "careEventAllocation": {
+      "measured": "Measured",
+      "by_area": "Divided by area",
+      "equal": "Divided in equal parts",
+      "by_demand": "Divided by demand"
+    },
+    "waterSourceKind": {
+      "tap": "Tap",
+      "rain_barrel": "Rain barrel",
+      "well": "Well",
+      "pond": "Pond",
+      "cistern": "Cistern",
+      "hose_reel": "Hose reel"
+    },
+    "windowGlazing": {
+      "single": "Single glazing",
+      "double": "Double or multiple glazing",
+      "unknown": "Unknown"
+    },
+    "lampKind": {
+      "grow_light": "Grow light",
+      "ceiling": "Ceiling light",
+      "floor": "Floor lamp"
+    },
+    "sunWindow": {
+      "morning": "Morning",
+      "midday": "Midday",
+      "afternoon": "Afternoon",
+      "all_day": "All day",
+      "mixed": "Changing",
+      "unknown": "Unknown"
+    },
+    "frostRisk": {
+      "low": "Low",
+      "normal": "Normal",
+      "high": "High",
+      "unknown": "Unknown"
+    },
+    "heatRetention": {
+      "none": "None",
+      "wall": "Wall",
+      "building": "Building",
+      "unknown": "Unknown"
+    },
+    "windExposure": {
+      "sheltered": "Sheltered",
+      "normal": "Normal",
+      "exposed": "Exposed",
+      "unknown": "Unknown"
+    },
+    "accessSide": {
+      "N": "North",
+      "E": "East",
+      "S": "South",
+      "W": "West"
+    },
+    "siteFlag": {
+      "root_competition": "Root competition",
+      "allelopathy_risk": "Allelopathy risk"
+    },
+    "wateringVolumeSource": {
+      "fallback_default": "default value",
+      "phase_requirement_profile": "phase profile",
+      "species_watering_guide": "species watering guide",
+      "container_substrate_calculation": "container and substrate"
     }
   }
 }

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { Link as RouterLink, useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import Alert from '@mui/material/Alert';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
@@ -41,7 +42,9 @@ import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
@@ -53,6 +56,18 @@ import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
 import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getBedSummary } from '@/features/gardenPlanner/bed/bedApi';
+import TentRulesSection from '@/features/gardenPlanner/bed/TentRulesSection';
+import type { BedSummary } from '@/features/gardenPlanner/bed/types';
+import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
+import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
+import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
+import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
+import { errorKey } from '@/api/errors';
+import { captureHandledError } from '@/observability/errorTracking';
+
+// The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
+const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
 
 const runStatusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -98,13 +113,14 @@ function frostExposureFromApi(value: boolean | null | undefined): FormData['fros
 
 export default function LocationDetailPage() {
   const { key } = useParams<{ key: string }>();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
   // Deleting is lead-only backend-side (REQ-049 §2.3), so a grower must not be
   // offered a control that can only answer 403 (#1467).
-  const { canDelete } = useTenantPermissions();
+  const { canDelete, canEdit } = useTenantPermissions();
+  const online = useOnlineStatus();
   const { handleError } = useApiError();
   // Issue #587: sensor UI is gated behind the smart-home toggle.
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
@@ -125,7 +141,20 @@ export default function LocationDetailPage() {
   const [sublocationCreateOpen, setSublocationCreateOpen] = useState(false);
   const [ancestorChain, setAncestorChain] = useState<{ key: string; name: string }[]>([]);
   const [siteName, setSiteName] = useState<string>('');
+  // REQ-053 GP-API-012: the head data of a bed. It is kept with its key, so the summary of the
+  // location we came from is never shown (or written to) under the one we navigated to.
+  const [loadedSummary, setLoadedSummary] = useState<BedSummary | null>(null);
+  const bedSummary = loadedSummary !== null && loadedSummary.key === key ? loadedSummary : null;
+  // REQ-053 WP 9.2: offline the summary comes from the plan cache; `cachedAt` is the online read it was stored by.
+  const cacheScope = useCacheScope();
+  const [summaryRead, setSummaryRead] = useState<{ key: string; cachedAt: number | null; offlineMiss: boolean } | null>(
+    null,
+  );
+  const summaryCachedAt = summaryRead !== null && summaryRead.key === key ? summaryRead.cachedAt : null;
+  const summaryOfflineMiss = summaryRead !== null && summaryRead.key === key && summaryRead.offlineMiss;
   const [sensors, setSensors] = useState<Sensor[]>([]);
+  // #3013 (A-02): sections whose secondary load failed render an error with retry, not their empty text.
+  const [failedSections, setFailedSections] = useState<ReadonlySet<LocationSection>>(() => new Set());
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
@@ -158,12 +187,46 @@ export default function LocationDetailPage() {
   const isArtificial = lightType === 'led' || lightType === 'hps' || lightType === 'cmh';
   const isNaturalOrMixed = lightType === 'natural' || lightType === 'mixed';
 
+  // The summary makes a location a bed (`is_bed`); a failed request leaves the plain location page.
+  // `isCurrent` lets a superseded page load drop its summary answer (#3014).
+  const readBedSummary = useCallback(async (isCurrent: () => boolean) => {
+    if (!key) return;
+    try {
+      const read = await readThrough(cacheScope ? bedSummaryEntry(cacheScope, key) : null, () => getBedSummary(key));
+      if (!isCurrent()) return;
+      setLoadedSummary(read.data);
+      setSummaryRead({ key, cachedAt: read.cachedAt, offlineMiss: false });
+    } catch (err) {
+      if (!isCurrent()) return;
+      setLoadedSummary(null);
+      setSummaryRead({ key, cachedAt: null, offlineMiss: isOfflineCacheMiss(err) });
+    }
+  }, [key, cacheScope]);
+  const loadBedSummary = useCallback(() => readBedSummary(() => true), [readBedSummary]);
+
+  // A child-location link reuses this page instance: a late answer for the previous key must not land (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
+    setError(null);
+    setFailedSections(new Set());
+    const failed = new Set<LocationSection>();
+    const sectionFailed = (section: LocationSection, err: unknown) => {
+      captureHandledError(err, { source: `LocationDetailPage.${section}` });
+      failed.add(section);
+    };
+    // The summary decides whether this is a bed; it is asked for alongside the location, not after it.
+    const summaryLoaded = readBedSummary(ticket.isCurrent);
     try {
       const loc = await api.getLocation(key);
+      if (stale()) return;
       setLocation(loc);
+      await summaryLoaded;
+      if (stale()) return;
       // Build ancestor breadcrumb chain
       const ancestors: { key: string; name: string }[] = [];
       let current = loc;
@@ -172,18 +235,25 @@ export default function LocationDetailPage() {
           const parent = await api.getLocation(current.parent_location_key);
           ancestors.unshift({ key: parent.key, name: parent.name });
           current = parent;
-        } catch {
+        } catch (err) {
+          // Breadcrumb only: the chain stops at the ancestor that failed to load.
+          captureHandledError(err, { source: 'LocationDetailPage.ancestors' });
           break;
         }
       }
+      if (stale()) return;
       setAncestorChain(ancestors);
       // Fetch site name for breadcrumb
+      let fetchedSiteName = '';
       try {
-        const site = await api.getSite(loc.site_key);
-        setSiteName(site.name);
-      } catch {
-        setSiteName('');
+        fetchedSiteName = (await api.getSite(loc.site_key)).name;
+      } catch (err) {
+        // Breadcrumb only: the site name stays blank.
+        captureHandledError(err, { source: 'LocationDetailPage.siteName' });
+        fetchedSiteName = '';
       }
+      if (stale()) return;
+      setSiteName(fetchedSiteName);
       reset({
         name: loc.name,
         site_key: loc.site_key,
@@ -199,6 +269,7 @@ export default function LocationDetailPage() {
         api.listSlots(key),
         api.listLocationChildren(key),
       ]);
+      if (stale()) return;
       setSlots(s);
       setChildLocations(children);
       // Load assigned tank:
@@ -207,16 +278,22 @@ export default function LocationDetailPage() {
       if (loc.tank_key) {
         try {
           const t = await tankApi.getTank(loc.tank_key);
+          if (stale()) return;
           setAssignedTank(t);
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('tank', err);
           setAssignedTank(null);
         }
       } else {
         try {
           const allTanks = await tankApi.listTanks(0, 200);
           const match = allTanks.find((t) => t.location_key === key);
+          if (stale()) return;
           setAssignedTank(match ?? null);
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('tank', err);
           setAssignedTank(null);
         }
       }
@@ -226,21 +303,24 @@ export default function LocationDetailPage() {
           wateringApi.getLocationWateringEvents(key),
           wateringApi.getLocationWateringStats(key),
         ]);
+        if (stale()) return;
         setWateringEvents(we);
         setWateringStats(ws);
-      } catch {
-        // Watering data may not be available
+      } catch (err) {
+        sectionFailed('watering', err);
       }
       // Load sensors
       try {
         const locationSensors = await api.getLocationSensors(key);
+        if (stale()) return;
         setSensors(locationSensors);
-      } catch {
-        // Sensors may not be available
+      } catch (err) {
+        sectionFailed('sensors', err);
       }
       // Load assigned planting runs + plant instances for this location
       try {
         const runs = await runApi.listPlantingRuns(0, 200, undefined, undefined, key);
+        if (stale()) return;
         setAssignedRuns(runs);
         // Load plant counts per run
         const counts = new Map<string, number>();
@@ -251,29 +331,45 @@ export default function LocationDetailPage() {
               const plants = await runApi.listRunPlants(r.key);
               counts.set(r.key, plants.length);
               for (const p of plants) runInstanceKeys.add(p.key);
-            } catch {
+            } catch (err) {
+              // Display enrichment only: the run's own planned quantity stands in for the count.
+              captureHandledError(err, { source: 'LocationDetailPage.runPlantCount' });
               counts.set(r.key, r.actual_quantity);
             }
           }),
         );
+        if (stale()) return;
         setRunPlantCounts(counts);
         // Load all plant instances at this location and find standalone ones
         try {
           const allInstances = await listAllPlantInstances();
+          if (stale()) return;
           const locationInstances = allInstances.filter((i) => i.location_key === key);
           setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
-        } catch {
+        } catch (err) {
+          if (stale()) return;
+          sectionFailed('plants', err);
           setStandaloneInstances([]);
         }
-      } catch {
+      } catch (err) {
+        if (stale()) return;
+        sectionFailed('plants', err);
         setAssignedRuns([]);
       }
+      if (stale()) return;
+      setFailedSections(failed);
     } catch (err) {
-      setError(String(err));
+      // Offline the cached summary may still carry the bed view (WP 9.2): it decides before the error shows.
+      await summaryLoaded;
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
   };
+
+  // A cached bed summary or an offline miss is read again once the connection is back (#2789 review C4).
+  useReloadOnReconnect(summaryCachedAt !== null || summaryOfflineMiss, () => void load());
 
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
   useEffect(() => { load(); }, [key]);
@@ -353,7 +449,6 @@ export default function LocationDetailPage() {
 
   const slotColumns: Column<Slot>[] = [
     { id: 'slotId', label: t('pages.slots.slotId'), render: (r) => r.slot_id },
-    { id: 'position', label: t('pages.slots.position'), render: (r) => `(${r.position[0]}, ${r.position[1]})` },
     { id: 'capacity', label: t('pages.slots.capacity'), render: (r) => r.capacity_plants, align: 'right' as const },
     { id: 'occupied', label: t('pages.slots.occupied'), render: (r) => (
       <Chip label={r.currently_occupied ? t('common.yes') : t('common.no')} size="small" color={r.currently_occupied ? 'warning' : 'default'} />
@@ -361,25 +456,34 @@ export default function LocationDetailPage() {
   ];
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) {
+    // REQ-053 WP 9.2: without a connection the bed view reads its summary from the plan cache. Only the
+    // location's own master data (the "Details" tab) needs the server.
+    if (bedSummary?.is_bed && summaryCachedAt !== null) {
+      return (
+        <Box data-testid="location-detail-page">
+          <PageTitle title={bedSummary.name} />
+          <Suspense fallback={<LoadingSkeleton variant="card" />}>
+            <BedView
+              summary={bedSummary}
+              cachedAt={summaryCachedAt}
+              details={<OfflineCacheMiss subject="bedDetails" testId="bed-details-offline" />}
+              onReload={loadBedSummary}
+            />
+          </Suspense>
+        </Box>
+      );
+    }
+    if (summaryOfflineMiss) {
+      return <OfflineCacheMiss subject="bed" testId="location-offline-miss" onRetry={() => void load()} />;
+    }
+    return <ErrorDisplay error={error} onRetry={() => void load()} />;
+  }
 
   const PANEL_GAP = 4;
 
-  return (
-    <Box data-testid="location-detail-page">
-      <UnsavedChangesGuard dirty={isDirty} />
-
-      <PageTitle
-        title={location?.name ?? t('entities.location')}
-        action={
-          canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
-              {t('common.delete')}
-            </Button>
-          ) : undefined
-        }
-      />
-
+  const pageBody = (
+    <>
       <Form onSubmit={handleSubmit(onSubmit)} sx={{ maxWidth: 1280, display: 'flex', flexDirection: 'column', gap: PANEL_GAP }}>
         <Typography variant="body2" color="text.secondary">
           {t('pages.locations.editIntro')}
@@ -468,6 +572,19 @@ export default function LocationDetailPage() {
         <FormActions onCancel={() => navigate(-1)} loading={saving} />
       </Form>
 
+      {/* REQ-053 W-016: the location's own neighbourhood factor, its lighting and the light-schedule hints */}
+      {key && bedSummary && (
+        <TentRulesSection
+          locationKey={key}
+          supportsLayout={bedSummary.supports_layout === true}
+          adjacencyFactor={bedSummary.adjacency_factor}
+          lighting={bedSummary.lighting}
+          hints={bedSummary.tent_hints}
+          canEdit={canEdit && online && summaryCachedAt === null}
+          onSaved={() => void loadBedSummary()}
+        />
+      )}
+
       {/* Assigned Tank */}
       <Box sx={{ mt: 3, maxWidth: 600 }}>
         <Card variant="outlined">
@@ -475,13 +592,17 @@ export default function LocationDetailPage() {
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               {t('pages.locations.assignedTank')}
             </Typography>
-            {assignedTank ? (
+            {failedSections.has('tank') ? (
+              <SectionLoadError onRetry={() => void load()} testId="location-tank-load-error" />
+            ) : assignedTank ? (
               <Chip
                 label={`${assignedTank.name} (${assignedTank.volume_liters} L)`}
                 size="small"
                 color="primary"
                 variant="outlined"
-                onClick={() => navigate(`/standorte/tanks/${assignedTank.key}`)}
+                component={RouterLink}
+                to={`/standorte/tanks/${assignedTank.key}`}
+                clickable
               />
             ) : (
               <Typography variant="body2" color="text.secondary">
@@ -506,7 +627,9 @@ export default function LocationDetailPage() {
           <GrassIcon />
           {t('pages.locations.plantsAndRuns')}
         </Typography>
-        {assignedRuns.length === 0 && standaloneInstances.length === 0 ? (
+        {failedSections.has('plants') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-plants-load-error" />
+        ) : assignedRuns.length === 0 && standaloneInstances.length === 0 ? (
           <EmptyState message={t('pages.locations.noPlantsOrRuns')} />
         ) : (
           <>
@@ -528,7 +651,7 @@ export default function LocationDetailPage() {
                 ]}
                 rows={assignedRuns}
                 getRowKey={(r) => r.key}
-                onRowClick={(r) => navigate(`/durchlaeufe/planting-runs/${r.key}`)}
+                getRowHref={(r) => `/durchlaeufe/planting-runs/${r.key}`}
                 tableState={runTableState}
                 ariaLabel={t('pages.locations.assignedRuns')}
                 mobileCardRenderer={(r) => (
@@ -560,9 +683,9 @@ export default function LocationDetailPage() {
                   columns={[
                     { id: 'instance_id', label: t('pages.plantInstances.instanceId'), render: (r) => r.instance_id },
                     { id: 'plant_name', label: t('pages.plantInstances.plantName'), render: (r) => {
-                      const name = getPlantDisplayName(r);
+                      const name = getPlantDisplayName(r, i18n.language);
                       return name === r.instance_id ? '—' : name;
-                    }, searchValue: (r) => getPlantDisplayName(r) },
+                    }, searchValue: (r) => getPlantDisplayName(r, i18n.language) },
                     { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
                       <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
                     ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
@@ -570,11 +693,11 @@ export default function LocationDetailPage() {
                   ]}
                   rows={standaloneInstances}
                   getRowKey={(r) => r.key}
-                  onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+                  getRowHref={(r) => `/pflanzen/plant-instances/${r.key}`}
                   tableState={instanceTableState}
                   ariaLabel={t('pages.locations.standalonePlants')}
                   mobileCardRenderer={(r) => {
-                    const displayName = getPlantDisplayName(r);
+                    const displayName = getPlantDisplayName(r, i18n.language);
                     return (
                       <MobileCard
                         title={displayName}
@@ -627,7 +750,7 @@ export default function LocationDetailPage() {
             ]}
             rows={childLocations}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/standorte/locations/${r.key}`)}
+            getRowHref={(r) => `/standorte/locations/${r.key}`}
             tableState={childTableState}
             ariaLabel={t('pages.locations.sublocations')}
             mobileCardRenderer={(r) => (
@@ -663,15 +786,13 @@ export default function LocationDetailPage() {
             columns={slotColumns}
             rows={slots}
             getRowKey={(r) => r.key}
-            onRowClick={(r) => navigate(`/standorte/slots/${r.key}`)}
+            getRowHref={(r) => `/standorte/slots/${r.key}`}
             tableState={slotTableState}
             ariaLabel={t('pages.slots.title')}
             mobileCardRenderer={(r) => (
               <MobileCard
                 title={r.slot_id}
                 titleId="slotId"
-                subtitle={`(${r.position[0]}, ${r.position[1]})`}
-                subtitleId="position"
                 chips={[
                   {
                     id: 'occupied',
@@ -741,6 +862,9 @@ export default function LocationDetailPage() {
           </Box>
         )}
 
+        {failedSections.has('watering') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-watering-load-error" />
+        ) : (
         <DataTable<WateringEvent>
           columns={[
             {
@@ -795,6 +919,7 @@ export default function LocationDetailPage() {
             />
           )}
         />
+        )}
 
         <WateringEventCreateDialog
           open={wateringCreateOpen}
@@ -818,7 +943,9 @@ export default function LocationDetailPage() {
             {t('pages.sensors.add')}
           </Button>
         </Box>
-        {sensors.length === 0 ? (
+        {failedSections.has('sensors') ? (
+          <SectionLoadError onRetry={() => void load()} testId="location-sensors-load-error" />
+        ) : sensors.length === 0 ? (
           <EmptyState
             message={t('pages.sensors.noSensors')}
             actionLabel={t('pages.sensors.add')}
@@ -877,6 +1004,31 @@ export default function LocationDetailPage() {
         )}
       </Box>
       )}
+    </>
+  );
+
+  return (
+    <Box data-testid="location-detail-page">
+      <UnsavedChangesGuard dirty={isDirty} />
+
+      <PageTitle
+        title={location?.name ?? t('entities.location')}
+        action={
+          canDelete ? (
+            <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="location-delete-button">
+              {t('common.delete')}
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {bedSummary?.is_bed ? (
+        <Suspense fallback={<LoadingSkeleton variant="card" />}>
+          <BedView summary={bedSummary} cachedAt={summaryCachedAt} details={pageBody} onReload={loadBedSummary} />
+        </Suspense>
+      ) : (
+        pageBody
+      )}
 
       {isSmartHomeEnabled && key && (
         <SensorCreateDialog
@@ -928,5 +1080,26 @@ export default function LocationDetailPage() {
         loading={deleting}
       />
     </Box>
+  );
+}
+
+/** A secondary section of the location page that loads after the location itself (#3013). */
+type LocationSection = 'tank' | 'watering' | 'sensors' | 'plants';
+
+/** In-place error for a section whose load failed — instead of its "nothing here yet" text. */
+function SectionLoadError({ onRetry, testId }: { onRetry: () => void; testId: string }) {
+  const { t } = useTranslation();
+  return (
+    <Alert
+      severity="error"
+      data-testid={testId}
+      action={
+        <Button color="inherit" size="small" onClick={onRetry} sx={{ minHeight: 48 }}>
+          {t('common.retry')}
+        </Button>
+      }
+    >
+      {t('pages.locations.sectionLoadFailed')}
+    </Alert>
   );
 }

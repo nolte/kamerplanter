@@ -59,11 +59,12 @@ interface EntityRow {
 
 const PAGE_LIMIT = 200;
 
-async function loadPlants(): Promise<EntityRow[]> {
+/** `language` is the UI language the species part of the plant label is shown in (#2902). */
+async function loadPlants(language: string): Promise<EntityRow[]> {
   const plants = await listPlantInstances(0, PAGE_LIMIT);
   return plants.map((p) => ({
     key: p.key,
-    label: getPlantLabel(p),
+    label: getPlantLabel(p, language),
     // A plant is active while it is neither removed nor lifecycle-terminated.
     isActive: p.removed_on == null && p.termination_type == null,
     removedOn: p.removed_on,
@@ -82,7 +83,7 @@ async function loadLocations(): Promise<EntityRow[]> {
   return perSite.flat().map((l) => ({ key: l.key, label: l.name, isActive: true }));
 }
 
-const LOADERS: Record<HaPublishEntityType, () => Promise<EntityRow[]>> = {
+const LOADERS: Record<HaPublishEntityType, (language: string) => Promise<EntityRow[]>> = {
   plant: loadPlants,
   tank: loadTanks,
   location: loadLocations,
@@ -106,7 +107,8 @@ interface EntityPublishTableProps {
  * switch to publish it to Home Assistant or not (opt-in default).
  */
 function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const language = i18n.language;
   const notify = useNotification();
 
   const [rows, setRows] = useState<EntityRow[]>([]);
@@ -134,7 +136,7 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
     setSearch('');
     setShowInactive(false);
     setSelected(new Set());
-    Promise.all([LOADERS[entityType](), listHaPublishSettings(entityType)])
+    Promise.all([LOADERS[entityType](language), listHaPublishSettings(entityType)])
       .then(([entities, settings]) => {
         if (!active) return;
         const enabledMap: Record<string, boolean> = {};
@@ -151,7 +153,7 @@ function EntityPublishTable({ entityType, panelId }: EntityPublishTableProps) {
     return () => {
       active = false;
     };
-  }, [entityType]);
+  }, [entityType, language]);
 
   const handleToggle = useCallback(
     async (entityKey: string, checked: boolean) => {

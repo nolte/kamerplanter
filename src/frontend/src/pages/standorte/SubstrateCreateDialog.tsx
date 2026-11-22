@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Typography from '@mui/material/Typography';
@@ -50,7 +51,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       type: 'soil',
@@ -66,6 +67,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
       max_reuse_cycles: 3,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -81,14 +83,14 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="substrate-create-dialog-title" data-testid="substrate-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="substrate-create-dialog-title" data-testid="substrate-create-dialog">
       <DialogTitle id="substrate-create-dialog-title">{t('pages.substrates.create')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -114,8 +116,8 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
             {t('pages.substrates.sectionChemistry')}
           </Typography>
           <FormRow>
-            <FormNumberField name="ph_base" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} inputMode="decimal" />
-            <FormNumberField name="ec_base_ms" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} inputMode="decimal" />
+            <FormNumberField name="ph_base" helpTerm="ph" control={control} label={t('pages.substrates.phBase')} helperText={t('pages.substrates.phBaseHelper')} min={0} max={14} step={0.1} inputMode="decimal" />
+            <FormNumberField name="ec_base_ms" helpTerm="ec" control={control} label={t('pages.substrates.ecBase')} helperText={t('pages.substrates.ecBaseHelper')} min={0} step={0.1} inputMode="decimal" />
           </FormRow>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
             {t('pages.substrates.sectionPhysical')}
@@ -129,7 +131,7 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
               value: v, label: t(`enums.waterRetention.${v}`),
             }))}
           />
-          <FormNumberField name="air_porosity_percent" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
+          <FormNumberField name="air_porosity_percent" helpTerm="air_porosity" control={control} label={t('pages.substrates.airPorosity')} helperText={t('pages.substrates.airPorosityHelper')} min={0} max={100} step={1} />
           <FormSelectField
             name="buffer_capacity"
             control={control}
@@ -147,6 +149,6 @@ export default function SubstrateCreateDialog({ open, onClose, onCreated }: Prop
           <FormActions onCancel={onClose} loading={saving} saveLabel={t('common.create')} />
         </Form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

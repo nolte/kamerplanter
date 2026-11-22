@@ -32,6 +32,7 @@ from pydantic import ValidationError as PydanticValidationError
 from app.common.enums import TenantStatus
 from app.common.exceptions import DuplicateError, WriteConflictError
 from app.data_access.arango import collections as col
+from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.plan_repository import IPlanRepository
 from app.domain.models.plan import DEFAULT_PLAN_KEY, Plan
 
@@ -145,7 +146,7 @@ class ArangoPlanRepository(IPlanRepository):
         self._db = db
 
     def get(self, key: str) -> Plan | None:
-        return _parsed(cast(dict[str, Any] | None, self._db.collection(col.PLANS).get(key)))
+        return _parsed(get_document(self._db.collection(col.PLANS), key))
 
     def get_default(self) -> Plan | None:
         cursor = cast(Cursor, self._db.aql.execute(_GET_DEFAULT, bind_vars={"@plans": col.PLANS}))

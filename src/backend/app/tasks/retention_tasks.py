@@ -39,6 +39,11 @@ The retention concerns bundled here, all backed by REQ-025 PrivacyService:
   deletion kept, once their legal period is over (#1789).
 - ``purge_expired_tenant_erasure_records`` — daily beat task that hard-deletes
   tenant-erasure records past NFR-011 R-06a (#1793).
+- ``anonymize_expired_care_events`` — daily beat task that anonymises the care events of the bed log past
+  NFR-011 R-25 (five years from ``performed_at``, ``RETENTION_CARE_EVENT_RETENTION_YEARS``; REQ-053 GP-NFR-055).
+- ``purge_expired_garden_plan_audit`` — daily beat task that hard-deletes the plan change log past NFR-011
+  R-26 (one year, ``RETENTION_GARDEN_PLAN_AUDIT_RETENTION_DAYS``). A separate task from the one above: there is
+  no master task (NFR-011 §3.1).
 
 The actual data-walk, manifest-build, soft/hard-delete and expiry
 logic lives in ``PrivacyService``; these tasks are thin schedulers
@@ -51,6 +56,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.common.async_bridge import run_async
 from app.tasks import celery_app
 from app.tasks.task_bridge import TaskAttempt, run_async_task
 
@@ -306,6 +312,50 @@ async def purge_expired_legal_retention_rows() -> dict:
     service = get_privacy_service()
     purged = await service.purge_expired_legal_retention_rows(now=datetime.now(UTC))
     return {"purged": purged}
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="retention.anonymize_expired_care_events",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def anonymize_expired_care_events() -> dict[str, int]:
+    """Anonymise the care events past NFR-011 R-25 and delete the photos they held (REQ-053 GP-NFR-055).
+
+    Person fields become the erasure marker, free texts ``[redacted]``; category, time, quantity, bed and plants
+    stay for the crop-rotation look-back. ``pest_control`` / ``ipm`` entries wait for the longer PflSchG §11
+    period. Idempotent: an anonymised row is not selected again. Logs counts only. A failure is logged with its
+    type and re-raised, so ``autoretry_for`` applies as it does for the ``run_async_task`` siblings.
+    """
+
+    from app.common.dependencies import get_garden_plan_retention_service
+
+    service = get_garden_plan_retention_service()
+    try:
+        return run_async(service.anonymize_expired_care_events(now=datetime.now(UTC)))
+    except Exception as exc:
+        logger.error("retention.anonymize_expired_care_events.failed", error_type=type(exc).__name__)
+        raise
+
+
+@celery_app.task(  # type: ignore[untyped-decorator]
+    name="retention.purge_expired_garden_plan_audit",
+    autoretry_for=(ConnectionError, TimeoutError),
+    max_retries=3,
+    default_retry_delay=300,
+)
+def purge_expired_garden_plan_audit() -> dict[str, int]:
+    """Hard-delete the garden-plan change log past NFR-011 R-26 (REQ-053 GP-NFR-055, SR-011)."""
+
+    from app.common.dependencies import get_garden_plan_retention_service
+
+    service = get_garden_plan_retention_service()
+    try:
+        return {"purged": service.purge_expired_garden_plan_audit(now=datetime.now(UTC))}
+    except Exception as exc:
+        logger.error("retention.purge_expired_garden_plan_audit.failed", error_type=type(exc).__name__)
+        raise
 
 
 @run_async_task(  # type: ignore[misc]

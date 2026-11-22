@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -56,7 +56,7 @@ function deleteBlocker(plan: Plan): 'default' | 'inUse' | null {
 export default function AdminPlansPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const { handleError } = useApiError();
   const { plans, status, errorStatus, reload } = usePlanCatalogue();
 
@@ -69,10 +69,7 @@ export default function AdminPlansPage() {
     const created = formTarget === null;
     setFormTarget(undefined);
     reload();
-    enqueueSnackbar(
-      created ? t('pages.plans.snack.created', { name: saved.name }) : t('pages.plans.snack.saved', { name: saved.name }),
-      { variant: 'success' },
-    );
+    notification.success(created ? t('pages.plans.snack.created', { name: saved.name }) : t('pages.plans.snack.saved', { name: saved.name }));
   };
 
   const handleConfirmDelete = async () => {
@@ -80,13 +77,13 @@ export default function AdminPlansPage() {
     setDeleting(true);
     try {
       await deletePlan(toDelete.key);
-      enqueueSnackbar(t('pages.plans.snack.deleted', { name: toDelete.name }), { variant: 'success' });
+      notification.success(t('pages.plans.snack.deleted', { name: toDelete.name }));
       setToDelete(null);
       reload();
     } catch (err) {
       // 409: a tenant was assigned (or the default moved here) since the list was read.
       if (isApiError(err) && err.statusCode === 409) {
-        enqueueSnackbar(t('pages.plans.delete.conflict'), { variant: 'error' });
+        notification.error(t('pages.plans.delete.conflict'));
         setToDelete(null);
         reload();
       } else {
@@ -174,7 +171,7 @@ export default function AdminPlansPage() {
   );
 
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: 2 }} data-testid="admin-plans-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <IconButton onClick={() => navigate('/settings#platform')} sx={TOUCH_SX} aria-label={t('pages.plans.back')} data-testid="plans-back">
           <ArrowBackIcon />

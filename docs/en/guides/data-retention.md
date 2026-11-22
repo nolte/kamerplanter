@@ -684,11 +684,43 @@ hold across restarts.
 
 Where an age filter cannot judge a record because its timestamp is missing or unreadable,
 it does not delete it but counts it and reports the counter as `held_undated` in the run
-event: in the account cleanup task (R-02), the call logs, the orphaned task photos, the
+event: in the account cleanup task (R-02), the call logs, the orphaned task and bed photos and plan underlays, the
 consent records (R-04, `purge_expired_consent_records`), the confirmed e-mail changes
 (R-07b, `expire_email_change_requests`) and the glossary cache (`glossary_cleanup_cache`).
 
 There is no single event line that summarizes every rule.
+
+### Never-linked bed photos
+
+A bed photo lives as long as the bed it belongs to, and so at most as long as the site and
+the tenant. It is uploaded in two steps: first the file, then the link to the bed. If the
+link never happens (the bed already holds 50 photos, was deleted in between, or the
+connection dropped), a file is left that no bed shows. The same happens when deleting the
+file fails after a photo was removed or a bed was deleted.
+
+The Celery task `app.tasks.storage_tasks.cleanup_orphaned_location_photos` (daily at
+03:50 UTC) removes these files: every bed photo (category `location`) older than
+`STORAGE_LOCATION_PHOTO_ORPHAN_HOURS` hours (default **48**, `0` disables the task) that
+nothing names any more is deleted together with its file and preview images. "Nothing names
+it" means no bed, no plant gallery, no task and no other record that carries photos. A
+freshly uploaded photo is inside the 48 hours and stays. The run writes the line
+`cleanup_orphaned_location_photos_audit` with `found`, `deleted`, `failed`, `skipped`,
+`freed_bytes` and `held_undated`.
+
+### Never-used plan underlays
+
+The underlay of a garden plan (an aerial photo or a sketch to trace over) arrives the same
+two-step way: first the file, then the assignment to the site. If the assignment never
+happens (the site has no plan yet, the tab was closed, the connection dropped) or deleting
+the old file fails after the underlay was replaced or removed, a picture is left that no
+site shows. An aerial photo can show where someone lives.
+
+The Celery task `app.tasks.storage_tasks.cleanup_orphaned_underlays` (daily at 04:00 UTC)
+removes these files: every underlay (category `garden_plan_underlay`) older than
+`STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS` hours (default **48**, `0` disables the task)
+that nothing names any more is deleted together with its file and preview images. An
+underlay two sites share stays while either names it. The run writes the line
+`cleanup_orphaned_underlays_audit` with the same fields as the bed-photo task.
 
 ### Metrics
 
@@ -759,6 +791,8 @@ flowchart TD
 | Export files | Delete immediately |
 | Harvest data, quality assessments, treatments, inspections | Anonymize (tombstone hash `anon_…`, name fields emptied), do not delete (Art. 17(3)) |
 | Tasks, task comments, diary entries, files, import jobs, settings and overrides in a (possibly shared) garden | Replace the account reference with `_anonymized`, content remains |
+| The garden plan's underlay (photo, sketch or aerial view, category `garden_plan_underlay`) in a (possibly shared) garden | Like the garden's other files: **anonymise, do not delete** — the account reference is replaced, the picture and its calibration stay for the other members. An aerial view can reveal where someone lives; whoever does not want it kept removes the underlay in the plan editor (the file is deleted with it), or it goes with the garden |
+| Bed photos (category `location`) in a (possibly shared) garden | Like the garden's other files: **replace the account reference, do not delete** — the photo stays on the bed for the other members. A garden photo can show people or a house; the upload already removes EXIF and GPS data unless the operator has switched the strip off (`STORAGE_STRIP_EXIF`, on by default). Whoever does not want a photo kept removes it from the bed (the file is deleted unless another bed shows it). A bed's photos also go with the bed or the site; if deleting the file fails afterwards, the nightly cleanup task catches up on it (see [Never-linked bed photos](#never-linked-bed-photos)) |
 | Your personal garden, also with other members | Fully delete (tenant-erasure inventory); harvest/treatment/inspection records pseudonymized as above; the other members are notified at the request |
 | Community garden or other garden you created (not a personal one) | Replace the owner reference; for a personal garden a late joiner keeps, also its name and short name |
 | Erasure audit | Replace the account reference with the tombstone hash, keep for 1 year |
@@ -955,6 +989,98 @@ first with `python -m app.migrations upgrade --dry-run`.
 !!! note "What stays"
     The source document keeps its field (for example the equipment's `location_key`); only
     the edge is removed.
+
+---
+
+## Migration v0109: Correcting Copied Pseudonyms
+
+After an account is erased, the person's pseudonym (`anon_…`) stays only where it is meant to —
+in harvest, treatment and inspection records and in the audit logs. Older code paths copied it
+into places where only the "anonymised" marker (`_anonymized`) belongs. The migration
+`v0109_privacy_tombstone_copies` cleans this up:
+
+1. **Care log:** the performer and the author of an entry become the marker where they hold a
+   pseudonym.
+2. **Garden plan change log:** the person who made a change becomes the marker. From this
+   version on, every new account erasure does the same — the log no longer links erased people
+   through a pseudonym.
+3. **Attachments:** the original file name of an attachment whose uploader was erased is
+   cleared. A camera or phone file name often carries a name. This also applies to every new
+   account erasure from now on.
+4. **Every other field** holding a pseudonym is only **counted**, never changed. A count above 0
+   is a finding for operations.
+
+The migration processes every garden except those already deleted — suspended gardens and
+gardens pending deletion included. Each garden runs in its own transaction. If one fails, only
+that garden is rolled back, the others carry on, and the migration counts as not applied: the
+next start runs it again. Afterwards it counts again. If anything is left, it also counts as not
+applied.
+
+### Producing the report beforehand
+
+Run a dry run before the upgrade and write the report to a file:
+
+```bash
+python -m app.migrations upgrade --dry-run --report-out /tmp/v0109-dry-run.json
+```
+
+For every privacy migration the file holds the counts per step and per garden, the phases
+(`precheck`, `dry_run`, `apply`, `verify`) and up to 25 sample row keys per step. It holds no
+person keys, no names, no text and no pseudonyms. The application stores the same report for
+every run — dry run and real run — in the `migration_reports` collection.
+
+!!! danger "Not reversible"
+    The replaced pseudonyms and the cleared file names cannot be restored. The dry-run report is
+    the record of what was changed.
+
+### Daily check
+
+The Celery task `privacy.consistency` (daily at 05:20 UTC) counts pseudonyms in fields that must
+not hold one. It changes nothing. Output: the log line `privacy_consistency.completed`, on a
+finding also the warning `privacy_consistency.undeclared_tombstones`, and the metric
+`privacy_undeclared_tombstones{cell="<collection>.<field>"}`.
+
+---
+
+## Migration v0110: Classifying Existing Gardens for Record Keeping
+
+A garden can be legally required to keep records — a cultivation association under the KCanG, for
+example, or a business with plant-protection records. New fields in the garden settings record
+whether that applies (`record_keeping`) and what kind of organisation the garden is
+(`organization_kind`). The migration `v0110_tenant_record_keeping_default` sets a starting value for
+existing gardens:
+
+- **Personal garden:** `record_keeping = none`. `organization_kind` stays empty.
+- **Organisation garden:** `record_keeping = legacy` and `organization_kind = unknown_legacy`. This
+  means "not classified yet". Whoever manages the garden should fill in the right classification.
+
+A value that is already set stays as it is. The migration is **reversible**: the way back removes
+only the two starting values `legacy` and `unknown_legacy`, never anything someone entered on
+purpose afterwards.
+
+## Migration v0111: The Performing Person Beside the Free Text
+
+Who watered, filled or serviced a tank, wrote a nutrient plan or created a workflow template has so
+far been stored as typed-in text on the row (`performed_by`, `author`, `created_by`). A name is not
+an account, though: access and erasure requests cannot reach it, and no account can be derived from
+a name safely. The migration `v0111_keyed_performers` therefore adds two new fields beside each of
+them:
+
+- `…_user_key` — the account of the person who did it. The migration **never** sets it; it stays
+  empty until the application stamps it itself on new entries.
+- `…_label` — a label for a person without an account, at most 80 characters. The migration copies
+  the existing free text there, cut to 80 characters.
+
+This covers watering events, watering logs, tank fills, tank maintenance, nutrient plans and
+workflow templates. Inspections recorded through the MCP interface (`inspector = "mcp:<key>"`) are a
+special case: if the key belongs to an existing **service account** that is a member of this
+garden, it is recorded as the inspection's account and the text is cleared. Otherwise nothing
+changes.
+
+The migration processes **active** gardens only, each in its own transaction. Global catalogue
+entries (system nutrient plans and templates) are left alone. The old fields remain. The migration
+is **reversible**: the way back removes empty account fields and labels that are still the
+unchanged copy of the free text. It does not undo the assignment of MCP inspections.
 
 ---
 

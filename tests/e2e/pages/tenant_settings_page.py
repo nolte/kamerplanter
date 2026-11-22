@@ -21,14 +21,14 @@ class TenantSettingsPage(BasePage):
 
     # -- Members / invitations tables --------------------------------------
     # Both tabs render a `DataTable`, and only one tab is mounted at a time, so
-    # the durable ``data-table``/``data-table-row`` testids are an exact scope
+    # the durable ``data-table`` testid and keyed ``data-row-key`` rows are an exact scope
     # without an aria-label. They also survive the layout switch: the members
     # table passes a ``mobileCardRenderer``, so below `DataTable`'s ``sm``
     # breakpoint it renders `MobileCard`s with no ``<table>`` and no
     # ``<tbody><tr>`` at all — where ``table[aria-label] tbody tr`` silently
     # counted zero members instead of failing.
     MEMBERS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    MEMBERS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     # Deliberately scoped *within* a row (see get_member_role_chips), not to
     # the page: the members table currently renders exactly one Chip per row
     # (the role), so this is unambiguous today. It is still class-based rather
@@ -46,7 +46,7 @@ class TenantSettingsPage(BasePage):
     SEND_INVITATION_BTN = (By.CSS_SELECTOR, "[data-testid='send-invitation-btn']")
     CREATE_LINK_BTN = (By.CSS_SELECTOR, "[data-testid='create-link-btn']")
     INVITATIONS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    INVITATIONS_TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # -- Snackbar ----------------------------------------------------------
     SNACKBAR = (By.CSS_SELECTOR, "#notistack-snackbar")

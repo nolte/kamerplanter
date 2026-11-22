@@ -80,10 +80,10 @@ class _RecordingCollection:
         self.name = name
         self.rows: list[dict[str, Any]] = []
 
-    def _add(self, fields: list[str], unique: bool, sparse: bool) -> dict[str, Any]:
+    def _add(self, fields: list[str], unique: bool, sparse: bool, kind: str = "persistent") -> dict[str, Any]:
         row = {
             "id": f"{self.name}/{len(self.rows)}",
-            "type": "persistent",
+            "type": kind,
             "fields": list(fields),
             "unique": bool(unique),
             "sparse": bool(sparse),
@@ -97,7 +97,10 @@ class _RecordingCollection:
         return self._add(fields, unique, sparse)
 
     def add_index(self, data: dict[str, Any]) -> dict[str, Any]:
-        return self._add(data["fields"], data.get("unique", False), data.get("sparse", False))
+        # ``type`` as given: a TTL index (REQ-053 WP 9.3 tombstones) must read back as one.
+        return self._add(
+            data["fields"], data.get("unique", False), data.get("sparse", False), data.get("type", "persistent")
+        )
 
     def indexes(self) -> list[dict[str, Any]]:
         return [dict(row) for row in self.rows]

@@ -168,3 +168,14 @@ def test_a_foreign_nutrient_plan_cannot_be_printed(env) -> None:
     own = env.client.get(f"{BASE}/print/nutrient-plan/plan-a")
     assert own.status_code == 200, own.text
     assert own.headers["content-type"] == "application/pdf"
+
+
+def test_a_label_of_a_foreign_location_cannot_be_printed(env) -> None:
+    """#2899 (GP-FR-052): the bed label anchors on the location's site - ``Location`` carries no tenant."""
+    foreign = env.client.get(f"{BASE}/print/location-label/loc-b")
+    assert foreign.status_code == 404, foreign.text
+    assert b"Loc b" not in foreign.content and b"Site b" not in foreign.content
+
+    own = env.client.get(f"{BASE}/print/location-label/loc-a")
+    assert own.status_code == 200, own.text
+    assert own.headers["content-type"] == "application/pdf"

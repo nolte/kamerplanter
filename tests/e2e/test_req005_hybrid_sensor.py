@@ -270,7 +270,7 @@ class TestSensorCreationSmokeFlow:
         opened_site_detail.wait_for_element_visible(SiteDetailPage.PAGE_TITLE)
         opened_site_detail._wait_for_skeleton_gone()
 
-        # Wait until at least one data-table-row containing the sensor name
+        # Wait until at least one DataTable row ([data-row-key]) containing the sensor name
         # appears.  We avoid hard-coding which DataTable on the page renders
         # the sensor (locations vs. sensors); the unique sensor name makes the
         # match unambiguous.

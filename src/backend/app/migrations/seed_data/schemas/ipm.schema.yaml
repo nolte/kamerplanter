@@ -59,9 +59,9 @@ $defs:
         type: string
       common_name:
         type: string
-      common_name_de:
-        type: string
-        description: "Deutsche Anzeige-Variante des common_name"
+      common_names_i18n:
+        $ref: "_defs.schema.yaml#/$defs/common_names_i18n"
+        description: "Language code -> pest names (de, en); replaces common_name_de, REQ-010 v1.9"
       pest_type:
         type: string
         enum: [insect, arachnid, gastropod, nematode, mammal]
@@ -134,6 +134,9 @@ $defs:
         type: string
       common_name:
         type: string
+      common_names_i18n:
+        $ref: "_defs.schema.yaml#/$defs/common_names_i18n"
+        description: "Language code -> disease names (de, en); only sourced names (E-10), REQ-010 v1.8"
       pathogen_type:
         type: string
         enum: [fungal, bacterial, viral, physiological, oomycete, protist]

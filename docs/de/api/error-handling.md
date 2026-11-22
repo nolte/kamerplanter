@@ -79,6 +79,7 @@ Alle API-Fehler folgen einem einheitlichen JSON-Format. Jede Fehlerantwort enth√
 |-----------|------|-------------|
 | `ENTITY_NOT_FOUND` | 404 | Die angeforderte Ressource existiert nicht |
 | `DUPLICATE_ENTRY` | 409 | Ein Eintrag mit diesem Wert existiert bereits |
+| `TRANSACTION_TIME_BUDGET_EXCEEDED` | 422 | Ein atomarer Schreibvorgang (Stream-Transaktion) hat sein Zeitbudget von 10 s √ºberschritten und wurde abgebrochen; es wurde nichts geschrieben. Teile die Anfrage auf oder wiederhole sie mit weniger Operationen |
 | `VALIDATION_ERROR` | 422 | Pydantic-Validierungsfehler (Typen, Pflichtfelder) |
 | `INTERNAL_ERROR` | 500 | Unerwarteter interner Fehler |
 

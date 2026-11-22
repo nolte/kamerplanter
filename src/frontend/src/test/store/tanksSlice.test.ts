@@ -60,7 +60,7 @@ describe('tanksSlice', () => {
       error: { message: 'Tank fail' },
     });
     expect(state.loading).toBe(false);
-    expect(state.error).toBe('Tank fail');
+    expect(state.error).toBe('errors.loadFailed');
   });
 
   it('fetchTanks.rejected falls back to a default message when none is given', () => {
@@ -94,7 +94,7 @@ describe('tanksSlice thunks', () => {
     mocked.listTanks.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchTanks({}));
-    expect(store.getState().tanks.error).toBe('load failed');
+    expect(store.getState().tanks.error).toBe('errors.loadFailed');
   });
 
   it('fetchTank calls getTank and stores the selection', async () => {

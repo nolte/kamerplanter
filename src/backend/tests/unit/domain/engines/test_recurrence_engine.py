@@ -7,6 +7,9 @@ fixed-interval care path (``CareReminderService.ensure_next_watering_task``).
 
 from datetime import UTC, datetime
 
+import pytest
+
+from app.common.exceptions import RecurrenceRuleRequiredError, ValidationError
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 
 
@@ -43,8 +46,9 @@ class TestNextOccurrence:
 
         assert next_dt == datetime(2026, 1, 7, 12, 0, tzinfo=UTC)
 
-    def test_legacy_cron_string_falls_back_to_croniter(self) -> None:
-        assert RecurrenceEngine.next_occurrence("0 9 * * *", self._AFTER) == datetime(2026, 1, 6, 9, 0, tzinfo=UTC)
+    def test_a_cron_string_is_no_longer_advanced(self) -> None:
+        """M5 (#2325): the croniter fallback is gone — a stored cron rule cannot exist after v0097."""
+        assert RecurrenceEngine.next_occurrence("0 9 * * *", self._AFTER) is None
 
     def test_empty_rule_returns_none(self) -> None:
         assert RecurrenceEngine.next_occurrence("", self._AFTER) is None
@@ -54,3 +58,22 @@ class TestNextOccurrence:
 
     def test_garbage_rule_returns_none(self) -> None:
         assert RecurrenceEngine.next_occurrence("not-a-rule", self._AFTER) is None
+
+
+class TestRequireRrule:
+    """GP-ACC-038: the service boundary refuses anything that is not an RRULE with ``recurrence.rrule_required``."""
+
+    @pytest.mark.parametrize(
+        "rule", [None, "", "FREQ=DAILY", "FREQ=WEEKLY;BYDAY=MO;BYHOUR=8;BYMINUTE=0", "FREQ=DAILY;INTERVAL=3"]
+    )
+    def test_empty_or_rrule_passes_through(self, rule: str | None) -> None:
+        assert RecurrenceEngine.require_rrule(rule) == rule
+
+    @pytest.mark.parametrize("rule", ["0 8 * * 1", "*/15 * * * *", "weekly", "not-a-rule"])
+    def test_cron_or_garbage_is_refused_with_the_code(self, rule: str) -> None:
+        with pytest.raises(RecurrenceRuleRequiredError) as excinfo:
+            RecurrenceEngine.require_rrule(rule)
+
+        assert excinfo.value.status_code == 422
+        assert excinfo.value.error_code == "recurrence.rrule_required"
+        assert isinstance(excinfo.value, ValidationError), "existing handlers keep catching it"

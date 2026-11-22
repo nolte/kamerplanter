@@ -200,16 +200,16 @@ jobs:
       # GHCR manifest list, not guessed — so this commit changes which manager
       # reads the pin and nothing about which image runs.
       # renovate: datasource=docker depName=ghcr.io/zaproxy/zaproxy
-      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20261008-stable@sha256:7aaa659b0d43078febd82e29bad112285c370727e86ab8340444220e17d9f0d2
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:20261103-stable@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
       # Same class, found by the class sweep of #1563 rather than by the
       # issue: a tag AND a digest look managed, but the marker is what the
       # regex manager matches on, so `grep -c curlimages <log>` was 0 too.
       # renovate: datasource=docker depName=curlimages/curl
-      CURL_IMAGE: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+      CURL_IMAGE: curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
     steps:
       - name: Log in to Docker Hub
         if: github.event.pull_request.head.repo.fork != true
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -486,6 +486,31 @@ jobs:
               `- \`${h.plugin}\` — ${h.name} (${h.count} instance(s)) on ${h.site}`
             ).join('\n');
             const more = blocking.length > 20 ? `\n…and ${blocking.length - 20} more.` : '';
+            // One cause, one issue. This step used to create an issue per scanned
+            // commit, so a finding that outlives a merge (a base image with a new
+            // advisory) filed ten identical issues within a day. An open issue
+            // carrying the same set of rule + site gets a comment instead. The set
+            // travels as a marker in the body, so neither the instance count, the
+            // report order nor a browser edit (CRLF) breaks the comparison. A failed
+            // lookup must not cost the finding its issue: it falls through to create.
+            const marker = `<!-- zap-findings: ${[...new Set(blocking.map(h => `${h.plugin}@${h.site}`))].sort().join(' ')} -->`;
+            let same;
+            try {
+              const open = await github.paginate(github.rest.issues.listForRepo, {
+                owner: context.repo.owner, repo: context.repo.repo,
+                state: 'open', labels: 'zap', per_page: 100,
+              });
+              same = open.find(i => !i.pull_request && (i.body || '').includes(marker));
+            } catch (e) {
+              core.warning(`Could not look for an open issue with the same findings (${e}); opening a new one.`);
+            }
+            if (same) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: same.number,
+                body: `Still present on \`${process.env.COMMIT_SHA}\`: ${process.env.RUN_URL}`,
+              });
+              return;
+            }
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -501,6 +526,8 @@ jobs:
                 '## Findings (truncated to 20)',
                 '',
                 summary + more,
+                '',
+                marker,
               ].join('\n'),
               labels: ['security', 'zap'],
             });

@@ -19,6 +19,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import { useCanEditInstallationCatalogue } from '@/hooks/useCanEditInstallationCatalogue';
@@ -26,6 +27,7 @@ import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import * as rotationApi from '@/api/endpoints/cropRotation';
 import type { BotanicalFamily, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface SpeciesCropRotationTabProps {
   familyKey: string | null | undefined;
@@ -57,6 +59,8 @@ export default function SpeciesCropRotationTab({
   const [rotationDialogOpen, setRotationDialogOpen] = useState(false);
   const [rotationFamilies, setRotationFamilies] = useState<BotanicalFamily[]>([]);
   const [rotationFamiliesLoaded, setRotationFamiliesLoaded] = useState(false);
+  // A failed family read is shown in the dialog with a retry, never as an empty picker (#3037).
+  const [rotationFamiliesError, setRotationFamiliesError] = useState(false);
   const [rotationTargetKey, setRotationTargetKey] = useState('');
   const [rotationWaitYears, setRotationWaitYears] = useState(3);
 
@@ -66,7 +70,10 @@ export default function SpeciesCropRotationTab({
       familiesApi
         .getBotanicalFamily(familyKey)
         .then(setCurrentFamily)
-        .catch(() => {});
+        .catch((err: unknown) => {
+          // Heading enrichment only: the tab shows the family key instead of its name.
+          captureHandledError(err, { source: 'SpeciesCropRotationTab.family' });
+        });
       rotationApi
         .getSuccessors(familyKey)
         .then(setRotationSuccessors)
@@ -75,16 +82,22 @@ export default function SpeciesCropRotationTab({
     }
   }, [familyKey, handleError]);
 
+  const loadRotationFamilies = () => {
+    setRotationFamiliesError(false);
+    familiesApi
+      .listAllBotanicalFamilies()
+      .then((f) => {
+        setRotationFamilies(f);
+        setRotationFamiliesLoaded(true);
+      })
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'SpeciesCropRotationTab.families' });
+        setRotationFamiliesError(true);
+      });
+  };
+
   const openRotationDialog = () => {
-    if (!rotationFamiliesLoaded) {
-      familiesApi
-        .listAllBotanicalFamilies()
-        .then((f) => {
-          setRotationFamilies(f);
-          setRotationFamiliesLoaded(true);
-        })
-        .catch(() => {});
-    }
+    if (!rotationFamiliesLoaded) loadRotationFamilies();
     setRotationDialogOpen(true);
   };
 
@@ -282,12 +295,20 @@ export default function SpeciesCropRotationTab({
             onClose={() => setRotationDialogOpen(false)}
             maxWidth="sm"
             fullWidth
+            data-testid="species-crop-rotation-dialog"
+            aria-labelledby="species-crop-rotation-dialog-title"
           >
-            <DialogTitle>{t('pages.cropRotation.addSuccessor')}</DialogTitle>
+            <DialogTitle id="species-crop-rotation-dialog-title">{t('pages.cropRotation.addSuccessor')}</DialogTitle>
             <DialogContent>
               <DialogContentText sx={{ mb: 2 }}>
                 {t('pages.cropRotation.addSuccessorHint')}
               </DialogContentText>
+              {rotationFamiliesError && (
+                <OptionsLoadError
+                  onRetry={loadRotationFamilies}
+                  data-testid="species-rotation-families-load-error"
+                />
+              )}
               <TextField
                 select
                 fullWidth

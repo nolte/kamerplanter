@@ -1,7 +1,7 @@
 """Notification service — coordinates engine, repositories and channels."""
 
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -31,6 +31,16 @@ logger = structlog.get_logger()
 # new endpoint, the oldest subscription is evicted (FIFO) so the newest device
 # always works.
 MAX_PWA_SUBSCRIPTIONS_PER_USER = 20
+#: The frost warning names at most this many beds in its text and carries at most this many keys (WP 8.20).
+FROST_BEDS_NAMED_MAX = 5
+FROST_BEDS_DATA_MAX = 50
+FROST_BED_NAME_MAX = 60
+
+
+def _frost_bed_label(name: str) -> str:
+    """A user-given bed name as it appears in a notification text: control characters and line breaks out, cut."""
+    clean = "".join(ch if ch.isprintable() else " " for ch in name).strip()
+    return clean[:FROST_BED_NAME_MAX] or "-"
 
 
 class NotificationService:
@@ -172,6 +182,7 @@ class NotificationService:
         expected_date: date,
         min_temp: float | None,
         source: str | None,
+        frost_beds: Sequence[tuple[str, str]] = (),
     ) -> dict:
         """Emit a proactive frost early-warning to a tenant's users (Issue #392).
 
@@ -194,6 +205,8 @@ class NotificationService:
             expected_date: Earliest in-horizon frost date (idempotency key part).
             min_temp: Expected minimum temperature in °C for that night.
             source: Provenance of the forecast (e.g. ``open-meteo``).
+            frost_beds: ``(key, name)`` of the beds the warning names (``frost_risk = high``, WP 8.20); the
+                idempotency key is unchanged, the list does not re-announce a warning.
 
         Returns:
             ``{"status": "deduplicated"|"empty"|"complete", "users_notified": int}``.
@@ -223,11 +236,16 @@ class NotificationService:
         temp_text = f"{min_temp} °C" if min_temp is not None else "unknown"
         title = "Frost warning"
         body = f"Frost is expected for {site_name} on the night of {expected_date.isoformat()} (min. {temp_text})."
+        shown = [_frost_bed_label(name) for _key, name in frost_beds[:FROST_BEDS_NAMED_MAX]]
+        if shown:
+            more = len(frost_beds) - len(shown)
+            body += f" Beds at frost risk: {', '.join(shown)}" + (f" and {more} more." if more > 0 else ".")
         data = {
             "site_key": site_key,
             "expected_date": expected_date.isoformat(),
             "min_temp": min_temp,
             "source": source,
+            "frost_bed_keys": [key for key, _name in frost_beds[:FROST_BEDS_DATA_MAX]],
         }
 
         users_notified = 0

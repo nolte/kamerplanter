@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -70,8 +70,11 @@ import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
+import { isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { confirmReminder } from '@/api/endpoints/careReminders';
 import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/types';
+import { getEventCategoryColor, readableTextOn } from '@/theme/domainColors';
 import { kamiCalendar } from '@/assets/brand/illustrations';
 import PlantFilterTree from './PlantFilterTree';
 
@@ -90,20 +93,6 @@ const ALL_CATEGORIES: CalendarEventCategory[] = [
   'watering_forecast',
   'custom',
 ];
-
-const CATEGORY_COLORS: Record<CalendarEventCategory, string> = {
-  training: '#4CAF50',
-  pruning: '#8BC34A',
-  transplanting: '#795548',
-  feeding: '#2196F3',
-  ipm: '#FF9800',
-  harvest: '#F44336',
-  maintenance: '#9E9E9E',
-  phase_transition: '#9C27B0',
-  tank_maintenance: '#00BCD4',
-  watering_forecast: '#42A5F5',
-  custom: '#607D8B',
-};
 
 const CATEGORY_I18N_KEYS: Record<CalendarEventCategory, string> = {
   training: 'pages.calendar.training',
@@ -169,6 +158,13 @@ function getEventLink(event: CalendarEvent): string | null {
   return null;
 }
 
+/** Visible focus for the links and entries of the day popover (#3047). */
+const popoverLinkFocus = {
+  outline: '2px solid',
+  outlineColor: 'primary.main',
+  outlineOffset: 1,
+} as const;
+
 function getRunLink(runKey: string): string {
   return `/durchlaeufe/planting-runs/${runKey}`;
 }
@@ -178,7 +174,8 @@ export default function CalendarPage() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  // Sowing-calendar labels are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const notification = useNotification();
   // `require_permission(CALENDAR_FEED, DELETE)` is lead-only (REQ-049 §2.3) (#1467).
   const { canDelete } = useTenantPermissions();
@@ -226,6 +223,11 @@ export default function CalendarPage() {
     null,
   );
 
+  // Month grid keyboard model (#3017, L-10): one tab stop, the arrow keys move between days.
+  const monthGridRef = useRef<HTMLDivElement>(null);
+  // Remembered per month, so paging to another month starts on its own default day.
+  const [focusedDay, setFocusedDay] = useState<{ month: string; day: number } | null>(null);
+
   // Fetch events when month changes
   useEffect(() => {
     const start = formatDateISO(getMonthStart(currentYear, currentMonth));
@@ -267,7 +269,7 @@ export default function CalendarPage() {
     if (viewMode === 'sowing') {
       dispatch(fetchSowingCalendar({ siteId: selectedSiteKey || undefined, year: currentYear }));
     }
-  }, [dispatch, viewMode, selectedSiteKey, currentYear]);
+  }, [dispatch, viewMode, selectedSiteKey, currentYear, requestLanguage]);
 
   // Fetch season overview when view mode or site changes
   useEffect(() => {
@@ -336,13 +338,13 @@ export default function CalendarPage() {
           runKey,
           runName: meta?.run_name ?? runKey,
           events: runEvents,
-          color: runEvents[0].color || CATEGORY_COLORS[runEvents[0].category as CalendarEventCategory] || '#9E9E9E',
+          color: runEvents[0].color || getEventCategoryColor(theme, runEvents[0].category),
         });
       }
       map.set(day, entries);
     }
     return map;
-  }, [eventsByDay]);
+  }, [eventsByDay, theme]);
 
   // Sort events for list view
   const sortedEvents = useMemo(
@@ -460,6 +462,22 @@ export default function CalendarPage() {
     setDayPopoverAnchor(null);
     setDayPopoverDate(null);
   }, []);
+
+  // A link inside a popover (#3047): the router follows a plain click, so the popover closes with it.
+  // A Ctrl/Cmd/Shift click opens the target in a new tab and leaves this one where it is — the popover
+  // stays open so the next entry can be opened too. (A middle click fires no `click` at all.)
+  const closeDayPopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleCloseDayPopover();
+    },
+    [handleCloseDayPopover],
+  );
+  const closePopoverOnPlainClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (isPlainPrimaryClick(e)) handleClosePopover();
+    },
+    [handleClosePopover],
+  );
 
   // ── Feed management ──────────────────────────────────────────────
 
@@ -611,6 +629,45 @@ export default function CalendarPage() {
   const isToday = (day: number) =>
     today.getFullYear() === currentYear && today.getMonth() === currentMonth && today.getDate() === day;
 
+  // The roving tab stop: the last focused day, else today in the current month, else the 1st.
+  const monthId = `${currentYear}-${currentMonth}`;
+  const activeDay =
+    focusedDay !== null && focusedDay.month === monthId
+      ? focusedDay.day
+      : today.getFullYear() === currentYear && today.getMonth() === currentMonth
+        ? today.getDate()
+        : 1;
+
+  const focusDay = (day: number) => {
+    const target = Math.min(Math.max(day, 1), daysInMonth);
+    setFocusedDay({ month: monthId, day: target });
+    monthGridRef.current?.querySelector<HTMLElement>(`[data-day="${target}"]`)?.focus();
+  };
+
+  // WAI-ARIA grid keys: arrows move a day / a week, Home/End jump to the week's edges,
+  // Enter/Space open the day. Keys pressed on an entry inside the cell belong to that entry.
+  const handleGridKeyDown = (e: React.KeyboardEvent<HTMLElement>, day: number) => {
+    if (e.target !== e.currentTarget) return;
+    const column = (firstDayOfWeek + day - 1) % 7;
+    const moves: Record<string, number> = {
+      ArrowLeft: day - 1,
+      ArrowRight: day + 1,
+      ArrowUp: day - 7,
+      ArrowDown: day + 7,
+      Home: day - column,
+      End: day + (6 - column),
+    };
+    if (e.key in moves) {
+      e.preventDefault();
+      focusDay(moves[e.key]);
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleDayClick(e as unknown as React.MouseEvent<HTMLElement>, currentYear, currentMonth, day);
+    }
+  };
+
   const renderMonthGrid = () => {
     const rows: React.ReactNode[] = [];
     let cells: React.ReactNode[] = [];
@@ -626,29 +683,20 @@ export default function CalendarPage() {
       cells.push(
         <Box
           key={i}
+          role="gridcell"
           onClick={isValidDay ? (e) => handleDayClick(e, currentYear, currentMonth, dayNum) : undefined}
-          role={isValidDay ? 'button' : undefined}
-          tabIndex={isValidDay && dayEvents.length > 0 ? 0 : undefined}
+          tabIndex={isValidDay ? (dayNum === activeDay ? 0 : -1) : undefined}
           aria-label={
             isValidDay
-              ? `${dayNum}. ${formatMonthYear}${dayEntries.length > 0 ? `, ${dayEntries.length} ${t('pages.calendar.title')}` : ''}`
+              ? `${dayNum}. ${formatMonthYear}${
+                  dayEntries.length > 0 ? `, ${t('pages.calendar.dayEntryCount', { count: dayEntries.length })}` : ''
+                }`
               : undefined
           }
-          onKeyDown={
-            isValidDay
-              ? (e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleDayClick(
-                      e as unknown as React.MouseEvent<HTMLElement>,
-                      currentYear,
-                      currentMonth,
-                      dayNum,
-                    );
-                  }
-                }
-              : undefined
-          }
+          aria-current={isValidDay && isToday(dayNum) ? 'date' : undefined}
+          onFocus={isValidDay ? () => setFocusedDay({ month: monthId, day: dayNum }) : undefined}
+          onKeyDown={isValidDay ? (e) => handleGridKeyDown(e, dayNum) : undefined}
+          data-day={isValidDay ? dayNum : undefined}
           data-testid={isValidDay ? `calendar-day-${dayNum}` : undefined}
           sx={{
             flex: '1 0 calc(100% / 7)',
@@ -664,6 +712,7 @@ export default function CalendarPage() {
               : 'action.disabledBackground',
             overflow: 'hidden',
             '&:hover': isValidDay && dayEvents.length > 0 ? { bgcolor: 'action.hover' } : {},
+            '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
           }}
         >
           {isValidDay && (
@@ -688,9 +737,7 @@ export default function CalendarPage() {
                       <Box
                         key={`run-${entry.runKey}`}
                         component="span"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={entry.runName}
+                        data-testid={`calendar-run-entry-${entry.runKey}`}
                         sx={{
                           display: 'block',
                           borderLeft: `3px solid ${entryColor}`,
@@ -713,7 +760,7 @@ export default function CalendarPage() {
                     );
                   }
                   const ev = entry.event;
-                  const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
+                  const evColor = ev.color || getEventCategoryColor(theme, ev.category);
                   return (
                     <Box
                       key={ev.id}
@@ -726,8 +773,9 @@ export default function CalendarPage() {
                         }
                       }}
                       role="button"
-                      tabIndex={0}
-                      aria-label={ev.title}
+                      // The grid is a single tab stop; keyboard users open an entry through its
+                      // day (Enter), whose popover lists every entry of that day.
+                      tabIndex={-1}
                       data-testid={`calendar-event-dot-${ev.id}`}
                       sx={{
                         display: 'block',
@@ -773,7 +821,7 @@ export default function CalendarPage() {
 
       if ((i + 1) % 7 === 0) {
         rows.push(
-          <Box key={`row-${i}`} sx={{ display: 'flex' }}>
+          <Box key={`row-${i}`} role="row" sx={{ display: 'flex' }}>
             {cells}
           </Box>,
         );
@@ -827,28 +875,22 @@ export default function CalendarPage() {
           size="small"
           label={t(CATEGORY_I18N_KEYS[event.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
           sx={{
-            bgcolor: event.color || CATEGORY_COLORS[event.category as CalendarEventCategory] || 'grey.500',
-            color: 'common.white',
+            bgcolor: event.color || getEventCategoryColor(theme, event.category),
+            color: readableTextOn(event.color || getEventCategoryColor(theme, event.category)),
             fontWeight: 500,
           }}
         />
       ),
     },
-  ], [t, formatEventDate, formatEventTime]);
-
-  const handleListRowClick = useCallback((event: CalendarEvent) => {
-    const link = getEventLink(event);
-    if (link) {
-      navigate(link);
-    }
-  }, [navigate]);
+  ], [t, formatEventDate, formatEventTime, theme]);
 
   const renderListView = () => (
     <DataTable<CalendarEvent>
       columns={listColumns}
       rows={sortedEvents}
       getRowKey={(event) => event.id}
-      onRowClick={handleListRowClick}
+      // An event with a detail page is a real row link (#3047); one without stays plain.
+      getRowHref={getEventLink}
       emptyMessage={t('pages.calendar.noEvents')}
       emptyIllustration={kamiCalendar}
       variant="simple"
@@ -1011,11 +1053,13 @@ export default function CalendarPage() {
                   onClick={() => toggleCategory(cat)}
                   data-testid={`category-filter-${cat}`}
                   sx={{
-                    bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : 'transparent',
-                    color: selectedCategories.has(cat) ? 'common.white' : 'text.primary',
-                    borderColor: CATEGORY_COLORS[cat],
+                    bgcolor: selectedCategories.has(cat) ? getEventCategoryColor(theme, cat) : 'transparent',
+                    color: selectedCategories.has(cat)
+                      ? readableTextOn(getEventCategoryColor(theme, cat))
+                      : 'text.primary',
+                    borderColor: getEventCategoryColor(theme, cat),
                     '&:hover': {
-                      bgcolor: selectedCategories.has(cat) ? CATEGORY_COLORS[cat] : `${CATEGORY_COLORS[cat]}22`,
+                      bgcolor: selectedCategories.has(cat) ? getEventCategoryColor(theme, cat) : `${getEventCategoryColor(theme, cat)}22`,
                     },
                   }}
                 />
@@ -1065,7 +1109,13 @@ export default function CalendarPage() {
           {/* Main content */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {viewMode === 'month' ? (
-              <Paper sx={{ overflow: 'hidden' }} role="table" aria-label={t('pages.calendar.monthView')}>
+              <Paper
+                ref={monthGridRef}
+                sx={{ overflow: 'hidden' }}
+                role="grid"
+                aria-label={`${t('pages.calendar.monthView')} ${formatMonthYear}`}
+                data-testid="calendar-month-grid"
+              >
                 {/* Weekday headers */}
                 <Box sx={{ display: 'flex', bgcolor: 'action.hover' }} role="row">
                   {weekdayHeaders.map((wh) => (
@@ -1086,7 +1136,7 @@ export default function CalendarPage() {
                 </Box>
                 {/* Day cells */}
                 {filteredEvents.length === 0 && !loading ? (
-                  <Box sx={{ p: 4 }}>
+                  <Box sx={{ p: 4 }} role="rowgroup">
                     {renderMonthGrid()}
                   </Box>
                 ) : (
@@ -1129,8 +1179,7 @@ export default function CalendarPage() {
                   borderRadius: '50%',
                   bgcolor:
                     popoverEvent.color ||
-                    CATEGORY_COLORS[popoverEvent.category as CalendarEventCategory] ||
-                    'grey.500',
+                    getEventCategoryColor(theme, popoverEvent.category),
                   flexShrink: 0,
                 }}
               />
@@ -1146,9 +1195,8 @@ export default function CalendarPage() {
               sx={{
                 bgcolor:
                   popoverEvent.color ||
-                  CATEGORY_COLORS[popoverEvent.category as CalendarEventCategory] ||
-                  'grey.500',
-                color: 'common.white',
+                  getEventCategoryColor(theme, popoverEvent.category),
+                color: readableTextOn(popoverEvent.color || getEventCategoryColor(theme, popoverEvent.category)),
                 mb: 1,
               }}
             />
@@ -1215,14 +1263,14 @@ export default function CalendarPage() {
               const link = getEventLink(popoverEvent);
               if (!link) return null;
               return (
+                // A real link (#3047): it can be opened in a new tab; the router follows a plain click.
                 <Button
+                  component={RouterLink}
+                  to={link}
                   size="small"
                   variant="text"
                   endIcon={<OpenInNewIcon sx={{ fontSize: '0.875rem' }} />}
-                  onClick={() => {
-                    handleClosePopover();
-                    navigate(link);
-                  }}
+                  onClick={closePopoverOnPlainClick}
                   sx={{ mt: 1, textTransform: 'none' }}
                 >
                   {t('pages.calendar.goToDetail')}
@@ -1269,27 +1317,21 @@ export default function CalendarPage() {
             {dayPopoverGrouped.runGroups.map((group) => (
               <Box key={group.runKey || '_ungrouped'} sx={{ mb: 1 }}>
                 {group.runKey && (
+                  // A real link (#3047): can be opened in a new tab, announced as a link. The router
+                  // follows a plain click; that click also closes the popover, a modified one does not.
                   <Box
+                    component={RouterLink}
+                    to={getRunLink(group.runKey)}
+                    onClick={closeDayPopoverOnPlainClick}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.5,
                       mb: 0.5,
-                      cursor: 'pointer',
+                      color: 'inherit',
+                      textDecoration: 'none',
                       '&:hover': { textDecoration: 'underline' },
-                    }}
-                    role="link"
-                    tabIndex={0}
-                    onClick={() => {
-                      handleCloseDayPopover();
-                      navigate(getRunLink(group.runKey));
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleCloseDayPopover();
-                        navigate(getRunLink(group.runKey));
-                      }
+                      '&:focus-visible': popoverLinkFocus,
                     }}
                   >
                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
@@ -1300,43 +1342,46 @@ export default function CalendarPage() {
                 )}
                 {group.events.map((ev) => {
                   const link = getEventLink(ev);
-                  const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
-                  return (
-                    <Box
-                      key={ev.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.75,
-                        py: 0.5,
-                        px: 0.75,
-                        ml: group.runKey ? 1.5 : 0,
-                        cursor: link ? 'pointer' : 'default',
-                        '&:hover': link ? { bgcolor: 'action.hover' } : {},
-                        borderRadius: 1,
-                        borderLeft: `3px solid ${evColor}`,
-                        bgcolor: `${evColor}0A`,
-                      }}
-                      role={link ? 'link' : undefined}
-                      tabIndex={link ? 0 : undefined}
-                      onClick={() => {
-                        if (link) {
-                          handleCloseDayPopover();
-                          navigate(link);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (link && (e.key === 'Enter' || e.key === ' ')) {
-                          e.preventDefault();
-                          handleCloseDayPopover();
-                          navigate(link);
-                        }
-                      }}
-                    >
+                  const evColor = ev.color || getEventCategoryColor(theme, ev.category);
+                  const entrySx = {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.75,
+                    py: 0.5,
+                    px: 0.75,
+                    ml: group.runKey ? 1.5 : 0,
+                    borderRadius: 1,
+                    borderLeft: `3px solid ${evColor}`,
+                    bgcolor: `${evColor}0A`,
+                  };
+                  const entryContent = (
+                    <>
                       <Typography variant="body2" noWrap sx={{ flex: 1, color: link ? 'primary.main' : 'text.primary' }}>
                         {ev.title}
                       </Typography>
                       {link && <OpenInNewIcon sx={{ fontSize: '0.75rem', color: 'text.secondary', flexShrink: 0 }} />}
+                    </>
+                  );
+                  // A linked entry is a real link (#3047); one without a target is plain text.
+                  return link ? (
+                    <Box
+                      key={ev.id}
+                      component={RouterLink}
+                      to={link}
+                      onClick={closeDayPopoverOnPlainClick}
+                      sx={{
+                        ...entrySx,
+                        color: 'inherit',
+                        textDecoration: 'none',
+                        '&:hover': { bgcolor: 'action.hover' },
+                        '&:focus-visible': popoverLinkFocus,
+                      }}
+                    >
+                      {entryContent}
+                    </Box>
+                  ) : (
+                    <Box key={ev.id} sx={entrySx}>
+                      {entryContent}
                     </Box>
                   );
                 })}
@@ -1345,47 +1390,22 @@ export default function CalendarPage() {
             {/* Other (non-phase) events */}
             {dayPopoverGrouped.otherEvents.map((ev) => {
               const link = getEventLink(ev);
-              const evColor = ev.color || CATEGORY_COLORS[ev.category as CalendarEventCategory] || '#9E9E9E';
-              return (
-                <Box
-                  key={ev.id}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.75,
-                    py: 0.5,
-                    px: 0.75,
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' },
-                    borderRadius: 1,
-                    borderLeft: `3px solid ${evColor}`,
-                    bgcolor: `${evColor}0A`,
-                    mb: 0.5,
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    if (link) {
-                      handleCloseDayPopover();
-                      navigate(link);
-                    } else {
-                      handleCloseDayPopover();
-                      handleEventClick(e, ev);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      if (link) {
-                        handleCloseDayPopover();
-                        navigate(link);
-                      } else {
-                        handleCloseDayPopover();
-                        handleEventClick(e as unknown as React.MouseEvent<HTMLElement>, ev);
-                      }
-                    }
-                  }}
-                >
+              const evColor = ev.color || getEventCategoryColor(theme, ev.category);
+              const entrySx = {
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.75,
+                flex: 1,
+                minWidth: 0,
+                py: 0.5,
+                px: 0.75,
+                borderRadius: 1,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'action.hover' },
+                '&:focus-visible': popoverLinkFocus,
+              };
+              const entryContent = (
+                <>
                   <Typography variant="body2" noWrap sx={{ flex: 1, color: link ? 'primary.main' : 'text.primary' }}>
                     {!ev.all_day && ev.start && (
                       <Typography component="span" variant="caption" sx={{ color: 'text.secondary', mr: 0.5 }}>
@@ -1399,7 +1419,7 @@ export default function CalendarPage() {
                     label={t(CATEGORY_I18N_KEYS[ev.category as CalendarEventCategory] ?? 'pages.calendar.custom')}
                     sx={{
                       bgcolor: evColor,
-                      color: 'common.white',
+                      color: readableTextOn(evColor),
                       height: 18,
                       fontSize: '0.6rem',
                       flexShrink: 0,
@@ -1407,16 +1427,59 @@ export default function CalendarPage() {
                     }}
                   />
                   {link && <OpenInNewIcon sx={{ fontSize: '0.75rem', color: 'text.secondary', flexShrink: 0 }} />}
+                </>
+              );
+              return (
+                <Box
+                  key={ev.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    borderRadius: 1,
+                    borderLeft: `3px solid ${evColor}`,
+                    bgcolor: `${evColor}0A`,
+                    mb: 0.5,
+                  }}
+                >
+                  {/* A linked event is a real link (#3047); one without a target opens its detail
+                      popover. The confirm button is a sibling, never nested in either. */}
+                  {link ? (
+                    <Box
+                      component={RouterLink}
+                      to={link}
+                      onClick={closeDayPopoverOnPlainClick}
+                      sx={{ ...entrySx, color: 'inherit', textDecoration: 'none' }}
+                    >
+                      {entryContent}
+                    </Box>
+                  ) : (
+                    <Box
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        handleCloseDayPopover();
+                        handleEventClick(e, ev);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleCloseDayPopover();
+                          handleEventClick(e as unknown as React.MouseEvent<HTMLElement>, ev);
+                        }
+                      }}
+                      sx={entrySx}
+                    >
+                      {entryContent}
+                    </Box>
+                  )}
                   {ev.source === 'watering_forecast' && ev.plant_key && (
                     <Tooltip title={t('pages.calendar.confirmWatering')} arrow>
                       <IconButton
                         size="small"
                         color="success"
                         disabled={confirmingWatering === ev.plant_key}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfirmWatering(ev.plant_key!);
-                        }}
+                        onClick={() => handleConfirmWatering(ev.plant_key!)}
                         aria-label={t('pages.calendar.confirmWatering')}
                         data-testid={`day-confirm-watering-${ev.plant_key}`}
                         sx={{ flexShrink: 0, p: 0.25 }}
@@ -1481,8 +1544,9 @@ export default function CalendarPage() {
         maxWidth="sm"
         fullWidth
         data-testid="create-feed-dialog"
+        aria-labelledby="create-feed-dialog-title"
       >
-        <DialogTitle>{t('pages.calendar.createFeed')}</DialogTitle>
+        <DialogTitle id="create-feed-dialog-title">{t('pages.calendar.createFeed')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus

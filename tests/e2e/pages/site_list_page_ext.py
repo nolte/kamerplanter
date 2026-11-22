@@ -32,7 +32,7 @@ class SiteListPageExt(BasePage):
 
     # ── Content locators (Site cards or DataTable rows) ─────────────────
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SITE_CARDS = (By.CSS_SELECTOR, "[data-testid^='site-card-']")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
@@ -233,7 +233,7 @@ class SiteListPageExt(BasePage):
         self.wait_and_click(self.FORM_SUBMIT)
 
     def cancel_create_form(self) -> None:
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def is_create_dialog_open(self) -> bool:
         """Check whether the create dialog form fields are visible."""

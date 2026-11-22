@@ -115,6 +115,22 @@
 | Boden-pH-Vorzug (soil pH preference, min–max) | 6.0–6.5 (tolerabel bis 7.0) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 60 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Ziergehölz, freie Pflanzung bzw. Hecke, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow roses“, https://www.rhs.org.uk/plants/roses/growing-guide („Allow about 60cm (2ft)“ Platz um jede Pflanze, damit sie nicht um Wasser und Licht konkurriert) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow roses“, https://www.rhs.org.uk/plants/roses/growing-guide („love sun, although some will cope in light shade“; „Plant in a sunny spot, which gets at least four hours of sunlight a day“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -306,6 +322,11 @@ Umgerechnet aus rosen-spezifischen Nährlösungs-Richtwerten (Fe 150, Mn 10, Zn 
 | Empfohlene Vorfrucht | Hülsenfrüchte; Gründüngung (Neupflanzung nach alter Rose: Bodenaustausch!) |
 | Empfohlene Nachfrucht | keine Rosaceae auf gleicher Stelle (Rosmüdigkeit) |
 | Anbaupause (Jahre) | 5+ Jahre nach alter Rose (Rosmüdigkeit: Bodenpilze und Nematoden) |
+| Zehrerstufe | n/a (Ziergehölz, keine Fruchtfolgekultur; Bestandswert Starkzehrer oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine Quelle für eine Abweichung (Rosengewächse: Rosmüdigkeit nur im Bestand ohne Quelle) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -370,4 +391,5 @@ Rosa spp.,"Gartenrose;Rose;Garden Rose",Rosaceae,Rosa,perennial,long_day,shrub,f
 16. [How Long Do Rose Bushes Live? (Biology Insights); Epic Gardening Long-Lifespan Roses](https://biologyinsights.com/how-long-do-rose-bushes-live/) — Lebensdauer 6–50+ Jahre nach Typ
 17. [The Rose Root System: Depth, Care, and Common Problems (ScienceInsights); Plant IDs](https://scienceinsights.org/the-rose-root-system-depth-care-and-common-problems/) — Wurzeltiefe Feinwurzeln 20–45 cm, Ankerwurzeln bis ~90 cm
 18. [What Pollinates Roses? (Biology Insights); David Austin Breeding Programme](https://biologyinsights.com/what-pollinates-roses-and-how-to-attract-them/) — Selbst-/Insektenbestäubung, Bienen
+19. RHS, How to grow roses: https://www.rhs.org.uk/plants/roses/growing-guide (60 cm, sunny)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

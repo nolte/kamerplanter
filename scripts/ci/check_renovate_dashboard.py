@@ -28,6 +28,10 @@ WHAT IT CHECKS
    ``## Repository problems`` heading is a finding, quoted verbatim. Renovate
    writes that section only when it has something to say, so its ABSENCE is the
    healthy state — and is treated as such rather than as a parse failure.
+   ONE line is expected rather than a finding, and only while the config
+   asks for it: Renovate's undated-release warning, the documented result of
+   ``minimumReleaseAgeBehaviour: 'timestamp-optional'`` (operator decision
+   2026-09-24, #3076, :func:`expected_repository_warnings`).
 
 2. **The manager inventory, as a STRONG expectation.** The dashboard's
    ``## Detected Dependencies`` section enumerates, per manager, every package
@@ -141,8 +145,10 @@ WHAT IT CHECKS
 
    The corpus is every file a pin can hide in, not only the ones the issue
    named: ``.github/workflows/``, ``.github/actions/**/action.yml`` (which no
-   manager reads at all) and ``.taskfiles/`` plus ``Taskfile.yaml``, which the
-   custom manager's ``managerFilePatterns`` explicitly cover.
+   manager reads at all), ``.pins/``, which the custom manager's
+   ``managerFilePatterns`` explicitly cover, and ``.taskfiles/`` plus
+   ``Taskfile.yaml``, which they no longer cover since the Taskfile pins moved
+   to ``.pins/images.yaml`` (#2581) — a pin added back there is still found.
 
 FAIL LOUD (NFR-018 section 2)
 -----------------------------
@@ -320,6 +326,73 @@ def repository_problems(body: str) -> list[str]:
     if section is None:
         return []
     return [line.strip() for line in section.splitlines() if _SEVERITY.search(line)]
+
+
+#: Renovate's warning for a release whose datasource publishes no timestamp,
+#: as it reads when ``minimumReleaseAgeBehaviour`` is ``timestamp-optional``.
+#: Matched on its full wording, so a DIFFERENT timestamp-related warning (say,
+#: the ``timestamp-required`` variant that HOLDS such an update) stays a finding.
+_UNDATED_RELEASE_WARNING = re.compile(
+    r"\bWARN\b:?\s*Some release\(s\) did not have a releaseTimestamp, but as we['\u2019]re running with "
+    r"minimumReleaseAgeBehaviour=timestamp-optional, proceeding\."
+)
+#: ``minimumReleaseAgeBehaviour: 'timestamp-optional'`` as a JSON5 key, read
+#: after whole-line comments are dropped so a commented-out value does not count.
+_TIMESTAMP_OPTIONAL_CONFIGURED = re.compile(
+    r"""^\s*['"]?minimumReleaseAgeBehaviour['"]?\s*:\s*['"]timestamp-optional['"]\s*,?\s*$""",
+    re.MULTILINE,
+)
+
+
+def _timestamp_optional_configured(repo_root: Path) -> bool:
+    """Whether the checkout's ``renovate.json5`` sets ``timestamp-optional``.
+
+    Raises:
+        DashboardError: The config is missing or unreadable. Whether the warning
+            is the expected one is then undetermined, which is not the same as fine.
+    """
+    config = repo_root / "renovate.json5"
+    try:
+        text = config.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise DashboardError(
+            "the dashboard reports Renovate's undated-release warning, but renovate.json5 could not be read "
+            f"({exc.__class__.__name__}) to decide whether `minimumReleaseAgeBehaviour: 'timestamp-optional'` "
+            "makes it the expected one. Nothing was measured — see NFR-018 §2."
+        ) from exc
+    return _TIMESTAMP_OPTIONAL_CONFIGURED.search(_strip_line_comments(text)) is not None
+
+
+def expected_repository_warnings(problems: list[str], *, repo_root: Path) -> list[str]:
+    """The repository problems that are the config's own documented consequence.
+
+    WHY THIS EXISTS (#3076). ``renovate.json5`` sets
+    ``minimumReleaseAgeBehaviour: 'timestamp-optional'`` on purpose (operator
+    decision 2026-09-24: GHCR images publish no release timestamps, and the
+    default would hold every such update for a manual dashboard approval).
+    Renovate then writes ``WARN: Some release(s) did not have a
+    releaseTimestamp, but as we're running with
+    minimumReleaseAgeBehaviour=timestamp-optional, proceeding`` under
+    ``## Repository problems`` whenever it meets an undated release. That line
+    opened #3076 as a false positive and would recur with every such release.
+
+    It is excused ONLY while the checkout really configures
+    ``timestamp-optional``: change the config back, or drop the key, and the
+    same line is a finding again. Nothing else is excused — this is not an
+    allowlist, and every other ``WARN``/``ERROR`` line stays a finding.
+
+    Args:
+        problems: The lines :func:`repository_problems` returned.
+        repo_root: Checkout root whose ``renovate.json5`` is read — lazily, only
+            when the warning is actually present.
+
+    Returns:
+        The subset of *problems* that is expected, in document order.
+    """
+    candidates = [problem for problem in problems if _UNDATED_RELEASE_WARNING.search(problem)]
+    if not candidates or not _timestamp_optional_configured(repo_root):
+        return []
+    return candidates
 
 
 def manager_inventory(body: str) -> dict[str, list[str]]:
@@ -779,14 +852,19 @@ _JSON5_LITERAL = re.compile(r"'(?P<body>(?:[^'\\]|\\.)*)'")
 
 #: Where the files this sweep reads live. Wider than the issue, and measured
 #: against renovate.json5's own ``managerFilePatterns`` (#1563 review, S3): the
-#: custom manager reads ``.taskfiles/*.yaml`` too, and a composite action is a
-#: ``run:`` block like any other. A pin outside a path the manager reads is a
-#: finding wherever it sits — that is the whole point of the check.
+#: custom manager reads ``.pins/*.yaml`` too, and a composite action is a
+#: ``run:`` block like any other. ``.taskfiles/`` and ``Taskfile.yaml`` stay in
+#: the corpus although the manager no longer reads them (#2581 moved their pins
+#: to ``.pins/images.yaml``): an unmarked pin added back there must still be
+#: found. A pin outside a path the manager reads is a finding wherever it sits —
+#: that is the whole point of the check.
 _PIN_FILE_GLOBS = (
     ".github/workflows/*.yml",
     ".github/workflows/*.yaml",
     ".github/actions/*/action.yml",
     ".github/actions/*/action.yaml",
+    ".pins/*.yml",
+    ".pins/*.yaml",
     ".taskfiles/*.yml",
     ".taskfiles/*.yaml",
     "Taskfile.yml",
@@ -1019,10 +1097,16 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
 
     problems = repository_problems(body)
     inventory = manager_inventory(body)
+    # #3076: Renovate's undated-release warning is the documented consequence of
+    # `minimumReleaseAgeBehaviour: 'timestamp-optional'` (operator decision
+    # 2026-09-24), so it is expected — but only while renovate.json5 sets that.
+    expected_warnings = expected_repository_warnings(problems, repo_root=repo_root)
 
     findings: list[str] = []
 
     for problem in problems:
+        if problem in expected_warnings:
+            continue
         findings.append(f"Repository problem reported by Renovate: {problem}")
 
     pep621 = inventory.get("pep621")
@@ -1177,6 +1261,9 @@ def build_report(body: str, *, repo_root: Path) -> dict[str, Any]:
         "alert": bool(findings),
         "findings": findings,
         "repository_problems": problems,
+        # Reported, not hidden: the lines excused above because renovate.json5
+        # sets `timestamp-optional` (#3076). Every other problem is a finding.
+        "expected_repository_warnings": expected_warnings,
         "managers": sorted(inventory),
         "pep621_files": pep621,
         "pip_requirements_files": inventory.get("pip_requirements", []),
@@ -1209,8 +1296,14 @@ def render(report: dict[str, Any]) -> str:
             if unhashed
             else ""
         )
+        expected = report.get("expected_repository_warnings") or []
+        if expected:
+            remainder += (
+                " Expected while renovate.json5 sets minimumReleaseAgeBehaviour=timestamp-optional "
+                f"(#3076): {'; '.join(expected)}."
+            )
         return (
-            "Renovate dashboard healthy: no repository problems, "
+            "Renovate dashboard healthy: no unexpected repository problems, "
             f"pep621 extracts from all {len(report['expected_pep621_files'])} expected trees, "
             f"managers seen: {', '.join(report['managers'])}." + remainder
         )

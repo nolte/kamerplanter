@@ -1,0 +1,89 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { computePlantState, type PhaseFacts, type PlantVisualState } from '../model/plantState';
+import { listPlantStates, stateKeyOf, type PlantStateEntryWire } from './plantStateApi';
+import { stateInstant, usePlantStateClock } from './plantStateClock';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
+import { captureHandledError } from '@/observability/errorTracking';
+
+/** A plant (or sown slot) of the answer with the state the port computed at the current instant (GP-FR-192). */
+export type PlantStateView = PlantStateEntryWire & { visual: PlantVisualState };
+
+export function visualOf(wire: PlantStateEntryWire, now: string): PlantVisualState {
+  const phase: PhaseFacts | null = wire.inputs.phase
+    ? {
+        key: wire.inputs.phase.key,
+        started_on: wire.inputs.phase.started_on,
+        typical_days: wire.inputs.phase.typical_days ?? null,
+        allows_harvest: wire.inputs.phase.allows_harvest,
+        is_terminal: wire.inputs.phase.is_terminal,
+      }
+    : null;
+  // A zone stand (#2862) stands like a plant without one: the calculator sees a live plant with no phase.
+  const kind = wire.kind === 'stand' ? 'plant' : (wire.kind ?? 'plant');
+  return computePlantState(
+    { kind, removed_on: null, termination_type: null },
+    phase,
+    wire.inputs.open_tasks.map((task) => ({ category: task.category, due: task.due ?? null })),
+    {
+      open_findings: wire.inputs.open_findings,
+      frost_risk: wire.inputs.frost_risk,
+      harvest_batches: wire.inputs.harvest_batches,
+      now,
+    },
+  );
+}
+
+/** The answer of one bed as views by plant key (a sown slot by its slot key), computed for the instant `now`. */
+export function viewsOf(items: readonly PlantStateEntryWire[], now: string): Record<string, PlantStateView> {
+  return Object.fromEntries(
+    items.map((wire): [string, PlantStateView] => [stateKeyOf(wire), { ...wire, visual: visualOf(wire, now) }]),
+  );
+}
+
+export interface UsePlantStates {
+  /** By plant key; empty until the first answer, and after a failure (the plan stays usable without states). */
+  states: Readonly<Record<string, PlantStateView>>;
+  /** When the answer arrived (epoch ms); `null` before it. */
+  loadedAt: number | null;
+  /** Load again, e.g. after a plan or care action (GP-FR-191). */
+  refresh: () => void;
+}
+
+/**
+ * The plant states of one bed: loaded once per bed, again on `refresh()` and when the page comes back to the
+ * foreground (GP-FR-191); the visual state is recomputed every minute so a task that turns overdue at midnight
+ * shows without a request. Hovering reads this state and never requests anything.
+ */
+export function usePlantStates(bedKey: string | null, enabled = true): UsePlantStates {
+  const [wires, setWires] = useState<{ bedKey: string; items: PlantStateEntryWire[]; loadedAt: number } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const refresh = useCallback(() => setAttempt((value) => value + 1), []);
+  const day = usePlantStateClock(enabled, refresh);
+  // The species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
+
+  useEffect(() => {
+    if (!enabled || !bedKey) return undefined;
+    const abort = new AbortController();
+    listPlantStates(bedKey, abort.signal)
+      .then((items) => {
+        if (!abort.signal.aborted) setWires({ bedKey, items, loadedAt: Date.now() });
+      })
+      .catch((err: unknown) => {
+        // States are an enhancement of the plan: a failed read leaves the plain markers,
+        // and the next refresh (plan action, foreground, clock) reads them again.
+        if (!abort.signal.aborted) captureHandledError(err, { source: 'usePlantStates' });
+      });
+    return () => abort.abort();
+  }, [bedKey, enabled, attempt, requestLanguage]);
+
+  const current = wires && wires.bedKey === bedKey ? wires : null;
+  const states = useMemo(() => {
+    if (!current) return {};
+    // `day` is the clock: the state is recomputed when the answer or the day changes, not every minute.
+    const now = stateInstant(day);
+    return viewsOf(current.items, now);
+  }, [current, day]);
+  const loadedAt = current?.loadedAt ?? null;
+  return useMemo(() => ({ states, loadedAt, refresh }), [states, loadedAt, refresh]);
+}

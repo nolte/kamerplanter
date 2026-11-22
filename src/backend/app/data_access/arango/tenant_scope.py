@@ -72,6 +72,24 @@ def tenant_union_with_grants_predicate(
     return combined, binds
 
 
+def readable_or_null(*, doc_var: str = "doc", bind_name: str = "tenant_key") -> str:
+    """AQL expression: the joined document ``doc_var`` when the tenant may read it, else ``null``.
+
+    For a query that follows a **stored** key into a masterdata catalogue (``DOCUMENT(@species, p.species_key)``):
+    the row is the tenant's, the key on it is not proof the tenant may read the target — rows written before the
+    reference was verified may name another tenant's private species (#1963, #2082). The rule is
+    :func:`tenant_union_with_grants_predicate` (own ∪ global ∪ granted), the one the by-key read applies in
+    :func:`~app.domain.services.species_visibility.readable_species`, so a list and a detail read agree.
+
+    The caller binds ``@<bind_name>`` itself (these queries already filter their rows on it) and writes::
+
+        LET stored_species = DOCUMENT(@species, p.species_key)
+        LET species = <readable_or_null(doc_var="stored_species")>
+    """
+    predicate, _ = tenant_union_with_grants_predicate("", doc_var=doc_var, bind_name=bind_name)
+    return f"({doc_var} != null AND {predicate} ? {doc_var} : null)"
+
+
 def tenant_union_predicate(
     tenant_key: str,
     *,

@@ -209,9 +209,15 @@ describe('nutrient-plans endpoints — plant instance assignment', () => {
     expect(client.get).toHaveBeenCalledWith('/plant-instances/pl1/nutrient-plan');
   });
 
-  it('getPlantPlan returns null when request rejects', async () => {
-    client.get.mockRejectedValue(new Error('404'));
+  it('getPlantPlan returns null when no plan is assigned', async () => {
+    client.get.mockResolvedValue({ data: null });
     await expect(plans.getPlantPlan('pl1')).resolves.toBeNull();
+  });
+
+  it('getPlantPlan rejects when the request fails — a failure is not "no plan" (#3037)', async () => {
+    const failure = new Error('Network Error');
+    client.get.mockRejectedValue(failure);
+    await expect(plans.getPlantPlan('pl1')).rejects.toBe(failure);
   });
 
   it('removePlantPlan deletes plant nutrient plan', async () => {

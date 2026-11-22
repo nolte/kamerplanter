@@ -15,6 +15,7 @@ from pydantic import Field
 
 from app.common.enums import McpPermission
 from app.domain.models.mcp import McpToolResponse
+from app.domain.models.species_names import localized_vernacular_name
 from app.mcp_server.base import CatalogueToolInput, ToolBase, mcp_tool
 from app.mcp_server.context import ToolContext
 
@@ -98,6 +99,7 @@ class ListSpecies(ToolBase):
                     "species_key": s.key,
                     "scientific_name": s.scientific_name,
                     "common_names": s.common_names,
+                    "common_names_i18n": s.common_names_i18n,
                     "genus": s.genus,
                 }
                 for s in species
@@ -140,6 +142,7 @@ class GetSpeciesInfo(ToolBase):
                 "species_key": species.key,
                 "scientific_name": species.scientific_name,
                 "common_names": species.common_names,
+                "common_names_i18n": species.common_names_i18n,
                 "synonyms": get("synonyms"),
                 "genus": species.genus,
                 "family_key": get("family_key"),
@@ -215,7 +218,9 @@ class GetSpeciesInfo(ToolBase):
             if cultivars:
                 data["cultivars"] = [_cultivar_summary(c) for c in cultivars]
 
-        common = (species.common_names or [None])[0]
+        # The summary's vernacular name in the request's language (canonical when the call
+        # carries none, ``ToolContext.language``); the payload carries every name (#2902, #2955).
+        common = localized_vernacular_name(species.common_names, species.common_names_i18n, ctx.language)
         label = f"{species.scientific_name}" + (f" ({common})" if common else "")
         # Count the values that actually carry something. ``len(data)`` used to be
         # the same number, but the safety carve-out puts unpopulated fields into

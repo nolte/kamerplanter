@@ -22,6 +22,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from app.common.enums import TenantRole
 from app.common.exceptions import NotFoundError
+from app.common.locale import DEFAULT_LOCALE
 from app.mcp_server.principal import McpPrincipal, McpTenantMembership
 
 if TYPE_CHECKING:
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from app.domain.services.care_reminder_service import CareReminderService
     from app.domain.services.feeding_service import FeedingService
     from app.domain.services.fertilizer_service import FertilizerService
+    from app.domain.services.garden_plan_service import GardenPlanService
     from app.domain.services.glossary_service import GlossaryService
     from app.domain.services.hardiness_zone_service import HardinessZoneService
     from app.domain.services.harvest_service import HarvestService
@@ -49,6 +51,7 @@ if TYPE_CHECKING:
     from app.domain.services.species_service import SpeciesService
     from app.domain.services.starter_kit_service import StarterKitService
     from app.domain.services.substrate_service import SubstrateService
+    from app.domain.services.succession_plan_service import SuccessionPlanService
     from app.domain.services.task_service import TaskService
 
 
@@ -61,10 +64,15 @@ class ToolContext:
         membership: McpTenantMembership | None = None,
         *,
         services: dict[str, Any] | None = None,
+        language: str | None = None,
     ) -> None:
         self.principal = principal
         self.membership = membership
         self._services: dict[str, Any] = dict(services or {})
+        #: The request's language (``Accept-Language`` / ``?locale=``, resolved by
+        #: ``get_request_locale``) for names a tool words on the server (#2945, #2936);
+        #: the canonical language when the call carries none (a direct dispatch).
+        self.language: str = language or DEFAULT_LOCALE
 
     # ── acting-tenant shortcuts ──────────────────────────────────────────
     def _require_membership(self) -> McpTenantMembership:
@@ -138,6 +146,15 @@ class ToolContext:
     @property
     def site_service(self) -> SiteService:
         return cast("SiteService", self._service("site_service"))
+
+    @property
+    def garden_plan_service(self) -> GardenPlanService:
+        """The site's garden plan and its transactional batch — the path a location with a geometry takes."""
+        return cast("GardenPlanService", self._service("garden_plan_service"))
+
+    @property
+    def succession_plan_service(self) -> SuccessionPlanService:
+        return cast("SuccessionPlanService", self._service("succession_plan_service"))
 
     @property
     def harvest_service(self) -> HarvestService:

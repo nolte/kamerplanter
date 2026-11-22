@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSnackbar } from 'notistack';
+import { useNotification } from '@/hooks/useNotification';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -69,7 +69,7 @@ function canCancel(tenant: TenantWithRole): boolean {
  */
 export default function ScheduledTenantDeletionsCard() {
   const { t } = useTranslation();
-  const { enqueueSnackbar } = useSnackbar();
+  const notification = useNotification();
   const dispatch = useAppDispatch();
   const [state, setState] = useState<LoadState>({ status: 'idle' });
   // #1815 — back from the fresh sign-in: the chosen tenant does not survive the round trip, so
@@ -105,9 +105,7 @@ export default function ScheduledTenantDeletionsCard() {
       throw error;
     }
     setToCancel(null);
-    enqueueSnackbar(t('pages.tenants.scheduledDeletionCancelled', { name: toCancel.name }), {
-      variant: 'success',
-    });
+    notification.success(t('pages.tenants.scheduledDeletionCancelled', { name: toCancel.name }));
     void load();
     // The tenant resolves again: the switcher lists it once more.
     void dispatch(loadMyTenants());

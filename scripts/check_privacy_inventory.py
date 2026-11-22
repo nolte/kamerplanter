@@ -226,10 +226,29 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
     # #2138 (REQ-056 §8) — a line of a tenant archive (members.jsonl), written into the ZIP the export
     # stores for 72 h (NFR-011 R-05, retention.expire_data_exports) and parsed in memory on import.
     "TenantArchiveMember": "a line of a tenant archive (members.jsonl), held in the ZIP, never in a collection",
+    # REQ-053 WP 4.1 (#2400) — what a client sends or the API shows; the stored form is ``CareEvent``.
+    "_CareEventFields": "request base of the care-event bodies; the stored form is CareEvent (care_events)",
+    "CareEventInput": "request body of POST /care-events; the stored form is CareEvent (care_events)",
+    "CareEventCorrection": "request body of POST /care-events/{key}/supersede; the stored form is CareEvent",
+    "CareEventView": "read projection of a stored CareEvent with display names (the API never shows an account key)",
+    # REQ-053 WP 4.3 (#2413) — values that cross the layers of the task completion; nothing stores them as such.
+    "CompletionActor": "the verified caller of a completion (token user + role), built per request, never stored",
+    "UndoWrite": (
+        "write set of reopen-with-undo handed to the repository; its voided_by lands in care_events.voided_by, "
+        "which the erasure inventory covers (CareEvent)"
+    ),
     "TakeoverReceipt": (
         "no collection of its own: kept in memory for one take-over decision, and only when its undo failed "
         "embedded as 'receipt' in the one system_meta/pending_takeover document until a decision undoes it; "
         "the stored form excludes the deciding account (new_owner_key, Field(exclude=True), #1855 R3 W-3)"
+    ),
+    # REQ-053 WP 8.25 (#2668) — read projection of location_assignments joined with memberships and users.
+    # REQ-053 WP 9.10 (#2750) — read again for the parcel list of the garden-plan PDF.
+    "BedAssignee": (
+        "read projection of location_assignments + memberships + users for the bed list CSV and, since #2750, the "
+        "parcel list of the garden-plan PDF (GET /print/garden-plan/{site_key}?parcel_list=true&"
+        "include_assignment=true); both resolve it through app/domain/services/bed_list_labels.py into a display "
+        "name before anything leaves the service, only on the explicit opt-in, never stored"
     ),
 }
 
@@ -240,7 +259,12 @@ NOT_PERSISTED_MODELS: dict[str, str] = {
 #: removal of more than four such fields lowers it here, in the same change.
 #: 51 since #1855: 55 measured (TakeoverReceipt's account references, in memory only).
 #: 54 after #2138 met #1855 on 2026-10-12: 58 measured (both changes' fields together).
-MIN_USER_REFERENCE_FIELDS = 54
+#: 68 after REQ-053 WP 4.3 (#2413): 73 measured (the completion's CompletionActor and UndoWrite, in memory only).
+#: 70 after REQ-053 WP 8.25 (#2668): 75 measured (the bed list download's BedAssignee, in memory only - the
+#: service turns it into a display name before anything leaves it).
+#: 76 after spec/privacy v0111 (PRIV-E13): 81 measured (the keyed performer/author/creator fields of six
+#: collections, excluded while they are always null).
+MIN_USER_REFERENCE_FIELDS = 76
 
 
 def _class_list_calls(tree: ast.AST, class_name: str, attr: str) -> list[ast.Call]:
@@ -679,6 +703,8 @@ def check(app_root: pathlib.Path = APP_ROOT) -> list[str]:
             continue
         if f := _kwarg(call, "user_field"):
             covered.add((c, f))
+            # A field one object down (``plan.plan_updated_by``) is the model field of its last segment.
+            covered.add((c, f.rsplit(".", 1)[-1]))
         covered.update((c, cleared) for cleared in _list_kwarg(call, "clear_fields"))
     excluded: dict[tuple[str, str], int] = {}
     for call in _class_list_calls(erasure_tree, "ErasureEngine", "EXCLUDED_USER_REFERENCES"):

@@ -185,7 +185,7 @@ describe('onboardingSlice thunks', () => {
     vi.mocked(onboardingApi.getState).mockRejectedValue(new Error('load failed'));
     const store = makeOnboardingStore();
     await store.dispatch(fetchOnboardingState());
-    expect(store.getState().onboarding.error).toBe('load failed');
+    expect(store.getState().onboarding.error).toBe('errors.onboardingStateLoadFailed');
   });
 
   it('fetchStarterKits uses the global endpoint by default', async () => {

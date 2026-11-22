@@ -1,12 +1,22 @@
 {
   "_comment": "UI-NFR-003 R-013/R-014/R-015/R-028 gzip budgets. #612 executed the mandated lazy-i18n refactor: the feature translation namespaces (pages, enums, glossary) are now code-split and dynamically imported per locale, so only the small core namespace ships in the initial bundle. This dropped the measured initial JS from the 503.3 KB gzip baseline (2026-07-12, budgeted at a 600 KB ceiling) to 343.3 KB gzip (2026-07-20 measure), a ~160 KB reduction back toward the R-013 aspirational 300 KB target. initialJsGzipKb is therefore lowered from 600 to 400 — a decisive 200 KB cut with ~16% (57 KB) headroom over the 343.3 KB measure for ordinary app/vendor growth. Future i18n growth now lands in the lazy pages/enums chunks, NOT the initial bundle, so this ceiling can keep ratcheting down. HARD RULE unchanged: do not raise this budget to absorb translation growth — translations must stay lazy-loaded; keep driving toward the 300 KB target.",
-  "initialJsGzipKb": 400,
+  "_ratchet": "#3023 (2026-11-18): initial JS had crept back to 398.6 / 400 KB gzip (19 chunks). Four moves brought it to 351.5 KB: (1) vite.config.ts vendor-mui now groups only MUI's styling foundation (theme, system, emotion) - the blanket @mui/material group had pulled every component any lazy page uses (Autocomplete, Slider, Stepper, Tabs, ...) into the eager chunk (-20.5 KB); (2) LightModeTakeoverDialog (with StepUpConfirmDialog -> TextField -> Select) and NotificationDrawer are React.lazy boundaries (-8.3 KB); (3) the English core translations are a dynamic import loaded by initI18n before mount, only the German fallback core is static (-14.0 KB); (4) the consent banner is lazy and not loaded at all where it is suppressed (-4.3 KB). The error illustrations now load per status code via import() (src/components/common/ErrorIllustration.tsx). initialJsGzipKb is lowered from 400 to 360: ~8.5 KB (2.4 %) headroom over the 351.5 KB measure. Ratchet rule: lower this value again whenever a change lands the measure more than ~10 KB below it; never raise it - move the new weight behind a lazy boundary instead. src/test/guards/initialBundleExclusions.test.ts pins the four moves individually.",
+  "initialJsGzipKb": 360,
   "initialCssGzipKb": 50,
   "cssSeverity": "error",
   "routeChunks": {
     "dashboard": {
       "source": "src/pages/DashboardPage.tsx",
       "gzipKb": 12
+    },
+    "gardenPlanner": {
+      "source": "src/features/gardenPlanner/routes/GardenPlanRoute.tsx",
+      "gzipKb": 120
+    },
+    "gardenPlannerKonva": {
+      "_comment": "REQ-053 WP 9.7 (#2747): the Konva renderer is its own lazy chunk (loaded only for plans of 3 000+ objects). GP-NFR-003 allows 200 KB gzip 'mit Konva'; operator question 3 of #2759 grants it to THIS chunk only - every other budget above stays unchanged.",
+      "source": "src/features/gardenPlanner/renderer/KonvaPlanRenderer.tsx",
+      "gzipKb": 200
     }
   }
 }

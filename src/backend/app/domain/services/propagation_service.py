@@ -24,7 +24,9 @@ from app.common.enums import (
 from app.common.exceptions import ForbiddenError, NotFoundError, ValidationError
 from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.lineage_engine import GraftCompatibilityResult, LineageEngine, LineagePath
+from app.domain.models.care_event import display_performer
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.privacy import ANONYMIZED_MARKER
 from app.domain.models.propagation import (
     PhenotypeNote,
     PropagationBatch,
@@ -398,6 +400,24 @@ class PropagationService:
         if self._require_prop().protocol_in_use(key, tenant_key):
             raise ValidationError("Protocol is in use by propagation events and cannot be deleted.")
         self._require_prop().delete_protocol(key)
+
+    def protocol_author_names(self, protocols: list[RootingProtocol]) -> dict[str, str]:
+        """``author_user_key -> what the API shows`` for *protocols*: a display name or "anonymisiert" (#2976).
+
+        Never the account key (the GP-API-034 rule of the care log, applied to the protocol author): an account
+        that is erased or gone, and the erasure marker itself, read "anonymisiert". A protocol without an author
+        (a global template) has no entry.
+        """
+        keys = [p.author_user_key for p in protocols if p.author_user_key]
+        if not keys:
+            return {}
+        names = self._require_prop().account_display_names([k for k in keys if k != ANONYMIZED_MARKER])
+        shown: dict[str, str] = {}
+        for key in keys:
+            label = display_performer(key, names.get(key))
+            if label is not None:
+                shown[key] = label
+        return shown
 
     def protocol_stats(self, key: str, tenant_key: str) -> dict[str, Any]:
         """Per-protocol success statistics across the tenant's events."""

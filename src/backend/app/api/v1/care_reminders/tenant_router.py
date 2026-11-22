@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Query
 from app.api.v1.care_reminders.schemas import CareDashboardEntryResponse
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_care_reminder_service
+from app.common.locale import get_request_locale
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.care_reminder_service import CareReminderService
 
@@ -16,11 +17,13 @@ def get_care_dashboard(
     ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: CareReminderService = Depends(get_care_reminder_service),
+    language: str = Depends(get_request_locale),
 ):
     """Build the care dashboard from the active plants of the current tenant.
 
     Tenant isolation is enforced via ``get_current_tenant``; only plants of the
-    authenticated tenant are considered (removed plants are excluded).
+    authenticated tenant are considered (removed plants are excluded). Species names
+    follow the request's language (``Accept-Language``, #2902).
     """
-    entries = service.get_care_dashboard_for_tenant(hemisphere, tenant_key=ctx.tenant_key)
+    entries = service.get_care_dashboard_for_tenant(hemisphere, tenant_key=ctx.tenant_key, language=language)
     return [CareDashboardEntryResponse(**e.model_dump()) for e in entries]

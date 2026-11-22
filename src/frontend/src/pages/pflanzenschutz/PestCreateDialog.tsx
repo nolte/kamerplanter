@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import Typography from '@mui/material/Typography';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -17,6 +18,7 @@ import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import * as api from '@/api/endpoints/ipm';
+import { normalizeNameLanguage } from '@/utils/plantDisplay';
 
 const pestTypes = ['insect', 'mite', 'nematode', 'mollusk'] as const;
 const difficulties = ['easy', 'medium', 'hard'] as const;
@@ -43,12 +45,12 @@ interface Props {
 export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const notification = useNotification();
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
 
-  const { control, handleSubmit, reset } = useForm<FormData>({
+  const { control, handleSubmit, reset } = useDialogForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       scientific_name: '',
@@ -61,6 +63,7 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
       description: null,
     },
   });
+  const applyFieldViolation = useFormFieldViolations(control);
   useEffect(() => {
     if (!open) {
       reset();
@@ -74,6 +77,8 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
       await api.createPest({
         scientific_name: data.scientific_name,
         common_name: data.common_name,
+        // The name was typed in the UI language: record it so (#2955). The server trims it.
+        common_names_i18n: { [normalizeNameLanguage(i18n.language)]: [data.common_name] },
         pest_type: data.pest_type,
         lifecycle_days: data.lifecycle_days,
         optimal_temp_min: data.optimal_temp_min,
@@ -85,14 +90,14 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
       reset();
       onCreated();
     } catch (err) {
-      handleError(err);
+      handleError(err, applyFieldViolation);
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Dialog fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="pest-create-dialog-title" data-testid="pest-create-dialog">
+    <FormDialog control={control} fullScreen={fullScreen} open={open} onClose={onClose} maxWidth="sm" fullWidth aria-labelledby="pest-create-dialog-title" data-testid="pest-create-dialog">
       <DialogTitle id="pest-create-dialog-title">{t('pages.ipm.createPest')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -171,6 +176,6 @@ export default function PestCreateDialog({ open, onClose, onCreated }: Props) {
           />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

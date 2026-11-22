@@ -33,11 +33,11 @@ class PlantingRunDetailPage(BasePage):
     # locate by visible typography text.
     DETAILS_CARD = (By.CSS_SELECTOR, "[data-testid='planting-run-detail-page'] .MuiCard-root")
     ENTRIES_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    ENTRIES_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    ENTRIES_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Tab 1 – Plants ─────────────────────────────────────────────────
     PLANTS_TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    PLANTS_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    PLANTS_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
 
     # ── Edit dialog (opened via edit button) ────────────────────────────
     EDIT_BUTTON = (By.CSS_SELECTOR, "[data-testid='edit-button']")
@@ -299,7 +299,7 @@ class PlantingRunDetailPage(BasePage):
 
     def cancel_edit_form(self) -> None:
         """Cancel the edit form by clicking Cancel."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def get_edit_form_name_value(self) -> str:
         """Return the current value in the edit form Name field."""

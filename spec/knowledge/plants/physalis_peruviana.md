@@ -159,6 +159,23 @@ Quellen (§1.8):
 5. [Germination Eco-physiology and Emergence of Physalis peruviana Seedlings — ResearchGate](https://www.researchgate.net/publication/330559582_Germination_Eco-physiology_and_Emergence_of_Physalis_peruviana_Seedlings) — Lagerungsstudie: hohe Keimfähigkeit bis 16 Monate bei kühler/trockener Lagerung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 61 (24 in) | `species.spacing_cm` |
+| Reihenabstand (cm) | 91 (36 in) | `species.row_spacing_cm` |
+| Quelle Abstände | Hudson Valley Seed, „Cape Gooseberries“ (Saatgut-Kulturdaten: Plant Spacing 24 inches, Row Spacing 36 inches), https://hudsonvalleyseed.com/products/cape-gooseberries | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Hudson Valley Seed, „Cape Gooseberries“ (Physalis peruviana; „Full Sun (8+ Hours Sun)“), https://hudsonvalleyseed.com/products/cape-gooseberries | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -451,6 +468,11 @@ Andenbeere ist kein so intensiver Starkzehrer wie Tomate oder Aubergine. Zu viel
 | Empfohlene Vorfrucht | Huelsenfrüchte (N-Fixierung); Getreide |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Kraeuter, Zwiebeln) |
 | Anbaupause (Jahre) | 3–4 Jahre (Solanaceae-Pause; Verticillium, Phytophthora) |
+| Zehrerstufe | <!-- DATEN FEHLEN: Physalis in keiner gelesenen Zehrer-Liste (SBB, LKSH, LK NRW, Natur im Garten) namentlich geführt --> |
+| Zehrerstufe — Quelle | <!-- DATEN FEHLEN: keine artspezifische Zehrerstufe in einer gelesenen Fachquelle --> |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: keine artspezifische Zehrerstufe in einer gelesenen Fachquelle --> |
+| Stickstofffixierer | false (keine Leguminose; Natur im Garten Burgenland führt Physalis unter Nachtschattengewächse, Bohnen/Erbsen unter Schmetterlingsblütler, https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Solanaceae; Südtiroler Bauernbund 2022 nennt für Nachtschattengewächse 4 Jahre, Physalis dort nicht namentlich) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -546,4 +568,6 @@ Aunt Molly's Ground Cherry,Physalis pruinosa (nahverw.),90–110,small_fruit;ver
 17. Lubera.com — Physalis pflanzen: Tipps fuer Anbau, Pflege und Ernte — Bluetezeit "Juni - September"; Erntereife "etwa acht bis neun Wochen nach der Bluetenbildung", "fruehestens Ende August"; mehrjaehrige Kuebelkultur moeglich, im Beet nicht winterhart — https://www.lubera.com/de/gartenbuch/physalis-pflanzen-p2879
 18. samen.de — Physalis-Pflege: Von Aussaat bis Ernte — Erntezeit "August bis September", "zieht sich bis in den Oktober hinein"; Aussaat Mitte Februar bis Ende Maerz — https://samen.de/blog/die-richtige-pflege-fuer-physalis-pflanzen-von-anbau-bis-ernte.html
 19. beetfreunde.de — Physalis anbauen, pflegen und ernten — "von August bis zum Frost ernten"; nicht frosthart, Auspflanzung erst nach den Eisheiligen — https://www.beetfreunde.de/physalis/
+20. [Hudson Valley Seed — Cape Gooseberries (Physalis peruviana)](https://hudsonvalleyseed.com/products/cape-gooseberries) — Plant Spacing 24 in, Row Spacing 36 in, „Full Sun (8+ Hours Sun)“ (Saatgut-Anbaudaten, Einzelquelle)
+21. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Physalis in der Familie Nachtschattengewächse, Bohnen/Erbsen unter Schmetterlingsblütler
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

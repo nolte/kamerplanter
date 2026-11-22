@@ -142,6 +142,11 @@ export default function PlantPhotoLightbox({
           justifyContent: 'center',
           minHeight: { xs: '60vw', sm: 300 },
           '&.MuiDialogContent-root': { p: 0 },
+          // Opt out of the theme's reserved scrollbar gutter (#3065): this is an
+          // edge-to-edge photo stage with an absolutely positioned close button,
+          // not a form that re-wraps, and the gutter would leave an empty strip
+          // beside the photo and pull the button 15 px off the corner.
+          scrollbarGutter: 'auto',
         }}
       >
         {/* Close button — autoFocused via ref for keyboard entry point (UI-NFR-008 R-010) */}

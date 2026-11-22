@@ -7,14 +7,20 @@ Kategorie: Stammdaten
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 4.10 (Enum-Werte `root_type`/`frost_sensitivity` an das Modell angeglichen, #2183)
-Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt)
+Version: 4.16 (#2857 Teil B: `LifecycleConfig.photoperiod_type` mit `unspecified` als Vorgabe); 4.15 (#2902: serverseitig gebildete Artnamen folgen der Anzeigeregel in der Sprache der Anfrage, `Accept-Language`); 4.14 (#2902: `common_names_i18n` — Volksnamen je Sprache, Anzeigeregel UI-Sprache → `de` → wissenschaftlicher Name); 4.13 (Zierpflanzen-Tabelle auf `nutrient_demand` umgestellt, `nutrient_demand_level` hat außer M6 keinen Leser mehr — E-17 Variante A); 4.12 (REQ-053 Welle 1 WP 1.6 / Migration M6 v0096 umgesetzt: `NutrientDemand` = `*_feeder`, Species-Felder `nutrient_demand`/`_source`/`_confidence`, `nitrogen_fixing`, `rotation_pause_years`, `row_spacing_cm`, `light_requirement`, Familie `rotation_pause_years`); 4.11 (REQ-053 v1.4 Welle 0: NutrientDemand/nitrogen_fixing/PlanRole-Split, rotation_pause_years, row_spacing_cm, light_requirement vs. shade_tolerance)
+Abhängigkeit: REQ-024 v1.3 (Platform-Tenant, tenant_has_access), REQ-031 v2.0 (parent_species_key für KI-Fallback), NFR-011 v1.5 (R-24 Promotion-Audit-Retention; bis NFR-011 v1.4 als R-19 geführt), REQ-053 v1.4 (§16.3 GP-FR-138/139, GP-FR-061, GP-FR-131, GP-FR-160)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 4.16 | 2026-11-15 | **#2857 Teil B:** `LifecycleConfig.photoperiod_type` kennt zusätzlich `unspecified` und hat es als Vorgabe (vorher `day_neutral`; Modell, API-Body, Pflegemaske und Kern-Saat setzten es auch für nie eingestufte Arten). `day_neutral` ist damit eine Aussage über die Pflanze, die der Zelt-Hinweis REQ-053 §9.2a auswertet. Ein Typ wird nur aus einer Quelle gesetzt (E-10: `lifecycle_configs` der Saatdaten, `lifecycles_outdoor.yaml`, Eingabe einer Person); Migration v0113 überführt gespeicherte Vorgabewerte und setzt bei Hanf den belegten `short_day`. Additiver Enum-Wert (M-9). Der sortenbezogene Typ (`Cultivar.photoperiod_type`, unten) ist weiterhin nicht umgesetzt. |
+| 4.15 | 2026-11-13 | **#2902 (Slice C):** Serverseitig gebildete Einzelnamen (Pflegeübersicht, Dashboard-Pflanzenraster, Aussaatkalender, Pflanzenzustände/gesäte Slots, Fruchtfolge-Empfehlung, Winterhärte-Übersicht, Workflow-Listen/-Ausführungen, Tagebuch, Druck, MCP) folgen der Anzeigeregel über einen Resolver (`app/domain/models/species_names.py`). Die Sprache ist die der Anfrage: Die Oberfläche sendet `i18n.language` als `Accept-Language`, der Server löst sie einmal auf (`get_request_locale`, NFR-017 R-112/R-114, `de`/`en`, sonst `de`); Druck nutzt `locale`. Texte ohne Anfrage und persistierte Namen entstehen auf Deutsch und behalten ihre Sprache. Anzeigeregel präzisiert: „erster Eintrag von `common_names`“ ist nur bei Arten mit Sprachzuordnung unzulässig, ohne Zuordnung der Rückfall vor dem wissenschaftlichen Namen. |
+| 4.14 | 2026-11-12 | **#2902 (UI-NFR-007 R-009a):** `Species.common_names_i18n` (Sprachcode → Namen in Vorzugsreihenfolge, heute `de` und `en`) neben der flachen Liste `common_names`, die Suche, Formulare und CSV-Import weiter nutzen. Jeder Name der Zuordnung steht auch in `common_names` (sonst 422). Anzeige: UI-Sprache → `de` → wissenschaftlicher Name, nie „erster Eintrag der Liste“. Additiv und ohne Migration: die 213 Seed-Einträge tragen die Zuordnung aus der Steckbrief-Zeile „Volksnamen (DE/EN)“, der Seed-Abgleich schreibt sie nur auf globale Katalogzeilen. Die Leser im Frontend und im Backend folgen in eigenen Änderungen. |
+| 4.13 | 2026-11-06 | **E-17 Variante A nachgezogen (REQ-053 §32.3, #2685):** Die Spalte der Zierpflanzen-Seed-Tabelle heißt `nutrient_demand` (Werte unverändert, keine Art war `nitrogen_fixer`). `Species.nutrient_demand_level` bleibt als Alt-Feld im Modell, damit alte Bestände starten; seit dem Wegfall von `_FEEDER_EC_FACTOR` (REQ-053 WP 8.11, #2654) liest es außer Migration M6 kein Code mehr — es skaliert keine EC und speist keine Warnung. |
+| 4.12 | 2026-10-16 | **Migration M6 umgesetzt (REQ-053 WP 1.6, #2325, `v0096_nutrient_demand_split`):** `common/enums.NutrientDemand` trägt jetzt `heavy_feeder`/`medium_feeder`/`light_feeder`; die Seed-Tabelle der Familien (§Seed-Daten) zeigt die neuen Werte; `Species` erhält im Code die v4.11-Felder `nutrient_demand`, `nutrient_demand_source`, `nutrient_demand_confidence`, `nitrogen_fixing` (Optional, `null` = unbelegt), `rotation_pause_years`, `row_spacing_cm` (Range-String), `light_requirement`; `BotanicalFamily.rotation_pause_years`; Importer (`seed_plant_info.py` und Geschwister) leiten die Felder weiter. `nutrient_demand_level` bleibt als Alt-Feld (EC-Resolver), ist nie Quelle für `nutrient_demand` (E-10). Nutzerseitige Edits behalten die belegten Werte (`SPECIES_FIELDS_KEPT_ON_EDIT`). |
+| 4.11 | 2026-10-15 | **Angleichung an REQ-053 v1.4 (Grafische Garten-/Beetplanung, Welle 0 — Anhang A Issues 55/57/77):** *Nachtrag 2026-10-16 (Spec-Readiness-Review REQ-053):* `Species.row_spacing_cm` ist ein **Range-String** wie `spacing_cm` (`Optional[str]`, Pattern `distance_cm_string`, Parser „unterer Wert"; Bereich 5–1 500 prüft der `seed-data-validator`), kein `int` mit `le=`; `site_fit`-Mapping an GP-FR-160 angeglichen (sonniger als der Anspruch → `marginal`/`poor`, nicht `ok`; `shade_tolerance = null` bei genau einer Stufe schattiger → `marginal` „Toleranz unbekannt", GP-ACC-053). (a) **Zehrerstufe, Stickstofffixierung und Planrolle getrennt** (REQ-053 §16.3, GP-FR-138, K-001): `NutrientDemand = heavy_feeder \| medium_feeder \| light_feeder` an `Species.nutrient_demand` (**Pflicht bei Nutzpflanzen**, mit `nutrient_demand_source`/`nutrient_demand_confidence`, H-004) und `BotanicalFamily.typical_nutrient_demand` (Werte `light`/`medium`/`heavy` → `light_feeder`/`medium_feeder`/`heavy_feeder`); `nitrogen_fixing: bool` neu an `Species` (an `BotanicalFamily` vorhanden); `PlanRole = main_crop \| green_manure \| fallow` **nur** an `PlantingRun` (REQ-013) und `CropRotationPlan` (REQ-002), nie an Spezies/Familie. `Species.nutrient_demand_level` (4 Werte inkl. `nitrogen_fixer`) wird per Migration **M6** `M6_nutrient_demand_split` abgelöst (GP-FR-139): `nitrogen_fixer` → `nitrogen_fixing = true`, `nutrient_demand` aus dem Steckbrief, sonst `null` + Dry-Run-Report — **kein stiller Default**. (b) `BotanicalFamily.rotation_pause_years` (Default je Familie) + `Species.rotation_pause_years` (Override); `rotation_window_years` Obergrenze 8 (GP-FR-131, K-004). (c) **Neu** `Species.row_spacing_cm` (5–1 000, GP-FR-061, O-11) und `Species.light_requirement ∈ {full_sun, partial_shade, shade}` als **Lichtanspruch**; `Species.shade_tolerance` bleibt **Toleranz** („verträgt Schatten bis Stufe X") — Semantik festgeschrieben (E-05, O-16), `site_fit`-Mapping in REQ-053 GP-FR-160 referenziert. (d) Agronomische Werte **nur mit Quelle** (E-10): fehlt eine belastbare Quelle, bleibt das Feld `null` und steht in der Lückenliste. Keine Code-Änderung in dieser Version; Schema/Seeds/Migration folgen in REQ-053 Welle 1 (Issue 57, M6). |
 | 4.10 | 2026-10-10 | **Enum-Werte an das Modell angeglichen (#2183):** `Species.root_type` (§Datenmodell + `SpeciesDefinition` + `RootType`-Enum) nennt jetzt die Werte des Code-Enums `RootType` — `corm` neu, `rhizomatous`/`aerial` entfallen (die Seed-Daten führen solche Arten als `fibrous`). `Species.frost_sensitivity` nennt die Werte von `FrostTolerance` (`very_hardy`/`hardy`/`moderate`/`sensitive`) statt `hardy`/`half_hardy`/`tender`; die dreistufige Ampel-Sprache bleibt die abgeleitete Sicht von REQ-039/REQ-022 (feste Abbildung, s. §Datenmodell). Zierpflanzen-Seed-Tabelle auf die gespeicherten Werte umgestellt. Der Guard `test_spec_literal_discriminators_match_models.py` vergleicht beide Felder jetzt mit dem Code. |
 | 4.9 | 2026-10-04 | **`Species.regulatory_class` (REQ-055 O-05):** Additives optionales Feld `regulatory_class: Optional[Literal['cannabis']]` (`None` = unreguliert). Zweck: Funktionen mit Außenwirkung — zuerst öffentliche Pflanzenprofile und Social-Veröffentlichung (REQ-055 PS-PRI-040, KCanG § 6 Werbe- und Sponsoringverbot) — sperren sich für Arten dieser Klasse per Default; der Betreiber kann die Sperre instanzweit aufheben. Gepflegt im Seed (`species.yaml`) für die Gattung *Cannabis*; bis zur Seed-Pflege gilt als Fallback der Gattungsabgleich auf `scientific_name` beginnend mit `Cannabis ` (REQ-055 §17.5). Kein Einfluss auf Stammdatensichtbarkeit (die bleibt beim Tenant-Overlay §2), keine Migration (Feld fehlt = unreguliert). Weitere Klassen (z. B. invasive Arten, Artenschutz) sind bewusst nicht vorweggenommen. (v4.8 — Rechte-Vokabular REQ-049 — hatte keinen eigenen Eintrag.) |
 | 4.7 | 2026-07-19 | **Seed↔Phase-Sequence-Tracking (#611 WS1, Audit #576/#586):** (1) `LifecycleConfig.growth_determinacy: Optional[GrowthDeterminacy]` (`determinate`/`indeterminate`/`semi_determinate`) im Body **nachgezogen** — das Feld existierte bereits in `species.schema.yaml`/`_defs.schema.yaml`, im `LifecycleConfig`-Model, in `species.yaml/lifecycle_overrides` und in REQ-003 §E4, war aber nie in REQ-001 geführt (selbst ein „not-carried-through"-Spec-Gap). Neuer `GrowthDeterminacy`-Enum. (2) **Lifecycle-Resolution-Pflichtfelder** explizit gemacht: `cultivation_cycle_type`, `flowering_strategy` und `growth_determinacy` sind verbindliche **Resolution-Inputs je Species** (nicht optionale Metadaten) — sie speisen den attributgetriebenen Phase-Sequence-Resolver (REQ-003 §D14), `resolve_effective_cycle` und die REQ-047-Überwinterungs-Kopplung. Fehlen sie, fällt die Art auf das strukturell falsche `indoor_default`-Blankett. Reine Spec-Schärfung, keine Code-/Migration-Änderung. |
@@ -76,7 +82,18 @@ Zusätzlich erfasst das System:
     - `promoted_from_tenant: Optional[str]` (Default: `null`) — Nur gesetzt nach Promotion. Speichert den ursprünglichen `tenant_key`. Read-only nach Promotion.
     <!-- /Quelle: ADR-002 / W-006 -->
     - `scientific_name: str` (Binomiale Nomenklatur, z.B. "Solanum lycopersicum")
-    - `common_names: list[str]` (Landessprachliche Namen)
+    - `common_names: list[str]` (Landessprachliche Namen) — flache Liste **aller** Volksnamen in allen Sprachen. Sie dient der Suche, dem Bearbeitungsformular und dem CSV-Import. Ihre Reihenfolge trägt **keine** Sprachaussage: Die Seed-Dateien führen teils den englischen, teils den deutschen Namen zuerst (#2902).
+    <!-- Quelle: #2902 Volksnamen nach Sprache -->
+    - `common_names_i18n: dict[str, list[str]]` (Default: `{}`) — Sprachcode → Volksnamen dieser Sprache in Präferenzreihenfolge (der erste Name ist der bevorzugte). Schlüssel sind kleingeschriebene ISO-639-Sprachcodes (2–3 Buchstaben); heute belegt sind `de` und `en`. Regeln:
+        - Jeder Name in `common_names_i18n` MUSS auch in `common_names` stehen. Die Map ordnet vorhandene Namen einer Sprache zu und führt **keinen** eigenen Namen ein. Ein API-Create/-Update mit einem Namen außerhalb von `common_names` wird mit **422** abgelehnt, nicht stillschweigend ergänzt.
+        - Ein Name, der in beiden Sprachen gleich lautet (z.B. „Zucchini", „Dill", „Kohlrabi"), steht in beiden Listen.
+        - Eine Sprache ohne belegten Namen fehlt als Schlüssel. Es wird kein Name übersetzt oder erfunden (E-10). Ein Name, der weder eindeutig deutsch noch englisch ist (z.B. ein botanisches Epitheton wie „Adansonii"), bleibt nur in `common_names`.
+        - Quelle der Sprachzuordnung ist die Steckbrief-Zeile „Volksnamen (DE/EN)" (`spec/knowledge/plants/*.md`). Dort trennt `;` die deutschen von den englischen Namen.
+        - Ein Update ohne das Feld `common_names_i18n` behält die gespeicherte Map. Namen, die das Update aus `common_names` entfernt, verschwinden dabei auch aus der Map.
+        - **Anzeigeregel:** Der angezeigte Volksname ist der erste Name in `common_names_i18n[<UI-Sprache>]`, sonst der erste in `common_names_i18n['de']` (kanonische Sprache, UI-NFR-007 R-009a), sonst der `scientific_name`. „Erster Eintrag von `common_names`" ist für Arten **mit** Sprachzuordnung **keine** zulässige Anzeigeregel; ohne Zuordnung (`{}`: tenant-eigene oder per CSV importierte Art) ist er der Rückfall vor dem `scientific_name`, weil die Liste dann alles ist, was der Datensatz sagt. Leere Einträge werden dabei übersprungen.
+        - **Serverseitig gebildete Namen:** Wo das Backend selbst einen einzelnen Namen bildet (Pflegeübersicht, Dashboard-Pflanzenraster, Aussaatkalender, Pflanzenzustände und gesäte Slots im Beetplan, Fruchtfolge-Empfehlung, Winterhärte-Übersicht, Workflow-Listen und -Ausführungen, Tagebuch-Übersicht, Druck-PDFs, MCP-Zusammenfassungen), gilt dieselbe Regel über genau einen Resolver (`app/domain/models/species_names.py`). Die Sprache ist die der Anfrage: Die Web-Oberfläche sendet ihre Oberflächensprache bei jeder Anfrage als `Accept-Language`, der Server löst sie einmal auf (`get_request_locale`, NFR-017 R-112/R-114; unterstützt `de` und `en`, alles andere oder ein fehlender Header → `de`). Ein Druck-PDF nimmt die Sprache seines Parameters `locale`. Texte ohne Anfrage (Celery-Tasks, Erinnerungen, Benachrichtigungen, MCP-Zusammenfassungen) und persistierte Namen (z. B. der Name eines generierten Workflow-Templates) entstehen in der kanonischen Sprache `de` und bleiben in der Sprache ihres Entstehens.
+        - Bestehende Installationen erhalten die Map über den Seed-Abgleich (`common_names` und `common_names_i18n` gehören zu den bei jedem Seed-Lauf abgeglichenen Feldern globaler Arten), nicht über eine Migration. Tenant-eigene Arten werden dabei nicht überschrieben.
+    <!-- /Quelle: #2902 Volksnamen nach Sprache -->
     - `family: str` (Botanische Familie, z.B. "Solanaceae")
     - `genus: str`
     - `hardiness_zones: list[str]` (z.B. ["7a", "7b", "8a"])
@@ -103,8 +120,17 @@ Zusätzlich erfasst das System:
     - `sowing_outdoor_after_last_frost_days: Optional[int]` (Direktsaat: Tage nach letztem Frost, z.B. 0 für Erbsen, 14 für Bohnen)
     - `direct_sow_months: Optional[list[int]]` (Monate für Direktsaat, z.B. [3,4,5] für Möhren)
     - `harvest_months: Optional[list[int]]` (Erntemonate, z.B. [7,8,9] für Tomaten)
-    - `nutrient_demand_level: Optional[Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'nitrogen_fixer']]` (Starkzehrer/Mittelzehrer/Schwachzehrer/Stickstoff-Fixierer für Fruchtfolge-Planung)
-    - `green_manure_suitable: bool = False` (Eignung als Gründüngung — z.B. Phacelia, Senf, Lupine)
+    - ~~`nutrient_demand_level: Optional[Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'nitrogen_fixer']]`~~ — **abgelöst durch Migration M6** (REQ-053 §16.3 GP-FR-138/139, v4.11): `nitrogen_fixer` ist **keine** Zehrerstufe — eine Erbse ist Schwachzehrer *und* N-Fixierer (K-001). Das Feld bleibt im Modell (`NutrientDemandLevel`) lesbar, damit alte Bestände starten; außer M6 liest es kein Code mehr (E-17 Variante A, v4.13). Neue Daten pflegen die drei Felder darunter.
+    <!-- Quelle: REQ-053 §16.3 GP-FR-138, 2026-10-15 -->
+    - `nutrient_demand: Optional[NutrientDemand]` = `heavy_feeder | medium_feeder | light_feeder` (Zehrerstufe für die Fruchtfolge. **Pflicht bei Nutzpflanzen** (`traits` enthält `edible` oder Art ist im Steckbrief als Nutzpflanze geführt) — im JSON-Schema `plant_info.schema.yaml` nullable (Bestandsseeds ohne Wert müssen validieren), die Pflicht setzt der `seed-data-validator` durch (Warnung bis zur Anreicherung REQ-053 WP 0.5b, danach Fehler), im Modell `Optional`, weil Bestandsdaten ohne belegte Quelle `null` bleiben (E-10). Dasselbe Enum wie `BotanicalFamily.typical_nutrient_demand` und `CropRotationPlan.nutrient_demand` (REQ-002). Fallback-Kaskade für die Rotationslogik: `Species.nutrient_demand` → `BotanicalFamily.typical_nutrient_demand` → Hinweis „unbekannt".)
+    - `nutrient_demand_source: Optional[str]`, `nutrient_demand_confidence: Optional[Literal['high', 'medium', 'low']]` (Quelle und Belastbarkeit je Wert — H-004/E-10: Werte ohne Quelle werden nicht gesetzt; der Steckbrief nennt die Quelle, `plant-info-to-seed-yaml` überträgt sie.)
+    - `nitrogen_fixing: Optional[bool] = None` (**neu** an der Art; an `BotanicalFamily` vorhanden. `null` = nicht belegt (E-10: `false` ist eine Behauptung, kein Platzhalter); die Rotationslogik fällt beim Lesen auf `BotanicalFamily.nitrogen_fixing` zurück, das Stammdatum selbst leitet nichts ab. Orthogonal zur Zehrerstufe: liefert die N-Gutschrift einer Leguminosen-Vorfrucht in der Rotationslogik (REQ-053 GP-FR-131/133). Validierung wie bei der Familie: `nitrogen_fixing = true` + `nutrient_demand = heavy_feeder` ist ungültig. Default aus `BotanicalFamily.nitrogen_fixing`, wenn die Art keinen eigenen Wert trägt.)
+    - `rotation_pause_years: Optional[int]` (0–8; **Override** des Familien-Defaults `BotanicalFamily.rotation_pause_years` für Arten, die von ihrer Familie abweichen — z. B. Erdbeere 4 Jahre wegen Verticillium bei Rosaceae-Default 2. Fallback-Kette im Beet-Validator (REQ-053 GP-FR-131): Art → Familie → `rotation_window_years` (Obergrenze 8, K-004). Nur mit Quelle, sonst `null`.)
+    - `green_manure_suitable: bool = False` (Eignung als Gründüngung — z.B. Phacelia, Senf, Lupine. Ein `PlantingRun` mit `plan_role = green_manure` (REQ-013) verlangt `green_manure_suitable = true` an der Art — REQ-053 GP-FR-138. **`PlanRole` selbst (`main_crop | green_manure | fallow`) steht nie an Spezies oder Familie**, nur am Durchlauf und am Rotationsplan.)
+    <!-- /Quelle: REQ-053 §16.3 GP-FR-138 -->
+    <!-- Quelle: REQ-053 GP-FR-061 (O-11, W-001), 2026-10-15 -->
+    - `row_spacing_cm: Optional[str]` (**neu**; **Range-String** wie `spacing_cm` — Einzelwert `"80"` oder Bereich `"60--80"`, Schema `_defs.schema.yaml#/$defs/distance_cm_string`; numerisch geparst: unterer Wert; Wertebereich 5–1 500 cm prüft der `seed-data-validator`, nicht das Pattern. Empfohlener **Reihenabstand** für die Layout-Vorbelegung im Bepflanzen-Dialog (REQ-053 §11.2, GP-FR-060/061). Ergänzt die **vorhandenen** Schemafelder `spacing_cm` (Pflanzabstand in der Reihe, Range-String, numerisch geparst: unterer Wert), `mature_height_cm`, `mature_width_cm`, `support_required`, `sowing_depth_cm`, `recommended_container_volume_l`, `min_container_depth_cm` (`species.schema.yaml:150–174, 347`) — **kein** `spacing_cm_default`-Duplikat. Steckbrief-Abschnitt „Pflanzabstand und Reihenabstand"; `seed-data-validator` prüft den Bereich. Fehlt eine belastbare Quelle, bleibt der Wert `null` (E-10) — der Dialog nimmt dann „zuletzt verwendet" (F-11), nie einen stillen Default.)
+    <!-- /Quelle: REQ-053 GP-FR-061 -->
     - `pruning_months: Optional[list[int]]` (Empfohlene Schnittmonate, z.B. [2,3] für Kernobst)
     - `pruning_type: Optional[Literal['winter_pruning', 'summer_pruning', 'after_harvest', 'spring_pruning', 'none']]`
     - `bloom_months: Optional[list[int]]` (Blütemonate — für Blühkalender und Bestäuber-Planung)
@@ -115,7 +141,10 @@ Zusätzlich erfasst das System:
     # Umgebungs-Physiologie / Standortqualität (Quelle: spec/analysis/plant-profile-completeness-research.md)
     - `light_compensation_point_ppfd_min: Optional[int]` (LCP-Untergrenze in µmol/m²/s — Lichtintensität, bei der die Netto-Photosynthese null ist. Treibt den Standort-Eignungscheck: verfügbares Licht muss LCP unter Sommer-Worst-Case mit ~20 % Puffer über 12 h übersteigen, sonst Warnung „Platz zu dunkel". Akklimatisationsplastisch → als Range modellieren, kein Einzelwert. Indoor-Bereich generell 10–15.)
     - `light_compensation_point_ppfd_max: Optional[int]` (LCP-Obergrenze, sonnenadaptiert — z.B. *Ficus benjamina* ~6 schatten- bis ~17 sonnenadaptiert.)
-    - `shade_tolerance: Optional[Literal['deep_shade', 'shade', 'partial_shade', 'full_sun']]` (Strukturierte Schatten-/Sonnenexposition für die Standortplatzierung — ergänzt LCP qualitativ.)
+    - `shade_tolerance: Optional[Literal['deep_shade', 'shade', 'partial_shade', 'full_sun']]` (**Toleranz**, nicht Anspruch — Semantik festgeschrieben 2026-10-15 (REQ-053 O-16/E-05, v4.11): „verträgt Schatten **bis** Stufe X" — die schattigste Stufe, bei der die Art noch brauchbar wächst. `full_sun` bedeutet hier „verträgt **keinen** Schatten", `deep_shade` „verträgt sogar Tiefschatten". Ergänzt LCP qualitativ. Der **Anspruch** steht in `light_requirement` (nächste Zeile); beide Felder sind unabhängig zu pflegen, weil Toleranz ≠ Optimum (Salat: Anspruch `full_sun`, Toleranz `partial_shade`).)
+    <!-- Quelle: REQ-053 GP-FR-160 / O-16 / E-05, 2026-10-15 -->
+    - `light_requirement: Optional[Literal['full_sun', 'partial_shade', 'shade']]` (**neu, Lichtanspruch** — die Stufe, die die Art für vollen Ertrag/Habitus **braucht**. Grundlage der Eignungs-Ampel `site_fit` im Bepflanzen-Dialog (REQ-053 GP-FR-160, `site_fit_calculator.compute(sun_exposure, light_requirement, shade_tolerance) → ok | marginal | poor | unknown`, Python + TS-Port gegen gemeinsame Testvektoren). Mapping — verbindlich in REQ-053 GP-FR-160, hier referenziert: Stufenfolge `full_sun > partial_shade > shade > deep_shade`; `ok`, wenn `Location.sun_exposure` genau der Anspruchsstufe entspricht; **schattiger:** `marginal`, wenn das Beet genau eine Stufe schattiger ist **und** `shade_tolerance` diese Stufe deckt; ebenfalls `marginal` mit Begründung „Toleranz unbekannt", wenn das Beet genau eine Stufe schattiger ist und `shade_tolerance = null` (nicht belegt) — kein stiller `poor`; `poor`, wenn zwei oder mehr Stufen schattiger oder die belegte Toleranz die Stufe nicht deckt; **sonniger** (Verbrennung, Trockenstress): `marginal` bei genau einer Stufe, `poor` ab zwei Stufen; `unknown`, wenn eine Seite fehlt (kein Hinweis). Testvektoren GP-ACC-053. Nicht blockierend. Steckbrief-Abschnitt „Lichtbedarf", `seed-data-validator` prüft das Enum. Nur mit Quelle, sonst `null` (E-10).)
+    <!-- /Quelle: REQ-053 GP-FR-160 -->
     - `photosynthesis_type: Optional[Literal['c3', 'c4', 'cam']]` (Photosynthese-Typ als WUE-/Transpirations-**Modifikator** für VPD-/Bewässerungslogik — NICHT als alleiniger Trockenheits-/Klima-Prädiktor verwenden (adversarial widerlegt). `cam` = invertierte Stomata-/VPD-Logik (nächtliche Öffnung), relevant für Sukkulenten/Orchideen.)
     - `effective_root_depth_cm: Optional[int]` (Typische effektive Wurzeltiefe für Bewässerungstiefe/Crop-Steering. Umweltabhängig-plastisch: Infiltration von oben + Grundwasser von unten; im Kübel durch Topfvolumen begrenzt. Richtwert, kein fixer Artkonstantwert.)
     - `waterlogging_tolerance: Optional[Literal['sensitive', 'moderate', 'tolerant']]` (Staunässe-/Sauerstoffmangel-Toleranz der Wurzelzone — steuert Drainage-Empfehlung und Gießobergrenze. `sensitive` = wurzelfäulegefährdet bei Staunässe.)
@@ -168,7 +197,7 @@ Zusätzlich erfasst das System:
     - `dormancy_required: bool`
     - `vernalization_required: bool` (Kälteperiode für Blüteninduktion)
     - `vernalization_min_days: Optional[int]`
-    - `photoperiod_type: Literal['short_day', 'long_day', 'day_neutral']`
+    - `photoperiod_type: Literal['short_day', 'long_day', 'day_neutral', 'unspecified'] = 'unspecified'` (#2857: `unspecified` = keine Quelle stuft die Art ein; `day_neutral` ist eine Aussage — „blüht unabhängig von der Tageslänge“ — und wird nur aus einer Quelle oder von einer Person gesetzt)
     - `critical_day_length_hours: Optional[float]`
     <!-- Spec-Audit 2026-07-02 A1/A2 + D6: Lebenszyklus-Felder umgesetzt (datenmodell-pflanzeneigenschaften-plan.md WP-3/WP-4). -->
     - `cultivation_cycle_type: Optional[CycleType]` (Kultur-Praxis-Lebensdauer; überschreibt die **botanische** `cycle_type` für Überwinterungs- und Saison-Ende-Hinweise. Beispiel: Tomate botanisch `perennial`, in Kultur `annual`. Abgeleitetes Read-Flag `grown_as_annual = cultivation_cycle_type == 'annual' and cycle_type != 'annual'`. `null` = Kultur folgt der botanischen `cycle_type`.)
@@ -195,8 +224,11 @@ Zusätzlich erfasst das System:
     - `common_name_en: str` (Englischer Anzeigename, z.B. "Nightshade family")
     - `order: Optional[str]` (Taxonomische Ordnung, z.B. "Solanales") — muss auf "-ales" enden, wenn angegeben
     - `description: str` (Botanische Kurzbeschreibung)
-    - `typical_nutrient_demand: Literal['light', 'medium', 'heavy']`
-    - `nitrogen_fixing: bool` (default: false) — Stickstofffixierung (z.B. Fabaceae=true). Validierung: `nitrogen_fixing=true` + `typical_nutrient_demand='heavy'` ist ungültig (N-Fixierer sind Schwach-/Mittelzehrer)
+    - `typical_nutrient_demand: NutrientDemand` = `Literal['heavy_feeder', 'medium_feeder', 'light_feeder']` (bis v4.10 `light`/`medium`/`heavy`; Migration M6 bildet `light → light_feeder`, `medium → medium_feeder`, `heavy → heavy_feeder` ab — REQ-053 GP-FR-139. Dasselbe Enum wie `Species.nutrient_demand`; Familien-Default für Arten ohne eigenen Wert.)
+    - `nitrogen_fixing: bool` (default: false) — Stickstofffixierung (z.B. Fabaceae=true). Validierung: `nitrogen_fixing=true` + `typical_nutrient_demand='heavy_feeder'` ist ungültig (N-Fixierer sind Schwach-/Mittelzehrer). Familien-Default für `Species.nitrogen_fixing`.
+    <!-- Quelle: REQ-053 GP-FR-131 (K-004), 2026-10-15 -->
+    - `rotation_pause_years: Optional[int]` (0–8; **Anbaupause** in Jahren, nach der dieselbe Familie wieder auf dasselbe Beet darf — Default je Familie, geprüft O-17 (2026-10-15): Brassicaceae 4 (Kohlhernie), Solanaceae 4, Apiaceae 4, Amaryllidaceae 4, Cucurbitaceae 4, Asteraceae 3, Amaranthaceae 3, Fabaceae 6 (Erbsenmüdigkeit; Art-Override *Phaseolus vulgaris* 4), Poaceae `null`. Die Beet-Fruchtfolge (REQ-053 GP-FR-131) liest `Species.rotation_pause_years` → diese Familie → `rotation_window_years` (Obergrenze 8). `rotation_category` bleibt die qualitative Einordnung. Werte nur mit Quelle (E-10), sonst `null` — Quellen je Wert in `spec/analysis/agrobiology-thresholds-req-053.md` (REQ-053 O-17).)
+    <!-- /Quelle: REQ-053 GP-FR-131 -->
     - `typical_root_depth: RootDepth` (Enum: SHALLOW / MEDIUM / DEEP)
     - `soil_ph_preference: Optional[PhRange]` (Embedded: min_ph, max_ph)
     - `frost_tolerance: FrostTolerance` (Enum: SENSITIVE / MODERATE / HARDY / VERY_HARDY)
@@ -585,27 +617,29 @@ Neue Document Collection für persistente Audit-Spur jeder Promotion. Aufbewahru
 
 ### Seed-Daten: BotanicalFamily
 
+> **Vokabular (v4.12):** Die Spalte `typical_nutrient_demand` zeigt die Werte seit Migration M6 (`v0096`, REQ-053 GP-FR-139): `light_feeder`/`medium_feeder`/`heavy_feeder`. Die Spalte der Zierpflanzen-Tabelle heißt seit v4.13 `nutrient_demand` (früher `nutrient_demand_level`; `nitrogen_fixer` → `nitrogen_fixing = true`). `rotation_pause_years` wird je Familie erst mit Quelle gesetzt (Welle 1, Issue 57) und ist deshalb hier nicht aufgeführt.
+
 Die folgenden 9 Pflanzenfamilien bilden die initiale Datenbasis:
 
 | name | common_name_de | common_name_en | order | typical_nutrient_demand | nitrogen_fixing | typical_root_depth | frost_tolerance | pollination_type |
 |------|---------------|---------------|-------|------------------------|----------------|-------------------|----------------|-----------------|
-| Solanaceae | Nachtschattengewächse | Nightshade family | Solanales | heavy | false | MEDIUM | SENSITIVE | INSECT, SELF |
-| Brassicaceae | Kreuzblütler | Mustard family | Brassicales | heavy | false | MEDIUM | HARDY | INSECT |
-| Fabaceae | Hülsenfrüchtler | Legume family | Fabales | light | true | DEEP | MODERATE | INSECT, SELF |
-| Cucurbitaceae | Kürbisgewächse | Gourd family | Cucurbitales | heavy | false | SHALLOW | SENSITIVE | INSECT |
-| Apiaceae | Doldenblütler | Carrot family | Apiales | medium | false | DEEP | HARDY | INSECT |
-| Asteraceae | Korbblütler | Daisy family | Asterales | medium | false | MEDIUM | MODERATE | INSECT, WIND |
-| Poaceae | Süßgräser | Grass family | Poales | medium | false | SHALLOW | VERY_HARDY | WIND, SELF |
-| Lamiaceae | Lippenblütler | Mint family | Lamiales | light | false | SHALLOW | MODERATE | INSECT |
-| Cannabaceae | Hanfgewächse | Hemp family | Rosales | heavy | false | DEEP | SENSITIVE | WIND |
-| Violaceae | Veilchengewächse | Violet family | Malpighiales | light | false | SHALLOW | HARDY | INSECT, SELF |
+| Solanaceae | Nachtschattengewächse | Nightshade family | Solanales | heavy_feeder | false | MEDIUM | SENSITIVE | INSECT, SELF |
+| Brassicaceae | Kreuzblütler | Mustard family | Brassicales | heavy_feeder | false | MEDIUM | HARDY | INSECT |
+| Fabaceae | Hülsenfrüchtler | Legume family | Fabales | light_feeder | true | DEEP | MODERATE | INSECT, SELF |
+| Cucurbitaceae | Kürbisgewächse | Gourd family | Cucurbitales | heavy_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Apiaceae | Doldenblütler | Carrot family | Apiales | medium_feeder | false | DEEP | HARDY | INSECT |
+| Asteraceae | Korbblütler | Daisy family | Asterales | medium_feeder | false | MEDIUM | MODERATE | INSECT, WIND |
+| Poaceae | Süßgräser | Grass family | Poales | medium_feeder | false | SHALLOW | VERY_HARDY | WIND, SELF |
+| Lamiaceae | Lippenblütler | Mint family | Lamiales | light_feeder | false | SHALLOW | MODERATE | INSECT |
+| Cannabaceae | Hanfgewächse | Hemp family | Rosales | heavy_feeder | false | DEEP | SENSITIVE | WIND |
+| Violaceae | Veilchengewächse | Violet family | Malpighiales | light_feeder | false | SHALLOW | HARDY | INSECT, SELF |
 
 <!-- Quelle: Zierpflanzen-Analyse Stiefmütterchen-Use-Case 2026-03 -->
 ### Seed-Daten: Zierpflanzen-Species
 
 Die folgenden Zierpflanzen-Species erweitern die initiale Datenbasis um gängige Balkon- und Beetpflanzen:
 
-| scientific_name | common_names (DE) | family | growth_habit | root_type | frost_sensitivity | cycle_type | sowing_indoor_weeks_before_last_frost | bloom_months | nutrient_demand_level | traits |
+| scientific_name | common_names (DE) | family | growth_habit | root_type | frost_sensitivity | cycle_type | sowing_indoor_weeks_before_last_frost | bloom_months | nutrient_demand | traits |
 |----------------|-------------------|--------|-------------|-----------|-------------------|-----------|--------------------------------------|-------------|----------------------|--------|
 | *Viola x wittrockiana* | Stiefmütterchen, Gartenstiefmütterchen | Violaceae | herb | fibrous | hardy | annual | 12 | [3, 4, 5, 6, 9, 10] | light_feeder | ornamental |
 | *Viola cornuta* | Hornveilchen | Violaceae | herb | fibrous | hardy | perennial | 12 | [3, 4, 5, 6, 7, 8, 9, 10] | light_feeder | ornamental |
@@ -645,10 +679,10 @@ Zusätzliche BotanicalFamily-Einträge für Zierpflanzen (sofern nicht bereits v
 
 | name | common_name_de | common_name_en | order | typical_nutrient_demand | nitrogen_fixing | typical_root_depth | frost_tolerance | pollination_type |
 |------|---------------|---------------|-------|------------------------|----------------|-------------------|----------------|-----------------|
-| Geraniaceae | Storchschnabelgewächse | Geranium family | Geraniales | medium | false | SHALLOW | SENSITIVE | INSECT |
-| Campanulaceae | Glockenblumengewächse | Bellflower family | Asterales | light | false | SHALLOW | MODERATE | INSECT |
-| Balsaminaceae | Balsaminengewächse | Balsam family | Ericales | light | false | SHALLOW | SENSITIVE | INSECT |
-| Primulaceae | Primelgewächse | Primrose family | Ericales | light | false | SHALLOW | HARDY | INSECT, SELF |
+| Geraniaceae | Storchschnabelgewächse | Geranium family | Geraniales | medium_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Campanulaceae | Glockenblumengewächse | Bellflower family | Asterales | light_feeder | false | SHALLOW | MODERATE | INSECT |
+| Balsaminaceae | Balsaminengewächse | Balsam family | Ericales | light_feeder | false | SHALLOW | SENSITIVE | INSECT |
+| Primulaceae | Primelgewächse | Primrose family | Ericales | light_feeder | false | SHALLOW | HARDY | INSECT, SELF |
 
 <!-- Quelle: Agrarbiologie-Review AB-002, 2026-03 -->
 > **Taxonomie-Hinweis (APG IV):** *Primulaceae* und *Balsaminaceae* gehören seit APG III (2009) zur Ordnung **Ericales** (nicht zur historischen Ordnung Primulales bzw. einer eigenen Ordnung). Dies ist korrekt nach aktuellem molekulargenetischem Stand.
@@ -985,7 +1019,7 @@ class PhotoperiodCalculator:
 **4. Species-Validator:**
 ```python
 from typing import Optional
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, model_validator, Field
 
 class ToxicityInfo(BaseModel):
     """Toxizitätsdaten auf Species-Ebene für Haustier-/Kindersicherheit.
@@ -1019,6 +1053,10 @@ class SpeciesDefinition(BaseModel):
 
     scientific_name: str = Field(regex=r'^[A-Z][a-z]+ [a-z]+$', description="Binomiale Nomenklatur")
     common_names: list[str] = Field(min_items=1)
+    common_names_i18n: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description="Sprachcode (de, en, ...) -> Volksnamen in Präferenzreihenfolge; jeder Name auch in common_names (#2902)"
+    )
     family: str
     genus: str
     cycle_type: Literal['annual', 'biennial', 'perennial']
@@ -1087,12 +1125,37 @@ class SpeciesDefinition(BaseModel):
     harvest_months: Optional[list[int]] = Field(
         None, description="Erntemonate, z.B. [7,8,9] für Tomaten"
     )
-    nutrient_demand_level: Optional[Literal['heavy_feeder', 'medium_feeder', 'light_feeder', 'nitrogen_fixer']] = Field(
-        None, description="Starkzehrer/Mittelzehrer/Schwachzehrer/Stickstoff-Fixierer für Fruchtfolge-Planung"
+    # Alt-Feld nutrient_demand_level (4 Werte inkl. 'nitrogen_fixer') — abgelöst durch Migration M6 (REQ-053 GP-FR-138/139), kein Leser außer M6 (E-17 A):
+    nutrient_demand: Optional[NutrientDemand] = Field(
+        None, description="Zehrerstufe heavy_feeder/medium_feeder/light_feeder — Pflicht bei Nutzpflanzen im Steckbrief; null nur ohne belegte Quelle (E-10)"
+    )
+    nutrient_demand_source: Optional[str] = Field(None, max_length=500, description="Quelle des Werts (H-004)")
+    nutrient_demand_confidence: Optional[Literal['high', 'medium', 'low']] = None
+    nitrogen_fixing: Optional[bool] = Field(
+        None, description="Stickstofffixierung der Art (orthogonal zur Zehrerstufe); null = nicht belegt (E-10), Lesefallback auf BotanicalFamily.nitrogen_fixing nur in der Rotationslogik"
+    )
+    rotation_pause_years: Optional[int] = Field(
+        None, ge=0, le=8, description="Anbaupause in Jahren — Override des Familien-Defaults (REQ-053 GP-FR-131)"
     )
     green_manure_suitable: bool = Field(
-        False, description="Eignung als Gründüngung — z.B. Phacelia, Senf, Lupine"
+        False, description="Eignung als Gründüngung — z.B. Phacelia, Senf, Lupine; Voraussetzung für PlantingRun.plan_role = green_manure"
     )
+    # Quelle: REQ-053 GP-FR-061 / GP-FR-160 (O-11, E-05)
+    row_spacing_cm: Optional[str] = Field(
+        None,
+        pattern=r'^\d+(\.\d+)?(\s*[-–—]+\s*\d+(\.\d+)?)?$',  # Range-String wie spacing_cm ("80", "60--80"); 5–1500 prüft der seed-data-validator
+        description="Empfohlener Reihenabstand in cm als Range-String (unterer Wert wird geparst; Layout-Vorbelegung REQ-053 §11); null ohne Quelle"
+    )
+    light_requirement: Optional[Literal['full_sun', 'partial_shade', 'shade']] = Field(
+        None, description="Lichtanspruch (Optimum) — Grundlage für site_fit (REQ-053 GP-FR-160); shade_tolerance ist die Toleranz"
+    )
+
+    @model_validator(mode='after')
+    def validate_nitrogen_fixing_demand(self):
+        # Spiegel des Familien-Validators (REQ-053 GP-FR-138): N-Fixierer sind Schwach-/Mittelzehrer
+        if self.nitrogen_fixing and self.nutrient_demand == 'heavy_feeder':
+            raise ValueError("nitrogen_fixing=true ist inkompatibel mit nutrient_demand='heavy_feeder'")
+        return self
     pruning_months: Optional[list[int]] = Field(
         None, description="Empfohlene Schnittmonate, z.B. [2,3] für Kernobst"
     )
@@ -1285,7 +1348,17 @@ class CultivarPhotoperiodType(str, Enum):
 # /Quelle: G-009
 
 CycleType = Literal['annual', 'biennial', 'perennial']
-NutrientDemand = Literal['light', 'medium', 'heavy']
+
+# REQ-053 §16.3 GP-FR-138 (v4.11): drei getrennte Begriffe statt eines gemischten Enums.
+# Zehrerstufe — an Species.nutrient_demand, BotanicalFamily.typical_nutrient_demand, CropRotationPlan.nutrient_demand (REQ-002).
+# Bis v4.10: Literal['light', 'medium', 'heavy'] — Migration M6 bildet light→light_feeder, medium→medium_feeder, heavy→heavy_feeder ab.
+NutrientDemand = Literal['heavy_feeder', 'medium_feeder', 'light_feeder']
+
+# Planrolle — NUR an PlantingRun.plan_role (REQ-013) und CropRotationPlan.plan_role (REQ-002); nie an Species oder BotanicalFamily.
+# 'fallow' ist der einzige Wert ohne Pflanzdurchlauf; 'green_manure' am Run verlangt Species.green_manure_suitable = true.
+PlanRole = Literal['main_crop', 'green_manure', 'fallow']
+
+# Stickstofffixierung ist ein Bool (Species.nitrogen_fixing, BotanicalFamily.nitrogen_fixing), keine Zehrerstufe (K-001).
 
 # Spec-Audit 2026-07-02 A1/WP-4: Blüh-Strategie (Reproduktions-Achse), orthogonal zu CycleType.
 class FloweringStrategy(str, Enum):
@@ -1348,8 +1421,11 @@ class BotanicalFamilyDefinition(BaseModel):
     common_name_en: str = Field(description="Englischer Anzeigename")
     order: Optional[str] = Field(None, description="Taxonomische Ordnung, muss auf '-ales' enden")
     description: str = Field(default="", description="Botanische Kurzbeschreibung")
-    typical_nutrient_demand: NutrientDemand
+    typical_nutrient_demand: NutrientDemand  # heavy_feeder | medium_feeder | light_feeder (ab M6, REQ-053 GP-FR-139)
     nitrogen_fixing: bool = Field(default=False, description="Stickstofffixierung (Fabaceae=true)")
+    rotation_pause_years: Optional[int] = Field(
+        None, ge=0, le=8, description="Anbaupause in Jahren (Familien-Default, REQ-053 GP-FR-131); null ohne Quelle"
+    )
     typical_root_depth: RootDepth
     soil_ph_preference: Optional[PhRange] = None
     frost_tolerance: FrostTolerance
@@ -1376,9 +1452,9 @@ class BotanicalFamilyDefinition(BaseModel):
     @field_validator('nitrogen_fixing')
     @classmethod
     def validate_nitrogen_fixing_demand(cls, v, info):
-        if v and info.data.get('typical_nutrient_demand') == 'heavy':
+        if v and info.data.get('typical_nutrient_demand') == 'heavy_feeder':
             raise ValueError(
-                "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy'. "
+                "nitrogen_fixing=true ist inkompatibel mit typical_nutrient_demand='heavy_feeder'. "
                 "Stickstofffixierende Familien sind Schwach- oder Mittelzehrer."
             )
         return v
@@ -1442,6 +1518,23 @@ Anlegen und Ändern ab Gärtner, Löschen nur Leitung. Lesen für alle Rollen de
 - REQ-010 (IPM) - Familienspezifische Schädlinge; **HOCH:** common_diseases + shares_pest_risk für automatische IPM-Inspektionsplanung
 - REQ-011 (Externe Enrichment) - **MITTEL:** GBIF-Adapter: `order`-Feld mappen
 - REQ-012 (CSV-Import) - **NIEDRIG:** Neue BotanicalFamily-Felder im Import unterstützen
+- REQ-013 (Pflanzdurchlauf) - `green_manure_suitable` als Voraussetzung für `PlantingRun.plan_role = green_manure`; `spacing_cm`/`row_spacing_cm` für die Entry-Vorbelegung
+- REQ-053 (Garten-/Beetplanung) - **HOCH:** `nutrient_demand` + `nitrogen_fixing` + `rotation_pause_years` für den Beet-Fruchtfolge-Validator (GP-FR-131/138); `row_spacing_cm`, `spacing_cm`, `mature_width_cm`, `sowing_depth_cm` für die Layout-Vorbelegung (GP-FR-061); `light_requirement` + `shade_tolerance` für `site_fit` (GP-FR-160)
+
+### Erweitert durch REQ-053 (Grafische Garten-/Beetplanung)
+
+REQ-001 bleibt Quelle der Stammdaten; REQ-053 v1.4 legt drei Begriffe fest, die REQ-001 übernimmt (§16.3), und braucht vier Steckbrief-Werte für Layout und Standort-Eignung. Bei Widerspruch zu REQ-053 §16.3/GP-FR-061/GP-FR-160 gilt REQ-053.
+
+| Begriff | Enum / Typ | Träger | Nicht an |
+|---------|-----------|--------|----------|
+| Zehrerstufe `NutrientDemand` | `heavy_feeder \| medium_feeder \| light_feeder` | `Species.nutrient_demand` (Pflicht bei Nutzpflanzen, mit `source`/`confidence`), `BotanicalFamily.typical_nutrient_demand`, `CropRotationPlan.nutrient_demand` (REQ-002) | — |
+| Stickstofffixierung | `bool` | `Species.nitrogen_fixing` (neu), `BotanicalFamily.nitrogen_fixing` | `PlantingRun`, `CropRotationPlan` |
+| Planrolle `PlanRole` | `main_crop \| green_manure \| fallow` | `PlantingRun.plan_role` (REQ-013, Default `main_crop`), `CropRotationPlan.plan_role` (REQ-002, ersetzt `demand_level`) | `Species`, `BotanicalFamily` (Validator: `fallow` nie an Spezies/Familie/Run) |
+| Anbaupause | `int` 0–8 | `BotanicalFamily.rotation_pause_years` (Default), `Species.rotation_pause_years` (Override); Fallback `rotation_window_years` ≤ 8 | — |
+| Reihenabstand | Range-String wie `spacing_cm` (`"80"`, `"60--80"`; Parser „unterer Wert"), 5–1 500 cm | `Species.row_spacing_cm` (neu) neben vorhandenem `spacing_cm` | — |
+| Lichtanspruch / -toleranz | `light_requirement` 3 Stufen / `shade_tolerance` 4 Stufen | `Species` | — |
+
+Migration **M6** `M6_nutrient_demand_split` (REQ-053 Welle 1, GP-FR-139) stellt `_defs.schema.yaml`, `species.schema.yaml`, `plant_info.schema.yaml`, `botanical_families.schema.yaml`, Seeds und `seed-data-validator` um; der Dry-Run-Report listet jede Art, deren `nutrient_demand` mangels Quelle `null` bleibt. Die Steckbrief-Vorlage (`spec/knowledge/plants/*.md`) erhält die Abschnitte „Pflanzabstand und Reihenabstand" und „Lichtbedarf"; `plant-info-to-seed-yaml` extrahiert sie (Issue 57).
 
 ## 6. Akzeptanzkriterien
 
@@ -1460,7 +1553,14 @@ Anlegen und Ändern ab Gärtner, Löschen nur Leitung. Lesen für alle Rollen de
 - [ ] **CropRotationValidator:** Differenzierte Warnungen (CRITICAL/WARNING/INFO) basierend auf Familien-Kanten und Pest-Risiko
 - [ ] **CompanionPlantingEngine:** Siehe **REQ-028 §9** (Empfehlungs-Engine DoD)
 - [ ] **i18n-Anzeige:** common_name_de/en in UI je nach Spracheinstellung angezeigt
-- [ ] **Validierung (BotanicalFamily):** Familienname endet auf "-aceae", Ordnungsname auf "-ales", nitrogen_fixing=true + heavy-Demand wird abgelehnt
+- [ ] **Validierung (BotanicalFamily):** Familienname endet auf "-aceae", Ordnungsname auf "-ales", nitrogen_fixing=true + `heavy_feeder`-Demand wird abgelehnt (Werte ab M6: `heavy_feeder`/`medium_feeder`/`light_feeder`)
+<!-- Quelle: REQ-053 §16.3 / GP-FR-061 / GP-FR-160, v4.11 -->
+- [ ] **NutrientDemand-Split (M6):** `Species.nutrient_demand` (3 Werte) + `nitrogen_fixing` ersetzen `nutrient_demand_level`; `nitrogen_fixer` → `nitrogen_fixing=true`; Arten ohne belegte Quelle bleiben `nutrient_demand=null` und stehen im Dry-Run-Report — kein stiller Default
+- [ ] **PlanRole nie an Stammdaten:** Ein Validator lehnt `plan_role`/`fallow`/`green_manure` als Wert an Species oder BotanicalFamily ab; `green_manure` am Run verlangt `green_manure_suitable=true`
+- [ ] **rotation_pause_years:** Familien-Default + Art-Override (0–8), Fallback `rotation_window_years` ≤ 8; Werte nur mit Quelle
+- [ ] **row_spacing_cm + light_requirement:** Steckbrief-Abschnitte „Pflanzabstand und Reihenabstand" / „Lichtbedarf" werden extrahiert; `seed-data-validator` prüft 5–1 500 cm bzw. das Enum; `shade_tolerance` bleibt Toleranz, `light_requirement` ist Anspruch (E-05)
+<!-- /Quelle: REQ-053 -->
+
 <!-- Quelle: Cannabis Indoor Grower Review G-009 -->
 - [ ] **Cultivar-Photoperiod-Type:** Cultivar-Feld `photoperiod_type` (photoperiodic/autoflower/day_neutral) überschreibt Species-Level `PhotoperiodType`
 - [ ] **Autoflower-Validierung:** `autoflower_days_to_flower` und `autoflower_total_cycle_days` nur bei `photoperiod_type='autoflower'` akzeptiert

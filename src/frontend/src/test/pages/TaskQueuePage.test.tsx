@@ -180,13 +180,30 @@ describe('TaskQueuePage — task card navigation target', () => {
     expect(contentColumn.contains(screen.getByTestId('complete-task-task-active'))).toBe(false);
   });
 
-  it('navigates to the task detail when the card itself is activated', async () => {
-    renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+  it('links the card to the task detail and follows it when activated (#3047)', async () => {
+    const { router } = renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
 
     await screen.findByTestId('plant-link-task-active');
-    await userEvent.click(screen.getByTestId('task-card-task-active'));
+    const card = screen.getByTestId('task-card-task-active');
+    expect(card.tagName).toBe('A');
+    expect(card).toHaveAttribute('href', '/aufgaben/tasks/task-active');
+    await userEvent.click(card);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/aufgaben/tasks/task-active');
+    expect(router.state.location.pathname).toBe('/aufgaben/tasks/task-active');
+  });
+
+  it('turns the card into a selection button in bulk mode, without navigating (#3047)', async () => {
+    const { router } = renderWithProviders(<TaskQueuePage />, { route: '/aufgaben/queue' });
+
+    await screen.findByTestId('plant-link-task-active');
+    await userEvent.click(screen.getByTestId('bulk-mode-button'));
+    const card = screen.getByTestId('task-card-task-active');
+    expect(card.tagName).toBe('BUTTON');
+    expect(card).not.toHaveAttribute('href');
+    await userEvent.click(card);
+
+    expect(screen.getByTestId('bulk-select-task-active').querySelector('input')).toBeChecked();
+    expect(router.state.location.pathname).toBe('/aufgaben/queue');
   });
 });
 

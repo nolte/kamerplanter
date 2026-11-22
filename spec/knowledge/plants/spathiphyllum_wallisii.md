@@ -136,6 +136,22 @@
 **Hinweis (Salz):** Sehr salzempfindlich -- hohe loesliche Salze verursachen rasch Blattrand-/Blattspitzennekrosen. Bezugsgroesse fuer die EC-Schwellenwerte ist die Substrat-Bodenloesung (pour-through), nicht der Gieswasser-EC.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Spathiphyllum wallisii“ (Position: Partial shade; Kulturtext: "Under glass grow in partial shade. Flowering may suffer in deep shade."), https://www.rhs.org.uk/plants/17623/spathiphyllum-wallisii/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -509,4 +525,5 @@ Sensation,Spathiphyllum wallisii,--,--,large_leaved,clone
 12. Yamori, W., Hikosaka, K. & Way, D.A. (2013) -- Temperature response of photosynthesis in C3, C4, and CAM plants (Photosynthesis Research): https://publish.uwo.ca/~dway4/files/Yamori%20et%20al.%202013.pdf -- Einordnung tropischer Understory-Laubpflanzen als C3, Temperaturoptima
 13. Bulb Society -- Peace Lily / Spathiphyllum wallisii (Boden-pH 5.8-6.5, niedrige loesliche Salze, Fe/Mn-Aufnahme): https://bulbsociety.org/plant-peace-lily/
 14. Hoagland solution (Standard-Spurenelementbasis Mn/Zn/Cu/Mo): https://en.wikipedia.org/wiki/Hoagland_solution
+RHS -- Spathiphyllum wallisii (Position/Aspect: Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/17623/spathiphyllum-wallisii/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

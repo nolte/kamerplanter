@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from 'react';
+import { lazy, Suspense, useContext, useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
@@ -21,18 +21,27 @@ import PersonIcon from '@mui/icons-material/Person';
 import HomeIcon from '@mui/icons-material/Home';
 import Sidebar from './Sidebar';
 import ModuleGuard from '@/components/common/ModuleGuard';
+import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
+import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
+import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
 import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
 import ThemeToggle from '@/components/layout/ThemeToggle';
-import LightModeTakeoverDialog from '@/components/tenants/LightModeTakeoverDialog';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { toggleSidebar } from '@/store/slices/uiSlice';
 import { logoutUser } from '@/store/slices/authSlice';
 import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import { isLightMode } from '@/config/mode';
 import { KioskContext } from '@/kiosk/KioskProvider';
+import { useUnsyncedWritesGuard } from '@/hooks/useUnsyncedWritesGuard';
+
+// REQ-053 WP 9.4 — the offline write buffer's sync, progress and conflict dialog; its own chunk.
+const OfflineSyncHost = lazy(() => import('@/features/gardenPlanner/offline/OfflineSyncHost'));
+// #3023 (W-30) — the light-mode take-over and its step-up dialog (TextField, Select, Dialog) are their own
+// chunk: the dialog opens for at most one account once after a mode switch, never on the first paint.
+const LightModeTakeoverDialog = lazy(() => import('@/components/tenants/LightModeTakeoverDialog'));
 
 function isPrivateNetwork(): boolean {
   const { hostname } = window.location;
@@ -89,10 +98,14 @@ export default function MainLayout() {
     navigate('/privacy');
   };
 
+  // G-W9 (b): the logout discards the user's unsent offline entries — they are named first (WP 9.4).
+  const unsyncedGuard = useUnsyncedWritesGuard();
   const handleLogout = async () => {
     handleMenuClose();
-    await dispatch(logoutUser());
-    navigate('/login');
+    await unsyncedGuard.guard(async () => {
+      await dispatch(logoutUser());
+      navigate('/login');
+    });
   };
 
   return (
@@ -138,7 +151,7 @@ export default function MainLayout() {
             color="inherit"
             edge="start"
             onClick={() => dispatch(toggleSidebar())}
-            sx={{ mr: 2 }}
+            sx={{ mr: { xs: 1, sm: 2 } }} // #2815: room for the offline indicators at 390 px
             aria-label={t('common.toggleSidebar')}
             data-testid="sidebar-toggle"
           >
@@ -166,6 +179,12 @@ export default function MainLayout() {
             </>
           )}
           <Box sx={{ flexGrow: 1 }} />
+          {/* REQ-053 WP 9.4 — entries of the offline write buffer not yet sent, their sync and conflicts. */}
+          <Suspense fallback={null}>
+            <OfflineSyncHost />
+          </Suspense>
+          {/* UI-NFR-012 R-033 — permanently visible online/offline state. */}
+          <ConnectivityIndicator />
           {!isLightMode && <TenantSwitcher />}
           <LanguageSelector />
           <ThemeToggle />
@@ -187,6 +206,7 @@ export default function MainLayout() {
                 onClick={handleMenuOpen}
                 sx={{ ml: 1 }}
                 aria-label={t('pages.auth.accountMenu')}
+                data-testid="account-menu-button"
               >
                 <Avatar
                   sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}
@@ -204,7 +224,7 @@ export default function MainLayout() {
               >
                 <Box sx={{ px: 2, py: 1 }}>
                   <Typography variant="subtitle2">{user?.display_name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" data-testid="account-menu-email">
                     {user?.email}
                   </Typography>
                 </Box>
@@ -217,7 +237,7 @@ export default function MainLayout() {
                   <ListItemIcon><PrivacyTipIcon fontSize="small" /></ListItemIcon>
                   {t('pages.auth.privacySettings')}
                 </MenuItem>
-                <MenuItem onClick={handleLogout}>
+                <MenuItem onClick={handleLogout} data-testid="menu-logout">
                   <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
                   {t('pages.auth.logout')}
                 </MenuItem>
@@ -228,6 +248,8 @@ export default function MainLayout() {
       </AppBar>
 
       <Sidebar open={sidebarOpen} />
+      {/* #3017 (W-02) — focus to the new page's h1 and a polite announcement on every route change. */}
+      <RouteAnnouncer mainId="main-content" />
 
       <Box
         component="main"
@@ -275,7 +297,14 @@ export default function MainLayout() {
           <Outlet />
         </ModuleGuard>
         {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
-        {!isLightMode && <LightModeTakeoverDialog />}
+        {!isLightMode && (
+          <Suspense fallback={null}>
+            <LightModeTakeoverDialog />
+          </Suspense>
+        )}
+        {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
+        <UpdateBanner />
+        {unsyncedGuard.dialog}
       </Box>
     </Box>
   );

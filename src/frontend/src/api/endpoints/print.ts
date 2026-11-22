@@ -48,6 +48,30 @@ export async function downloadCareChecklistPdf(
 }
 
 /**
+ * Downloads the label of a bed (or other location) as a PDF (REQ-053 GP-FR-052, GP-UX-028).
+ * The QR code opens the bed in field mode; see `GET /t/{slug}/print/location-label/{location_key}`.
+ *
+ * @param locationKey - The ArangoDB key of the bed.
+ * @param qrSizeMm    - QR code size in mm (server default 40, min 20, max 60).
+ * @param locale      - Locale of the PDF content (defaults to the active UI language).
+ */
+export async function downloadLocationLabelPdf(
+  locationKey: string,
+  qrSizeMm?: number,
+  locale?: string,
+): Promise<Blob> {
+  const params: Record<string, string> = { locale: locale ?? getLocale() };
+  if (qrSizeMm !== undefined) {
+    params.qr_size_mm = String(qrSizeMm);
+  }
+  const { data } = await client.get<Blob>(`${BASE}/location-label/${encodeURIComponent(locationKey)}`, {
+    params,
+    responseType: 'blob',
+  });
+  return data;
+}
+
+/**
  * Downloads plant info cards (labels with QR codes) as a formatted PDF.
  *
  * @param plantKeys - Array of PlantInstance ArangoDB keys to include.

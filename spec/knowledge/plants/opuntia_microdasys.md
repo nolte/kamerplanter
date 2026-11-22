@@ -14,7 +14,7 @@
 |------|------|---------|
 | Wissenschaftlicher Name | Opuntia microdasys | `species.scientific_name` |
 | Synonyme | Opuntia microdasys var. albispina (weißhöckrige Variante) | — |
-| Volksnamen (DE/EN) | Hasenohren-Kaktus, Bunny Ears, Polka-Dot-Kaktus; Bunny Ears Cactus, Angel Wings, Polka Dot Cactus | `species.common_names` |
+| Volksnamen (DE/EN) | Hasenohren-Kaktus, Polka-Dot-Kaktus; Bunny Ears, Bunny Ears Cactus, Angel Wings, Polka Dot Cactus | `species.common_names` |
 | Familie | Cactaceae | `species.family` → `botanical_families.name` |
 | Gattung | Opuntia | `species.genus` |
 | Ordnung | Caryophyllales | `botanical_families.order` |
@@ -144,6 +144,22 @@
 
 Quellen (§1.8): [Lubera.com — Opuntia microdasys: Pflege, Blüte & Vermehrung des Kaktus](https://www.lubera.com/de/gartenbuch/opuntia-microdasys-pflege-bluete-vermehrung-des-kaktus-p3237); [ResearchGate — Pre-germination treatments in four prickly pear cactus (Opuntia sp.) species from Northeastern Mexico](https://www.researchgate.net/publication/329161299_Pre-germination_treatments_in_four_prickly_pear_cactus_Opuntia_sp_species_from_Northeastern_Mexico); [ResearchGate — Effect of fungi and light on seed germination of three Opuntia species from semiarid lands of central Mexico](https://www.researchgate.net/publication/236078017_Effect_of_fungi_and_light_on_seed_germination_of_three_Opuntia_species_from_semiarid_lands_of_central_Mexico); [NC State Extension — Opuntia microdasys](https://plants.ces.ncsu.edu/plants/opuntia-microdasys/) (Samengröße 1–1.2 mm)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
+
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Opuntia microdasys“, https://rhs.org.uk/plants/11881/i-opuntia-microdasys-i/details (Position „Full sun“; „Provide full light at all times“) | — |
 
 ---
 
@@ -360,4 +376,5 @@ Opuntia microdasys,"Hasenohren-Kaktus;Bunny Ears;Polka-Dot-Kaktus;Bunny Ears Cac
 <!-- Quelle: seed-profile-backfill 2026-07 -->
 25. [ResearchGate — Pre-germination treatments in four prickly pear cactus (Opuntia sp.) species from Northeastern Mexico](https://www.researchgate.net/publication/329161299_Pre-germination_treatments_in_four_prickly_pear_cactus_Opuntia_sp_species_from_Northeastern_Mexico) — Scarifizierung + H2O2-Einweichen erhöht Keimrate O. microdasys auf 67,5%
 26. [ResearchGate — Effect of fungi and light on seed germination of three Opuntia species from semiarid lands of central Mexico](https://www.researchgate.net/publication/236078017_Effect_of_fungi_and_light_on_seed_germination_of_three_Opuntia_species_from_semiarid_lands_of_central_Mexico) — Licht fördert Keimung gegenüber Dunkelheit bei Opuntia spp.
+27. [RHS — Opuntia microdasys](https://rhs.org.uk/plants/11881/i-opuntia-microdasys-i/details) — Position full sun, „full light at all times“
 <!-- /Quelle: seed-profile-backfill 2026-07 -->

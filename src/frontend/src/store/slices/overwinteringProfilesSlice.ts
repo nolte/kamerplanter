@@ -6,6 +6,7 @@ import type {
   WinterHardinessOverview,
 } from '@/api/types';
 import * as api from '@/api/endpoints/overwinteringProfiles';
+import { errorKey } from '@/api/errors';
 
 /**
  * REQ-022 — dashboard winter-hardiness overview thunk. Kept separate from the
@@ -45,7 +46,7 @@ function overviewCases(
     .addCase(fetchHardinessOverview.rejected, (state, action) => {
       const s = state as OverwinteringProfilesState;
       s.overviewLoading = false;
-      s.overviewError = action.error.message ?? 'errors.loadFailed';
+      s.overviewError = errorKey(action.error, 'errors.loadFailed');
     });
 }
 

@@ -30,7 +30,7 @@ from app.common.exceptions import NotFoundError, ValidationError
 from app.common.openapi_responses import AUTH_RESPONSES, NOT_FOUND_RESPONSE
 from app.config.settings import settings
 from app.data_access.external.pest_inference_client import PestDetectionInferenceClient
-from app.domain.models.pest_taxonomy import PEST_TAXONOMY
+from app.domain.models.pest_taxonomy import PEST_TAXONOMY, PestTaxon
 from app.domain.models.user import User
 from app.domain.services.pest_image_service import (
     GALLERY_THUMBNAIL_SIZE,
@@ -82,6 +82,8 @@ def get_pest_recognition_status(_user: User = Depends(require_platform_admin)) -
     classes: list[PestCoverageEntry] = []
     index_count = 0
     for taxon in PEST_TAXONOMY:
+        # Typed local: the write-route guard resolves a typed receiver, not a loop variable.
+        typed_taxon: PestTaxon = taxon
         row = by_label.get(taxon.slug, {})
         total = int(row.get("total", 0))
         active = int(row.get("active", 0))
@@ -90,6 +92,7 @@ def get_pest_recognition_status(_user: User = Depends(require_platform_admin)) -
             PestCoverageEntry(
                 label=taxon.slug,
                 common_name=taxon.common_name_de,
+                common_names_i18n=typed_taxon.names_i18n(),
                 category=taxon.category.value,
                 scientific_name=taxon.scientific_name,
                 gbif_taxon_key=taxon.gbif_taxon_key,

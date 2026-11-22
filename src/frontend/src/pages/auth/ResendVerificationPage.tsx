@@ -14,6 +14,7 @@ import { isRateLimited } from '@/api/client';
 import { isApiError } from '@/api/errors';
 import { resendVerification } from '@/api/endpoints/auth';
 import Form from '@/components/form/Form';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type Outcome = 'sent' | 'rateLimited' | 'failed' | null;
 
@@ -26,6 +27,7 @@ type Outcome = 'sent' | 'rateLimited' | 'failed' | null;
  */
 export default function ResendVerificationPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.resendVerificationTitle'));
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>(null);

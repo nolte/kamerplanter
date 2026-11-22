@@ -141,6 +141,22 @@ Quellen (S.1.8):
 6. TropicalSeeds.com -- Chamaedorea elegans: Keimdauer 6–14 Wochen, Vorbehandlung Einweichen 1–7 Tage: https://www.tropicalseeds.com/chamaedorea-elegans
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | deep_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Chamaedorea elegans", Position „Partial shade" (Kultur „in full light but with protection from strong sun"), https://www.rhs.org.uk/plants/29185/chamaedorea-elegans/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -338,3 +354,4 @@ Chamaedorea elegans,"Stubenpalme;Bergpalme;Parlor Palm;Neanthe Bella Palm",Areca
 8. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Spinnmilben-Raubmilbe: Ausbringung, Etablierungszeit, Klimaansprüche (University IPM)
 9. [UC IPM — Mealybug Destroyer (Cryptolaemus montrouzieri)](https://ipm.ucanr.edu/natural-enemies/mealybug-destroyer/) — Schmierlaus-Nützling: Freilassungsrate, Etablierungszeit, optimale Bedingungen (University IPM)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+10. [RHS — Chamaedorea elegans](https://www.rhs.org.uk/plants/29185/chamaedorea-elegans/details) — Position „Partial shade" (Beleg für `light_requirement`)

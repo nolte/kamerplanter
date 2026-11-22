@@ -20,7 +20,7 @@ class PlantInstanceListPage(BasePage):
     PAGE = (By.CSS_SELECTOR, "[data-testid='plant-instance-list-page']")
     CREATE_BUTTON = (By.CSS_SELECTOR, "[data-testid='create-button']")
     TABLE = (By.CSS_SELECTOR, "[data-testid='data-table']")
-    TABLE_ROWS = (By.CSS_SELECTOR, "[data-testid='data-table-row']")
+    TABLE_ROWS = (By.CSS_SELECTOR, "[data-row-key]")
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SEARCH_CHIP = (By.CSS_SELECTOR, "[data-testid='search-chip']")
     SORT_CHIP = (By.CSS_SELECTOR, "[data-testid='sort-chip']")
@@ -144,8 +144,42 @@ class PlantInstanceListPage(BasePage):
         method deliberately does not do that itself: several call sites search
         for a term that must match *nothing*, and a wait for a filtered row would
         be wrong there.
+
+        It does wait for the list to be *complete* first
+        (:meth:`wait_for_all_pages_loaded`): the list renders its first page at
+        once and appends the rest while a "loading more" hint is up (#3032), and
+        a client-side search typed before the last page landed cannot find a
+        plant that only a later page holds -- the newest plant, since the
+        backend pages by ``_key`` ascending.
         """
+        self.wait_for_all_pages_loaded()
         self.fill_table_search(self.SEARCH_INPUT, term)
+
+    #: The hint `PlantInstanceListPage` shows while later pages of its progressive
+    #: load are still arriving (#3032).
+    LOADING_MORE = (By.CSS_SELECTOR, "[data-testid='plant-list-loading-more']")
+    #: Budget for the complete load. Larger than ``DEFAULT_TIMEOUT`` on purpose:
+    #: the shared CI tenant holds many pages, and paging through all of them is
+    #: exactly the wait that used to sit behind the skeleton.
+    ALL_PAGES_TIMEOUT = 90
+
+    def wait_for_all_pages_loaded(self, timeout: int = ALL_PAGES_TIMEOUT) -> None:
+        """Wait until neither the first-page skeleton nor the loading-more hint is shown.
+
+        Both, not just the hint: a refetch (after a create) starts on the
+        skeleton and only then switches to the hint, so the hint alone is absent
+        in that first window. The refetch is dispatched in the same handler that
+        closes the create dialog, so once the dialog is gone one of the two is
+        already up.
+        """
+
+        def _complete(driver: WebDriver) -> bool:
+            busy = driver.find_elements(*self.LOADING_SKELETON) + driver.find_elements(
+                *self.LOADING_MORE
+            )
+            return not any(e.is_displayed() for e in busy)
+
+        self.poll(timeout).until(_complete)
 
     def clear_search(self) -> None:
         """Clear the search field."""
@@ -269,7 +303,7 @@ class PlantInstanceListPage(BasePage):
 
     def cancel_create_form(self) -> None:
         """Cancel the create dialog."""
-        self.wait_and_click(self.FORM_CANCEL)
+        self.cancel_form_dialog(self.FORM_CANCEL)
 
     def has_validation_error(self, field_name: str) -> bool:
         """Return True if a validation error is visible for *field_name*."""

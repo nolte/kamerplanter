@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen
 Fokus: Beides
 Technologie: Python, FastAPI, ArangoDB, Celery, React, TypeScript, MUI
 Status: Entwurf
-Version: 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 3.0 (ADR-008 Accepted: Zuständigkeitsgrenzen übernommen — Intervall-Autorität bleibt hier, Terminmechanik in der `RecurrenceEngine` als RRULE; Verweis auf REQ-053 §12/§13 `care_events`); 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ## Versionshistorie
@@ -18,6 +18,8 @@ Version: 2.9 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 | 2.6 | 2026-07-02 | Konsistenz-Invariante D5 (Spec-Audit D5): zwei sich gegenseitig ausschließende Winter-Pfade (winterhart in-situ → `dormancy`-Phase REQ-003 vs. frostempfindlich verlagert → `OverwinteringProfile.winter_action`); Ableitung aus `frost_sensitivity` (REQ-001) + Winterhärtezone (REQ-039); REQ-039 in Abhängigkeiten ergänzt |
 | 2.7 | 2026-07-05 | Konzeptionelle Überarbeitung der Überwinterung (→ **REQ-047**): (1) Das `OverwinteringProfile` wird **automatisch aus dem Species-Template + Standort-Ampel materialisiert** — der Nutzer legt **kein** Profil mehr an, kann aber übersteuern (`user_overridden`). (2) Die Winter-/Frühlings-Erinnerungen (`winter_protection`, `spring_uncover`, `tuber_dig`, `storage_check`) werden **nicht mehr an festen Monaten**, sondern durch **Saison-Zustandsübergänge** (SeasonState-Engine, REQ-047) ausgelöst; `winter_action_month`/`spring_action_month` bleiben als Kalender-Fallback. (3) Neuer **Dormancy-Care-Modus** im CareProfile (reduziertes Gießen nach `winter_watering`, kein Dünger, Fäulnis-/Feuchte-/Klima-Kontrolle im Winterquartier). (4) Zwei neue Erinnerungstypen `dormancy_health_check`, `quarter_climate_check`. Auslöser-Datenquelle: Live-Wetter/Sensorik (REQ-005/046) → Klimanormale (REQ-041) → Kalender (Hemisphäre). |
 | 2.8 | 2026-07-11 | Additive Cluster-Angleichung zur Überwinterungs-Vertiefung (REQ-047 v1.1): Klarstellung, dass die **maßgebliche** Winterhärte-Ampel `evaluate_winter_hardiness()` in REQ-039 §3 ist (die inline-String-Darstellung im §"Winterhärte-Ampel" ist illustrativ); Querverweis auf die vertieften Winter-Pfad-Prozesse in **REQ-047 §§3.7–3.10** (Winterquartier-Typen, Ein-/Ausräumen, Fäulnis-/Feuchte-/Schädlingskontrolle, gestaffelte Abhärtung, Arten-Sonderfälle, Automatik-Robustheit). Keine Modell-/Feld-Änderung; art-spezifische Werte bleiben SSOT in Steckbrief §4.3. |
+| 2.9 | — | Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt (nicht tabellarisch erfasst). |
+| 3.0 | 2026-10-15 | **ADR-008 Accepted (REQ-053 E-02):** neuer Abschnitt „Zuständigkeitsgrenzen (ADR-008)" in §3 Logik-Anforderungen. Die `CareReminderEngine` bleibt **Intervall-Autorität** (Grenze 2: Saison/Phase/Substrat/adaptiv → „alle 6 Tage"), drückt das Ergebnis aber als iCal-`RRULE` aus und lässt den Termin ausschließlich von der `RecurrenceEngine` fortschreiben (Grenze 1); kein eigener `timedelta`-Vorschub. Notification-Nachzug nur über den `NotificationPropagationService` (Grenze 3, REQ-030 §3.8a). Der Task-Abschluss einer Care-Reminder-Task läuft über den einen Abschluss-Übergang (Grenze 4) und schreibt atomar einen `care_event` (REQ-053 §12.3 GP-FR-083, §13); `care_confirmations` bleiben das adaptive Lern-Log, ihr `care_event`-Spiegel ist REQ-053 GP-FR-106 (SHOULD, nicht MVP). Die bestehenden Kadenz-Vorschübe der Care-Pfade außerhalb der `RecurrenceEngine` (Phase-0-Inventar 2026-09-01) sind ein eigener ADR-008-Strang, nicht Teil von REQ-053. Keine Modell-/Feld-Änderung. |
 
 ## 1. Business Case
 
@@ -995,6 +997,19 @@ class CareSnoozeRequest(BaseModel):
 
 ### Logik-Anforderungen:
 
+**0. Zuständigkeitsgrenzen (ADR-008, Accepted 2026-10-15 — REQ-053 E-02):**
+
+Pflegeerinnerungen behalten ihre Fachlichkeit, aber keine eigene Terminmechanik und keinen eigenen Propagationsweg (`spec/decisions/ADR-008-task-care-notification-consolidation.md`):
+
+| Grenze | Was REQ-022 besitzt | Was REQ-022 **nicht** besitzt |
+|--------|---------------------|-------------------------------|
+| 1 — eine Recurrence-Engine | — | Den nächsten Termin. Die `CareReminderEngine` drückt ihr Intervall als iCal-`RRULE` aus (`FREQ=DAILY;INTERVAL=6`) und lässt ihn von der `RecurrenceEngine` fortschreiben; ein eigenes `timedelta(days=interval)` im Service ist ein Defekt. |
+| 2 — fachliche Intervall-Bestimmung | Die **Intervall-Autorität**: Gießintervall nach Saison, Phase, Substrat und adaptivem Lernen (`is_reminder_due`, `ADAPTIVE_*`), Dünge-Saisonalität, Dormancy-Care-Modus, Winterhärte-Ampel. Die Care-Engine sagt „alle 6 Tage", die Recurrence-Engine sagt „also am 14.". | — |
+| 3 — ein Propagationspfad | — | Den Nachzug der In-App-Benachrichtigung bei Bestätigen, Überspringen, Snooze, Umplanen: nur über den `NotificationPropagationService` (REQ-030 §3.8a, idempotent über `group_key`, mandantenfest). Kein direkter Notification-Repository-Write. |
+| 4 — ein Abschluss-Übergang | `care_confirmations` als immutables Lern-Log (Adaptive Learning) | Den Abschluss der Care-Reminder-**Task**: er läuft über den einen Übergang `TaskService.complete_task` / `POST /tasks/{key}/complete` / `POST /tasks/batch/status` / `reopen` (REQ-006 v3.5), der atomar einen `care_event` schreibt (REQ-053 §12.3 GP-FR-083, §13 Pflegehistorie). Der Spiegel einer `care_confirmation` als `care_event` (`trigger = reminder`) ist REQ-053 GP-FR-106 (SHOULD, nicht MVP). |
+
+**Abgrenzung zu REQ-053:** REQ-053 Welle 4 setzt Grenze 4 **nur für den Task-Abschluss** um. Die Kadenz-Vorschübe der Care-Pfade außerhalb der `RecurrenceEngine` (`.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md`) und die Erinnerungs-Seite des Übergangs bleiben ein eigener ADR-008-Strang mit eigenen Issues.
+
 **1. CareReminderEngine — Generierungslogik + Adaptive Learning:**
 
 ```python
@@ -1902,7 +1917,9 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | REQ/NFR | Art | Beschreibung |
 |---------|-----|-------------|
 | REQ-047 | Erweitert von | Saison- & Überwinterungs-Automatik: materialisiert das `OverwinteringProfile` automatisch, verlagert die Winter-/Frühlings-Erinnerungen auf SeasonState-Übergänge (Monatsfelder = Fallback), schaltet den Dormancy-Care-Modus im CareProfile und ergänzt `dormancy_health_check`/`quarter_climate_check`. Kern-Querbezug der Überwinterungs-Überarbeitung. |
-| REQ-006 | Nutzt | Task/TaskService/TaskRepository — alle Erinnerungen als Tasks gespeichert |
+| REQ-006 | Nutzt | Task/TaskService/TaskRepository — alle Erinnerungen als Tasks gespeichert; Abschluss über den einen Übergang (ADR-008 Grenze 4, REQ-006 v3.5) |
+| REQ-053 | Verweist | §12 Beetpflege / §13 Pflegehistorie: `care_events` als Protokoll des Task-Abschlusses (GP-FR-083); `care_confirmation` → `care_event` (GP-FR-106, SHOULD) |
+| ADR-008 | Einhält | Zuständigkeitsgrenzen 1–4 (§3 „0. Zuständigkeitsgrenzen"); Accepted 2026-10-15 |
 | REQ-001 | Liest | Species + BotanicalFamily für CareProfile-Auto-Generierung (care_style-Mapping) |
 | REQ-003 | Liest | PlantInstance.current_phase für Dünge-Guard (Dormanz-Check) + RequirementProfile für Species-Defaults; `dormancy`-GrowthPhase + `LifecycleConfig.dormancy_required` + `chill_hours_accumulated` für die Winter-Pfad-Konsistenz (Invariante D5) <!-- Spec-Audit 2026-07-02 D5 --> |
 | REQ-039 | Liest | Winterhärtezone des Standorts + `evaluate_winter_hardiness` (Ampel) als Ableitungsbasis für den Winter-Pfad (Invariante D5) und die Winterhärte-Ampel <!-- Spec-Audit 2026-07-02 D5 --> |

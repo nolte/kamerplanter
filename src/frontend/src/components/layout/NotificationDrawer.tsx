@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import Typography from '@mui/material/Typography';
@@ -23,9 +23,15 @@ import {
   markActed,
   markAllRead,
 } from '@/api/endpoints/notifications';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { errorKey } from '@/api/errors';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
+import { captureHandledError } from '@/observability/errorTracking';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { isCareConfirmAction } from '@/utils/careConfirmActions';
+import { isLinkActivation, isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
+import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
 
 /**
@@ -101,7 +107,6 @@ export default function NotificationDrawer({
   onCountChange,
 }: NotificationDrawerProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const notify = useNotification();
   const { canEdit } = useTenantPermissions();
 
@@ -110,19 +115,27 @@ export default function NotificationDrawer({
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  // A failed page load is shown as such, with a retry — never as "no notifications" (#3037).
+  const [loadError, setLoadError] = useState<{ key: string; offset: number; append: boolean } | null>(null);
   // Keys currently awaiting the `POST …/act` round-trip — drives the per-button
   // loading state and guards against a second tap while one is in flight
   // (UI-NFR-008 R-016/R-017 double-submit protection).
   const [actingKeys, setActingKeys] = useState<Set<string>>(new Set());
 
+  // Latest-wins (#3014): a reopen or a reset supersedes a pending page, so a stale
+  // answer can neither put its error over a fresh list nor append into a reset one.
+  const beginLoad = useAbortableLoad();
   const loadNotifications = useCallback(
     async (currentOffset: number, append: boolean) => {
+      const ticket = beginLoad();
       setLoading(true);
+      setLoadError(null);
       try {
         const result = await getNotifications({
           limit: PAGE_SIZE,
           offset: currentOffset,
         });
+        if (!ticket.isCurrent()) return;
         if (append) {
           setNotifications((prev) => [...prev, ...result.items]);
         } else {
@@ -130,13 +143,15 @@ export default function NotificationDrawer({
         }
         setHasMore(result.items.length === PAGE_SIZE);
         onCountChange(result.unread_count);
-      } catch {
-        // Silently ignore
+      } catch (err) {
+        if (!ticket.isCurrent()) return;
+        captureHandledError(err, { source: 'NotificationDrawer.load' });
+        setLoadError({ key: errorKey(err, 'errors.loadFailed'), offset: currentOffset, append });
       } finally {
-        setLoading(false);
+        if (ticket.isCurrent()) setLoading(false);
       }
     },
-    [onCountChange],
+    [onCountChange, beginLoad],
   );
 
   useEffect(() => {
@@ -162,8 +177,10 @@ export default function NotificationDrawer({
       );
       // Decrement is handled by re-fetching count on next load
       // The parent will get the accurate count when the drawer is re-opened
-    } catch {
-      // Silently ignore
+    } catch (err) {
+      // Marking as read is a side effect of opening the notification; the card
+      // simply stays unread and the next open retries it. Reported, not shown.
+      captureHandledError(err, { source: 'NotificationDrawer.markRead' });
     }
   };
 
@@ -178,8 +195,9 @@ export default function NotificationDrawer({
         })),
       );
       onCountChange(0);
-    } catch {
-      // Silently ignore
+    } catch (err) {
+      captureHandledError(err, { source: 'NotificationDrawer.markAllRead' });
+      notify.error(t('pages.notifications.markAllReadError'));
     } finally {
       setMarkingAllRead(false);
     }
@@ -236,13 +254,25 @@ export default function NotificationDrawer({
     }
   };
 
-  const handleNotificationClick = (notification: NotificationResponse) => {
+  /**
+   * Marks the notification read. With an action URL the card is a real link (#3047): the router follows
+   * it, so this only closes the drawer — and only for a plain primary click; a Ctrl/Cmd/Shift/middle click
+   * opens the target in a new tab and leaves this one where it is. A right click (`auxclick` with
+   * `button === 2`) opens the context menu and is no activation: nothing is marked, nothing closes.
+   */
+  const handleNotificationClick = (
+    notification: NotificationResponse,
+    actionUrl: string | null,
+    event: ReactMouseEvent<HTMLElement>,
+  ) => {
+    if (!isLinkActivation(event)) return;
     void handleMarkRead(notification);
-    const actionUrl = notification.data?.action_url as string | undefined;
-    if (actionUrl) {
-      navigate(actionUrl);
-      onClose();
-    }
+    if (actionUrl && isPlainPrimaryClick(event)) onClose();
+  };
+
+  const handleRetryLoad = () => {
+    if (!loadError) return;
+    void loadNotifications(loadError.offset, loadError.append);
   };
 
   const unreadExist = notifications.some((n) => !n.read_at);
@@ -319,7 +349,7 @@ export default function NotificationDrawer({
         role="list"
         aria-label={t('pages.notifications.title')}
       >
-        {notifications.length === 0 && !loading && (
+        {notifications.length === 0 && !loading && !loadError && (
           <Box
             sx={{
               display: 'flex',
@@ -353,62 +383,75 @@ export default function NotificationDrawer({
             }}
             data-testid={`notification-card-${notification.key}`}
           >
-            <CardActionArea
-              onClick={() => handleNotificationClick(notification)}
-              data-testid={`notification-action-${notification.key}`}
-            >
-              <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    mb: 0.5,
-                  }}
-                >
-                  <Typography
-                    variant="subtitle2"
+            {(() => {
+              // Only a same-origin app path becomes a link: the URL is server data that may derive from
+              // user content (#3012).
+              const actionUrl = toSameOriginAppPath(notification.data?.action_url as string | undefined);
+              const content = (
+                <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+                  <Box
                     sx={{
-                      fontWeight: notification.read_at ? 'normal' : 'bold',
-                      flex: 1,
-                      mr: 1,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      mb: 0.5,
                     }}
                   >
-                    {notification.title}
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: notification.read_at ? 'normal' : 'bold',
+                        flex: 1,
+                        mr: 1,
+                      }}
+                    >
+                      {notification.title}
+                    </Typography>
+                    {notification.urgency !== 'normal' &&
+                      notification.urgency !== 'low' && (
+                        <Chip
+                          size="small"
+                          label={notification.urgency}
+                          color={
+                            notification.urgency === 'critical'
+                              ? 'error'
+                              : 'warning'
+                          }
+                          sx={{ height: 20, fontSize: '0.6875rem' }}
+                        />
+                      )}
+                  </Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 0.5,
+                      whiteSpace: 'pre-line',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {notification.body}
                   </Typography>
-                  {notification.urgency !== 'normal' &&
-                    notification.urgency !== 'low' && (
-                      <Chip
-                        size="small"
-                        label={notification.urgency}
-                        color={
-                          notification.urgency === 'critical'
-                            ? 'error'
-                            : 'warning'
-                        }
-                        sx={{ height: 20, fontSize: '0.6875rem' }}
-                      />
-                    )}
-                </Box>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{
-                    mb: 0.5,
-                    whiteSpace: 'pre-line',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {notification.body}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {formatRelativeTime(notification.created_at, t)}
-                </Typography>
-              </CardContent>
-            </CardActionArea>
+                  <Typography variant="caption" color="text.secondary">
+                    {formatRelativeTime(notification.created_at, t)}
+                  </Typography>
+                </CardContent>
+              );
+              const onClick = (e: ReactMouseEvent<HTMLElement>) => handleNotificationClick(notification, actionUrl, e);
+              const testId = `notification-action-${notification.key}`;
+              return actionUrl ? (
+                <CardActionArea component={RouterLink} to={actionUrl} onClick={onClick} onAuxClick={onClick} data-testid={testId}>
+                  {content}
+                </CardActionArea>
+              ) : (
+                <CardActionArea onClick={onClick} data-testid={testId}>
+                  {content}
+                </CardActionArea>
+              );
+            })()}
             {(() => {
               const actionId = actionableActionId(notification, canEdit);
               if (!actionId) return null;
@@ -442,7 +485,10 @@ export default function NotificationDrawer({
             <CircularProgress size={24} />
           </Box>
         )}
-        {!loading && hasMore && notifications.length > 0 && (
+        {!loading && loadError && (
+          <ErrorDisplay error={loadError.key} onRetry={handleRetryLoad} />
+        )}
+        {!loading && !loadError && hasMore && notifications.length > 0 && (
           <>
             <Divider sx={{ my: 1 }} />
             <Button

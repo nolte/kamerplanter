@@ -133,6 +133,22 @@ Quellen (§1.8):
 4. [Urban Farmer — English Lavender Seeds](https://www.ufseeds.com/product/english-lavender-seeds/LAEN.html) — Saatgutzähldichte (Samen/Gramm)
 5. [Gardeners Basics — Flower Seed Viability Chart](https://www.gardenersbasics.com/tools/blog/flower-seed-viability-chart-for-gardeners) — Keimfähigkeitsdauer bis 5 Jahre
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS (Artseite und Lavender-Guide) nennt keinen Pflanzabstand; geprüfte Ratgeber-/Datenbankseiten (fryd.app, gartenjournal.net) sind keine belastbaren Fachquellen --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Lavandula angustifolia" (Position: Full sun), https://www.rhs.org.uk/plants/91398/lavandula-angustifolia/details; RHS, „Lavender (Lavandula) / RHS Plant Guide" („won't tolerate shade"), https://www.rhs.org.uk/plants/lavender | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -347,4 +363,5 @@ Vera,Lavandula angustifolia,–,–,"tall;classic;oil_production",–,,open_poll
 15. [Frontiers in Plant Science 2018 — Responses of L. angustifolia to Salinity](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2018.00489/full) — Salztoleranz-Mechanismen, moderate Empfindlichkeit
 16. [UMass Extension — Biological Control: Greenhouse Pests and Natural Enemies](https://www.umass.edu/agriculture-food-environment/greenhouse-floriculture/fact-sheets/biological-control-greenhouse-pests-their-natural-enemies) — Aphidius colemani / Aphidoletes aphidimyza gegen Blattläuse
 17. [RHS — Aphid Predators](https://www.rhs.org.uk/biodiversity/aphid-predators) — natürliche Blattlausgegenspieler
+18. [RHS — Lavender (Lavandula) / RHS Plant Guide](https://www.rhs.org.uk/plants/lavender) — Standort (sonnig, verträgt keinen Schatten); kein Pflanzabstand angegeben
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

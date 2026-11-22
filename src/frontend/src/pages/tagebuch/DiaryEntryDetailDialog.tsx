@@ -20,6 +20,7 @@ import {
   requestDiaryEntryAnalysis,
 } from '@/api/endpoints/diary';
 import type { DiaryOverviewItem, PlantDiaryEntry } from '@/api/types';
+import { errorKey } from '@/api/errors';
 
 interface DiaryEntryDetailDialogProps {
   /** The clicked row; `null` keeps the dialog closed. */
@@ -76,7 +77,7 @@ export default function DiaryEntryDetailDialog({
       setEntry(await getPlantDiaryEntry(plantKey, entryKey));
     } catch (err) {
       setEntry(null);
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }

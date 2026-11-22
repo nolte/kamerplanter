@@ -14,12 +14,13 @@ caller's tenant role before the handler runs.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
+from pydantic import ValidationError as PydanticValidationError
 
 from app.common.enums import McpPermission
-from app.common.exceptions import KamerplanterError
+from app.common.exceptions import KamerplanterError, ValidationError
 from app.domain.models.mcp import McpImageContent, McpToolLink, McpToolResponse, McpToolSpec
 from app.mcp_server.context import ToolContext
 
@@ -96,6 +97,34 @@ def classify_internal_failure(exc: BaseException) -> str:
 def internal_failure_message(error_code: str) -> str:
     """The caller-facing sentence for a genuine-500 class."""
     return _INTERNAL_MESSAGES[error_code]
+
+
+def domain_validation_error(exc: PydanticValidationError, message: str) -> ValidationError:
+    """A domain model's refusal of a tool's input, as the caller error it is (``validation.error``).
+
+    A tool that builds a domain model from its validated input can still meet a validator the input
+    did not repeat. That is the caller's request failing a rule, so it must answer ``validation.error``
+    and not the ``internal.contract_mismatch`` an unhandled pydantic error becomes in the dispatcher
+    (BACKEND.md §5.4, #2775). Location and message only: ``errors()`` also carries the input values,
+    which stay out of the reply.
+    """
+    details = [{"field": ".".join(str(part) for part in err["loc"]), "reason": err["msg"]} for err in exc.errors()]
+    return ValidationError(message, details=details)
+
+
+#: Input fields every write tool carries that steer the call rather than describe the record it writes.
+CALL_FIELDS: frozenset[str] = frozenset({"tenant", "dry_run", "idempotency_key"})
+
+
+def record_fields(
+    args: BaseModel, *, exclude: frozenset[str] = CALL_FIELDS, mode: Literal["python", "json"] = "python"
+) -> dict[str, Any]:
+    """A tool input as the field mapping of the record it describes, without the call-steering fields.
+
+    ``mode="json"`` gives the wire form (enum values, ISO dates) for a service that takes raw mappings,
+    such as the garden-plan batch.
+    """
+    return args.model_dump(exclude=set(exclude), mode=mode)
 
 
 def image_content_index(position: int) -> int:

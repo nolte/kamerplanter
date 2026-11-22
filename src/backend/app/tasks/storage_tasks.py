@@ -20,13 +20,15 @@ missing rendition queued a full decode; the guard
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import structlog
 from PIL import UnidentifiedImageError
 
-from app.common.dependencies import get_attachment_repo, get_object_storage
+from app.common.dependencies import get_attachment_repo, get_object_storage, get_storage_release_retry_repo
+from app.common.enums import AttachmentCategory
 from app.common.exceptions import ImagePixelLimitError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
@@ -279,12 +281,60 @@ def migrate_photo_refs(self, *, dry_run: bool = True) -> dict:  # type: ignore[n
 
 
 async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> dict:
-    from app.common.dependencies import get_attachment_repo, get_attachment_service
-    from app.common.held_count import held_undated_count
+    from app.common.dependencies import get_attachment_repo
 
     cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
     attachment_repo = get_attachment_repo()
-    orphans = attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit)
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_task_photos(older_than=cutoff, limit=limit),
+        attachment_repo.count_undated_orphaned_task_photos,
+        cutoff=cutoff,
+        task="cleanup_orphaned_task_photos",
+    )
+
+
+async def _cleanup_orphaned_location_photos(older_than_hours: int, limit: int) -> dict[str, Any]:
+    from app.common.dependencies import get_attachment_repo
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    attachment_repo = get_attachment_repo()
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_photos(AttachmentCategory.LOCATION, older_than=cutoff, limit=limit),
+        lambda: attachment_repo.count_undated_orphaned_photos(AttachmentCategory.LOCATION),
+        cutoff=cutoff,
+        task="cleanup_orphaned_location_photos",
+    )
+
+
+async def _cleanup_orphaned_underlays(older_than_hours: int, limit: int) -> dict[str, Any]:
+    from app.common.dependencies import get_attachment_repo
+
+    cutoff = datetime.now(UTC) - timedelta(hours=older_than_hours)
+    attachment_repo = get_attachment_repo()
+    return await _delete_orphans(
+        attachment_repo.find_orphaned_photos(AttachmentCategory.GARDEN_PLAN_UNDERLAY, older_than=cutoff, limit=limit),
+        lambda: attachment_repo.count_undated_orphaned_photos(AttachmentCategory.GARDEN_PLAN_UNDERLAY),
+        cutoff=cutoff,
+        task="cleanup_orphaned_underlays",
+    )
+
+
+async def _delete_orphans(
+    orphans: list[Attachment], count_undated: Callable[[], int], *, cutoff: datetime, task: str
+) -> dict[str, Any]:
+    """Delete the selected orphans one by one through ``AttachmentService``; the audit dict of every sweep.
+
+    Each row goes through :meth:`AttachmentService.delete_if_unreferenced` (#2715 review): the reference scan and the
+    record's removal are one transaction (``remove_if_unreferenced``, #2545), and the stored object follows only when
+    the record went. The selection is a snapshot; between it and the delete the upload dedup can hand the old record
+    back (``find_own_by_sha256``) and a carrier name it (``PUT /plan/underlay``, ``POST /locations/{key}/photos``) -
+    an unconditional delete then left that carrier pointing at nothing. A row named meanwhile is ``skipped``.
+
+    The call is tenant-scoped and takes the row's own ``tenant_key``, so the installation-wide selection never
+    deletes across a tenant boundary.
+    """
+    from app.common.dependencies import get_attachment_service
+    from app.common.held_count import held_undated_count
 
     service = get_attachment_service()
     deleted = 0
@@ -304,12 +354,13 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         # orphan behind it for ever, and the sweep would look like it was merely
         # retrying while it had in fact stopped working.
         try:
-            if await service.delete(attachment.key, attachment.tenant_key):
+            if await service.delete_if_unreferenced(attachment.key, attachment.tenant_key):
                 deleted += 1
                 freed_bytes += attachment.byte_size
             else:
                 # Gone between the query and the delete — a manual
-                # ``DELETE /attachments/{id}``, or a concurrent sweep.
+                # ``DELETE /attachments/{id}``, or a concurrent sweep — or named by a
+                # carrier meanwhile (dedup handed the old record back), so it stays.
                 # Counted, so ``found`` and ``deleted + failed + skipped`` keep adding
                 # up; the sibling task upholds the same invariant and the comment
                 # above claims it.
@@ -329,9 +380,7 @@ async def _cleanup_orphaned_task_photos(older_than_hours: int, limit: int) -> di
         "skipped": skipped,
         "freed_bytes": freed_bytes,
         # #1806 GDPR-003: orphans the age floor cannot judge (no readable ``created_at``).
-        "held_undated": held_undated_count(
-            attachment_repo.count_undated_orphaned_task_photos, task="cleanup_orphaned_task_photos"
-        ),
+        "held_undated": held_undated_count(count_undated, task=task),
         "cutoff": cutoff.isoformat(),
     }
 
@@ -376,6 +425,68 @@ def cleanup_orphaned_task_photos(self, *, limit: int = 500) -> dict:  # type: ig
         raise self.retry(exc=exc) from exc
 
     logger.info("cleanup_orphaned_task_photos_audit", **result)
+    return result
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[untyped-decorator]
+def cleanup_orphaned_location_photos(self, *, limit: int = 500) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """Collect bed photos (category ``location``) that nothing references (REQ-053 GP-FR-051).
+
+    A bed photo is uploaded first (``POST /attachments``) and linked in a second request
+    (``POST /locations/{key}/photos``). Two paths leave the upload unreferenced: a link that never happens (the
+    bed is full, was deleted meanwhile, the connection dropped) and a discard that failed after a photo removal or
+    a bed delete had committed (``LocationPhotoService`` logs it and carries on). This sweep is what keeps "the
+    photos go with the bed" true in both.
+
+    **On by default** (``STORAGE_LOCATION_PHOTO_ORPHAN_HOURS=48``), unlike the task-photo sweep: the link follows
+    the upload within one client flow, so 48 h is a wide margin, and a bed photo's only carriers are the bed's
+    ``photo_refs`` / ``cover_photo_ref`` - written by one service with one spelling (the attachment id), not a
+    reference history spanning client versions. The reference check still covers every carrier
+    (``PHOTO_REF_COLLECTIONS`` and ``ATTACHMENT_REF_FIELDS``). ``0`` disables it.
+    """
+    hours = settings.storage_location_photo_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_location_photos_disabled")
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_location_photos(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_location_photos_failed", error=loggable_error(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_location_photos_audit", **result)
+    return result
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=600)  # type: ignore[untyped-decorator]
+def cleanup_orphaned_underlays(self, *, limit: int = 500) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    """Collect garden-plan underlays (category ``garden_plan_underlay``) that nothing references (#2715 item 1).
+
+    The picture under a site plan (REQ-053 GP-FR-033) is uploaded first (``POST /attachments``) and named by the
+    site in a second request (``PUT /sites/{key}/plan/underlay``). A refused PUT (no plan yet, a reference error), a
+    closed tab or a dropped connection leaves the upload unreferenced, and a discard that failed after a replaced or
+    removed underlay committed (``GardenPlanUnderlayService`` logs it) does the same. An aerial photo can show where
+    someone lives (GP-FR-033 §26), so it does not stay until the tenant erasure.
+
+    **On by default** (``STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS=48``), like the bed-photo sweep and for the same
+    reason: the PUT follows the upload within one client flow, and the only carrier is the site's
+    ``plan.underlay.attachment_key``, written by one service under the attachment id. The reference check still
+    covers every carrier (``PHOTO_REF_COLLECTIONS`` and ``ATTACHMENT_REF_FIELDS``), so a picture two sites share
+    stays while either names it. ``0`` disables it.
+    """
+    hours = settings.storage_garden_plan_underlay_orphan_hours
+    if hours <= 0:
+        logger.info("cleanup_orphaned_underlays_disabled")
+        return {"found": 0, "deleted": 0, "failed": 0, "skipped": 0, "freed_bytes": 0, "disabled": True}
+
+    try:
+        result = asyncio.run(_cleanup_orphaned_underlays(hours, limit))
+    except Exception as exc:  # noqa: BLE001 — retry on any transient failure
+        logger.error("cleanup_orphaned_underlays_failed", error=loggable_error(exc))
+        raise self.retry(exc=exc) from exc
+
+    logger.info("cleanup_orphaned_underlays_audit", **result)
     return result
 
 
@@ -447,6 +558,8 @@ def reconcile_orphaned_storage_objects(self) -> dict:  # type: ignore[no-untyped
         max_objects_per_run=settings.storage_reconcile_max_objects_per_run,
         max_orphan_fraction=settings.storage_reconcile_max_orphan_fraction,
         cursor_store=_RedisCursorStore(_get_redis_client(), settings.storage_backend),
+        # #2630 — the objects a delete owes are retried in every run, even in report-only mode.
+        release_retries=get_storage_release_retry_repo(),
     )
     try:
         result = asyncio.run(service.run()).as_dict()

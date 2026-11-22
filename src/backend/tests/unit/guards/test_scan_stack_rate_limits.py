@@ -108,6 +108,54 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
     "rate_limit_invitation_email": "Authenticated tenant invitation: 401 x 25 anonymously.",
     "rate_limit_notification_test": "Authenticated notification test send: 401 x 25 anonymously.",
     "rate_limit_export": "Authenticated /print routes, per account: 401 x 25 anonymously.",
+    "rate_limit_care_events": (
+        "Authenticated care-log writes (POST /t/{slug}/care-events and its supersede / void siblings): "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_care_events_export": (
+        "Authenticated care-log CSV download (GET /t/{slug}/care-events?format=csv): 401 x 25 anonymously."
+    ),
+    "rate_limit_task_completion": (
+        "Authenticated task completion (POST /t/{slug}/tasks/{key}/complete, …/tasks/batch/status, …/{key}/reopen): "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_bed_actions": (
+        "Authenticated bed actions (POST /t/{slug}/locations/{key}/quick-planting and …/clear): 401 x 25 anonymously."
+    ),
+    "rate_limit_plan_batch": (
+        "Authenticated garden-plan writes (POST /t/{slug}/sites/{key}/plan/batch, PUT …/plan/boundary): "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_plan_export": (
+        "Authenticated garden-plan exports (GET /t/{slug}/sites/{key}/plan/render.svg, …/plan/export, "
+        "/t/{slug}/print/garden-plan/{site_key}, the bed list CSV GET /t/{slug}/locations?format=csv), per "
+        "account: 401 x 25 anonymously."
+    ),
+    "rate_limit_plan_export_tenant": (
+        "The per-tenant bucket of the same authenticated routes (the three plan exports and the bed list CSV): "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_zone_log_watering": (
+        "Authenticated watering round (POST /t/{slug}/irrigation-zones/{key}/log-watering), per account: "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_zone_rain_skipped": (
+        "Authenticated 'rain - skipped' of a watering round (POST /t/{slug}/irrigation-zones/{key}/rain-skipped), "
+        "per account. Not measured on the scan stack; the same gate order as rate_limit_zone_log_watering "
+        "(authentication before the per-account budget)."
+    ),
+    "rate_limit_plan_import": (
+        "Authenticated garden-plan import (POST /t/{slug}/sites/{key}/plan/import), per tenant: 401 x 25 anonymously."
+    ),
+    "rate_limit_bed_template_import": (
+        "Authenticated bed-template import (POST /t/{slug}/bed-templates/import), per tenant. Not measured on the "
+        "scan stack; the same gate order as rate_limit_plan_import (authentication before the tenant budget)."
+    ),
+    "rate_limit_plan_csv_import": (
+        "Authenticated CSV bed list import (POST /t/{slug}/sites/{key}/beds/import-csv), per account: "
+        "401 x 25 anonymously."
+    ),
+    "rate_limit_plan_csv_import_tenant": "The per-tenant bucket of the same authenticated route: 401 x 25 anonymously.",
     "rate_limit_upload": "Authenticated uploads (POST /t/{slug}/attachments): 401 x 40 anonymously.",
     "rate_limit_inference": (
         "Authenticated inference (POST /t/{slug}/diagnosis/analyze, /cv-diagnosis/diagnose): 401 x 40 anonymously."
@@ -115,7 +163,7 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
 }
 
 #: A ``RATE_LIMIT_*`` setting applied by a route decorator, from either limiter.
-_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.limit\(\s*settings\.(rate_limit_[a-z_]+)")
+_DECORATOR = re.compile(r"@(?:limiter|process_memory_limiter)\.(?:shared_)?limit\(\s*settings\.(rate_limit_[a-z_]+)")
 
 
 def _limits_gating_a_route() -> set[str]:

@@ -11,15 +11,8 @@ import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import type { NutrientPlanUsage, PhaseName } from '@/api/types';
-
-const PHASE_COLORS: Record<string, string> = {
-  germination: '#8D6E63',
-  seedling: '#66BB6A',
-  vegetative: '#2E7D32',
-  flowering: '#AB47BC',
-  flushing: '#26C6DA',
-  harvest: '#FF8F00',
-};
+import type { Translate } from '@/i18n/translate';
+import { getPhaseColor, readableTextOn } from '@/theme/domainColors';
 
 interface GanttRow {
   planKey: string;
@@ -185,7 +178,7 @@ function UsageRow({
   totalWeeks: number;
   labelWidth: number;
   theme: Theme;
-  t: (key: string, opts?: Record<string, unknown>) => string;
+  t: Translate;
   onNavigate: () => void;
 }) {
   const segmentMap = useMemo(() => {
@@ -251,7 +244,10 @@ function UsageRow({
 
         const prevSeg = segmentMap.get(w - 1);
         const isChange = !prevSeg || prevSeg.mlPerLiter !== seg.mlPerLiter;
-        const color = PHASE_COLORS[seg.phaseName] ?? theme.palette.grey[600];
+        const color = getPhaseColor(theme, seg.phaseName);
+        const fillOpacity = isChange ? 0.85 : 0.45;
+        // The dosage label sits on the translucent phase fill: black or white, whichever reads on the painted surface.
+        const labelColor = readableTextOn(color, fillOpacity, theme.palette.background.paper);
         const isStart = w === seg.weekStart;
         const isEnd = w === seg.weekEnd;
         const phaseLabel = t(`enums.phaseName.${seg.phaseName as PhaseName}`);
@@ -281,7 +277,7 @@ function UsageRow({
                 sx={{
                   width: '100%',
                   height: 24,
-                  bgcolor: alpha(color, isChange ? 0.85 : 0.45),
+                  bgcolor: alpha(color, fillOpacity),
                   borderRadius: `${isStart ? 4 : 0}px ${isEnd ? 4 : 0}px ${isEnd ? 4 : 0}px ${isStart ? 4 : 0}px`,
                   display: 'flex',
                   alignItems: 'center',
@@ -292,11 +288,10 @@ function UsageRow({
                 <Typography
                   variant="caption"
                   sx={{
-                    color: '#fff',
+                    color: labelColor,
                     fontSize: '0.65rem',
                     lineHeight: 1,
                     fontWeight: isChange ? 700 : 500,
-                    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
                     whiteSpace: 'nowrap',
                     opacity: isChange ? 1 : 0.7,
                   }}

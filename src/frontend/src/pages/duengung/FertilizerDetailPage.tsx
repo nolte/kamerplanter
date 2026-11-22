@@ -56,11 +56,14 @@ import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as fertApi from '@/api/endpoints/fertilizers';
 import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
+import { errorKey } from '@/api/errors';
+import { toLocalIsoDate } from '@/utils/calendarDay';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -272,15 +275,20 @@ export default function FertilizerDetailPage() {
     resolver: zodResolver(stockSchema),
     defaultValues: {
       current_volume_ml: 1000,
-      purchase_date: new Date().toISOString().split('T')[0],
+      purchase_date: toLocalIsoDate(),
       expiry_date: null,
       batch_number: '',
       cost_per_liter: null,
     },
   });
 
+  // Latest-wins: a late answer for a previously selected key must not overwrite this one (#3014).
+  const beginLoad = useAbortableLoad();
+
   const load = useCallback(async () => {
     if (!key) return;
+    const ticket = beginLoad();
+    const stale = () => !ticket.isCurrent();
     setLoading(true);
     try {
       const [f, st, pu, inc] = await Promise.all([
@@ -289,6 +297,7 @@ export default function FertilizerDetailPage() {
         fertApi.fetchNutrientPlanUsage(key),
         fertApi.fetchIncompatibilities(key),
       ]);
+      if (stale()) return;
       setFertilizer(f);
       reset({
         product_name: f.product_name,
@@ -320,11 +329,12 @@ export default function FertilizerDetailPage() {
       setIncompatibilities(inc);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      if (stale()) return;
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
-      setLoading(false);
+      if (!stale()) setLoading(false);
     }
-  }, [key, reset]);
+  }, [key, reset, beginLoad]);
 
   useEffect(() => {
     load();
@@ -496,7 +506,7 @@ export default function FertilizerDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!fertilizer) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const [npkN, npkP, npkK] = fertilizer.npk_ratio;
@@ -1056,18 +1066,16 @@ export default function FertilizerDetailPage() {
               </Box>
             </Box>
             <FormRow>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, flex: 1 }}>
-                <FormNumberField
-                  name="ec_contribution_per_ml"
-                  control={control}
-                  label={t('pages.fertilizers.ecContribution')}
-                  min={0}
-                  suffix="mS/ml"
-                  inputMode="decimal"
-                  helperText={t('pages.fertilizers.ecContributionHelper')}
-                />
-                <HelpTooltip term="ec" iconOnly />
-              </Box>
+              <FormNumberField
+                name="ec_contribution_per_ml"
+                helpTerm="ec"
+                control={control}
+                label={t('pages.fertilizers.ecContribution')}
+                min={0}
+                suffix="mS/ml"
+                inputMode="decimal"
+                helperText={t('pages.fertilizers.ecContributionHelper')}
+              />
               <FormNumberField
                 name="max_dose_ml_per_liter"
                 control={control}
@@ -1094,6 +1102,7 @@ export default function FertilizerDetailPage() {
             <FormRow>
               <FormNumberField
                 name="mixing_priority"
+                helpTerm="mixing_priority"
                 control={control}
                 label={t('pages.fertilizers.mixingPriority')}
                 min={1}
@@ -1255,8 +1264,10 @@ export default function FertilizerDetailPage() {
         onClose={() => { setStockDialogOpen(false); stockForm.reset(); }}
         maxWidth="sm"
         fullWidth
+        data-testid="add-stock-dialog"
+        aria-labelledby="add-stock-dialog-title"
       >
-        <DialogTitle>{t('pages.fertilizers.addStock')}</DialogTitle>
+        <DialogTitle id="add-stock-dialog-title">{t('pages.fertilizers.addStock')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
             {t('pages.fertilizers.addStockIntro')}

@@ -11,6 +11,7 @@ from arango.database import StandardDatabase
 from arango.exceptions import DocumentGetError, DocumentInsertError
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.favorites_repository import IFavoritesRepository
 
 logger = structlog.get_logger()
@@ -118,7 +119,7 @@ class ArangoFavoritesRepository(IFavoritesRepository):
 
     def get_catalogue_row(self, collection_name: str, key: str) -> dict | None:
         try:
-            return self._db.collection(collection_name).get(key)
+            return get_document(self._db.collection(collection_name), key)
         except DocumentGetError as exc:
             if exc.error_code != _ERR_DATA_SOURCE_NOT_FOUND:
                 raise

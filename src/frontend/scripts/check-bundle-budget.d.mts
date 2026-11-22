@@ -12,6 +12,8 @@ export interface BundleBudgetConfig {
   cssSeverity?: 'error' | 'warn';
   routeChunks: {
     dashboard: BudgetRouteChunk;
+    gardenPlanner?: BudgetRouteChunk;
+    gardenPlannerKonva?: BudgetRouteChunk;
   };
 }
 
@@ -29,6 +31,8 @@ export interface EvaluateBudgetInput {
   initialJsBytes: number;
   initialCssBytes: number;
   dashboardBytes: number | null | undefined;
+  gardenPlannerBytes?: number | null;
+  konvaRendererBytes?: number | null;
   budget: BundleBudgetConfig;
 }
 
@@ -38,3 +42,9 @@ export function evaluateBudget(input: EvaluateBudgetInput): {
 };
 
 export function kib(bytes: number): string;
+
+export function lazyChunkClosure(
+  manifest: Record<string, { file: string; css?: string[]; imports?: string[] }>,
+  sourceKey: string,
+  alreadyLoaded: Set<string>,
+): string[] | null;

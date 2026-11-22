@@ -38,10 +38,29 @@ tasks:
       - npx tsc --noEmit
 
   test:frontend:
-    desc: Run the frontend vitest suite — the CI gate's exact invocation
+    desc: Run the frontend vitest suite without coverage (fast local loop; CI runs `coverage:frontend`)
     dir: src/frontend
     cmds:
       - npx vitest run {{.CLI_ARGS}}
+
+  test:frontend:bench:
+    desc: |
+      Garden planner performance benchmarks as assertions (REQ-053 GP-NFR-040, WP 5.4):
+      `applyOperation(move)` median <= 1 ms on the large plan (GP-ACC-033), the marker
+      derivation after a move, the renderer frame cost and the client layout of 200
+      positions (GP-NFR-036) and the snap of one drag step (#2536). Not in the lane: `plantState.benchmark.test.ts` (GP-NFR-073,
+      a single 5 000-plant batch against 50 ms) - it failed 4 of 8 runs on a quiet
+      developer machine (54-68 ms), so it is a flake in waiting, not an assertion.
+      The wall-clock cases are skipped unless
+      GP_BENCHMARK=1, because a loaded runner makes them flaky in the shared suite; this
+      target sets it, and the advisory `Garden planner benchmarks` job in frontend.yml
+      runs it. The server half is `tests/unit/domain/calculators/test_plan_calculators_benchmark.py`
+      and the `GET /plan` case of `tests/integration/test_garden_plan_repository.py`.
+    dir: src/frontend
+    env:
+      GP_BENCHMARK: "1"
+    cmds:
+      - npx vitest run applyOperation.benchmark layout.benchmark renderer.benchmark planIndex.slotFollow snap.benchmark {{.CLI_ARGS}}
 
   build:frontend:
     desc: Production build — the CI gate's exact invocation
@@ -51,21 +70,20 @@ tasks:
 
   coverage:frontend:
     desc: |
-      Frontend coverage run with enforced thresholds — what the advisory CI
-      Coverage job executes (frontend.yml → gh-plumbing reusable, fail-under
-      80). The thresholds themselves live in vite.config.ts, so this local run
-      fails on the same numbers CI fails on.
+      Frontend test run WITH coverage — the single vitest run of the required
+      CI check `lint-test-build (22)` (frontend.yml). The thresholds live in
+      vitest.config.ts, so this local run fails on the same numbers CI fails on.
     dir: src/frontend
     cmds:
       - npm run test:coverage
 
   bundle:check:
     desc: |
-      Bundle-budget gate — the CI job's exact sequence (frontend.yml
-      bundle-budget): production build, then check the initial payload against
-      the recorded budget (UI-NFR-003). This job is a hard gate in CI and
-      blocks automerge on breach, so run it locally before touching heavy
-      imports or route-level code splitting.
+      Bundle-budget gate — the first half of the CI job (frontend.yml
+      lighthouse, check `Bundle budget and Lighthouse CI`): production build,
+      then check the initial payload against the recorded budget (UI-NFR-003).
+      A breach turns that advisory job red, so run it locally before touching
+      heavy imports or route-level code splitting.
     deps: [build:frontend]
     dir: src/frontend
     cmds:
@@ -73,9 +91,9 @@ tasks:
 
   lighthouse:
     desc: |
-      Lighthouse CI run — the advisory CI job's exact sequence (frontend.yml
-      lighthouse): production build, then `lhci autorun` against the built
-      bundle.
+      Lighthouse CI run — the second half of the advisory CI job (frontend.yml
+      lighthouse, check `Bundle budget and Lighthouse CI`): production build,
+      then `lhci autorun` against the built bundle.
     deps: [build:frontend]
     dir: src/frontend
     cmds:

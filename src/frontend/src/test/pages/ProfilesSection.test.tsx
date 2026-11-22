@@ -3,7 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
 import ProfilesSection from '@/pages/pflanzen/ProfilesSection';
-import type { NutrientProfile } from '@/api/types';
+import type { NutrientProfile, RequirementProfile } from '@/api/types';
+import userEvent from '@testing-library/user-event';
+import { ApiError } from '@/api/errors';
 
 // ProfilesSection loads its data via the phases API on mount. Mock the module so
 // each test controls exactly which nutrient profile the E7/E8 guidance renders.
@@ -20,6 +22,14 @@ import {
 
 const mockGetReq = vi.mocked(getRequirementProfile);
 const mockGetNut = vi.mocked(getNutrientProfile);
+
+/** The API's answer for a phase without that profile: 404, the normal "none" case. */
+function notFound(): ApiError {
+  return new ApiError(
+    { error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'not found', details: [], timestamp: '', path: '/', method: 'GET' },
+    404,
+  );
+}
 
 /** Minimal but type-complete NutrientProfile with overridable guidance fields. */
 function makeNutrientProfile(overrides: Partial<NutrientProfile> = {}): NutrientProfile {
@@ -46,7 +56,7 @@ describe('ProfilesSection — E7/E8 nutrient guidance', () => {
     vi.clearAllMocks();
     // No requirement profile: keeps the render focused on the nutrient card while
     // still yielding hasProfiles === true so the card is shown.
-    mockGetReq.mockRejectedValue(new Error('no requirement profile'));
+    mockGetReq.mockRejectedValue(notFound());
   });
 
   it('renders the pH-lockout warning alert with the ph_note when micros are unavailable', async () => {
@@ -114,5 +124,112 @@ describe('ProfilesSection — E7/E8 nutrient guidance', () => {
         screen.queryByText(i18n.t('pages.profiles.noFeed')),
       ).not.toBeInTheDocument();
     });
+  });
+});
+
+/** #2857: the light hours are shown with where they came from, in words. */
+describe('ProfilesSection — origin of the light hours', () => {
+  function makeRequirementProfile(overrides: Partial<RequirementProfile> = {}): RequirementProfile {
+    return {
+      key: 'req-1',
+      phase_key: 'phase-flowering',
+      light_ppfd_target: 600,
+      photoperiod_hours: 12,
+      light_spectrum: {},
+      temperature_day_c: 26,
+      temperature_night_c: 20,
+      humidity_day_percent: 50,
+      humidity_night_percent: 55,
+      vpd_target_kpa: 1.2,
+      co2_ppm: null,
+      irrigation_frequency_days: 1,
+      irrigation_volume_ml_per_plant: 250,
+      created_at: null,
+      updated_at: null,
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetNut.mockRejectedValue(notFound());
+  });
+
+  it.each([
+    ['sourced', 'enums.photoperiodSource.sourced'],
+    ['generated', 'enums.photoperiodSource.generated'],
+    ['default', 'enums.photoperiodSource.default'],
+  ] as const)('names the origin %s next to the hours', async (source, key) => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: source }));
+
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+
+    const detail = await screen.findByTestId('profile-photoperiod-source');
+    expect(detail).toHaveTextContent(i18n.t(key));
+    expect(i18n.t(key)).not.toBe(key);
+    expect(screen.getByText('12 h')).toBeInTheDocument();
+  });
+
+  it.each([null, undefined])('says the origin is unknown for a profile from before the provenance (%s)', async (source) => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: source }));
+
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+
+    expect(await screen.findByTestId('profile-photoperiod-source')).toHaveTextContent(
+      i18n.t('pages.profiles.photoperiodSourceUnknown'),
+    );
+  });
+
+  it.each(['generated', 'default', null] as const)('says what to do while the hours are not entered (%s)', async (source) => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: source }));
+
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+
+    expect(await screen.findByTestId('profile-photoperiod-source-todo')).toHaveTextContent(
+      i18n.t('pages.profiles.photoperiodSourceTodo'),
+    );
+  });
+
+  it('asks for nothing once the hours are entered, nor from a reader who cannot edit', async () => {
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: 'sourced' }));
+    const { unmount } = renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" />);
+    await screen.findByTestId('profile-photoperiod-source');
+    expect(screen.queryByTestId('profile-photoperiod-source-todo')).not.toBeInTheDocument();
+    unmount();
+
+    mockGetReq.mockResolvedValue(makeRequirementProfile({ photoperiod_source: 'generated' }));
+    renderWithProviders(<ProfilesSection phaseKey="phase-flowering" phaseName="Blüte" readOnly />);
+    await screen.findByTestId('profile-photoperiod-source');
+    expect(screen.queryByTestId('profile-photoperiod-source-todo')).not.toBeInTheDocument();
+  });
+});
+
+/** #3037: a failed read is not "no profile" — it offers no "generate defaults". */
+describe('ProfilesSection — load failure vs. no profile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('offers to generate the defaults only when neither profile exists (404)', async () => {
+    mockGetReq.mockRejectedValue(notFound());
+    mockGetNut.mockRejectedValue(notFound());
+    renderWithProviders(<ProfilesSection phaseKey="phase-veg" phaseName="Vegetativ" />);
+
+    expect(
+      (await screen.findAllByRole('button', { name: i18n.t('pages.profiles.generateDefaults') })).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByTestId('error-display')).toBeNull();
+  });
+
+  it('shows a failed read with a retry instead of "generate defaults", and the retry shows the profile', async () => {
+    mockGetReq.mockRejectedValue(notFound());
+    mockGetNut.mockRejectedValueOnce(new Error('boom')).mockResolvedValue(makeNutrientProfile());
+    const user = userEvent.setup();
+    renderWithProviders(<ProfilesSection phaseKey="phase-veg" phaseName="Vegetativ" />);
+
+    await user.click(await screen.findByTestId('error-retry-button'));
+    expect(screen.queryByRole('button', { name: i18n.t('pages.profiles.generateDefaults') })).toBeNull();
+    expect(await screen.findByText(i18n.t('pages.profiles.npkRatio'))).toBeInTheDocument();
+    expect(mockGetNut).toHaveBeenCalledTimes(2);
   });
 });

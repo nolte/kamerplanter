@@ -66,6 +66,30 @@ _SENSOR_PARENTS = PersonalTenantScope(
     ),
 )
 
+#: REQ-053 §20.10 — what the Art. 15 bundle shows of a care event (``reason`` / ``summary`` / ``observed_outcome`` are
+#: free text the subject typed; no account reference, no third-party label). No ``_key``, like every other
+#: attributed source: the personal-garden source below carries it, and the export walk seeds one document per source.
+_CARE_EVENT_EXPORT_FIELDS = [
+    "site_key",
+    "location_key",
+    "plant_keys",
+    "category",
+    "summary",
+    "performed_at",
+    "trigger",
+    "reason",
+    "product_label",
+    "quantity",
+    "unit",
+    "quantity_total",
+    "quantity_total_unit",
+    "material",
+    "measurements",
+    "observed_outcome",
+    "outcome_rating",
+    "created_at",
+]
+
 #: #2165 — the columns of the two continuous aggregates (TimescaleDB migration 002).
 _AGGREGATE_FIELDS = ["bucket", "sensor_key", "sensor_type", "avg_value", "min_value", "max_value", "sample_count"]
 
@@ -276,6 +300,69 @@ class DataExportEngine:
             label="Treatment applications",
             # ``dosage`` (not ``dose``).
             fields=["treatment_key", "plant_key", "applied_at", "dosage", "notes"],
+        ),
+        # REQ-053 GP-NFR-055 (SR-008, Art. 15/20): the care events the subject carried out or logged, in any
+        # tenant they belong to — the personal garden is disclosed whole by the source further down. None of the
+        # five account references is disclosed (another member's key is not the subject's data); the third party's
+        # ``performed_by_label`` is left out for the same reason.
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="performed_by_user_key",
+            label="Care log entries you carried out",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="created_by",
+            label="Care log entries you logged",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        # The entries recorded about the subject (GP-FR-089: a member logs the care "for" another), and the
+        # cancellations and redactions they carried out with the reason they typed. The reason of a cancellation
+        # somebody else made is that person's text and is not part of these three sources.
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="performed_for_user_key",
+            label="Care log entries recorded for you",
+            fields=_CARE_EVENT_EXPORT_FIELDS,
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="voided_by",
+            label="Care log entries you cancelled",
+            fields=["site_key", "location_key", "category", "performed_at", "voided_at", "void_reason"],
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            tenant_scoped=True,
+            filter_field="redacted_by",
+            label="Care log entries you redacted",
+            fields=["site_key", "location_key", "category", "performed_at", "redacted_at", "redaction_reason"],
+        ),
+        # #2976 (REQ-017): the rooting protocols the subject last saved, in any tenant they belong to. The
+        # erasure removes the reference (ErasureEngine), so the protocol is disclosed by it (R2 of
+        # scripts/check_privacy_inventory.py); the account key itself is not a field of the disclosure.
+        DataSourceDefinition(
+            collection="rooting_protocols",
+            tenant_scoped=True,
+            filter_field="author_user_key",
+            label="Rooting protocols you saved",
+            fields=[
+                "name",
+                "method",
+                "medium",
+                "is_template",
+                "hormone_type",
+                "hormone_concentration_ppm",
+                "expected_root_days",
+                "instructions",
+                "created_at",
+                "updated_at",
+            ],
         ),
         DataSourceDefinition(
             collection="plant_diary_entries",
@@ -492,20 +579,127 @@ class DataExportEngine:
                 "hardiness_zone",
                 "timezone",
                 "total_area_m2",
+                # REQ-053 §20.2: the garden outline and north angle describe the subject's
+                # property as much as ``gps_coordinates`` does.
+                "plan",
                 "created_at",
             ],
+            # ``plan_updated_by`` is the key of whoever saved the plan last — on a personal tenant that can be
+            # a member who joined later, and no source below may carry another account's key (Art. 15(4)).
+            withhold=["plan.plan_updated_by"],
         ),
         DataSourceDefinition(
             collection="locations",
             personal_tenant_scope=_VIA_SITE,
             label="Your personal garden: locations",
-            fields=["_key", "name", "site_key", "parent_location_key", "area_m2", "light_type", "created_at"],
+            # REQ-053 WP 1.7 (#2326): the plan geometry and the bed's planning fields.
+            # ``description`` and ``notes`` are free text the subject wrote (Art. 15).
+            fields=[
+                "_key",
+                "name",
+                "description",
+                # REQ-053 GP-FR-176 (#2759): the parcel identifier the subject typed (Art. 15).
+                "parcel_label",
+                "site_key",
+                "parent_location_key",
+                # REQ-053 GP-FR-147: the JSON plan backup is part of this disclosure, so every field of it is here.
+                "location_type_key",
+                "area_m2",
+                "light_type",
+                "geometry",
+                "height_m",
+                "bbox",
+                "bed_status",
+                "sun_exposure",
+                "irrigation_zone_key",
+                "template_key",
+                "soil_profile",
+                "site_conditions",
+                # #2512: the legacy frost override is part of the plan backup, so it is disclosed here too.
+                "frost_exposed",
+                "notes",
+                "locked",
+                "z_order",
+                "pitch_m",
+                "rotation_exempt",
+                # #2544: the per-bed rotation switch, part of the plan backup like ``rotation_exempt``.
+                "rotation_enabled",
+                # REQ-053 WP 10.11 (W-016): the tent rules, part of the plan backup.
+                "adjacency_factor",
+                "lighting",
+                # REQ-053 GP-FR-051 (WP 8.18): which photos show the bed. Not in the plan backup (never), but part
+                # of the disclosure; the photos' own metadata is in the ``attachments`` sources.
+                "photo_refs",
+                "cover_photo_ref",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="slots",
             personal_tenant_scope=_VIA_LOCATION_AND_SITE,
             label="Your personal garden: slots",
-            fields=["_key", "slot_id", "location_key", "position", "capacity_plants", "created_at"],
+            # The legacy ``position`` grid cell left with REQ-053 WP 1.5 (#2324); its
+            # successors ``geometry``/``row_index``/``sequence`` joined with WP 1.7 (#2326)
+            # (``test_privacy_engines`` binds every field to the model).
+            fields=[
+                "_key",
+                "slot_id",
+                "location_key",
+                "capacity_plants",
+                "slot_role",
+                "geometry",
+                "row_index",
+                "sequence",
+                "geometry_source",
+                "container_volume_l",
+                "sown_at",
+                "thinned_at",
+                "archived_at",
+                "planned_spacing_cm",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="garden_objects",
+            personal_tenant_scope=_VIA_SITE,
+            label="Your personal garden: plan objects",
+            # REQ-053 §20.4 (WP 1.7): trees, paths, buildings … the subject drew; ``label`` and
+            # ``notes`` are free text (Art. 15). ``created_by`` is left out: on a personal garden
+            # it is the subject's own key, and another member's key must not be disclosed.
+            fields=[
+                "_key",
+                "site_key",
+                "parent_location_key",
+                "object_type",
+                "label",
+                "geometry",
+                "bbox",
+                "props",
+                "off_site",
+                "locked",
+                "z_order",
+                "notes",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="bed_templates",
+            filter_field="created_by",
+            label="Bed templates you created",
+            # REQ-053 §20.12 (WP 7.8, #2474): the subject's own templates; ``name`` is free text (Art. 15). The system
+            # templates carry no author and are not the subject's. The author key itself is not repeated.
+            fields=[
+                "_key",
+                "tenant_key",
+                "name",
+                "location_type_key",
+                "default_geometry",
+                "height_m",
+                "default_layout",
+                "soil_profile_defaults",
+                "recurring_task_templates",
+                "created_at",
+            ],
         ),
         DataSourceDefinition(
             collection="plant_instances",
@@ -561,6 +755,40 @@ class DataExportEngine:
                 "planting_run_key",
                 "entity_key",
                 "entity_type",
+                "created_at",
+            ],
+        ),
+        DataSourceDefinition(
+            collection="care_events",
+            personal_tenant_scope=_PERSONAL_TENANT,
+            label="Your personal garden: care log",
+            # REQ-053 §20.10 (WP 1.9: the bed-status change writes the first rows). ``reason`` and ``summary``
+            # are free text (Art. 15). None of the five account references (``performed_by_user_key``,
+            # ``performed_for_user_key``, ``created_by``, ``voided_by``, ``redacted_by``): on a personal garden
+            # they are the subject's own key, and another member's key must not be disclosed.
+            fields=[
+                "_key",
+                "site_key",
+                "location_key",
+                "plant_keys",
+                "category",
+                "summary",
+                "performed_at",
+                "trigger",
+                "reason",
+                "product_label",
+                "quantity",
+                "unit",
+                "quantity_total",
+                "quantity_total_unit",
+                "material",
+                "measurements",
+                "observed_outcome",
+                "outcome_rating",
+                "voided_at",
+                "void_reason",
+                "redacted_at",
+                "redaction_reason",
                 "created_at",
             ],
         ),
@@ -832,6 +1060,15 @@ class DataExportEngine:
             filter_field="actor_user_key",
             label="Membership, account and tenant changes you made (security audit)",
             fields=["tenant_key", "action", "via", "old_role", "new_role", "old_scopes", "new_scopes", "created_at"],
+        ),
+        # REQ-053 SR-011: the plan change log names the account that deleted or reshaped the plan.
+        # The rows are about the subject's own actions; ``summary`` is the name or label of the thing
+        # they removed (free text the subject typed), disclosed with them.
+        DataSourceDefinition(
+            collection="garden_plan_audit",
+            filter_field="user_key",
+            label="Deletions and boundary changes you made in a garden plan",
+            fields=["tenant_key", "site_key", "revision", "op", "entity", "key", "summary", "at"],
         ),
         DataSourceDefinition(
             collection="mcp_idempotency_record",

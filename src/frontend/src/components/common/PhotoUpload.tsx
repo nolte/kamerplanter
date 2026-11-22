@@ -12,6 +12,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { ApiError } from '@/api/errors';
 import AuthImage from '@/components/common/AuthImage';
 import * as taskApi from '@/api/endpoints/tasks';
+import { attachmentUri } from '@/api/endpoints/attachments';
 
 /** Stable default, so an omitted prop does not remount-thrash the memo below. */
 const EMPTY_REFS: readonly string[] = [];
@@ -255,7 +256,7 @@ export default function PhotoUpload({
               }}
             >
               <AuthImage
-                uri={taskApi.taskPhotoUri(ref)}
+                uri={attachmentUri(ref)}
                 alt={t('pages.tasks.photoAlt', { index: i + 1 })}
                 data-testid={`photo-preview-${i}`}
               />

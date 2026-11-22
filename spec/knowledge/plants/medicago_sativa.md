@@ -135,6 +135,22 @@
 7. [ResearchGate — Germination and growth of old alfalfa (Medicago sativa L.) seeds on soil](https://www.researchgate.net/publication/249467314_Germination_and_growth_of_old_alfalfa_Medicago_sativa_L_seeds_on_soil) — Cross-Check Langzeit-Keimfähigkeit alten Saatguts
 <!-- /Quelle: Seed-Profile-Backfill (Issue #301, Batch 8) 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Flächen-/Drillsaat (Saatstärke statt Pflanzabstand); keine Quelle nennt einen Pflanzabstand in der Reihe --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine gelesene Quelle empfiehlt einen Reihenabstand für den Luzerneanbau; LKSH-Praxisversuch (2020) nennt 12,5 cm Drillabstand nur für einen Versuch --> | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Landesforschungsanstalt für Landwirtschaft und Fischerei Mecklenburg-Vorpommern, „Steckbrief Luzerneanbau“ (2018; „gedeiht am besten auf … sonnenscheinreichen Standorten“), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1599616; „Luzerne – Empfehlungen für den Anbau“ (2015; „gedeiht am besten in sommerwarmen Gebieten mit sonnenscheinreicher Witterung“), https://www.landwirtschaft-mv.de/serviceassistent/download?id=1580390 | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -309,6 +325,11 @@ Hinweis: Vorbeugender Einsatz bei erstem Blattlaus-Befall; im Freiland-Gründün
 | Empfohlene Vorfrucht | Getreide, Hackfrüchte |
 | Empfohlene Nachfrucht | Alle Kulturen; besonders Getreide, Kohl, Rüben |
 | Anbaupause (Jahre) | 5–6 Jahre auf gleicher Fläche (Luzernewelke-Prävention) |
+| Zehrerstufe | <!-- DATEN FEHLEN: keine Zehrerstufen-Quelle — Gartenbau-Fruchtfolgemerkblätter führen Luzerne nur als Gründüngung (SBB 2022), die Landesanstalten als Futterleguminose ohne Zehrerklasse --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zehrerstufe nicht belegt --> |
+| Stickstofffixierer | true (Leguminose, Symbiose mit Knöllchenbakterien/Rhizobien; Landwirtschaftskammer Schleswig-Holstein, Bauernblatt Nr. 31 vom 01.08.2020, S. 38–41 (Ohl): „als Leguminose eine Symbiose mit Knöllchenbakterien“, Luzerne kann „Stickstoff aus der Luft“ fixieren, https://www.lksh.de/fileadmin/PDF_Downloadcenter/Bauernblatt/2020/BB_31_01.08/38-41_Ohl.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Abweichung vom Familienwert belegt (Fabaceae 6) — LFA MV nennt 4–6 Jahre (Steckbrief 2018) bzw. 5–6 Jahre (Empfehlungen 2015), also innerhalb des Familienwertes --> |
 
 ### 6.2 N-Hinterlassenschaft für Nachkulturen
 
@@ -363,4 +384,7 @@ Medicago sativa,"Luzerne;Ewiger Klee;Alfalfa;Lucerne",Fabaceae,Medicago,perennia
 15. [Front. Plant Sci. 2022 — Dormancy under lower temperature in Medicago sativa](https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2022.872839/full) — Herbst-/Winterdormanz photoperiod-/temperaturinduziert; Vernalisation nicht obligatorisch
 16. [US Forest Service FEIS — Medicago sativa](https://research.fs.usda.gov/feis/species-reviews/medsat) — Lebensdauer/Persistenz (3–8 Jahre, länger in kalten Wintern)
 17. [Koppert / re-natur — Nützlinge gegen Blattläuse (Aphidius colemani, Aphidoletes aphidimyza)](https://www.koppertbio.de/nachrichten/unser-a-team-gegen-blattlaeuse/) — Ausbringraten, Etablierungszeit
+18. [Landesforschungsanstalt MV — Steckbrief Luzerneanbau (2018)](https://www.landwirtschaft-mv.de/serviceassistent/download?id=1599616) — Lichtanspruch (sonnenscheinreiche Standorte), Anbaupause 4–6 Jahre
+19. [Landesforschungsanstalt MV — Luzerne, Empfehlungen für den Anbau (2015)](https://www.landwirtschaft-mv.de/serviceassistent/download?id=1580390) — Lichtanspruch (sonnenscheinreiche Witterung), Anbaupause 5–6 Jahre
+20. [Landwirtschaftskammer Schleswig-Holstein — Bauernblatt 31/2020, S. 38–41 (Ohl)](https://www.lksh.de/fileadmin/PDF_Downloadcenter/Bauernblatt/2020/BB_31_01.08/38-41_Ohl.pdf) — Stickstofffixierung (Knöllchenbakterien, Beimpfung), Drillversuch 12,5 cm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

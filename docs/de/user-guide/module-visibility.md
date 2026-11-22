@@ -115,6 +115,7 @@ Die folgende Tabelle zeigt alle Module, die du ein- oder ausblenden kannst, mit 
 | Gießprotokoll | Pflege & Planung | Einsteiger |
 | Aufgaben & Workflows | Pflege & Planung | Einsteiger |
 | Tagebuch | Pflege & Planung | Einsteiger |
+| Gartenplan | Pflege & Planung | Einsteiger |
 | Düngung & Nährstoffpläne | Düngung & Wasser | Mittelstufe |
 | Tankmanagement | Düngung & Wasser | Experte |
 | Aquaponik | Düngung & Wasser | Experte |

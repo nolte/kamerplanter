@@ -140,6 +140,22 @@
 Quellen (§1.8): [Viriar — Dypsis lutescens Growing Guide](https://www.viriar.com/blogs/palms-tree-encyklopedia/dypsis-lutescens-areca-palm) (Keimtemperatur 25–30°C); [UF/IFAS BUL274/EP238 — Palm Seed Germination (Meerow & Broschat)](https://ask.ifas.ufl.edu/publication/EP238) (generelle Palmensamen-Keimphysiologie, rekalzitrante Lagerfähigkeit, keine Lichtabhängigkeit); [Greeny Gardener — How To Grow Areca Palm From Seeds](https://greenygardener.com/how-to-grow-areca-palm-from-seeds/) (Skarifikation, Einweichen, Saattiefe 10 mm, Keimung 3–4 Wochen); [Drakenbloedboom — Tips for germinating palm seeds](https://drakenbloedboom.com/en/blogs/insights/tips-for-germinating-palm-seeds) (Einweichen 24–48 h, Substratabdeckung); [The Seed Vine — Dypsis lutescens](https://theseedvine.com.au/product/dypsis-lutescens/) (Keimfähigkeit über 1 Jahr bei sachgerechter Lagerung, rascher Viabilitätsverlust unmittelbar nach Ernte)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Dypsis lutescens" (Position: Partial shade; „bright indirect light"), https://www.rhs.org.uk/plants/128311/dypsis-lutescens/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -351,3 +367,4 @@ Dypsis lutescens,"Areka-Palme;Goldfruchtpalme;Schmetterlingspalme;Areca Palm;But
 14. [Metaphycus helvolus — Biological Controls (Interiorlandscaping)](http://www.interiorlandscaping.co.uk/Biologica.htm) — Ausbringrate 5/m², 3 Freilassungen, Ziel Coccus hesperidum
 15. [Healthy Houseplants / Greg — Areca Palm Winter Care](https://greg.app/areca-palm-winter-care/) — Überwinterung, Mindesttemperatur, Wasser-/Lichtbedarf im Winter
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+16. [RHS — Dypsis lutescens](https://www.rhs.org.uk/plants/128311/dypsis-lutescens/details) — Position (Partial shade), Lichtbedarf unter Glas

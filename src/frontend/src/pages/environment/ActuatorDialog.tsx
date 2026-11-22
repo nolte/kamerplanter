@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -10,7 +10,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormTextField from '@/components/form/FormTextField';
@@ -134,7 +135,8 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
     watch,
     setValue,
     formState: { isDirty, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULTS });
+  } = useDialogForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULTS });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const siteKey = watch('site_key');
   const protocol = watch('protocol');
@@ -198,10 +200,9 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
       reset(DEFAULTS);
       onCreated();
     } catch (error) {
-      // No coded field violation to render here; the generic toast is the floor.
-      // The widened useApiError contract (#1015) keeps the English `reason` off
-      // the German form — a future code is wired via `useFieldViolations`.
-      handleError(error);
+      // A 422 violation on a rendered field lands on that field (#3019); the
+      // English `reason` never reaches the form, the toast stays the floor.
+      handleError(error, applyFieldViolation);
       notification.error(t('errors.generic'));
     }
   };
@@ -212,8 +213,8 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.environmentControl.createActuator')}</DialogTitle>
+    <FormDialog control={control} open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="actuator-dialog" aria-labelledby="actuator-dialog-title">
+      <DialogTitle id="actuator-dialog-title">{t('pages.environmentControl.createActuator')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -329,6 +330,6 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

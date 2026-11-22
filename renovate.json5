@@ -1,6 +1,6 @@
 {
   extends: [
-    'github>nolte/gh-plumbing//renovate-configs/common#v2.2.0',
+    'github>nolte/gh-plumbing//renovate-configs/common#v2.3.1',
     'helpers:pinGitHubActionDigests',
   ],
   mode: 'full',
@@ -100,7 +100,10 @@
   // references (GHCR publishes no timestamps): `ghcr.io/astral-sh/uv` (16),
   // `ghcr.io/hadolint/hadolint` (8), `ghcr.io/zaproxy/zaproxy` (5),
   // `ghcr.io/valkey-io/valkey-helm` (1). THE TRADE, stated: those four get no
-  // time-based protection at all; the check set is their only net.
+  // time-based protection at all; the check set is their only net. Renovate
+  // reports each such release as a `WARN: Some release(s) did not have a
+  // releaseTimestamp …` repository problem; the renovate-health check expects
+  // that one line while this value is set, and only then (#3076).
   //
   // A GROUP DOES NOT WAIT AS ONE (#1762). Renovate judges the age per UPDATE:
   // a pending member is left out of the group's branch while the others go
@@ -110,6 +113,12 @@
   // `[tool.uv].required-version` from PyPI did not), so that group carries
   // `minimumReleaseAge: null` and moves immediately and whole; the rule below
   // says why. hadolint, zaproxy and valkey-helm are in no such group.
+  //
+  // THE RENOVATE TOOL PIN DOES NOT WAIT (operator decision 2026-10-30, #2581).
+  // `renovate/renovate` (.pins/images.yaml) only drives `task renovate:dry-run`;
+  // the latest upstream release may always be used, so its rule at the end of
+  // `packageRules` carries `minimumReleaseAge: null`. That is the second and
+  // last named exception; every other rule inherits the three days.
   //
   // SECURITY UPDATES DO NOT WAIT. `vulnerabilityAlerts` is a mergeable object
   // whose Renovate default already carries `minimumReleaseAge: null`; it is
@@ -126,7 +135,26 @@
   minimumReleaseAgeBehaviour: 'timestamp-optional',
   vulnerabilityAlerts: {
     minimumReleaseAge: null,
+    // Security fixes are not held for the Monday window below. Renovate's
+    // default for `vulnerabilityAlerts` is already `schedule: []`; restated so
+    // the exemption does not rest on a default (NFR-009 §2.2).
+    schedule: [],
   },
+  // ── Monday window: updates are collected and opened on Mondays only ─────────
+  // Operator decision 2026-11-11 (repository owner), superseding the "no
+  // schedule" decision of 2026-09-21 (#1566): Renovate opens NEW branches and
+  // pull requests only on Mondays (Europe/Berlin), so a week's bumps arrive
+  // together and grouped instead of trickling in daily. What the window does
+  // NOT stop, by Renovate's own defaults: `updateNotScheduled: true` keeps
+  // rebasing and updating branches that are already open, and
+  // `automergeSchedule` ('at any time') keeps merging them once CI is green —
+  // a Monday PR that has to wait for the serial train still lands on Tuesday.
+  // The preset's pull-request limits still apply inside the window; whatever
+  // they hold back waits for the next Monday.
+  timezone: 'Europe/Berlin',
+  schedule: [
+    '* * * * 1',
+  ],
   // ── Helm dev values also carry a third-party pin (#1027) ─────────────────────
   // The built-in `helm-values` manager only matches `values.yaml` by default, so
   // `helm/kamerplanter/values-dev*.yaml` — which pin `timescale/timescaledb` for
@@ -356,7 +384,10 @@
     },
     // The build backend uv is constrained to for the two sdist-only backend
     // dependencies (`[tool.uv].build-constraint-dependencies`), read by the
-    // regex manager below. Grouped so setuptools and wheel move together.
+    // regex manager below. Grouped so setuptools and wheel move together. The
+    // knowledge-service carries the same pins since it moved to Python 3.15
+    // (PyYAML has no cp315 wheel there either), so both files age in one pull
+    // request instead of two that can drift.
     //
     // Position is load-bearing and UNCHANGED by #1550: this rule sits ABOVE
     // `application dependencies`, so if `pep621` ever extracted a dependency
@@ -371,6 +402,7 @@
       ],
       matchFileNames: [
         'src/backend/pyproject.toml',
+        'src/knowledge-service/pyproject.toml',
       ],
       matchPackageNames: [
         'setuptools',
@@ -642,6 +674,19 @@
       ],
       allowedVersions: '<7.0.0',
     },
+    // Hold python-dateutil below 3.0. Every botocore release (1.43.123 is the
+    // newest at the time of writing) declares `python-dateutil<3.0.0`, and
+    // boto3/moto pull botocore in, so 3.0.0 cannot resolve: the major PR #2575
+    // rewrote pyproject.toml to `>=3,<3.1` and `renovate/artifacts` failed on
+    // the lock, which took the whole backend CI red. The cap applies to every
+    // manager (pyproject.toml and docs/requirements.txt). Remove it once
+    // botocore lifts the upper bound.
+    {
+      matchPackageNames: [
+        'python-dateutil',
+      ],
+      allowedVersions: '<3.0.0',
+    },
     // ── Third-party images: ONE pull request, whatever the image, whatever
     //    the file (#1359/#1369, widened by #1550) ──────────────────────────────
     // The same image is referenced from docker-compose*.yml (docker-compose
@@ -738,8 +783,20 @@
     // operator decision at the top of this file a green run of EVERY check —
     // integration lane, image builds with smoke, E2E smoke — is now also
     // sufficient, and the group merges on its own.
+    //
+    // `groupSlug` REPEATS the conditional on purpose. Renovate compiles
+    // `groupName` only in its branch-name step; when an earlier rule already set
+    // a `groupSlug` for the dependency, its package-rule merge slugifies the RAW
+    // `groupName` instead (template braces stripped, never compiled). The shared
+    // preset sets `groupSlug: 'digests'` on github-actions digest updates, and the
+    // ArangoDB service container of backend-guards.yml is one of them: its digest
+    // bumps opened `renovate/if-(equals-updatetype-"major")depname-imageelse…`
+    // (#2555, #2627, #2810) apart from the compose reference — the lane/compose
+    // digest split this group exists to prevent. An explicit `groupSlug` is
+    // compiled. Pinned by tests/unit/guards/test_renovate_templated_group_names.py.
     {
       groupName: '{{#if (equals updateType "major")}}{{depName}} image{{else}}third-party images{{/if}}',
+      groupSlug: '{{#if (equals updateType "major")}}{{depName}}-image{{else}}third-party-images{{/if}}',
       matchDatasources: [
         'docker',
       ],
@@ -748,12 +805,55 @@
         'arangodb',
         'valkey/valkey',
         'ollama/ollama',
-        'nginxinc/nginx-unprivileged',
+        'nginx/nginx-unprivileged',
         'python',
         'node',
         'postgres',
         'busybox',
       ],
+    },
+    // Hold the python base image at 3.14 for every image EXCEPT the backend
+    // until each dependency tree is shown to build on 3.15. Renovate treats
+    // 3.14 -> 3.15 as a MINOR, so the rule above folded it into the routine
+    // `third-party images` branch (#2598) and it merged on green required
+    // checks that all ran on 3.14. On 3.15 the backend's `uv sync --locked`
+    // fell back to sdists (httptools had cp314 wheels only) and the
+    // `build-constraint-dependencies` setuptools pin contradicted httptools'
+    // `setuptools<=82.0.1`: every `build-backend` run of docker-publish.yml
+    // failed.
+    //
+    // src/backend/Dockerfile is no longer held: its lock moved to releases
+    // with cp315 wheels, PyYAML (no cp315 wheel) builds as pure Python, and
+    // backend.yml runs the suite on 3.15 only. src/knowledge-service/Dockerfile
+    // followed the same way (requires-python >=3.15, httptools/uvloop with
+    // cp315 wheels, the same PyYAML build settings, side-services.yml on 3.15).
+    // The onnxruntime services stay held: onnxruntime 1.31.1 publishes no cp315
+    // wheel. The list below is therefore those three, the inference-service
+    // `.python-version` and the E2E image,
+    // enumerated rather than written as
+    // "everything but the backend", because Renovate has no negated file match
+    // that reads as plainly. Remove an entry when ITS tree is proven on 3.15
+    // the same way; the `python` setup-python references are the github-actions
+    // datasource and never matched this docker-only rule.
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'python',
+      ],
+      matchFileNames: [
+        'src/inference-service/Dockerfile',
+        // The pyenv manager reads this file with the same docker `python`
+        // datasource, so without it the routine image branch moved the
+        // inference-service CI interpreter to 3.15 (#2809) and `uv sync`
+        // found no onnxruntime cp315 wheel. #2723 removes both together.
+        'src/inference-service/.python-version',
+        'docker/embedding-service/Dockerfile',
+        'docker/reranker-service/Dockerfile',
+        'tests/e2e/Dockerfile',
+      ],
+      allowedVersions: '<3.15',
     },
     // selenium/hub and selenium/node-chrome version independently (4.x vs the
     // Chrome major) but must match each other at runtime, so a hub minor and a
@@ -776,6 +876,26 @@
         '/^selenium//',
       ],
       separateMajorMinor: false,
+    },
+    // NO RELEASE-AGE WAIT FOR THE RENOVATE TOOL PIN (operator decision
+    // 2026-10-30, #2581). `renovate/renovate` in .pins/images.yaml only drives
+    // `task renovate:dry-run` — the local proof of an edit to THIS file; it is
+    // not part of any shipped image, workflow or required check. The latest
+    // upstream release may always be used, and a manual bump straight to the
+    // newest tag is legitimate, so the three days at the top of this file buy
+    // nothing here. The rule carries no `groupName` and sits after every
+    // grouping rule, so it changes only the wait — the pin stays in no group
+    // (see the third-party images rule above for why tool pins are kept out).
+    // The second of exactly two named exceptions to the wait;
+    // tests/unit/guards/test_renovate_automerge_policy.py holds both.
+    {
+      matchDatasources: [
+        'docker',
+      ],
+      matchPackageNames: [
+        'renovate/renovate',
+      ],
+      minimumReleaseAge: null,
     },
   ],
   customManagers: [
@@ -880,15 +1000,23 @@
       //
       // Captures tag AND digest, so Renovate bumps them together. A tag bumped
       // without its digest would leave the workflow silently on the old image.
-      description: 'Update container images pinned in workflow env: values and in Taskfile vars.',
+      description: 'Update container images pinned in workflow env: values and in the .pins/ pin files.',
       managerFilePatterns: [
         '/^\\.github/workflows/[^/]+\\.ya?ml$/',
-        // `.taskfiles/checks.yaml` pins the renovate/renovate CLI that
-        // `task renovate:dry-run` runs (#1383). Without this the pin would be
-        // immutable and unmaintained — the same half of the reproducibility
-        // problem the workflow env: pins were added for, and the shape #1177
-        // records: a floating tool silently changes what a check MEANS.
-        '/^\\.taskfiles/[^/]+\\.ya?ml$/',
+        // `.pins/images.yaml` pins the images `task` targets run: the
+        // renovate/renovate CLI of `task renovate:dry-run` (#1383) and hadolint
+        // of `task lint:docker`. Without this those pins would be immutable and
+        // unmaintained — the same half of the reproducibility problem the
+        // workflow env: pins were added for, and the shape #1177 records: a
+        // floating tool silently changes what a check MEANS.
+        //
+        // The pins moved there out of `.taskfiles/` with #2581: every
+        // task-driven lane selects `.taskfiles/**`, so a pin bump in a Taskfile
+        // ran the frontend and integration lanes for nothing; no lane reads
+        // `.pins/`. `.taskfiles/` no longer carries Renovate-aged pins and is
+        // deliberately not listed here — tests/unit/guards/
+        // test_no_renovate_pin_in_taskfiles.py holds both halves.
+        '/^\\.pins/[^/]+\\.ya?ml$/',
       ],
       matchStrings: [
         'renovate: datasource=docker depName=(?<depName>\\S+)\\s*\\n\\s*[A-Z_]+:\\s*\\S+:(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)',

@@ -9,6 +9,7 @@ import {
   PLATFORM_ADMIN_ROUTES,
 } from '@/routes/roleGuardedRoutes';
 import RequireRole from '@/auth/RequireRole';
+import ModuleGuard from '@/components/common/ModuleGuard';
 import PageTitle from '@/components/layout/PageTitle';
 import {
   createStoreWithTenantRole,
@@ -201,5 +202,15 @@ describe('RequireRole — what a member of each role gets', () => {
 
     expect(screen.getByTestId('probe-primary-action')).toBeInTheDocument();
     expect(screen.queryByTestId('role-restriction-notice')).not.toBeInTheDocument();
+  });
+});
+
+describe('AppRoutes - garden plan route (REQ-053 WP 2.3)', () => {
+  it('registers the plan route under the garden_planner module guard', () => {
+    // The plan lies in the path space of the core `locations` module, so the path-based guard of
+    // MainLayout cannot switch it off (REQ-042 §4.3): the route names its module itself.
+    const guard = findElementOfType(routeFor('standorte/sites/:key/plan').element, ModuleGuard);
+    expect(guard).not.toBeNull();
+    expect((guard as ReactElement<{ moduleKey?: string }>).props.moduleKey).toBe('garden_planner');
   });
 });

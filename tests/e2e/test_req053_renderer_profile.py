@@ -1,0 +1,452 @@
+"""Renderer frame-time measurement for D-01 (REQ-053 GP-NFR-033/034, WP 9.6, issue #2746).
+
+Spec-TC mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md; derived from GP-NFR-033/034 and D-01):
+  TC-053-083  ->  drag and zoom frame time on the "large" class and on a plan of 3 000 visible objects,
+                  profile Desktop (no throttling, 16 ms) and Mobile (390 x 844, CPU 4x, 33 ms)
+
+What each case does, in this order (zoom first: a drag selects a bed, and on a phone the selection's sheet can
+cover the canvas the wheel needs):
+
+1. open the plan at its fit view and count what the renderer drew (``rendered_census``) - the arrangement check:
+   every bed is drawn, and the synthetic case on the desktop really shows >= 3 000 objects. Where the desktop fit
+   lies just below the marker LOD (``renderer/lod.ts``: spacing x px/m >= 10; the workspace frame of #2867 shrank
+   the canvas to ~32 px/m against the 33.4 px/m the 0.3 m spacing needs), the case zooms in by one wheel notch
+   just past the LOD, counts there - the 20 % culling margin keeps the slightly overflowing plan drawn - and zooms
+   back to the fit, so every gesture still starts from the fit view (on the phone it cannot: the fit there is far
+   below the marker LOD, the count is recorded as it is);
+2. throttle the CPU (mobile) and sample the idle frame cadence (the refresh interval the gaps come in);
+3. Ctrl + wheel, 10 notches in (crossing the marker LOD threshold), count again, 10 notches out - frame time of
+   each half; the zoom level must have changed both ways;
+4. drag the bed nearest the canvas centre 60 px out and back to a small net offset in 30 paced pointer moves -
+   frame time; the bed must have moved and the editor must report the unsaved move, which is then undone.
+
+The bounds are **advisory**, like the INP profile of WP 8.29: a p95 over the profile's budget (GP-NFR-033/034) or
+over D-01's 16 ms while dragging is reported - ``warnings.warn``, the JUnit properties ``renderer_*``, the table
+in the test output and the JSON record (``renderer_record`` property and ``renderer-profile-<case>-<profile>.json``
+next to the screenshots or in ``E2E_RENDERER_REPORT_DIR``) - and does not fail the test. What fails: a broken
+measurement (no probe, no frame, no cadence) and an arrangement that is not what it claims (missing beds, a
+synthetic plan below 3 000 visible objects, a zoom that did not zoom, a drag that did not move). The report and
+the Go/No-Go for WP 9.7 are written from the records by ``tests/e2e/_renderer_report.py``.
+
+Preconditions are self-provisioned through the API, one site per case and module (``_renderer_plans``); the
+measurement saves nothing, so the profiles of a case share the site.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+import os
+import uuid
+import warnings
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from pathlib import Path
+
+import pytest
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.remote.webdriver import WebDriver
+
+from ._frame_budget import (
+    D01_DRAG_FRAME_MS,
+    LAPTOP_FRAME_BUDGET_MS,
+    PHONE_FRAME_BUDGET_MS,
+    frame_bound,
+)
+from ._inp_probe import (
+    CPU_SLOWDOWN,
+    InpProbe,
+    Measurement,
+    set_cpu_slowdown,
+    summary_table,
+)
+from ._renderer_plans import LARGE, SYNTHETIC_3000, MeasuredPlan, provision_grid_plan
+from ._renderer_report import (
+    D01_VISIBLE_OBJECTS,
+    RECORD_FILE_PREFIX,
+    RECORD_PROPERTY,
+    RECORD_SCHEMA,
+)
+from .pages.field_mode_page import set_phone_viewport
+from .pages.garden_plan_page import GardenPlanPage
+
+# The module sets its own viewports (desktop window, phone 390 x 844): a mobile/tablet device run would only
+# measure the same thing in a second emulation. bulk_seed (#3032): it plants 8 000 plants into the shared tenant
+# (280 planting runs on 4 threads), which starved the journeys running next to it - it runs in the serial pass.
+pytestmark = [pytest.mark.requires_desktop, pytest.mark.bulk_seed]
+
+#: Every record of this run carries it; the report reads one run only (older runs' records never mix in).
+#: ``--dist=loadfile`` keeps the module on one worker, so one import is one run.
+RUN_ID = os.environ.get("E2E_RENDERER_RUN_ID") or uuid.uuid4().hex[:12]
+#: The desktop profile's window (outer size); the record keeps the inner viewport and the canvas it gave.
+DESKTOP_WINDOW = (1920, 1080)
+
+#: Opening a plan of 5 000 plants: one large ``GET /plan`` (GP-NFR-031) and its first render.
+OPEN_TIMEOUT_S = 90
+
+#: 60 px out in 15 moves, back to +2 px in 15: the gesture is long enough for a frame time, and the net move lands
+#: clear of every neighbour - the gaps across are 0.8 m ("large") and 0.3 m (synthetic); +2 px is at most 0.29 m
+#: on the phone fit of "large" (~7 px/m) and ~0.13 m on that of the synthetic plan (~15 px/m). Not 0: a drag that
+#: returns to its start leaves no move, and the effect check ("the bed moved") would have nothing to read.
+#: Snapping runs on every move but the last; the last move and the release hold Alt (snap bypass, GP-FR-154), or
+#: the object snap would pull the small offset back onto the column the bed was aligned with.
+DRAG_WAYPOINTS = [(4 * k, 0) for k in range(1, 16)] + [
+    (round(60 - k * 58 / 15), 0) for k in range(1, 16)
+]
+DRAG_STEP_MS = 16
+#: Ten notches of 120 px: x 6 in zoom (``WHEEL_ZOOM_PER_PX`` 0.0015), from the fit across the marker LOD.
+ZOOM_NOTCHES = 10
+WHEEL_DELTA = 120
+WHEEL_INTERVAL_MS = 40
+#: ``editor/usePendingZoom.ts``: a Ctrl + wheel of ``deltaY`` px zooms by ``exp(-deltaY * WHEEL_ZOOM_PER_PX)``.
+WHEEL_ZOOM_PER_PX = 0.0015
+#: ``renderer/lod.ts`` ``MARKER_MIN_SPACING_PX``: plant markers are drawn from this on-screen spacing, below it a
+#: bed shows one cluster.
+MARKER_MIN_SPACING_PX = 10
+#: How far past the marker LOD the count is taken: clear of float noise and of the wheel's rounding, close enough
+#: that the plan still lies within the culling margin around the canvas.
+LOD_COUNT_SLACK = 1.05
+
+
+@dataclass(frozen=True)
+class Profile:
+    name: str
+    cpu: int
+    budget_ms: float
+    phone: bool
+
+
+PROFILES = {
+    "desktop": Profile("desktop", 1, LAPTOP_FRAME_BUDGET_MS, phone=False),
+    "mobile": Profile("mobile", CPU_SLOWDOWN, PHONE_FRAME_BUDGET_MS, phone=True),
+}
+
+
+@pytest.fixture(scope="module", params=[LARGE, SYNTHETIC_3000], ids=lambda spec: spec.name)
+def measured_plan(
+    request: pytest.FixtureRequest, base_url: str, e2e_seed_data: dict
+) -> MeasuredPlan:
+    """The case's plan, seeded once per module and case **before** the test's browser exists.
+
+    Module scope is what orders it: pytest sets up higher-scoped fixtures before function-scoped ones (the
+    ``browser`` and the autouse ``screenshot`` fixture), so the minutes of seeding never run while a Grid
+    session sits idle (the Grid drops a session after 300 s without a command - the first run lost
+    ``large-desktop`` that way). The profiles of a case share it; the measurement saves nothing.
+    """
+    return provision_grid_plan(base_url, e2e_seed_data, request.param)
+
+
+def _report_dir(screenshot_dir: Path) -> Path:
+    configured = os.environ.get("E2E_RENDERER_REPORT_DIR")
+    target = Path(configured) if configured else screenshot_dir
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+#: The frontend's threshold (``renderer/createRenderer.ts`` ``KONVA_MIN_PLAN_OBJECTS``): from this many beds + garden
+#: objects + slots the plan is drawn by Konva (WP 9.7), whose chunk loads after the plan - not on the first paint.
+KONVA_MIN_PLAN_OBJECTS = 3000
+
+
+def _expected_renderer(measured: MeasuredPlan) -> str:
+    """The renderer the plan must be drawn by (the seeded plans carry no garden objects)."""
+    return (
+        "konva" if measured.stored_beds + measured.stored_slots >= KONVA_MIN_PLAN_OBJECTS else "svg"
+    )
+
+
+def _wait_for_renderer(plan: GardenPlanPage, expected: str) -> str:
+    """Wait until *expected* draws the plan, so no census, size or gesture is read off a surface about to be swapped."""
+    try:
+        plan.poll(OPEN_TIMEOUT_S).until(lambda _d: plan.current_renderer() == expected)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"the plan should be drawn by the {expected} renderer, it is drawn by {plan.current_renderer()!r}"
+        ) from exc
+    return expected
+
+
+def _wait_for_all_beds(plan: GardenPlanPage, beds: int) -> dict[str, int]:
+    """The fit view shows the whole plan: wait until every bed is drawn; the census of that moment."""
+    try:
+        plan.poll(OPEN_TIMEOUT_S).until(lambda _d: plan.rendered_census()["beds"] >= beds)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"the fit view should draw all {beds} beds, it draws {plan.rendered_census()}"
+        ) from exc
+    return plan.rendered_census()
+
+
+def _min_slot_spacing_m(measured: MeasuredPlan) -> float:
+    """The smallest distance between two planting positions of one bed: what the marker LOD is decided on."""
+    slots = measured.spec.slots
+    return min(math.dist(a, b) for index, a in enumerate(slots) for b in slots[index + 1 :])
+
+
+def _count_at_marker_lod(
+    plan: GardenPlanPage, measured: MeasuredPlan, px_fit: float
+) -> tuple[dict[str, int], float]:
+    """The census at a zoom where every plant marker of *measured* is drawn; the view is back at the fit after.
+
+    At or above the LOD already: the fit census is that count. Below it: one Ctrl + wheel notch just past the LOD
+    about the canvas centre, the count once the markers are drawn, and the exact inverse notch back - a zoom about
+    a fixed anchor is undone by its inverse, so the measured gestures start from the fit as before.
+    """
+    target = MARKER_MIN_SPACING_PX / _min_slot_spacing_m(measured) * LOD_COUNT_SLACK
+    if px_fit >= target:
+        return plan.rendered_census(), px_fit
+    delta = math.ceil(math.log(target / px_fit) / WHEEL_ZOOM_PER_PX)
+    at = plan.canvas_centre()
+    plan.wheel_zoom(at, [-delta], interval_ms=WHEEL_INTERVAL_MS)
+    try:
+        plan.poll().until(
+            lambda _d: (
+                plan.px_per_m() >= target / LOD_COUNT_SLACK
+                and plan.rendered_census()["visible_objects"] >= D01_VISIBLE_OBJECTS
+            )
+        )
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"TC-053-083: zoomed past the marker LOD ({px_fit:.1f} -> {plan.px_per_m():.1f} px/m, target "
+            f"{target:.1f}), the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects, the renderer drew "
+            f"{plan.rendered_census()} - the case would not measure D-01's load"
+        ) from exc
+    census, px_lod = plan.rendered_census(), plan.px_per_m()
+    plan.wheel_zoom(at, [delta], interval_ms=WHEEL_INTERVAL_MS)
+    try:
+        plan.poll().until(lambda _d: abs(plan.px_per_m() - px_fit) <= px_fit * 0.01)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"renderer profile: the view did not return to the fit after counting ({px_fit:.1f} -> "
+            f"{plan.px_per_m():.1f} px/m)"
+        ) from exc
+    return census, px_lod
+
+
+def _zoom_half(
+    plan: GardenPlanPage, probe: InpProbe, name: str, direction: int, **read
+) -> tuple[Measurement, float]:
+    """One measured half of the zoom gesture; loud when the zoom level did not move in *direction*."""
+    before = plan.px_per_m()
+    at = plan.canvas_centre()
+    probe.reset()
+    probe.start_frames()
+    plan.wheel_zoom(at, [-direction * WHEEL_DELTA] * ZOOM_NOTCHES, interval_ms=WHEEL_INTERVAL_MS)
+
+    def moved(_d) -> bool:
+        now = plan.px_per_m()
+        return now > before * 1.5 if direction > 0 else now < before / 1.5
+
+    try:
+        plan.poll().until(moved)
+    except TimeoutException as exc:
+        probe.stop_frames()
+        raise AssertionError(
+            f"renderer profile: the {name} gesture did not zoom ({before:.1f} -> {plan.px_per_m():.1f} px/m)"
+        ) from exc
+    return probe.read_gesture(name, **read), plan.px_per_m()
+
+
+def _measured_drag(
+    plan: GardenPlanPage, probe: InpProbe, grab_inset_m: float | None, **read
+) -> Measurement:
+    bed = plan.bed_nearest_canvas_centre()
+    before = plan.shape_origin_m(bed)
+    probe.reset()
+    probe.start_frames()
+    plan.drag_object_along(
+        bed, DRAG_WAYPOINTS, step_ms=DRAG_STEP_MS, alt_on_release=True, grab_inset_m=grab_inset_m
+    )
+    result = probe.read_gesture("drag", **read)
+    try:
+        plan.poll().until(lambda _d: plan.pending_count() > 0)
+    except TimeoutException as exc:
+        raise AssertionError(
+            f"renderer profile: the drag of {bed!r} left no unsaved move ({plan.save_status_text()!r})"
+        ) from exc
+    after = plan.shape_origin_m(bed)
+    assert after != before, (
+        f"renderer profile: the drag did not move bed {bed!r} ({before} -> {after})"
+    )
+    return result
+
+
+def _undo_the_drag(plan: GardenPlanPage) -> None:
+    """Leave the plan as stored: no unsaved change, no leave prompt, nothing an auto-save could write.
+
+    Ctrl+Z on the focused canvas rather than the toolbar button: the keyboard path exists on every viewport,
+    the button may sit in an overflow menu on a phone. Verified through the pending count; nothing to do when
+    no move is pending (the test failed before the drag, or the drag moved nothing).
+    """
+    if plan.pending_count() == 0:
+        return
+    plan.focus_canvas()
+    plan.press(Keys.CONTROL, "z")
+    plan.wait_for_pending(0, "renderer profile: undoing the measured drag")
+
+
+def _publish(
+    record: dict, results: list[Measurement], screenshot_dir: Path, record_property
+) -> None:
+    """Table, JSON record (property + sidecar), per-value properties, advisory warnings."""
+    label = f"{record['case']}_{record['profile']}"
+    print("\n" + summary_table(results))  # noqa: T201 - the measurement report is the test's output
+    print(  # noqa: T201
+        f"{label}: visible objects fit/zoomed = {record['census_fit']['visible_objects']}/"
+        f"{record['census_zoomed']['visible_objects']}, vsync {record['vsync_ms']:.1f} ms, "
+        f"throttle {record['throttle']}"
+    )
+    payload = json.dumps(record, sort_keys=True)
+    record_property(RECORD_PROPERTY, payload)
+    (
+        _report_dir(screenshot_dir)
+        / f"{RECORD_FILE_PREFIX}{record['case']}-{record['profile']}.json"
+    ).write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
+    # The synthetic desktop case counts its load at the marker LOD; every other case at the fit.
+    counted = record.get("census_lod") or record["census_fit"]
+    record_property(f"renderer_{label}_visible_objects", str(counted["visible_objects"]))
+    for item in results:
+        if item.frame_p95_ms is not None:
+            record_property(
+                f"renderer_{label}_{item.name}_frame_p95_ms", f"{item.frame_p95_ms:.1f}"
+            )
+        for over in item.exceeded():
+            warnings.warn(f"GP-NFR-033/034 (advisory) {label}/{item.name}: {over}", stacklevel=2)
+    drag = next(item for item in results if item.name == "drag")
+    d01_bound = frame_bound(D01_DRAG_FRAME_MS, drag.vsync_ms)
+    if drag.frame_p95_ms is not None and drag.frame_p95_ms > d01_bound:
+        warnings.warn(
+            f"D-01 (advisory) {label}: drag frame p95 {drag.frame_p95_ms:.1f} ms > {D01_DRAG_FRAME_MS:g} ms",
+            stacklevel=2,
+        )
+    if record["case"] == "large":
+        peak = max(
+            record["census_fit"]["visible_objects"], record["census_zoomed"]["visible_objects"]
+        )
+        if peak > D01_VISIBLE_OBJECTS:
+            warnings.warn(
+                f"D-01 (advisory) {label}: {peak} visible objects > {D01_VISIBLE_OBJECTS}",
+                stacklevel=2,
+            )
+
+
+@pytest.mark.parametrize("profile", sorted(PROFILES))
+def test_gp_nfr_033_034_renderer_frame_time_for_d01(
+    measured_plan: MeasuredPlan,
+    profile: str,
+    request: pytest.FixtureRequest,
+    browser: WebDriver,
+    base_url: str,
+    screenshot_dir: Path,
+    record_property,
+) -> None:
+    """TC-053-083 — Drag and zoom frame time (p95) of the SVG renderer on a large plan, per profile (D-01).
+
+    Advisory against 16 ms (desktop) / 33 ms (mobile, CPU 4x) and D-01's 16 ms while dragging; the values and the
+    visible-object count go to the JSON record the report generator reads. Fails only on a broken measurement or
+    an arrangement that is not what the case claims.
+    """
+    measured = measured_plan
+    case = measured.spec.name
+    setup = PROFILES[profile]
+    if setup.phone:
+        set_phone_viewport(browser, 390, 844)
+        plan = GardenPlanPage(browser, base_url).open_in_planning_mode(
+            measured.garden.site_key, timeout=OPEN_TIMEOUT_S
+        )
+    else:
+        browser.set_window_size(*DESKTOP_WINDOW)
+        plan = GardenPlanPage(browser, base_url).open(
+            measured.garden.site_key, timeout=OPEN_TIMEOUT_S
+        )
+    viewport = [int(v) for v in browser.execute_script("return [innerWidth, innerHeight];")]
+    # A large plan swaps its surface once the Konva chunk is there: wait for that first, then read everything off
+    # the surface that stays (each read looks the element up again).
+    renderer = _wait_for_renderer(plan, _expected_renderer(measured))
+    census_fit = _wait_for_all_beds(plan, measured.stored_beds)
+    px_fit = plan.px_per_m()
+    canvas_px = list(plan.svg_size_px())
+    census_lod: dict[str, int] | None = None
+    px_lod: float | None = None
+    if case == SYNTHETIC_3000.name and not setup.phone:
+        # Counted where every marker is drawn (just past the LOD if the fit lies below it), asserted in there.
+        census_lod, px_lod = _count_at_marker_lod(plan, measured, px_fit)
+        assert census_lod["visible_objects"] >= D01_VISIBLE_OBJECTS, (
+            f"TC-053-083: the synthetic plan should show >= {D01_VISIBLE_OBJECTS} objects at the marker LOD "
+            f"({px_lod:.1f} px/m, fit {px_fit:.1f}), the renderer drew {census_lod} - the case would not measure "
+            "D-01's load"
+        )
+    plan.take_screenshot(f"053_083_{case}_{profile}_01_fit", screenshot_dir)
+
+    probe = InpProbe(browser)
+    probe.install()
+    throttle = "off"
+    if setup.cpu > 1:
+        # Throttle only now: the page load and the content waits ran at full speed, the gestures do not.
+        throttle = "applied" if set_cpu_slowdown(browser, setup.cpu) else "unavailable"
+        if throttle == "unavailable":
+            record_property(f"renderer_{case}_{profile}_cpu_throttle", "unavailable")
+            warnings.warn(
+                "GP-NFR-033: CPU 4x throttling is not available in this browser session (named gap); "
+                "the mobile profile is measured un-throttled",
+                stacklevel=2,
+            )
+    cpu = setup.cpu if throttle == "applied" else 1
+    # Whatever fails after the drag, the unsaved move is taken back (published first: a refused undo must not
+    # cost the measurement).
+    try:
+        try:
+            vsync = probe.frame_cadence_ms()
+            read = {"budget_ms": setup.budget_ms, "vsync_ms": vsync, "cpu_slowdown": cpu}
+            zoom_in, px_zoomed = _zoom_half(plan, probe, "zoom_in", +1, **read)
+            census_zoomed = plan.rendered_census()
+            zoom_out, _px = _zoom_half(plan, probe, "zoom_out", -1, **read)
+            # A bed packed with plant markers is pressed in its plant-free edge strip (half its width inside).
+            strip = measured.spec.drag_strip_m
+            drag = _measured_drag(plan, probe, strip / 2 if strip else None, **read)
+        finally:
+            if throttle == "applied" and not set_cpu_slowdown(browser, 1):
+                warnings.warn("GP-NFR-033: the CPU throttle could not be reset", stacklevel=2)
+        plan.take_screenshot(f"053_083_{case}_{profile}_02_after", screenshot_dir)
+        drawn_by = plan.current_renderer()
+        assert drawn_by == renderer, (
+            f"the gestures ran on {drawn_by!r}, the record names {renderer!r} - the surface was swapped mid-measurement"
+        )
+
+        results = [zoom_in, zoom_out, drag]
+        if throttle == "unavailable":
+            for item in results:
+                item.notes.append(
+                    "named gap: no CPU throttling in this session; measured un-throttled"
+                )
+        record = {
+            "schema": RECORD_SCHEMA,
+            "case": case,
+            "profile": profile,
+            "cpu_slowdown": cpu,
+            "throttle": throttle,
+            "viewport": viewport,
+            "canvas_px": canvas_px,
+            "renderer": renderer,
+            "run_id": RUN_ID,
+            "budget_ms": setup.budget_ms,
+            "vsync_ms": vsync,
+            "plan": measured.as_dict(),
+            "census_fit": census_fit,
+            "census_zoomed": census_zoomed,
+            # Synthetic case on the desktop only: the count at the marker LOD (= the fit when the fit reaches it).
+            "census_lod": census_lod,
+            "px_per_m_lod": round(px_lod, 2) if px_lod is not None else None,
+            "px_per_m_fit": round(px_fit, 2),
+            "px_per_m_zoomed": round(px_zoomed, 2),
+            "gestures": [item.as_dict() for item in results],
+            "recorded_at": datetime.now(UTC).isoformat(),
+            "nodeid": request.node.nodeid,
+        }
+        _publish(record, results, screenshot_dir, record_property)
+    finally:
+        _undo_the_drag(plan)
+    assert [item.name for item in results] == ["zoom_in", "zoom_out", "drag"] and all(
+        item.frames > 0 for item in results
+    ), f"TC-053-083: every gesture of {case}/{profile} carries a frame time: {results}"

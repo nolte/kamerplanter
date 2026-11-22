@@ -57,7 +57,7 @@ class _RecordingDashboardService:
     def __init__(self) -> None:
         self.asked_for: list[str] = []
 
-    def get_summary(self, tenant_key: str) -> DashboardSummary:
+    def get_summary(self, tenant_key: str, *, language: str = "de") -> DashboardSummary:
         self.asked_for.append(tenant_key)
         return DashboardSummary(
             generated_at=datetime(2026, 9, 25, 8, 0, tzinfo=UTC),

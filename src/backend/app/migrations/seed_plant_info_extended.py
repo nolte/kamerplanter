@@ -30,7 +30,9 @@ from app.common.enums import (
     FrostTolerance,
     GrowthDeterminacy,
     GrowthHabit,
+    NutrientDemand,
     NutrientDemandLevel,
+    PhotoperiodSource,
     PhotoperiodType,
     PlantCategory,
     PropagationDifficulty,
@@ -55,7 +57,9 @@ from app.domain.models.species import (
     WateringGuide,
 )
 from app.migrations.cultivar_seed import build_cultivar, global_cultivars
+from app.migrations.seed_catalogue_species import catalogue_species, name_held_by_tenant
 from app.migrations.seed_phase_ownership import phases_owned_elsewhere
+from app.migrations.seed_photoperiod_source import resolve_lifecycle_config_species, stamp_steckbrief_photoperiod
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -81,6 +85,7 @@ YAML_FILES = [
 def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
     """Construct BotanicalFamily models from YAML data."""
     families: list[BotanicalFamily] = []
+    entry: dict[str, Any]
     for entry in data.get("new_families", []):
         ph_pref = None
         if "soil_ph_preference" in entry and entry["soil_ph_preference"] is not None:
@@ -92,7 +97,11 @@ def _build_families(data: dict[str, Any]) -> list[BotanicalFamily]:
                 common_name_de=entry.get("common_name_de", ""),
                 common_name_en=entry.get("common_name_en", ""),
                 order=entry.get("order"),
-                typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium"),
+                typical_nutrient_demand=entry.get("typical_nutrient_demand", "medium_feeder"),
+                # REQ-053 GP-FR-138 (M6, #2325): sourced values only (E-10); absent keys keep the
+                # model defaults (nitrogen_fixing False, rotation_pause_years None).
+                nitrogen_fixing=entry.get("nitrogen_fixing", False),
+                rotation_pause_years=entry.get("rotation_pause_years"),
                 frost_tolerance=FrostTolerance(entry.get("frost_tolerance", "moderate")),
                 typical_root_depth=entry.get("typical_root_depth", "medium"),
                 typical_growth_forms=[GrowthHabit(g) for g in entry.get("typical_growth_forms", ["herb"])],
@@ -176,6 +185,7 @@ def _build_seed_profile(source: dict[str, Any]) -> SeedProfile | None:
 def _build_species(data: dict[str, Any]) -> list[Species]:
     """Construct Species models from YAML data."""
     species_list: list[Species] = []
+    entry: dict[str, Any]
     for entry in data.get("new_species", []):
         frost = entry.get("frost_sensitivity")
         ndl = entry.get("nutrient_demand_level")
@@ -185,6 +195,9 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
             Species(
                 scientific_name=entry["scientific_name"],
                 common_names=_to_list(entry.get("common_names", [])),
+                # Language map of the names above (REQ-001, #2902) — carried explicitly
+                # because this loader is whitelist-driven.
+                common_names_i18n=entry.get("common_names_i18n") or {},
                 genus=entry.get("genus", ""),
                 plant_category=PlantCategory(pc) if pc else None,
                 growth_habit=GrowthHabit(entry.get("growth_habit", "herb")),
@@ -234,6 +247,14 @@ def _build_species(data: dict[str, Any]) -> list[Species]:
                 light_compensation_point_ppfd_min=entry.get("light_compensation_point_ppfd_min"),
                 light_compensation_point_ppfd_max=entry.get("light_compensation_point_ppfd_max"),
                 shade_tolerance=entry.get("shade_tolerance"),
+                # ── Beetplanung (REQ-053 §16.3 / GP-FR-061 / E-05, M6 #2325) — sourced only (E-10) ──
+                nutrient_demand=entry.get("nutrient_demand"),
+                nutrient_demand_source=entry.get("nutrient_demand_source"),
+                nutrient_demand_confidence=entry.get("nutrient_demand_confidence"),
+                nitrogen_fixing=entry.get("nitrogen_fixing"),
+                rotation_pause_years=entry.get("rotation_pause_years"),
+                row_spacing_cm=entry.get("row_spacing_cm"),
+                light_requirement=entry.get("light_requirement"),
                 effective_root_depth_cm=entry.get("effective_root_depth_cm"),
                 waterlogging_tolerance=entry.get("waterlogging_tolerance"),
                 salt_tolerance_class=entry.get("salt_tolerance_class"),
@@ -281,6 +302,7 @@ def _build_enrichment(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
         "balcony_suitable": Suitability,
         "frost_sensitivity": FrostTolerance,
         "nutrient_demand_level": NutrientDemandLevel,
+        "nutrient_demand": NutrientDemand,
     }
 
     propagation_keys = {
@@ -436,7 +458,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
         family_name = new_species_family_map.get(sp.scientific_name, "")
         sp.family_key = family_map.get(family_name, "")
 
-        existing = species_repo.get_by_scientific_name(sp.scientific_name)
+        existing = catalogue_species(species_repo, sp.scientific_name)
         if existing:
             species_key_map[sp.scientific_name] = existing.key or ""
             # Update phase-relevant fields from YAML (idempotent)
@@ -445,6 +467,11 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
             logger.info("species_updated", name=sp.scientific_name, source=yaml_filename)
             continue
 
+        if name_held_by_tenant(species_repo, sp.scientific_name):
+            # A tenant's own species holds the name and there is no catalogue row of it: the seed neither writes onto
+            # the tenant's row nor can it create one (unique name, #2857 SEC-001).
+            logger.warning("seed_species_name_held_by_tenant", name=sp.scientific_name)
+            continue
         # REQ-048 Stufe 1 / SEC-003: the exact-name lookup above misses a stored
         # normalized-duplicate that differs only by the hybrid marker (× vs x),
         # casing or whitespace. Route the insert through the atomic dedup UPSERT
@@ -456,7 +483,7 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
 
     # ── S3: Enrich existing species ──────────────────────────────────────
     for sci_name, updates in species_enrichment.items():
-        existing = species_repo.get_by_scientific_name(sci_name)
+        existing = catalogue_species(species_repo, sci_name)
         if not existing:
             logger.info("enrichment_species_not_found", name=sci_name)
             continue
@@ -497,9 +524,11 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
 
     for sci_name in all_referenced_species:
         if sci_name not in species_key_map:
-            existing = species_repo.get_by_scientific_name(sci_name)
+            existing = catalogue_species(species_repo, sci_name)
             if existing:
                 species_key_map[sci_name] = existing.key or ""
+    # A species the file lists only under lifecycle_configs (hemp in plant_info.yaml, #2857).
+    lifecycle_only = resolve_lifecycle_config_species(species_repo, lifecycle_configs, species_key_map)
 
     # ── S4: Lifecycle configs + art-specific phases ──────────────────────
     for sci_name, lc_cfg in lifecycle_configs.items():
@@ -552,6 +581,12 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 )
                 lifecycle_repo.update_lifecycle(lc_key, updated_lc)
                 logger.info("lifecycle_updated", species=sci_name, cycle=cycle.value)
+
+            if sci_name in lifecycle_only:
+                # Listed here only under lifecycle_configs (#2857): the file states the lifecycle, not the phases.
+                # The species' phases are no file's to replace from here - the generic-phase deletion below would
+                # leave it with none (and its plants on deleted phases).
+                continue
 
             existing_phases = lifecycle_repo.get_phases_by_lifecycle(lc_key)
             phase_names = {p.name for p in existing_phases}
@@ -621,6 +656,9 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                                 if getattr(req_profile, field) != req[field]:
                                     setattr(req_profile, field, req[field])
                                     req_changed = True
+                            # Stated hours are sourced; a value the phase leaves out keeps its origin (#2857).
+                            if stamp_steckbrief_photoperiod(req_profile, req):
+                                req_changed = True
                             if req_changed:
                                 lifecycle_repo.update_requirement_profile(req_profile.key, req_profile)
                                 updated_count += 1
@@ -728,6 +766,8 @@ def _seed_yaml_file(yaml_filename: str) -> None:  # noqa: C901, PLR0912, PLR0915
                 phase_key=phase_key,
                 light_ppfd_target=req["light_ppfd_target"],
                 photoperiod_hours=req["photoperiod_hours"],
+                # The Steckbrief states the hours of this phase (#2857).
+                photoperiod_source=PhotoperiodSource.SOURCED,
                 temperature_day_c=req["temperature_day_c"],
                 temperature_night_c=req["temperature_night_c"],
                 humidity_day_percent=req["humidity_day_percent"],

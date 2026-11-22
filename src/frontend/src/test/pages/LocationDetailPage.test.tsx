@@ -42,7 +42,6 @@ const slot = {
   key: 'slot-1',
   location_key: 'loc-1',
   slot_id: 'A1',
-  position: [1, 2] as [number, number],
   capacity_plants: 4,
   currently_occupied: true,
   last_sanitization: null,
@@ -186,7 +185,7 @@ function useVariantLocation() {
     // Site fetch fails -> siteName stays empty (no site breadcrumb).
     http.get('/api/v1/t/:tenant/sites/:key', () => errorEnvelope(404)),
     http.get('/api/v1/t/:tenant/slots', () =>
-      HttpResponse.json([{ ...slot, currently_occupied: false, position: [0, 0] }]),
+      HttpResponse.json([{ ...slot, currently_occupied: false }]),
     ),
     http.get('/api/v1/t/:tenant/locations/:key/children', () =>
       HttpResponse.json([{ ...childLocation, location_type_key: null }]),
@@ -420,34 +419,32 @@ describe('LocationDetailPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith(-1);
   });
 
-  it('navigates to the assigned tank on chip click', async () => {
+  it('links the assigned tank chip to the tank and follows it on click (#3047)', async () => {
     useFullLocation();
     const user = userEvent.setup();
-    renderPage();
+    const { router } = renderPage();
 
     await screen.findByTestId('location-detail-page');
-    await user.click(await screen.findByText(/Tank One/));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/tanks/tank-1');
+    const chip = (await screen.findByText(/Tank One/)).closest('a');
+    expect(chip).toHaveAttribute('href', '/standorte/tanks/tank-1');
+    await user.click(chip!);
+    expect(router.state.location.pathname).toBe('/standorte/tanks/tank-1');
   });
 
   it('navigates from the run, plant, sub-location and slot rows', async () => {
     useFullLocation();
-    const user = userEvent.setup();
     renderPage();
 
     await screen.findByTestId('location-detail-page');
 
-    await user.click(await screen.findByText('Run Alpha'));
-    expect(mockNavigate).toHaveBeenCalledWith('/durchlaeufe/planting-runs/run-1');
+    // #3017: each row's first cell is a real link to the detail page (new-tab capable).
+    expect((await screen.findByText('Run Alpha')).closest('a')).toHaveAttribute('href', '/durchlaeufe/planting-runs/run-1');
 
-    await user.click(screen.getByText('TOM-002'));
-    expect(mockNavigate).toHaveBeenCalledWith('/pflanzen/plant-instances/plant-solo');
+    expect(screen.getByText('TOM-002').closest('a')).toHaveAttribute('href', '/pflanzen/plant-instances/plant-solo');
 
-    await user.click(screen.getByText('Bed 1'));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/locations/loc-child');
+    expect(screen.getByText('Bed 1').closest('a')).toHaveAttribute('href', '/standorte/locations/loc-child');
 
-    await user.click(screen.getByText('A1'));
-    expect(mockNavigate).toHaveBeenCalledWith('/standorte/slots/slot-1');
+    expect(screen.getByText('A1').closest('a')).toHaveAttribute('href', '/standorte/slots/slot-1');
   });
 
   it('opens the create dialogs from their add buttons', async () => {
@@ -608,5 +605,103 @@ describe('LocationDetailPage', () => {
       expect(screen.queryByTestId('confirm-dialog')).toBeNull(),
     );
     expect(mockNavigate).not.toHaveBeenCalledWith(-1);
+  });
+
+  describe('as a bed (REQ-053 WP 3.5)', () => {
+    const summary = {
+      ...baseLocation,
+      is_bed: true,
+      bed_status: 'active',
+      sun_exposure: 'unknown',
+      season_state: 'empty',
+      active_plant_count: 0,
+      species_keys: [],
+      open_task_count: 0,
+      overdue_task_count: 0,
+      next_due_at: null,
+      last_care_at: null,
+      geometry: null,
+      soil_profile: null,
+    };
+
+    it('keeps the plain page for a location that is not a bed', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({ ...summary, is_bed: false }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.queryByTestId('bed-view')).toBeNull();
+    });
+
+    it('wraps the same page in the bed view: header, tabs, and the unchanged details on their own tab', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () => HttpResponse.json(summary)),
+      );
+      renderWithProviders(<LocationDetailPage />, { store: createStoreWithSmartHome(), route: '/#details' });
+      expect(await screen.findByTestId('bed-view')).toBeTruthy();
+      expect(screen.getByTestId('bed-header')).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Stammdaten' })).toHaveAttribute('aria-selected', 'true');
+      // Everything the page always had is still there.
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.getByTestId('create-slot-button')).toBeTruthy();
+    });
+
+    it('shows the tent rules and the light-schedule hint on a tent page (REQ-053 W-016)', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({
+            ...summary,
+            is_bed: false,
+            location_type_key: 'tent',
+            supports_layout: true,
+            adjacency_factor: 2,
+            tent_hints: [
+              {
+                code: 'tent.photoperiod_conflict',
+                severity: 'warning',
+                groups: [
+                  { photoperiod_hours: 18, plant_count: 1, phase_names: ['Wachstum'] },
+                  { photoperiod_hours: 12, plant_count: 1, phase_names: ['Blüte'] },
+                ],
+                unknown_plant_count: 0,
+              },
+            ],
+          }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByTestId('tent-rules-section')).toBeTruthy();
+      expect(screen.getByTestId('tent-hint-photoperiod-conflict')).toHaveTextContent('18 Stunden Licht für 1 Pflanze (Wachstum)');
+      expect(screen.getByRole('spinbutton', { name: 'Nachbarschaftsfaktor' })).toHaveValue(2);
+    });
+
+    it('shows no tent rules for a location without a layout', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+          HttpResponse.json({ ...summary, is_bed: false, supports_layout: false, tent_hints: [] }),
+        ),
+      );
+      renderPage();
+      expect(await screen.findByText('Run Alpha')).toBeTruthy();
+      expect(screen.queryByTestId('tent-rules-section')).toBeNull();
+    });
+
+    it('opens a bed on its plan tab by default', async () => {
+      useFullLocation();
+      server.use(
+        http.get('/api/v1/t/:tenant/locations/:key/summary', () => HttpResponse.json(summary)),
+      );
+      renderPage();
+      expect(await screen.findByTestId('bed-view')).toBeTruthy();
+      expect(screen.getByRole('tab', { name: 'Plan' })).toHaveAttribute('aria-selected', 'true');
+      expect(await screen.findByTestId('bed-plan-tab')).toBeTruthy();
+      expect(screen.queryByText('Run Alpha')).toBeNull();
+    });
   });
 });

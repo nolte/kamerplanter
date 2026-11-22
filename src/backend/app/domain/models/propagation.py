@@ -109,7 +109,10 @@ class RootingProtocol(BaseModel):
     hormone_concentration_ppm: float | None = Field(default=None, ge=0, le=10000)
     expected_root_days: int | None = Field(default=None, ge=0, le=365)
     instructions: str | None = None
-    author: str | None = None
+    #: The account that last saved the protocol, stamped by the server (never from a body, PRIV-705). Shown as a
+    #: display name, never as the key; the erasure writes the marker (#2976, spec/privacy 09 §5a). Stored as the
+    #: bare ``author`` until v0114 moved it here.
+    author_user_key: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

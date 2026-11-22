@@ -116,6 +116,22 @@
 | Boden-pH-Vorzug (min–max) | 6.5–7.0 (neutral bis schwach alkalisch; RHS: neutral/alkaline; konsistent mit §1.6 pH 6,5–7,0 / §2.3) | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 100 | `species.spacing_cm` |
+| Reihenabstand (cm) | — (Dauerstaude, freie Pflanzung, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow herbaceous and intersectional peonies“, https://www.rhs.org.uk/plants/peony/herbaceous/growing-guide („Space plants about 1m (3¼ft) apart depending on their ultimate height and spread“) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | partial_shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow herbaceous and intersectional peonies“, https://www.rhs.org.uk/plants/peony/herbaceous/growing-guide („Peonies do best in full sun“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -298,6 +314,11 @@ Pfingstrosen reagieren empfindlich auf zu viel Stickstoff — üppiges Laub, wen
 | Nährstoffbedarf | Mittelzehrer (medium_feeder) |
 | Fruchtfolge-Kategorie | Dauerstaude (kein Fruchtwechsel) |
 | Anbaupause (Jahre) | Keine Neupflanzung in Pfingstrosenboden für 5 Jahre (Bodenerschöpfung) |
+| Zehrerstufe | n/a (Zierstaude, keine Fruchtfolgekultur) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Paeoniaceae: kein Familienwert belegt; Zierstaude, keine Fruchtfolgekultur) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -355,4 +376,5 @@ Paeonia lactiflora,"Chinesische Pfingstrose;Milchweiße Pfingstrose;Chinese Peon
 12. [Iowa State Extension — Using Growing Degree Days to Manage the Home Garden](https://yardandgarden.extension.iastate.edu/how-to/using-growing-degree-days-manage-home-garden) — GDD-Basistemperatur 5 °C für kühl-temperierte Pflanzen
 13. [Koppert — Neoseiulus cucumeris (predatory mite for thrips control)](https://www.koppert.com/crop-protection/biological-pest-control/predatory-mites/neoseiulus-cucumeris/) — Nützling/Ausbringrate Thripse
 14. [Koppert — Aphidius colemani (parasitic wasp, aphid control)](https://www.koppert.com/crop-protection/biological-pest-control/parasitic-wasps/aphidius-colemani/) — Nützling/Ausbringrate Blattläuse
+15. [RHS — How to grow herbaceous and intersectional peonies](https://www.rhs.org.uk/plants/peony/herbaceous/growing-guide) — Pflanzabstand etwa 1 m, „do best in full sun“
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

@@ -1,4 +1,4 @@
-import type { FormEventHandler } from 'react';
+import { useId, type FormEventHandler } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
@@ -62,6 +62,7 @@ export default function SpeciesEditTab({
   onCancel,
 }: SpeciesEditTabProps) {
   const { t } = useTranslation();
+  const familyFieldId = useId();
 
   return (
     /* UI-NFR-018 R-027: when read-only the whole form must reject input,
@@ -162,6 +163,7 @@ export default function SpeciesEditTab({
               <FormRow>
                 <Box>
                   <FormSelectField
+                    id={familyFieldId}
                     name="family_key"
                     control={control}
                     label={t('pages.species.family')}
@@ -175,7 +177,7 @@ export default function SpeciesEditTab({
                   {/* A failed load is its own state, not an empty picker (#1628). */}
                   <CatalogueLoadError
                     reader={familyCatalogue}
-                    focusSelector="[data-testid='form-field-family_key'] [role='combobox']"
+                    focusTargetId={familyFieldId}
                   />
                   {currentFamilyKey && (
                     <Link

@@ -1,9 +1,43 @@
 """Domain models for REQ-025 Privacy & GDPR data subject rights."""
 
+import re
 from datetime import date, datetime
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, EmailStr, Field, StringConstraints, model_validator
+
+# ── Erasure marker and tombstone shape (spec/privacy PRIV-201) ──────
+#
+# The one definition of each in the application code. Every other layer imports
+# them from here (the domain layer may be imported from any layer, NFR-001); the
+# frozen copies inside shipped migrations stay where they are (NFR-016 M-7).
+
+#: What an account reference becomes when the account is erased and the row is
+#: kept without any link to the person (REQ-025 AK-OS-02, AK-DA-01; GP-NFR-055).
+ANONYMIZED_MARKER = "_anonymized"
+
+#: The two tombstone generations, anchored for a full match and for an AQL
+#: ``REGEX_TEST`` (which searches): ``anon_`` is
+#: :meth:`ErasureEngine.compute_tombstone_hash` (instance-wide, PRIV-202);
+#: ``anon2_`` is the tenant-bound pseudonym of PRIV-238. Recognising the second
+#: generation does not mean anything writes it yet — the derivation is its own
+#: package; every reader and every correction already knows both shapes.
+TOMBSTONE_REGEX = "^anon_[0-9a-f]{16}$|^anon2_[0-9a-f]{16}$"
+
+#: :data:`TOMBSTONE_REGEX` compiled, for Python-side checks (``fullmatch``).
+TOMBSTONE_PATTERN = re.compile(TOMBSTONE_REGEX)
+
+
+def is_tombstone(value: object) -> bool:
+    """True when *value* is a string of either tombstone generation (PRIV-201/PRIV-238)."""
+    return isinstance(value, str) and TOMBSTONE_PATTERN.fullmatch(value) is not None
+
+
+#: The longest display label of a person without an account who did the work or wrote the
+#: document (``performed_by_label``, ``author_label``; spec/privacy ``08`` §3.4, SR-006). A
+#: label is free text for a third party; it is never read as an account key (PRIV-705).
+PERSON_LABEL_MAX_LENGTH = 80
+
 
 # ── Type aliases ───────────────────────────────────────────────────
 
@@ -411,6 +445,10 @@ class DataSourceDefinition(BaseModel):
     #: #2165 — the source is a table of the time-series store, not an ArangoDB collection.
     #: Only a personal-tenant source whose rows carry ``tenant_key`` themselves can be one.
     time_series: TimeSeriesScope | None = None
+    #: Dotted paths (``plan.plan_updated_by``) inside the projected ``fields`` that name *another* account
+    #: and are removed from every record after the read (Art. 15(4)). ``KEEP`` projects top-level fields
+    #: only, so a field that sits inside a projected object cannot be left out by ``fields`` alone.
+    withhold: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _one_way_of_attribution(self) -> Self:

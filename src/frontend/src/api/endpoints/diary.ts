@@ -1,4 +1,4 @@
-import { tenantClient, getActiveTenantSlug } from '../client';
+import { tenantClient } from '../client';
 import type {
   DiaryOverviewResponse,
   DiaryAnalysisState,
@@ -14,8 +14,8 @@ import type {
  *
  * Modelled on `plantPhotos.ts`: every path is tenant-scoped and goes through
  * {@link tenantClient}, which prepends `/t/{slug}` on its own. The frontend
- * never constructs a tenant prefix by hand, with the single documented
- * exception of {@link diaryPhotoUri} below.
+ * never constructs a tenant prefix by hand; a photo URI comes from
+ * `attachmentUri` in `./attachments`.
  */
 
 const base = (plantInstanceKey: string) =>
@@ -217,23 +217,4 @@ export async function uploadDiaryPhoto(file: File): Promise<DiaryPhotoUploadResu
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;
-}
-
-/** Thumbnail renditions the backend generates for every image (NFR-013 §8.2). */
-export type DiaryPhotoSize = 128 | 512 | 1280;
-
-/**
- * Build the authenticated URI of a diary photo attachment.
- *
- * A diary entry stores bare attachment ids in `photo_refs`, not URIs — unlike a
- * gallery photo, which arrives with `uri`/`thumbnail_uris` already built by the
- * server. The shape mirrors `_base_uri()` in
- * `app/api/v1/attachments/tenant_router.py` exactly; pass the result to
- * {@link AuthImage}, which strips the `/api/v1` prefix again and sends the
- * Bearer header a bare `<img src>` could not.
- */
-export function diaryPhotoUri(attachmentId: string, size?: DiaryPhotoSize): string {
-  const slug = getActiveTenantSlug() ?? '';
-  const uri = `/api/v1/t/${slug}/attachments/${attachmentId}`;
-  return size ? `${uri}/thumbnails/${size}` : uri;
 }

@@ -2,7 +2,7 @@
 # logic, no separate Dockerfile.dev).
 #   prod (default, built by CI):   docker build .
 #   dev  (built by skaffold):      docker build --target dev .
-FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS base
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928 AS base
 
 LABEL org.opencontainers.image.title="kamerplanter-backend" \
       org.opencontainers.image.description="Kamerplanter core REST API and business logic (FastAPI) for plant lifecycle, phases, fertilizing, tasks and multi-tenant data" \
@@ -23,7 +23,7 @@ WORKDIR /app
 # for the source tree, and a venv under /app would (a) be copied wholesale into
 # that chown layer (~420 MB per build, measured) and (b) leave site-packages
 # writable by the UID the server runs as.
-COPY --from=ghcr.io/astral-sh/uv:0.13.0@sha256:cdc6093146eb3ff6a40107b38f008b789e050e77ad87865e381d9917da55a168 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 \
     UV_PYTHON_DOWNLOADS=never \
     UV_NO_CACHE=1 \
@@ -93,10 +93,19 @@ FROM base AS prod
 # working directory, which uvicorn and celery put on sys.path), exactly as it
 # was when pip, with `--no-deps`, did that beside `COPY . .`. Not building the
 # project wheel also keeps the build backend out of the prod image build; the
-# two sdist-only dependencies still need one, pinned through
+# sdist-only dependencies still need one, pinned through
 # `[tool.uv].build-constraint-dependencies` in pyproject.toml. `--locked`
 # verifies every artifact hash, so two builds of one commit install the same
 # bytes (NFR-009 §2.3/§6.1).
+#
+# No compiler, on purpose. On this 3.15 base three dependencies come from
+# sdists — aquacropeto and http-ece (pure Python) and PyYAML (no cp315 wheel).
+# PyYAML is built with its optional libyaml extension switched off
+# (`[tool.uv].extra-build-variables`, which says why nothing is lost), so it
+# installs as pure Python too. Every other compiled dependency resolves to a
+# cp315 or abi3 wheel, or to its universal pure-Python wheel (frozenlist). A
+# dependency that needs a C build later makes this RUN fail loudly; the fix is
+# a builder stage that copies only /opt/venv here, not gcc in this image.
 RUN uv sync --locked --no-install-project
 COPY . .
 # Run as a non-root numeric user. UID 1000 matches the deployment's

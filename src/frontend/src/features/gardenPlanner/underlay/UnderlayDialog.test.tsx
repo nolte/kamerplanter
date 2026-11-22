@@ -1,0 +1,422 @@
+/**
+ * The underlay dialog (REQ-053 GP-FR-033, WP 7.15): pick a picture, calibrate it with two points and a known
+ * distance (400 px apart + 4.0 m = 100 px/m), place and fade it, save, remove. Viewers see it read-only.
+ */
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
+import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
+import { server } from '@/test/mocks/server';
+import type { PlanUnderlay } from '../model/types';
+import UnderlayDialog from './UnderlayDialog';
+
+// The first render of the dialog pays for MUI's and emotion's cold start; that is not what any one test measures.
+beforeAll(() => {
+  renderWithProviders(
+    <UnderlayDialog
+      open
+      siteKey="warm"
+      underlay={null}
+      onSaved={() => undefined}
+      onClose={() => undefined}
+    />,
+    {
+      store: createTestStore({ ...tenantState('grower', []), ...authState() }),
+    },
+  );
+  cleanup();
+});
+
+afterEach(() => cleanup());
+
+const BASE = '/api/v1/t/:tenant';
+const STORED: PlanUnderlay = {
+  attachment_key: 'att_stored',
+  calibration: { p1_px: [100, 200], p2_px: [500, 200], distance_m: 4 },
+  origin: [1, 5],
+  rotation_deg: 15,
+  opacity: 0.4,
+};
+
+function renderDialog(
+  underlay: PlanUnderlay | null,
+  role: 'viewer' | 'grower' = 'grower',
+  handlers: { onSaved?: (next: PlanUnderlay | null) => void; onClose?: () => void } = {},
+) {
+  const onSaved = handlers.onSaved ?? vi.fn();
+  const onClose = handlers.onClose ?? vi.fn();
+  const view = renderWithProviders(
+    <UnderlayDialog
+      open
+      siteKey="site_1"
+      underlay={underlay}
+      onSaved={onSaved}
+      onClose={onClose}
+    />,
+    { store: createTestStore({ ...tenantState(role, []), ...authState() }) },
+  );
+  return { ...view, onSaved, onClose };
+}
+
+const PNG = new File([new Uint8Array([137, 80, 78, 71])], 'plan.png', { type: 'image/png' });
+
+/** jsdom never decodes an image: report its natural size the way a browser's `load` would. */
+function loadPicture(width = 800, height = 400) {
+  const image = screen.getByRole('img', { name: /Unterlage|Underlay/ });
+  Object.defineProperty(image, 'naturalWidth', { value: width, configurable: true });
+  Object.defineProperty(image, 'naturalHeight', { value: height, configurable: true });
+  fireEvent.load(image);
+  return image;
+}
+
+/**
+ * Set fields the way a paste does: one change event per field. Typing them key by key re-renders the whole dialog
+ * for every character, which made the saving test take 5.6 s on a loaded CI runner - past the 5 s test timeout -
+ * while the behaviour under test (what is sent) does not depend on how the text got into the field.
+ */
+function fillCalibration(values: Record<string, string>) {
+  for (const [id, value] of Object.entries(values)) {
+    fireEvent.change(screen.getByTestId(`underlay-${id}`), { target: { value } });
+  }
+}
+
+describe('calibration', () => {
+  it('names the scale of two points 400 px apart and 4.0 m as 100 pixels per metre', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+
+    expect(screen.getByTestId('underlay-scale')).toHaveTextContent('100');
+  });
+
+  it('keeps Save off until the picture, two different points and a distance are there', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '100', p2y: '200', distance: '4' });
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+    fillCalibration({ p2x: '500' });
+    expect(screen.getByTestId('underlay-save')).toBeEnabled();
+  });
+
+  it('refuses a non-finite or negative distance', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    fillCalibration({ p1x: '0', p1y: '0', p2x: '400', p2y: '0', distance: '-3' });
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+    fillCalibration({ distance: 'Infinity' });
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+  });
+
+  it('takes the two points from two clicks on the picture', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    const image = loadPicture(800, 400);
+    // displayed at half size: a click at (50, 25) inside the box is pixel (100, 50) of the picture
+    vi.spyOn(image, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 200,
+      right: 400,
+      bottom: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const picture = screen.getByTestId('underlay-picture');
+    fireEvent.click(picture, { clientX: 50, clientY: 25 });
+    fireEvent.click(picture, { clientX: 250, clientY: 25 });
+
+    expect(screen.getByTestId('underlay-p1x')).toHaveValue('100');
+    expect(screen.getByTestId('underlay-p1y')).toHaveValue('50');
+    expect(screen.getByTestId('underlay-p2x')).toHaveValue('500');
+    expect(screen.getByTestId('underlay-p2y')).toHaveValue('50');
+  });
+
+  const OUTSIDE = 'A point lies outside the picture.';
+
+  it('warns about a point off the picture only once one is set there, not for points still missing', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    loadPicture(800, 400);
+    expect(screen.queryByText(OUTSIDE)).not.toBeInTheDocument();
+
+    fillCalibration({ p1x: '100', p1y: '200' });
+    expect(screen.queryByText(OUTSIDE)).not.toBeInTheDocument();
+
+    fillCalibration({ p2x: '900', p2y: '200', distance: '4' });
+    expect(screen.getByText(OUTSIDE)).toBeInTheDocument();
+    expect(screen.getByTestId('underlay-save')).toBeDisabled();
+
+    fillCalibration({ p2x: '-1' });
+    expect(screen.getByText(OUTSIDE)).toBeInTheDocument();
+  });
+
+  it('sizes the content rows to their content, so the scrolling picture box is never squeezed', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    // `auto` rows let a grid shorter than its content shrink a scroll container to nothing. jsdom has no layout:
+    // the declaration that prevents it is what can be pinned here; TC-053-044 (E2E) clicks the shown picture.
+    const content = screen.getByTestId('underlay-picture').parentElement;
+    expect(content).toHaveStyle({ display: 'grid', gridAutoRows: 'max-content' });
+  });
+});
+
+describe('calibration by keyboard', () => {
+  /** A 800 x 400 picture shown at 400 x 200: one displayed pixel is two picture pixels. */
+  async function pictureShownAtHalfSize() {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    const image = loadPicture(800, 400);
+    vi.spyOn(image, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 200,
+      right: 400,
+      bottom: 200,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    return user;
+  }
+
+  it('lets the keyboard reach the picture and says which point it moves and where it is', async () => {
+    const user = await pictureShownAtHalfSize();
+    const surface = screen.getByRole('application', { name: /Eichpunkte|calibration points/ });
+    expect(surface).toBe(screen.getByTestId('underlay-picture'));
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent(/Punkt 1|Point 1/);
+
+    surface.focus();
+    // the first press puts the unset point in the middle of the picture
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByTestId('underlay-p1x')).toHaveValue('400');
+    expect(screen.getByTestId('underlay-p1y')).toHaveValue('200');
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent('x 400 px, y 200 px');
+    expect(screen.getByTestId('underlay-point-position')).toHaveAttribute('role', 'status');
+  });
+
+  it('moves the point the toggle names by one displayed pixel, with Shift by ten, and keeps it on the picture', async () => {
+    const user = await pictureShownAtHalfSize();
+    fillCalibration({ p1x: '100', p1y: '50', p2x: '500', p2y: '50' });
+    await user.click(screen.getByTestId('underlay-mark-p2'));
+    screen.getByTestId('underlay-picture').focus();
+
+    await user.keyboard('{ArrowLeft}');
+    expect(screen.getByTestId('underlay-p2x')).toHaveValue('498');
+    await user.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    expect(screen.getByTestId('underlay-p2y')).toHaveValue('70');
+    expect(screen.getByTestId('underlay-point-position')).toHaveTextContent(
+      /(Punkt 2|Point 2): x 498 px, y 70 px/,
+    );
+    // point 1 is untouched, and a key press does not hand over to the other point
+    expect(screen.getByTestId('underlay-p1x')).toHaveValue('100');
+    expect(screen.getByTestId('underlay-mark-p2')).toHaveAttribute('aria-pressed', 'true');
+
+    for (let press = 0; press < 4; press += 1) await user.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    expect(screen.getByTestId('underlay-p2y')).toHaveValue('0');
+  });
+
+  it('offers no keyboard surface to a viewer', () => {
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
+    renderDialog(STORED, 'viewer');
+    expect(screen.queryByRole('application')).toBeNull();
+    expect(screen.queryByTestId('underlay-point-position')).toBeNull();
+  });
+});
+
+describe('save and remove', () => {
+  it('uploads the picture as an underlay attachment, then stores the calibration with the returned key', async () => {
+    const user = userEvent.setup();
+    const form: FormDataEntryValue[] = [];
+    let put: Record<string, unknown> = {};
+    server.use(
+      http.post(`${BASE}/attachments`, async ({ request }) => {
+        // The raw multipart text: parsing it into a FormData (and a File) is the slow part under coverage.
+        const raw = await request.text();
+        form.push(/name="category"\r?\n\r?\n([^\r\n]+)/.exec(raw)?.[1] ?? '');
+        return HttpResponse.json({ attachment_id: 'att_new' }, { status: 201 });
+      }),
+      http.put(`${BASE}/sites/site_1/plan/underlay`, async ({ request }) => {
+        put = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(put);
+      }),
+    );
+    const { onSaved, onClose } = renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+    await user.click(screen.getByTestId('underlay-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(form).toEqual(['garden_plan_underlay']);
+    expect(put).toMatchObject({
+      attachment_key: 'att_new',
+      calibration: { p1_px: [100, 200], p2_px: [500, 200], distance_m: 4 },
+      origin: [0, 0],
+      rotation_deg: 0,
+      opacity: 0.5,
+    });
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('shows the server refusal and keeps the dialog open', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post(`${BASE}/attachments`, () =>
+        HttpResponse.json({ attachment_id: 'att_new' }, { status: 201 }),
+      ),
+      http.put(`${BASE}/sites/site_1/plan/underlay`, () =>
+        HttpResponse.json(
+          {
+            error_code: 'plan.required',
+            message: 'x',
+            details: [{ field: 'plan', code: 'plan.required' }],
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const { onSaved, onClose } = renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    fillCalibration({ p1x: '100', p1y: '200', p2x: '500', p2y: '200', distance: '4' });
+    await user.click(screen.getByTestId('underlay-save'));
+
+    expect(await screen.findByTestId('underlay-error')).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('removes a stored underlay', async () => {
+    const user = userEvent.setup();
+    let deleted = false;
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+      http.delete(`${BASE}/sites/site_1/plan/underlay`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { onSaved } = renderDialog(STORED);
+    await user.click(screen.getByTestId('underlay-remove'));
+    // destructive (picture and calibration): nothing is sent before the question is answered
+    expect(deleted).toBe(false);
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(null));
+    expect(deleted).toBe(true);
+  });
+
+  it('keeps the underlay when the removal is not confirmed', async () => {
+    const user = userEvent.setup();
+    let deleted = false;
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+      http.delete(`${BASE}/sites/site_1/plan/underlay`, () => {
+        deleted = true;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { onSaved } = renderDialog(STORED);
+    await user.click(screen.getByTestId('underlay-remove'));
+    await user.click(screen.getByTestId('confirm-dialog-cancel'));
+
+    expect(deleted).toBe(false);
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it('shows a stored calibration and re-saves it without uploading again', async () => {
+    const user = userEvent.setup();
+    let uploads = 0;
+    let put: Record<string, unknown> = {};
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+      http.post(`${BASE}/attachments`, () => {
+        uploads += 1;
+        return HttpResponse.json({ attachment_id: 'x' }, { status: 201 });
+      }),
+      http.put(`${BASE}/sites/site_1/plan/underlay`, async ({ request }) => {
+        put = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(put);
+      }),
+    );
+    const { onSaved } = renderDialog(STORED);
+    expect(screen.getByTestId('underlay-scale')).toHaveTextContent('100');
+    expect(screen.getByTestId('underlay-rotation')).toHaveValue('15');
+    await user.click(screen.getByTestId('underlay-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    expect(uploads).toBe(0);
+    expect(put).toMatchObject({ attachment_key: 'att_stored', rotation_deg: 15, opacity: 0.4 });
+  });
+});
+
+describe('a viewer', () => {
+  it('sees the calibration and can neither change nor remove it', () => {
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
+    renderDialog(STORED, 'viewer');
+    expect(screen.getByTestId('underlay-scale')).toHaveTextContent('100');
+    expect(screen.queryByTestId('underlay-save')).toBeNull();
+    expect(screen.queryByTestId('underlay-remove')).toBeNull();
+    expect(screen.queryByTestId('underlay-file')).toBeNull();
+  });
+});
+
+describe('accessibility', () => {
+  // Two tests, not one: each runs axe over a whole MUI dialog, and one test doing both came close to the 5 s limit.
+  it('has no axe violations while empty', async () => {
+    renderDialog(null);
+    await expectNoA11yViolations(document.body);
+  });
+
+  it('has no axe violations with a stored calibration', async () => {
+    server.use(
+      http.get(
+        `${BASE}/attachments/att_stored`,
+        () => new HttpResponse(new Blob(['x']), { status: 200 }),
+      ),
+    );
+    renderDialog(STORED);
+    await waitFor(() => expect(screen.getByTestId('underlay-picture')).toBeInTheDocument());
+    await expectNoA11yViolations(document.body);
+  });
+
+  it('has no axe violations with the keyboard surface of a decoded picture', async () => {
+    const user = userEvent.setup();
+    renderDialog(null);
+    await user.upload(screen.getByTestId('underlay-file'), PNG);
+    loadPicture(800, 400);
+    expect(screen.getByRole('application')).toBeInTheDocument();
+    await expectNoA11yViolations(document.body);
+  });
+});

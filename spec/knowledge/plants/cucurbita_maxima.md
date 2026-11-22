@@ -140,6 +140,22 @@
 - [Vital Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/), [Osborne Seed — Seed Count Chart](https://www.osborneseed.com/pages/seed-count-chart), [Farmers Stop — Seeds Per Gram for Common Vegetables](https://www.farmersstop.com/blogs/news/seeds-per-gram-for-common-vegetables-fruits-and-others) — Samenzahl 8–15 Samen/g (TKG-Ableitung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 75–100 | `species.spacing_cm` |
+| Reihenabstand (cm) | 150 | `species.row_spacing_cm` |
+| Quelle Abstände | LFA M-V (Landesforschungsanstalt für Landwirtschaft und Fischerei Mecklenburg-Vorpommern), Hirthe/Heinze, „Auswirkung unterschiedlicher Standweiten auf den Ertrag von Hokkaido-Kürbis im Ökologischen Anbau" (Versuch Gülzow 2006, Infoblatt 2007): Reihenabstand 1,5 m, Abstand in der Reihe 0,75 m und 1,0 m gleich gut, Empfehlung 1,5 × 1,0 m, https://landwirtschaft-mv.de/serviceassistent/download?id=1579977; LWK NRW, Herbener, „Dichtpflanzung von Hokkaido bringt mehr Ertrag und gleiche Lagereignung" (Leitbetriebe Ökologischer Landbau NRW, 2012): Normalpflanzung 150 cm × 66 cm (Reihenabstand 150 cm aus Parzellenmaß 4 Reihen auf 6,00 m abgeleitet), https://www.oekolandbau.nrw.de/sites/default/files/2017-05/04_06_Hokkaido_Pflanzdichten_11.pdf; Feldkultur rankender Hokkaido-Sorten; RHS „How to grow pumpkins" nennt für Gartenkultur 90 cm je Pflanze bei Buschsorten und 1,5 m bei rankenden Sorten, https://www.rhs.org.uk/vegetables/pumpkins/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „How to grow pumpkins" („Choose a warm, sunny growing site"; Früchte „exposed to full sun"), https://www.rhs.org.uk/vegetables/pumpkins/grow-your-own; RHS Plant Finder, Cucurbita maxima 'Atlantic Giant' (Sunlight: Full sun), https://www.rhs.org.uk/plants/199782/cucurbita-maxima-atlantic-giant/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -329,6 +345,11 @@ Kürbis ist Starkzehrer mit sehr hohem Nährstoffbedarf — das Pflanzloch vor d
 | Empfohlene Vorfrucht | Hülsenfrüchte, Leguminosen |
 | Empfohlene Nachfrucht | Salat, Spinat, Zwiebeln (Schwachzehrer) |
 | Anbaupause (Jahre) | 3 Jahre keine Cucurbitaceen |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | LKSH (Landwirtschaftskammer Schleswig-Holstein), „Fruchtfolge im Garten" (2020), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf (Starkzehrer u. a. Kürbis); Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Oktober 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf (Starkzehrer: Kürbis); Natur im Garten (Land NÖ / Natur im Garten Burgenland), „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf (Starkzehrer: Kürbis); die Quellen nennen „Kürbis" gattungsweit, nicht Cucurbita maxima einzeln |
+| Zehrerstufe — Konfidenz | high |
+| Stickstofffixierer | false (keine Leguminose; LKSH Fruchtfolge 2020 führt Kürbisgewächse und Hülsenfrüchte als getrennte Pflanzenfamilien, https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Cucurbitaceae 4) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -403,3 +424,10 @@ Atlantic Giant,Cucurbita maxima,–,–,"giant;exhibition",120,,open_pollinated
 19. [Grow Pittsburgh — How-To: Testing Seed Viability](http://www.growpittsburgh.org/wp-content/uploads/How-To-Testing-Seed-Viability.pdf) — Keimfähigkeitsdauer (Zweitbeleg)
 20. [Vital Seeds — Seeds per Gram](https://vitalseeds.co.uk/growing-resources/seed-saving-resources/seeds-per-gram/) und [Osborne Seed — Seed Count Chart](https://www.osborneseed.com/pages/seed-count-chart) — Samenzahl je Gramm (TKG-Ableitung)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill Batch 5) -->
+21. [LFA M-V — Auswirkung unterschiedlicher Standweiten auf den Ertrag von Hokkaido-Kürbis im Ökologischen Anbau (Hirthe/Heinze, 2007)](https://landwirtschaft-mv.de/serviceassistent/download?id=1579977) — Reihenabstand 1,5 m, Abstand in der Reihe 0,75–1,0 m (§1.9)
+22. [LWK NRW — Dichtpflanzung von Hokkaido bringt mehr Ertrag und gleiche Lagereignung (Herbener, 2012)](https://www.oekolandbau.nrw.de/sites/default/files/2017-05/04_06_Hokkaido_Pflanzdichten_11.pdf) — Pflanzabstände 150 cm × 66 cm (§1.9)
+23. [RHS — How to grow pumpkins](https://www.rhs.org.uk/vegetables/pumpkins/grow-your-own) — sonniger Standort, Pflanzabstände Busch-/rankende Sorten (§1.9, §1.10)
+24. [RHS Plant Finder — Cucurbita maxima 'Atlantic Giant'](https://www.rhs.org.uk/plants/199782/cucurbita-maxima-atlantic-giant/details) — Sunlight: Full sun (§1.10)
+25. [LKSH — Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Starkzehrer Kürbis, Kürbisgewächse und Hülsenfrüchte als getrennte Familien (§6.1)
+26. [Südtiroler Bauernbund — Merkblatt Fruchtfolgen im Gemüsebau (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Starkzehrer Kürbis, Anbaupause Kürbisgewächse 4–5 Jahre (§6.1)
+27. [Natur im Garten — Fruchtfolge im Gemüsegarten (2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Starkzehrer Kürbis (§6.1)

@@ -6,9 +6,8 @@ import type {
   IdentifyResult,
   PlantOrgan,
 } from '@/api/types';
-import { isApiError } from '@/api/errors';
+import { isApiError, errorKey } from '@/api/errors';
 import * as api from '@/api/endpoints/identification';
-import i18n from '@/i18n/i18n';
 
 /**
  * REQ-029 / REQ-029-A — plant identification state.
@@ -51,29 +50,30 @@ interface RejectValue {
   code: string | null;
 }
 
-/** Translate a caught error into a user-facing message + machine-readable code. */
+/**
+ * Map a caught error to an i18n key + machine-readable code (#3013).
+ *
+ * The slice stores the **key**; the component translates it. The backend's
+ * English `message` is never kept.
+ */
 function toRejectValue(error: unknown): RejectValue {
-  const t = i18n.t.bind(i18n);
   if (isApiError(error)) {
     switch (error.errorCode) {
       case 'CONSENT_REQUIRED':
-        return { message: t('pages.plantIdentification.consentRequired'), code: error.errorCode };
+        return { message: 'pages.plantIdentification.consentRequired', code: error.errorCode };
       case 'FEATURE_NOT_CONFIGURED':
-        return { message: t('pages.plantIdentification.notConfigured'), code: error.errorCode };
+        return { message: 'pages.plantIdentification.notConfigured', code: error.errorCode };
       case 'RATE_LIMIT_EXCEEDED':
-        return { message: t('pages.plantIdentification.rateLimitReached'), code: error.errorCode };
+        return { message: 'pages.plantIdentification.rateLimitReached', code: error.errorCode };
       case 'PAYLOAD_TOO_LARGE':
-        return { message: t('pages.plantIdentification.imageTooLarge'), code: error.errorCode };
+        return { message: 'pages.plantIdentification.imageTooLarge', code: error.errorCode };
       case 'UNSUPPORTED_MEDIA_TYPE':
-        return { message: t('pages.plantIdentification.unsupportedFormat'), code: error.errorCode };
+        return { message: 'pages.plantIdentification.unsupportedFormat', code: error.errorCode };
       default:
-        return { message: error.message || t('errors.server'), code: error.errorCode };
+        return { message: errorKey(error, 'errors.server'), code: error.errorCode };
     }
   }
-  if (error instanceof Error) {
-    return { message: error.message || t('errors.unknown'), code: null };
-  }
-  return { message: t('errors.unknown'), code: null };
+  return { message: errorKey(error, 'errors.unknown'), code: null };
 }
 
 export const fetchIdentificationStatus = createAsyncThunk<IdentificationStatus>(
@@ -163,7 +163,7 @@ const identificationSlice = createSlice({
       })
       .addCase(identifyPlant.rejected, (state, action) => {
         state.identifying = false;
-        state.error = action.payload?.message ?? action.error.message ?? 'Identification failed';
+        state.error = action.payload?.message ?? errorKey(action.error);
         state.errorCode = action.payload?.code ?? null;
       })
       // ── select ──
@@ -178,7 +178,7 @@ const identificationSlice = createSlice({
       })
       .addCase(selectIdentificationResult.rejected, (state, action) => {
         state.selecting = false;
-        state.error = action.payload?.message ?? action.error.message ?? 'Selection failed';
+        state.error = action.payload?.message ?? errorKey(action.error);
         state.errorCode = action.payload?.code ?? null;
       })
       // ── history ──

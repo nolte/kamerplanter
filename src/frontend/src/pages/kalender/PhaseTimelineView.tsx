@@ -10,37 +10,8 @@ import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import EmptyState from '@/components/common/EmptyState';
+import { getPhaseColor } from '@/theme/domainColors';
 import type { CalendarEvent } from '@/api/types';
-
-// ── Phase color palette ─────────────────────────────────────────────
-
-const PHASE_COLORS: Record<string, string> = {
-  germination: '#81C784',
-  seedling: '#66BB6A',
-  vegetative: '#43A047',
-  flowering: '#AB47BC',
-  harvest: '#EF5350',
-  drying: '#FF7043',
-  curing: '#FFA726',
-  flushing: '#42A5F5',
-  ripening: '#FF8A65',
-  cloning: '#26A69A',
-};
-
-const FALLBACK_PALETTE = [
-  '#7E57C2', '#5C6BC0', '#29B6F6', '#26C6DA', '#66BB6A',
-  '#D4E157', '#FFCA28', '#FFA726', '#EC407A', '#78909C',
-];
-
-function getPhaseColor(phaseName: string): string {
-  const key = phaseName.toLowerCase().replace(/[^a-z]/g, '');
-  if (PHASE_COLORS[key]) return PHASE_COLORS[key];
-  let hash = 0;
-  for (let i = 0; i < phaseName.length; i++) {
-    hash = (hash * 31 + phaseName.charCodeAt(i)) | 0;
-  }
-  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
-}
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -136,7 +107,7 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
           phaseName,
           startDay,
           endDay,
-          color: getPhaseColor(phaseName),
+          color: getPhaseColor(theme, phaseName, { unknown: 'distinct' }),
           isOngoing: ev.end !== null && endNum >= monthEndNum,
           status: phaseStatus,
         });
@@ -158,7 +129,7 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
     }
     result.sort((a, b) => a.runName.localeCompare(b.runName));
     return result;
-  }, [phaseEvents, year, month, daysInMonth, t]);
+  }, [phaseEvents, year, month, daysInMonth, t, theme]);
 
   // Detect used phases for legend
   const usedPhases = useMemo(() => {
@@ -506,7 +477,7 @@ function PlantPhaseRow({
                     {'\n'}
                     {bar.phaseName}: {formatDate(bar.startDay)} – {formatDate(bar.endDay)}
                     {bar.status === 'projected' ? ` (${t('pages.calendar.phaseTimeline.projected')})` : ''}
-                    {bar.isOngoing && bar.status !== 'projected' ? ` (\u2026)` : ''}
+                    {bar.isOngoing && bar.status !== 'projected' ? ` (…)` : ''}
                   </Box>
                 }
                 arrow

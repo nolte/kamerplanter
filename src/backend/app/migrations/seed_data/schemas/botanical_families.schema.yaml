@@ -29,8 +29,14 @@ $defs:
         type: string
         description: "Taxonomic order (e.g. Solanales)"
       typical_nutrient_demand:
-        type: string
-        enum: [heavy, medium, light]
+        # One definition for both Steckbrief paths: the `*_feeder` triple since
+        # migration M6 (v0096, REQ-053 GP-FR-139).
+        $ref: "_defs.schema.yaml#/$defs/nutrient_demand_simple"
+      nitrogen_fixing:
+        type: boolean
+        description: "Family-level nitrogen fixation (Fabaceae …), existing BotanicalFamily model field. Set only with a source (E-10); omit the key when unsourced (the model is a non-null bool). Forwarded by the family importers (`seed_plant_info.py:_build_families` and siblings) since migration M6 (#2325)."
+      rotation_pause_years:
+        $ref: "_defs.schema.yaml#/$defs/rotation_pause_years"
       frost_tolerance:
         type: string
         enum: [sensitive, moderate, hardy, very_hardy]

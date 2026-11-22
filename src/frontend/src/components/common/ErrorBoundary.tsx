@@ -10,7 +10,12 @@ interface ErrorBoundaryProps {
   /** i18n-resolved title + hint + retry label (passed in so this stays i18n-agnostic). */
   title: string;
   hint: string;
-  retryLabel: string;
+  /**
+   * Omit it where a retry cannot succeed: a `lazy()` chunk that failed to load
+   * stays rejected for the life of the page, so remounting it fails again and
+   * only a reload helps (pass `reloadLabel` instead).
+   */
+  retryLabel?: string;
   testId?: string;
   /** Names the failing subtree in the error report (e.g. the widget key). */
   boundaryName?: string;
@@ -23,11 +28,11 @@ interface ErrorBoundaryProps {
    */
   variant?: 'inline' | 'page';
   /**
-   * Only used by variant="page". Retry alone re-mounts the subtree with the
-   * same app state — if the error came from something other than transient
-   * render timing (e.g. a corrupt persisted store), it fails again
-   * immediately. This renders a second, explicit "reload the page" action
-   * (a real `window.location.reload()`) alongside Retry.
+   * Retry alone re-mounts the subtree with the same app state — if the error
+   * came from something other than transient render timing (e.g. a corrupt
+   * persisted store, or a code chunk that is gone after a deploy), it fails
+   * again immediately. This renders an explicit "reload the page" action (a
+   * real `window.location.reload()`) alongside Retry, in both variants.
    */
   reloadLabel?: string;
 }
@@ -123,15 +128,17 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
               <AlertTitle>{this.props.title}</AlertTitle>
               {this.props.hint}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="small"
-                  onClick={this.handleRetry}
-                  sx={{ minHeight: 48 }}
-                >
-                  {this.props.retryLabel}
-                </Button>
+                {this.props.retryLabel && (
+                  <Button
+                    variant="contained"
+                    color="error"
+                    size="small"
+                    onClick={this.handleRetry}
+                    sx={{ minHeight: 48 }}
+                  >
+                    {this.props.retryLabel}
+                  </Button>
+                )}
                 {this.props.reloadLabel && (
                   <Button
                     variant="outlined"
@@ -153,14 +160,28 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           <Alert
             severity="error"
             action={
-              <Button
-                color="inherit"
-                size="small"
-                onClick={this.handleRetry}
-                sx={{ minHeight: 48 }}
-              >
-                {this.props.retryLabel}
-              </Button>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {this.props.retryLabel && (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={this.handleRetry}
+                    sx={{ minHeight: 48 }}
+                  >
+                    {this.props.retryLabel}
+                  </Button>
+                )}
+                {this.props.reloadLabel && (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={this.handleReload}
+                    sx={{ minHeight: 48 }}
+                  >
+                    {this.props.reloadLabel}
+                  </Button>
+                )}
+              </Box>
             }
           >
             <AlertTitle>{this.props.title}</AlertTitle>

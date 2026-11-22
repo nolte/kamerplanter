@@ -20,8 +20,14 @@ from app.domain.models.site import Location
 
 @pytest.fixture
 def mock_db():
-    """Mock ArangoDB database connection."""
-    return MagicMock()
+    """Mock ArangoDB database connection.
+
+    ``update_location`` writes inside a stream transaction since #2561 (the ``contains`` edge moves with the
+    document), so the transaction's collection handle is the same mock as the database's.
+    """
+    db = MagicMock()
+    db.begin_transaction.return_value.collection = db.collection
+    return db
 
 
 @pytest.fixture
@@ -71,7 +77,6 @@ class TestLocationUpdateNullReset:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -82,7 +87,7 @@ class TestLocationUpdateNullReset:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Verify the update call was made
         coll.update.assert_called_once()
@@ -121,7 +126,6 @@ class TestLocationUpdateNullReset:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -131,7 +135,7 @@ class TestLocationUpdateNullReset:
             }
         }
 
-        result = repo.update_location("loc-2", location)
+        result = repo.update_location("loc-2", location, untouched=())
 
         # Payload must include frost_exposed: None
         call_args = coll.update.call_args
@@ -164,7 +168,6 @@ class TestLocationUpdateTrueFalseToggle:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -175,7 +178,7 @@ class TestLocationUpdateTrueFalseToggle:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -202,7 +205,6 @@ class TestLocationUpdateTrueFalseToggle:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -213,7 +215,7 @@ class TestLocationUpdateTrueFalseToggle:
             }
         }
 
-        result = repo.update_location("loc-2", location)
+        result = repo.update_location("loc-2", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -244,7 +246,6 @@ class TestLocationUpdateOtherNullableFields:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -255,7 +256,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -282,7 +283,6 @@ class TestLocationUpdateOtherNullableFields:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -293,7 +293,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -320,7 +320,6 @@ class TestLocationUpdateOtherNullableFields:
                 "depth": 0,
                 "path": "",
                 # orientation absent (removed by keep_none=False)
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -331,7 +330,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -358,7 +357,6 @@ class TestLocationUpdateOtherNullableFields:
                 "depth": 0,
                 "path": "",
                 "orientation": "north",
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -369,7 +367,7 @@ class TestLocationUpdateOtherNullableFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -405,7 +403,6 @@ class TestLocationUpdateNonNullFields:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -416,7 +413,7 @@ class TestLocationUpdateNonNullFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Non-null fields are in the payload
         call_args = coll.update.call_args
@@ -459,7 +456,6 @@ class TestLocationUpdateComputedFields:
                 "depth": 2,
                 "path": "site-1.bed-1.shelf-1",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -470,7 +466,7 @@ class TestLocationUpdateComputedFields:
             }
         }
 
-        result = repo.update_location("loc-1", location)
+        result = repo.update_location("loc-1", location, untouched=())
 
         # Computed fields are in the payload (for consistency)
         call_args = coll.update.call_args
@@ -511,7 +507,7 @@ class TestLocationUpdateNotFound:
         coll.update.side_effect = self._make_document_update_error(1202)
 
         with pytest.raises(NotFoundError) as exc_info:
-            repo.update_location("nonexistent-key", location)
+            repo.update_location("nonexistent-key", location, untouched=())
 
         assert exc_info.value.error_code == "ENTITY_NOT_FOUND"
         assert "nonexistent-key" in str(exc_info.value)
@@ -527,7 +523,7 @@ class TestLocationUpdateNotFound:
         coll.update.side_effect = self._make_document_update_error(400)
 
         with pytest.raises(DocumentUpdateError) as exc_info:
-            repo.update_location("loc-1", location)
+            repo.update_location("loc-1", location, untouched=())
 
         # Verify it's not NotFoundError (which would have been raised for 1202)
         assert not isinstance(exc_info.value, NotFoundError)
@@ -561,7 +557,6 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -572,7 +567,7 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
             }
         }
 
-        repo.update_location("loc-1", location)
+        repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         payload = call_args.args[0]
@@ -604,7 +599,6 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
                 "depth": 0,
                 "path": "",
                 "orientation": None,
-                "dimensions": [0.0, 0.0, 0.0],
                 "lights_on": None,
                 "lights_off": None,
                 "use_dynamic_sunrise": False,
@@ -615,7 +609,7 @@ class TestLocationUpdateExcludeNoneAndKeepNoneFlags:
             }
         }
 
-        repo.update_location("loc-1", location)
+        repo.update_location("loc-1", location, untouched=())
 
         call_args = coll.update.call_args
         assert call_args.kwargs.get("keep_none") is False

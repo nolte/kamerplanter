@@ -143,13 +143,17 @@ def area_dosing(
 
     Area is taken from an explicit ``area_m2`` (override) or resolved from
     ``location_key`` (Location.area_m2, scoped to the caller's tenant). Solid
-    amendments are dosed g/m² and L/m² instead of ml/L.
+    amendments are dosed g/m² and L/m² instead of ml/L. ``species_key`` names
+    the species the bed is dosed for (own, global or granted, else 404); its
+    ``nitrogen_fixing`` flag enables the N warning. ``demand_level`` is a
+    deprecated alias of that flag.
     """
     result = service.calculate_area_dosage(
         fertilizer_keys=body.fertilizer_keys,
         area_m2=body.area_m2,
         location_key=body.location_key,
-        demand_level=body.demand_level,
+        species_key=body.species_key,
+        legacy_demand_level=body.demand_level,
         tenant_key=ctx.tenant_key,
     )
     return AreaDosingResponse(

@@ -19,6 +19,7 @@ import PageTitle from '@/components/layout/PageTitle';
 import { useLocalizedField } from '@/hooks/useLocalizedField';
 import { getTreatmentDetail } from '@/api/endpoints/ipm';
 import type { TreatmentDetail } from '@/api/types';
+import { getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -44,7 +45,7 @@ const treatmentTypeColor: Record<string, ChipColor> = {
  * - Responsive: mobile-first single column, md+ two-column for compact panels
  */
 export default function TreatmentDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const l = useLocalizedField();
   const navigate = useNavigate();
   const { key = '' } = useParams<{ key: string }>();
@@ -319,10 +320,10 @@ export default function TreatmentDetailPage() {
                         component={RouterLink}
                         to={`/pflanzenschutz/pests/${p.key}`}
                         icon={<BugReportIcon />}
-                        label={l(p, 'common_name')}
+                        label={getLocalizedCatalogName(p, i18n.language)}
                         size="small"
                         variant="outlined"
-                        aria-label={`${l(p, 'common_name')} — ${t('pages.treatmentDetail.viewPestDetail')}`}
+                        aria-label={`${getLocalizedCatalogName(p, i18n.language)} — ${t('pages.treatmentDetail.viewPestDetail')}`}
                         sx={{ cursor: 'pointer', minHeight: 44 }}
                         data-testid="treatment-target-pest"
                         clickable
@@ -352,7 +353,7 @@ export default function TreatmentDetailPage() {
                     <Box component="li" key={d.key} sx={{ listStyle: 'none' }}>
                       <Chip
                         icon={<LocalHospitalIcon />}
-                        label={l(d, 'common_name')}
+                        label={getLocalizedCatalogName(d, i18n.language)}
                         size="small"
                         variant="outlined"
                       />

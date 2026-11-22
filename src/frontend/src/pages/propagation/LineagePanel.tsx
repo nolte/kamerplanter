@@ -24,6 +24,7 @@ import PlantInstancePicker from '@/components/form/PlantInstancePicker';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { usePlantInstanceOptions } from '@/hooks/usePlantInstanceOptions';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
 import * as api from '@/api/endpoints/propagation';
 import type {
   DescendantsResponse,
@@ -31,6 +32,7 @@ import type {
   GraftCompatibilityResponse,
   LineageResponse,
 } from '@/api/types';
+import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 const levelColor: Record<GraftCompatibilityLevel, ChipProps['color']> = {
   compatible: 'success',
@@ -49,10 +51,11 @@ const alertSeverity: Record<GraftCompatibilityLevel, 'success' | 'warning' | 'er
  * run the taxonomy-based graft-compatibility check between two plants.
  */
 export default function LineagePanel(): ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { handleError } = useApiError();
   const notification = useNotification();
-  const { instances, loading: instancesLoading } = usePlantInstanceOptions();
+  const { instances, loading: instancesLoading, error: instancesError, reload: reloadInstances } =
+    usePlantInstanceOptions();
 
   // Species reference data resolves raw `*_species_key` values (e.g. in the
   // graft result) to human-readable names so no raw key ever reaches the user.
@@ -65,11 +68,10 @@ export default function LineagePanel(): ReactElement {
   const speciesNameByKey = useMemo(() => {
     const map = new Map<string, string>();
     for (const s of speciesCatalogue.items) {
-      const common = s.common_names?.[0];
-      map.set(s.key, common ? `${common} (${s.scientific_name})` : s.scientific_name);
+      map.set(s.key, getSpeciesOptionLabel(s, i18n.language));
     }
     return map;
-  }, [speciesCatalogue.items]);
+  }, [speciesCatalogue.items, i18n.language]);
 
   const resolveSpeciesName = useCallback(
     (key: string | null | undefined): string =>
@@ -150,6 +152,9 @@ export default function LineagePanel(): ReactElement {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.propagation.lineage.intro')}
             </Typography>
+            {instancesError && (
+              <OptionsLoadError onRetry={reloadInstances} data-testid="lineage-plants-load-error" />
+            )}
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               spacing={1}
@@ -250,6 +255,9 @@ export default function LineagePanel(): ReactElement {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {t('pages.propagation.graft.intro')}
             </Typography>
+            {instancesError && (
+              <OptionsLoadError onRetry={reloadInstances} data-testid="graft-plants-load-error" />
+            )}
             <Stack spacing={1.5} sx={{ mb: 0.5 }}>
               <PlantInstancePicker
                 label={t('pages.propagation.graft.scionKey')}

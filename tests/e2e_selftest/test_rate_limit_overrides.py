@@ -59,6 +59,25 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "the pairing tests themselves assert — raising it here would blunt the very "
         "thing they measure."
     ),
+    "rate_limit_zone_log_watering": (
+        "No E2E test logs a zone watering round yet (POST /irrigation-zones/{key}/log-watering, REQ-053 "
+        "WP 7.3); the zone panel that calls it is WP 7.6/7.7. One round per grower and minute at most is "
+        "human-scale, so raising it here would test nothing the suite uses."
+    ),
+    "rate_limit_zone_rain_skipped": (
+        "The 'rain - skipped' action of the watering-round dialog (POST /irrigation-zones/{key}/rain-skipped, "
+        "REQ-053 WP 9.13) is pressed once per round: TC-053-047 (WP 9.16) presses it once per run. A grower "
+        "who skips a round because it rained does that a few times a season, never in a burst, so raising it "
+        "here would test nothing the suite uses."
+    ),
+    "rate_limit_care_events_export": (
+        "No E2E test downloads the care-log CSV (grep over tests/e2e finds no call to "
+        "GET /care-events?format=csv and no click on the history export button, REQ-053 WP 8.4); the "
+        "export is one deliberate click per file, never on a bootstrap or navigation path, and the "
+        "JSON list of the same route is not counted against this budget (exempt_when), so the suite's "
+        "history reads cannot exhaust it. If a journey ever downloads the file repeatedly, this entry "
+        "is wrong and the limit needs raising."
+    ),
     "rate_limit_email_change": (
         "A couple of change requests per run; the flow is not on any journey path."
     ),
@@ -87,6 +106,15 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "platform admin imports a handful of archives at most; the hourly per-account budget "
         "bounds a route that reads, verifies and stores a whole upload, so raising it here would "
         "test nothing the suite uses."
+    ),
+    "rate_limit_bed_template_import": (
+        "One E2E case imports a bed-template file: TC-053-092 (test_req053_wave9_export.py, #2756) "
+        "sends exactly three requests per run - the dry run that refuses the taken name, the "
+        "recheck with the proposed name and the confirm - against its tenant's budget of ten a "
+        "minute, and no other test imports a template. The import is a deliberate file upload from "
+        "the template panel, never on a bootstrap or navigation path, so the suite's load does not "
+        "scale with page opens. If a second journey imports a template, this entry is wrong and the "
+        "limit needs raising."
     ),
     "rate_limit_notification_test": (
         "Reachable only by an explicit click on the notification-settings tab — one "

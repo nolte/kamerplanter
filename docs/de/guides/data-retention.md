@@ -729,9 +729,43 @@ dem Start des Beat-Prozesses: Ein Neustart des Beat-Pods verschiebt keinen Lauf,
 Wo ein Altersfilter einen Datensatz ohne lesbaren Zeitstempel nicht beurteilen kann,
 löscht er ihn nicht, sondern zählt ihn und meldet den Zähler als `held_undated` im
 Lauf-Ereignis: beim Konto-Bereinigungs-Task (R-02), bei den Aufrufprotokollen, bei den
-verwaisten Aufgabenfotos, bei den Consent Records (R-04, `purge_expired_consent_records`),
+verwaisten Aufgaben- und Beetfotos und Plan-Unterlagen, bei den Consent Records (R-04, `purge_expired_consent_records`),
 bei den bestätigten E-Mail-Änderungen (R-07b, `expire_email_change_requests`) und beim
 Glossar-Cache (`glossary_cleanup_cache`).
+
+### Nie verknüpfte Beetfotos
+
+Ein Beetfoto lebt so lange wie das Beet, an dem es hängt, und damit höchstens so lange wie
+der Standort und der Mandant. Hochgeladen wird es in zwei Schritten: erst die Datei, dann
+die Verknüpfung mit dem Beet. Kommt die Verknüpfung nie zustande (das Beet hat schon 50
+Fotos, wurde zwischendurch gelöscht oder die Verbindung brach ab), bleibt eine Datei zurück,
+die kein Beet zeigt. Dasselbe passiert, wenn nach dem Entfernen eines Fotos oder dem Löschen
+eines Beets das Löschen der Datei fehlschlägt.
+
+Diese Dateien entfernt der Celery-Task `app.tasks.storage_tasks.cleanup_orphaned_location_photos`
+(täglich 03:50 UTC): Jedes Beetfoto (Kategorie `location`), das älter als
+`STORAGE_LOCATION_PHOTO_ORPHAN_HOURS` Stunden ist (Standard **48**, `0` schaltet den Task ab)
+und das nichts mehr nennt, wird samt Datei und Vorschaubildern gelöscht. „Nichts nennt es"
+heißt: kein Beet, keine Pflanzengalerie, keine Aufgabe und kein anderer Datensatz, der Fotos
+trägt. Ein frisch hochgeladenes Foto liegt innerhalb der 48 Stunden und bleibt. Der Lauf
+schreibt die Zeile `cleanup_orphaned_location_photos_audit` mit `found`, `deleted`, `failed`,
+`skipped`, `freed_bytes` und `held_undated`.
+
+### Nie verwendete Plan-Unterlagen
+
+Die Unterlage unter einem Gartenplan (ein Luftbild oder eine Skizze zum Abzeichnen) kommt
+auf demselben zweistufigen Weg: erst die Datei, dann die Zuordnung zum Standort. Bricht die
+Zuordnung ab (der Standort hat noch keinen Plan, der Tab wurde geschlossen, die Verbindung
+brach ab) oder schlägt nach dem Ersetzen oder Entfernen der Unterlage das Löschen der alten
+Datei fehl, bleibt ein Bild zurück, das kein Standort zeigt. Ein Luftbild kann zeigen, wo
+jemand wohnt.
+
+Diese Dateien entfernt der Celery-Task `app.tasks.storage_tasks.cleanup_orphaned_underlays`
+(täglich 04:00 UTC): Jede Unterlage (Kategorie `garden_plan_underlay`), die älter als
+`STORAGE_GARDEN_PLAN_UNDERLAY_ORPHAN_HOURS` Stunden ist (Standard **48**, `0` schaltet den
+Task ab) und die nichts mehr nennt, wird samt Datei und Vorschaubildern gelöscht. Eine
+Unterlage, die zwei Standorte teilen, bleibt, solange einer sie nennt. Der Lauf schreibt die
+Zeile `cleanup_orphaned_underlays_audit` mit denselben Feldern wie der Beetfoto-Task.
 
 ### Metriken
 
@@ -802,6 +836,8 @@ flowchart TD
 | Export-Dateien | Sofort löschen |
 | Erntedaten, Qualitätsbewertungen, Behandlungen, Inspektionen | Anonymisieren (Tombstone-Hash `anon_…`, Namensfelder geleert), nicht löschen (Art. 17 Abs. 3) |
 | Aufgaben, Aufgaben-Kommentare, Tagebucheinträge, Dateien, Import-Aufträge, Einstellungen und Übersteuerungen in einem (ggf. gemeinsamen) Garten | Kontenreferenz durch `_anonymized` ersetzen, Inhalt bleibt |
+| Unterlage des Gartenplans (Foto, Skizze oder Luftbild, Kategorie `garden_plan_underlay`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, Bild und Eichung bleiben für die anderen Mitglieder. Ein Luftbild kann den Wohnort verraten; wer es nicht behalten will, entfernt die Unterlage im Plan-Editor (dann wird auch die Datei gelöscht), oder sie geht mit dem Garten |
+| Beetfotos (Kategorie `location`) in einem (ggf. gemeinsamen) Garten | Wie die übrigen Dateien des Gartens: **anonymisieren, nicht löschen** — Kontenreferenz ersetzen, das Foto bleibt am Beet für die anderen Mitglieder. Ein Gartenfoto kann Menschen oder ein Haus zeigen; EXIF- und GPS-Daten entfernt schon das Hochladen, solange der Betreiber die Bereinigung nicht ausgeschaltet hat (`STORAGE_STRIP_EXIF`, Standard an). Wer ein Foto nicht behalten will, entfernt es am Beet (dann wird die Datei gelöscht, sofern kein anderes Beet sie zeigt). Mit dem Beet oder dem Standort gehen seine Fotos ebenso; schlägt das Löschen danach fehl, holt der nächtliche Aufräum-Task die Datei nach (siehe [Nie verknüpfte Beetfotos](#nie-verknupfte-beetfotos)) |
 | Dein persönlicher Garten, auch mit weiteren Mitgliedern | Vollständig löschen (Mandanten-Löschinventar), Ernte-/Behandlungs-/Inspektionsdaten wie oben pseudonymisiert; die anderen Mitglieder werden beim Antrag benachrichtigt |
 | Gemeinschaftsgarten oder anderer Garten, den du angelegt hast (kein persönlicher) | Besitzer-Referenz ersetzen; bei einem von einem Spätbeitritt erhaltenen persönlichen Garten auch Name und Kurzname |
 | Löschungs-Audit | Kontenreferenz durch den Tombstone-Hash ersetzen, 1 Jahr aufbewahren |
@@ -1007,6 +1043,102 @@ idempotent. Vorab zählen: `python -m app.migrations upgrade --dry-run`.
 !!! note "Was bleibt"
     Das Quell-Dokument behält sein Feld (z. B. `location_key` einer Ausrüstung); nur die
     Kante wird entfernt.
+
+---
+
+## Migration v0109: kopierte Pseudonyme korrigieren
+
+Nach einer Kontolöschung bleibt das Pseudonym der Person (`anon_…`) nur dort stehen, wo es
+gewollt ist — in Ernte-, Behandlungs- und Kontrollnachweisen und in den Audit-Protokollen. Ältere
+Abläufe haben es an Stellen kopiert, an denen nur die Markierung „anonymisiert“
+(`_anonymized`) stehen darf. Die Migration `v0109_privacy_tombstone_copies` räumt das auf:
+
+1. **Pflegeprotokoll:** Ausführende Person und erfassende Person eines Eintrags werden zur
+   Markierung, wenn dort ein Pseudonym steht.
+2. **Änderungsprotokoll des Gartenplans:** Die Person, die eine Änderung gemacht hat, wird zur
+   Markierung. Ab dieser Version macht das auch jede neue Kontolöschung so — das Protokoll
+   verknüpft gelöschte Personen nicht mehr über ein Pseudonym.
+3. **Anhänge:** Der ursprüngliche Dateiname eines Anhangs, dessen Hochladende Person gelöscht
+   wurde, wird geleert. Ein Kamera- oder Handydateiname enthält oft einen Namen. Auch das gilt
+   ab jetzt für jede neue Kontolöschung.
+4. **Alle übrigen Felder** mit einem Pseudonym werden nur **gezählt**, nicht geändert. Eine Zahl
+   größer als 0 ist ein Befund für den Betrieb.
+
+Die Migration bearbeitet jeden Garten außer bereits gelöschten — auch gesperrte oder zur Löschung
+vorgemerkte. Jeder Garten läuft in einer eigenen Transaktion. Scheitert einer, wird nur er
+zurückgerollt, die anderen laufen weiter, und die Migration gilt als nicht angewendet: Der nächste
+Start versucht sie erneut. Danach zählt sie nach. Bleibt etwas übrig, gilt sie ebenfalls als nicht
+angewendet.
+
+### Bericht vorab erzeugen
+
+Lass vor dem Upgrade einen Trockenlauf laufen und schreib den Bericht in eine Datei:
+
+```bash
+python -m app.migrations upgrade --dry-run --report-out /tmp/v0109-dry-run.json
+```
+
+Die Datei enthält für jede Datenschutz-Migration die Zähler je Schritt und je Garten, die Phasen
+(`precheck`, `dry_run`, `apply`, `verify`) und bis zu 25 Beispiel-Zeilenschlüssel je Schritt.
+Sie enthält keine Personenschlüssel, keine Namen, keine Texte und keine Pseudonyme. Denselben
+Bericht legt die Anwendung bei jedem Lauf — Trockenlauf und echter Lauf — in der Collection
+`migration_reports` ab.
+
+!!! danger "Nicht reversibel"
+    Die ersetzten Pseudonyme und die geleerten Dateinamen lassen sich nicht wiederherstellen.
+    Der Trockenlauf-Bericht ist der Nachweis, was geändert wurde.
+
+### Tägliche Prüfung
+
+Der Celery-Task `privacy.consistency` (täglich 05:20 UTC) zählt Pseudonyme in Feldern, in denen
+keine stehen dürfen. Er ändert nichts. Ergebnis: die Log-Zeile
+`privacy_consistency.completed`, bei einem Befund zusätzlich die Warnung
+`privacy_consistency.undeclared_tombstones`, und die Metrik
+`privacy_undeclared_tombstones{cell="<collection>.<feld>"}`.
+
+---
+
+## Migration v0110: Aufbewahrungspflicht bestehender Gärten einordnen
+
+Ein Garten kann gesetzlich verpflichtet sein, Nachweise aufzubewahren, etwa eine Anbauvereinigung
+nach KCanG oder ein Betrieb mit Pflanzenschutz-Aufzeichnungen. Neue Felder in den
+Garten-Einstellungen halten fest, ob das so ist (`record_keeping`) und welche Art von Organisation
+der Garten ist (`organization_kind`). Die Migration `v0110_tenant_record_keeping_default` setzt für
+bestehende Gärten einen Startwert:
+
+- **Persönlicher Garten:** `record_keeping = none`. `organization_kind` bleibt leer.
+- **Organisationsgarten:** `record_keeping = legacy` und `organization_kind = unknown_legacy`. Das
+  heißt: „noch nicht eingeordnet“. Wer den Garten verwaltet, sollte die richtige Einordnung
+  nachtragen.
+
+Ein Wert, der schon gesetzt ist, bleibt unverändert. Die Migration ist **reversibel**: Der
+Rückweg entfernt nur die beiden Startwerte `legacy` und `unknown_legacy`, also nichts, was danach
+jemand bewusst eingetragen hat.
+
+## Migration v0111: Ausführende Person neben dem Freitext
+
+Wer gegossen, einen Tank befüllt oder gewartet, einen Düngeplan geschrieben oder eine
+Workflow-Vorlage angelegt hat, steht bisher als frei eingetippter Text in der Zeile
+(`performed_by`, `author`, `created_by`). Ein Name ist aber kein Konto: Auskunft und Löschung
+erreichen ihn nicht, und aus einem Namen lässt sich kein Konto sicher ableiten. Die Migration
+`v0111_keyed_performers` legt deshalb neben jedem dieser Felder zwei neue an:
+
+- `…_user_key` — das Konto der ausführenden Person. Die Migration setzt es **nie**; es bleibt
+  leer, bis die Anwendung es bei neuen Einträgen selbst stempelt.
+- `…_label` — eine Bezeichnung für eine Person ohne Konto, höchstens 80 Zeichen. Die Migration
+  übernimmt den bisherigen Freitext dorthin, gekürzt auf 80 Zeichen.
+
+Betroffen sind Gieß-Ereignisse, Gießprotokolle, Tankbefüllungen, Tankwartungen, Düngepläne und
+Workflow-Vorlagen. Einen Sonderfall gibt es bei Kontrollen, die über die MCP-Schnittstelle erfasst
+wurden (`inspector = "mcp:<schlüssel>"`): Gehört der Schlüssel zu einem bestehenden
+**Dienstkonto**, das Mitglied dieses Gartens ist, wird er als Konto der Kontrolle eingetragen und
+der Text geleert. Sonst bleibt alles, wie es war.
+
+Die Migration bearbeitet nur **aktive** Gärten, jeden in einer eigenen Transaktion. Globale
+Katalogeinträge (System-Düngepläne und -Vorlagen) bleiben unberührt. Die alten Felder bleiben
+erhalten. Die Migration ist **reversibel**: Der Rückweg entfernt leere Kontofelder und Bezeichnungen,
+die noch die unveränderte Kopie des Freitexts sind. Die Zuordnung der MCP-Kontrollen nimmt er nicht
+zurück.
 
 ---
 

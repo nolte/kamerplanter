@@ -1,10 +1,38 @@
 import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
 import { ApiError } from './errors';
+import { bypassHttpCacheForOfflineReads } from './offlineReadRequest';
 import type { ApiErrorResponse } from './types';
 import { isLightMode } from '@/config/mode';
 import { invalidateAllCatalogues } from './catalogueRevision';
+import i18n from '@/i18n';
 
 const LIGHT_MODE_SLUG = 'mein-garten';
+
+/**
+ * The request header carrying the UI language (NFR-017 R-112/R-115, #2902).
+ *
+ * The backend words a few things itself — the species names of the care
+ * dashboard, the dashboard plant grid, the sowing calendar, the bed plan, the
+ * workflow lists, … — and resolves the language once, from this header
+ * (`app/common/locale.py: get_request_locale`). Set explicitly because the
+ * browser's own `Accept-Language` is the *browser's* preference, not the
+ * language the user picked in the app.
+ */
+export const ACCEPT_LANGUAGE_HEADER = 'Accept-Language';
+
+/**
+ * The UI language as sent to the API: the language i18next resolved (`de`,
+ * `en`), else the raw tag, else the canonical `de`. Read per request, so a
+ * language switch is followed by the very next request.
+ */
+export function requestLanguage(): string {
+  return i18n.resolvedLanguage || i18n.language || 'de';
+}
+
+function applyRequestLanguage(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
+  config.headers.set(ACCEPT_LANGUAGE_HEADER, requestLanguage());
+  return config;
+}
 
 /**
  * Request header naming the tenant the caller is acting in on a **global**
@@ -223,7 +251,11 @@ function recoverFromStaleActiveTenant(error: unknown): void {
   }
   void Promise.resolve()
     .then(handler)
-    .catch(() => undefined)
+    .catch((err: unknown) => {
+      // A failed recovery leaves the active tenant cleared; this chain only has to release the in-flight flag.
+      // console, not captureHandledError: this module loads before error tracking and must not import it.
+      console.warn('[api] active-tenant recovery failed', err);
+    })
     .finally(() => {
       _activeTenantRecoveryInFlight = false;
     });
@@ -310,6 +342,7 @@ client.interceptors.request.use(async (config) => {
   return config;
 });
 
+client.interceptors.request.use(applyRequestLanguage);
 client.interceptors.response.use((response) => response, handleGlobalClientError);
 
 /**
@@ -323,6 +356,10 @@ const tenantClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Axios runs request interceptors in reverse registration order: registered first, this one runs LAST - after the
+// slug prefix below has completed the URL it tests (SEC-001, #2759).
+tenantClient.interceptors.request.use(bypassHttpCacheForOfflineReads);
 
 tenantClient.interceptors.request.use(async (config) => {
   let slug = isLightMode ? LIGHT_MODE_SLUG : _activeTenantSlug;
@@ -338,6 +375,7 @@ tenantClient.interceptors.request.use(async (config) => {
   return config;
 });
 
+tenantClient.interceptors.request.use(applyRequestLanguage);
 tenantClient.interceptors.response.use((response) => response, rethrowApiError);
 
 export { tenantClient };

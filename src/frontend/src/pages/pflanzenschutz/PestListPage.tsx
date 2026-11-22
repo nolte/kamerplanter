@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -21,10 +20,10 @@ import { fetchPests } from '@/store/slices/ipmSlice';
 import { fetchPestDetectionStatus } from '@/store/slices/pestDetectionSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import { useColumnFilters } from '@/hooks/useColumnFilters';
-import { useLocalizedField } from '@/hooks/useLocalizedField';
 import type { Pest } from '@/api/types';
 import PestCreateDialog from './PestCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
+import { getCatalogNames, getLocalizedCatalogName } from '@/utils/plantDisplay';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -54,9 +53,7 @@ const FILTER_RECOGNITION = 'recognition';
 const FILTER_IDS = [FILTER_PEST_TYPE, FILTER_DIFFICULTY, FILTER_RECOGNITION] as const;
 
 export default function PestListPage() {
-  const { t } = useTranslation();
-  const l = useLocalizedField();
-  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
   const { pests, loading } = useAppSelector((s) => s.ipm);
   const detectionStatus = useAppSelector((s) => s.pestDetection.status);
@@ -178,8 +175,17 @@ export default function PestListPage() {
     {
       id: 'commonName',
       label: t('pages.ipm.commonName'),
-      render: (r) => l(r, 'common_name'),
-      searchValue: (r) => l(r, 'common_name'),
+      // The name in the UI language (#2955), the rule diseases follow (#2936). Sorting
+      // compares the shown names in the UI language's collation; the search matches
+      // each stored name on its own, so a German query finds a pest in an English UI.
+      render: (r) => getLocalizedCatalogName(r, i18n.language),
+      sortFn: (a, b) =>
+        getLocalizedCatalogName(a, i18n.language).localeCompare(
+          getLocalizedCatalogName(b, i18n.language),
+          i18n.language,
+          { sensitivity: 'base' },
+        ),
+      searchValues: (r) => getCatalogNames(r),
     },
     {
       id: 'pestType',
@@ -244,7 +250,7 @@ export default function PestListPage() {
         rows={filteredPests}
         loading={loading}
         getRowKey={(r) => r.key}
-        onRowClick={(r) => navigate(`/pflanzenschutz/pests/${r.key}`)}
+        getRowHref={(r) => `/pflanzenschutz/pests/${r.key}`}
         // The description closes the understanding gap the hidden create control
         // (header and empty state alike) leaves behind for a non-admin (#1501).
         emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}
@@ -259,7 +265,7 @@ export default function PestListPage() {
           <MobileCard
             title={r.scientific_name}
             titleId="scientificName"
-            subtitle={l(r, 'common_name')}
+            subtitle={getLocalizedCatalogName(r, i18n.language)}
             subtitleId="commonName"
             chips={[
               {

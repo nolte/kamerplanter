@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { WateringEvent, WateringStats } from '@/api/types';
 import * as api from '@/api/endpoints/watering-events';
+import { errorKey } from '@/api/errors';
 
 interface WateringEventsState {
   events: WateringEvent[];
@@ -71,7 +72,7 @@ const wateringEventsSlice = createSlice({
       })
       .addCase(fetchWateringEvents.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message ?? 'errors.loadFailed';
+        state.error = errorKey(action.error, 'errors.loadFailed');
       })
       .addCase(fetchLocationWateringEvents.fulfilled, (state, action) => {
         state.events = action.payload;

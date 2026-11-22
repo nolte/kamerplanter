@@ -36,6 +36,15 @@ function toClientRelativeUrl(uri: string): string {
 }
 
 /**
+ * Delays before re-requesting a rendition the server is still generating (`202 Accepted`, empty body). Bounded:
+ * after the first request plus these retries (≈ 15 s in total) a still-pending rendition ends in `error`.
+ */
+export const RENDITION_RETRY_DELAYS_MS: readonly number[] = [1000, 2000, 4000, 8000];
+
+/** `GET /attachments/{id}/thumbnails/{px}` answers 202 with no body while the rendition is generated. */
+const HTTP_ACCEPTED = 202;
+
+/**
  * Loads a permission-gated attachment URI as an authenticated blob and exposes it
  * as an Object-URL suitable for an `<img src>`.
  *
@@ -45,9 +54,15 @@ function toClientRelativeUrl(uri: string): string {
  * authenticated axios client instead (`responseType: 'blob'`, mirroring
  * `api/endpoints/print.ts`) and hands back a stable Object-URL.
  *
+ * A just-uploaded photo's thumbnail is generated asynchronously: the server answers
+ * `202` with an empty body until it exists. That is not an image, so the hook stays
+ * in `loading` and asks again after {@link RENDITION_RETRY_DELAYS_MS}; still `202`
+ * after the last retry ends in `error`.
+ *
  * The Object-URL is revoked whenever the source URI changes and on unmount, so no
- * blob references leak. A `null` / empty `uri` short-circuits to the `loading`
- * status without issuing a request (callers render their own placeholder).
+ * blob references leak; a pending retry is cancelled then too (no request and no
+ * state update after unmount). A `null` / empty `uri` short-circuits to the
+ * `loading` status without issuing a request (callers render their own placeholder).
  *
  * @param uri - Full backend attachment URI (e.g. `/api/v1/t/{slug}/attachments/{id}/thumbnails/512`).
  */
@@ -66,34 +81,56 @@ export function useAuthImage(uri: string | null | undefined): UseAuthImageResult
     }
 
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
     setStatus('loading');
 
     const requestUrl = toClientRelativeUrl(uri);
-    // Request an ArrayBuffer and build the Blob ourselves rather than letting
-    // axios convert to responseType:'blob'. The blob conversion is unreliable
-    // across runtimes (it hangs under Node 22 + undici + MSW in tests), whereas
-    // an ArrayBuffer is deterministic everywhere. The browser behaviour is
-    // identical: ArrayBuffer + new Blob([...]) -> Object-URL.
-    client
-      .get<ArrayBuffer>(requestUrl, { responseType: 'arraybuffer' })
-      .then((response) => {
-        if (cancelled) return;
-        const contentType =
-          (response.headers?.['content-type'] as string | undefined) ?? 'application/octet-stream';
-        const blob = new Blob([response.data], { type: contentType });
-        const url = URL.createObjectURL(blob);
-        activeUrlRef.current = url;
-        setObjectUrl(url);
-        setStatus('loaded');
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setObjectUrl(null);
-        setStatus('error');
-      });
+    const fail = () => {
+      if (cancelled) return;
+      setObjectUrl(null);
+      setStatus('error');
+    };
+    const load = (attempt: number) => {
+      // Request an ArrayBuffer and build the Blob ourselves rather than letting
+      // axios convert to responseType:'blob'. The blob conversion is unreliable
+      // across runtimes (it hangs under Node 22 + undici + MSW in tests), whereas
+      // an ArrayBuffer is deterministic everywhere. The browser behaviour is
+      // identical: ArrayBuffer + new Blob([...]) -> Object-URL.
+      client
+        .get<ArrayBuffer>(requestUrl, { responseType: 'arraybuffer' })
+        .then((response) => {
+          if (cancelled) return;
+          if (response.status === HTTP_ACCEPTED) {
+            // The rendition is still being generated: the empty body is no image.
+            const delay = RENDITION_RETRY_DELAYS_MS[attempt];
+            if (delay === undefined) {
+              fail();
+              return;
+            }
+            retryTimer = setTimeout(() => {
+              retryTimer = null;
+              if (!cancelled) load(attempt + 1);
+            }, delay);
+            return;
+          }
+          const contentType =
+            (response.headers?.['content-type'] as string | undefined) ?? 'application/octet-stream';
+          const blob = new Blob([response.data], { type: contentType });
+          const url = URL.createObjectURL(blob);
+          activeUrlRef.current = url;
+          setObjectUrl(url);
+          setStatus('loaded');
+        })
+        .catch(fail);
+    };
+    load(0);
 
     return () => {
       cancelled = true;
+      if (retryTimer !== null) {
+        clearTimeout(retryTimer);
+        retryTimer = null;
+      }
       if (activeUrlRef.current) {
         URL.revokeObjectURL(activeUrlRef.current);
         activeUrlRef.current = null;

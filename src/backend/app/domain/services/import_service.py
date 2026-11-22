@@ -11,6 +11,7 @@ from app.domain.engines.row_validator import RowValidator
 from app.domain.interfaces.import_job_repository import IImportJobRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.models.import_job import ImportJob
+from app.domain.models.species import prune_common_names_i18n
 from app.domain.services.catalogue_authorization import require_platform_admin_for_global_catalogue
 from app.domain.services.phase_sequence_binder import PhaseSequenceBinder
 
@@ -528,6 +529,10 @@ class ImportService:
                 )
                 for field, value in _species_fields_from_row(data, self._family_repo).items():
                     setattr(existing, field, value)
+                # A CSV row replaces ``common_names`` with its single name; the stored
+                # language map keeps only the names still listed (#2902), so the row
+                # never leaves an i18n name the next read would reject.
+                existing.common_names_i18n = prune_common_names_i18n(existing.common_names, existing.common_names_i18n)
                 self._species_repo.update(existing.key or "", existing)
 
             return update_species

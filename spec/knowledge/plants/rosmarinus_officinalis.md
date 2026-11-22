@@ -137,6 +137,22 @@ Quellen (§1.8):
 8. [Outsidepride — Rosemary Seed For Planting](https://www.outsidepride.com/seed/herb-seed/rosemary-herb-seed.html) — ca. 1000 Samen/g (≈1 g/1000 Korn)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 45 (mindestens) | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt nur den Pflanzabstand (mind. 45 cm), keinen Reihenabstand --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „Rosemary: Grow your own“ („Allow at least 45cm (18in) between plants“), https://www.rhs.org.uk/herbs/rosemary/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Rosemary: Grow your own“ („choose a site in full sun with light, free-draining soil“), https://www.rhs.org.uk/herbs/rosemary/grow-your-own | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -326,6 +342,11 @@ Rosmarin ist äußerst sparsam zu düngen — überdüngter Rosmarin verliert Ar
 | Empfohlene Vorfrucht | — (Dauerpflanze) |
 | Empfohlene Nachfrucht | — (Dauerpflanze) |
 | Anbaupause (Jahre) | keine (Dauerpflanze) |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: „Erbsen, Bohnen, Kräuter“; nur Sammelgruppe, Art nicht namentlich), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020) (Schwachzehrer: „alle Hülsenfrüchte, Möhren, Zwiebeln sowie Kräuter“; nur Gruppe), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; Natur im Garten Burgenland, „Fruchtfolge im Gemüsegarten“ (Schwachzehrer-Beet: „Kräuter“; nur Gruppe), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf |
+| Zehrerstufe — Konfidenz | low (nur Sammelgruppe „Kräuter“, Art nicht namentlich) |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle nennt für die Art eine Stickstofffixierung bzw. deren Fehlen; Wert bleibt null --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: kein Familienwert Lamiaceae in botanical_families.yaml und keine gelesene artspezifische Quelle zur Anbaupause --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -383,4 +404,8 @@ Salvia rosmarinus,"Rosmarin;Echter Rosmarin;Rosemary",Lamiaceae,Salvia,perennial
 11. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Mikronährstoff-Referenzkonzentrationen (Mn/Zn/Cu/Mo ppm)
 12. [Koppert — Phytoseiulus persimilis](https://www.koppertus.com/crop-protection/biological-pest-control/predatory-mites/phytoseiulus-persimilis/) — Ausbringrate und Etablierungszeit Spinnmilben-Raubmilbe
 13. [Whyfarmit — Rosemary Plants Average Lifespan](https://whyfarmit.com/rosemary-plants-lifespan/) — Lebensdauer Rosmarin (10–20, bis 30+ Jahre)
+14. RHS — Rosemary: Grow your own (Pflanzabstand mind. 45 cm; Standort in voller Sonne): https://www.rhs.org.uk/herbs/rosemary/grow-your-own
+15. LKSH — Fruchtfolge im Garten (Zehrergruppen, Anbaupausen): https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf
+16. Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten (Zehrerbeete): https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf
+17. Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020): https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

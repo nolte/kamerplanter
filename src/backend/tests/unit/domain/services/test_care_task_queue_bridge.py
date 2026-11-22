@@ -95,7 +95,11 @@ def _build(
         matches = [c for c in history if c.plant_key == plant_key and c.reminder_type == reminder_type]
         return matches[-1] if matches else None
 
+    def _create_confirmation_logged(confirmation: CareConfirmation, **_kwargs: object) -> CareConfirmation:
+        return _create_confirmation(confirmation)
+
     care_repo.create_confirmation.side_effect = _create_confirmation
+    care_repo.create_confirmation_logged.side_effect = _create_confirmation_logged
     care_repo.get_last_confirmation.side_effect = _last_confirmation
 
     plant = MagicMock()
@@ -131,7 +135,7 @@ def test_queue_completion_schedules_exactly_one_follow_up() -> None:
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
-    result = service.record_care_task_completion(completed, tenant_key=TENANT)
+    result = service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1")
 
     assert result is not None
     pending = task_repo.open_care_tasks(ReminderType.WATERING)
@@ -145,14 +149,15 @@ def test_queue_completion_schedules_exactly_one_follow_up() -> None:
     assert task_repo.updated == []
 
     # The care state mirrors the dashboard path: confirmation + edges + log.
-    confirmation = care_repo.create_confirmation.call_args[0][0]
+    confirmation = care_repo.create_confirmation_logged.call_args[0][0]
     assert confirmation.reminder_type == ReminderType.WATERING
     assert confirmation.action == ConfirmAction.CONFIRMED
     assert confirmation.task_key == "task-open"
     assert confirmation.notes == "watered by hand"
     assert confirmation.interval_at_time == INTERVAL_DAYS
     assert confirmation.care_profile_key == "cp-1"
-    care_repo.create_confirmation_edges.assert_called_once_with("conf-1", "cp-1", PLANT_KEY)
+    logged = care_repo.create_confirmation_logged.call_args.kwargs
+    assert (logged["profile_key"], logged["plant_key"]) == ("cp-1", PLANT_KEY)  # the edges are written with it
     log_repo.create.assert_called_once()
     assert log_repo.create.call_args[0][0].tenant_key == TENANT
 
@@ -163,8 +168,8 @@ def test_queue_completion_is_idempotent_on_a_second_call() -> None:
     task_repo = FakeTaskRepo([completed])
     service, _, _ = _build(task_repo=task_repo, profile=_profile())
 
-    service.record_care_task_completion(completed, tenant_key=TENANT)
-    second = service.record_care_task_completion(completed, tenant_key=TENANT)
+    service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1")
+    second = service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1")
 
     assert second is None, "the pending follow-up already satisfies the reminder"
     assert len(task_repo.open_care_tasks(ReminderType.WATERING)) == 1
@@ -176,11 +181,11 @@ def test_queue_completion_without_opt_in_creates_no_follow_up() -> None:
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile(auto_create=False))
 
-    result = service.record_care_task_completion(completed, tenant_key=TENANT)
+    result = service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1")
 
     assert result is None
     assert task_repo.created == []
-    care_repo.create_confirmation.assert_called_once()
+    care_repo.create_confirmation_logged.assert_called_once()
     log_repo.create.assert_called_once()
 
 
@@ -190,11 +195,11 @@ def test_queue_completion_of_non_watering_task_creates_no_watering_task() -> Non
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
-    result = service.record_care_task_completion(completed, tenant_key=TENANT)
+    result = service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1")
 
     assert result is None
     assert task_repo.created == []
-    assert care_repo.create_confirmation.call_args[0][0].reminder_type == ReminderType.FERTILIZING
+    assert care_repo.create_confirmation_logged.call_args[0][0].reminder_type == ReminderType.FERTILIZING
     log_repo.create.assert_called_once()
 
 
@@ -204,13 +209,21 @@ def test_bridge_ignores_non_care_and_non_plant_tasks() -> None:
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
     assert (
-        service.record_care_task_completion(_queue_completed_task(category=TaskCategory.MAINTENANCE), tenant_key=TENANT)
+        service.record_care_task_completion(
+            _queue_completed_task(category=TaskCategory.MAINTENANCE), tenant_key=TENANT, user_key="user-1"
+        )
         is None
     )
-    assert service.record_care_task_completion(_queue_completed_task(entity_type="location"), tenant_key=TENANT) is None
+    assert (
+        service.record_care_task_completion(
+            _queue_completed_task(entity_type="location"), tenant_key=TENANT, user_key="user-1"
+        )
+        is None
+    )
 
     care_repo.get_profile_by_plant_key.assert_not_called()
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
 
@@ -221,9 +234,10 @@ def test_bridge_without_care_profile_writes_nothing() -> None:
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=None)
 
-    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+    assert service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1") is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
 
@@ -247,9 +261,10 @@ def test_completion_refuses_a_task_pointing_at_a_foreign_tenants_plant() -> None
         plant_tenant="tenant-VICTIM",
     )
 
-    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+    assert service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1") is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     care_repo.create_confirmation_edges.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
@@ -267,9 +282,10 @@ def test_completion_refuses_a_task_of_another_tenant() -> None:
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
-    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+    assert service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1") is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
 
@@ -319,6 +335,7 @@ def test_skip_refuses_a_task_pointing_at_a_foreign_tenants_plant() -> None:
     assert service.record_care_task_skip(skipped, tenant_key=TENANT) is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     care_repo.create_confirmation_edges.assert_not_called()
     log_repo.create.assert_not_called()
 
@@ -330,9 +347,10 @@ def test_bridge_ignores_a_care_task_without_a_reminder_type_suffix() -> None:
     task_repo = FakeTaskRepo([completed])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile())
 
-    assert service.record_care_task_completion(completed, tenant_key=TENANT) is None
+    assert service.record_care_task_completion(completed, tenant_key=TENANT, user_key="user-1") is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []
 
@@ -350,9 +368,12 @@ def test_an_empty_tenant_writes_no_care_state(bridge: str) -> None:
     task_repo = FakeTaskRepo([task])
     service, care_repo, log_repo = _build(task_repo=task_repo, profile=_profile(), plant_tenant="")
 
-    assert getattr(service, bridge)(task, tenant_key="") is None
+    # The completion bridge also requires its caller (#2517); the skip bridge stores no performer.
+    caller = {"user_key": "user-1"} if bridge == "record_care_task_completion" else {}
+    assert getattr(service, bridge)(task, tenant_key="", **caller) is None
 
     care_repo.create_confirmation.assert_not_called()
+    care_repo.create_confirmation_logged.assert_not_called()
     care_repo.create_confirmation_edges.assert_not_called()
     log_repo.create.assert_not_called()
     assert task_repo.created == []

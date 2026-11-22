@@ -1,9 +1,10 @@
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, Response
+from fastapi import APIRouter, Depends, Path, Query, Request, Response
 
 from app.api.mapping import to_response
+from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tasks.schemas import (
     BatchAssignRequest,
     BatchDeleteRequest,
@@ -14,6 +15,7 @@ from app.api.v1.tasks.schemas import (
     HSTValidateRequest,
     HSTValidationResponse,
     PhaseReorderRequest,
+    SuggestionDismissRequest,
     TaskAuditEntryResponse,
     TaskCloneRequest,
     TaskCommentCreate,
@@ -21,6 +23,7 @@ from app.api.v1.tasks.schemas import (
     TaskCommentUpdate,
     TaskCompleteRequest,
     TaskCreate,
+    TaskFanOutRequest,
     TaskReopenRequest,
     TaskResponse,
     TaskTemplateCreate,
@@ -43,11 +46,14 @@ from app.common.auth import get_current_tenant, get_current_user, require_permis
 from app.common.dependencies import get_species_service, get_task_entity_guard, get_task_service
 from app.common.enums import TaskCategory, TaskOrigin, TaskStatus
 from app.common.exceptions import ValidationError
+from app.common.locale import get_request_locale
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import PaginationParams, get_pagination
+from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.engines.recurrence_engine import RecurrenceEngine
 from app.domain.models.task import Task, TaskTemplate, WorkflowPhase, WorkflowTemplate
+from app.domain.models.task_completion import CompletionActor
 from app.domain.models.tenant_context import TenantContext
 from app.domain.models.user import User
 from app.domain.services.species_service import SpeciesService
@@ -100,8 +106,10 @@ def list_workflows(
     target_entity_type: str | None = Query(None, description="Filter by target entity type."),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
+    language: str = Depends(get_request_locale),
 ):
-    """List the tenant's workflow templates with usage stats (paginated)."""
+    """List the tenant's workflow templates with usage stats (paginated); ``species_name`` follows the request's
+    language (``Accept-Language``, #2902)."""
     templates = service.list_workflow_templates_window(
         pagination.offset,
         pagination.limit,
@@ -110,7 +118,9 @@ def list_workflows(
         target_entity_type=target_entity_type,
     )
     wf_keys = [wt.key for wt in templates if wt.key]
-    usage_map = service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key) if wf_keys else {}
+    usage_map = (
+        service.get_workflow_usage_stats(wf_keys, tenant_key=ctx.tenant_key, language=language) if wf_keys else {}
+    )
     result = []
     for wt in templates:
         resp = _wf_response(wt)
@@ -192,11 +202,14 @@ def list_workflow_executions(
     pagination: PaginationParams = Depends(get_pagination),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TaskService = Depends(get_task_service),
+    language: str = Depends(get_request_locale),
 ):
-    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035)."""
+    """List a workflow template's executions, newest first, with enriched entity info (paginated, MT-035).
+
+    ``species_name`` follows the request's language (``Accept-Language``, #2902)."""
     service.get_workflow_template(key, tenant_key=ctx.tenant_key)
     return service.get_executions_for_template(
-        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit
+        key, tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, language=language
     )
 
 
@@ -438,7 +451,7 @@ def _resolve_task_provenance(body: TaskCreate, user: User) -> tuple[TaskOrigin, 
     return origin, body.source or "", body.source_run_ref, body.external_ref
 
 
-@router.post("", response_model=TaskResponse, status_code=201)
+@router.post("", response_model=TaskResponse | list[TaskResponse], status_code=201)
 def create_task(
     body: TaskCreate,
     response: Response,
@@ -464,6 +477,11 @@ def create_task(
       scoped to ``(tenant_key, source, external_ref)``: a re-post updates and
       returns the existing task with **200** instead of creating a duplicate
       (201).
+    * ``for_each_plant`` (REQ-053 GP-FR-081, #2462) on a task bound to a bed creates
+      **only** the per-plant tasks — no bed task — in one transaction and answers the
+      list of them (an empty list for a bed without plants). It is the one-step
+      replacement of "create the bed task, then ``/fan-out``": at most 200 plants, no
+      care reminder, no recurrence, user-created tasks only (422 otherwise).
     """
     # SEC-I01 (#1102): the binding is caller-supplied and was never checked, so a
     # task could be bound — and a `has_task` edge written — to a *foreign*
@@ -474,7 +492,15 @@ def create_task(
 
     origin, source, source_run_ref, external_ref = _resolve_task_provenance(body, user)
 
-    data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref"})
+    data = body.model_dump(exclude={"origin", "source", "source_run_ref", "external_ref", "for_each_plant"})
+    if body.for_each_plant:
+        if origin != TaskOrigin.USER:
+            raise ValidationError("A machine-produced task cannot be created for each plant.")
+        template = Task(**data, tenant_key=ctx.tenant_key, origin=origin)
+        created_each = service.create_tasks_for_each_plant(
+            template, tenant_key=ctx.tenant_key, actor_user_key=ctx.user_key
+        )
+        return [_task_response(t) for t in created_each]
     if origin != TaskOrigin.USER:
         rule = data.get("recurrence_rule")
         if rule and RecurrenceEngine.next_occurrence(rule, datetime.now(UTC)) is not None:
@@ -503,6 +529,14 @@ def create_task(
 @router.get("/queue", response_model=list[TaskResponse])
 def get_task_queue(
     plant_key: str | None = Query(default=None, description="Restrict the queue to a single plant instance."),
+    location_key: str | None = Query(
+        default=None,
+        description=(
+            "Restrict the queue to a bed or area (REQ-053 GP-API-030): the tasks bound to it and to the plants "
+            "standing in it. A bed of another tenant is a 404. Cannot be combined with `plant_key`."
+        ),
+    ),
+    include_children: bool = Query(default=True, description="With `location_key`: also take the locations below it."),
     category: TaskCategory | None = Query(default=None, description="Restrict the queue to one task category."),
     origin: list[TaskOrigin] | None = Query(
         default=None,
@@ -530,7 +564,14 @@ def get_task_queue(
     typed as their enums, so a value the store cannot hold is a 422 at the
     boundary rather than a silently empty list.
     """
-    tasks = service.get_task_queue(plant_key, tenant_key=ctx.tenant_key, category=category, origins=origin)
+    tasks = service.get_task_queue(
+        plant_key,
+        tenant_key=ctx.tenant_key,
+        category=category,
+        origins=origin,
+        location_key=location_key,
+        include_children=include_children,
+    )
     return [_task_response(t) for t in tasks]
 
 
@@ -600,16 +641,37 @@ def validate_hst(
 
 
 @router.post("/batch/status", response_model=BatchResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def batch_status_change(
+    request: Request,
     body: BatchStatusRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Apply a status change to a batch of tasks."""
+    """Apply a status change to a batch of tasks.
+
+    `action = complete` is the atomic transition (GP-API-032): the care fields of the body go into one care event
+    per task, all in one transaction; an unknown or foreign task key answers 404 `task.missing` for the whole batch
+    and nothing is written; at most 200 tasks. A task closed already is listed in `failed` with
+    `code = task.already_closed`.
+
+    `client_event_id` (REQ-053 WP 9.3, `complete` only) makes a buffered batch idempotent per task: a task this
+    batch closed before is in `succeeded` without a second write, one it closed that was deleted since is in
+    `failed` with `code = client_event.deleted`; the same id with another body is 409 `client_event.payload_mismatch`.
+    """
     succeeded, failed = service.batch_status_change(
-        body.task_keys, body.action, body.completion_notes, tenant_key=ctx.tenant_key
+        body.task_keys,
+        body.action,
+        body.completion_notes,
+        tenant_key=ctx.tenant_key,
+        details=body.details(),
+        actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
+        client_event_id=body.client_event_id,
     )
-    return BatchResponse(succeeded=succeeded, failed=[BatchResultItem(key=f["key"], error=f["error"]) for f in failed])
+    return BatchResponse(
+        succeeded=succeeded,
+        failed=[BatchResultItem(key=f["key"], error=f["error"], code=f["code"]) for f in failed],
+    )
 
 
 @router.post("/batch/delete", response_model=BatchResponse)
@@ -685,14 +747,28 @@ def start_task(
 
 
 @router.post("/{key}/complete", response_model=TaskResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def complete_task(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the task.")],
     body: TaskCompleteRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Complete a task, propagating care-reminder confirmations where applicable."""
-    completed = service.complete_task(
+    """Complete a task (GP-API-031) — ONE transaction over the task, the care-log line and the specialist document.
+
+    A task bound to a bed also writes a `care_event` (`trigger = task`) from the care fields of the body and, per
+    category, a `watering_events` / `feeding_events` / `harvest_batches` document; an error in any of them leaves the
+    task as it was. `performed_at` may lie a year back, not ahead (422 `care_event.too_old` /
+    `care_event.performed_in_future`). Care-reminder confirmations are propagated where applicable.
+
+    Conflicts (REQ-053 WP 9.3): 409 `task.already_closed` for a task completed or skipped already, 404
+    `task.missing` for a deleted (or foreign) one. `client_event_id` (optional UUID of a buffered completion): a
+    replay answers the task this id closed, as it is now, without a second write; the same id on another task or
+    with another body is 409 `client_event.payload_mismatch`; a replay of a task deleted since is 404
+    `client_event.deleted`.
+    """
+    outcome = service.complete_task_once(
         key,
         body.completion_notes,
         body.actual_duration_minutes,
@@ -700,16 +776,13 @@ def complete_task(
         body.difficulty_rating,
         body.quality_rating,
         tenant_key=ctx.tenant_key,
+        client_event_id=body.client_event_id,
+        details=body.details(),
+        actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
-    # The care-state consequences of a completed care-reminder task are domain
-    # logic and live in the service (NFR-001): confirmation + edges, the
-    # watering/fertilizing log and the next watering occurrence. The guard here is
-    # only a presentation-layer short-circuit so no care service is built for a
-    # plain task; the service re-checks it authoritatively.
-    if completed.category == "care_reminder" and completed.entity_type == "plant_instance" and completed.entity_key:
-        from app.common.dependencies import get_care_reminder_service
-
-        get_care_reminder_service().record_care_task_completion(completed, tenant_key=ctx.tenant_key)
+    # The care-state mirror of a care-reminder task (confirmation, care event, next occurrence) runs in the service,
+    # on this route and on the batch alike (#2960).
+    completed = outcome.task
     return _task_response(completed)
 
 
@@ -721,15 +794,7 @@ def skip_task(
 ):
     """Skip a task, propagating care-reminder confirmations where applicable."""
     skipped = service.skip_task(key, tenant_key=ctx.tenant_key)
-    # Mirrors the completion path above: the care-state consequences of a skipped
-    # care-reminder task are domain logic and live in the service (NFR-001), which
-    # also owns the tenant guard on the *plant* the task points at (SEC-001). The
-    # guard here is only a presentation-layer short-circuit so no care service is
-    # built for a plain task; the service re-checks it authoritatively.
-    if skipped.category == "care_reminder" and skipped.entity_type == "plant_instance" and skipped.entity_key:
-        from app.common.dependencies import get_care_reminder_service
-
-        get_care_reminder_service().record_care_task_skip(skipped, tenant_key=ctx.tenant_key)
+    # The care-reminder skip mirror runs in the service, on this route and on the batch alike (#2960).
     return _task_response(skipped)
 
 
@@ -763,15 +828,82 @@ def clone_task(
     return _task_response(cloned)
 
 
+@router.post("/{key}/fan-out", response_model=list[TaskResponse], status_code=201)
+def fan_out_task(
+    key: Annotated[str, Path(description="Document key of the bed task to fan out.")],
+    body: TaskFanOutRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.CREATE)),
+    service: TaskService = Depends(get_task_service),
+) -> list[TaskResponse]:
+    """Clone a bed task onto every plant standing in the bed ("for every plant", REQ-053 GP-FR-081).
+
+    The task must be bound to a bed of the caller's tenant (`entity_type = location`); a foreign task or bed is a
+    404, a task bound to anything else a 422. Each clone is bound to one plant and linked back by a
+    `task_cloned_from` edge. The bed task is skipped afterwards unless `keep_source` is set. A bed without
+    plants answers an empty list and leaves the task open.
+    """
+    clones = service.fan_out_to_plants(
+        key,
+        tenant_key=ctx.tenant_key,
+        include_children=body.include_children,
+        keep_source=body.keep_source,
+    )
+    return [_task_response(t) for t in clones]
+
+
 @router.post("/{key}/reopen", response_model=TaskResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
 def reopen_task(
+    request: Request,
     key: Annotated[str, Path(description="Document key of the task to reopen.")],
     body: TaskReopenRequest | None = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
     service: TaskService = Depends(get_task_service),
 ):
-    """Reopen a completed or skipped task."""
-    return _task_response(service.reopen_task(key, tenant_key=ctx.tenant_key))
+    """Reopen a completed or skipped task.
+
+    With `{"undo": true}` (the field-mode snackbar, GP-FR-149) the task's care-log line is voided with
+    `void_reason = undo` in the same transaction: the author within ten minutes, a lead any time (403 otherwise).
+    """
+    undo = bool(body and body.undo)
+    return _task_response(
+        service.reopen_task(
+            key,
+            tenant_key=ctx.tenant_key,
+            undo=undo,
+            actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
+        )
+    )
+
+
+@router.post("/{key}/accept-suggestion", response_model=TaskResponse)
+def accept_suggestion(
+    key: Annotated[str, Path(description="Document key of the suggested task.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
+    service: TaskService = Depends(get_task_service),
+) -> TaskResponse:
+    """Accept a suggested task (REQ-053 GP-API-040): `suggested` becomes `false`, the task stays open as it is.
+
+    `suggestion_reason` is cleared with the flag. An unknown or foreign key is a 404; a task that is no suggestion
+    (any more) is a 409 `task.not_a_suggestion`. Grower and above.
+    """
+    return _task_response(service.accept_suggestion(key, tenant_key=ctx.tenant_key))
+
+
+@router.post("/{key}/dismiss-suggestion", response_model=TaskResponse)
+def dismiss_suggestion(
+    key: Annotated[str, Path(description="Document key of the suggested task.")],
+    body: SuggestionDismissRequest | None = None,
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
+    service: TaskService = Depends(get_task_service),
+) -> TaskResponse:
+    """Dismiss a suggested task (REQ-053 GP-API-040): the task is closed as `skipped`, with the optional `reason`.
+
+    No care event, no completion, no notification. An unknown or foreign key is a 404; a task that is no suggestion
+    is a 409 `task.not_a_suggestion`, a suggestion already closed a 409 `task.suggestion_closed`. Grower and above.
+    """
+    reason = body.reason if body is not None else None
+    return _task_response(service.dismiss_suggestion(key, tenant_key=ctx.tenant_key, reason=reason))
 
 
 @router.get("/{task_key}/comments", response_model=list[TaskCommentResponse])

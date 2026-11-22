@@ -191,7 +191,11 @@ _BUILTIN_CONTAINER_FACTORIES = frozenset(
 #: method belongs to Starlette), so without an edge to that argument the work it
 #: schedules is invisible. `Celery.delay`/`apply_async` are deliberately NOT here
 #: — those really do hand the work to another process.
-_CALLABLE_ARGUMENT_SINKS = frozenset({"add_task"})
+#: `asyncio.to_thread(fn, ...)` runs `fn` in a worker thread of this process and
+#: awaits it: a service that moves a synchronous repository write off the event
+#: loop this way still writes on the request path (#2545 review LOW-1 — without
+#: this edge `AttachmentService.delete_if_unreferenced` stopped reading as a writer).
+_CALLABLE_ARGUMENT_SINKS = frozenset({"add_task", "to_thread"})
 
 _MAX_TYPE_DEPTH = 6
 

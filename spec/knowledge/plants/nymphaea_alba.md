@@ -155,6 +155,22 @@
 2. Breaking Seed Dormancy of Water Lily (Nymphaea Alba L.) Under In Vitro Conditions, Biotechnology & Biotechnological Equipment 24(1): https://www.tandfonline.com/doi/abs/10.2478/V10133-010-0009-3
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.10 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: RHS nennt für Nymphaea alba keinen Pflanzabstand; Max Spread 1–1,5 m und Wassertiefe 15–25 cm über Pflanzkorb sind kein Pflanzabstand --> | `species.spacing_cm` |
+| Reihenabstand (cm) | — (Wasserpflanze, keine Reihenkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.11 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Nymphaea alba“, https://www.rhs.org.uk/plants/11623/nymphaea-alba-h/details (Position „Full sun“; Kulturtext „Grow in undisturbed water in full sun“) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -640,4 +656,5 @@ name,common_name_de,common_name_en,order,typical_nutrient_demand,nitrogen_fixing
 24. [Rhizome architecture, development and vascularization in Nymphaea alba (Annals of Botany 131(5):851)](https://academic.oup.com/aob/article/131/5/851/7091572) — Rhizom-/Wurzelarchitektur, Verankerung im Schlamm (effective_root_depth)
 25. [jardineriaon.com — Nymphaea alba care guide](https://en.jardineriaon.com/nymphaea-alba.html) — Substratschicht ≥20 cm, min. 6 h Sonne (effective_root_depth, shade_tolerance)
 26. [NC State Extension — Nymphaea Hardy Water Lilies / Gardenia.net — Nymphaea genus](https://plants.ces.ncsu.edu/plants/nymphaea-hardy-water-lilies/) — optimaler Wuchsbereich 21–29 °C, Vollsonne (photosynthesis_temp_opt, shade_tolerance)
+27. [RHS — Nymphaea alba (H)](https://www.rhs.org.uk/plants/11623/nymphaea-alba-h/details) — Position full sun, kein Pflanzabstand angegeben (nur Spread 1–1,5 m)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

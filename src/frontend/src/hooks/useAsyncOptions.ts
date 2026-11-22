@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { captureHandledError } from '@/observability/errorTracking';
 
 export interface AsyncOptionsResult<T> {
   options: T[];
@@ -45,7 +46,9 @@ export function useAsyncOptions<T>(
       .then((items) => {
         if (!cancelled) setOptions(items);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // Rendered as the error state by the caller; reported so the failure is not invisible.
+        captureHandledError(err, { source: 'useAsyncOptions' });
         if (!cancelled) setError(true);
       })
       .finally(() => {

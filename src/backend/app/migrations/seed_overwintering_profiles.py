@@ -16,6 +16,7 @@ import structlog
 from app.common.dependencies import get_db, get_species_repo
 from app.data_access.arango import collections as col
 from app.domain.models.overwintering_profile_template import OverwinteringProfileTemplate
+from app.migrations.seed_catalogue_species import catalogue_species
 from app.migrations.yaml_loader import load_yaml
 
 logger = structlog.get_logger()
@@ -37,7 +38,7 @@ def run_seed_overwintering_profiles() -> None:
         template = OverwinteringProfileTemplate.model_validate(entry)
         doc = template.model_dump(by_alias=True, exclude_none=True, mode="json")
 
-        species = species_repo.get_by_scientific_name(template.species_scientific_name)
+        species = catalogue_species(species_repo, template.species_scientific_name)
         if species and species.key:
             doc["species_key"] = species.key
         else:

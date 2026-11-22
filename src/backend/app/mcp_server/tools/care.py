@@ -79,6 +79,9 @@ class ConfirmCareTask(WriteToolBase):
             reminder_type=args.reminder_type,
             notes=args.notes,
             tenant_key=ctx.tenant_key,
+            # The caller is the performer on every confirmation path (REQ-053 §32.8 Pkt. 2, #2517) - for a
+            # service-account key that is the service account, the identity that actually confirmed.
+            user_key=ctx.principal.account_key,
         )
         return self._response(
             summary=f"Confirmed '{args.reminder_type}' for plant '{plant.key}'.",

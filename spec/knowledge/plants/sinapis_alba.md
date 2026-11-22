@@ -132,6 +132,22 @@ Quellen (§1.8):
 7. Bestehende §1.2/§4.2-Angabe Aussaatmenge 2–3 g/m² (Gründüngung, bereits im Dokument sourced) als Berechnungsgrundlage
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | <!-- DATEN FEHLEN: Gründüngung per Breitsaat nach Saatstärke (Sämereien-Datenblätter ohne Fachquelle); keine Kammer-/Hochschulquelle gelesen --> | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: keine Kammer-/Hochschulquelle mit Reihenabstand gelesen (Händlerangaben zählen nicht) --> | `species.row_spacing_cm` |
+| Quelle Abstände | — (keine Fachquelle gelesen) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: keine Fachquelle zum Lichtanspruch gelesen --> | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | — | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -200,6 +216,11 @@ Gelbsenf ist robust und schnellwüchsig. Als Gründüngungskultur ist der Befall
 | Empfohlene Vorfrucht | Starkzehrer (Kürbis, Mais, Kohlrabi) |
 | Empfohlene Nachfrucht | Alles AUSSER Kreuzblütler (kein Kohl!); Hülsenfrüchte, Salat, Möhren ideal |
 | Anbaupause (Jahre) | 3–4 Jahre vor/nach Kreuzblütlern auf gleicher Fläche |
+| Zehrerstufe | <!-- DATEN FEHLEN: Gründüngung ohne Zehrerklasse in den gelesenen Quellen (NiG Burgenland führt Gelbsenf als Gründünger im Erholungs-Beet) --> |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | — |
+| Stickstofffixierer | <!-- DATEN FEHLEN: keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | Familienwert gilt (Brassicaceae 4 Jahre); keine artspezifische Quelle gelesen |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 

@@ -151,6 +151,22 @@ Quelle: ASPCA (als ungiftig gelistet), Kamerplanter REQ-001 Seed-Daten AB-015.
 Quellen (§1.8): [Ball Horticultural Company — Seed Crop Information Guide (Viola-Zeile: 30.000–40.000 Samen/oz, 1.050–1.400 Samen/g, Cover Seed: Yes, 65–75 °F)](https://www.panamseed.com/media/culture/pas/seedcropchart_ball.pdf); [Bloom Outlet — Viola wittrockiana (Pansy) Seed Guide](https://bloomoutlet.com/viola-wittrockiana-pansy-seed-guide/); [Hobby Farms — Growing Pansies From Seed: Tips for Success](https://www.hobbyfarms.com/starting-pansies-from-seed-gardening/); [Excel at Gardening — Pansy Seed Library](https://excelatgardening.com/home/seed-library/seed-catalog/pansy/); [Everwilde Farms — Swiss Giant Pansy Seed Mix](https://www.everwilde.com/store/Pansy-Mix-Swiss-Giants-Wildflower-Seeds.html); [Urban Farmer — Seed Count Approximately 24,415 Seeds Per Ounce (Cool Wave)](https://ufseeds.com/seed-count/approximately-11000-seeds-per-ounce); [Urban Farmer — Clear Mix Spring Grandio F1 Viola Seeds](https://www.ufseeds.com/product/clear-mix-spring-grandio-f1-pansy-seeds---1000-seeds/PASGCM-1000Seeds.html)
 <!-- /Quelle: seed-profile-backfill 2026-07 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 (Buschsorten, Pflanzung Spätsommer bis Frühherbst; bei späterer Pflanzung 10–15 cm; Hängesorten 20–25 cm) | `species.spacing_cm` |
+| Reihenabstand (cm) | — | `species.row_spacing_cm` |
+| Quelle Abstände | Gardeners' World, „Winter pansies“ (Zeitschriftenquelle, schwach: „space 15cm apart for bush varieties, 20-25cm for trailing varieties“; später 10–15 cm), https://www.gardenersworld.com/how-to/grow-plants/winter-pansies; RHS-Sortenseite „Viola × wittrockiana Matrix Series“ nennt keinen Abstand, https://www.rhs.org.uk/plants/250182/viola-x-wittrockiana-matrix-series-p/details | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | <!-- DATEN FEHLEN: RHS nennt Spanne „Full sun, Partial shade“ ohne ausdrücklichen Vorzug; keine weitere gelesene Quelle mit Vorzug --> | `species.light_requirement` |
+| Schattentoleranz | partial_shade (Bestand §1.7) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Viola × wittrockiana Matrix Series“ (Position: Full sun, Partial shade; Kulturtext „in full sun or partial shade“, kein Vorzug genannt), https://www.rhs.org.uk/plants/250182/viola-x-wittrockiana-matrix-series-p/details; Gardeners' World: „Either full sun or partial shade is fine for pansies“ | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -490,6 +506,11 @@ Hinweis: Einige Cultivar-Serien (z.B. Matrix) zeigen erhöhte Hitzetoleranz, abe
 | Empfohlene Vorfrucht | Starkzehrer (Solanaceae, Cucurbitaceae) oder Hülsenfrüchtler (Fabaceae — N-Fixierung hinterlässt Reststickstoff) |
 | Empfohlene Nachfrucht | Mittelzehrer (Apiaceae, Asteraceae) oder erneut Schwachzehrer |
 | Anbaupause (Jahre) | 2–3 Jahre gleiche Stelle (Violaceae), um bodenbürtige Pilze (Thielaviopsis basicola) zu vermeiden |
+| Zehrerstufe | n/a (Zierpflanze, keine Fruchtfolgekultur; Bestandswert Schwachzehrer (light_feeder) oben ohne Quelle, unverändert) |
+| Zehrerstufe — Quelle | — |
+| Zehrerstufe — Konfidenz | <!-- DATEN FEHLEN: Zierpflanze — keine Zehrerstufe in Fruchtfolge-Quellen --> |
+| Stickstofffixierer | <!-- DATEN FEHLEN: Zierpflanze — keine gelesene Quelle --> |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: Zierpflanze; keine gelesene Quelle für eine Abweichung --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -576,4 +597,6 @@ Cats Mix,Viola x wittrockiana,--,--,whisker_markings;compact;early_flowering,f1_
 18. University of California Agriculture and Natural Resources (UC ANR) — UC Master Gardener Program, Riverside County — "Pansy Growing Information: Annual/Biennial/Perennial": "Pansies are annuals or short-lived perennials.": https://ucanr.edu/sites/default/files/2025-04/FactSheet_Flower_Pansy_2021.02.14.pdf
 19. Plantura — Stiefmütterchen Pflanzenportrait: Aussaatzeitpunkt bestimmt den Blühzeitpunkt (z.B. Aussaat Februar → Blüte März–Juli ohne vorherigen Winterkälte-Durchgang); kein Kältereiz für die Blühinduktion erwähnt: https://www.plantura.garden/blumen-stauden/stiefmuetterchen/stiefmuetterchen-pflanzenportrait
 20. Gaertnerische Fachquellen zu Deadheading (konvergierend): Epic Gardening, Gardening in Steps, Homes & Gardens, Ideal Home — regelmässiges Ausputzen verlängert die Blühsaison durch wiederholte Blüte von Frühjahr bis Herbst: https://www.epicgardening.com/pansy-blooming-tips/ ; https://www.gardeninginsteps.com/article/how-to-deadhead-pansies-to-keep-them-blooming-4-simple-tips ; https://www.homesandgardens.com/gardens/how-to-deadhead-pansies
+21. RHS -- Viola × wittrockiana Matrix Series (Position: Full sun, Partial shade; kein Vorzug): https://www.rhs.org.uk/plants/250182/viola-x-wittrockiana-matrix-series-p/details
+22. Gardeners' World -- Winter pansies (Pflanzabstand 15 cm Buschsorten; schwach): https://www.gardenersworld.com/how-to/grow-plants/winter-pansies
 <!-- /Quelle: growing-phase-auditor 2026-07 -->

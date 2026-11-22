@@ -11,9 +11,11 @@ import Alert from '@mui/material/Alert';
 import Link from '@mui/material/Link';
 import { requestPasswordReset } from '@/api/endpoints/auth';
 import Form from '@/components/form/Form';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 export default function PasswordResetRequestPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.auth.resetPassword'));
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,7 @@ export default function PasswordResetRequestPage() {
   };
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }} data-testid="password-reset-request-page">
       <Card sx={{ width: '100%', maxWidth: 420 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h5" gutterBottom align="center">

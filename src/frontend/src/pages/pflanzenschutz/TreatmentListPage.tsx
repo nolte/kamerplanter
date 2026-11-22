@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -32,7 +31,6 @@ const treatmentTypeColor: Record<string, ChipColor> = {
 export default function TreatmentListPage() {
   const { t } = useTranslation();
   const l = useLocalizedField();
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { treatments, loading } = useAppSelector((s) => s.ipm);
   // #1501 — pests, diseases and treatments are the INSTALLATION-WIDE IPM
@@ -133,7 +131,7 @@ export default function TreatmentListPage() {
         rows={treatments}
         loading={loading}
         getRowKey={(r) => r.key}
-        onRowClick={(r) => navigate(`/pflanzenschutz/treatments/${r.key}`)}
+        getRowHref={(r) => `/pflanzenschutz/treatments/${r.key}`}
         // The description closes the understanding gap the hidden create control
         // (header and empty state alike) leaves behind for a non-admin (#1501).
         emptyDescription={canCurate ? undefined : t('pages.ipm.catalogueCreateDenied')}

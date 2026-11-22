@@ -129,6 +129,22 @@ Quellen (§1.8):
 6. Nimrod Bio — Seeds Per Gram Chart (Brassica-Gemüse ca. 300 Samen/g, Bestätigung Größenordnung): https://www.nimrod.bio/wp-content/uploads/2020/09/seedsPerGram.pdf
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (seed-profile-backfill, Batch 4) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 30–45 | `species.spacing_cm` |
+| Reihenabstand (cm) | 45 | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „How to grow calabrese" (o. J.), https://www.rhs.org.uk/vegetables/calabrese/grow-your-own (Pflanzen 30 cm, größere Sorten 45 cm Abstand; Reihenabstand 45 cm; Brokkoli-Typ Calabrese = B. oleracea var. italica) | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | Ohio State University Extension, „Growing Broccoli in the Home Garden" (HYG-1605, 10.10.2017), https://ohioline.osu.edu/factsheet/hyg-1605 („Broccoli grows best in areas with full sun") | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -355,6 +371,11 @@ Brokkoli ist Starkzehrer mit hohem N-Bedarf. Bei Stickstoffmangel: gelbe Blätte
 | Empfohlene Vorfrucht | Hülsenfrüchte (Leguminosen: Erbse, Bohne) |
 | Empfohlene Nachfrucht | Schwachzehrer (Salat, Spinat, Zwiebeln) oder Gründüngung (Phacelia) |
 | Anbaupause (Jahre) | 3–4 Jahre; kein Kreuzblütler auf selber Fläche |
+| Zehrerstufe | heavy_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau" (Stand Okt. 2022), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Natur im Garten, „Fruchtfolge im Gemüsegarten" (April 2022), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; LKSH, „Fruchtfolge im Garten" (2020; nennt „Kohl" allgemein als Starkzehrer), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf |
+| Zehrerstufe — Konfidenz | medium |
+| Stickstofffixierer | false (keine Leguminose; Südtiroler Bauernbund 2022 führt Kreuzblütler und Schmetterlingsblütler als getrennte Familien, https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
+| Anbaupause (Jahre, Art-Abweichung) | <!-- DATEN FEHLEN: keine Quelle für eine Abweichung vom Familienwert (Brassicaceae 4; Südtiroler Bauernbund 2022 nennt 4–5 Jahre für Kreuzblütler, LKSH 2020 4 Jahre für Kohlgewächse) --> |
 
 ### 6.2 Mischkultur — Gute Nachbarn
 
@@ -431,3 +452,8 @@ Cleopatra F1,Brassica oleracea var. italica,early;compact,60,,hybrid
 11. [Mosaic Crop Nutrition — Micronutrients](https://www.cropnutrition.com/nutrient-management/micronutrients/) — Mikronährstoff-Funktion und Richtwerte (Mn/Zn/Cu/Mo), Mo-Bedarf Kohlgewächse
 12. [USU Extension — Broccoli in the Garden](https://extension.usu.edu/yardandgarden/research/broccoli-in-the-garden) — optimale Wuchstemperatur 18–24 °C, Köpfungstemperaturen
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+13. [RHS — How to grow calabrese](https://www.rhs.org.uk/vegetables/calabrese/grow-your-own) — Pflanzabstand 30–45 cm, Reihenabstand 45 cm
+14. [Ohio State University Extension — Growing Broccoli in the Home Garden (HYG-1605, 2017)](https://ohioline.osu.edu/factsheet/hyg-1605) — Lichtbedarf full sun
+15. [Südtiroler Bauernbund — Merkblatt Fruchtfolgen im Gemüsebau (Stand Okt. 2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Brokkoli als Starkzehrer (Tab. 2), Anbaupause Kreuzblütler 4–5 Jahre (Tab. 1)
+16. [Natur im Garten — Fruchtfolge im Gemüsegarten (April 2022)](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Starkzehrer-Beet mit Kohlarten inkl. Brokkoli
+17. [LKSH — Fruchtfolge im Garten (2020)](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Kohl als Starkzehrer, Kohlgewächse 4 Jahre Anbaupause

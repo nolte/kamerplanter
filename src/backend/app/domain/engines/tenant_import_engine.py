@@ -23,7 +23,13 @@ Rules per reference kind (``TenantReference.kind``):
   (hybrid) catalogue — collected first and checked by the service
   (``IMPORT_MISSING_CATALOG_ENTRIES``); otherwise a dangling pointer of the
   source, which is **cleared**, never kept (a kept key could name a row of
-  another tenant in the target database).
+  another tenant in the target database). A reference declared as
+  *provenance* (``TenantReference.provenance``: a bed's template and substrate,
+  #2528) is resolved the same way — against the archive and the target's
+  catalogue, so an existing system row is kept — but a key found in neither is
+  cleared and counted instead of refusing the archive: it is collected in the
+  optional half of :meth:`TenantImportEngine.catalogue_needs`, not in the
+  refusing one.
 * ``global`` — kept; collected for the catalogue check.
 * ``account`` — an account the admin mapped → that account; anything else
   becomes the pseudonym ``_anonymized`` (§8.4 step 4). A pseudonym or an erasure
@@ -47,6 +53,7 @@ rule to every row and edge **before** anything is written.
 
 from __future__ import annotations
 
+import copy
 import uuid
 from collections.abc import Callable
 from typing import Any
@@ -162,7 +169,7 @@ class TenantImportEngine:
 
         Run before the new tenant is founded: an archive that would fail half-way is
         refused as a whole. Catalogue rows count as absent here — this pass checks what
-        the archive *claims*, the catalogue check is :meth:`catalogue_requirements`.
+        the archive *claims*, the catalogue check is :meth:`catalogue_needs`.
         """
         for collection, documents in self._archive.collections.items():
             for row in documents:
@@ -201,13 +208,40 @@ class TenantImportEngine:
         )
 
     def catalogue_requirements(self) -> dict[str, set[str]]:
-        """Every global catalogue row the archive points at: ``collection -> keys`` (to be checked by the store)."""
+        """Every global catalogue row the archive points at and cannot do without: ``collection -> keys``.
+
+        The store checks these; a missing one refuses the archive (``IMPORT_MISSING_CATALOG_ENTRIES``). A view of
+        the first half of :meth:`catalogue_needs`, which walks the whole archive - a caller that needs both halves
+        takes :meth:`catalogue_needs` once.
+        """
+        return self.catalogue_needs()[0]
+
+    def catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """``(catalogue_requirements, optional_catalogue_requirements)`` from one pass over the archive (D7).
+
+        The one derivation: :meth:`catalogue_requirements` and :meth:`optional_catalogue_requirements` are views of
+        its halves, each of which walks the whole archive - a caller that needs both takes this once.
+        """
+        return self._catalogue_needs()
+
+    def optional_catalogue_requirements(self) -> dict[str, set[str]]:
+        """The catalogue rows only *provenance* references point at: resolved like the others, never refusing.
+
+        The store must still resolve them - an existing (system) row goes into ``existing_global`` and the key is
+        kept; a missing one is cleared by :meth:`remap_document` and counted in ``nulled_references`` (#2528). A view
+        of the second half of :meth:`catalogue_needs` - a caller that needs both halves takes that once.
+        """
+        return self.catalogue_needs()[1]
+
+    def _catalogue_needs(self) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """``(refusing, optional)`` catalogue keys of every row and edge of the archive."""
         needed: dict[str, set[str]] = {}
+        optional: dict[str, set[str]] = {}
         for collection, documents in self._archive.collections.items():
             for row in documents:
                 document: dict[str, Any] = row
                 for reference, value in self._references_in(collection, document):
-                    self._require_catalogue(needed, reference, value, document)
+                    self._require_catalogue(optional if reference.provenance else needed, reference, value, document)
         for edges in self._archive.edges.values():
             for row in edges:
                 edge: dict[str, Any] = row
@@ -218,7 +252,7 @@ class TenantImportEngine:
                         collection in self._hybrid and key not in self._table(collection)
                     ):
                         needed.setdefault(collection, set()).add(key)
-        return needed
+        return needed, optional
 
     def _table(self, collection: str) -> dict[str, str]:
         return self.mapping.get(collection, {})
@@ -240,16 +274,22 @@ class TenantImportEngine:
         """The document as the target stores it: new ``_key``, every declared reference rewritten.
 
         ``existing_global`` holds ``"<collection>/<key>"`` of every catalogue row the
-        target has (the service resolved :meth:`catalogue_requirements`).
+        target has (the service resolved :meth:`catalogue_needs`).
         """
         old_key = str(document["_key"])
-        rewritten = archive_document(document, collection=collection)
+        # A deep copy: ``archive_document`` copies the top level only, and the rewrite below assigns into nested
+        # objects (``plan.underlay.attachment_key``, ``fertilizers_used.*``). The validation pass runs on the same
+        # archive rows as the write pass, so a nested key rewritten in place was a *new* key the second pass could
+        # no longer map - and cleared (found with the site plan's underlay, REQ-053 WP 7.14).
+        rewritten = copy.deepcopy(archive_document(document, collection=collection))
         rewritten["_key"] = self.mapping[collection][old_key]
         references = TenantExportEngine.references_of(collection)
         for path, reference in references.items():
             dotted: str = path
             segments: list[str] = dotted.split(".")
             self._rewrite_path(rewritten, segments, reference, rewritten, existing_global)
+        if collection == "sites":
+            _drop_unresolved_underlay(rewritten)
         entry = self._entries.get(collection)
         if entry is not None and entry.tenant_field in rewritten:
             # SEC-001 — whatever the archive said, a row the import writes is the new tenant's.
@@ -358,6 +398,10 @@ class TenantImportEngine:
         if kind == "tenant":
             return self._rewrite_tenant(value)
         if kind == "account":
+            if value.startswith("anon2_"):
+                # PRIV-238: a second-generation pseudonym is bound to the tenant that wrote it; carried
+                # into another tenant it would link rows across tenants, so it becomes the marker.
+                return ANONYMIZED_ACCOUNT
             if is_tombstone_or_pseudonym(value):
                 return value
             return self._members.get(value, ANONYMIZED_ACCOUNT)
@@ -403,6 +447,22 @@ class TenantImportEngine:
         if document_id in existing_global:
             return document_id
         return None
+
+
+def _drop_unresolved_underlay(site: dict[str, Any]) -> None:
+    """A site plan whose underlay attachment is not in the archive keeps no underlay (REQ-053 GP-FR-033).
+
+    The reference rewrite clears an attachment key it cannot resolve to ``None``, but the underlay's other fields
+    (the calibration, the placement) would stay: ``SiteUnderlay.attachment_key`` is a required string, so such a
+    plan could not be read and every read of the tenant's sites would fail. The picture is presentation, so the
+    honest import is a plan without one.
+    """
+    plan = site.get("plan")
+    if not isinstance(plan, dict):
+        return
+    underlay = plan.get("underlay")
+    if isinstance(underlay, dict) and not underlay.get("attachment_key"):
+        del plan["underlay"]
 
 
 def _values_at(node: Any, segments: list[str]) -> list[Any]:

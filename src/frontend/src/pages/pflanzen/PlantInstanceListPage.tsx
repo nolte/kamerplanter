@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Skeleton from '@mui/material/Skeleton';
+import LinearProgress from '@mui/material/LinearProgress';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -19,7 +20,7 @@ import PageHeaderActions from '@/components/layout/PageHeaderActions';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
+import { fetchAllPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
 import { listCultivars } from '@/api/endpoints/species';
@@ -30,14 +31,26 @@ import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './Pl
 import SurvivalStatsPanel from './SurvivalStatsPanel';
 import { useSurvivalStats } from '@/hooks/useSurvivalStats';
 import { kamiPlants } from '@/assets/brand/illustrations';
-import { getPlantDisplayName } from '@/utils/plantDisplay';
+import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDisplay';
 import PlantCoverPreview from './photos/PlantCoverPreview';
+import { captureHandledError } from '@/observability/errorTracking';
+import { createRequestLimiter, ENRICHMENT_CONCURRENCY, RequestDroppedError } from '@/api/requestLimiter';
+
+/**
+ * A read the limiter dropped because the page moved on is not a failure; every other
+ * rejection of an enrichment read is logged, so a row without its label has a trace.
+ */
+function logEnrichmentFailure(err: unknown, source: string): void {
+  if (err instanceof RequestDroppedError) return;
+  captureHandledError(err, { source });
+}
 
 export default function PlantInstanceListPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
-  const { items, loading } = useAppSelector((s) => s.plantInstances);
+  // `loading` covers only the wait for the first page; later pages append while
+  // `loadingMore` is set, so a large tenant renders at once (#3032).
+  const { items, loading, loadingMore = false, loadedGeneration = 0 } = useAppSelector((s) => s.plantInstances);
   const [createOpen, setCreateOpen] = useState(false);
   const [duplicateData, setDuplicateData] = useState<PlantInstanceDuplicateData | undefined>();
   const [labelDialogOpen, setLabelDialogOpen] = useState(false);
@@ -59,75 +72,146 @@ export default function PlantInstanceListPage() {
   const [slotMap, setSlotMap] = useState<Map<string, Slot>>(new Map());
   const [plantRunMap, setPlantRunMap] = useState<Map<string, { runKey: string; runName: string }>>(new Map());
   const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
-  // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever the
-  // instance list changes (create/remove) so the panel stays in sync.
-  const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(items.length);
+  // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever a
+  // complete load of the instance list landed (mount, create) so the panel stays
+  // in sync — keyed on the load, not on `items.length`, which now grows page by
+  // page and would refetch the stats once per page.
+  const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(loadedGeneration);
+
+  // Every enrichment read below goes through one limiter per page (#3032): the
+  // per-key fan-out (a slot per plant, the plants of every run, the locations of
+  // every site) used to fire all at once — hundreds of requests on a large tenant —
+  // and the browser queued the route chunk of a row click behind them, so the
+  // detail page could not render for as long as the queue took. Each effect aborts
+  // its queued reads when it re-runs or the page unmounts.
+  const [enrichmentLimiter] = useState(() => createRequestLimiter(ENRICHMENT_CONCURRENCY));
 
   useEffect(() => {
-    dispatch(fetchPlantInstances({}));
+    dispatch(fetchAllPlantInstances());
+    const controller = new AbortController();
+    const { signal } = controller;
     // Load sites + all locations
     listSites(0, 200).then((sites) => {
+      if (signal.aborted) return null;
       const sm = new Map<string, Site>();
       for (const s of sites) sm.set(s.key, s);
       setSiteMap(sm);
-      return Promise.all(sites.map((s) => listLocations(s.key).catch(() => [] as Location[])));
+      return Promise.all(
+        sites.map((s) =>
+          enrichmentLimiter
+            .run(() => listLocations(s.key), signal)
+            .catch((err: unknown) => {
+              // Location names only label rows; a site whose locations fail shows its rows without them.
+              logEnrichmentFailure(err, 'PlantInstanceListPage.locations');
+              return [] as Location[];
+            }),
+        ),
+      );
     }).then((results) => {
+      if (results === null || signal.aborted) return;
       const lm = new Map<string, Location>();
       for (const locs of results) {
         for (const l of locs) lm.set(l.key, l);
       }
       setLocationMap(lm);
-    }).catch(() => {});
-  }, [dispatch]);
+    }).catch((err: unknown) => {
+      // Display enrichment only: site and location columns show keys; the plants come from the store.
+      captureHandledError(err, { source: 'PlantInstanceListPage.locationNames' });
+    });
+    return () => controller.abort();
+  }, [dispatch, enrichmentLimiter]);
 
   // Load plant→run mapping
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
     listPlantingRuns(0, 200).then(async (runs) => {
       const map = new Map<string, { runKey: string; runName: string }>();
       const results = await Promise.all(
-        runs.map((r) => listRunPlants(r.key).then((plants) => ({ run: r, plants })).catch(() => ({ run: r, plants: [] as { key: string }[] }))),
+        runs.map((r) =>
+          enrichmentLimiter
+            .run(() => listRunPlants(r.key), signal)
+            .then((plants) => ({ run: r, plants }))
+            .catch((err: unknown) => {
+              // A run whose plants fail to load leaves its rows without the run label.
+              logEnrichmentFailure(err, 'PlantInstanceListPage.runPlants');
+              return { run: r, plants: [] as { key: string }[] };
+            }),
+        ),
       );
+      if (signal.aborted) return;
       for (const { run, plants } of results) {
         for (const p of plants) {
           map.set(p.key, { runKey: run.key, runName: run.name });
         }
       }
       setPlantRunMap(map);
-    }).catch(() => {});
-  }, []);
+    }).catch((err: unknown) => {
+      // Display enrichment only: the run column stays empty; the plants themselves come from the store.
+      captureHandledError(err, { source: 'PlantInstanceListPage.runMap' });
+    });
+    return () => controller.abort();
+  }, [enrichmentLimiter]);
 
-  // Load cultivars for species that have instances with cultivar_key
+  // Load cultivars for species that have instances with cultivar_key. Both
+  // enrichments wait for the complete list: while pages still arrive, `items`
+  // changes once per page, and re-resolving every slot on each of them would
+  // multiply the requests by the page count (#3032).
   useEffect(() => {
-    if (items.length === 0 || speciesMap.size === 0) return;
+    if (loadingMore || items.length === 0 || speciesMap.size === 0) return;
     const speciesKeysWithCultivars = new Set(
       items.filter((p) => p.cultivar_key).map((p) => p.species_key),
     );
     if (speciesKeysWithCultivars.size === 0) return;
+    const controller = new AbortController();
+    const { signal } = controller;
     const promises = [...speciesKeysWithCultivars].map((sk) =>
-      listCultivars(sk).catch(() => [] as Cultivar[]),
+      enrichmentLimiter
+        .run(() => listCultivars(sk), signal)
+        .catch((err: unknown): Cultivar[] => {
+          // Cultivar names only label rows; the list is complete without them.
+          logEnrichmentFailure(err, 'PlantInstanceListPage.cultivars');
+          return [];
+        }),
     );
     Promise.all(promises).then((results) => {
+      if (signal.aborted) return;
       const map = new Map<string, Cultivar>();
       for (const cultivars of results) {
         for (const c of cultivars) map.set(c.key, c);
       }
       setCultivarMap(map);
     });
-  }, [items, speciesMap]);
+    return () => controller.abort();
+  }, [items, speciesMap, loadingMore, enrichmentLimiter]);
 
   // Load slots for instances that have slot_key
   useEffect(() => {
-    if (items.length === 0) return;
+    if (loadingMore || items.length === 0) return;
     const slotKeys = new Set(items.map((p) => p.slot_key).filter(Boolean) as string[]);
     if (slotKeys.size === 0) return;
-    Promise.all([...slotKeys].map((sk) => getSlot(sk).catch(() => null))).then((results) => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    Promise.all(
+      [...slotKeys].map((sk) =>
+        enrichmentLimiter
+          .run(() => getSlot(sk), signal)
+          .catch((err: unknown) => {
+            // Slot names only label rows; the list is complete without them.
+            logEnrichmentFailure(err, 'PlantInstanceListPage.slots');
+            return null;
+          }),
+      ),
+    ).then((results) => {
+      if (signal.aborted) return;
       const map = new Map<string, Slot>();
       for (const s of results) {
         if (s) map.set(s.key, s);
       }
       setSlotMap(map);
     });
-  }, [items]);
+    return () => controller.abort();
+  }, [items, loadingMore, enrichmentLimiter]);
 
   const filteredItems = useMemo(
     () => (hideRemoved ? items.filter((p) => !p.removed_on) : items),
@@ -142,9 +226,9 @@ export default function PlantInstanceListPage() {
   const labelPlantNames = useMemo(
     () =>
       Object.fromEntries(
-        filteredItems.map((p) => [p.key, getPlantDisplayName(p, speciesMap.get(p.species_key), p.cultivar_key ? cultivarMap.get(p.cultivar_key) : null)]),
+        filteredItems.map((p) => [p.key, getPlantDisplayName(p, i18n.language, speciesMap.get(p.species_key), p.cultivar_key ? cultivarMap.get(p.cultivar_key) : null)]),
       ),
-    [filteredItems, speciesMap, cultivarMap],
+    [filteredItems, speciesMap, cultivarMap, i18n.language],
   );
 
   const columns: Column<PlantInstance>[] = [
@@ -162,7 +246,7 @@ export default function PlantInstanceListPage() {
       render: (r) => {
         const species = speciesMap.get(r.species_key);
         const cultivar = r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null;
-        const displayName = getPlantDisplayName(r, species, cultivar);
+        const displayName = getPlantDisplayName(r, i18n.language, species, cultivar);
         // The instance_id already has its own column — avoid showing it twice.
         const shown = displayName === r.instance_id ? '—' : displayName;
         if (!species) return shown;
@@ -172,7 +256,7 @@ export default function PlantInstanceListPage() {
             title={
               <Box>
                 <Typography variant="caption" sx={{ display: 'block' }}>
-                  <strong>{t('entities.species')}:</strong> {species.common_names[0] ?? species.scientific_name}
+                  <strong>{t('entities.species')}:</strong> {getLocalizedCommonName(species, i18n.language) ?? species.scientific_name}
                 </Typography>
                 <Typography variant="caption" sx={{ display: 'block', fontStyle: 'italic' }}>
                   {species.scientific_name}
@@ -189,7 +273,7 @@ export default function PlantInstanceListPage() {
           </Tooltip>
         );
       },
-      searchValue: (r) => getPlantDisplayName(r, speciesMap.get(r.species_key), r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null),
+      searchValue: (r) => getPlantDisplayName(r, i18n.language, speciesMap.get(r.species_key), r.cultivar_key ? cultivarMap.get(r.cultivar_key) : null),
     },
     {
       id: 'location',
@@ -203,7 +287,7 @@ export default function PlantInstanceListPage() {
             const site = siteMap.get(location.site_key);
             const parts = [site?.name, location.name, slot.slot_id].filter(Boolean);
             return (
-              <Tooltip arrow title={parts.join(' \u203A ')}>
+              <Tooltip arrow title={parts.join(' › ')}>
                 <span>{location.name}</span>
               </Tooltip>
             );
@@ -216,7 +300,7 @@ export default function PlantInstanceListPage() {
             const site = siteMap.get(location.site_key);
             const parts = [site?.name, location.name].filter(Boolean);
             return (
-              <Tooltip arrow title={parts.join(' \u203A ')}>
+              <Tooltip arrow title={parts.join(' › ')}>
                 <span>{location.name}</span>
               </Tooltip>
             );
@@ -291,10 +375,11 @@ export default function PlantInstanceListPage() {
             size="small"
             color="secondary"
             variant="outlined"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/durchlaeufe/${runInfo.runKey}`);
-            }}
+            // A real link (#3047). The old `/durchlaeufe/<key>` target matched no route.
+            component={RouterLink}
+            to={`/durchlaeufe/planting-runs/${runInfo.runKey}`}
+            // The row's own handler would follow the row's link instead.
+            onClick={(e) => e.stopPropagation()}
             clickable
           />
         );
@@ -347,7 +432,7 @@ export default function PlantInstanceListPage() {
     const phaseColorMap: Record<string, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
       germination: 'info', seedling: 'success', vegetative: 'primary', flowering: 'warning', harvest: 'secondary',
     };
-    const displayName = getPlantDisplayName(r, species, cultivar);
+    const displayName = getPlantDisplayName(r, i18n.language, species, cultivar);
     return (
       <MobileCard
         leading={<PlantCoverPreview plantInstanceKey={r.key} size={48} />}
@@ -388,7 +473,7 @@ export default function PlantInstanceListPage() {
         ]}
       />
     );
-  }, [speciesMap, cultivarMap, slotMap, locationMap, plantRunMap, t]);
+  }, [speciesMap, cultivarMap, slotMap, locationMap, plantRunMap, t, i18n.language]);
 
   return (
     <Box data-testid="plant-instance-list-page">
@@ -456,13 +541,22 @@ export default function PlantInstanceListPage() {
         <SurvivalStatsPanel stats={survivalStats} />
       )}
 
+      {loadingMore && (
+        <Box role="status" sx={{ mb: 1 }} data-testid="plant-list-loading-more">
+          <LinearProgress sx={{ height: 2, mb: 0.5 }} aria-hidden="true" />
+          <Typography variant="caption" color="text.secondary">
+            {t('pages.plantInstances.loadingMore', { count: items.length })}
+          </Typography>
+        </Box>
+      )}
+
       {/* Lookup only: a failed load leaves plants without their species name (#1628). */}
       <CatalogueLoadError reader={speciesCatalogue} impact="lookup" />
       <DataTable
         columns={columns}
         rows={filteredItems}
         loading={loading}
-        onRowClick={(r) => navigate(`/pflanzen/plant-instances/${r.key}`)}
+        getRowHref={(r) => `/pflanzen/plant-instances/${r.key}`}
         getRowKey={(r) => r.key}
         emptyActionLabel={t('pages.plantInstances.create')}
         onEmptyAction={() => setCreateOpen(true)}
@@ -474,7 +568,7 @@ export default function PlantInstanceListPage() {
       <PlantInstanceCreateDialog
         open={createOpen}
         onClose={() => { setCreateOpen(false); setDuplicateData(undefined); }}
-        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchPlantInstances({})); }}
+        onCreated={() => { setCreateOpen(false); setDuplicateData(undefined); dispatch(fetchAllPlantInstances()); }}
         duplicateFrom={duplicateData}
       />
       <PlantLabelDialog

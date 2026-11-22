@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import type { CatalogueStatus } from '@/hooks/useCatalogue';
 
 /**
@@ -43,9 +43,10 @@ import type { CatalogueStatus } from '@/hooks/useCatalogue';
 export interface RetryFocus {
   /**
    * Attach to an element containing **both** the success target and the
-   * `ErrorDisplay`. Focus targets are resolved inside it at settle time rather
-   * than held as refs, because the failure branch unmounts and remounts — a ref
-   * captured when the button first rendered is stale by the time it is needed.
+   * failure branch's retry control. Focus targets are resolved by element id
+   * at settle time rather than held as refs, because the failure branch
+   * unmounts and remounts — a ref captured when the button first rendered is
+   * stale by the time it is needed. A target outside the region is ignored.
    *
    * A **callback** rather than a `RefObject`, and named for what it is: handing
    * a `RefObject` out means the consumer reads `focus.regionRef` during render,
@@ -60,6 +61,12 @@ export interface RetryFocus {
   attachRegion: (node: HTMLElement | null) => void;
   /** Call from the retry handler, before (or with) the reload. */
   beginRetry: () => void;
+  /**
+   * The element id the failure branch's retry control must carry — hand it to
+   * `ErrorDisplay`'s `retryButtonId`. Equals `options.failureId` when one was
+   * passed, otherwise a `useId`-generated id.
+   */
+  failureId: string;
 }
 
 /** Options for {@link useRetryFocus}. */
@@ -72,39 +79,50 @@ export interface UseRetryFocusOptions {
    */
   enabled?: boolean;
   /**
-   * CSS selector, resolved within the region, for the retry control to focus
-   * when the retry lands back on `failed` (the request failed again).
-   *
-   * Defaults to `ErrorDisplay`'s own documented hook
-   * (`[data-testid="error-retry-button"]`), which is what both original call
-   * sites (`WorkflowDetailPage`, `SpeciesCreateDialog`) render. A consumer
-   * whose failure branch is a different component — `CatalogueLoadError`
-   * (#1628) — passes its own retry button's selector here instead.
+   * Element id of the retry control to focus when the retry lands back on
+   * `failed` (the request failed again). Omit it to use the generated
+   * {@link RetryFocus.failureId}; a consumer whose failure branch renders its
+   * own button — `CatalogueLoadError` (#1628) — passes that button's id.
    */
-  failureSelector?: string;
+  failureId?: string;
+}
+
+/**
+ * Focusable element with the given id, but only inside `container`.
+ *
+ * Resolved through `getElementById` instead of a CSS selector, so React's
+ * `useId` values (which contain characters a selector would need escaped) work
+ * as they are. `data-testid` is deliberately not a lookup key here: it is a
+ * test contract (UI-NFR-022 R-004), and renaming one for an E2E page object
+ * must not silently break focus management (#3024).
+ */
+function elementInside(container: HTMLElement, id: string): HTMLElement | null {
+  if (!id) return null;
+  const element = container.ownerDocument.getElementById(id);
+  return element && container.contains(element) ? element : null;
 }
 
 /**
  * Restores focus after a user-initiated catalogue retry settles.
  *
  * @param status The reader's current status.
- * @param successSelector CSS selector, resolved within the region, for the
- *   element to focus once the retry succeeds — normally the control the user was
- *   trying to use. Callers pass a selector that the target component's own
- *   documentation declares stable (`FormSelectField`/`SpeciesAutocompleteField`
- *   name their `data-testid`-scoped trigger; the activity dialog uses its
- *   search testid).
+ * @param successId Element id, resolved within the region, of the element to
+ *   focus once the retry succeeds — normally the control the user was trying to
+ *   use. The field wrappers take an `id` prop that lands on their focusable
+ *   control (`FormSelectField`: the combobox, the autocomplete fields: the
+ *   input), so a caller creates one with `useId` and passes it to both.
  * @param options See {@link UseRetryFocusOptions}.
  * @returns See {@link RetryFocus}; the object is `useMemo`-stabilised
  *   (FRONTEND.md §6.1).
  */
 export function useRetryFocus(
   status: CatalogueStatus,
-  successSelector: string,
+  successId: string,
   options?: UseRetryFocusOptions,
 ): RetryFocus {
   const enabled = options?.enabled ?? true;
-  const failureSelector = options?.failureSelector ?? '[data-testid="error-retry-button"]';
+  const generatedFailureId = useId();
+  const failureId = options?.failureId ?? generatedFailureId;
   const pending = useRef(false);
   const region = useRef<HTMLElement | null>(null);
 
@@ -135,10 +153,10 @@ export function useRetryFocus(
       status === 'failed'
         ? // The failure branch re-renders a *new* button for the second
           // failure, so this is resolved now rather than remembered.
-          container.querySelector<HTMLElement>(failureSelector)
-        : container.querySelector<HTMLElement>(successSelector);
+          elementInside(container, failureId)
+        : elementInside(container, successId);
     target?.focus();
-  }, [status, successSelector, failureSelector, enabled]);
+  }, [status, successId, failureId, enabled]);
 
-  return useMemo(() => ({ attachRegion, beginRetry }), [attachRegion, beginRetry]);
+  return useMemo(() => ({ attachRegion, beginRetry, failureId }), [attachRegion, beginRetry, failureId]);
 }

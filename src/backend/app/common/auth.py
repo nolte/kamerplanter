@@ -285,6 +285,30 @@ def get_current_tenant(
     )
 
 
+#: Where one request keeps the tenant :func:`get_budgeted_tenant` admitted it to, for the per-tenant rate limit.
+_TENANT_BUDGET_STATE = "kp_tenant_budget"
+
+
+def get_budgeted_tenant(request: Request, ctx: TenantContext = Depends(get_current_tenant)) -> TenantContext:
+    """:func:`get_current_tenant`, plus a record of the verified tenant for a per-tenant rate limit.
+
+    The record is the tenant the caller is an **active member** of, not the slug in the path: a key function
+    reading the path would let a caller spend another tenant's budget by naming its slug (GP-NFR-056).
+    """
+    setattr(request.state, _TENANT_BUDGET_STATE, ctx.tenant_key)
+    return ctx
+
+
+def resolved_tenant_budget_key(request: Request) -> str | None:
+    """The tenant :func:`get_budgeted_tenant` admitted this request to, or ``None``.
+
+    Reads what the dependency stored and resolves nothing itself (as :func:`resolved_principal_key` does), so a
+    rate-limit key function that runs after the route's dependencies can bucket on the verified tenant.
+    """
+    value = getattr(request.state, _TENANT_BUDGET_STATE, None)
+    return value if isinstance(value, str) and value else None
+
+
 #: Name of the request header that carries the tenant a caller is acting in on a
 #: global (path-less tenant-aware) route — the mechanism ADR-009 records. The
 #: value is a tenant **slug**, not a key: it is human-readable, it is what the

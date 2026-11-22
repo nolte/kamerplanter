@@ -104,6 +104,59 @@ describe('TreatmentDetailPage', () => {
     expect(await screen.findByText('Neem Oil')).toBeInTheDocument();
   });
 
+  // #2936 — a disease's stored common_name is English; the chip follows the UI language.
+  it.each([
+    ['de', 'Echter Mehltau'],
+    ['en', 'Powdery Mildew'],
+  ])('names a targeted disease in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getTreatmentDetail).mockResolvedValue(
+      makeDetail({
+        targeted_diseases: [
+          {
+            key: 'd1',
+            common_name: 'Powdery Mildew',
+            common_name_de: null,
+            common_names_i18n: { en: ['Powdery Mildew'], de: ['Echter Mehltau'] },
+            scientific_name: 'Erysiphe spp.',
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });
+
+    const diseases = await screen.findByTestId('treatment-targeted-diseases');
+    expect(diseases).toHaveTextContent(expected);
+  });
+
+  // #2955 — a targeted pest reads the same language map as a disease.
+  it.each([
+    ['de', 'Spinnmilben'],
+    ['en', 'Spider Mites'],
+  ])('names a targeted pest in the UI language (%s)', async (language, expected) => {
+    await i18n.changeLanguage(language);
+    vi.mocked(getTreatmentDetail).mockResolvedValue(
+      makeDetail({
+        targeted_pests: [
+          {
+            key: 'p1',
+            common_name: 'Spider Mites',
+            common_name_de: 'Spinnmilben',
+            common_names_i18n: { en: ['Spider Mites'], de: ['Spinnmilben'] },
+            scientific_name: 'Tetranychus urticae',
+          },
+        ],
+      }),
+    );
+    renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });
+
+    const pests = await screen.findByTestId('treatment-targeted-pests');
+    expect(pests).toHaveTextContent(expected);
+    expect(screen.getByTestId('treatment-target-pest')).toHaveAccessibleName(
+      `${expected} — ${i18n.t('pages.treatmentDetail.viewPestDetail')}`,
+    );
+  });
+
   it('renders an error state when loading fails', async () => {
     vi.mocked(getTreatmentDetail).mockRejectedValue(new Error('boom'));
     renderWithProviders(<TreatmentDetailPage />, { route: '/pflanzenschutz/treatments/t1' });

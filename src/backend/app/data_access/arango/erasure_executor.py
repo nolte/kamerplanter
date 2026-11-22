@@ -87,9 +87,13 @@ FOR doc IN @@collection
 
 # ``renamed`` is ``ErasureEngine.anonymized_rename_value(@tombstone, doc._key)``
 # spelled in AQL (SHA256 returns lower-case hex, as ``hexdigest`` does).
+#
+# ``@path`` is the rule's ``user_field`` split on ``.``: one segment for a flat field, two for a
+# field one object down (``sites.plan.plan_updated_by``, REQ-053). The branch is in the query
+# text so the statement stays one constant; the segments are bound, never interpolated.
 _REWRITE_REFERENCE = """
 FOR doc IN @@collection
-  FILTER doc[@field] == @value
+  FILTER (LENGTH(@path) == 1 ? doc[@path[0]] : doc[@path[0]][@path[1]]) == @value
   LET renamed = LENGTH(@rename_fields) > 0 AND MATCHES(doc, @rename_when)
     ? ZIP(
         @rename_fields,
@@ -101,6 +105,20 @@ FOR doc IN @@collection
   COLLECT WITH COUNT INTO affected
   RETURN affected
 """
+
+
+def _field_path(user_field: str) -> list[str]:
+    """``user_field`` as the segments of the attribute path the rewrite reads and patches (one or two)."""
+    path = user_field.split(".")
+    if not 1 <= len(path) <= 2 or not all(path):
+        msg = f"a rewrite rule addresses a field or a field one object down, not {user_field!r}"
+        raise ErasurePlanError(msg)
+    return path
+
+
+def _nested(path: list[str], value: Any) -> dict[str, Any]:
+    """``{"a": {"b": value}}`` for ``["a", "b"]`` — merged into the stored object by the ``UPDATE``."""
+    return {path[0]: value} if len(path) == 1 else {path[0]: {path[1]: value}}
 
 
 def _via_chain(plan: ErasurePlan, step: ErasureStep) -> list[str]:
@@ -192,6 +210,11 @@ class ArangoErasureExecutor(IErasureExecutor):
             # (``pest_detections.user_key`` defaults to ``""``): other users' data.
             msg = "the plan names no user key; an empty key would match every unattributed row"
             raise ErasurePlanError(msg)
+        # A rule's attribute path is validated here, before the transaction opens: a malformed one would
+        # otherwise stop every account erasure half way, inside it (REQ-053 review F-13).
+        rules: list[AnonymizationRule | PseudonymizationRule] = [*plan.anonymize, *plan.pseudonymize_audit]
+        for rule in rules:
+            _field_path(rule.user_field)
         documents = {step.collection: step for step in plan.steps if step.kind == "document"}
         for step in steps:
             if step.kind == "phase":
@@ -371,7 +394,8 @@ class ArangoErasureExecutor(IErasureExecutor):
     ) -> ErasureRuleOutcome:
         """Replace the rule's user reference and empty its free-text companions; keep the row."""
         replacement = tombstone if rule.replacement_strategy == "tombstone_hash" else rule.anonymized_value
-        patch: dict[str, Any] = {rule.user_field: replacement}
+        path = _field_path(rule.user_field)
+        patch: dict[str, Any] = _nested(path, replacement)
         patch.update(dict.fromkeys(rule.clear_fields, ""))
         affected = 0
         if rule.collection in present:
@@ -380,7 +404,7 @@ class ArangoErasureExecutor(IErasureExecutor):
                     _REWRITE_REFERENCE,
                     bind_vars={
                         "@collection": rule.collection,
-                        "field": rule.user_field,
+                        "path": path,
                         "value": user_key,
                         "patch": patch,
                         "rename_fields": list(rule.rename_fields),
@@ -408,14 +432,15 @@ class ArangoErasureExecutor(IErasureExecutor):
         """Replace the key on a retained audit row with the tombstone hash, clearing any free-text companions."""
         affected = 0
         if rule.collection in present:
-            patch: dict[str, Any] = {rule.user_field: tombstone}
+            path = _field_path(rule.user_field)
+            patch: dict[str, Any] = _nested(path, tombstone)
             patch.update(dict.fromkeys(rule.clear_fields, ""))
             affected = self._counted(
                 transaction.aql.execute(
                     _REWRITE_REFERENCE,
                     bind_vars={
                         "@collection": rule.collection,
-                        "field": rule.user_field,
+                        "path": path,
                         "value": user_key,
                         "patch": patch,
                         "rename_fields": [],

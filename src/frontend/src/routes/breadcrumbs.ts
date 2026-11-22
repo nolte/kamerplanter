@@ -20,6 +20,7 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-002 Standorte
   '/standorte/sites': { label: 'nav.sites', parent: '/dashboard' },
   '/standorte/locations': { label: 'nav.sites', parent: '/dashboard', listPath: '/standorte/sites' },
+  '/standorte/historie': { label: 'nav.careHistory', parent: '/dashboard' },
   '/standorte/substrates': { label: 'nav.substrates', parent: '/dashboard' },
   '/standorte/substrates/batches': { label: 'nav.substrates', parent: '/standorte/substrates' },
   '/standorte/slots': { label: 'nav.sites', parent: '/dashboard', listPath: '/standorte/sites' },

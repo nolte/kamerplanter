@@ -1,0 +1,460 @@
+/**
+ * The export dialog (REQ-053 GP-UX-050): what it asks the server for, the preview, the reasons it gives when the
+ * server refuses, and the phone variant with the standard options only. The bed list as CSV (GP-FR-145/175): column
+ * selection, Excel variant and the assignment opt-in that is off unless chosen (SR-024). The parcel list of the PDF
+ * (GP-FR-176) with its own assignment opt-in, offered only under the parcel list.
+ */
+import { cleanup, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { expectNoA11yViolations } from '@/test/a11y/expectNoA11yViolations';
+import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
+import { server } from '@/test/mocks/server';
+import ExportDialog from './ExportDialog';
+
+const BASE = '/api/v1/t/:tenant';
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="5" height="5"/></svg>';
+
+function setPhone(isPhone: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: isPhone && query.includes('max-width'),
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+interface Seen {
+  svg: URLSearchParams[];
+  pdf: URLSearchParams[];
+  json: number;
+  jsonParams: URLSearchParams[];
+  csv: URLSearchParams[];
+}
+
+function useBackend(seen: Seen, svgHeaders: Record<string, string> = { 'x-plan-scale': '1:50' }) {
+  server.use(
+    http.get(`${BASE}/sites/s1/plan/render.svg`, ({ request }) => {
+      seen.svg.push(new URL(request.url).searchParams);
+      return new HttpResponse(SVG, { headers: { 'content-type': 'image/svg+xml', ...svgHeaders } });
+    }),
+    http.get(`${BASE}/print/garden-plan/s1`, ({ request }) => {
+      seen.pdf.push(new URL(request.url).searchParams);
+      return new HttpResponse('%PDF-1.7', {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': 'attachment; filename="garden-plan-s1.pdf"',
+        },
+      });
+    }),
+    http.get(`${BASE}/locations`, ({ request }) => {
+      seen.csv.push(new URL(request.url).searchParams);
+      return new HttpResponse('\ufeffname\r\nBeet 1\r\n', {
+        headers: {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': 'attachment; filename="bed-list-20260601.csv"',
+        },
+      });
+    }),
+    http.get(`${BASE}/sites/s1/plan/export`, ({ request }) => {
+      seen.json += 1;
+      seen.jsonParams.push(new URL(request.url).searchParams);
+      return HttpResponse.json({ schema_version: '1', locations: [{}, {}], slots: [{}], garden_objects: [{}, {}, {}] });
+    }),
+  );
+}
+
+function renderDialog(onClose = vi.fn(), selection?: { locationKeys: string[]; objectKeys: string[] }) {
+  const store = createTestStore({ ...tenantState('viewer'), ...authState() });
+  renderWithProviders(<ExportDialog open siteKey="s1" selection={selection} onClose={onClose} />, { store });
+  return onClose;
+}
+
+let seen: Seen;
+beforeEach(() => {
+  seen = { svg: [], pdf: [], json: 0, jsonParams: [], csv: [] };
+  setPhone(false);
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+});
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe('ExportDialog', () => {
+  it('previews the scaled plan and names the scale the server chose', async () => {
+    useBackend(seen);
+    renderDialog();
+
+    expect(await screen.findByAltText('Preview of the garden plan, scale 1:50', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByText('Chosen: 1:50')).toBeInTheDocument();
+    // The PDF preview is the SVG the PDF embeds: one request to the SVG route, none to the PDF yet.
+    expect(seen.svg).toHaveLength(1);
+    expect(seen.pdf).toHaveLength(0);
+  });
+
+  it('sends the chosen options with the download and closes', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-layer-grid'));
+    await user.click(screen.getByTestId('plan-export-bed-list'));
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf).toHaveLength(1);
+    const params = seen.pdf[0];
+    expect(params.get('scale')).toBe('auto');
+    expect(params.get('paper')).toBe('a4');
+    expect(params.get('orientation')).toBe('landscape');
+    expect(params.get('layers')).toBe('grid,beds,objects,plants,labels');
+    expect(params.get('bed_list')).toBe('true');
+    expect(params.get('locale')).toMatch(/^(de|en)$/);
+  });
+
+  it('asks for a new preview when the paper changes, and offers A3 when the server suggests it', async () => {
+    useBackend(seen, { 'x-plan-scale': '1:250', 'x-plan-suggested-paper': 'a3' });
+    renderDialog();
+
+    expect(await screen.findByTestId('plan-export-suggest-a3', {}, { timeout: 3000 })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(screen.getByTestId('plan-export-format-svg'));
+    await waitFor(() => expect(seen.svg.length).toBeGreaterThanOrEqual(1));
+    expect(seen.svg.every((params) => params.get('paper') === 'a4')).toBe(true);
+  });
+
+  it('shows the size of the backup for JSON instead of a drawing', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-json'));
+
+    const summary = await screen.findByTestId('plan-export-json-summary', {}, { timeout: 3000 });
+    expect(summary).toHaveTextContent('2 locations, 3 garden objects and 1 plant places');
+    expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
+    expect(seen.json).toBe(1);
+  });
+
+  it('backs up the whole site by default and offers a partial scope only with a selection', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-json'));
+
+    expect(screen.getByTestId('plan-export-scope-site')).toBeChecked();
+    expect(screen.getByTestId('plan-export-scope-selection')).toBeDisabled();
+    expect(screen.getByTestId('plan-export-scope-subtree')).toBeDisabled();
+    expect(screen.getByTestId('plan-export-scope-hint')).toHaveTextContent('select beds on the plan first');
+    await screen.findByTestId('plan-export-json-summary', {}, { timeout: 3000 });
+    expect(seen.jsonParams.every((params) => !params.has('scope') && !params.has('keys'))).toBe(true);
+  });
+
+  it('limits the backup to the selection, or to the selection and what is below it', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog(vi.fn(), { locationKeys: ['bed1', 'bed2'], objectKeys: ['tree1'] });
+    await user.click(screen.getByTestId('plan-export-format-json'));
+
+    await user.click(screen.getByTestId('plan-export-scope-selection'));
+    expect(screen.getByTestId('plan-export-scope-hint')).toHaveTextContent('3 selected');
+    await user.click(screen.getByTestId('plan-export-download'));
+    await waitFor(() => expect(seen.jsonParams.some((params) => params.get('scope') === 'selection')).toBe(true));
+    const selection = seen.jsonParams.filter((params) => params.get('scope') === 'selection').pop();
+    expect(selection?.get('keys')).toBe('bed1,bed2,object:tree1');
+
+    await user.click(screen.getByTestId('plan-export-scope-subtree'));
+    await waitFor(() => expect(seen.jsonParams.some((params) => params.get('scope') === 'subtree')).toBe(true));
+    const subtree = seen.jsonParams.filter((params) => params.get('scope') === 'subtree').pop();
+    expect(subtree?.get('keys')).toBe('bed1,bed2'); // a subtree is named by beds only
+  });
+
+  it('says why an empty plan cannot be exported and does not offer the download', async () => {
+    server.use(
+      http.get(`${BASE}/sites/s1/plan/render.svg`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: 'plan.empty', message: 'empty', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    renderDialog();
+
+    const alert = await screen.findByTestId('plan-export-error', {}, { timeout: 3000 });
+    expect(alert).toHaveTextContent('The plan is still empty');
+    expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('names a fixed scale that does not fit and keeps the dialog open', async () => {
+    useBackend(seen);
+    server.use(
+      http.get(`${BASE}/print/garden-plan/s1`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: 'plan.does_not_fit', message: 'x', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent('does not fit the sheet');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('downloads the bed list as CSV with the default columns and without member names', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    for (const column of ['name', 'type', 'area_m2', 'status', 'soil_texture', 'irrigation_zone', 'active_plants']) {
+      expect(screen.getByTestId(`plan-export-csv-column-${column}`)).toBeChecked();
+    }
+    expect(screen.getByTestId('plan-export-csv-column-frost_risk')).not.toBeChecked();
+    expect(screen.getByTestId('plan-export-csv-assignment')).not.toBeChecked();
+    expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-csv-summary')).not.toHaveTextContent('Assigned to');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.csv).toHaveLength(1);
+    const params = seen.csv[0];
+    expect(params.get('site_key')).toBe('s1');
+    expect(params.get('is_bed')).toBe('true');
+    expect(params.get('format')).toBe('csv');
+    expect(params.get('columns')).toBe('name,type,area_m2,status,soil_texture,irrigation_zone,active_plants');
+    expect(params.get('include_assignment')).toBe('false');
+    expect(params.get('delimiter')).toBe('comma');
+  });
+
+  it('asks for no plan preview while the CSV is chosen', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+    const before = seen.svg.length;
+
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await new Promise((resolve) => setTimeout(resolve, 700)); // past the preview debounce
+
+    expect(seen.svg).toHaveLength(before);
+    expect(screen.getByTestId('plan-export-csv-summary')).toHaveTextContent('one row per bed');
+  });
+
+  it('adds site features, the Excel variant and - only when switched on - the assignments', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    await user.click(screen.getByTestId('plan-export-csv-column-frost_risk'));
+    await user.click(screen.getByTestId('plan-export-csv-column-type'));
+    await user.click(screen.getByTestId('plan-export-csv-excel'));
+    await user.click(screen.getByTestId('plan-export-csv-assignment'));
+
+    expect(screen.getByTestId('plan-export-csv-assignment-hint')).toHaveTextContent('personal data');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('holds the names of the members');
+    expect(screen.getByTestId('plan-export-csv-summary')).toHaveTextContent('Frost risk, Assigned to');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(seen.csv).toHaveLength(1));
+    const params = seen.csv[0];
+    // the file order is the server's, not the order of the clicks; the assignment is never a column name
+    expect(params.get('columns')).toBe('name,area_m2,status,soil_texture,irrigation_zone,active_plants,frost_risk');
+    expect(params.get('include_assignment')).toBe('true');
+    expect(params.get('delimiter')).toBe('semicolon');
+  });
+
+  it('does not offer the download without a column', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+
+    for (const column of ['name', 'type', 'area_m2', 'status', 'soil_texture', 'irrigation_zone', 'active_plants']) {
+      await user.click(screen.getByTestId(`plan-export-csv-column-${column}`));
+    }
+
+    expect(screen.getByTestId('plan-export-csv-no-columns')).toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-download')).toBeDisabled();
+  });
+
+  it('names a bed list that is too long for one file', async () => {
+    useBackend(seen);
+    server.use(
+      http.get(`${BASE}/locations`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: 'export.too_many_rows', message: 'x', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent('too long for one file');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['export.unknown_column', 'does not know one of the chosen columns'],
+    ['export.no_columns', 'Select at least one column'],
+  ])('names the refused column selection %s', async (code, text) => {
+    useBackend(seen);
+    server.use(
+      http.get(`${BASE}/locations`, () =>
+        HttpResponse.json(
+          { error_id: 'e1', error_code: code, message: 'x', details: [], path: '', method: 'GET' },
+          { status: 422 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    expect(await screen.findByTestId('plan-export-error')).toHaveTextContent(text);
+  });
+
+  it('has no critical accessibility violations with the CSV options', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await user.click(screen.getByTestId('plan-export-format-csv'));
+    await user.click(screen.getByTestId('plan-export-csv-assignment'));
+
+    await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+
+  it('asks for no parcel list and no member names unless chosen', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    expect(screen.getByTestId('plan-export-parcel-list')).not.toBeChecked();
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].has('parcel_list')).toBe(false);
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('adds the parcel list page without member names until the assignment is switched on', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+
+    expect(screen.getByTestId('plan-export-parcel-assignment')).not.toBeChecked();
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].get('parcel_list')).toBe('true');
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('sends the assignment only with the parcel list and says the PDF then holds names', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+
+    expect(screen.getByTestId('plan-export-parcel-assignment-hint')).toHaveTextContent('personal data');
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('holds the names of the members');
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].get('parcel_list')).toBe('true');
+    expect(seen.pdf[0].get('include_assignment')).toBe('true');
+  });
+
+  it('drops the assignment together with the parcel list', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    const onClose = renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-privacy')).toHaveTextContent('no member names');
+    // Switched on again, the parcel list starts without the names.
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    expect(screen.getByTestId('plan-export-parcel-assignment')).not.toBeChecked();
+    await user.click(screen.getByTestId('plan-export-download'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(seen.pdf[0].has('include_assignment')).toBe(false);
+  });
+
+  it('offers the parcel list for the PDF only', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-format-svg'));
+
+    expect(screen.queryByTestId('plan-export-parcel-list')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-parcel-assignment')).not.toBeInTheDocument();
+  });
+
+  it('has no critical accessibility violations with the parcel list options', async () => {
+    useBackend(seen);
+    const user = userEvent.setup();
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+    await user.click(screen.getByTestId('plan-export-parcel-list'));
+    await user.click(screen.getByTestId('plan-export-parcel-assignment'));
+
+    await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+
+  it('offers only JSON and PDF with their standard options on a phone', async () => {
+    setPhone(true);
+    useBackend(seen);
+    renderDialog();
+
+    expect(screen.getByTestId('plan-export-format-pdf')).toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-format-json')).toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-format-svg')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-format-csv')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-paper')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-scale')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plan-export-parcel-list')).not.toBeInTheDocument();
+    expect(screen.getByTestId('plan-export-phone-note')).toBeInTheDocument();
+  });
+
+  it('has no critical accessibility violations', async () => {
+    useBackend(seen);
+    renderDialog();
+    await screen.findByAltText(/Preview of the garden plan/, {}, { timeout: 3000 });
+
+    await expectNoA11yViolations(document.body, { minElements: 25 });
+  });
+});

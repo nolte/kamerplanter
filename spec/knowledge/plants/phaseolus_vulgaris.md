@@ -152,6 +152,23 @@ Quellen (§1.8):
 7. [DripWorks — Green Beans Growing Guide](https://www.dripworks.com/resources/growing-guides/green-beans-growing-guide) / [Johnny's Selected Seeds — Bush Bean Key Growing Information](https://www.johnnyseeds.com/growers-library/vegetables/beans/bush-bean-key-growing-information.html) — Pflanzabstand ≈36 sq in/Pflanze (≈43 Pflanzen/m²), konsistent mit §1.6-Abstandsangaben
 <!-- /Quelle: Steckbrief-Erweiterung 2026-07 (Seed-Profile-Backfill, Batch 10, Issue #301) -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | 15 | `species.spacing_cm` |
+| Reihenabstand (cm) | <!-- DATEN FEHLEN: RHS nennt für Buschbohnen keinen Reihenabstand („in blocks or double rows“); 45 cm gelten nur für A-Gestell-Stützen der Stangenbohnen --> | `species.row_spacing_cm` |
+| Quelle Abstände | RHS, „French beans: Grow your own“ („Plant dwarf French beans at least 15cm (6in) apart, in blocks or double rows“; Mindestabstand Buschbohne), https://www.rhs.org.uk/vegetables/french-beans/grow-your-own | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „French beans: Grow your own“ („Choose a warm, sunny growing site with well-drained soil“), https://www.rhs.org.uk/vegetables/french-beans/grow-your-own | — |
+
+
 ---
 
 ## 2. Wachstumsphasen
@@ -466,6 +483,11 @@ Nicht anwendbar -- Gartenbohne ist eine einjaehrige Pflanze und ueberlebt keinen
 | Empfohlene Vorfrucht | Starkzehrer (Kohl, Tomate, Kartoffel) -- Bohne als Regenerator nach Starkzehrern |
 | Empfohlene Nachfrucht | Starkzehrer (Kohl, Tomate, Kartoffel) -- profitieren vom fixierten Stickstoff |
 | Anbaupause (Jahre) | 3 Jahre fuer Fabaceae (Bohne, Erbse, Lupine) auf gleicher Flaeche |
+| Zehrerstufe | light_feeder |
+| Zehrerstufe — Quelle | Südtiroler Bauernbund, Merkblatt „Fruchtfolgen im Gemüsebau“ (2022), Tabelle 2 (Buschbohne: Schwachzehrer), https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf; Landwirtschaftskammer NRW, „Fruchtfolge im Gemüsegarten planen“ (2020; Schwachzehrer: alle Hülsenfrüchte), https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm; LKSH, „Fruchtfolge im Garten“ (Schwachzehrer: Erbsen, Bohnen, Kräuter), https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf; Natur im Garten Burgenland (Schwachzehrer-Beet: Buschbohnen; Stangenbohnen in der Mittelzehrer-Spalte), https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf; RHS, „French beans“ („don’t need feeding when growing in the ground“), https://www.rhs.org.uk/vegetables/french-beans/grow-your-own |
+| Zehrerstufe — Konfidenz | high (vier Quellen übereinstimmend für Bohne/Buschbohne; leichte Abweichung nur bei Stangenbohnen in Natur im Garten Burgenland) |
+| Stickstofffixierer | true (RHS: „as legumes (peas, beans and related plants) fix nitrogen from the air at their roots“, https://www.rhs.org.uk/vegetables/french-beans/grow-your-own) |
+| Anbaupause (Jahre, Art-Abweichung) | 3 (Südtiroler Bauernbund 2022, Tabelle 1: Busch- und Stangenbohne 3–4 Jahre, untere Grenze; Erbse separat 5–6 Jahre; https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) |
 
 ### 6.2 Mischkultur -- Gute Nachbarn
 
@@ -563,4 +585,9 @@ Kentucky Blue Pole,Phaseolus vulgaris,,1991,disease_resistant;high_yield,65,bean
 20. PMC -- Phenotypic and yield responses of common bean to soil moisture levels (Staunaesse reduziert Biomasse staerker als Trockenstress): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10993436/
 21. Gardenia.net -- Phaseolus vulgaris Green Beans (Vollsonne, pH 6.0--7.0): https://www.gardenia.net/plant/phaesolus-vulgaris-green-beans
 22. All Things Lighting / Oxford JXB Canopy Light -- R:FR-Verhaeltnis Tageslicht ~1.1--1.3 (FR-Fraction ~0.45--0.5 in Vollsonne, hoeher unter Blattdach): https://academic.oup.com/jxb/article/76/3/712/7727419
+23. [RHS — French beans: Grow your own](https://www.rhs.org.uk/vegetables/french-beans/grow-your-own) — Pflanzabstand Buschbohne ≥ 15 cm; „warm, sunny growing site“; „legumes … fix nitrogen from the air at their roots“; „don’t need feeding when growing in the ground“
+24. [Südtiroler Bauernbund — Merkblatt „Fruchtfolgen im Gemüsebau“ (2022)](https://sbb.it/public/fileadmin/user_upload/Innovation/Hauptseite_Innovation/INNOProdukte/221123_Fruchtfolge.pdf) — Buschbohne: Schwachzehrer (Tabelle 2); Busch- und Stangenbohne: Anbaupause 3–4 Jahre (Tabelle 1)
+25. [Landwirtschaftskammer NRW — Fruchtfolge im Gemüsegarten planen (2020)](https://www.landwirtschaftskammer.de/presse/aa-2020-06-03.htm) — Schwachzehrer: „alle Hülsenfrüchte“
+26. [LKSH — Fruchtfolge im Garten](https://www.lksh.de/fileadmin/PDFs/Gartenbau/Fruchtfolge_im_Garten.pdf) — Schwachzehrer: „Erbsen, Bohnen, Kräuter“
+27. [Natur im Garten Burgenland — Fruchtfolge im Gemüsegarten](https://www.burgenland.at/fileadmin/user_upload/NiG_BGLD_Fruchtfolge_im_Gemuesegarten.pdf) — Schwachzehrer-Beet: Buschbohnen; Stangenbohnen stehen in der Mittelzehrer-Spalte
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

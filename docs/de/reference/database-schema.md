@@ -25,7 +25,7 @@ Kamerplanter verwendet ArangoDB als primäre Datenbank — ein Multi-Modell-Syst
 | Collection | Beschreibung | Wichtige Felder |
 |-----------|-------------|----------------|
 | `botanical_families` | Botanische Familien | `name` (unique), `common_name` |
-| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `frost_sensitivity`, `propagation_configs[]` |
+| `species` | Pflanzenarten | `scientific_name` (unique), `common_names`, `common_names_i18n`, `frost_sensitivity`, `propagation_configs[]` |
 | `cultivars` | Sorten / Varietäten | `name`, `species_key`, genetische Herkunft |
 | `lifecycle_configs` | Lebenszyklusdefinitionen pro Art | `species_key`, `lifecycle_type` |
 | `growth_phases` | Einzelne Wachstumsphasen | `name`, `order`, `lifecycle_config_key` |

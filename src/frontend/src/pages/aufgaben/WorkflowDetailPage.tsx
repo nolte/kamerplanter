@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, useId } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import { useRetryFocus } from '@/hooks/useRetryFocus';
@@ -59,6 +59,8 @@ import OriginChip from '@/components/common/OriginChip';
 import { useOriginProtection } from '@/hooks/useOriginProtection';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
@@ -67,17 +69,18 @@ import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import { useAppDispatch } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as taskApi from '@/api/endpoints/tasks';
 import * as speciesApi from '@/api/endpoints/species';
-import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase } from '@/api/types';
+import type { WorkflowTemplate, TaskTemplate, Activity, WorkflowPhase, CommonNamesI18n, Species } from '@/api/types';
 import type { WorkflowExecutionEnriched } from '@/api/endpoints/tasks';
 import TaskTemplateDialog from './TaskTemplateDialog';
 import WorkflowPhaseDialog from './WorkflowPhaseDialog';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete, { createFilterOptions } from '@mui/material/Autocomplete';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import ListItemIcon from '@mui/material/ListItemIcon';
@@ -86,6 +89,8 @@ import StarBorderIcon from '@mui/icons-material/StarBorder';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import LinearProgress from '@mui/material/LinearProgress';
 import * as favApi from '@/api/endpoints/favorites';
+import { getAlternativeCommonNames, getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { errorKey } from '@/api/errors';
 
 const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
@@ -98,6 +103,21 @@ const editSchema = z.object({
 });
 
 type EditFormData = z.infer<typeof editSchema>;
+
+/** A species of the compatible-species picker. */
+type SpeciesOption = {
+  key: string;
+  scientific_name: string;
+  common_names: string[];
+  common_names_i18n?: CommonNamesI18n;
+  plant_category: string | null;
+  family_name: string | null;
+};
+
+/** Species picker search: scientific name plus every common name in every language (#2902). */
+const filterSpeciesOptions = createFilterOptions<SpeciesOption>({
+  stringify: (option) => [option.scientific_name, ...(option.common_names ?? [])].join(' '),
+});
 
 export default function WorkflowDetailPage() {
   const theme = useTheme();
@@ -156,11 +176,12 @@ export default function WorkflowDetailPage() {
   const activityCatalogue = useCatalogue('activities', { enabled: addDialogOpen });
   // After a retry succeeds, focus returns to the search box — the control that
   // stays mounted across all three states and the one the user reaches for next.
-  const { attachRegion: attachActivityRegion, beginRetry: beginActivityRetry } = useRetryFocus(
-    activityCatalogue.status,
-    "[data-testid='activity-catalogue-search'] input",
-    { enabled: addDialogOpen },
-  );
+  const activitySearchId = useId();
+  const {
+    attachRegion: attachActivityRegion,
+    beginRetry: beginActivityRetry,
+    failureId: activityRetryId,
+  } = useRetryFocus(activityCatalogue.status, activitySearchId, { enabled: addDialogOpen });
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [addDayOffset, setAddDayOffset] = useState(0);
   const [activityFilter, setActivityFilter] = useState('');
@@ -169,9 +190,14 @@ export default function WorkflowDetailPage() {
   const [activityFavKeys, setActivityFavKeys] = useState<Set<string>>(new Set());
 
   // Species selection
-  type SpeciesOption = { key: string; scientific_name: string; common_names: string[]; plant_category: string | null; family_name: string | null };
   const [allSpecies, setAllSpecies] = useState<SpeciesOption[]>([]);
   const [speciesLoading, setSpeciesLoading] = useState(false);
+  // A failed catalogue read is shown with a retry, never as an empty picker (#3037).
+  const [speciesLoadError, setSpeciesLoadError] = useState(false);
+  const [speciesAttempt, setSpeciesAttempt] = useState(0);
+  // True only once the catalogue of the current run has arrived: until then
+  // `selectedSpecies` is not the stored selection and must not be saved.
+  const [speciesReady, setSpeciesReady] = useState(false);
   const [selectedSpecies, setSelectedSpecies] = useState<SpeciesOption[]>([]);
   const [favoriteKeys, setFavoriteKeys] = useState<Set<string>>(new Set());
   const [speciesFilter, setSpeciesFilter] = useState<'all' | 'favorites'>('all');
@@ -188,6 +214,9 @@ export default function WorkflowDetailPage() {
       target_entity_types: ['plant_instance'],
     },
   });
+
+  // The species of the breadcrumb; the crumb label is built below so it follows the UI language (#2902).
+  const [crumbSpecies, setCrumbSpecies] = useState<Species | null>(null);
 
   const load = useCallback(async () => {
     if (!key) return;
@@ -210,58 +239,103 @@ export default function WorkflowDetailPage() {
         tags: wf.tags.join(', '),
         target_entity_types: (wf.target_entity_types ?? ['plant_instance']) as EditFormData['target_entity_types'],
       });
-      // Build dynamic breadcrumbs
-      const crumbs: { label: string; path?: string }[] = [
-        { label: 'nav.aufgaben', path: '/aufgaben' },
-        { label: 'nav.workflows', path: '/aufgaben/workflows' },
-      ];
+      let sp: Species | null = null;
       if (wf.species_key) {
         try {
-          const sp = await speciesApi.getSpecies(wf.species_key);
-          crumbs.push({
-            label: sp.common_names?.[0] || sp.scientific_name,
-            path: `/stammdaten/species/${wf.species_key}#workflows`,
-          });
-        } catch { /* species may not resolve */ }
+          sp = await speciesApi.getSpecies(wf.species_key);
+        } catch (err) {
+          // The species only adds a breadcrumb level; the workflow itself loaded.
+          captureHandledError(err, { source: 'WorkflowDetailPage.crumbSpecies' });
+        }
       }
-      crumbs.push({ label: wf.name });
-      dispatch(setBreadcrumbs(crumbs));
+      setCrumbSpecies(sp);
       setError(null);
     } catch (err) {
-      setError(String(err));
+      setError(errorKey(err, 'errors.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [key, reset, dispatch]);
+  }, [key, reset]);
 
   useEffect(() => {
     load();
     return () => { dispatch(setBreadcrumbs([])); };
   }, [load, dispatch]);
 
+  // The executions' species names are worded by the server in the UI language (#2902). A switch reloads
+  // only the executions: re-running `load` would reset the edit form and lose unsaved input.
+  const requestLanguage = useRequestLanguage();
+  const executionsLanguage = useRef(requestLanguage);
+  useEffect(() => {
+    if (!key || executionsLanguage.current === requestLanguage) return undefined;
+    executionsLanguage.current = requestLanguage;
+    let cancelled = false;
+    taskApi
+      .listWorkflowExecutions(key)
+      .then((execs) => {
+        if (!cancelled) setExecutions(execs);
+      })
+      .catch((err: unknown) => {
+        // Keep the executions of the previous language; the next full load replaces them.
+        captureHandledError(err, { source: 'WorkflowDetailPage.executionsLanguage' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, requestLanguage]);
+
+  // Dynamic breadcrumbs, the species crumb in the UI language.
+  useEffect(() => {
+    if (!workflow) return;
+    const crumbs: { label: string; path?: string }[] = [
+      { label: 'nav.aufgaben', path: '/aufgaben' },
+      { label: 'nav.workflows', path: '/aufgaben/workflows' },
+    ];
+    if (crumbSpecies && workflow.species_key === crumbSpecies.key) {
+      crumbs.push({
+        label: getLocalizedCommonName(crumbSpecies, i18n.language) ?? crumbSpecies.scientific_name,
+        path: `/stammdaten/species/${crumbSpecies.key}#workflows`,
+      });
+    }
+    crumbs.push({ label: workflow.name });
+    dispatch(setBreadcrumbs(crumbs));
+  }, [workflow, crumbSpecies, i18n.language, dispatch]);
+
   // Load all species + favorites for the compatible-species picker
   useEffect(() => {
     if (!workflow) return;
     setSpeciesLoading(true);
+    setSpeciesLoadError(false);
+    setSpeciesReady(false);
     Promise.all([
       // The complete catalogue (#1560); one leg of an imperative sequence whose
       // surrounding loading state already covers it.
       speciesApi.listAllSpecies(),
-      favApi.listFavorites('species').catch(() => []),
+      favApi.listFavorites('species').catch((err: unknown) => {
+        // Favourites only sort/filter the catalogue; the picker works without them.
+        captureHandledError(err, { source: 'WorkflowDetailPage.speciesFavorites' });
+        return [];
+      }),
     ])
       .then(([res, favs]) => {
         const items: SpeciesOption[] = res.items.map((s) => ({
           key: s.key, scientific_name: s.scientific_name, common_names: s.common_names,
+          common_names_i18n: s.common_names_i18n,
           plant_category: s.plant_category, family_name: s.family_name,
         }));
         setAllSpecies(items);
         setFavoriteKeys(new Set(favs.map((f) => f.target_key)));
         const compatNames = new Set(workflow.species_compatible ?? []);
         setSelectedSpecies(items.filter((s) => compatNames.has(s.scientific_name) || compatNames.has(s.key)));
+        setSpeciesReady(true);
       })
-      .catch(() => setAllSpecies([]))
+      .catch((err: unknown) => {
+        captureHandledError(err, { source: 'WorkflowDetailPage.species' });
+        setAllSpecies([]);
+        setSpeciesLoadError(true);
+      })
       .finally(() => setSpeciesLoading(false));
-  }, [workflow]);
+  }, [workflow, speciesAttempt]);
 
   const onSave = async (data: EditFormData) => {
     if (!key) return;
@@ -273,7 +347,11 @@ export default function WorkflowDetailPage() {
         version: data.version,
         tags: data.tags ? data.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
         target_entity_types: data.target_entity_types,
-        species_compatible: selectedSpecies.map((s) => s.scientific_name),
+        // Until the catalogue has arrived (pending, failed or retrying) the picker
+        // is empty, not cleared: keep the stored list.
+        species_compatible: speciesReady
+          ? selectedSpecies.map((s) => s.scientific_name)
+          : (workflow?.species_compatible ?? []),
       });
       notification.success(t('pages.tasks.workflowUpdated'));
       load();
@@ -355,9 +433,12 @@ export default function WorkflowDetailPage() {
       const aFav = favoriteKeys.has(a.key) ? 0 : 1;
       const bFav = favoriteKeys.has(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return a.scientific_name.localeCompare(b.scientific_name);
+      return getSpeciesOptionLabel(a, i18n.language).localeCompare(
+        getSpeciesOptionLabel(b, i18n.language),
+        i18n.language,
+      );
     });
-  }, [allSpecies, speciesFilter, favoriteKeys]);
+  }, [allSpecies, speciesFilter, favoriteKeys, i18n.language]);
 
   const handleToggleEnabled = useCallback(async (tt: TaskTemplate) => {
     try {
@@ -397,7 +478,11 @@ export default function WorkflowDetailPage() {
   // keeps its own swallowed catch. The catalogue itself does not — that is the
   // distinction #1568 is about.
   const loadActivityFavorites = useCallback(async () => {
-    const favs = await favApi.listFavorites('activities').catch(() => []);
+    const favs = await favApi.listFavorites('activities').catch((err: unknown) => {
+      // Favourites only order the activity picker; it works without them.
+      captureHandledError(err, { source: 'WorkflowDetailPage.activityFavorites' });
+      return [];
+    });
     setActivityFavKeys(new Set(favs.map((f) => f.target_key)));
   }, []);
 
@@ -579,7 +664,7 @@ export default function WorkflowDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} />;
+  if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!workflow) return <ErrorDisplay error={t('errors.notFound')} />;
 
   return (
@@ -733,9 +818,8 @@ export default function WorkflowDetailPage() {
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Typography
                                   variant="body2"
-                                  component="a"
-                                  href={`/durchlaeufe/planting-runs/${g.run.key}`}
-                                  onClick={(e) => { e.preventDefault(); navigate(`/durchlaeufe/planting-runs/${g.run!.key}`); }}
+                                  component={RouterLink}
+                                  to={`/durchlaeufe/planting-runs/${g.run.key}`}
                                   sx={{ color: 'primary.main', textDecoration: 'none', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
                                 >
                                   {g.run.name}
@@ -1118,8 +1202,10 @@ export default function WorkflowDetailPage() {
         onClose={() => setAddDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        data-testid="workflow-add-activity-dialog"
+        aria-labelledby="workflow-add-activity-dialog-title"
       >
-        <DialogTitle>
+        <DialogTitle id="workflow-add-activity-dialog-title">
           {t('pages.tasks.addActivityToPhase', { phase: addTargetPhaseDisplay })}
         </DialogTitle>
         <DialogContent>
@@ -1158,6 +1244,7 @@ export default function WorkflowDetailPage() {
               placeholder={t('pages.tasks.searchActivities')}
               value={activityFilter}
               onChange={(e) => setActivityFilter(e.target.value)}
+              id={activitySearchId}
               data-testid="activity-catalogue-search"
               slotProps={{ input: {
                 startAdornment: (
@@ -1205,6 +1292,7 @@ export default function WorkflowDetailPage() {
               <Box data-testid="activity-catalogue-error">
                 <ErrorDisplay
                   error={activityCatalogue.error ?? 'errors.loadFailed'}
+                  retryButtonId={activityRetryId}
                   onRetry={() => {
                     // Armed before the state flips: the button this click landed
                     // on is about to unmount with the whole `failed` branch.
@@ -1236,7 +1324,34 @@ export default function WorkflowDetailPage() {
                       }}
                       onClick={() => setSelectedActivity(isSelected ? null : act)}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {/*
+                        The keyboard handle of the card (#3017, A-07): a toggle button
+                        that is pressed while this activity is the selected one. The
+                        card itself cannot be the button — it holds the separate
+                        "show description" button, and a button's content is flat.
+                        A click here bubbles to the card's own handler above.
+                      */}
+                      <Box
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
+                        data-testid={`activity-select-${act.key}`}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget || e.repeat) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedActivity(isSelected ? null : act);
+                          }
+                        }}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                          borderRadius: 0.5,
+                          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                        }}
+                      >
                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                           {actName}
                         </Typography>
@@ -1382,8 +1497,9 @@ export default function WorkflowDetailPage() {
                   control={control}
                   render={({ field }) => (
                     <FormControl fullWidth sx={{ mb: 2 }}>
-                      <InputLabel>{t('pages.tasks.targetEntityTypes')}</InputLabel>
+                      <InputLabel id="workflow-detail-target-entity-types-label">{t('pages.tasks.targetEntityTypes')}</InputLabel>
                       <Select
+                        labelId="workflow-detail-target-entity-types-label"
                         {...field}
                         multiple
                         label={t('pages.tasks.targetEntityTypes')}
@@ -1423,15 +1539,20 @@ export default function WorkflowDetailPage() {
                       onClick={() => setSpeciesFilter('favorites')}
                     />
                   </Box>
+                  {speciesLoadError && (
+                    <OptionsLoadError
+                      onRetry={() => setSpeciesAttempt((n) => n + 1)}
+                      data-testid="workflow-species-load-error"
+                    />
+                  )}
                   <Autocomplete
                     multiple
                     options={filteredSpeciesOptions}
                     value={selectedSpecies}
                     onChange={(_, newValue) => setSelectedSpecies(newValue)}
-                    getOptionLabel={(opt) => {
-                      const common = opt.common_names?.[0];
-                      return common ? `${common} (${opt.scientific_name})` : opt.scientific_name;
-                    }}
+                    getOptionLabel={(opt) => getSpeciesOptionLabel(opt, i18n.language)}
+                    // The label shows one language; the search matches every name (#2902).
+                    filterOptions={filterSpeciesOptions}
                     isOptionEqualToValue={(opt, val) => opt.key === val.key}
                     loading={speciesLoading}
                     groupBy={(opt) => opt.plant_category ? t(`enums.plantCategory.${opt.plant_category}`, { defaultValue: opt.plant_category }) : t('common.other')}
@@ -1463,8 +1584,15 @@ export default function WorkflowDetailPage() {
                             {isFav ? <StarIcon fontSize="small" color="warning" /> : <StarBorderIcon fontSize="small" sx={{ opacity: 0.3 }} />}
                           </ListItemIcon>
                           <ListItemText
-                            primary={opt.common_names?.[0] || opt.scientific_name}
-                            secondary={opt.common_names?.[0] ? opt.scientific_name : opt.family_name}
+                            primary={getLocalizedCommonName(opt, i18n.language) ?? opt.scientific_name}
+                            secondary={[
+                              getLocalizedCommonName(opt, i18n.language) !== opt.scientific_name
+                                ? opt.scientific_name
+                                : opt.family_name,
+                              ...getAlternativeCommonNames(opt, i18n.language),
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                             slotProps={{ primary: { variant: 'body2' }, secondary: { variant: 'caption' } }}
                           />
                         </ListItem>
@@ -1477,7 +1605,7 @@ export default function WorkflowDetailPage() {
                           <Chip
                             key={tagKey}
                             icon={favoriteKeys.has(opt.key) ? <StarIcon fontSize="small" /> : undefined}
-                            label={opt.common_names?.[0] || opt.scientific_name}
+                            label={getLocalizedCommonName(opt, i18n.language) ?? opt.scientific_name}
                             size="small"
                             {...tagProps}
                           />

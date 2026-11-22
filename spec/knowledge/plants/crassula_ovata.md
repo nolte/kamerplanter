@@ -120,6 +120,22 @@
 **Hinweis (Standortqualität):** *C. ovata* wächst in voller Sonne wie im Halbschatten (full sun or semi-shade, SANBI), blüht jedoch nur bei vollsonnigem Stand zuverlässig — daher `full_sun` als Primärwert; Halbschatten wird vegetativ toleriert, führt aber zu vergeiltem ("leggy") Wuchs. Das Wurzelwerk ist flach und fleischig (Hauptmasse in den oberen 10–15 cm), was die geringe Staunässe-Toleranz (Wurzelfäule binnen Stunden bei stehendem Wasser) erklärt. Der pH-Vorzug 6.0–7.0 ist quellentreu und mit §1.6/§2.3 (Nährlösung pH 6.0–7.0) harmonisiert.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | full_sun | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Crassula ovata" (Position: Full sun; Aspect: West- oder South-facing; Innenkultur „in full light"), https://www.rhs.org.uk/plants/4739/wd/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -343,4 +359,5 @@ Tricolor,Crassula ovata,"ornamental;variegated;green_white_pink",clone
 <!-- Quelle: growing-phase-auditor 2026-07-03 -->
 22. [Greeny Gardener — Crassula Ovata Flowering](https://greenygardener.com/crassula-ovata-flowering/) — Kühlperiode 10–15 °C für 4–6 Wochen zur Blüteninduktion (Vernalisation Mindestdauer)
 23. [Growli — Jade Plant Watering](https://www.getgrowli.app/water/jade-plant) — Wuchsverlangsamung im Herbst, stark reduziertes Gießen im Winter (Dormanz-Bestätigung)
+24. [RHS — Crassula ovata](https://www.rhs.org.uk/plants/4739/wd/details) — Lichtanspruch (Position: Full sun; Aspect: West- oder South-facing)
 <!-- /Quelle: growing-phase-auditor 2026-07-03 -->

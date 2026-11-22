@@ -75,9 +75,18 @@ _MUTATING = re.compile(r"(?:update|delete|replace|remove|revoke|grant)(?:_\w+)?|
 _WRITES_NO_HYBRID_ROW: dict[str, str] = {
     "TaskService.duplicate_workflow_template": "reads a readable template and writes a new copy owned by the caller",
     "TaskService.instantiate_workflow": "reads a readable template and writes tasks and an execution of the caller",
+    "TaskService.create_recurring_tasks_for_bed": (
+        "reads readable task templates (own or global) and writes new tasks of the caller on a bed; no template "
+        "row is written (GP-FR-087, #2897)"
+    ),
     "NutrientPlanService.remove_plant_plan": (
         "deletes the plant's own follows_plan edge, the plan is not written; the plant is verified in the "
         "repository (verify_entity_ownership, #2107)"
+    ),
+    "AdjacencyService.remove_manual_edge": (
+        "removes a manual adjacent_to edge between two slots; the receiver is the graph repository, which also "
+        "holds the global companion edges, but no catalogue row is written, and both slots are resolved under "
+        "the tenant through the ownership anchor (SR-021)"
     ),
     "UserPreferenceService.update_preferences": (
         "writes the caller's own preference row; the receiver is typed as a union that includes catalogue repositories"

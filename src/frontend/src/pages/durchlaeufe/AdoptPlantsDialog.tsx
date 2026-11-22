@@ -44,7 +44,7 @@ export default function AdoptPlantsDialog({
 }: AdoptPlantsDialogProps) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -79,10 +79,10 @@ export default function AdoptPlantsDialog({
       (p) =>
         p.instance_id.toLowerCase().includes(lower) ||
         (p.plant_name ?? '').toLowerCase().includes(lower) ||
-        getPlantDisplayName(p).toLowerCase().includes(lower) ||
+        getPlantDisplayName(p, i18n.language).toLowerCase().includes(lower) ||
         p.current_phase.toLowerCase().includes(lower),
     );
-  }, [plants, search]);
+  }, [plants, search, i18n.language]);
 
   const handleToggle = (key: string) => {
     setSelected((prev) => {
@@ -205,13 +205,13 @@ export default function AdoptPlantsDialog({
                         tabIndex={-1}
                         disableRipple
                         slotProps={{ input: {
-                          'aria-label': getPlantDisplayName(plant),
+                          'aria-label': getPlantDisplayName(plant, i18n.language),
                         } }}
                       />
                     </ListItemIcon>
                     <ListItemText
-                      primary={getPlantDisplayName(plant)}
-                      secondary={getPlantDisplayName(plant) !== plant.instance_id ? plant.instance_id : undefined}
+                      primary={getPlantDisplayName(plant, i18n.language)}
+                      secondary={getPlantDisplayName(plant, i18n.language) !== plant.instance_id ? plant.instance_id : undefined}
                     />
                     <Chip
                       label={t(`enums.plantPhase.${plant.current_phase}`, { defaultValue: plant.current_phase })}

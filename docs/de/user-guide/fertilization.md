@@ -326,15 +326,18 @@ Kamerplanter zeigt in der Pflanzendetailansicht den Nährstoffbedarf der Pflanze
 Statt Dosierungen von Hand aus den Tabellen oben abzuleiten, lässt du sie dir im **Nährstoff-Rechner** exakt berechnen:
 
 1. Öffne **Düngung → Nährstoff-Berechnungen** und wähle die Karte **Flächendosierung (Freiland)**.
-2. Trage die Keys der gewünschten Dünger ein (kommagetrennt), z.B. Kompost und Hornspäne.
+2. Wähle die gewünschten Dünger aus, z.B. Kompost und Hornspäne.
 3. Gib entweder die **Beetfläche in m²** direkt ein, oder trage stattdessen einen **Standort** ein. Ist eine Fläche eingetragen, hat sie Vorrang — der Standort wird dann ignoriert. Bleibt das Flächenfeld leer, übernimmt Kamerplanter die hinterlegte Fläche des gewählten Standorts.
-4. Wähle optional den **Nährstoffbedarf** der Pflanze (Stark-/Mittel-/Schwachzehrer, N-Fixierer) — das liefert zusätzliche Hinweise, ersetzt aber nicht die Mengenberechnung selbst.
+4. Wähle optional die **Pflanzenart**, für die du düngst. Ist bei der Art hinterlegt, dass sie Stickstoff sammelt (z.B. Bohne, Erbse), warnt dich das Ergebnis bei jedem Dünger mit Stickstoff. Die Mengen ändern sich dadurch nicht, und eine Zehrerstufe skaliert hier nichts.
 5. Klicke auf **Berechnen**.
 
 Das Ergebnis zeigt je Dünger die Gesamtmenge in Gramm bzw. Liter für die angegebene Fläche, das hinterlegte Verdünnungsverhältnis, die Freisetzungsgeschwindigkeit und ergänzende Hinweise.
 
 !!! tip "Fläche kommt aus dem Standort oder wird manuell eingegeben"
-    Wenn du bereits eine Beetgröße unter **Standorte → Standorte** hinterlegt hast, kannst du das Flächenfeld leer lassen und stattdessen den Standort-Key eintragen — die Fläche wird automatisch übernommen.
+    Wenn du bereits eine Beetgröße unter **Standorte → Standorte** hinterlegt hast, kannst du das Flächenfeld leer lassen und stattdessen den Standort wählen — die Fläche wird automatisch übernommen.
+
+!!! info "Die Stickstoff-Warnung kommt aus der Art"
+    Ob eine Pflanze Stickstoff sammelt, liest Kamerplanter aus dem Merkmal der Art in den Stammdaten, nicht mehr aus einer Zehrerstufe. Hat die Art das Merkmal nicht gesetzt, erscheint keine Warnung. Du siehst nur Arten, die dein Garten nutzen darf: eigene, die allgemeinen Stammdaten und für dich freigegebene.
 
 ---
 

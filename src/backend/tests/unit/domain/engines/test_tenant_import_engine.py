@@ -73,6 +73,24 @@ def test_accounts_are_mapped_or_pseudonymised() -> None:
     assert [row["created_by"] for row in rows] == ["acc-lead", "_anonymized"]
 
 
+def test_a_first_generation_tombstone_is_kept_but_a_tenant_bound_pseudonym_becomes_the_marker() -> None:
+    """PRIV-238: an ``anon2_`` value is bound to its source tenant; in the target it would link tenants."""
+    archive = _archive(
+        plant_instances=[{"_key": "p1", "tenant_key": SOURCE}],
+        plant_diary_entries=[
+            {"_key": "d1", "tenant_key": SOURCE, "plant_key": "p1", "created_by": "anon_0123456789abcdef"},
+            {"_key": "d2", "tenant_key": SOURCE, "plant_key": "p1", "created_by": "anon2_0123456789abcdef"},
+        ],
+    )
+    engine = _engine(archive)
+    rows = [
+        engine.remap_document("plant_diary_entries", d, existing_global=set())
+        for d in archive.collections["plant_diary_entries"]
+    ]
+
+    assert [row["created_by"] for row in rows] == ["anon_0123456789abcdef", "_anonymized"]
+
+
 def test_a_dangling_internal_pointer_is_cleared_never_kept() -> None:
     archive = _archive(plant_instances=[{"_key": "p1", "tenant_key": SOURCE, "mother_key": "gone", "slot_keys": []}])
     engine = _engine(archive)
@@ -182,3 +200,104 @@ class TestTheArchiveFormat:
     def test_a_zip_bomb_is_refused_by_its_directory(self) -> None:
         with pytest.raises(TenantArchiveError):
             read_tenant_archive(io.BytesIO(self._write()), max_uncompressed_bytes=10)
+
+
+def _site_with_underlay(attachment_key: str) -> dict:
+    return {
+        "_key": "s1",
+        "tenant_key": SOURCE,
+        "plan": {"plan_revision": 1, "underlay": {"attachment_key": attachment_key, "opacity": 0.5}},
+    }
+
+
+def test_an_underlay_follows_its_attachment_to_the_new_key() -> None:
+    archive = _archive(sites=[_site_with_underlay("a1")], attachments=[{"_key": "a1", "tenant_key": SOURCE}])
+    engine = _engine(archive)
+
+    site = engine.remap_document("sites", archive.collections["sites"][0], existing_global=set())
+
+    assert site["plan"]["underlay"]["attachment_key"] == engine.mapping["attachments"]["a1"] != "a1"
+
+
+def test_an_underlay_whose_attachment_is_not_in_the_archive_is_dropped_not_half_kept() -> None:
+    archive = _archive(sites=[_site_with_underlay("missing")])
+    engine = _engine(archive)
+
+    site = engine.remap_document("sites", archive.collections["sites"][0], existing_global=set())
+
+    assert "underlay" not in site["plan"] and site["plan"]["plan_revision"] == 1
+
+
+def test_remapping_a_row_twice_gives_the_same_row_because_the_archive_is_not_rewritten_in_place() -> None:
+    """The validation pass and the write pass run on the same rows; a nested key must map both times."""
+    archive = _archive(sites=[_site_with_underlay("a1")], attachments=[{"_key": "a1", "tenant_key": SOURCE}])
+    engine = _engine(archive)
+    row = archive.collections["sites"][0]
+
+    first = engine.remap_document("sites", row, existing_global=set())
+    second = engine.remap_document("sites", row, existing_global=set())
+
+    assert first == second and row["plan"]["underlay"]["attachment_key"] == "a1"
+
+
+class TestProvenanceReferences:
+    """#2528: a bed's template and substrate are provenance - resolved like any catalogue key, never refusing."""
+
+    @staticmethod
+    def _bed_archive(**bed: object) -> TenantArchive:
+        return _archive(
+            sites=[{"_key": "s1", "tenant_key": SOURCE}],
+            locations=[{"_key": "l1", "site_key": "s1", **bed}],
+            plant_instances=[{"_key": "p1", "tenant_key": SOURCE, "species_key": "sp-1"}],
+        )
+
+    def test_a_provenance_key_is_optional_and_a_species_key_still_refuses(self) -> None:
+        engine = _engine(self._bed_archive(template_key="tpl-gone", soil_profile={"substrate_key": "sub-gone"}))
+
+        assert engine.catalogue_requirements() == {"species": {"sp-1"}}
+        assert engine.optional_catalogue_requirements() == {
+            "bed_templates": {"tpl-gone"},
+            "substrates": {"sub-gone"},
+        }
+
+    def test_the_single_views_are_the_halves_of_catalogue_needs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#2513 review R5: the two single views read :meth:`catalogue_needs` - one derivation, not two."""
+        engine = _engine(self._bed_archive(template_key="tpl-gone"))
+        pair = ({"species": {"sp-x"}}, {"bed_templates": {"tpl-x"}})
+        monkeypatch.setattr(engine, "catalogue_needs", lambda: pair)
+
+        assert engine.catalogue_requirements() is pair[0]
+        assert engine.optional_catalogue_requirements() is pair[1]
+
+    def test_a_provenance_key_held_by_the_archive_needs_no_catalogue(self) -> None:
+        archive = self._bed_archive(template_key="tpl-1")
+        archive.collections["bed_templates"] = [{"_key": "tpl-1", "tenant_key": SOURCE}]
+
+        engine = _engine(archive)
+        bed = engine.remap_document("locations", archive.collections["locations"][0], existing_global=set())
+
+        assert engine.optional_catalogue_requirements() == {}
+        assert bed["template_key"] == engine.mapping["bed_templates"]["tpl-1"]
+        assert engine.nulled_references == 0
+
+    def test_a_missing_provenance_key_is_cleared_and_counted(self) -> None:
+        archive = self._bed_archive(template_key="tpl-gone", soil_profile={"substrate_key": "sub-gone"})
+        engine = _engine(archive)
+
+        bed = engine.remap_document("locations", archive.collections["locations"][0], existing_global=set())
+
+        assert bed["template_key"] is None and bed["soil_profile"]["substrate_key"] is None
+        assert engine.nulled_references == 2
+
+    def test_an_existing_system_template_is_kept(self) -> None:
+        archive = self._bed_archive(template_key="sys_bed_2x1", soil_profile={"substrate_key": "sub-global"})
+        engine = _engine(archive)
+
+        bed = engine.remap_document(
+            "locations",
+            archive.collections["locations"][0],
+            existing_global={"bed_templates/sys_bed_2x1", "substrates/sub-global"},
+        )
+
+        assert bed["template_key"] == "sys_bed_2x1" and bed["soil_profile"]["substrate_key"] == "sub-global"
+        assert engine.nulled_references == 0

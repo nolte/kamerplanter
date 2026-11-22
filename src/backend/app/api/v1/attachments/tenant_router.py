@@ -24,6 +24,7 @@ Security notes:
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Path, Query, Request, Response, UploadFile
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -122,12 +123,29 @@ def _parse_category(value: str) -> AttachmentCategory:
         ) from exc
 
 
-@router.post("", response_model=AttachmentResponse, status_code=201)
+@router.post(
+    "",
+    response_model=AttachmentResponse,
+    status_code=201,
+    responses={
+        200: {"model": AttachmentResponse, "description": "A replay: `client_event_id` names a stored upload."},
+        404: {"description": "`client_event.deleted`: the record this `client_event_id` created was deleted since."},
+        409: {"description": "`client_event.payload_mismatch`: the `client_event_id` names another upload."},
+    },
+)
 @limiter.limit(settings.rate_limit_upload, key_func=user_rate_limit_key)
 async def upload_attachment(
     request: Request,
+    response: Response,
     file: UploadFile,
     category: str = Form(..., description="Attachment category the file belongs to."),
+    client_event_id: UUID | None = Form(
+        None,
+        description=(
+            "The id of a buffered upload (REQ-053 WP 9.3), made once by the client: a replay with the same id and "
+            "the same file answers 200 with the stored record instead of a second one."
+        ),
+    ),
     capture_device: CaptureDevice = Form(
         CaptureDevice.UNKNOWN,
         description=(
@@ -140,7 +158,11 @@ async def upload_attachment(
     ctx: TenantContext = Depends(require_attachment_permission(Action.CREATE)),
     service: AttachmentService = Depends(get_attachment_service),
 ) -> AttachmentResponse:
-    """Proxy-upload an attachment through the server-side validation pipeline."""
+    """Proxy-upload an attachment through the server-side validation pipeline.
+
+    A bed photo (`category=location`) is uploaded here and then linked with `POST /locations/{key}/photos`; the
+    link is idempotent, so a buffered bed photo replays both steps with the same `client_event_id` safely.
+    """
     parsed_category = _parse_category(category)
     mime_type = (file.content_type or "").lower().strip()
     if not mime_type:
@@ -154,16 +176,19 @@ async def upload_attachment(
     # Content-Length cannot force the whole file into RAM before the size check.
     data = await _read_upload_bounded(file, max_bytes)
 
-    attachment = await service.upload(
+    outcome = await service.upload_once(
         tenant_key=ctx.tenant_key,
         user_key=ctx.user_key,
         data=data,
         mime_type=mime_type,
         original_filename=file.filename or "upload",
         category=parsed_category,
+        client_event_id=client_event_id,
         capture_device=capture_device,
     )
-    return _to_response(attachment, ctx.tenant_slug)
+    if outcome.replayed:
+        response.status_code = 200
+    return _to_response(outcome.attachment, ctx.tenant_slug)
 
 
 @router.post("/presign-upload", response_model=PresignUploadResponse)

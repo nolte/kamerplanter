@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,6 +12,8 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import SensorsIcon from '@mui/icons-material/Sensors';
 import { useForm, useWatch } from 'react-hook-form';
 import MobileCard from '@/components/common/MobileCard';
@@ -19,6 +21,8 @@ import PageTitle from '@/components/layout/PageTitle';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import EmptyState from '@/components/common/EmptyState';
+import OptionsLoadError from '@/components/common/OptionsLoadError';
+import { captureHandledError } from '@/observability/errorTracking';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import DataTable, { type Column } from '@/components/common/DataTable';
 import { useTableLocalState } from '@/hooks/useTableState';
@@ -42,13 +46,25 @@ import SensorCreateDialog from './SensorCreateDialog';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
+import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSite, clearCurrent } from '@/store/slices/sitesSlice';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import type { Sensor, SiteWaterConfig } from '@/api/types';
-import { buildSiteResolver, gpsToFields, gpsToPayload, isWeatherRelevantSiteType, siteTypeOptions, type SiteFormData } from './siteForm';
+import {
+  buildSiteResolver,
+  gpsToFields,
+  gpsToPayload,
+  isWeatherRelevantSiteType,
+  siteTypeOptions,
+  thresholdsToFields,
+  thresholdsToPayload,
+  type SiteFormData,
+} from './siteForm';
+import SiteThresholdsSection from './SiteThresholdsSection';
 
 const DEFAULT_VALUES: SiteFormData = {
   name: '',
@@ -58,6 +74,7 @@ const DEFAULT_VALUES: SiteFormData = {
   climate_zone: '',
   total_area_m2: 0,
   timezone: 'UTC',
+  ...thresholdsToFields(null),
 };
 
 export default function SiteDetailPage() {
@@ -72,12 +89,18 @@ export default function SiteDetailPage() {
   // Deleting is lead-only backend-side (`require_permission(SITE|SENSOR, DELETE)`),
   // so a grower must not be offered a control that can only answer 403 (#1467).
   const { canDelete } = useTenantPermissions();
+  // REQ-042 §4.3: the plan lies in the path space of the core `locations` module, so its entry point
+  // is gated here by module key, not by path prefix.
+  const { isModuleVisible } = useModuleVisibility();
+  const showGardenPlan = isModuleVisible('garden_planner');
   const { currentSite: current, loading, error } = useAppSelector((s) => s.sites);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingSensor, setDeletingSensor] = useState(false);
   const [sensors, setSensors] = useState<Sensor[]>([]);
+  // A failed read is shown with a retry, never as "no sensors" (#3037).
+  const [sensorsError, setSensorsError] = useState(false);
   const [sensorDialogOpen, setSensorDialogOpen] = useState(false);
   const [editSensor, setEditSensor] = useState<Sensor | undefined>(undefined);
   const [deleteSensorKey, setDeleteSensorKey] = useState<string | null>(null);
@@ -101,22 +124,44 @@ export default function SiteDetailPage() {
   const watchedType = useWatch({ control, name: 'type' });
   const weatherEnabledForType = isWeatherRelevantSiteType(watchedType);
 
+  // Latest-wins for the sensor list: a late answer for the previous site must not land (#3014).
+  const beginSensorLoad = useAbortableLoad();
   const loadSensors = useCallback(async () => {
     if (!key) return;
+    const ticket = beginSensorLoad();
     try {
       const s = await api.getSiteSensors(key);
+      if (!ticket.isCurrent()) return;
       setSensors(s);
-    } catch {
-      // Sensors may not be available
+      setSensorsError(false);
+    } catch (err) {
+      if (!ticket.isCurrent()) return;
+      captureHandledError(err, { source: 'SiteDetailPage.sensors' });
+      setSensorsError(true);
     }
-  }, [key]);
+  }, [key, beginSensorLoad]);
 
+  const siteRequestRef = useRef<{ abort: () => void } | null>(null);
   useEffect(() => {
-    if (key) {
-      dispatch(fetchSite(key));
-      loadSensors();
-    }
-    return () => { dispatch(clearCurrent()); };
+    if (!key) return () => { dispatch(clearCurrent()); };
+    // Aborting the superseded fetch keeps its late answer out of `currentSite` (#3014);
+    // the slice ignores the abort's own `rejected` action.
+    const siteRequest = dispatch(fetchSite(key));
+    siteRequestRef.current = siteRequest;
+    loadSensors();
+    return () => {
+      siteRequestRef.current?.abort();
+      siteRequestRef.current = null;
+      dispatch(clearCurrent());
+    };
+  }, [key, dispatch, loadSensors]);
+
+  // The error display's retry re-runs the load in place instead of leaving the page (#3037).
+  const retryLoad = useCallback(() => {
+    if (!key) return;
+    siteRequestRef.current?.abort();
+    siteRequestRef.current = dispatch(fetchSite(key));
+    loadSensors();
   }, [key, dispatch, loadSensors]);
 
   useEffect(() => {
@@ -128,6 +173,7 @@ export default function SiteDetailPage() {
         climate_zone: current.climate_zone,
         total_area_m2: current.total_area_m2,
         timezone: current.timezone ?? 'UTC',
+        ...thresholdsToFields(current),
       });
       const wc = current.water_config;
       setWaterConfig({
@@ -163,6 +209,8 @@ export default function SiteDetailPage() {
         total_area_m2: data.total_area_m2,
         timezone: data.timezone,
         water_config: waterConfig,
+        // REQ-053 WP 8.24: only a changed part goes out; `null` keeps what is stored.
+        ...thresholdsToPayload(data, current),
       });
       notification.success(t('common.save'));
       dispatch(fetchSite(key));
@@ -207,7 +255,7 @@ export default function SiteDetailPage() {
   };
 
   if (loading) return <LoadingSkeleton variant="form" />;
-  if (error) return <ErrorDisplay error={error} onRetry={() => navigate(-1)} />;
+  if (error) return <ErrorDisplay error={error} onRetry={retryLoad} />;
 
   const PANEL_GAP = 4;
 
@@ -217,10 +265,40 @@ export default function SiteDetailPage() {
       <PageTitle
         title={current?.name ?? t('entities.site')}
         action={
-          canDelete ? (
-            <Button color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
-              {t('common.delete')}
-            </Button>
+          showGardenPlan || canDelete ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {showGardenPlan && key && (
+                <Button
+                  component={RouterLink}
+                  to={`/standorte/sites/${key}/plan`}
+                  variant="outlined"
+                  startIcon={<MapOutlinedIcon />}
+                  data-testid="garden-plan-open-link"
+                  sx={{ minHeight: 44 }}
+                  title={t('pages.gardenPlan.openHint')}
+                >
+                  {t('pages.gardenPlan.open')}
+                </Button>
+              )}
+              {showGardenPlan && key && (
+                <Button
+                  component={RouterLink}
+                  to={`/standorte/sites/${key}/rotation-matrix`}
+                  variant="outlined"
+                  startIcon={<GridViewOutlinedIcon />}
+                  data-testid="rotation-matrix-open-link"
+                  sx={{ minHeight: 44 }}
+                  title={t('pages.rotationMatrix.openHint')}
+                >
+                  {t('pages.rotationMatrix.open')}
+                </Button>
+              )}
+              {canDelete && (
+                <Button variant="outlined" color="error" startIcon={<DeleteIcon />} onClick={() => setDeleteOpen(true)} data-testid="site-delete-button">
+                  {t('common.delete')}
+                </Button>
+              )}
+            </Box>
           ) : undefined
         }
       />
@@ -288,6 +366,18 @@ export default function SiteDetailPage() {
           </CardContent>
         </Card>
 
+        {showGardenPlan && (
+          <SiteThresholdsSection
+            control={control}
+            onResetDefaults={() => {
+              const defaults = thresholdsToFields(null);
+              setValue('sun_class_thresholds', defaults.sun_class_thresholds, { shouldDirty: true, shouldValidate: true });
+              setValue('reach_thresholds', defaults.reach_thresholds, { shouldDirty: true, shouldValidate: true });
+              setValue('window_thresholds', defaults.window_thresholds, { shouldDirty: true, shouldValidate: true });
+            }}
+          />
+        )}
+
         <Card variant="outlined">
           <CardContent>
             <WaterSourceSection
@@ -314,7 +404,13 @@ export default function SiteDetailPage() {
             {t('pages.sensors.add')}
           </Button>
         </Box>
-        {sensors.length === 0 ? (
+        {sensorsError ? (
+          <OptionsLoadError
+            messageKey="errors.loadFailed"
+            onRetry={() => void loadSensors()}
+            data-testid="site-sensors-load-error"
+          />
+        ) : sensors.length === 0 ? (
           <EmptyState
             message={t('pages.sensors.noSensors')}
             actionLabel={t('pages.sensors.add')}

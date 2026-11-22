@@ -64,6 +64,7 @@ class PhaseDefinitionSpeciesResponse(BaseModel):
     key: str
     scientific_name: str = ""
     common_names: list[str] = Field(default_factory=list)
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
     typical_duration_days: int = 1
     illustration: str = ""
 
@@ -74,6 +75,7 @@ class PhaseSequenceSpeciesResponse(BaseModel):
     key: str
     scientific_name: str = ""
     common_names: list[str] = Field(default_factory=list)
+    common_names_i18n: dict[str, list[str]] = Field(default_factory=dict)
 
 
 # ── PhaseSequence schemas ──
@@ -93,7 +95,7 @@ class PhaseSequenceCreate(BaseModel):
     dormancy_required: bool = False
     vernalization_required: bool = False
     vernalization_min_days: int | None = None
-    photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
+    photoperiod_type: PhotoperiodType = PhotoperiodType.UNSPECIFIED
     critical_day_length_hours: float | None = None
     is_system: bool = False
     tags: list[str] = Field(default_factory=list)
@@ -148,7 +150,7 @@ class PhaseSequenceResponse(BaseModel):
     dormancy_required: bool = False
     vernalization_required: bool = False
     vernalization_min_days: int | None = None
-    photoperiod_type: PhotoperiodType = PhotoperiodType.DAY_NEUTRAL
+    photoperiod_type: PhotoperiodType = PhotoperiodType.UNSPECIFIED
     critical_day_length_hours: float | None = None
     is_system: bool = False
     tags: list[str] = Field(default_factory=list)

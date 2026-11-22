@@ -57,8 +57,10 @@ describe('getStepUpErrorMessage', () => {
     expect(getStepUpErrorMessage(apiError(429, 'STEP_UP_LOCKED'), t)).toBe('pages.auth.stepUpLockedNoMinutes');
   });
 
-  it('passes every other error through parseApiError', () => {
-    expect(getStepUpErrorMessage(apiError(401, 'UNAUTHORIZED'), t)).toBe('Backend English message.');
+  it('passes every other error through parseApiError, by code', () => {
+    // #3013: a wrong factor reads as such; the backend's English message never comes through.
+    expect(getStepUpErrorMessage(apiError(401, 'UNAUTHORIZED'), t)).toBe('pages.auth.stepUpRejected');
+    expect(getStepUpErrorMessage(apiError(409, 'WRITE_CONFLICT'), t)).toBe('errors.conflict');
   });
 });
 

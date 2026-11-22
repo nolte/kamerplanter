@@ -120,6 +120,22 @@
 **Hinweis:** Dracaena marginata ist eine tropische Unterwuchs-Art (understory) mit dünner Kutikula und auf schwaches Dauerlicht optimierten Chloroplasten — daher der sehr niedrige Lichtkompensationspunkt (10–25 µmol/m²/s, typisch für schattentolerante Unterwuchspflanzen). Der Kompensationspunkt markiert die Netto-Photosynthese = 0; das Pflege-Optimum liegt deutlich höher bei 100–300 µmol/m²/s (vgl. §2.2). Die Einstufung `shade` (nicht `deep_shade`): Die Pflanze überlebt in echtem Schwachlicht, verliert dort aber Panaschierung, lässt Blätter fallen und stockt im Wuchs. Salzempfindlichkeit und Staunässe-Empfindlichkeit sind eng mit der dokumentierten Fluorid-/Salz-Toleranz (§1.4, §3.2) und der Wurzelfäule-Neigung (§5.2) verknüpft.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | full_sun | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Dracaena marginata (v)", https://www.rhs.org.uk/plants/31916/dracaena-marginata-(v)/details (Position: Full sun; Kulturhinweis: volles, helles Licht, aber vor intensiver direkter Sonne geschützt) | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -336,3 +352,4 @@ Bicolor,Dracaena marginata,"ornamental;two_toned",clone
 12. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Mealybug Destroyer gegen Schmierläuse, Ausbringrate
 13. [Penn State Extension — Hydroponics Systems & Principles of Plant Nutrition](https://extension.psu.edu/hydroponics-systems-and-principles-of-plant-nutrition-essential-nutrients-function-deficiency-and-excess) — Mikronährstoff-Referenzspannen (Mn/Zn/Cu/Mo) (University Extension)
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+14. [RHS — Dracaena marginata (v)](https://www.rhs.org.uk/plants/31916/dracaena-marginata-(v)/details) — Position Full sun, volles Licht mit Schutz vor intensiver Direktsonne (light_requirement)

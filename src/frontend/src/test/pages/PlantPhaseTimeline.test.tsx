@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
@@ -208,27 +209,37 @@ describe('PlantPhaseTimeline', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2);
   });
 
-  it('renders nothing when the fallback growth-phase load fails', async () => {
+  it('shows a failed fallback growth-phase load with a retry, and the retry shows the timeline (#3037)', async () => {
+    let calls = 0;
     server.use(
       http.get(seqUrl, () => HttpResponse.json(null)),
-      http.get('/api/v1/growth-phases', () =>
-        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      http.get('/api/v1/growth-phases', () => {
+        calls += 1;
+        return calls === 1 ? HttpResponse.json({ message: 'boom' }, { status: 500 }) : undefined;
+      }),
+    );
+
+    renderWithProviders(<PlantPhaseTimeline plant={plant} history={[]} />);
+
+    // A failed read is not "no timeline".
+    await userEvent.setup().click(await screen.findByTestId('plant-phase-timeline-load-error-retry'));
+    await screen.findByRole('list');
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByTestId('plant-phase-timeline-load-error')).toBeNull();
+  });
+
+  it('renders nothing when the species has no lifecycle (404)', async () => {
+    server.use(
+      http.get(seqUrl, () => HttpResponse.json(null)),
+      http.get('/api/v1/species/:key/lifecycle', () =>
+        HttpResponse.json({ error_id: 'e', error_code: 'ENTITY_NOT_FOUND', message: 'nope', details: [] }, { status: 404 }),
       ),
     );
-    const onLifecycleLoaded = vi.fn();
 
-    const { container } = renderWithProviders(
-      <PlantPhaseTimeline
-        plant={plant}
-        history={[]}
-        onLifecycleLoaded={onLifecycleLoaded}
-      />,
-    );
+    const { container } = renderWithProviders(<PlantPhaseTimeline plant={plant} history={[]} />);
 
-    // Lifecycle still loads, but with no phases the timeline collapses to null.
-    await waitFor(() => expect(onLifecycleLoaded).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByRole('progressbar')).toBeNull());
-    expect(screen.queryByRole('list')).toBeNull();
+    expect(screen.queryByTestId('plant-phase-timeline-load-error')).toBeNull();
     expect(container).toBeEmptyDOMElement();
   });
 });

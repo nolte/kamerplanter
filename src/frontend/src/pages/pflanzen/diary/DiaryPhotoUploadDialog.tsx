@@ -38,8 +38,8 @@ interface DiaryPhotoUploadDialogProps {
  * upload) come from {@link ImageCapturePanel}, the same component the gallery
  * upload uses — that part is genuinely shared, not re-implemented.
  *
- * **`PlantPhotoUploadDialog` itself is not reusable here.** It calls
- * `uploadPlantPhoto` (`plantPhotos.ts:118`), which posts to
+ * **`PlantPhotoUploadDialog` (`@/components/photos`) itself is not reusable
+ * here.** It calls `uploadPlantPhoto` (`plantPhotos.ts:118`), which posts to
  * `/plant-instances/{key}/photos`; that endpoint stores the file as
  * `AttachmentCategory.PLANT` and links it into the plant's gallery
  * (`photo_router.py:152`). A diary photo is neither: REQ-050 §0 pins it to

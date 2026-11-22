@@ -42,9 +42,48 @@ feature/* ──► develop ──► (Release Tag v*) ──► main
 | `release-cd-deliver-docs.yml` | Published release | Deploy MkDocs documentation to GitHub Pages |
 | `release-cd-refresh-master.yml` | Published release | Update `main` branch to release state |
 | `release-lag.yml` | Scheduled, daily at 09:00 UTC (+ manual) | Reports when `develop` carries commits no **published** release contains |
-| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift |
+| `renovate-health.yml` | Scheduled, daily at 09:20 UTC (+ manual) | Reads the Dependency Dashboard (#12) and reports a Renovate problem or manager-inventory drift; also asks the registries when the repository behind each pinned third-party image last received a tag |
 | `lane-inputs.yml` | weekly on `develop`, manual | Measures which files the filtered jobs read, compares with `.github/lane-inputs/` and proposes differences as a bot pull request ([details](#lane-inputs)) |
 | `reach-audit.yml` | weekly (Sunday 02:43 UTC), manual | Runs the capability reach audit including the full-stack T2 probes on a runner; advisory, no merge gate ([details](#reach-audit)) |
+
+---
+
+## Ownership per Required Check {#zustaendigkeit-pflicht-checks}
+
+Every pull request must pass four checks before it can be merged into `develop`. This table shows which workflow and job delivers each one and how it reports on *every* pull request – a required check that never reports stays "Pending" and blocks the merge.
+
+| Required check | Workflow / job | Trigger | Reporting on every pull request |
+|----------------|----------------|---------|---------------------------------|
+| `static / Static CI Tests` | `build-static-tests.yaml` / `static` (reusable pre-commit run) | `push` on all branches, no `paths:` | always runs |
+| `lint-test-build (22)` | `frontend.yml` / `lint-test-build` | `pull_request` without `paths:` | The job always runs; its steps are gated by a relevance filter (`RUN_FRONTEND`) |
+| `Write-route and tree guards` | `backend-guards.yml` / `guards` | `push` on all branches, no `paths:` | always runs, no relevance filter |
+| `Integration tests (ArangoDB)` | `backend-guards.yml` / `integration` | `push` on all branches, no `paths:` | The job always runs; its steps are gated by `RUN_INTEGRATION` |
+
+!!! note "Why the filters live in the steps"
+    A required check must not be filtered with a workflow-level `paths:`: if the workflow is skipped, the check never reports and stays "Pending", so the pull request cannot be merged. The job therefore runs on every pull request (or push) and only skips its expensive steps when the change does not touch them. The result is green without anything having run.
+
+You can read the list of required checks from the branch protection of `develop`:
+
+```bash
+gh api repos/nolte/kamerplanter/branches/develop/protection \
+  --jq '.required_status_checks.contexts'
+```
+
+Other workflows (for example `backend.yml` with lint and unit tests, coverage, the `lighthouse` job (bundle budget and Lighthouse CI), or the security scans) are path-filtered and advisory; they do not block the merge.
+
+---
+
+## Deliberately Retained Duplication and Why {#bewusste-duplikation}
+
+Some checks run in more than one place. That is intentional, not an oversight; the table below records why you should not "clean them up".
+
+| Duplication | Why it stays |
+|-------------|--------------|
+| `static` runs ruff and the plant-profile consistency check although `backend.yml` also checks them | `static` is the unfiltered required run. `backend.yml` is path-filtered and advisory; without the copy, ruff would go unchecked for every change outside its paths. The copy costs seconds. Expensive checks (frontend ESLint/tsc, mypy ratchet) are skipped by `static` with an announcement that points to the owning run. |
+| The `lighthouse` job (bundle budget and Lighthouse CI) builds the frontend separately from `lint-test-build (22)` | A broken budget should turn visibly red without changing the required check and thereby blocking automerge. If it reused that build, it would also have to wait behind the long required job. The two performance gates share one build inside that job. |
+| The guard tests run in `backend-guards.yml` and in `backend.yml` | `backend-guards.yml` delivers two required checks and therefore runs on every push. `backend.yml` is path-filtered, but it measures coverage over the code these tests exercise. Merging coverage across two workflows with different events is not trivial. |
+| `deadcode` (knip) is a separate job next to the CVE and licence gates | A permanently red advisory run would otherwise carry its red into the CVE and licence gates. |
+| `npm ci` and `uv sync` run in several jobs | Each installation sits in a job that stays separate for one of the reasons above. All use the package cache; merging the installs would mean merging the jobs. |
 
 ---
 
@@ -66,7 +105,7 @@ jobs:
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: '3.15'
           allow-prereleases: true
 
       - name: Install uv
@@ -129,6 +168,29 @@ So this workflow reads the body of #12 daily and compares:
 On a finding the run opens or updates **a single deduplicated issue** (label `renovate-health`) instead of merely going red — a red scheduled run is invisible after a week of red scheduled runs. Conversely, when the run *cannot decide* (issue unreachable, empty body, unparseable dashboard) **the run goes red and no issue is opened** — an undetermined check must not read as a clean one (NFR-018 §2).
 
 The expectation itself lives in `scripts/ci/check_renovate_dashboard.py` (`EXPECTED_PEP621_FILES`, `KNOWN_LOCKLESS_PEP621_FILES`); a new Python tree is added there rather than the rule being quietly widened.
+
+### Orphaned image coordinates (job `stale-image-upstreams`)
+
+Renovate answers the question "is there a newer tag in **this** repository?". It does not ask "does this repository still receive tags at all?".
+
+That is what happened in autumn 2026: the frontend image was built on `nginxinc/nginx-unprivileged`. Since 2026-10-19 upstream has published under `nginx/nginx-unprivileged` only. The old repository kept resolving but received no further tag — the pin looked up to date for a month, and ten security fixes never arrived as a pull request.
+
+The second job in `renovate-health.yml` therefore asks daily, for every third-party image, when its repository last saw activity:
+
+* **The inventory is read from the checkout**, not from a list: every reference of the form `name:tag@sha256:…` in Dockerfiles, Compose files, workflows, `.pins/` and Taskfiles, plus every image block in the Helm values (a `repository:` with `tag:` or `digest:` in the same block, or under an `image:` key). Our own images (`kamerplanter-*`) do not count. The run log names every image it looked at.
+* **Docker Hub** provides the date of the newest tag push. **ghcr.io** has no push date; there the job reads the build date of the newest tags. The report says per image which of the two signals it read.
+* **The window is 45 days.** Images that release rarely get a wider window, with the reason, in `THRESHOLD_OVERRIDES_DAYS` in `scripts/ci/check_stale_image_upstreams.py` (currently `curlimages/curl`, `busybox`, `ghcr.io/hadolint/hadolint`).
+
+!!! note "What the window does — and what it does not"
+    Measured on 2026-11-20, the newest activity of 14 of the 17 images was at most 15 days old; the largest gap between two push days of an image on the default window was 36 days. A 30-day window would therefore have alerted on a healthy repository.
+
+    The flip side: on the day the nginx case was noticed by other means (day 31), the job would still have been silent. It would have reported on 2026-12-03. The check bounds how long the silence can last; it does not detect a move on day one.
+
+As with the dashboard job, a finding lands in **a single deduplicated issue** (label `stale-image-upstream`), which the job updates and closes again. A repository the registry no longer knows also counts as a finding (the registry already answers the request for the tag list with "not found"), and so does an image on a registry the job cannot read — such an image is reported, not waved through silently.
+
+When the job *cannot decide* — a registry is unreachable or rate-limits, the inventory is empty, a pin is unreadable — **the run goes red and no issue is created**. All registry queries are anonymous: the script and its requests are handed no token. The job's `GITHUB_TOKEN` (`issues: write`) is used by the issue step that follows, and by nothing else.
+
+When the issue opens: check with the upstream project whether it moved. If it did, change the image name in every place listed and in `renovate.json5` in the same pull request. If the project merely releases rarely, record a wider window with the measured cadence as the reason.
 
 ### `task renovate:dry-run` — prove the configuration before merging
 
@@ -200,11 +262,11 @@ jobs:
 
 On a push to `develop` (not on PRs), the finished `dist/` directory is uploaded as a GitHub Actions artifact and retained for 7 days. This allows quick inspection of the build output without local compilation.
 
-### Performance budgets & CI gates (`bundle-budget`, `lighthouse`)
+### Performance budgets & CI gates (`lighthouse`)
 
-Besides `lint-test-build`, the same workflow runs two standalone jobs that watch frontend load performance (internal reference: UI-NFR-003). Neither touches the required `static` check — a violation surfaces visibly without blocking automerge.
+Besides `lint-test-build`, the same workflow runs one standalone job, `lighthouse` (check name `Bundle budget and Lighthouse CI`), that watches frontend load performance (internal reference: UI-NFR-003). It builds the frontend once and runs two gates over that build. The job is not a required check — a violation surfaces visibly without blocking automerge. The Lighthouse run also happens when the bundle budget is broken, so both results land in the same run.
 
-**`bundle-budget` — hard gate.** The job builds the frontend, then runs `npm run bundle:check` (script `scripts/check-bundle-budget.mjs`) to check the initial JavaScript and CSS bundle plus the dedicated `/dashboard` route chunk against the budgets in `bundle-budget.json`:
+**Bundle budget — hard gate.** After the build, the job runs `npm run bundle:check` (script `scripts/check-bundle-budget.mjs`) to check the initial JavaScript and CSS bundle plus the dedicated `/dashboard` route chunk against the budgets in `bundle-budget.json`:
 
 | Check | Budget (gzip) | Measured actual |
 |---|---|---|
@@ -224,7 +286,7 @@ The job runs only on pull requests that change the frontend (the same detection 
     npm run bundle:check
     ```
 
-**`lighthouse` — report-only.** The job runs `npm run lhci` (Lighthouse CI, mobile emulation with throttled 4G network) against the built `dist/` folder and checks the Core Web Vitals thresholds from UI-NFR-003 (First Contentful Paint < 1.5 s, Largest Contentful Paint < 2.5 s, Time to Interactive < 3.5 s, Cumulative Layout Shift < 0.1, Total Blocking Time < 200 ms) plus the performance and accessibility scores (≥ 0.9). All assertions in `lighthouserc.json` are configured at `warn` level — the job does not block the build but surfaces regressions in the report. The full report is uploaded as the `lighthouse-report` artifact.
+**Lighthouse — mostly report-only.** The job then runs `npm run lhci` (Lighthouse CI, mobile emulation with throttled 4G network) against the built `dist/` folder and checks the Core Web Vitals thresholds from UI-NFR-003 (First Contentful Paint < 1.5 s, Largest Contentful Paint < 2.5 s, Time to Interactive < 3.5 s, Cumulative Layout Shift < 0.1, Total Blocking Time < 200 ms) plus the performance score (≥ 0.9) and the accessibility score. The performance assertions in `lighthouserc.json` are at `warn` level and only surface regressions in the report. The accessibility score is at `error` level with a floor of 0.98: a drop below it turns the job red. The full report is uploaded as the `lighthouse-report` artifact.
 
 ---
 
@@ -253,10 +315,10 @@ On a `v*` tag or manual trigger, the filtering is skipped — all components are
 
 ### Backend image
 
-The backend image is based on `python:3.14-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
+The backend image is based on `python:3.15-slim` and uses a multi-stage Dockerfile with a shared `base` stage plus separate `dev` and `prod` targets (`docker build .` without `--target` builds `prod` by default, since it is the last stage). The `dev` stage runs as root for Skaffold hot-reload; the `prod` stage runs as a non-root user (UID 1000):
 
 ```dockerfile title="src/backend/Dockerfile (simplified, prod stage)"
-FROM python:3.14-slim AS base
+FROM python:3.15-slim AS base
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:0.12.12 /uv /bin/uv
 ENV UV_PYTHON=/usr/local/bin/python3 UV_PYTHON_DOWNLOADS=never UV_PROJECT_ENVIRONMENT=/opt/venv PATH="/opt/venv/bin:$PATH"
@@ -286,7 +348,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.31-alpine AS prod
+FROM nginx/nginx-unprivileged:1.31-alpine AS prod
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080
@@ -445,6 +507,10 @@ helm pull oci://ghcr.io/nolte/charts/kamerplanter --version 1.2.0
 
 All image builds use the GitHub Actions cache (`type=gha`) for Docker layers. This significantly speeds up subsequent builds when only a few layers change.
 
+Every image build definition in `docker-lint-build.yml` gets its **own BuildKit cache scope** (`scope=<name>`, identical for reading and writing). A build with the same definition as an E2E service (same context, same Dockerfile, no `target:`) uses that service's scope: `e2e-backend` for the backend, `e2e-frontend` for the frontend. The guard `test_docker_build_cache_scopes.py` enforces this in the required check `Write-route and tree guards`.
+
+The reason: without `scope=`, all jobs write to the gha default scope `buildkit`, and every export replaces the previous index – the jobs overwrite each other's cache. In addition, caches from pull requests are readable only by their own ref. The E2E stack also writes its scopes on `develop`; a build that shares the scope benefits from those entries. A wrong scope costs at most a cache miss, never a wrong image.
+
 ---
 
 ## Skaffold Verify (`skaffold-verify.yml`)
@@ -482,7 +548,7 @@ The workflow `lane-inputs.yml` measures the read sets where the jobs themselves 
 4. **guard** runs the guard's rules that hold committed manifests against the live workflows — once against the state on `develop`, once with the fresh measurement laid over it.
 5. **propose** opens a bot pull request on the branch `bot/lane-inputs-refresh` when there is a difference; it contains exactly the measurement. If the guard is green with the measurement, it carries the `automerge` label and merges once the required checks are green. Without a difference it opens nothing and closes a bot pull request that is still open.
 
-It runs weekly on `develop` and on demand, **not** on pull requests. A pull request that changes a workflow job or the inputs of a filtered job therefore needs no measurement: the rules that would need one run in no pull-request check. The next run on `develop` shows the difference, and the bot pull request fixes it. The workflow and the guard are **not required** (advisory); promoting them is decided on their measured history (NFR-018 §4).
+It runs weekly on `develop` and on demand, **not** on pull requests. A pull request that changes a workflow job or the inputs of a filtered job therefore needs no measurement: the rules that would need one run in no pull-request check. The next run on `develop` shows the difference, and the bot pull request fixes it. The workflow and the rules that need a measurement are **not required** (advisory): they show a difference almost every week. The guard's rules that need no measurement run in the required check `Write-route and tree guards` since 2026-11-22 — promoted on their measured history (NFR-018 §4.3, #1683).
 
 !!! note "Why the weekly run can turn red without anyone's mistake"
     Many jobs list directories. When a file is added there, the job's read set grows — the committed manifest is then stale although nobody did anything wrong. Surfacing exactly that is what the weekly run is for; the bot pull request then brings the manifests back to the measured state.
@@ -918,7 +984,7 @@ All images are publicly readable. For local testing:
 ## Frequently Asked Questions
 
 ??? question "Why does the backend CI fail even though tests pass locally?"
-    Make sure you are using Python 3.14 (`python --version`). The CI explicitly uses `python-version: '3.14'` with `allow-prereleases: true`. Differing Python versions can lead to different behavior. Also check that all dependencies are installed with `uv sync --locked --extra dev`.
+    Check which Python version you are using (`python --version`). The CI tests the backend with `python-version: '3.15'` — both the floor from `requires-python` and the version the backend image runs. `side-services.yml` tests the knowledge service on 3.15 as well; the inference, embedding and reranker services stay on 3.14 until onnxruntime publishes wheels for 3.15. Differing Python versions can lead to different behavior. Also check that all dependencies are installed with `uv sync --locked --extra dev`.
 
 ??? question "Why is no new image built even though I pushed to develop?"
     Path filtering in `docker-publish.yml` ensures that only actually affected components are built. If you only changed a spec file, for example, no image will be built. On `v*` tags, filtering is bypassed.

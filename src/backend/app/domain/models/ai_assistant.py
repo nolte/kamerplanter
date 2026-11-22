@@ -8,8 +8,10 @@ v2 models back the ArangoDB collections ``ai_provider_configs``,
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -135,6 +137,25 @@ class AiConversation(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+_UNSAFE_PATH_CHARS = re.compile(r"[\x00-\x1f\x7f\\]|%5c", re.IGNORECASE)
+_DOT_SEGMENT = re.compile(r"^(?:\.|%2e){1,2}$", re.IGNORECASE)
+
+
+def _is_site_relative_path(value: str) -> bool:
+    """True when *value* is a path inside this app that no browser reads as another host.
+
+    Stricter than a browser on purpose: an app path never needs an empty segment
+    (``//``) or a ``.``/``..`` segment, and refusing them closes ``/.//evil.example``,
+    which a browser collapses to ``//evil.example``.
+    """
+    if not value.startswith("/") or _UNSAFE_PATH_CHARS.search(value):
+        return False
+    parsed = urlsplit(value)
+    if parsed.scheme or parsed.netloc or "//" in parsed.path:
+        return False
+    return not any(_DOT_SEGMENT.match(segment) for segment in parsed.path.split("/"))
+
+
 class AiTipCard(BaseModel):
     """REQ-031 §3.1 — a cached tip card / daily tip / "why" explanation."""
 
@@ -180,11 +201,15 @@ class AiTipCard(BaseModel):
 
         ``//evil.example`` is rejected along with ``javascript:`` and ``https:``:
         a protocol-relative URL starts with ``/`` and is an *absolute* link, which
-        is exactly the case a naive "must start with /" check waves through.
+        is exactly the case a naive "must start with /" check waves through. So is
+        ``/\\evil.example`` (#3012): browsers read a backslash as ``/`` and strip
+        tabs and newlines, so backslashes (raw or percent-encoded) and control
+        characters are refused, and the path must stay root-relative once ``.``
+        segments collapse.
         """
         if value is None or value == "":
             return None
-        if not value.startswith("/") or value.startswith("//"):
+        if not _is_site_relative_path(value):
             raise ValueError("action_url must be a site-relative path, e.g. '/pflanzen/123'")
         return value
 

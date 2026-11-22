@@ -118,6 +118,22 @@
 | Boden-pH-Vorzug (min–max) | 6.0–7.0 | `species.soil_ph_preference` |
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | siehe Bestandswert in §1.6/§1.7 (unverändert, nicht Gegenstand dieser Anreicherung) | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Zamioculcas zamiifolia“ (Position: Full shade, Partial shade; Kulturtext: "indirect light to full shade. Tolerant of neglect"), https://www.rhs.org.uk/plants/19185/zamioculcas-zamiifolia/details — RHS nennt Full shade und Partial shade (Toleranzspanne); als Anspruch wird helles indirektes Licht (partial_shade) gesetzt, tiefer Schatten gilt als Toleranz. | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -350,4 +366,5 @@ Zenzi,Zamioculcas zamiifolia,"ornamental;compact;curled_leaflets",clone
 15. [Cornell NYSIPM — Phytoseiulus persimilis Biocontrol Fact Sheet](https://cals.cornell.edu/integrated-pest-management/outreach-education/fact-sheets/phytoseiulus-persimilis-predatory-mite) — Ausbringrate/Wirkbereich Raubmilbe (Nützlinge)
 16. [Sound Horticulture — Cryptolaemus montrouzieri Tech Sheet](https://soundhorticulture.com/pages/cryptolaemus-montrouzieri) — Ausbringrate/Etablierungszeit Mealybug Destroyer (Nützlinge)
 17. [Evergreen Growers — Mealybug Destroyer Cryptolaemus montrouzieri](https://www.evergreengrowers.com/mealybug-destroyer-cryptolaemus-montrouzieri-group-cryp.html) — Ausbringrate Mealybug Destroyer (Nützlinge)
+RHS -- Zamioculcas zamiifolia (Position/Aspect: Full shade, Partial shade; Lichtanspruch): https://www.rhs.org.uk/plants/19185/zamioculcas-zamiifolia/details
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->

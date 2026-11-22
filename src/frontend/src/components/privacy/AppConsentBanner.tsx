@@ -1,6 +1,10 @@
-import ConsentBanner from '@/components/privacy/ConsentBanner';
+import { lazy, Suspense } from 'react';
 import { isLightMode } from '@/config/mode';
 import { isErrorTrackingConfigured } from '@/observability/errorTracking';
+
+// #3023 — the banner (and its Switch controls) is its own chunk: most deployments suppress it, and where it
+// shows, it shows once per browser. The shell does not wait for it.
+const ConsentBanner = lazy(() => import('@/components/privacy/ConsentBanner'));
 
 /**
  * The app-shell mount of the consent banner (UI-NFR-013 CB-001, #2159).
@@ -19,5 +23,10 @@ import { isErrorTrackingConfigured } from '@/observability/errorTracking';
  *   gate widens to "any category the decision switches is configured".
  */
 export default function AppConsentBanner() {
-  return <ConsentBanner suppress={isLightMode || !isErrorTrackingConfigured()} />;
+  if (isLightMode || !isErrorTrackingConfigured()) return null;
+  return (
+    <Suspense fallback={null}>
+      <ConsentBanner />
+    </Suspense>
+  );
 }

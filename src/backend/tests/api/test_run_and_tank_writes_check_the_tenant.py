@@ -125,9 +125,12 @@ class _Sites:
     def get_slots_by_location(self, location_key: str) -> list[Slot]:
         return [slot for slot in self.slots.values() if slot.location_key == location_key]
 
-    def update_slot(self, key: str, slot: Slot) -> Slot:
+    def update_slot(self, key: str, slot: Slot, **_options: object) -> Slot:
+        raise AssertionError(f"whole-slot write of {key!r}: an occupation writes only the flag (#2727)")
+
+    def set_slot_occupied(self, key: str, occupied: bool) -> None:
         self.slot_updates.append(key)
-        return slot
+        self.slots[key] = self.slots[key].model_copy(update={"currently_occupied": occupied})
 
 
 def _run_world(

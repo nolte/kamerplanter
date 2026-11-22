@@ -1,8 +1,15 @@
 # yaml-language-server: $schema=./schemas/ipm.schema.yaml
+# Pest names per language (REQ-010 v1.9, #2955): `common_names_i18n`, synced on every
+# seed run (no migration). `en` is the stored common_name; `de` is the German name the
+# seed carried as `common_name_de` before (the model derives `common_name_de` from it,
+# so the seed holds ONE German name). A language without a stored name is absent and
+# the UI falls back (E-10).
 pests:
   - scientific_name: Tetranychus urticae
     common_name: Spider Mites
-    common_name_de: Spinnmilben
+    common_names_i18n:
+      en: ["Spider Mites"]  # the stored common_name (English)
+      de: ["Spinnmilben"]  # the former common_name_de (German)
     pest_type: arachnid
     lifecycle_days: 21
     optimal_temp_min: 25.0
@@ -44,7 +51,9 @@ pests:
 
   - scientific_name: Aphis gossypii
     common_name: Cotton Aphid
-    common_name_de: Baumwoll-/Gurkenblattlaus
+    common_names_i18n:
+      en: ["Cotton Aphid"]  # the stored common_name (English)
+      de: ["Baumwoll-/Gurkenblattlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 10
     optimal_temp_min: 20.0
@@ -88,7 +97,9 @@ pests:
 
   - scientific_name: Frankliniella occidentalis
     common_name: Western Flower Thrips
-    common_name_de: Kalifornischer Blütenthrips
+    common_names_i18n:
+      en: ["Western Flower Thrips"]  # the stored common_name (English)
+      de: ["Kalifornischer Blütenthrips"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 18
     optimal_temp_min: 20.0
@@ -132,7 +143,9 @@ pests:
 
   - scientific_name: Echinothrips americanus
     common_name: Echinothrips
-    common_name_de: Bunter Blütenthrips
+    common_names_i18n:
+      en: ["Echinothrips"]  # the stored common_name (English)
+      de: ["Bunter Blütenthrips"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 20
     optimal_temp_min: 22.0
@@ -176,7 +189,9 @@ pests:
 
   - scientific_name: Bradysia spp.
     common_name: Fungus Gnats
-    common_name_de: Trauermücken
+    common_names_i18n:
+      en: ["Fungus Gnats"]  # the stored common_name (English)
+      de: ["Trauermücken"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 28
     optimal_temp_min: 20.0
@@ -218,7 +233,9 @@ pests:
 
   - scientific_name: Trialeurodes vaporariorum
     common_name: Greenhouse Whitefly
-    common_name_de: Weiße Fliege (Gewächshaus)
+    common_names_i18n:
+      en: ["Greenhouse Whitefly"]  # the stored common_name (English)
+      de: ["Weiße Fliege (Gewächshaus)"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 22.0
@@ -263,7 +280,9 @@ pests:
   - scientific_name: Trichoplusia ni
     detection_slug: cabbage_looper
     common_name: Cabbage Looper
-    common_name_de: Kohlsilbereule
+    common_names_i18n:
+      en: ["Cabbage Looper"]  # the stored common_name (English)
+      de: ["Kohlsilbereule"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 20.0
@@ -305,7 +324,9 @@ pests:
 
   - scientific_name: Pseudococcus longispinus
     common_name: Long-tailed Mealybug
-    common_name_de: Lange Schmierlaus
+    common_names_i18n:
+      en: ["Long-tailed Mealybug"]  # the stored common_name (English)
+      de: ["Lange Schmierlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 22.0
@@ -350,7 +371,9 @@ pests:
   - scientific_name: Coccoidea (Überfamilie)
     detection_slug: scale_insect
     common_name: Scale Insects
-    common_name_de: Schildläuse
+    common_names_i18n:
+      en: ["Scale Insects"]  # the stored common_name (English)
+      de: ["Schildläuse"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 20.0
@@ -397,7 +420,9 @@ pests:
   - scientific_name: Phyllotreta spp.
     detection_slug: flea_beetle
     common_name: Flea Beetle
-    common_name_de: Erdflöhe
+    common_names_i18n:
+      en: ["Flea Beetle"]  # the stored common_name (English)
+      de: ["Erdflöhe"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 20.0
@@ -439,7 +464,9 @@ pests:
   - scientific_name: Arion vulgaris
     detection_slug: spanish_slug
     common_name: Spanish Slug
-    common_name_de: Spanische Wegschnecke
+    common_names_i18n:
+      en: ["Spanish Slug"]  # the stored common_name (English)
+      de: ["Spanische Wegschnecke"]  # the former common_name_de (German)
     pest_type: gastropod
     lifecycle_days: 365
     optimal_temp_min: 10.0
@@ -484,7 +511,9 @@ pests:
   - scientific_name: Meloidogyne spp.
     detection_slug: root_knot_nematode
     common_name: Root-knot Nematode
-    common_name_de: Wurzelgallenälchen
+    common_names_i18n:
+      en: ["Root-knot Nematode"]  # the stored common_name (English)
+      de: ["Wurzelgallenälchen"]  # the former common_name_de (German)
     pest_type: nematode
     lifecycle_days: 30
     optimal_temp_min: 20.0
@@ -529,7 +558,9 @@ pests:
   - scientific_name: Pieris brassicae
     detection_slug: large_cabbage_white
     common_name: Large Cabbage White  # Großer Kohlweißling
-    common_name_de: Großer Kohlweißling
+    common_names_i18n:
+      en: ["Large Cabbage White"]  # the stored common_name (English)
+      de: ["Großer Kohlweißling"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 40
     optimal_temp_min: 15.0
@@ -573,7 +604,9 @@ pests:
   - scientific_name: Pieris rapae
     detection_slug: small_cabbage_white
     common_name: Small Cabbage White  # Kleiner Kohlweißling
-    common_name_de: Kleiner Kohlweißling
+    common_names_i18n:
+      en: ["Small Cabbage White"]  # the stored common_name (English)
+      de: ["Kleiner Kohlweißling"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 15.0
@@ -618,7 +651,9 @@ pests:
   - scientific_name: Leptinotarsa decemlineata
     detection_slug: colorado_potato_beetle
     common_name: Colorado Potato Beetle  # Kartoffelkäfer
-    common_name_de: Kartoffelkäfer
+    common_names_i18n:
+      en: ["Colorado Potato Beetle"]  # the stored common_name (English)
+      de: ["Kartoffelkäfer"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
@@ -662,7 +697,9 @@ pests:
   - scientific_name: Cydia pomonella
     detection_slug: codling_moth
     common_name: Codling Moth  # Apfelwickler
-    common_name_de: Apfelwickler
+    common_names_i18n:
+      en: ["Codling Moth"]  # the stored common_name (English)
+      de: ["Apfelwickler"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 16.0
@@ -707,7 +744,9 @@ pests:
   - scientific_name: Acrolepiopsis assectella
     detection_slug: leek_moth
     common_name: Leek Moth  # Lauchmotte
-    common_name_de: Lauchmotte
+    common_names_i18n:
+      en: ["Leek Moth"]  # the stored common_name (English)
+      de: ["Lauchmotte"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 15.0
@@ -750,7 +789,9 @@ pests:
   - scientific_name: Psila rosae
     detection_slug: carrot_fly
     common_name: Carrot Rust Fly  # Möhrenfliege
-    common_name_de: Möhrenfliege
+    common_names_i18n:
+      en: ["Carrot Rust Fly"]  # the stored common_name (English)
+      de: ["Möhrenfliege"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 14.0
@@ -794,7 +835,9 @@ pests:
   - scientific_name: Delia antiqua
     detection_slug: onion_fly
     common_name: Onion Fly  # Zwiebelfliege
-    common_name_de: Zwiebelfliege
+    common_names_i18n:
+      en: ["Onion Fly"]  # the stored common_name (English)
+      de: ["Zwiebelfliege"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
@@ -838,7 +881,9 @@ pests:
   - scientific_name: Delia radicum
     detection_slug: cabbage_root_fly
     common_name: Cabbage Root Fly  # Kohlfliege
-    common_name_de: Kohlfliege
+    common_names_i18n:
+      en: ["Cabbage Root Fly"]  # the stored common_name (English)
+      de: ["Kohlfliege"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 55
     optimal_temp_min: 14.0
@@ -883,7 +928,9 @@ pests:
   - scientific_name: Rhagoletis cerasi
     detection_slug: cherry_fruit_fly
     common_name: Cherry Fruit Fly  # Kirschfruchtfliege
-    common_name_de: Kirschfruchtfliege
+    common_names_i18n:
+      en: ["Cherry Fruit Fly"]  # the stored common_name (English)
+      de: ["Kirschfruchtfliege"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 16.0
@@ -925,7 +972,9 @@ pests:
   - scientific_name: Cydalima perspectalis
     detection_slug: box_tree_moth
     common_name: Box Tree Moth  # Buchsbaumzünsler
-    common_name_de: Buchsbaumzünsler
+    common_names_i18n:
+      en: ["Box Tree Moth"]  # the stored common_name (English)
+      de: ["Buchsbaumzünsler"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 18.0
@@ -966,7 +1015,9 @@ pests:
   - scientific_name: Anthonomus rubi
     detection_slug: strawberry_blossom_weevil
     common_name: Strawberry Blossom Weevil  # Erdbeerblütenstecher
-    common_name_de: Erdbeerblütenstecher
+    common_names_i18n:
+      en: ["Strawberry Blossom Weevil"]  # the stored common_name (English)
+      de: ["Erdbeerblütenstecher"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 14.0
@@ -1007,7 +1058,9 @@ pests:
   - scientific_name: Otiorhynchus sulcatus
     detection_slug: vine_weevil
     common_name: Black Vine Weevil  # Dickmaulrüssler
-    common_name_de: Dickmaulrüssler
+    common_names_i18n:
+      en: ["Black Vine Weevil"]  # the stored common_name (English)
+      de: ["Dickmaulrüssler"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 365
     optimal_temp_min: 12.0
@@ -1053,7 +1106,9 @@ pests:
   - scientific_name: Aleyrodes proletella
     detection_slug: cabbage_whitefly
     common_name: Cabbage Whitefly  # Kohlmottenschildlaus
-    common_name_de: Kohlmottenschildlaus
+    common_names_i18n:
+      en: ["Cabbage Whitefly"]  # the stored common_name (English)
+      de: ["Kohlmottenschildlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 35
     optimal_temp_min: 18.0
@@ -1099,7 +1154,9 @@ pests:
   - scientific_name: Agriotes spp.
     detection_slug: wireworm
     common_name: Wireworm  # Drahtwurm
-    common_name_de: Drahtwurm (Larve des Schnellkäfers)
+    common_names_i18n:
+      en: ["Wireworm"]  # the stored common_name (English)
+      de: ["Drahtwurm (Larve des Schnellkäfers)"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 1460
     optimal_temp_min: 10.0
@@ -1143,7 +1200,9 @@ pests:
   - scientific_name: Ostrinia nubilalis
     detection_slug: european_corn_borer
     common_name: European Corn Borer  # Maiszünsler
-    common_name_de: Maiszünsler
+    common_names_i18n:
+      en: ["European Corn Borer"]  # the stored common_name (English)
+      de: ["Maiszünsler"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 18.0
@@ -1188,7 +1247,9 @@ pests:
   - scientific_name: Myzus persicae
     detection_slug: green_peach_aphid
     common_name: Green Peach Aphid  # Grüne Pfirsichblattlaus
-    common_name_de: Grüne Pfirsichblattlaus
+    common_names_i18n:
+      en: ["Green Peach Aphid"]  # the stored common_name (English)
+      de: ["Grüne Pfirsichblattlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 12
     optimal_temp_min: 18.0
@@ -1233,7 +1294,9 @@ pests:
   - scientific_name: Macrosiphum euphorbiae
     detection_slug: potato_aphid
     common_name: Potato Aphid  # Kartoffelblattlaus
-    common_name_de: Kartoffelblattlaus
+    common_names_i18n:
+      en: ["Potato Aphid"]  # the stored common_name (English)
+      de: ["Kartoffelblattlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
@@ -1277,7 +1340,9 @@ pests:
   - scientific_name: Mamestra brassicae
     detection_slug: cabbage_moth
     common_name: Cabbage Moth  # Kohleule
-    common_name_de: Kohleule
+    common_names_i18n:
+      en: ["Cabbage Moth"]  # the stored common_name (English)
+      de: ["Kohleule"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 50
     optimal_temp_min: 15.0
@@ -1323,7 +1388,9 @@ pests:
   - scientific_name: Plutella xylostella
     detection_slug: diamondback_moth
     common_name: Diamondback Moth  # Kohlschabe
-    common_name_de: Kohlschabe
+    common_names_i18n:
+      en: ["Diamondback Moth"]  # the stored common_name (English)
+      de: ["Kohlschabe"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 30
     optimal_temp_min: 18.0
@@ -1370,7 +1437,9 @@ pests:
   - scientific_name: Rhopalosiphum nymphaeae
     detection_slug: waterlily_aphid
     common_name: Water Lily Aphid  # Seerosenblattlaus
-    common_name_de: Seerosenblattlaus
+    common_names_i18n:
+      en: ["Water Lily Aphid"]  # the stored common_name (English)
+      de: ["Seerosenblattlaus"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 14
     optimal_temp_min: 18.0
@@ -1411,7 +1480,9 @@ pests:
   - scientific_name: Galerucella nymphaeae
     detection_slug: waterlily_leaf_beetle
     common_name: Water Lily Leaf Beetle  # Seerosenblattkäfer
-    common_name_de: Seerosenblattkäfer
+    common_names_i18n:
+      en: ["Water Lily Leaf Beetle"]  # the stored common_name (English)
+      de: ["Seerosenblattkäfer"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 45
     optimal_temp_min: 16.0
@@ -1454,7 +1525,9 @@ pests:
   - scientific_name: Elophila nymphaeata
     detection_slug: brown_china_mark
     common_name: Brown China-mark Moth  # Seerosenzünsler
-    common_name_de: Seerosenzünsler
+    common_names_i18n:
+      en: ["Brown China-mark Moth"]  # the stored common_name (English)
+      de: ["Seerosenzünsler"]  # the former common_name_de (German)
     pest_type: insect
     lifecycle_days: 60
     optimal_temp_min: 15.0
@@ -1493,9 +1566,18 @@ pests:
       treibende Blatthüllen achten und die Hüllen umdrehen, um die Raupe darin zu
       finden.
 
+# common_names_i18n (REQ-010 v1.8, #2936): names per language, synced on every seed
+# run (no migration). `en` is the stored common_name; `de` only with its source on the
+# same line (E-10; checked 2026-11-13: the article names the pathogen with that name).
+# A disease without a sourced German name has no `de` key and the German UI shows the
+# stored name - the gap list is `DISEASES_WITHOUT_A_SOURCED_GERMAN_NAME` in
+# tests/unit/migrations/test_seed_ipm_names_i18n.py.
 diseases:
   - scientific_name: Erysiphe spp.
     common_name: Powdery Mildew
+    common_names_i18n:
+      en: ["Powdery Mildew"]  # the stored common_name (English)
+      de: ["Echter Mehltau"]  # Source: https://de.wikipedia.org/wiki/Echte_Mehltaupilze
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [low_humidity, warm_temperature, poor_air_circulation, drought_stress]
@@ -1503,6 +1585,9 @@ diseases:
 
   - scientific_name: Botrytis cinerea
     common_name: Botrytis (Grey Mold)
+    common_names_i18n:
+      en: ["Botrytis (Grey Mold)"]  # the stored common_name (English)
+      de: ["Grauschimmelfäule"]  # Source: https://de.wikipedia.org/wiki/Grauschimmelfäule
     pathogen_type: fungal
     incubation_period_days: 3
     environmental_triggers: [high_humidity, cool_temperature, poor_air_circulation, condensation]  # optimal 15-22°C, NOT cold
@@ -1510,6 +1595,9 @@ diseases:
 
   - scientific_name: Fusarium oxysporum
     common_name: Fusarium Wilt
+    common_names_i18n:
+      en: ["Fusarium Wilt"]  # the stored common_name (English)
+      de: ["Fusarium-Welke"]  # Source: https://de.wikipedia.org/wiki/Fusarium_oxysporum
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [warm_soil, overwatering]
@@ -1517,6 +1605,9 @@ diseases:
 
   - scientific_name: Peronospora spp.
     common_name: Downy Mildew
+    common_names_i18n:
+      en: ["Downy Mildew"]  # the stored common_name (English)
+      de: ["Falscher Mehltau"]  # Source: https://de.wikipedia.org/wiki/Falscher_Mehltau
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, poor_ventilation]
@@ -1524,6 +1615,9 @@ diseases:
 
   - scientific_name: Pythium spp.
     common_name: Root Rot
+    common_names_i18n:
+      en: ["Root Rot"]  # the stored common_name (English)
+      de: ["Wurzelfäule"]  # Source: https://de.wikipedia.org/wiki/Pythium
     pathogen_type: oomycete
     incubation_period_days: 5
     environmental_triggers: [overwatering, poor_drainage]
@@ -1531,6 +1625,8 @@ diseases:
 
   - scientific_name: Xanthomonas campestris
     common_name: Bacterial Spot
+    common_names_i18n:
+      en: ["Bacterial Spot"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 5
     environmental_triggers: [high_humidity, warm_temperature]
@@ -1538,6 +1634,9 @@ diseases:
 
   - scientific_name: Tobacco mosaic virus
     common_name: Tobacco Mosaic Virus
+    common_names_i18n:
+      en: ["Tobacco Mosaic Virus"]  # the stored common_name (English)
+      de: ["Tabakmosaikvirus"]  # Source: https://de.wikipedia.org/wiki/Tabakmosaikvirus
     pathogen_type: viral
     incubation_period_days: 14
     environmental_triggers: [mechanical_transmission]
@@ -1545,6 +1644,9 @@ diseases:
 
   - scientific_name: Phytophthora infestans
     common_name: Late Blight
+    common_names_i18n:
+      en: ["Late Blight"]  # the stored common_name (English)
+      de: ["Kraut- und Knollenfäule"]  # Source: https://de.wikipedia.org/wiki/Phytophthora_infestans
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1554,6 +1656,9 @@ diseases:
 
   - scientific_name: Plasmodiophora brassicae
     common_name: Clubroot  # Kohlhernie
+    common_names_i18n:
+      en: ["Clubroot"]  # the stored common_name (English)
+      de: ["Kohlhernie"]  # Source: https://de.wikipedia.org/wiki/Kohlhernie
     pathogen_type: protist  # Phytomyxea, NOT an oomycete — phosphonates ineffective
     incubation_period_days: 21
     environmental_triggers: [acidic_soil, waterlogged_soil, warm_soil]
@@ -1561,6 +1666,9 @@ diseases:
 
   - scientific_name: Verticillium dahliae
     common_name: Verticillium Wilt  # Verticillium-Welke
+    common_names_i18n:
+      en: ["Verticillium Wilt"]  # the stored common_name (English)
+      de: ["Verticillium-Welke"]  # Source: https://de.wikipedia.org/wiki/Verticillium-Welke
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_soil, overwatering]
@@ -1568,6 +1676,9 @@ diseases:
 
   - scientific_name: Monilinia fructigena
     common_name: Brown Rot (Fruit)  # Monilia-Fruchtfäule
+    common_names_i18n:
+      en: ["Brown Rot (Fruit)"]  # the stored common_name (English)
+      de: ["Monilia-Fruchtfäule"]  # Source: https://de.wikipedia.org/wiki/Monilinia
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [high_humidity, warm_temperature, wound_entry]
@@ -1575,6 +1686,9 @@ diseases:
 
   - scientific_name: Monilinia laxa
     common_name: Blossom Blight  # Monilia-Spitzendürre
+    common_names_i18n:
+      en: ["Blossom Blight"]  # the stored common_name (English)
+      de: ["Monilia-Spitzendürre"]  # Source: https://de.wikipedia.org/wiki/Monilinia
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1582,6 +1696,9 @@ diseases:
 
   - scientific_name: Venturia inaequalis
     common_name: Apple Scab  # Apfelschorf
+    common_names_i18n:
+      en: ["Apple Scab"]  # the stored common_name (English)
+      de: ["Apfelschorf"]  # Source: https://de.wikipedia.org/wiki/Apfelschorf
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [cool_wet, prolonged_leaf_wetness]
@@ -1589,6 +1706,8 @@ diseases:
 
   - scientific_name: Puccinia spp.
     common_name: Rust  # Rost
+    common_names_i18n:
+      en: ["Rust"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [high_humidity, warm_temperature, dew]
@@ -1596,6 +1715,8 @@ diseases:
 
   - scientific_name: Septoria lycopersici
     common_name: Septoria Leaf Spot  # Septoria-Blattflecken
+    common_names_i18n:
+      en: ["Septoria Leaf Spot"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [high_humidity, warm_temperature, splash_water]
@@ -1603,6 +1724,9 @@ diseases:
 
   - scientific_name: Alternaria solani
     common_name: Early Blight  # Dürrfleckenkrankheit
+    common_names_i18n:
+      en: ["Early Blight"]  # the stored common_name (English)
+      de: ["Dürrfleckenkrankheit"]  # Source: https://de.wikipedia.org/wiki/Alternaria_solani
     pathogen_type: fungal
     incubation_period_days: 5
     environmental_triggers: [warm_temperature, alternating_wet_dry, nutrient_deficiency]
@@ -1610,6 +1734,9 @@ diseases:
 
   - scientific_name: Guignardia bidwellii
     common_name: Black Rot (Grape)  # Schwarzfäule
+    common_names_i18n:
+      en: ["Black Rot (Grape)"]  # the stored common_name (English)
+      de: ["Schwarzfäule der Rebe"]  # Source: https://de.wikipedia.org/wiki/Schwarzfäule_der_Rebe
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [warm_temperature, prolonged_moisture]
@@ -1617,6 +1744,9 @@ diseases:
 
   - scientific_name: Erwinia amylovora
     common_name: Fire Blight  # Feuerbrand
+    common_names_i18n:
+      en: ["Fire Blight"]  # the stored common_name (English)
+      de: ["Feuerbrand"]  # Source: https://de.wikipedia.org/wiki/Feuerbrand
     pathogen_type: bacterial
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, high_humidity, rain_during_bloom]
@@ -1624,6 +1754,9 @@ diseases:
 
   - scientific_name: Sclerotinia sclerotiorum
     common_name: White Mold  # Weißstängeligkeit
+    common_names_i18n:
+      en: ["White Mold"]  # the stored common_name (English)
+      de: ["Weißstängeligkeit"]  # Source: https://de.wikipedia.org/wiki/Weißstängeligkeit
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [cool_wet, dense_canopy, poor_air_circulation]
@@ -1631,6 +1764,8 @@ diseases:
 
   - scientific_name: Pseudoperonospora cubensis
     common_name: Cucurbit Downy Mildew  # Falscher Mehltau (Gurke)
+    common_names_i18n:
+      en: ["Cucurbit Downy Mildew"]  # the stored common_name (English)
     pathogen_type: oomycete
     incubation_period_days: 5
     environmental_triggers: [cool_wet, high_humidity, dew]
@@ -1638,6 +1773,9 @@ diseases:
 
   - scientific_name: Phytophthora ramorum
     common_name: Ramorum Blight  # Triebsterben
+    common_names_i18n:
+      en: ["Ramorum Blight"]  # the stored common_name (English)
+      de: ["Triebsterben"]  # Source: https://de.wikipedia.org/wiki/Phytophthora_ramorum
     pathogen_type: oomycete
     incubation_period_days: 10
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1645,6 +1783,8 @@ diseases:
 
   - scientific_name: Rhizoctonia solani
     common_name: Damping Off  # Umfallkrankheit
+    common_names_i18n:
+      en: ["Damping Off"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 3
     environmental_triggers: [overwatering, cool_soil, dense_sowing]
@@ -1652,6 +1792,9 @@ diseases:
 
   - scientific_name: Claviceps purpurea
     common_name: Ergot  # Mutterkorn
+    common_names_i18n:
+      en: ["Ergot"]  # the stored common_name (English)
+      de: ["Mutterkorn"]  # Source: https://de.wikipedia.org/wiki/Mutterkorn
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_wet, prolonged_moisture]
@@ -1659,6 +1802,9 @@ diseases:
 
   - scientific_name: Plasmopara viticola
     common_name: Grapevine Downy Mildew  # Falscher Mehltau (Rebe)
+    common_names_i18n:
+      en: ["Grapevine Downy Mildew"]  # the stored common_name (English)
+      de: ["Falscher Mehltau der Weinrebe"]  # Source: https://de.wikipedia.org/wiki/Falscher_Mehltau_der_Weinrebe
     pathogen_type: oomycete
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, high_humidity, rain]
@@ -1666,6 +1812,9 @@ diseases:
 
   - scientific_name: Erysiphe necator  # syn. Uncinula necator (veraltet seit 2002)
     common_name: Grapevine Powdery Mildew  # Echter Mehltau (Rebe)
+    common_names_i18n:
+      en: ["Grapevine Powdery Mildew"]  # the stored common_name (English)
+      de: ["Echter Mehltau der Weinrebe"]  # Source: https://de.wikipedia.org/wiki/Echter_Mehltau_der_Weinrebe
     pathogen_type: fungal
     incubation_period_days: 7
     environmental_triggers: [warm_temperature, low_humidity, poor_air_circulation]
@@ -1673,6 +1822,9 @@ diseases:
 
   - scientific_name: Taphrina deformans
     common_name: Peach Leaf Curl  # Kräuselkrankheit
+    common_names_i18n:
+      en: ["Peach Leaf Curl"]  # the stored common_name (English)
+      de: ["Kräuselkrankheit"]  # Source: https://de.wikipedia.org/wiki/Kräuselkrankheit
     pathogen_type: fungal
     incubation_period_days: 14
     environmental_triggers: [cool_wet, spring_rain]
@@ -1680,6 +1832,9 @@ diseases:
 
   - scientific_name: Pseudomonas syringae
     common_name: Bacterial Canker  # Bakterienbrand
+    common_names_i18n:
+      en: ["Bacterial Canker"]  # the stored common_name (English)
+      de: ["Bakterienbrand"]  # Source: https://de.wikipedia.org/wiki/Bakterienbrand
     pathogen_type: bacterial
     incubation_period_days: 10
     environmental_triggers: [cool_wet, frost_damage, wound_entry]
@@ -1687,6 +1842,9 @@ diseases:
 
   - scientific_name: Cucumber mosaic virus
     common_name: Cucumber Mosaic Virus  # Gurkenmosaikvirus
+    common_names_i18n:
+      en: ["Cucumber Mosaic Virus"]  # the stored common_name (English)
+      de: ["Gurkenmosaikvirus"]  # Source: https://de.wikipedia.org/wiki/Gurkenmosaikvirus
     pathogen_type: viral
     incubation_period_days: 10
     environmental_triggers: [aphid_transmission, mechanical_transmission]
@@ -1694,6 +1852,9 @@ diseases:
 
   - scientific_name: Armillaria mellea
     common_name: Honey Fungus  # Hallimasch
+    common_names_i18n:
+      en: ["Honey Fungus"]  # the stored common_name (English)
+      de: ["Hallimasch"]  # Source: https://de.wikipedia.org/wiki/Hallimasche
     pathogen_type: fungal
     incubation_period_days: 30
     environmental_triggers: [waterlogged_soil, stressed_trees]
@@ -1703,6 +1864,8 @@ diseases:
 
   - scientific_name: Fusarium solani
     common_name: Fusarium Leaf Spot (Dracaena)
+    common_names_i18n:
+      en: ["Fusarium Leaf Spot (Dracaena)"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [waterlogging, poor_ventilation, wound_entry]
@@ -1710,6 +1873,8 @@ diseases:
 
   - scientific_name: Erwinia carotovora
     common_name: Soft Stem Rot (Erwinia)
+    common_names_i18n:
+      en: ["Soft Stem Rot (Erwinia)"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 7
     environmental_triggers: [overwatering, wound_entry]
@@ -1717,6 +1882,8 @@ diseases:
 
   - scientific_name: Fluoride Toxicity (Abiotic)
     common_name: Fluoride Tip Burn
+    common_names_i18n:
+      en: ["Fluoride Tip Burn"]  # the stored common_name (English)
     pathogen_type: physiological
     incubation_period_days: 7
     environmental_triggers: [fluoride_exposure, salt_accumulation, low_humidity]
@@ -1726,6 +1893,8 @@ diseases:
 
   - scientific_name: Ramularia nymphaearum
     common_name: Water Lily Leaf Spot (Ramularia)
+    common_names_i18n:
+      en: ["Water Lily Leaf Spot (Ramularia)"]  # the stored common_name (English)
     pathogen_type: fungal
     incubation_period_days: 10
     environmental_triggers: [high_humidity, poor_air_circulation]
@@ -1733,6 +1902,8 @@ diseases:
 
   - scientific_name: Erwinia spp. / Pythium spp.
     common_name: Rhizome Rot (Water Lily)
+    common_names_i18n:
+      en: ["Rhizome Rot (Water Lily)"]  # the stored common_name (English)
     pathogen_type: bacterial
     incubation_period_days: 21
     environmental_triggers: [overwatering, anaerobic_substrate, wound_entry]

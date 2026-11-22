@@ -14,6 +14,7 @@ import { revertEmailChange } from '@/api/endpoints/privacy';
 import { isApiError } from '@/api/errors';
 import { useAppDispatch } from '@/store/hooks';
 import { clearAuth } from '@/store/slices/authSlice';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 type RevertStatus = 'idle' | 'pending' | 'success' | 'invalid' | 'conflict' | 'error';
 
@@ -38,6 +39,7 @@ const REVERT_STEPS = [
  */
 export default function EmailChangeRevertPage() {
   const { t } = useTranslation();
+  useDocumentTitle(t('pages.emailChange.revertTitle'));
   const dispatch = useAppDispatch();
   const { token } = useParams<{ token: string }>();
   const [status, setStatus] = useState<RevertStatus>(() => (token ? 'idle' : 'invalid'));

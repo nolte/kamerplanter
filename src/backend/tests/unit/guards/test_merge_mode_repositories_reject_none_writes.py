@@ -131,6 +131,13 @@ _REVIEWED: dict[str, str] = {
         "_update_is_full_replace was introduced for."
     ),
     # ── the None never reaches a stored field ────────────────────────────────
+    "garden_resource_service::patch_location": (
+        'SAFE — the flagged `expected_revision=None` is the keyword of a plan-batch call ("expect the revision '
+        'validated against"), not a model field, and no full model is written: the columns go through '
+        "IGardenPlanRepository.update_location_fields, which replaces only the changed ones with keep_none=False, "
+        "so an explicit null in the PATCH removes the stored value by design (integration test "
+        "test_null_removes_the_field_and_a_nested_profile_is_replaced_whole)."
+    ),
     "actuator_service::_dispatch": (
         "SAFE — `error_message` is a local carried into a freshly constructed ControlEvent that "
         "is inserted (create_event); the update on this path writes the actuator, not the event."
@@ -232,6 +239,7 @@ _SITE_REPOSITORY: dict[str, str | None] = {
     "plant_instance_service::remove_plant": "plant_instance_repository.ArangoPlantInstanceRepository",
     "planting_run_service::_reassign_plant_slots": "plant_instance_repository.ArangoPlantInstanceRepository",
     "actuator_service::_dispatch": None,
+    "garden_resource_service::patch_location": None,
     "care_reminder_service::confirm_reminder": None,
     "import_service::confirm": None,
     "plant_photo_service::assess_photo": None,

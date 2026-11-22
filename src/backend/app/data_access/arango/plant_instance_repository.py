@@ -7,8 +7,21 @@ from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.document_reads import get_document
+from app.data_access.arango.graph_edges import edges_touching, remove_edges
+from app.data_access.arango.tenant_scope import readable_or_null
+from app.data_access.arango.transactions import stream_transaction
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.models.plant_instance import PlantInstance
+from app.domain.models.species_names import CANONICAL_NAME_LANGUAGE, localized_vernacular_name
+
+#: The stored species a plant names, when its tenant may read it (own, global or granted), else ``null``.
+_READABLE_STORED_SPECIES = readable_or_null(doc_var="stored_species")
+
+
+#: Every named-graph edge that can end at a plant — derived, so a relation registered later goes with the plant (#2560).
+_PLANT_EDGES = edges_touching(col.PLANT_INSTANCES)
+_PLANT_DELETE_WRITE: tuple[str, ...] = tuple(dict.fromkeys((col.PLANT_INSTANCES, *(e for e, _ in _PLANT_EDGES))))
 
 
 class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantInstanceRepository):
@@ -65,6 +78,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             self.create_edge(col.PLACED_IN, plant_id, slot_id)
         return created
 
+    def verify_references(self, plant: PlantInstance) -> None:
+        """The owned-reference check :meth:`create` runs before its write, alone (MCP dry run, #2719)."""
+        self._verify_owned_references(plant)
+
     def update(self, key: PlantID, plant: PlantInstance) -> PlantInstance:
         """Full-replace update, on the shared base path (#968 §2).
 
@@ -82,8 +99,17 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         now re-validated before the write, and a missing document now raises
         :class:`NotFoundError` instead of surfacing the raw
         ``DocumentUpdateError`` — the hand-rolled version never mapped 1202.
+
+        A plant that stood on a slot has a ``placed_in`` edge to it, whichever write put it there: crop-rotation
+        history (``get_history_by_slot``) reads the edge, and only ``create`` wrote one - a plant *moved* onto a
+        slot (``PUT``/``PATCH``/MCP, a run relocation) was missing from that slot's history. The edge to a slot it
+        left stays: it is that slot's history. Where a plant stands *now* is its own ``slot_key``, which the
+        occupancy reads select by (``get_active_by_slot``, #2774).
         """
-        return super().update(key, plant)
+        updated = super().update(key, plant)
+        if plant.slot_key:
+            self.create_edge_if_absent(col.PLACED_IN, f"{col.PLANT_INSTANCES}/{key}", f"{col.SLOTS}/{plant.slot_key}")
+        return updated
 
     def increment_chill_days(self, key: PlantID) -> int | None:
         """One AQL statement: the liveness check and the increment cannot be interleaved (#1970)."""
@@ -99,17 +125,25 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return next(iter(cursor), None)
 
     def delete(self, key: PlantID) -> bool:
+        """Remove the plant and every graph edge on it, in one stream transaction (#2560).
+
+        The edge set is derived (:data:`_PLANT_EDGES`, :func:`edges_touching`). The hand list it replaces cut
+        ``placed_in``, ``phase_history_edge``, ``current_phase`` and ``descended_from`` and left the other relations
+        of the graph (``run_contains``, ``care_event_for``, ``watered_plant``, ``has_task`` …) on a plant that was
+        gone. ``descended_from`` (REQ-017 / D10 lineage) is in the set on both ends: a plant can be the child or the
+        mother, and an orphaned inbound edge would keep ``has_descendants(mother)`` true and block a re-spawn.
+
+        Returns:
+            ``True`` when the plant was removed, ``False`` when it did not exist (nothing is written then).
+        """
         plant_id = f"{col.PLANT_INSTANCES}/{key}"
-        self.delete_edges(col.PLACED_IN, from_id=plant_id)
-        self.delete_edges(col.PHASE_HISTORY_EDGE, from_id=plant_id)
-        self.delete_edges(col.CURRENT_PHASE, from_id=plant_id)
-        # REQ-017 / D10 lineage: a descended_from edge points child → mother, so a
-        # plant can be either endpoint. Remove edges in BOTH directions so deleting
-        # a pup (outbound) or a mother (inbound) never leaves a dangling edge — an
-        # orphaned inbound edge would otherwise keep ``has_descendants(mother)`` true
-        # and permanently block a re-spawn.
-        self.delete_edges(col.DESCENDED_FROM, vertex_id=plant_id, direction="any")
-        return super().delete(key)
+        with stream_transaction(self._db, write=_PLANT_DELETE_WRITE, entity="plant_instance") as txn:
+            if not list(txn.aql.execute("LET p = DOCUMENT(@id) FILTER p != null RETURN 1", bind_vars={"id": plant_id})):
+                return False
+            for edge, field_name in _PLANT_EDGES:
+                remove_edges(txn, edge, field_name, [plant_id])
+            txn.collection(col.PLANT_INSTANCES).delete(key)
+        return True
 
     # ── Slot-based queries ────────────────────────────────────────────
 
@@ -120,18 +154,22 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         caller-supplied slot key and named no tenant; the companion-planting
         engine reads it to decide whether a neighbouring plant conflicts, so an
         unscoped answer would describe another tenant's bed in a warning message.
+
+        "Currently" means the plant's own ``slot_key`` names the slot, so the plants are selected by it and not
+        through ``placed_in``: that edge stays on a slot a plant left (it is the slot's crop-rotation history,
+        :meth:`get_history_by_slot`), and a plant moved before #2948 has none to its current slot (#2774).
         """
         self._require_tenant_key(tenant_key, "get_active_by_slot")
         query = """
-        FOR v, e IN 1..1 INBOUND @slot_id GRAPH 'kamerplanter_graph'
-          OPTIONS {edgeCollections: [@edge_col]}
-          FILTER v.removed_on == null
+        FOR v IN @@plants
+          FILTER v.slot_key == @slot_key
           FILTER v.tenant_key == @tenant_key
+          FILTER v.removed_on == null
           RETURN v
         """
         bind_vars = {
-            "slot_id": f"{col.SLOTS}/{slot_key}",
-            "edge_col": col.PLACED_IN,
+            "@plants": col.PLANT_INSTANCES,
+            "slot_key": slot_key,
             "tenant_key": tenant_key,
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
@@ -140,8 +178,10 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
     def get_history_by_slot(self, slot_key: SlotKey, years: int = 3, *, tenant_key: str) -> list[PlantInstance]:
         """Past plantings of a slot within ``years``, **inside one tenant** (#927).
 
-        Same treatment as :meth:`get_active_by_slot`; this is the crop-rotation
-        history, which says which botanical families were grown in that bed.
+        Tenant-scoped like :meth:`get_active_by_slot`, but read through the
+        ``placed_in`` edges, not ``slot_key``: this is the crop-rotation history,
+        which says which botanical families were grown in that bed, including plants
+        that have since moved on.
         """
         self._require_tenant_key(tenant_key, "get_history_by_slot")
         # ``planted_on`` is a ``date`` stored as ``YYYY-MM-DD``: bind the cutoff as a
@@ -197,7 +237,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         """Resolve a GrowthPhase key to its name."""
         if not phase_key:
             return ""
-        doc = self._db.collection(col.GROWTH_PHASES).get(phase_key)
+        doc = get_document(self._db.collection(col.GROWTH_PHASES), phase_key)
         return doc.get("name", "") if doc else ""
 
     # ── Survival / failure-cause analytics (REQ-003 G1) ───────────────
@@ -281,7 +321,8 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         binds (``@@col`` / ``DOCUMENT(@…_col, …)``), never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_in_phase_definition")
-        query = """
+        query = (
+            """
         LET defn = DOCUMENT(@defn_col, @phase_definition_key)
         LET seq_entry_keys = (
           FOR e IN @@entry_col
@@ -300,7 +341,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             AND p.current_phase_key != null
             AND p.current_phase_key IN phase_keys
           SORT DATE_TIMESTAMP(p.current_phase_started_at) DESC, p._key ASC
-          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          // A plant written before its species reference was verified may name a species its tenant
+          // cannot read (#2082): the names are joined only for a readable one (own, global or granted).
+          LET stored_species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET species = """
+            + _READABLE_STORED_SPECIES
+            + """
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           LET slot = p.slot_key != null ? DOCUMENT(@slot_col, p.slot_key) : null
           // The label guards below anchor on the parent SITE, not on
@@ -325,6 +371,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             species_key: p.species_key,
             species_scientific_name: species != null ? species.scientific_name : null,
             species_common_names: species != null ? (species.common_names || []) : [],
+            species_common_names_i18n: species != null ? (species.common_names_i18n || {}) : {},
             location_key: p.location_key,
             location_name: (location_site != null AND location_site.tenant_key == @tenant_key) ? location.name : null,
             slot_key: p.slot_key,
@@ -333,6 +380,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             current_phase_started_at: p.current_phase_started_at
           }
         """
+        )
         bind_vars = {
             "@col": self._collection_name,
             "@entry_col": col.PHASE_SEQUENCE_ENTRIES,
@@ -389,8 +437,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return int(next(cursor, 0) or 0)
 
-    def list_active_for_tenant(self, tenant_key: str, limit: int) -> list[dict[str, Any]]:
+    def list_active_for_tenant(
+        self, tenant_key: str, limit: int, *, language: str = CANONICAL_NAME_LANGUAGE
+    ) -> list[dict[str, Any]]:
         """Return the newest *alive* plant instances of ``tenant_key``, enriched (REQ-009).
+
+        ``species_common_name`` is resolved by the display rule in ``language`` (#2902).
 
         Feeds the ``plant_grid`` dashboard widget (#461 / #488): a newest-first list of
         active plants, each carrying its ``_key`` for a deep link to the plant detail
@@ -413,20 +465,28 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         to :func:`DOCUMENT`. Every plant row *and* every open-task row is filtered on
         ``… .tenant_key == @tenant_key``, and the empty-tenant sentinel is rejected
         up-front, so neither the list nor the task marker can ever span tenants (SEC-B4).
-        The species join is the plant's *own* ``species_key`` (global catalog data, and
-        the plant is already tenant-filtered), so it cannot leak a foreign-tenant record;
-        the location label is additionally gated on the same ``tenant_key`` (defence in
+        The plant's ``species_key`` is a stored reference, not proof of read access: a row
+        written before the reference was verified may name another tenant's private species
+        (#2082). Species and cultivar names are therefore joined only for a species the tenant
+        may read (:func:`~app.data_access.arango.tenant_scope.readable_or_null`); the location
+        label is additionally gated on the same ``tenant_key`` (defence in
         depth), mirroring ``list_active_in_phase_definition``. ``@limit`` is a bound
         integer, never interpolated.
         """
         self._require_tenant_key(tenant_key, "list_active_for_tenant")
-        query = """
+        query = (
+            """
         FOR p IN @@col
           FILTER p.tenant_key == @tenant_key AND p.removed_on == null
           SORT p.planted_on DESC, p._key ASC
           LIMIT @limit
-          LET cultivar = p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
-          LET species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          // A plant written before its species reference was verified may name a species its tenant
+          // cannot read (#2082): the names are joined only for a readable one (own, global or granted).
+          LET stored_species = p.species_key != null ? DOCUMENT(@species_col, p.species_key) : null
+          LET species = """
+            + _READABLE_STORED_SPECIES
+            + """
+          LET cultivar = species != null AND p.cultivar_key != null ? DOCUMENT(@cultivar_col, p.cultivar_key) : null
           LET phase = p.current_phase_key != null ? DOCUMENT(@phase_col, p.current_phase_key) : null
           // #488 FIX-02 (R5): resolve the phase-definition key for the card's phase
           // deep link. ``current_phase_key`` points at a ``PhaseSequenceEntry`` on the
@@ -434,9 +494,6 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
           // path (whose key lives in a different collection), leaving
           // ``phase_definition_key`` null so the chip renders without a link (A4).
           LET phase_entry = p.current_phase_key != null ? DOCUMENT(@entry_col, p.current_phase_key) : null
-          LET species_common_name = (species != null AND LENGTH(species.common_names) > 0)
-            ? species.common_names[0]
-            : null
           LET location = p.location_key != null ? DOCUMENT(@location_col, p.location_key) : null
           // Anchored on the parent site, for the reason spelled out on the sibling
           // query above: ``location.tenant_key`` is persisted empty by the write
@@ -468,7 +525,9 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             instance_id: p.instance_id,
             plant_name: p.plant_name,
             species_key: p.species_key,
-            species_common_name: species_common_name,
+            // Both name fields, resolved to one name below by the one display rule (#2902).
+            species_common_names: species != null ? species.common_names : null,
+            species_common_names_i18n: species != null ? species.common_names_i18n : null,
             species_scientific_name: species != null ? species.scientific_name : null,
             cultivar_key: p.cultivar_key,
             cultivar_name: cultivar != null ? cultivar.name : null,
@@ -481,6 +540,7 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             next_due_date: LENGTH(open_task_due_dates) > 0 ? MIN(open_task_due_dates) : null
           }
         """
+        )
         bind_vars = {
             "@col": self._collection_name,
             "@task_col": col.TASKS,
@@ -501,4 +561,12 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
             "today": today_utc().isoformat(),
         }
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
-        return list(cursor)
+        rows: list[dict[str, Any]] = list(cursor)
+        for row in rows:
+            # One name for the card title by the one display rule, in the request's language (#2902).
+            # The scientific name has its own field.
+            row["species_common_name"] = localized_vernacular_name(
+                row["species_common_names"], row["species_common_names_i18n"], language
+            )
+            del row["species_common_names"], row["species_common_names_i18n"]
+        return rows

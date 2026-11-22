@@ -1,0 +1,27 @@
+{
+  "GP-UX-049": {
+    "partial": true,
+    "reason": "Wave-10 part: the indoor empty state with its text and data-plan-kind is tested (`GardenPlanRoute.test.tsx`, E2E TC-053-106). It offers two actions ('Grundriss zeichnen', 'Foto als Vorlage laden') where GP-UX-049 asks for exactly one - operator question 4 in #2884. Since #2890 'Grundriss zeichnen' starts the boundary tool (`GardenPlanRoute.test.tsx`, E2E TC-053-001)",
+    "issue": 2884
+  },
+  "§17.3 AC-1": {
+    "partial": true,
+    "reason": "Measured in the real app at 1366 x 768: canvas 66.9 % of the viewport height, header bar on one line (E2E TC-053-101). The E2E dismisses the light-mode warning banner first, as a user would; with the banner shown (light mode on a non-private host) the canvas is 58.5 %, below the 60 % of AC-1. Whether AC-1 counts the banner is operator question 2 in #2884",
+    "issue": 2884
+  },
+  "§17.3 AC-6": {
+    "partial": true,
+    "reason": "Layer switches with visible text in the tab 'Ebenen' are tested (`SidePanel.test.tsx`, E2E TC-053-100). The layer legend renders only while at least one layer is switched on; whether that meets 'zusammen mit der Legende' is operator question 3 in #2884",
+    "issue": 2884
+  },
+  "REQ-053 W-015": {
+    "partial": true,
+    "reason": "Sowing, the sown state, thinning into the server's count, the grower's count without a spacing and 'Nachpflanzen' on a died slot are tested (unit, API, integration, vitest, E2E TC-053-109/110/111). The replant names the plant it replaces and gets no rotation hint against it, only a residual hint from its termination cause (unit, API, vitest, E2E TC-053-111, #2888). Open: (a) the soil-borne data model behind that residual hint - cause class, pathogen persistence, host ranges, season definition, substrate, planned with REQ-054 H-10 (#2888); (b) rows and zones are not drawn on the canvas and SVG/PDF do not show sown slots, so the 'Saatreihen-Muster' of §11.3 shows only in the planting list, plant states and legend; (c) band and broadcast sowing counts wait for a row spacing (#2862)",
+    "issue": 2888
+  },
+  "REQ-053 W-016": {
+    "partial": true,
+    "reason": "supports_layout for tents and shelves, the per-location adjacency factor, the lighting fields (no consumer by design), the photoperiod hint with German phase names (#2889) and only sourced light hours (#2857: photoperiod_source, unit, API, integration incl. the seed re-run) and the pot-volume warning are tested (unit, API, integration incl. migration v0108, vitest, E2E TC-053-114). #2857 part B: the `unspecified` photoperiod type (migration v0113), day-neutral plants left out of the conflict and the short-day data error are tested (unit vectors, API, integration)",
+    "issue": 2857
+  }
+}

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import Dialog from '@mui/material/Dialog';
+import FormDialog from '@/components/form/FormDialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import useMediaQuery from '@mui/material/useMediaQuery';
@@ -7,7 +7,8 @@ import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
-import { useForm } from 'react-hook-form';
+import { useDialogForm } from '@/hooks/useDialogForm';
+import { useFormFieldViolations } from '@/hooks/useFieldViolations';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormSelectField from '@/components/form/FormSelectField';
@@ -74,7 +75,8 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
     handleSubmit,
     reset,
     formState: { isDirty, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  } = useDialogForm<FormData>({ resolver: zodResolver(schema), defaultValues: defaults });
+  const applyFieldViolation = useFormFieldViolations(control);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -82,10 +84,9 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
       reset(defaults);
       onRecorded();
     } catch (error) {
-      // No coded field violation to render here; the generic toast is the floor.
-      // The widened useApiError contract (#1015) keeps the English `reason` off
-      // the German form — a future code is wired via `useFieldViolations`.
-      handleError(error);
+      // A 422 violation on a rendered field lands on that field (#3019); the
+      // English `reason` never reaches the form, the toast stays the floor.
+      handleError(error, applyFieldViolation);
     }
   };
 
@@ -95,8 +96,8 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm">
-      <DialogTitle>{t('pages.aquaponik.recordWaterTest')}</DialogTitle>
+    <FormDialog control={control} open={open} onClose={handleClose} fullScreen={fullScreen} fullWidth maxWidth="sm" data-testid="water-test-dialog" aria-labelledby="water-test-dialog-title">
+      <DialogTitle id="water-test-dialog-title">{t('pages.aquaponik.recordWaterTest')}</DialogTitle>
       <DialogContent>
         <UnsavedChangesGuard dirty={isDirty} />
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
@@ -162,6 +163,6 @@ export default function WaterTestDialog({ open, systemKey, onClose, onRecorded }
           <FormActions onCancel={handleClose} loading={isSubmitting} />
         </form>
       </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

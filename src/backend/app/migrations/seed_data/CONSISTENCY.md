@@ -16,7 +16,7 @@ einem Konflikt gewinnt der Seed; der Steckbrief wird angeglichen.
 
 ## Erzwungen durch
 
-`app/migrations/seed_steckbrief_consistency.py` verdrahtet fünf Attribute zum
+`app/migrations/seed_steckbrief_consistency.py` verdrahtet fünf Attribute und die Lichtdauer je Phase (#2857) zum
 Abgleich zwischen den KA-Feld-verankerten Tabellen der Steckbriefe und den
 Seed-YAMLs und **bricht bei Drift** (Exit-Code ≠ 0):
 
@@ -27,6 +27,7 @@ Seed-YAMLs und **bricht bei Drift** (Exit-Code ≠ 0):
 | `photoperiod_type` | `plant_info*.yaml:lifecycle_configs[<name>]` | aktiv |
 | `flowering_strategy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | aktiv |
 | `growth_determinacy` | `species.yaml:lifecycle_overrides[<name>]`, `lifecycle_configs` | latent¹ |
+| `photoperiod_hours` je Phase (#2857) | `species.yaml:steckbrief_phase_photoperiods[<name>].phases[<phase>]` gegen die Zeile `requirement_profiles.photoperiod_hours` unter `#### Phase: <steckbrief_phase>` (erste Zahl = Wert für den Photoperiodentyp); fehlt Datei, Überschrift oder Zeile, ist das ebenfalls Drift | aktiv |
 
 Ein Abgleich greift nur, wenn **beide** Seiten einen Wert führen.
 
@@ -63,3 +64,24 @@ Gates:
 Mehrere Steckbriefe dürfen auf **eine** geseedete Art abbilden (`spp.`-Aggregate,
 Sorten — das intendierte 210→207-Delta, Audit §6); ein Steckbrief ohne
 Seed-Gegenstück wird übersprungen, nie als Drift gewertet.
+
+## Volksnamen nach Sprache (`common_names_i18n`, #2902)
+
+Für die **Sprachzuordnung** der Volksnamen ist die Richtung umgekehrt: Quelle ist
+die Steckbrief-Zeile `| Volksnamen (DE/EN) | <DE-Namen>; <EN-Namen> |`. Jeder
+Seed-Eintrag mit `common_names` trägt `common_names_i18n` (`de`/`en`, Reihenfolge =
+Präferenz); jeder Name der Map steht auch in `common_names`.
+
+Erzwungen durch `tests/unit/migrations/test_seed_common_names_i18n.py`:
+
+- Map vorhanden und Teilmenge von `common_names`;
+- `de[0]` = erster deutscher Name des Steckbriefs, der dasselbe Taxon beschreibt
+  (Vergleich gefaltet: Groß-/Kleinschreibung, Umlaut-Umschrift, Bindestriche,
+  nachgestellte Klammerzusätze);
+- jeder Name einer zweiteiligen Zeile (genau ein `;`) steht in der Sprache seiner Seite;
+- eine Art in zwei Seed-Dateien trägt in beiden dieselben Namen (der Seed-Abgleich
+  schreibt Namen auf bestehende globale Zeilen; zwei Fassungen würden sich bei
+  jedem Start abwechseln).
+
+Ausnahmen stehen kommentiert im Test (`_STECKBRIEF_DE_FIRST_EXCEPTIONS`,
+`_UNTAKEN_STECKBRIEF_NAMES`).

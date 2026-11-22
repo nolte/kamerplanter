@@ -4,30 +4,18 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
+import ErrorIllustration from '@/components/common/ErrorIllustration';
 
-import error400 from '@/assets/illustrations/errors/error-400.svg';
-import error401 from '@/assets/illustrations/errors/error-401.svg';
-import error403 from '@/assets/illustrations/errors/error-403.svg';
-import error404 from '@/assets/illustrations/errors/error-404.svg';
-import error408 from '@/assets/illustrations/errors/error-408.svg';
-import error429 from '@/assets/illustrations/errors/error-429.svg';
-import error500 from '@/assets/illustrations/errors/error-500.svg';
-import error502 from '@/assets/illustrations/errors/error-502.svg';
-import error503 from '@/assets/illustrations/errors/error-503.svg';
+interface RouterErrorPageProps {
+  /**
+   * Rendered inside the main layout's outlet (#3014): the shell already owns the
+   * `main` landmark and the viewport, so the page neither repeats the landmark
+   * nor stretches to full height.
+   */
+  embedded?: boolean;
+}
 
-const illustrationMap: Record<number, string> = {
-  400: error400,
-  401: error401,
-  403: error403,
-  404: error404,
-  408: error408,
-  429: error429,
-  500: error500,
-  502: error502,
-  503: error503,
-};
-
-export default function RouterErrorPage() {
+export default function RouterErrorPage({ embedded = false }: RouterErrorPageProps) {
   const error = useRouteError();
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -37,7 +25,6 @@ export default function RouterErrorPage() {
     statusCode = error.status;
   }
 
-  const illustration = illustrationMap[statusCode] ?? illustrationMap[500];
   const title = t(`pages.error.${statusCode}.title`, t('pages.error.fallback.title'));
   const message = t(`pages.error.${statusCode}.message`, t('pages.error.fallback.message'));
 
@@ -49,27 +36,16 @@ export default function RouterErrorPage() {
         textAlign: 'center',
         py: { xs: 4, md: 8 },
         px: 2,
-        minHeight: '100vh',
+        minHeight: embedded ? undefined : '100vh',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
       }}
       data-testid="router-error-page"
-      role="main"
+      role={embedded ? undefined : 'main'}
     >
-      <Box
-        component="img"
-        src={illustration}
-        alt=""
-        aria-hidden="true"
-        sx={{
-          maxWidth: 320,
-          width: '100%',
-          height: 'auto',
-          mb: 3,
-        }}
-      />
+      <ErrorIllustration statusCode={statusCode} />
 
       <Typography
         variant="h1"

@@ -12,6 +12,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StorageIcon from '@mui/icons-material/Storage';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { ExperienceLevel, IdentificationSuggestion } from '@/api/types';
+import { getLocalizedCommonName } from '@/utils/plantDisplay';
 
 interface SuggestionListProps {
   suggestions: IdentificationSuggestion[];
@@ -51,7 +52,7 @@ export default function SuggestionList({
   level,
   disabled = false,
 }: SuggestionListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const showConfidence = level !== 'beginner';
   const showRawScore = level === 'expert';
   const showGbif = level === 'expert';
@@ -69,7 +70,10 @@ export default function SuggestionList({
         {suggestions.map((s) => {
           const isSelected = selectedRank === s.rank;
           const confidencePct = Math.round(s.confidence * 100);
-          const primaryCommonName = s.common_names[0];
+          // External adapters return untagged names (no language map): the helper
+          // then takes their first name. The scientific name is left out on purpose —
+          // it has its own line, a fallback to it here would print it twice.
+          const primaryCommonName = getLocalizedCommonName({ common_names: s.common_names }, i18n.language);
 
           return (
             <Card

@@ -115,16 +115,24 @@ Bis 2026-09-24 stand in der rechten Spalte für Patch, Minor, Major, Container-I
 
 „Laufend" heißt seit derselben Entscheidung: **frühestens drei Tage nach dem Release**
 der jeweiligen Version (`minimumReleaseAge: '3 days'`, §3.4). Ausgenommen sind nur
-Security-Fixes aus Vulnerability-Alerts und die Gruppe `uv toolchain`, die sonst
-zerfiele (§3.4, #1762).
+Security-Fixes aus Vulnerability-Alerts, die Gruppe `uv toolchain`, die sonst
+zerfiele (§3.4, #1762), und der Werkzeug-Pin `renovate/renovate`
+(Betreiberentscheidung 2026-10-30, §3.4, #2581).
 
-**MUSS**: Es gibt **kein** Zeitfenster für die PR-Erstellung, und es soll keins geben
-(#1566, Betreiberentscheidung 2026-09-21). `renovate.json5` setzt weder `schedule` noch
-`timezone` — `grep -c "schedule" renovate.json5` liefert 0. Der Grund steht in §3.5: unter
-`required_status_checks.strict: true` ist nicht der Zeitpunkt der Engpass, sondern die
-Warteschlangenlänge. Ein Wochenfenster würde die Bumps nur bündeln und keinen einzigen
-CI-Zyklus sparen. Wer die Spalte wieder einführen will, misst vorher, welchen Zyklus sie
-spart.
+**MUSS**: Renovate eröffnet neue Branches und PRs **nur montags** (Zeitzone
+`Europe/Berlin`): `schedule: ['* * * * 1']`, `timezone: 'Europe/Berlin'` in
+`renovate.json5` (Betreiberentscheidung 2026-11-11). Die Updates einer Woche werden so
+gesammelt und kommen gruppiert (§3.3) an einem Tag, statt täglich einzeln. Das Fenster
+begrenzt nur das **Eröffnen**: Bereits offene Branches rebased Renovate weiterhin jederzeit
+(Default `updateNotScheduled: true`), und das Automerge (§3.4) wartet nicht auf den
+Montag (Default `automergeSchedule: 'at any time'`). Was `prConcurrentLimit` /
+`prHourlyLimit` (§3.5) am Montag zurückhalten, wartet bis zum nächsten Montag.
+
+Bis 2026-11-11 galt das Gegenteil: kein Zeitfenster (#1566, Betreiberentscheidung
+2026-09-21), mit der Begründung, dass unter `required_status_checks.strict: true` die
+Warteschlangenlänge und nicht der Zeitpunkt der Engpass sei. Diese Begründung bleibt
+richtig, denn das Fenster spart keinen CI-Zyklus. Der Betreiber hat das Bündeln auf einen
+festen Wochentag trotzdem höher gewichtet.
 
 **MUSS**: Security-relevante Updates (CVE Critical/High) werden nicht zurückgehalten.
 Renovate nimmt Vulnerability-Alert-PRs von den Warteschlangen-Grenzen, von der
@@ -271,7 +279,7 @@ Bots. Alles andere in der Datei ist Ausformulierung dieser sechs Punkte.
 | **Eine Gruppe für alle Applikations-Abhängigkeiten** | `packageRules` → `groupName: 'application dependencies'`, gematcht über `matchManagers: ['pep621','npm','pip_requirements']` | Betreiberauftrag #1550, ausgeschrieben in §3.3. Über den Manager gematcht, nicht über Pfade — ein neuer Baum wird ohne Aufzählung erreicht. | `grep -n "application dependencies" renovate.json5` |
 | **Reichweite gegen zwei geerbte Ausschlüsse geweitet** | `'helm-values'.managerFilePatterns` (#1027) und `ignorePaths` **ohne** `**/tests/**` (#1464) | Beides sind Dateien, die unbeobachtet alterten: die Dev-Values mit ihrem TimescaleDB-Pin und der gesamte `tests/e2e`-Baum. `ignorePaths` wird ersetzt, nicht gemerged — die geerbte Liste steht deshalb vollständig minus einem Muster in der Datei. | `grep -n "ignorePaths" -A 10 renovate.json5`; Gegenprobe über die Inventur in `task renovate:dry-run` |
 | **Renovate mergt jeden eigenen Pull Request selbst, sobald alle Checks grün sind** | Top-Level `automerge: true`, `platformAutomerge: false`, `automergeType: 'pr'`, `automergeStrategy: 'squash'`, `rebaseWhen: 'behind-base-branch'`; keine `packageRules`-Zeile setzt `automerge` | Betreiberentscheidung 2026-09-24, ausgeführt in §3.4. Ohne `platformAutomerge: false` würde GitHub schon bei grünen **Pflicht**-Checks mergen. | `src/backend/tests/unit/guards/test_renovate_automerge_policy.py` |
-| **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und Taskfile-Variablen | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
+| **Vier `customManagers` für Pins, die kein Manager kennt** | `uv`-`required-version` und Build-Backend, `.github/renovate-pins.yaml`, Werkzeugversionen in `run:`-Schritten, Container-Images in `env:`-Werten und in `.pins/images.yaml` (bis #2581 Taskfile-Variablen) | Diese Pins sind echte Abhängigkeiten in Dateien ohne Manifest-Format. Ohne die Regex-Manager altern sie unbemerkt — das ist derselbe Defekt, den #1303 sechs Wochen lang trug. | `grep -n "customType: 'regex'" renovate.json5` (vier Treffer) |
 
 `mode: 'full'` steht ebenfalls im Top-Level, ist aber **nicht** tragend: es wiederholt
 Renovates eigenen Default und wurde von Renovates Config-Migration geschrieben, nicht
@@ -287,12 +295,12 @@ Jede trägt in der Datei den Vorfall, der sie ausgelöst hat.
 
 #### Was diese Konfiguration bewusst **nicht** setzt
 
-Sieben Keys, die eine naheliegende Renovate-Konfiguration hätte, kommen in
-`renovate.json5` nicht vor. Die Messung, nachrechenbar in einer Zeile — sie gibt für
-jeden Key **0** aus:
+Fünf Keys, die eine naheliegende Renovate-Konfiguration hätte, kommen in
+`renovate.json5` nicht vor (`schedule` / `timezone` sind seit 2026-11-11 gesetzt, §2.2).
+Die Messung, nachrechenbar in einer Zeile — sie gibt für jeden Key **0** aus:
 
 ```bash
-for k in branchPrefix schedule timezone commitMessagePrefix \
+for k in branchPrefix commitMessagePrefix \
          dependencyDashboardTitle lockFileMaintenance prHourlyLimit; do
   printf '%-26s %s\n' "$k" "$(grep -c "$k" renovate.json5)"
 done
@@ -306,7 +314,6 @@ gesetzter Key.
 |---|---|---|
 | `branchPrefix` | Renovates Default `renovate/` | `git ls-remote --heads origin 'refs/heads/renovate/*'` liefert Branches, `'refs/heads/deps/*'` keine |
 | `commitMessagePrefix` | Semantic Commits aus dem Preset → `chore(deps): …` | `git log origin/develop --format='%s' \| grep -c '^chore(deps)'` |
-| `schedule` / `timezone` | Kein Zeitfenster. Renovate läuft auf der Kadenz der App; die Menge offener PRs wird über die Limits gesteuert, nicht über die Uhrzeit. | Erstellzeitpunkte der `renovate/`-Branches |
 | `prHourlyLimit`, `prConcurrentLimit` | Werte aus dem geteilten Preset, nicht aus diesem Repository | Preset-Inhalt zum gepinnten Tag abrufen (Kommando oben) |
 | `lockFileMaintenance` | Keine geplante Lock-Wartung. Locks werden im selben PR wie die Range regeneriert (§6.1), nicht in einem eigenen Wartungslauf. | `grep -c lockFileMaintenance renovate.json5` → 0 |
 | `dependencyDashboardTitle` | Default-Titel; das Dashboard selbst kommt über `:dependencyDashboard` aus dem Preset | Issue #12 im Repository |
@@ -390,9 +397,18 @@ zweiter Merger, der nur auf Pflicht-Checks wartet, würde die Entscheidung unter
 
 **MUSS — Mindestalter eines Releases (Betreiberentscheidung 2026-09-24):** Jedes Update
 wartet, bis die vorgeschlagene Version **drei Tage** alt ist (`minimumReleaseAge: '3 days'`
-auf oberster Ebene). Eine `packageRules`-Regel setzt den Schlüssel nur in einem Fall:
-eine Gruppe, die Mitglieder mit und ohne Release-Zeitstempel mischt, setzt ihn auf
-`null` (unten, „Eine Gruppe wartet nicht als Ganzes"); heute ist das allein `uv toolchain`. Der Grund: Wenn
+auf oberster Ebene). Eine `packageRules`-Regel setzt den Schlüssel nur in zwei Fällen:
+(1) eine Gruppe, die Mitglieder mit und ohne Release-Zeitstempel mischt, setzt ihn auf
+`null` (unten, „Eine Gruppe wartet nicht als Ganzes"); heute ist das allein `uv toolchain`.
+(2) Der Werkzeug-Pin `renovate/renovate` wartet nicht (Betreiberentscheidung 2026-10-30,
+#2581): eine Regel ohne `groupName`, die genau dieses eine Paket nennt, setzt
+`minimumReleaseAge: null`. Der Pin in `.pins/images.yaml` treibt nur
+`task renovate:dry-run` (den lokalen Nachweis einer Änderung an `renovate.json5`), steckt
+in keinem ausgelieferten Artefakt und keinem Pflicht-Check; das jeweils neueste
+Upstream-Release darf immer verwendet werden, auch ein manueller Bump direkt auf den
+neuesten Tag ist zulässig. Die Ausnahme ist namentlich und nicht erweiterbar: der Guard
+`test_renovate_automerge_policy.py` lehnt jede weitere Regel ab, die die Wartezeit
+aufhebt. Der Grund für die Wartezeit selbst: Wenn
 niemand einen Bump vor dem Merge liest, ist Zeit die Verteidigung gegen ein
 kompromittiertes oder zurückgezogenes Release — für Sicherheitsforscher, Registries und
 Unpublish-Fenster (npm erlaubt ein Unpublish 72 Stunden lang).
@@ -522,9 +538,10 @@ wirksam, wie es klingt: bei vollem Kontingent hielt Renovate den CVE-tragenden
 `transformers`-Bump (#1480) als „Rate-Limited" zurück, weil er als normaler Bump und
 nicht über einen Alert kam.
 
-**MUSS**: Ein Zeitfenster (`schedule`) gibt es nicht und soll es nicht geben — die
-Entscheidung und ihre Begründung stehen in §2.2. Hier zählt nur die Folge: die
-Steuergröße dieses Abschnitts ist die Warteschlangenlänge, nicht die Uhrzeit.
+**MUSS**: Das Montagsfenster (§2.2) begrenzt nur, **wann** Renovate eröffnet; die
+Grenzen dieses Abschnitts gelten innerhalb des Fensters weiter. Vulnerability-Alert-PRs
+sind auch vom Fenster ausgenommen (`vulnerabilityAlerts.schedule: []`) und werden sofort
+eröffnet.
 
 ---
 
@@ -869,6 +886,34 @@ FROM nginx:1.27-alpine AS serve
 **MUSS**: Base-Image-Updates durchlaufen den vollständigen Docker-Build in der CI.
 **SOLL**: Alpine-basierte Images werden bevorzugt, um die Angriffsfläche zu minimieren.
 
+#### 6.3.1 Verwaiste Image-Koordinaten
+
+Renovate prüft, ob es im **gepinnten** Repository einen neueren Tag gibt. Ob dieses Repository
+überhaupt noch Tags erhält, prüft es nicht: Zieht ein Upstream-Projekt um oder wird es
+aufgegeben, löst die alte Koordinate weiter auf und der Pin gilt als aktuell. So blieb
+`nginxinc/nginx-unprivileged` ab dem 2026-10-19 ohne neuen Tag, nachdem Upstream zu
+`nginx/nginx-unprivileged` gewechselt war; zehn Sicherheitskorrekturen wurden nie angeboten
+(#3060, behoben in #3061).
+
+**MUSS**: Ein geplanter Lauf (`renovate-health.yml`, Job `stale-image-upstreams`, täglich) fragt für jedes Fremd-Image die Registry, wann das Repository zuletzt Aktivität hatte, und meldet jedes Repository, dessen jüngste Aktivität älter ist als das Fenster.
+**MUSS**: Die Inventur der Fremd-Images wird aus dem Checkout abgeleitet (Digest-Pins in Dockerfiles, Compose-Dateien, Workflows, `.pins/`, Taskfiles; Image-Blöcke der Helm-Values: `repository:` mit `tag:` oder `digest:` im selben Block oder unter einem `image:`-Schlüssel, unabhängig von Reihenfolge und Zwischenzeilen) und nicht als Liste gepflegt. Eine leere Inventur ist kein sauberes Ergebnis, sondern ein unbestimmtes.
+**MUSS**: Das Fenster beträgt 45 Tage. Eine Abweichung je Image steht mit Begründung in `THRESHOLD_OVERRIDES_DAYS` (`scripts/ci/check_stale_image_upstreams.py`); ein Eintrag für ein Image, das nichts mehr referenziert, ist selbst ein Befund.
+**MUSS**: Ein Image auf einer Registry ohne lesbares Aktivitätsdatum wird als „nicht prüfbar" gemeldet und nicht stillschweigend als bestanden gewertet.
+**MUSS**: Ein Befund führt zu genau einem deduplizierten Issue (Label `stale-image-upstream`). Ein unbestimmtes Ergebnis (Registry nicht erreichbar oder gedrosselt, leere Inventur, unlesbarer Pin) macht den Lauf rot und erzeugt kein Issue (NFR-018 §2).
+**MUSS**: Die Abfragen an die Registries laufen anonym: Das Skript und seine Anfragen erhalten kein Token des Repositorys. Das `GITHUB_TOKEN` des Jobs (`issues: write`) dient allein dem Issue-Schritt; der Checkout hinterlegt es nicht (`persist-credentials: false`). Ein von einer Registry ausgestelltes anonymes Pull-Token wird bei einer Weiterleitung auf einen anderen Host nicht mitgesendet.
+**MUSS**: „Repository existiert nicht“ wird nur aus den Abfragen gelesen, die nach dem Repository fragen (Tag-Liste, bei ghcr.io zusätzlich die Token-Abfrage). Fehlt nach erfolgreicher Tag-Liste ein einzelner Tag (HTTP 404 auf Manifest oder Blob), wird dieser Tag übersprungen; jede andere Fehlerantwort an dieser Stelle ist ein unbestimmtes Ergebnis.
+
+Das Fenster ist gemessen, nicht geschätzt (2026-11-20): Der größte Abstand zwischen zwei
+Push-Tagen eines Images im Standardfenster betrug 36 Tage, 30 Tage hätten also auf einem
+gesunden Repository gemeldet. Die Grenze der Prüfung steht daneben: Am Tag der Entdeckung des
+nginx-Falls (Tag 31 der Stille) hätte der Lauf noch nicht gemeldet, sondern erst am
+2026-12-03. Die Prüfung begrenzt die Dauer der Stille; sie erkennt einen Umzug nicht sofort.
+
+```bash
+# Nachmessen: Inventur und jüngste Aktivität je Image, ohne Issue-Schritt
+python3 scripts/ci/check_stale_image_upstreams.py /tmp/stale-image-report.json
+```
+
 ### 6.4 Helm Charts
 
 **MUSS**: Helm-Chart-Dependencies in `Chart.yaml` werden von Renovate verwaltet:
@@ -1009,6 +1054,7 @@ pip-licenses --format=csv --output-file=license-report-backend.csv
     - [x] Keine `packageRules`-Regel setzt `automerge`; gehalten von `test_renovate_automerge_policy.py`
     - [x] Der Label-Automerge (`automerge.yaml`) überspringt `renovate/`-Branches und hinterlässt dort keine `cancelled`-Check-Runs
     - [ ] Renovate-Pull-Requests, die an einem roten oder abgebrochenen nicht-pflichtigen Check hängen, werden beobachtet (Dependency Dashboard, `renovate-health.yml`)
+    - [x] Fremd-Images, deren Registry-Repository keine Tags mehr erhält, werden gemeldet (§6.3.1, `renovate-health.yml` Job `stale-image-upstreams`; gehalten von `test_stale_image_upstreams_check.py`)
 - [ ] **CI-Integration**
     - [ ] Alle Dependency-PRs durchlaufen die vollständige CI-Pipeline (Tests, Lint, Build)
     - [ ] `npm audit` und `pip-audit` sind in der CI-Pipeline integriert

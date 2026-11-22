@@ -23,6 +23,7 @@ import type {
   GrowthPhase,
   RunTransitionResponse,
 } from '@/api/types';
+import { captureHandledError } from '@/observability/errorTracking';
 
 interface Props {
   open: boolean;
@@ -88,7 +89,11 @@ export default function BatchPhaseTransitionDialog({
     // Try PhaseSequence first, fall back to legacy LifecycleConfig + GrowthPhases
     phaseSequenceApi
       .getSpeciesPhaseSequence(speciesKeys[0])
-      .catch(() => null)
+      .catch((err: unknown) => {
+        // The endpoint answers null for 'no sequence'; a failure falls back to the legacy lifecycle path below.
+        captureHandledError(err, { source: 'BatchPhaseTransitionDialog.phaseSequence' });
+        return null;
+      })
       .then((sequence) => {
         if (sequence && sequence.entries.length > 0) {
           const mapped = sequence.entries.map(growthPhaseFromEntry);

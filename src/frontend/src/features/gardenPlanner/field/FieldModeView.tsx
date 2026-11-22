@@ -1,0 +1,394 @@
+/**
+ * Field mode of the garden plan (REQ-053 §18, GP-UX-020…025/029/030): the phone in the garden, wet hands,
+ * sun on the display. It starts with "My beds · due today" - the list loads first, the plan geometry
+ * after it (two requests, GP-UX-030) - and offers "Map" as the second tab. A tap on a bed opens its sheet.
+ *
+ * The whole view uses the high-contrast kiosk theme: text ≥ 7:1 and touch targets of 64 px
+ * (`KIOSK_TOUCH_TARGET`, GP-UX-020/021). There are no drawing tools, no grid, no handles and no
+ * destructive actions (GP-UX-023); import and export stay in planning mode. Tenant, site, tab and the map
+ * view are remembered per device (localStorage); "My position" on the map (GP-UX-026) is not - neither the switch
+ * nor the position.
+ *
+ * A bed label's QR code (GP-FR-052, GP-UX-028) links here with `?mode=field&bed=<key>`: the sheet of that bed opens as
+ * soon as the list is in. A key the site's list does not have says so instead of opening nothing. Closing the sheet or
+ * choosing another bed drops `bed` from the address.
+ *
+ * Without a connection the bed list and the plan come from the plan cache (REQ-053 WP 9.2): a banner names
+ * the time of that state, and a site that was never loaded online shows an empty state with a hint instead
+ * of an error. Field mode has no geometry tools. Offline, the bed sheet buffers "Done", the note and photos
+ * (WP 9.4, the offline write buffer) and keeps every other write locked; without a usable buffer all stay locked.
+ *
+ * This module is its own lazy chunk: the planning route loads it only in field mode, so it does not
+ * count against the garden-planner route budget.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
+import Typography from '@mui/material/Typography';
+import { ThemeProvider } from '@mui/material/styles';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DesignServicesIcon from '@mui/icons-material/DesignServices';
+import ErrorDisplay from '@/components/common/ErrorDisplay';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { KIOSK_TOUCH_TARGET } from '@/kiosk/kioskTheme';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setBreadcrumbs } from '@/store/slices/uiSlice';
+import { kioskHighContrastTheme } from '@/theme/theme';
+import type { BedListItem } from '../bed/types';
+import { useBedAssignments } from '../bed/useBedAssignments';
+import { DEFAULT_GRID_STEP_M, planGridStep } from '../model/units';
+import CachedDataBanner from '../offline/CachedDataBanner';
+import OfflineCacheMiss from '../offline/OfflineCacheMiss';
+import { canBuffer } from '../offline/bufferedWrite';
+import { useCacheScope } from '../offline/useCacheScope';
+import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
+import type { PlanRenderer, RendererLabels } from '../renderer/types';
+import { loadGardenPlan, resetGardenPlan, selectGardenPlanState } from '../state/gardenPlanSlice';
+import FieldBedList from './FieldBedList';
+import FieldBedSheet from './FieldBedSheet';
+import FieldMap from './FieldMap';
+import { sortFieldBeds, todayUtc } from './fieldDue';
+import {
+  readFieldPrefs,
+  rememberFieldSite,
+  rememberFieldViewport,
+  type FieldTab,
+  type FieldViewport,
+} from './fieldPrefs';
+import { useFieldBeds } from './useFieldBeds';
+
+interface FieldModeViewProps {
+  siteKey: string;
+  /** The renderer the route chose (GP-NFR-009); field mode only draws and hit-tests with it. */
+  renderer: PlanRenderer;
+  labels: RendererLabels;
+  /** Where "Planning mode" leads: the same plan without `?mode=field`. */
+  planningHref: string;
+}
+
+export default function FieldModeView({ siteKey, renderer, labels, planningHref }: FieldModeViewProps) {
+  const { t, i18n } = useTranslation();
+  const dispatch = useAppDispatch();
+  const online = useOnlineStatus();
+  const { canEdit } = useTenantPermissions();
+  const userKey = useAppSelector((state) => state.auth.user?.key ?? null);
+  const tenantSlug = useAppSelector((state) => state.tenants.activeTenant?.slug ?? null);
+  const { plan, loadStatus, loadError, cachedAt: planCachedAt, offlineMiss: planOfflineMiss } =
+    useAppSelector(selectGardenPlanState);
+  const cacheScope = useCacheScope();
+  const beds = useFieldBeds(siteKey, cacheScope);
+  const assignments = useBedAssignments(true);
+  const [prefs] = useState(() => readFieldPrefs(userKey));
+  const samePlace = prefs !== null && prefs.tenantSlug === tenantSlug && prefs.siteKey === siteKey;
+  const [tab, setTab] = useState<FieldTab>(samePlace ? prefs.tab : 'list');
+  // The view last stored for this site. The map is mounted afresh on every tab switch, so it starts from
+  // this state - not from the record read at mount, which would bring back a view the user already left.
+  const [lastView, setLastView] = useState<{ siteKey: string; view: FieldViewport } | null>(() => {
+    const view = samePlace ? prefs.viewports[siteKey] : undefined;
+    return view ? { siteKey, view } : null;
+  });
+  // GP-UX-028: a bed label's QR code opens field mode with `?bed=<key>` - that bed's sheet is open from the start.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedBedKey = searchParams.get('bed');
+  const [openBedKey, setOpenBedKey] = useState<string | null>(linkedBedKey);
+  // A second label scanned while field mode is open (same route, new `bed`) opens that bed too. (State adjusted
+  // during render, the documented derived-state pattern.)
+  const [seenLinkedBedKey, setSeenLinkedBedKey] = useState(linkedBedKey);
+  if (linkedBedKey !== seenLinkedBedKey) {
+    setSeenLinkedBedKey(linkedBedKey);
+    if (linkedBedKey !== null) setOpenBedKey(linkedBedKey);
+  }
+  // Choosing another bed or closing the sheet drops `bed` from the address (replacing the entry), so a reload
+  // or "Back" does not reopen the bed the label named.
+  const selectBed = useCallback(
+    (key: string | null) => {
+      setOpenBedKey(key);
+      if (linkedBedKey !== null && key !== linkedBedKey) {
+        setSearchParams(
+          (previous) => {
+            const next = new URLSearchParams(previous);
+            next.delete('bed');
+            return next;
+          },
+          { replace: true },
+        );
+      }
+    },
+    [linkedBedKey, setSearchParams],
+  );
+  // "My position" (GP-UX-026): opt-in for this visit only. Neither the choice nor any position is remembered.
+  const [ownPositionOn, setOwnPositionOn] = useState(false);
+
+  // GP-UX-030: the list first, then the geometry. The plan is forgotten when field mode is left.
+  const { settled } = beds;
+  useEffect(() => {
+    if (settled) void dispatch(loadGardenPlan(siteKey));
+  }, [settled, dispatch, siteKey]);
+  useEffect(
+    () => () => {
+      dispatch(resetGardenPlan());
+    },
+    [dispatch, siteKey],
+  );
+
+  const context = useMemo(
+    () => (userKey && tenantSlug ? { userKey, tenantSlug, siteKey } : null),
+    [userKey, tenantSlug, siteKey],
+  );
+  useEffect(() => {
+    if (context) rememberFieldSite({ ...context, tab });
+  }, [context, tab]);
+  const onViewChange = useCallback(
+    (view: FieldViewport) => {
+      setLastView({ siteKey, view });
+      if (context) rememberFieldViewport(context, view);
+    },
+    [context, siteKey],
+  );
+  const initialView = lastView?.siteKey === siteKey ? lastView.view : null;
+
+  // Planting and a position correction change what the map draws: reload the plan (geometry, plants)
+  // with the same thunk that loaded it. The map stays on screen meanwhile (see the map panel below).
+  const reloadPlan = useCallback(() => {
+    void dispatch(loadGardenPlan(siteKey));
+  }, [dispatch, siteKey]);
+
+  // What came from the plan cache, or was missed offline, is read again once the connection is back (R-012).
+  const planFromCache = plan?.siteKey === siteKey && planCachedAt !== null;
+  useReloadOnReconnect(beds.cachedAt !== null || beds.offlineMiss, beds.reload);
+  useReloadOnReconnect(planFromCache || planOfflineMiss, reloadPlan);
+
+  const siteName = plan?.siteKey === siteKey ? plan.siteName : null;
+  // The snap grid of free positions and "Correct position" (GP-FR-154): the loaded plan's, else the default.
+  const gridStepM = plan?.siteKey === siteKey ? planGridStep(plan) : DEFAULT_GRID_STEP_M;
+  useEffect(() => {
+    if (siteName === null) return undefined;
+    dispatch(
+      setBreadcrumbs([
+        { label: 'nav.dashboard', path: '/dashboard' },
+        { label: 'nav.sites', path: '/standorte/sites' },
+        { label: siteName, path: `/standorte/sites/${siteKey}` },
+        { label: 'nav.gardenPlan' },
+      ]),
+    );
+    return () => {
+      dispatch(setBreadcrumbs([]));
+    };
+  }, [dispatch, siteKey, siteName]);
+
+  const today = todayUtc();
+  // "My beds" come first, so the list waits for the assignments: sorted before they arrive it would
+  // reorder under the user's finger once they do. Without a tenant there is nothing to wait for.
+  const assignmentsSettled = assignments.ready || tenantSlug === null;
+  const list = beds.state.status === 'ready' && assignmentsSettled ? beds.state.beds : null;
+  const listLoading = beds.state.status === 'loading' || (beds.state.status === 'ready' && !assignmentsSettled);
+  const sorted = useMemo(
+    () => (list ? sortFieldBeds(list, assignments.mine, today, i18n.language) : []),
+    [list, assignments.mine, today, i18n.language],
+  );
+  const bedKeys = useMemo(() => new Set(sorted.map((bed) => bed.key)), [sorted]);
+  const openBed: BedListItem | null = sorted.find((bed) => bed.key === openBedKey) ?? null;
+  // The label named a bed this site's list does not have (removed, moved to another site, or not a bed).
+  const linkedBedMissing = list !== null && linkedBedKey !== null && openBedKey === linkedBedKey && openBed === null;
+  const { reload } = beds;
+  // The older of the two cached states decides the banner: nothing on screen is newer than it says.
+  const cachedTimes = [beds.cachedAt, plan?.siteKey === siteKey ? planCachedAt : null].filter(
+    (value): value is number => value !== null,
+  );
+  const cachedAt = cachedTimes.length > 0 ? Math.min(...cachedTimes) : null;
+
+  const tabButtonSx = { minHeight: KIOSK_TOUCH_TARGET, fontSize: '1rem', textTransform: 'none' } as const;
+
+  return (
+    <ThemeProvider theme={kioskHighContrastTheme}>
+      <Box
+        data-testid="garden-plan-field-mode"
+        sx={{
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          p: { xs: 1, sm: 2 },
+          borderRadius: 1,
+          fontSize: '1rem',
+          '& .MuiTypography-body2': { fontSize: '1rem' },
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 2 }}>
+          <Typography variant="h4" component="h1" sx={{ flex: '1 1 12rem', overflowWrap: 'anywhere' }}>
+            {siteName ?? t('pages.gardenPlan.field.title')}
+          </Typography>
+          <Button
+            component={RouterLink}
+            to={`/standorte/sites/${siteKey}`}
+            variant="outlined"
+            color="inherit"
+            startIcon={<ArrowBackIcon />}
+            sx={{ minHeight: KIOSK_TOUCH_TARGET, borderWidth: 2 }}
+            data-testid="garden-plan-back-link"
+          >
+            {t('pages.gardenPlan.backToSite')}
+          </Button>
+          <Button
+            component={RouterLink}
+            to={planningHref}
+            variant="outlined"
+            color="inherit"
+            startIcon={<DesignServicesIcon />}
+            sx={{ minHeight: KIOSK_TOUCH_TARGET, borderWidth: 2 }}
+            data-testid="garden-plan-mode-planning"
+          >
+            {t('pages.gardenPlan.field.toPlanning')}
+          </Button>
+        </Box>
+
+        {!online && (
+          <Alert severity="warning" sx={{ mb: 2 }} data-testid="field-offline">
+            {canBuffer(cacheScope) ? t('pages.gardenPlan.field.buffer.offline') : t('pages.gardenPlan.field.offline')}
+          </Alert>
+        )}
+        {cachedAt !== null && <CachedDataBanner cachedAt={cachedAt} />}
+        {linkedBedMissing && (
+          <Alert
+            severity="info"
+            sx={{ mb: 2 }}
+            data-testid="field-mode-linked-bed-missing"
+            action={
+              <Button
+                color="inherit"
+                onClick={() => selectBed(null)}
+                sx={{ minHeight: KIOSK_TOUCH_TARGET }}
+                data-testid="field-mode-linked-bed-missing-close"
+              >
+                {t('common.close')}
+              </Button>
+            }
+          >
+            {t('pages.gardenPlan.field.linkedBedMissing')}
+          </Alert>
+        )}
+
+        <Tabs
+          value={tab}
+          onChange={(_, value: FieldTab) => setTab(value)}
+          variant="fullWidth"
+          aria-label={t('pages.gardenPlan.field.tabs.label')}
+          sx={{ mb: 2, borderBottom: 2, borderColor: 'divider' }}
+        >
+          <Tab
+            value="list"
+            label={t('pages.gardenPlan.field.tabs.list')}
+            id="field-tab-list"
+            aria-controls="field-panel-list"
+            sx={tabButtonSx}
+            data-testid="field-tab-list"
+          />
+          <Tab
+            value="map"
+            label={t('pages.gardenPlan.field.tabs.map')}
+            id="field-tab-map"
+            aria-controls="field-panel-map"
+            sx={tabButtonSx}
+            data-testid="field-tab-map"
+          />
+        </Tabs>
+
+        <Box role="tabpanel" id="field-panel-list" aria-labelledby="field-tab-list" hidden={tab !== 'list'}>
+          {tab === 'list' && (
+            <>
+              {listLoading && (
+                <Box role="status" aria-busy="true" aria-label={t('pages.gardenPlan.field.list.loading')}>
+                  <LoadingSkeleton variant="card" />
+                </Box>
+              )}
+              {beds.state.status === 'error' && beds.offlineMiss && (
+                <OfflineCacheMiss subject="beds" testId="field-list-offline-miss" onRetry={reload} />
+              )}
+              {beds.state.status === 'error' && !beds.offlineMiss && (
+                <ErrorDisplay error={beds.state.message} onRetry={reload} />
+              )}
+              {list && beds.reloadError && (
+                <Alert
+                  severity="warning"
+                  sx={{ mb: 2 }}
+                  data-testid="field-list-reload-failed"
+                  action={
+                    <Button
+                      color="inherit"
+                      onClick={reload}
+                      sx={{ minHeight: KIOSK_TOUCH_TARGET }}
+                      data-testid="field-list-reload-retry"
+                    >
+                      {t('common.retry')}
+                    </Button>
+                  }
+                >
+                  {t('pages.gardenPlan.field.list.reloadFailed')}
+                </Alert>
+              )}
+              {list && (
+                <FieldBedList
+                  beds={sorted}
+                  mine={assignments.mine}
+                  today={today}
+                  onOpen={(bed) => selectBed(bed.key)}
+                  planningHref={canEdit ? planningHref : undefined}
+                />
+              )}
+            </>
+          )}
+        </Box>
+
+        <Box role="tabpanel" id="field-panel-map" aria-labelledby="field-tab-map" hidden={tab !== 'map'}>
+          {tab === 'map' && (
+            <>
+              {loadStatus === 'error' && planOfflineMiss && (
+                <OfflineCacheMiss subject="plan" testId="field-map-offline-miss" onRetry={reloadPlan} />
+              )}
+              {loadStatus === 'error' && loadError && !planOfflineMiss && (
+                <ErrorDisplay error={loadError} onRetry={() => void dispatch(loadGardenPlan(siteKey))} />
+              )}
+              {loadStatus !== 'error' && plan === null && (
+                <Box role="status" aria-busy="true" aria-label={t('pages.gardenPlan.field.map.loading')}>
+                  <LoadingSkeleton variant="card" />
+                </Box>
+              )}
+              {/* A reload after planting keeps the drawn plan (and the map's view) until the new one is in. */}
+              {plan !== null && loadStatus !== 'error' && (
+                <FieldMap
+                  plan={plan}
+                  renderer={renderer}
+                  labels={labels}
+                  bedKeys={bedKeys}
+                  selectedBedKey={openBedKey}
+                  initialView={initialView}
+                  onViewChange={onViewChange}
+                  onSelectBed={selectBed}
+                  ownPositionOn={ownPositionOn}
+                  onOwnPositionChange={setOwnPositionOn}
+                />
+              )}
+            </>
+          )}
+        </Box>
+
+        {openBed && (
+          <FieldBedSheet
+            key={openBed.key}
+            bed={openBed}
+            online={online}
+            onClose={() => selectBed(null)}
+            onChanged={reload}
+            onPlanChanged={reloadPlan}
+            gridStepM={gridStepM}
+          />
+        )}
+      </Box>
+    </ThemeProvider>
+  );
+}

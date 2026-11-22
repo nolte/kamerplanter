@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -36,6 +36,7 @@ import { fetchWorkflows } from '@/store/slices/tasksSlice';
 import { useNotification } from '@/hooks/useNotification';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
+import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import * as taskApi from '@/api/endpoints/tasks';
 import type { WorkflowTemplate } from '@/api/types';
 import WorkflowInstantiateDialog from './WorkflowInstantiateDialog';
@@ -54,7 +55,6 @@ function WorkflowCard({
   onDelete: (key: string) => void;
 }) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const theme = useTheme();
   // `require_permission(TASK, DELETE)` on `DELETE /tasks/workflows/{key}` is
   // lead-only (REQ-049 §2.3) (#1467).
@@ -77,7 +77,8 @@ function WorkflowCard({
       }}
     >
       <CardActionArea
-        onClick={() => navigate(`/aufgaben/workflows/${workflow.key}`)}
+        component={RouterLink}
+        to={`/aufgaben/workflows/${workflow.key}`}
         sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}
       >
         <CardContent sx={{ flexGrow: 1, pb: 1 }}>
@@ -273,6 +274,8 @@ export default function WorkflowTemplateListPage() {
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const dispatch = useAppDispatch();
+  // The workflows' species names are worded by the server in the UI language: reload on a switch (#2902).
+  const requestLanguage = useRequestLanguage();
   const navigate = useNavigate();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -289,7 +292,7 @@ export default function WorkflowTemplateListPage() {
 
   useEffect(() => {
     dispatch(fetchWorkflows({}));
-  }, [dispatch]);
+  }, [dispatch, requestLanguage]);
 
   const filteredWorkflows = useMemo(() => {
     if (!searchQuery.trim()) return workflows;
@@ -398,6 +401,7 @@ export default function WorkflowTemplateListPage() {
             component="img"
             src={kamiTasks}
             alt=""
+            loading="lazy"
             sx={{ width: 200, height: 200, mb: 3, opacity: 0.7 }}
           />
           <Typography variant="h6" color="text.secondary" align="center">
@@ -468,8 +472,10 @@ export default function WorkflowTemplateListPage() {
         onClose={() => setDuplicateKey(null)}
         maxWidth="sm"
         fullWidth
+        data-testid="duplicate-workflow-dialog"
+        aria-labelledby="duplicate-workflow-dialog-title"
       >
-        <DialogTitle>{t('pages.tasks.duplicateWorkflow')}</DialogTitle>
+        <DialogTitle id="duplicate-workflow-dialog-title">{t('pages.tasks.duplicateWorkflow')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.tasks.duplicateWorkflowDescription', {

@@ -162,6 +162,7 @@ class GetPlant(ToolBase):
             species = ctx.species_service.get_species(plant.species_key, tenant_key=ctx.tenant_key)
             data["species_name"] = getattr(species, "scientific_name", None)
             data["species_common_names"] = getattr(species, "common_names", None)
+            data["species_common_names_i18n"] = getattr(species, "common_names_i18n", None)
         except Exception:  # noqa: BLE001 — a missing catalogue entry must not fail the read
             data["species_name"] = None
 

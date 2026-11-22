@@ -7,6 +7,8 @@ surface as an HTTP 500 instead of the intended business-level HTTP 422.
 
 from datetime import UTC, date, datetime
 
+from app.common.exceptions import ValidationError
+
 
 def now_utc() -> datetime:
     """Return the current time as a timezone-aware UTC datetime."""
@@ -87,3 +89,27 @@ def replace_year[T: (date, datetime)](value: T, year: int) -> T:
         if value.month == 2 and value.day == 29:
             return value.replace(year=year, day=28)
         raise
+
+
+def as_utc(moment: datetime | None) -> datetime | None:
+    """A naive instant read as UTC, as ``performed_at`` is on the way in (REQ-053 §20.13); aware ones unchanged."""
+    return moment.replace(tzinfo=UTC) if moment is not None and moment.tzinfo is None else moment
+
+
+def utc_range(
+    performed_from: datetime | None, performed_to: datetime | None
+) -> tuple[datetime | None, datetime | None]:
+    """Both bounds of a ``from`` / ``to`` query as aware UTC instants; ``to`` before ``from`` is a 422.
+
+    Shared by the care log (``GET /care-events``) and the history of a bed so the two read a range alike. Comparing
+    a naive with an aware bound raises ``TypeError`` (a 500), which is why both are normalised first.
+
+    Raises:
+        ValidationError: ``performed_to`` lies before ``performed_from``.
+    """
+    start, end = as_utc(performed_from), as_utc(performed_to)
+    if start is not None and end is not None and end < start:
+        raise ValidationError(
+            "'to' lies before 'from'.", details=[{"field": "to", "message": "must not be before 'from'"}]
+        )
+    return start, end

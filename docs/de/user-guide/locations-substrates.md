@@ -131,6 +131,26 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 !!! tip "GPS-Koordinaten ermöglichen Wetterquellen"
     Für Sites vom Typ Außenbereich, Gewächshaus oder Balkon schaltet eine hinterlegte GPS-Position zusätzlich den Abschnitt **Wetterquelle** auf der Standort-Detailseite frei — dort wählst und priorisierst du öffentliche Wetterdienste oder eine Home-Assistant-Quelle, siehe [Wetterquellen je Standort](weather-sources.md).
 
+### Sonne und Erreichbarkeit für die Gartenplanung {#sonne-und-erreichbarkeit-einstellen}
+
+Ist das Modul Gartenplaner eingeschaltet, enthält die Detailseite einer Site den Abschnitt **Gartenplanung: Sonne und Erreichbarkeit**. Die Werte gelten für alle Beete der Site.
+
+| Einstellung | Standard | Wirkung |
+|-------------|----------|---------|
+| Volle Sonne: mehr als | 6 h | Hilfetext der Kachel **Volle Sonne** |
+| Halbschatten: ab | 3 h | Hilfetext der Kachel **Halbschatten** (bis zum Wert für volle Sonne) |
+| Schatten: ab | 2 h | Hilfetext der Kachel **Schatten**; darunter ist **Tiefschatten** |
+| Stichtag (Tag, Monat) | 21. Juni | Tag, auf den sich die Stunden direkter Sonne beziehen |
+| Zugang von zwei Seiten | 1,2 m | Richtwert des Hinweises **Beet zu breit** bei zwei gegenüberliegenden Zugangsseiten |
+| Zugang von einer Seite | 0,6 m | Richtwert bei einer Zugangsseite und wenn keine Zugangsseiten erfasst sind |
+
+Die Standardwerte für die Sonne folgen der Royal Horticultural Society, die für die Reichweite der Armlänge (Beratungsstellen der Universitäten Oregon und Iowa, Umweltministerium Rheinland-Pfalz). Alle Werte müssen größer als 0 sein. Die Sonnenstunden müssen von oben nach unten abnehmen (volle Sonne über Halbschatten über Schatten), und der Wert für eine Seite darf nicht größer sein als der für zwei Seiten. Sonst nennt das Formular den Fehler am Feld und speichert nichts.
+
+Kamerplanter rechnet aus diesen Werten nichts weiter aus: Die Sonnenklasse eines Beets wählst du weiterhin selbst, die Werte bestimmen nur, was die Kacheln als Definition anzeigen. Änderst du die Werte nicht, bleiben die Standardwerte in Kraft. <!-- REQ-053 GP-FR-164, GP-FR-166 -->
+
+!!! info "Für technische Nutzer"
+    Über die API heißen die Felder `sun_class_thresholds` (`full_sun_min_hours`, `partial_shade_min_hours`, `shade_min_hours`, `reference_month`, `reference_day`) und `reach_thresholds` (`both_sides_m`, `one_side_m`) an `PUT /api/v1/t/{tenant_slug}/sites/{key}`. Fehlt ein Feld in der Anfrage oder ist es `null`, bleibt der gespeicherte Wert erhalten; ungültige Werte beantwortet die API mit 422. Die Antwort enthält immer die wirksamen Werte, also die Standardwerte, solange nichts gespeichert ist.
+
 ---
 
 ## Locations und Slots anlegen
@@ -159,12 +179,16 @@ Klicke auf **Speichern**. Die Site erscheint nun in der Übersicht.
 | Balkon | Nein | Balkon |
 | Terrasse | Nein | Terrasse |
 | Grow-Zelt | Ja | Abgeschlossenes Growzelt mit kontrolliertem Klima |
-| Beet | Nein | Boden- oder Hochbeet im Freien |
+| Beet | Nein | Bodenbeet im Freien |
+| Hochbeet | Nein | Erhöhtes, eingefasstes Beet |
+| Gewächshausbeet | Nein | Beet innerhalb eines Gewächshauses |
+| Frühbeet | Nein | Abgedeckter Kasten für die frühe Anzucht |
+| Pflanzkübel / Topf-Gruppe | Nein | Beweglicher Kübel oder eine Gruppe von Töpfen, die wie ein Beet geplant wird |
 | Regal | Ja | Regal oder Shelving-System |
 | Topf-/Container-Gruppe | Nein | Gruppierung mehrerer Töpfe oder Container an einem Ort |
 
 !!! info "Für technische Nutzer"
-    Die zwölf oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
+    Die sechzehn oben aufgeführten Typen sind vorinstallierte System-Typen. Kamerplanter unterstützt intern bereits eigene, zusätzliche Location-Typen. Diese Einstellung ist derzeit nur über die API verfügbar — eine eigene Verwaltungsseite in der Oberfläche gibt es noch nicht.
 
 ### Frostexposition einer Location festlegen {#frostexposition-einer-location-festlegen}
 
@@ -266,6 +290,256 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 ---
 
+## Beetansicht {#beetansicht}
+
+Öffnest du einen Standort, dessen Typ ein Beet ist (Beet, Hochbeet, Gewächshausbeet, Frühbeet oder Pflanzkübel), erscheint statt der normalen Standortseite die Beetansicht. Sie bündelt alles Wichtige zu einem Beet an einer Stelle.
+
+### Übersicht oberhalb der Tabs
+
+Über den Tabs siehst du auf einen Blick: Fläche, Typ, Status, Bodentyp, Sonnenexposition, aktive Pflanzen, offene Aufgaben, letzte Pflege, nächste Fälligkeit und wer für das Beet zuständig ist. Hat das Beet ein Titelfoto, steht es vorne in der Übersicht (siehe [Fotos des Beets](#fotos-des-beets)). Mit der **Saison-Auswahl** wechselst du das Jahr; es steht in der Adresse als `?year=`. Daneben steht, was im Jahr davor im Beet wuchs.
+
+**Nährstoff-Hinweis.** Unter **Nährstoffe** zeigt die Übersicht **Düngebedarf wahrscheinlich** oder **Düngung prüfen**, sobald Kamerplanter dazu etwas sagen kann. Darunter steht, warum: wie lange deine letzte Düngung oder Bodenverbesserung mit Mist oder Hornspänen zurückliegt (Kompost liefert kaum Stickstoff und zählt dafür nicht), gemessen an der Zehrerstufe der Arten im Beet, und was dein Laborbefund zu Phosphor und Kalium sagt. Hast du nach der letzten Düngung mit Rindenmulch gemulcht, steht dort, dass Rindenmulch beim Verrotten Stickstoff binden kann. Standen als Vorkultur oder stehen gerade Stickstoffsammler wie Bohnen oder Erbsen im Beet, erwähnt der Hinweis das, schätzt aber keine Stickstoffmenge. Ist dein Boden laut Labor reichlich mit Phosphor oder Kalium versorgt, dient Kompost nicht der Nährstoffversorgung; als Bodenverbesserung bleibt er möglich, und der Hinweis rät nie zu Kompost oder Phosphordünger. Für die Laborklassen zählt nur ein Befund nach der CAL-Methode. Eine Zahl oder eine Düngemenge nennt der Hinweis nie. Ist alles unauffällig oder fehlen Angaben, bleibt die Zeile weg. <!-- REQ-053 GP-FR-125 -->
+
+!!! note "Teilweise verfügbar: Nährstoff-Hinweis"
+    Die Regeln des Hinweises sind umgesetzt. Damit er etwas anzeigt, braucht jede Schwelle (zum Beispiel, nach wie vielen Tagen ohne Düngung ein Starkzehrer knapp wird) einen belegten Wert mit Quelle. Für keine Schwelle gibt es diesen Beleg bisher, deshalb bleibt die Zeile vorerst bei jedem Beet leer. Sobald belegte Werte vorliegen, wird Kamerplanter den Hinweis zeigen.
+
+### Die Tabs
+
+Der aktive Tab steht in der Adresse (z. B. `#plan` oder `#soil`), sodass du Links auf einen bestimmten Tab teilen kannst.
+
+| Tab | Inhalt |
+|-----|--------|
+| Plan | Beetrahmen mit Plätzen, Reihen bzw. Zonen und Pflanzenmarkern. Tippst du auf eine Pflanze, bietet das Beet **Position korrigieren** und **Umpflanzen nach …** an. Zum Bearbeiten des Beetrahmens wechselst du über **Im Gartenplan öffnen** in den Gartenplan. |
+| Pflege | Offene und überfällige Aufgaben des Beets und seiner Pflanzen, Erledigen, Vorschläge und Pflegeprotokoll (siehe [Pflege am Beet](#pflege-am-beet)). |
+| Pflanzung | Geplante und stehende Pflanzen des Beets, die Schaltflächen **Bepflanzen** und **Beet räumen** und die Aktionen an einer Pflanze (siehe [Beet bepflanzen](#beet-bepflanzen) und [Beet räumen](#beet-raeumen)). |
+| Historie | Zeitstrahl, was in den Jahren zuvor im Beet stand, und die Liste aller Pflegeeinträge und Pflanzungen (siehe [Historie des Beets](#historie-des-beets)). |
+| Boden | Bodenprofil und Bodenanalysen des Beets (siehe [Bodenprofil pflegen](#bodenprofil-pflegen) und [Bodenanalysen erfassen](#bodenanalysen-erfassen)). |
+| Fotos | Die Fotos des Beets mit Titelfoto (siehe [Fotos des Beets](#fotos-des-beets)). |
+| Stammdaten | Die bisherige Standortseite, unverändert. |
+
+### Beet bepflanzen {#beet-bepflanzen}
+
+Im Tab **Pflanzung** öffnest du mit **Bepflanzen** den Pflanzdialog. Er ist ab der Rolle „grower" verfügbar und setzt voraus, dass das Beet im Gartenplan eingezeichnet ist. Das Beet darf nicht stillgelegt sein.
+
+1. **Art und Sorte wählen.** Deine Favoriten stehen oben. Unter der Auswahl siehst du Endhöhe und Endbreite der Art und ob sie eine Rankhilfe braucht.
+2. **Hinweise lesen.** Sobald du eine Art gewählt hast, prüft Kamerplanter die **Fruchtfolge** und die **Nachbarn** im Beet. Jeder Hinweis hat eine Stärke (unauffällig, Info, Warnung, kritisch) und einen Grund, zum Beispiel „Die Familie Solanaceae stand vor 1 Jahr(en) in diesem Beet. Die Anbaupause beträgt 4 Jahre". Ein Hinweis sperrt nichts. Dazu kommt der Hinweis **Standort**, siehe [Sonne und Schatten am Beet](#sonne-und-schatten-am-beet).
+3. **Anzahl und Anordnung wählen.** Entweder **So viele wie passen** oder eine feste Anzahl. Die Anordnung ist **Raster**, **Reihen**, **Versetzt**, **Fläche** (für Direktsaat) oder **Freie Positionen** (für Gehölze).
+4. **Abstände prüfen.** Kamerplanter füllt den Pflanzabstand und den Reihenabstand aus dem Steckbrief der Art vor und schreibt dazu, woher der Wert kommt. Fehlt er dort, nimmt Kamerplanter den Wert, den du zuletzt für diese Art verwendet hast. Gibt es auch den nicht, bleibt das Feld leer, und du trägst den Abstand selbst ein. Unter **Mehr Optionen** stellst du Reihenrichtung und Randabstände ein.
+5. **Vorschau ansehen.** Das Beet zeigt sofort, wo die Pflanzen stehen würden, und darunter steht, wie viele es sind und wie viele höchstens passen. Der Server bestätigt die Zahl kurz darauf. Weicht seine Antwort ab, gilt seine.
+6. **Planen oder erfassen.** **Pflanzung planen** legt einen geplanten Durchlauf an und reserviert die Plätze ab dem Pflanzdatum. Hast du schon gepflanzt, schaltest du **Ich habe schon gepflanzt** ein. Dann entstehen die Pflanzen sofort auf den berechneten Positionen.
+
+**Mehrere Arten (Mischkultur).** Mit **Weitere Art hinzufügen** nimmst du bis zu vier Arten in dieselbe Pflanzung auf. Stehen alle in Reihen, verteilt Kamerplanter die Reihen **abwechselnd** auf die Arten, etwa Möhre in jeder zweiten Reihe und Zwiebel dazwischen. Die Reihen- und Randeinstellungen von Art 1 gelten dann für alle, nur der Abstand in der Reihe bleibt je Art. Jede Reihe gehört genau einer Art: Beanspruchen zwei Arten dieselbe Reihe, legt Kamerplanter die Pflanzung nicht an. Verträgt sich eine Kombination laut Kamerplanter nicht, erscheint ein Hinweis. <!-- REQ-053 GP-FR-070 -->
+
+**Freie Positionen.** Wählst du **Freie Positionen**, tippst du die Pflanzplätze ins Beet. Ziehen verschiebt einen Platz, eine Nummer unter der Vorschau löscht ihn. Jeder Platz rastet beim Tippen und Ziehen am Raster des Gartenplans ein; hältst du dabei Alt gedrückt, setzt du ihn frei auf den Zentimeter genau. Liegen zwei Plätze näher beieinander als der Mindestabstand, bekommen beide einen **gelben Ring**. Das ist ein Hinweis, du kannst trotzdem pflanzen.
+
+**Trotzdem pflanzen.** Ab der Stärke **Warnung** schaltest du **Trotzdem pflanzen** ein und nennst einen **Grund**. Der Grund wird an der Pflanzung gespeichert, das Beet trägt danach in der Übersicht den Hinweis **Fruchtfolge-Hinweis**, solange die Pflanzung läuft.
+
+**Topfvolumen.** Bei Arten mit empfohlenem Topfvolumen kannst du unter **Mehr Optionen** das Volumen deines Topfs eintragen. Ist er kleiner als empfohlen, warnt Kamerplanter.
+
+**Position korrigieren.** An einer stehenden Pflanze (im Tab **Pflanzung** oder nach einem Tipp im Plan) verschiebst du mit **Position korrigieren** den Platz: per Ziehen, mit den Pfeilschaltflächen in 10-cm-Schritten oder durch Eintippen der Koordinaten. Für die Feinarbeit stellst du unter **Schrittweite** auf 5 cm oder 1 cm um. Das Pflegeprotokoll hält die Korrektur mit der Pflanze fest. Pflanzen in einer Fläche haben keinen einzelnen Platz und lassen sich nicht verschieben.
+
+**Umpflanzen nach …** In ein anderes Beet verschiebst du nicht per Ziehen. **Umpflanzen nach …** legt die Aufgabe „Umpflanzen" für die Pflanze an, mit dem Zielbeet im Text. Du erledigst sie, sobald du die Pflanze versetzt hast.
+
+!!! warning "Noch nicht implementiert"
+    Der Hinweis **Fruchtfolge-Hinweis** erscheint bisher nur in der Beetübersicht, nicht am Beet im Gartenplan. Er wird nur für Pflanzungen gesetzt, die du trotz eines Hinweises begonnen hast. Geplante, noch leere Plätze zeigt der Plan als gestrichelte Kreise ohne Art und Datum. Die zuletzt verwendeten Abstände merkt sich dein Browser, nicht dein Konto. Ein Beet ohne Platz im Gartenplan lässt sich noch nicht über den Dialog bepflanzen. <!-- REQ-053 GP-FR-132, GP-FR-061 -->
+
+### Beet räumen {#beet-raeumen}
+
+Am Ende der Saison räumst du ein Beet in einem Schritt ab: Im Tab **Pflanzung** tippst du auf **Beet räumen**, solange Pflanzen im Beet stehen. Der Dialog nennt dir, wie viele Pflanzen und Durchläufe betroffen sind, und erklärt, was passiert: Jede Pflanze endet mit dem heutigen Datum und kommt in die Historie, die laufenden Durchläufe werden abgeschlossen, die Pflanzplätze werden archiviert und geben das Beet für die nächste Pflanzung frei, und das Pflegeprotokoll bekommt einen Eintrag „Beet geräumt“. Du wählst, wie die Pflanzen endeten (**Geerntet** ist vorgewählt, außerdem natürlich abgestorben, eingegangen oder abgebrochen); die Wahl gilt für alle Pflanzen des Beets. Endete eine Pflanze anders, beendest du sie vorher einzeln auf ihrer Pflanzenseite. Geplante Durchläufe behalten ihre Plätze. Räumen dürfen Mitglieder ab der Rolle „grower“, nur mit Verbindung und nicht im Feldmodus; rückgängig machen lässt es sich nicht. <!-- REQ-053 GP-FR-055 -->
+
+### Pflanzenzustand und Pflanzen-Info {#pflanzenzustand}
+
+Im Tab **Plan** zeigt jede stehende Pflanze ihren Zustand direkt am Marker. Du musst nichts öffnen, um zu sehen, ob du hier etwas tun musst.
+
+- **Scheibe:** Die Farbe zeigt die Wachstumsphase, der Buchstabe die Art. Bei starkem Hineinzoomen zeigt ein Bogen um die Scheibe, wie weit die Phase fortgeschritten ist.
+- **Ring:** Er zeigt den Zustand der Pflanzung. Gestrichelt und blass heißt geplant, gepunktet mit Saatpunkten gesät, durchgezogen wächst, ein doppelter Ring bedeutet in Ernte, und ein Kreuz auf leerem Ring bedeutet ausgefallen.
+- **Zeichen oben rechts:** Es erscheint höchstens eines, und zwar das dringendste: Dreieck für einen offenen Befund, Sechseck mit Stern für Frostgefahr, Kreis mit Ausrufezeichen für eine überfällige Aufgabe, Tropfen für fälliges Gießen und Quadrat mit Haken für erntereif. Alle weiteren Gründe stehen in der Pflanzen-Info.
+
+Ring und Zeichen unterscheiden sich auch ohne Farbe, du erkennst sie also in Graustufen und bei Rot-Grün-Schwäche. Unter dem Plan erklärt die aufklappbare **Legende** alle Zeichen.
+
+**Pflanzen-Info.** Bleibst du mit der Maus 0,3 Sekunden auf einer Pflanze, erscheint eine Info-Blase mit Art, Sorte, Phase und Fortschritt, Alter, Platz, letzter Pflege, nächster Aufgabe und den Gründen für den Handlungsbedarf. Die Blase bleibt stehen, solange du mit dem Zeiger auf Pflanze oder Blase bleibst, und verschwindet mit **Esc**. Mit der Tastatur erreichst du dieselbe Info über den Fokus auf dem Marker. Auf dem Touchscreen tippst du die Pflanze an, dann öffnet sich unten ein Blatt mit Titelbild und der Schaltfläche **Details**. Das Überfahren löst keine Abfrage aus: Kamerplanter lädt die Zustände aller Pflanzen eines Beets einmal, nach jeder Aktion am Beet und wenn du zum Tab zurückkehrst.
+
+!!! warning "Noch nicht implementiert"
+    **Frostgefahr** wird noch nicht angezeigt, sie kommt mit den Standortmerkmalen des Beets. **Fälliges Gießen** entsteht bisher nur aus einer Gießaufgabe, die heute fällig ist, nicht aus dem Bewässerungsbedarf. Geplante Plätze zeigt der Plan weiter ohne Art und Datum. <!-- REQ-053 GP-FR-190, GP-UX-061 -->
+
+Dieselben Scheiben, Ringe und Zeichen siehst du auch im Gartenplan für den ganzen Standort, wenn du dort die Ebene **Pflanzenzustand anzeigen** einschaltest; sie ist auf der Seite [Gartenplan](garden-plan.md#pflanzenzustand-und-filter) beschrieben.
+
+### Pflege am Beet {#pflege-am-beet}
+
+Der Tab **Pflege** zeigt alle offenen Aufgaben, die am Beet oder an einer Pflanze in diesem Beet hängen. **Überfällige** Aufgaben stehen oben und sind rot markiert, darunter die übrigen offenen Aufgaben. Wer die Rolle „viewer" hat, sieht die Liste nur lesend.
+
+**Aufgabe erledigen.** Tippe auf **Erledigt**. Es öffnet sich ein kurzer Dialog, der nur nach dem fragt, was zur Art der Aufgabe passt:
+
+| Art der Aufgabe | Felder |
+|-----------------|--------|
+| Gießen, Spülen | Menge (Liter, Milliliter oder Liter pro m²) und Wasserquelle |
+| Düngen | Produkt (aus dem Katalog oder als Freitext), Menge und Einheit |
+| Bodenverbesserung, Kalken | Material, Menge und Einheit |
+| Mulchen | Material und Dicke in Zentimetern |
+| Abdecken, Abdeckung entfernen | Material (Vlies, Netz, Folie, Frostschutz) |
+| Ernten | Gewicht |
+| Alle anderen | Notiz |
+
+Alle Felder sind freiwillig. Du kannst also auch ohne Eingabe auf **Erledigen** tippen. Unter **Wann** steht standardmäßig der aktuelle Zeitpunkt; du kannst bis zu 365 Tage zurückdatieren, aber nie in die Zukunft. Die Angaben landen im Pflegeprotokoll des Beets. Ein doppelter Tipp zählt nur einmal.
+
+**Düngen pro m².** Wählst du beim Düngen ein Produkt aus dem Katalog, trägt der Dialog die Menge pro m² aus dem Datenblatt des Produkts ein, zum Beispiel 80 Gramm pro m² bei Hornspänen. Darunter steht, was das für dein Beet heißt: Bei 3,6 m² sind das 288 g. Bei Liter pro m² steht zusätzlich die Schichtdicke dabei, denn 1 L/m² entspricht 1 mm. Die Menge kannst du ändern; was du selbst eingetippt hast, überschreibt der Dialog nie. Den Vorschlag nimmt er nur aus dem Datenblatt, nie aus einer Bodenanalyse oder daraus, wie stark eine Kultur zehrt. Hat dein Beet keine Fläche, weil es nicht im Plan eingezeichnet ist, sind „Gramm pro m²“ und „Liter pro m²“ gesperrt; gib dann eine Gesamtmenge in Gramm, Kilogramm oder Litern an. Eine Menge von 0 pro m² nimmt Kamerplanter nicht an.
+
+**Stickstoff als Näherung.** Steht auf dem Etikett des Produkts ein N-Gehalt, zeigt der Dialog bei Gramm pro m² zusätzlich „≈ … kg N/ha“: 80 g/m² Hornspäne mit 13 % N sind etwa 10,4 g N/m² oder 104 kg N/ha (1 g/m² = 10 kg/ha). Das ist nur eine Näherung aus dem Etikett, keine Nährstoffbilanz. Eine Warnung, wenn die Summe einer Saison hoch wird, gibt es nicht.
+
+**Bodenverbesserung und Kalken.** Unter **Material** wählst du aus einer Liste, zum Beispiel Kompost, Mist, Hornspäne, Gesteinsmehl, Pflanzenkohle, Sand, Perlite, Kaffeesatz, Gründüngung, Schwefel, Kalk oder Holzasche. Beim Kalken stehen Kalk und Holzasche zur Wahl. Passt nichts, tippst du einen eigenen Namen ein. Bei Kalk und Holzasche erscheint ein Hinweis: Beide heben den pH-Wert. Der Hinweis nennt seine Quelle (University of New Hampshire Extension, Alberta Agriculture). Wie viel Kalk dein Boden braucht, berechnet Kamerplanter nicht. <!-- REQ-053 GP-FR-123, GP-FR-124 -->
+
+**Organische Bodenverbesserung in der Düngebilanz.** Bringst du Kompost, Mist oder Hornspäne aus, zählt Kamerplanter das als Düngung der Pflanzen im Beet: Es legt für sie einen Eintrag im Düngeprotokoll an, gleich ob du eine Aufgabe erledigst oder die Gabe über **Pflege protokollieren** erfasst. Andere Materialien wie Sand oder Perlite schreiben keinen solchen Eintrag. Machst du den Pflegeeintrag rückgängig oder stornierst ihn, verschwindet auch die Gabe aus der Düngebilanz. Eine Gabe auf einem Beet mit mehr als 200 Pflanzen lehnt Kamerplanter ab; erfasse sie dann je Teilfläche. <!-- REQ-053 W-007, §12.1 -->
+
+**Rückgängig.** Nach jeder Aktion erscheint acht Sekunden lang eine Meldung mit **Rückgängig**. Damit öffnest du die Aufgabe wieder und nimmst den Protokolleintrag zurück. Als Autor geht das zehn Minuten lang, die Rolle „lead" kann es jederzeit.
+
+**Neue Aufgabe.** Mit **Neue Aufgabe** legst du eine Aufgabe für das Beet an. Wählst du **Jede Pflanze im Beet**, bekommt jede dort stehende Pflanze eine eigene Aufgabe, und die Aufgabe für das ganze Beet entfällt. Die angebotenen Kategorien richten sich nach dem Beet: Spülen, EC-Kontrolle und pH-Korrektur gibt es nur bei Beeten mit Substrat, Anhäufeln, Umbrechen und Kalken nicht bei reinen Substratbeeten, Lüften nur in Gewächshaus, Frühbeet und Zelt.
+
+**Pflege ohne Aufgabe protokollieren.** Mit **Pflege protokollieren** hältst du fest, was du gerade getan hast („Ich habe gemulcht"), ohne dass dafür eine Aufgabe existiert. Pflanzenschutz-Behandlungen protokollierst du hier nicht, sondern über das Pflanzenschutz-Formular; das Pflegeprotokoll ist dafür kein Nachweis.
+
+**Vorschläge.** Aufgaben, die das System vorschlägt, stehen in einem eigenen Abschnitt **Vorschläge**, jeweils mit dem Grund, zum Beispiel „ET0-Bedarf 4,2 L/m² seit 3 Tagen". Für jeden Vorschlag hast du zwei Schaltflächen:
+
+- **Annehmen:** Der Vorschlag wird zu einer normalen offenen Aufgabe und wandert in die Liste darüber. Erledigen kannst du ihn dann wie jede andere Aufgabe.
+- **Verwerfen:** Der Vorschlag wird geschlossen. Es entsteht kein Pflegeeintrag, und die Aufgabe zählt nicht als erledigt. Acht Sekunden lang kannst du das mit **Rückgängig** zurücknehmen, dann steht der Vorschlag wieder im Abschnitt.
+
+Ohne deine Entscheidung passiert nichts. Hat das Beet keine Vorschläge, siehst du den Abschnitt nicht. Annehmen und Verwerfen kannst du ab der Rolle „grower"; mit der Rolle „viewer" siehst du die Vorschläge nur. Hat jemand anderes den Vorschlag inzwischen schon angenommen oder verworfen, zeigt Kamerplanter eine Meldung und lädt die Liste neu.
+
+!!! warning "Noch nicht implementiert: Vorschläge erzeugen"
+    Bisher erzeugt Kamerplanter selbst noch keine Vorschläge. Annehmen und Verwerfen funktionieren, aber in deinem Garten erscheint der Abschnitt erst, wenn eine spätere Version Vorschläge anlegt. <!-- REQ-053 GP-FR-086 -->
+
+**Mehrere Beete auf einmal.** Auf der Gartenplan-Seite findest du über der Beetliste die Schaltfläche **Aufgaben auf mehreren Beeten erledigen**. Du wählst eine Aufgabenart (zum Beispiel Gießen) und die Beete. Kamerplanter sucht alle offenen Aufgaben dieser Art auf diesen Beeten und ihren Pflanzen und erledigt sie in einem Schritt, mit denselben Angaben für alle. Pro Schritt sind höchstens 200 Aufgaben möglich; was nicht erledigt werden konnte, meldet Kamerplanter dir.
+
+**Aufgaben-Zähler im Plan.** Auf dem Gartenplan zeigt jedes Beet mit offenen Aufgaben eine Zahl in der oberen rechten Ecke, rot, wenn Aufgaben überfällig sind. Ein Tipp darauf öffnet den Pflege-Tab des Beets. Per Tastatur erreichst du ihn über die Schaltfläche **Pflege** in den Eigenschaften des gewählten Beets oder über die Zahl in der Spalte „Offene Aufgaben" der Beetliste. <!-- REQ-053 GP-FR-083, GP-FR-088, GP-FR-089, GP-FR-090 -->
+
+!!! info "Farbe nach Priorität"
+    Der Zähler unterscheidet bisher nur „offen" und „überfällig". Eine Färbung nach Priorität der Aufgaben folgt, sobald der Plan die Priorität mitliefert.
+
+### Sonne und Schatten am Beet {#sonne-und-schatten-am-beet}
+
+Wie viel direktes Sonnenlicht ein Beet bekommt, hältst du mit fünf **Kacheln** fest. Jede Kachel zeigt ein Symbol, den Namen und die Definition:
+
+| Kachel | Bedeutung |
+|--------|-----------|
+| Volle Sonne | mehr als 6 Stunden direktes Sonnenlicht am 21. Juni |
+| Halbschatten | 3–6 Stunden |
+| Schatten | 2–3 Stunden |
+| Tiefschatten | weniger als 2 Stunden |
+| Unbekannt | noch nicht erfasst (Standard) |
+
+Die Stundenwerte folgen der Definition der Royal Horticultural Society, bezogen auf den Hochsommer. Die Grenzen und den Stichtag stellst du je Site ein, siehe [Sonne und Erreichbarkeit für die Gartenplanung](#sonne-und-erreichbarkeit-einstellen); die Kacheln zeigen dann deine Werte. <!-- REQ-053 GP-FR-164 -->
+
+- **In der Beetansicht:** Neben der Sonnenexposition in der Übersicht öffnet **Sonne ändern** die Kacheln. Das geht ab der Rolle „grower".
+- **Im Gartenplan:** Wählst du ein Beet, zeigt das Eigenschaften-Feld die Kacheln. Wählst du mehrere Beete (Rahmenauswahl oder Umschalttaste), setzt **Sonne für alle gewählten Beete setzen** den Wert auf einmal. Gesperrte Beete bleiben unverändert. Der Schritt lässt sich mit **Rückgängig** zurücknehmen und gilt erst, wenn du den Plan speicherst.
+
+**Sonnenzeit und Laubschatten.** Zusätzlich zur Kachel hältst du fest, **wann** die Sonne das Beet erreicht: Morgens, Mittags, Nachmittags, Ganztägig oder Wechselnd. Die Stunden direkter Sonne im Sommer sind freiwillig, eine grobe Schätzung genügt. Der Schalter **Laubschatten im Sommer** vermerkt, dass das Beet im Frühjahr sonnig ist und später im Laub von Bäumen im Schatten liegt. Du findest die Felder im Dialog **Sonne ändern** der Beetansicht und im Feldmodus im Beet-Sheet (mit großen Schaltflächen, jede Änderung wird sofort gespeichert). Die Angaben erscheinen in einer Zeile unter der Sonnenexposition in der Beetübersicht. Kamerplanter rechnet nichts daraus aus, und der Laubschatten ist nur ein Vermerk: Er ändert den Standort-Hinweis beim Bepflanzen nicht. <!-- REQ-053 GP-FR-158, GP-FR-159, GP-UX-057 -->
+
+**Standortmerkmale: Frost, Wärme, Wind, Hang, Zugang.** In der Beetansicht öffnest du über **Merkmale ändern** einen Dialog für das **Frostrisiko** (Gering, Normal, Hoch), den **Kaltluftsee**, die **gespeicherte Wärme** (Wand oder Gebäude), den **Wind** (Geschützt, Normal, Windausgesetzt), **Hang** und **Ausrichtung** in Grad sowie die **Zugangsseiten**. Alles ist freiwillig und von Hand; Kamerplanter rechnet daraus nichts aus, außer dem Hinweis zur Beetbreite aus den Zugangsseiten (siehe unten). Ein Beet mit Frostrisiko **Hoch** nennt die Frost-Frühwarnung immer, **Gering** nie. Im Feldmodus gibt es im Beet-Sheet die großen Chips **Feucht / Normal / Trocken** für die Standortfeuchte und **Windig**; jeder Tipp wird sofort gespeichert. <!-- REQ-053 GP-FR-162, GP-FR-163, GP-FR-168, GP-UX-057 -->
+
+**Himmelsrichtung aus der Ausrichtung.** Trägst du die Ausrichtung in Grad ein, leitet Kamerplanter daraus die Himmelsrichtung des Beets in acht Stufen ab: Nord, Nordost, Ost, Südost, Süd, Südwest, West und Nordwest. Jede Richtung deckt 45° um ihre Mitte ab; eine Grenze gehört zur Richtung, die dort im Uhrzeigersinn beginnt:
+
+| Himmelsrichtung | Ausrichtung |
+|-----------------|-------------|
+| Nord | ab 337,5° und unter 22,5° |
+| Nordost | 22,5° bis unter 67,5° |
+| Ost | 67,5° bis unter 112,5° |
+| Südost | 112,5° bis unter 157,5° |
+| Süd | 157,5° bis unter 202,5° |
+| Südwest | 202,5° bis unter 247,5° |
+| West | 247,5° bis unter 292,5° |
+| Nordwest | 292,5° bis unter 337,5° |
+
+Solange keine Ausrichtung in Grad eingetragen ist, bleibt eine Himmelsrichtung, die du an anderer Stelle von Hand gesetzt hast, unverändert. <!-- REQ-053 GP-FR-017, GP-FR-168 -->
+
+!!! info "Für technische Nutzer"
+    Die abgeleitete Himmelsrichtung steht im Feld `orientation` der Location (API und MCP); die Oberfläche zeigt weiterhin die Gradzahl. Die vier bisherigen Werte `north`, `south`, `east`, `west` bleiben gültig, neu sind `northeast`, `southeast`, `southwest` und `northwest`. Ist `site_conditions.aspect_deg` gesetzt, überschreibt die abgeleitete Richtung einen in `PUT /locations/{key}` mitgeschickten Wert.
+
+**Hinweis „Beet zu breit“.** Ist ein Beet breiter, als du es vom Rand aus erreichst, zeigt die Übersicht der Beetansicht unter **Erreichbarkeit** das Kennzeichen **Beet zu breit** und eine Zeile mit Breite und Richtwert. Maßgeblich ist die schmalste Ausdehnung des Beets: beim Rechteck die kürzere Seite, beim Kreis der Durchmesser. Die Richtwerte folgen der Armreichweite: **1,2 m**, wenn du das Beet von zwei gegenüberliegenden Seiten erreichst (Nord und Süd oder Ost und West), **0,6 m** von einer Seite. Beide Werte stellst du je Site ein, siehe [Sonne und Erreichbarkeit für die Gartenplanung](#sonne-und-erreichbarkeit-einstellen). Zwei benachbarte Seiten (etwa Nord und Ost) zählen als eine Seite. Hast du keine Zugangsseiten eingetragen, gilt der strengere Wert für eine Seite; trag sie unter **Merkmale ändern** ein, dann rechnet Kamerplanter mit deinem Zugang. Ein Beet genau so breit wie der Richtwert gilt als erreichbar. Für unregelmäßig geformte (nicht konvexe) Beete gibt es keinen Hinweis. Der Hinweis sperrt nichts und ist kein Fehler; Wege neben dem Beet erkennt Kamerplanter dafür noch nicht. <!-- REQ-053 GP-FR-166 -->
+
+Im Gartenplan zeigt das Eigenschaften-Feld eines gewählten Beets dieselben Felder unter den Kacheln; eine Änderung dort wird mit dem Plan gespeichert, und du kannst sie mit **Rückgängig** zurücknehmen.
+
+**Standort-Hinweis beim Bepflanzen.** Im Pflanzdialog vergleicht Kamerplanter die Sonne des Beets mit dem **Lichtbedarf** der Art (Volle Sonne, Halbschatten oder Schatten) und zeigt eine Ampel mit Klartext, etwa „Beet: Schatten — Tomate braucht Vollsonne". Grün heißt gut geeignet, gelb bedingt geeignet, rot schlecht geeignet. Gelb gibt es auch, wenn das Beet eine Stufe schattiger ist als der Bedarf und die Art laut Steckbrief so viel Schatten verträgt; fehlt diese Angabe, steht dort „Toleranz unbekannt". Ist die Sonne des Beets oder der Lichtbedarf der Art nicht erfasst, erscheint kein Hinweis. Der Hinweis sperrt nichts und verlangt keinen Grund. Daneben gibt es bis zu drei weitere Hinweise, jeweils nur, wenn Beet und Art die Angabe haben: Frostgefahr am Beet **hoch** bei einer **frostempfindlichen** Art, ein dem Wind **ausgesetztes** Beet bei einer Art, die eine **Stütze braucht**, und ein **schlecht drainiertes** Beet bei einer Art, die Staunässe **schlecht verträgt**. Alle anderen Kombinationen geben keinen Hinweis, ebenso fehlende oder unbekannte Angaben. <!-- REQ-053 GP-FR-161 -->
+
+!!! note "Frostrisiko"
+    Das Frostrisiko eines Beets (gering, normal, hoch) wird künftig neben der Sonne am Beet gepflegt. Bestehende Angaben aus **Frostexposition** übernimmt Kamerplanter dafür automatisch (ja wird hoch, nein wird normal); die Frostexposition selbst bleibt bis dahin die maßgebliche Einstellung. Die JSON-Sicherung deines Gartenplans enthält die Frostexposition, ein wiederhergestelltes Beet behält sie also. <!-- REQ-053 GP-FR-157, GP-FR-160, GP-FR-162 -->
+
+**Ebenen im Gartenplan.** Sonnenfenster, Drainage und Frostrisiko lassen sich im Gartenplan als Ebenen einblenden; sie sind unter [Ebenen und Standortbedingungen](garden-plan.md#ebenen-und-standortbedingungen) beschrieben.
+
+**Pflanzenzustand im Gartenplan.** Dieselben Zeichen siehst du als Ebene im Plan des ganzen Standorts, samt Filter für Handlungsbedarf; siehe [Pflanzenzustand und Filter](garden-plan.md#pflanzenzustand-und-filter).
+
+### Historie des Beets {#historie-des-beets}
+
+Der Tab **Historie** hat zwei Teile: oben den **Zeitstrahl**, darunter die **Liste**.
+
+**Zeitstrahl.** Er zeigt für jedes Jahr, welche Pflanzenfamilien im Beet standen, mindestens die letzten fünf Jahre, bei langen Anbaupausen bis zu zehn. Jede Familie hat eine eigene Farbe und steht immer auch mit ihrem Namen auf dem Eintrag. Gründüngung und Brache sind gekennzeichnet. Der Zeitstrahl ist die Grundlage der Fruchtfolge-Prüfung. Für Töpfe, Zelte und Regale ist diese Prüfung standardmäßig aus; die Historie bleibt trotzdem erhalten. Je Beet lässt sich die Prüfung ein- oder ausschalten, für Dauerkulturen bleibt sie immer aus. <!-- REQ-053 GP-FR-137 -->
+
+Den Schalter für die Prüfung findest du je Beet im Tab **Boden** (siehe [Fruchtfolge für ein Beet einstellen](#fruchtfolge-fur-ein-beet-einstellen)). <!-- REQ-053 GP-FR-137 -->
+
+**Folgekultur-Empfehlung.** Unter dem Zeitstrahl nennt Kamerplanter, welche Stufe der Zehrer-Folge nach dem letzten erfassten Jahr passt: Starkzehrer, dann Mittelzehrer, dann Schwachzehrer, dann Gründüngung oder Brache, danach wieder Starkzehrer. Dazu listet sie Familien und Arten aus dem Katalog, die laut Fruchtfolge-Stammdaten (`rotation_after`) auf die Familien des letzten Jahres folgen können und deren Zehrerklasse zu dieser Stufe passt. Das ist eine **Reihenfolge, keine Düngeempfehlung**: Kamerplanter nennt keine Mengen. Familien, die ihre Anbaupause im Beet noch einhalten, stehen getrennt als „noch in der Anbaupause" und werden nicht vorgeschlagen. Eine Art ohne hinterlegte Zehrerklasse erscheint nie; wo für die letzte Kultur keine Zehrerklasse bekannt ist oder keine Art passt, steht der Grund an der Stelle der Liste. Die Empfehlung erscheint nur, wenn die Fruchtfolge-Prüfung für das Beet an ist. <!-- REQ-053 GP-FR-133 -->
+
+**Was stand hier?** Wenn du ein Jahr nachtragen willst, in dem du die App noch nicht genutzt hast, tippe bei dem Jahr auf **{Jahr} nachtragen** oder oben auf **Was stand hier?**. Du wählst Jahr, Pflanzenfamilie (oder eine Art, die ihre Familie mitbringt), die Rolle (Hauptkultur, Gründüngung oder Brache) und optional die Saison. Erlaubt sind die letzten zehn Jahre bis zum Vorjahr. Danach erscheint die Meldung mit **Rückgängig**. Einen nachgetragenen Eintrag nimmst du später mit dem **x** am Eintrag zurück, als Autor oder in der Rolle „lead". Er bleibt dann als storniert im Pflegeprotokoll stehen. Beobachter (Rolle „viewer") sehen den Zeitstrahl nur lesend.
+
+**Liste.** Die neuesten Einträge stehen oben, 50 pro Seite; mit **Mehr laden** holst du die nächsten. Die Liste mischt Pflegeeinträge mit Pflanzungsereignissen: Pflanze gesetzt oder entfernt, Durchlauf gestartet oder abgeschlossen. Du kannst nach **Kategorie**, **Zeitraum**, **Pflanze** und **Person** filtern. Korrekturen sind zunächst ausgeblendet: ersetzte Einträge und „Position korrigiert". Mit **Korrekturen anzeigen** siehst du sie wieder, jeweils als „Korrigiert" oder „Korrektur" gekennzeichnet.
+
+!!! info "Wer nach Personen filtern darf"
+    Der Personenfilter ist ein Aktivitätsprofil und deshalb eingeschränkt. In den Rollen „viewer" und „grower" filterst du nur nach dir selbst. Die Rolle „lead" und Mitglieder mit dem Verwaltungsbereich `management` können nach jedem Mitglied filtern. Ausgeschiedene Mitglieder erscheinen als „anonymisiert" und sind nicht filterbar.
+
+**Als CSV exportieren.** Über **CSV exportieren** am Tab **Historie** und auf der Seite **Historie aller Beete** lädst du die Pflegeeinträge herunter, die der aktuelle Filter zeigt (bis zu 50 000). Zur Wahl stehen **CSV (Komma)** und **CSV für Excel (Semikolon)**. Die Datei enthält Anzeigenamen statt Konten, und Texte, die wie eine Formel aussehen, sind entschärft. Für den Export gelten dieselben Rollenregeln wie für die Liste. Bei mehr als 50 000 Einträgen grenzt du erst nach Beet, Pflanze, Kategorie oder Zeitraum ein.
+
+ Über **Historie aller Beete** öffnest du die Pflegehistorie des ganzen Mandanten unter `/standorte/historie`. Sie zeigt die letzten 90 Tage, solange du keinen anderen Zeitraum wählst, und kennt dieselben Filter plus **Beet**. Die Pflanze lässt sich wählen, sobald ein Beet gewählt ist.
+
+### Fotos des Beets {#fotos-des-beets}
+
+Im Tab **Fotos** hältst du fest, wie sich dein Beet über die Saison entwickelt. Die Fotos stehen mit dem neuesten zuerst, jedes mit seinem Datum. Ein Tipp auf ein Foto öffnet es groß; mit den Pfeilen blätterst du weiter.
+
+- **Foto hinzufügen:** Ab der Rolle „grower" nimmst du mit **Foto hinzufügen** ein Bild mit der Kamera auf oder wählst eine Bilddatei. Du siehst eine Vorschau und speicherst mit **Foto speichern**. Kamerplanter entfernt beim Hochladen Standort- und Kameradaten (EXIF) aus dem Bild.
+- **Titelfoto:** Das erste Foto eines Beets wird automatisch sein Titelfoto. Es erscheint in der Übersicht der Beetansicht und im Beet-Blatt des Feldmodus. Mit dem Stern wählst du ein anderes Foto als Titelfoto; ein Tipp auf den Stern des Titelfotos nimmt es wieder zurück, dann hat das Beet kein Titelfoto.
+- **Foto entfernen:** Den Papierkorb siehst du an deinen eigenen Fotos; die Leitung kann jedes Foto entfernen. Nach einer Rückfrage verschwindet das Foto aus der Galerie. Wird es nirgends sonst verwendet, löscht Kamerplanter es endgültig. War es das Titelfoto, wird das neueste verbliebene Foto zum Titelfoto; war es das letzte Foto, hat das Beet keines mehr.
+- **Höchstens 50 Fotos:** Ein Beet hält bis zu 50 Fotos. Ist die Grenze erreicht, ist **Foto hinzufügen** gesperrt, und ein Hinweis bittet dich, zuerst ein Foto zu entfernen.
+
+Mit der Rolle „viewer" siehst du die Fotos nur. Fotos eines Beets gehören zu deinem Garten: Sie stehen im Export des Gartens und werden mit ihm gelöscht, landen aber nie in der JSON-Sicherung des Gartenplans. Auch im Feldmodus kannst du ein Foto direkt dem Beet geben, siehe [Feldmodus im Garten](garden-plan.md#feldmodus-im-garten).
+
+### Fruchtfolge für ein Beet einstellen {#fruchtfolge-fur-ein-beet-einstellen}
+
+Im Tab **Boden** steht oben der Abschnitt **Fruchtfolge für dieses Beet**. Mit **Fruchtfolge-Prüfung** wählst du, ob Kamerplanter die Fruchtfolge für dieses Beet prüft: **Standard des Beettyps** (für Töpfe, Zelte und Regale aus, sonst an), **Eingeschaltet** oder **Ausgeschaltet**. Der Schalter **Dauerkultur** nimmt das Beet ganz aus der Fruchtfolge aus, etwa für Obstbäume oder Spargel. Jede Änderung gilt sofort für die Hinweise beim Bepflanzen und für die Folgekultur-Empfehlung. Beide Angaben ändern darfst du ab der Rolle „grower"; Beobachter sehen den Stand nur.
+
+Eine Dauerkultur kann die Prüfung nicht eingeschaltet haben. Versuchst du es, lehnt Kamerplanter die Änderung ab und erklärt es mit einem Hinweis; gespeichert wird nichts. Stelle die Prüfung dann zuerst auf **Standard des Beettyps** oder **Ausgeschaltet**. <!-- REQ-053 GP-FR-137 -->
+
+### Bodenprofil pflegen
+
+Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe, falls du den Typ nicht kennst), Drainage, Standortfeuchte, Bedingungen sowie pH-Wert, EC (elektrische Leitfähigkeit) und Humusgehalt. Wählst du optional ein [Substrat](#substrate-verwalten), übernimmt Kamerplanter dessen pH und EC als Vorgabe. Die Drainage steht zusätzlich in der Beetübersicht, sobald du sie erfasst hast. Als Betrachter (Rolle „viewer") siehst du das Profil nur lesend.
+
+Trägst du eine EC ein, wählst du auch die **EC-Messmethode** (Sättigungsextrakt, 1:2- oder 1:5-Extrakt, Sonde oder „Methode unbekannt“) – ohne Methode lässt sich ein EC-Wert nicht lesen, und das Formular speichert ihn nicht. Den **Ziel-pH (CaCl₂)** trägst du nur ein, wenn dein Labor ihn nennt; Kamerplanter leitet keinen Ziel-pH aus der Bodenart ab.
+
+### Bodenanalysen erfassen {#bodenanalysen-erfassen}
+
+Unter dem Bodenprofil steht im Tab **Boden** der Bereich **Bodenanalysen**. Ab der Rolle „grower" öffnest du dort **Bodenanalyse erfassen** und trägst die Werte aus deinem Laborbefund, deinem Testset oder von deiner Sonde ein:
+
+1. Wann die Probe genommen wurde (bis zu fünf Jahre zurück, damit du auch ältere Laborbefunde nachtragen kannst – alle anderen Pflegeeinträge reichen ein Jahr zurück), woher die Werte stammen (**Labor**, **Testset** oder **Sonde/Sensor**) und optional die Entnahmetiefe in cm.
+2. Je Wert die **Messgröße** (pH, EC, Humus, Kalkgehalt, Nmin, Phosphor, Kalium, Magnesium, Bodenfeuchte), den **Wert**, die **Einheit** und die **Methode**. Bei pH und EC ist die Methode Pflicht; steht sie nicht auf dem Befund, wählst du „Sonde, Methode unbekannt“ bzw. „Methode unbekannt“. Mit **Weiteren Wert hinzufügen** erfasst du einen ganzen Befund in einem Schritt.
+3. Eine **Gehaltsklasse** (A bis E) kannst du nur bei Phosphor, Kalium und Magnesium angeben, wenn der Wert aus dem Labor nach der CAL-Methode stammt – so, wie sie im Befund steht. Kamerplanter berechnet keine Klasse.
+
+Die Analyse erscheint als Pflegeeintrag in der [Historie des Beets](#historie-des-beets). Die neuesten Werte für pH, EC, Humus und Kalkgehalt übernimmt Kamerplanter mit ihrer Methode ins Bodenprofil, aber nur in der Einheit des Profils (pH, mS/cm bzw. dS/m, %) und nie aus einer älteren Analyse als der zuletzt übernommenen.
+
+**Verlauf:** Für pH, EC und Humus zeigt der Bereich je ein Diagramm mit einer eigenen Linie pro Messmethode. Wechselt die Methode von einer Analyse zur nächsten, markiert eine gestrichelte Linie „Methodenwechsel“: Werte verschiedener Methoden sind nicht vergleichbar, und Kamerplanter rechnet sie nie ineinander um. Mit **Als Tabelle anzeigen** siehst du dieselben Werte als Tabelle; ein Screenreader liest immer die Tabelle vor.
+
+**Kalkung wahrscheinlich sinnvoll:** Diesen Hinweis zeigt Kamerplanter nur, wenn das Beet die Füllung „Gewachsener Boden“ und eine bekannte Bodenart hat, der pH-Wert in CaCl₂ gemessen wurde und unter dem Ziel-pH liegt, den du im Bodenprofil eingetragen hast. Fehlt eine dieser Angaben, steht dort, welche. Eine Kalkmenge nennt Kamerplanter nie – die sagt dir dein Labor.
+
+### Status des Beets ändern
+
+- **Geplant → Aktiv**: möglich ab der Rolle „grower".
+- **Stilllegen und Reaktivieren**: nur mit der Rolle „lead".
+- Zum Stilllegen brauchst du einen **Grund**, und das Beet darf keine Pflanzen mehr enthalten. Der Grund landet im Pflegeprotokoll.
+
+!!! tip "Tipp: Beet erst leeren, dann stilllegen"
+    Sind noch Pflanzen im Beet, lehnt Kamerplanter das Stilllegen ab. Entferne oder ernte sie vorher.
+
+---
+
+## Gartenplan, Feldmodus und Export {#gartenplan-verweis}
+
+Alles, was den ganzen Standort als Plan betrifft, steht auf einer eigenen Seite: Zeichnen und Gesten, die Beetliste unter dem Plan, der Feldmodus für das Smartphone, Ebenen, Bewässerungszonen, Vorlagen, Export, Sicherung und Import. Du findest sie unter [Gartenplan](garden-plan.md). Diese Seite behandelt die Beetansicht eines einzelnen Beets.
+
+---
+
 ## Tipps für die Standortstruktur
 
 !!! example "Beispiel: Balkon-Gärtner"
@@ -302,6 +576,7 @@ Eine **Charge** ist eine konkrete, physische Menge eines Substrats mit eigenem V
 
 ## Siehe auch
 
+- [Gartenplan](garden-plan.md) — Plan zeichnen, Feldmodus, Ebenen, Bewässerungszonen, Export und Import
 - [Tankmanagement](tanks.md)
 - [Pflanzdurchläufe](planting-runs.md)
 - [Dünge-Logik](fertilization.md)

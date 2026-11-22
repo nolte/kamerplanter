@@ -16,10 +16,11 @@ class IncompatibilitySet(BaseModel):
 class CompatibleSpeciesResponse(BaseModel):
     species_key: str
     scientific_name: str | None = None
-    # Full language-mixed common-name list from the species document (DE first by
-    # seed convention). Passed through verbatim so the UI can render a
-    # layperson-facing name with the scientific name as secondary context.
+    # Full language-mixed common-name list from the species document. Its order
+    # carries no language meaning; the UI picks the layperson-facing name from
+    # ``common_names_i18n`` (UI language -> de -> scientific name, REQ-001/#2902).
     common_names: list[str] = []
+    common_names_i18n: dict[str, list[str]] = {}
     score: float
 
 
@@ -27,6 +28,7 @@ class IncompatibleSpeciesResponse(BaseModel):
     species_key: str
     scientific_name: str | None = None
     common_names: list[str] = []
+    common_names_i18n: dict[str, list[str]] = {}
     reason: str = ""
 
 

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
+from app.data_access.arango.document_reads import get_document
 from app.domain.interfaces.pest_prototype_store import IPestPrototypeContributionMarker, IPestPrototypeOrphanSweepLog
 from app.domain.interfaces.reference_contribution_marker import IReferenceContributionMarker
 from app.domain.models.system_settings import SystemSettings
@@ -74,7 +75,7 @@ class ArangoSystemSettingsRepository(
         return self._db.collection(col.SYSTEM_SETTINGS)
 
     def get(self) -> SystemSettings | None:
-        doc = self.collection.get(SINGLETON_KEY)
+        doc = get_document(self.collection, SINGLETON_KEY)
         if doc is None:
             return None
         return SystemSettings(**doc)
@@ -87,7 +88,7 @@ class ArangoSystemSettingsRepository(
             data.pop(field, None)
         data["updated_at"] = now
 
-        existing = self.collection.get(SINGLETON_KEY)
+        existing = get_document(self.collection, SINGLETON_KEY)
         if existing:
             # ``merge=False`` (#2113): a settings block is written whole. With the
             # default merge, ``exclude_none`` dropped a cleared field from the
@@ -147,7 +148,7 @@ class ArangoSystemSettingsRepository(
         )
 
     def delete_settings(self) -> bool:
-        existing = self.collection.get(SINGLETON_KEY)
+        existing = get_document(self.collection, SINGLETON_KEY)
         if not existing:
             return False
         self.collection.delete(SINGLETON_KEY)

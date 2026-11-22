@@ -56,6 +56,14 @@ describe('plantingRuns endpoints — run CRUD', () => {
     expect(client.post).toHaveBeenCalledWith('/planting-runs', payload);
   });
 
+  it('createMixedCulture posts the whole mixed culture in one request (#2463)', async () => {
+    client.post.mockResolvedValue({ data: { runs: [{ key: 'r1' }, { key: 'r2' }] } });
+    const payload = { location_key: 'bed', runs: [] } as never;
+    const result = await runs.createMixedCulture(payload);
+    expect(client.post).toHaveBeenCalledWith('/planting-runs/mixed-culture', payload);
+    expect(result.runs.map((run) => run.key)).toEqual(['r1', 'r2']);
+  });
+
   it('updatePlantingRun puts payload by key', async () => {
     client.put.mockResolvedValue({ data: { key: 'r1' } });
     const payload = { name: 'X' } as never;

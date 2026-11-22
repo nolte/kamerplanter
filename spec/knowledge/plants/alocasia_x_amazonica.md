@@ -121,6 +121,22 @@
 **Hinweis Salztoleranz:** Die Einordnung als moderately_tolerant stützt sich auf Salinitätsversuche an der nah verwandten *Colocasia esculenta* (Taro, gleiche Familie, vergleichbare Wuchsform), die bis ~100 mM NaCl ohne wesentliche Wuchseinbußen toleriert und bis ~200 mM NaCl überlebt. Ein quantitativer Maas-Hoffman-Schwellenwert (a) bzw. Slope (b) ist für die Gattung nicht publiziert und bleibt daher offen. Bezugsgröße der Klasse: Substrat-ECe (saturated paste), nicht Gießwasser-EC. Im Topf gilt: Calciumoxalat-empfindliche Wurzeln reagieren empfindlich auf Salzakkumulation aus Überdüngung → regelmäßiges Durchspülen.
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
 
+### 1.9 Pflanzabstand und Reihenabstand
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Pflanzabstand in der Reihe (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.spacing_cm` |
+| Reihenabstand (cm) | — (nicht zutreffend: Zimmerpflanze, keine Beetkultur) | `species.row_spacing_cm` |
+| Quelle Abstände | — | — |
+
+### 1.10 Lichtbedarf
+
+| Feld | Wert | KA-Feld |
+|------|------|---------|
+| Lichtanspruch (Standort) | partial_shade | `species.light_requirement` |
+| Schattentoleranz | shade | `species.shade_tolerance` |
+| Quelle Lichtbedarf | RHS, „Alocasia × amazonica", Position „Partial shade", https://www.rhs.org.uk/plants/96161/alocasia-x-amazonica/details | — |
+
 ---
 
 ## 2. Wachstumsphasen
@@ -337,3 +353,4 @@ Polly,Alocasia × amazonica,"ornamental;compact;dark_leaves",clone
 15. [Smart Garden Guide — Alocasia Dormancy](https://smartgardenguide.com/alocasia-dormancy/) — Mindesttemperatur 15 °C, Dormanz-Pflege
 16. [Wikipedia — Hoagland solution](https://en.wikipedia.org/wiki/Hoagland_solution) — Standard-Mikronährstoffkonzentrationen Mn/Zn/Cu/Mo der Referenz-Nährlösung
 <!-- /Quelle: Steckbrief-Erweiterung 2026-06 -->
+17. [RHS — Alocasia × amazonica](https://www.rhs.org.uk/plants/96161/alocasia-x-amazonica/details) — Standortstufe „Partial shade" (Position, Aspect, Exposure)
