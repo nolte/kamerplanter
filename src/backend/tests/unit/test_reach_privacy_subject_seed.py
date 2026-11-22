@@ -144,6 +144,16 @@ def test_a_personal_tenant_source_is_skipped_not_seeded_with_an_empty_field(
     monkeypatch.setattr(DataExportEngine, "build_export_manifest", lambda self, subject: [personal])
     record = seeder.seed()
     assert not any(row["role"].startswith("export:sites") for row in record["rows"])
+    assert record["personal_tenant_sources"] == ["sites"]
+
+
+def test_a_source_without_a_filter_field_that_is_no_personal_tenant_source_stops_the_seed(
+    seeder: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    unattributed = DataSourceDefinition(collection="sites", label="Sites", fields=["name"])
+    monkeypatch.setattr(DataExportEngine, "build_export_manifest", lambda self, subject: [unattributed])
+    with pytest.raises(seed.SeedError, match="names no filter field"):
+        seeder.seed()
 
 
 def test_the_seed_of_the_declared_inventories_completes_and_reaches_the_site_plan(seeder: Any) -> None:

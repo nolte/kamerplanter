@@ -301,6 +301,7 @@ class Seeder:
         self.models = collection_models()
         self.rows: list[dict[str, Any]] = []
         self.unmodelled: set[str] = set()
+        self.personal_tenant_sources: set[str] = set()
         self.unique_values: set[str] = set()
         self.covered: set[tuple[str, str, str]] = set()
         self.edge_definitions = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
@@ -617,7 +618,9 @@ class Seeder:
                 # put the subject in — the old ``filter_field or ""`` made it the field ``''`` and
                 # stopped the seed. Its rows belong in the subject's PERSONAL tenant, and this seed
                 # builds an organisational one on purpose (see the tenant above); the personal case
-                # has its own seed, ``seed_tenant_for_erasure.py --personal-of``.
+                # has its own seed, ``seed_tenant_for_erasure.py --personal-of``. It is reported, so the
+                # record says which export sources no T2 probe seeded.
+                self.personal_tenant_sources.add(source.collection)
                 continue
             field = source.filter_field
             if not field:
@@ -674,6 +677,7 @@ class Seeder:
             "rows": self.rows,
             "subject_edges": subject_edges,
             "unmodelled": sorted(self.unmodelled),
+            "personal_tenant_sources": sorted(self.personal_tenant_sources),
         }
 
 
