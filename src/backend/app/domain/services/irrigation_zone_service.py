@@ -139,7 +139,7 @@ RAIN_SKIPPED_SUMMARY = "Rain - watering round skipped, zone {name}"
 #: the id names is no longer what the log shows, so it is neither answered as current nor written again.
 ERROR_ROUND_CHANGED = "client_event.round_changed"
 #: ``by_demand`` reads the newest REQ-037 demand of the round's UTC day or the day before: the day's value is computed
-#: after each successful weather fetch (every ``fetch_interval_hours``, #2934) and by the daily 06:15 UTC beat, so an
+#: after each successful weather fetch (every ``fetch_interval_hours``, #2934) and by the daily 06:40 UTC beat, so an
 #: early-morning round finds yesterday's - the newest computed figure, never an estimate (E-10). Older than that, the
 #: computation did not run and nothing is divided (422 ``irrigation_zone.no_bed_demand``).
 DEMAND_LOOKBACK_DAYS = 1

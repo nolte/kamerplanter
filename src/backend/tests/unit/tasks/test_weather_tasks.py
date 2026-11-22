@@ -445,6 +445,37 @@ class TestLockAndCooldown:
         assert deps.gate.cooldown == 600
 
 
+class TestSiteBudget:
+    """K2: one site's source chain is cut at ``SITE_FETCH_BUDGET_SECONDS`` and counts as a failed site."""
+
+    def test_a_site_over_its_budget_is_cut_and_the_next_site_still_runs(self, task_module, monkeypatch):
+        import asyncio
+
+        from app.domain.services import weather_source_resolver as mod
+
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        monkeypatch.setattr(module, "SITE_FETCH_BUDGET_SECONDS", 0.05)
+        forecast_repo = _two_sites(deps, monkeypatch, {"site1": [], "site2": [_forecast()]})
+
+        class _SlowFirst:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def resolve_daily(self, site, cfg):
+                if site.key == "site1":
+                    await asyncio.sleep(5)
+                return [_forecast()]
+
+        monkeypatch.setattr(mod, "WeatherSourceResolver", _SlowFirst)
+
+        result = module.fetch_weather_forecasts()
+
+        assert result == {"status": "ok", "written": 1, "skipped": 0, "errors": 1}
+        assert forecast_repo.upsert_daily.call_count == 1
+        assert deps.status_repo.recorded[-1].sites_failed == 1
+
+
 class TestOutageAlert:
     """Item 1: three failed runs in a row are an outage, logged at ``error`` level."""
 

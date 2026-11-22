@@ -135,3 +135,12 @@ def test_a_corrupt_stored_document_reads_as_no_status_and_the_next_run_repairs_i
     succeeded = _run(datetime(2026, 11, 22, 6, 0, tzinfo=UTC), success=True)
     assert repo.record_run(succeeded) == 0
     assert repo.get_status().last_success == succeeded
+
+
+def test_a_corrupt_counter_and_a_failed_run_count_one(db) -> None:
+    db.collection(col.SYSTEM_SETTINGS).insert(
+        {"_key": STATUS_KEY, "last_success": {"started_at": "not-a-date"}, "consecutive_failures": "x"}
+    )
+    repo = ArangoWeatherFetchStatusRepository(db)
+
+    assert repo.record_run(_run(datetime(2026, 11, 22, 6, 0, tzinfo=UTC), success=False)) == 1

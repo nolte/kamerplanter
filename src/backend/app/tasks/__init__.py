@@ -645,10 +645,13 @@ if settings.weather_enabled:
     # to the run after every successful fetch (operator decision 2026-11-22): with an
     # interval above a day or a provider outage, a frost night entering the horizon
     # between two fetches is still evaluated against the newest stored forecast.
-    # Idempotent per (site, expected frost date).
+    # Idempotent per (site, expected frost date) — but the notification dedup reads, then
+    # sends, so two evaluations at the same time could both notify. The slot therefore
+    # sits at :35, well away from the hourly fetch at :00 and the frost run it chains
+    # minutes later (re-review K1).
     celery_app.conf.beat_schedule["frost-forecast-evaluate-daily"] = {
         "task": "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
-        "schedule": crontab(hour=6, minute=10),
+        "schedule": crontab(hour=6, minute=35),
     }
     # REQ-041 — NASA POWER climate normals, refreshed monthly (1st, 04:00 UTC).
     # Near-static data guarded by an in-task TTL, so the beat is cheap.
@@ -667,11 +670,12 @@ if settings.weather_enabled:
 
     # REQ-037 — daily safety net for the irrigation demand, in addition to the run after
     # every successful fetch (operator decision 2026-11-22): a day without a fetch still
-    # gets its demand from the newest stored forecast. Upsert per (site, run, day).
+    # gets its demand from the newest stored forecast. Upsert per (site, run, day); at :40,
+    # away from the hourly fetch at :00 and its chained run, like the frost slot (K1).
     if settings.irrigation_demand_enabled:
         celery_app.conf.beat_schedule["irrigation-demand-compute-daily"] = {
             "task": "app.tasks.irrigation_tasks.compute_irrigation_demand",
-            "schedule": crontab(hour=6, minute=15),
+            "schedule": crontab(hour=6, minute=40),
         }
 
 # REQ-018 environment-control loop (opt-in kill-switch)

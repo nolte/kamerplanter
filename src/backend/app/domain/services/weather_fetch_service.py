@@ -32,7 +32,12 @@ from app.domain.interfaces.weather_fetch import (
     IWeatherFetchStatusRepository,
     WeatherFetchGateUnavailableError,
 )
-from app.domain.models.weather_fetch import MANUAL_FETCH_COOLDOWN_SECONDS, WeatherFetchRun, WeatherFetchStatus
+from app.domain.models.weather_fetch import (
+    MANUAL_FETCH_COOLDOWN_SECONDS,
+    SITE_FETCH_BUDGET_SECONDS,
+    WeatherFetchRun,
+    WeatherFetchStatus,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -49,8 +54,17 @@ RUN_LOCK_TTL_SECONDS = 55 * 60
 #: limit raises ``SoftTimeLimitExceeded`` in the task, which records the run as failed
 #: and releases the lock; the hard limit kills a run that ignores it — the lock then
 #: expires on its own, still before another run could start next to a live one.
-RUN_SOFT_TIME_LIMIT_SECONDS = 45 * 60
-RUN_TIME_LIMIT_SECONDS = 50 * 60
+#:
+#: After the soft limit fires, ``run_async`` still waits for the current site's
+#: coroutine (at most ``SITE_FETCH_BUDGET_SECONDS``, cut by ``asyncio.wait_for``)
+#: before the exception reaches the task's handler. The soft→hard gap is therefore
+#: that budget plus a margin for recording the run, so a run that hit the soft limit
+#: always records itself — otherwise a hard kill would never raise
+#: ``consecutive_failures`` (re-review K2). Ordering, asserted in a unit test:
+#: soft + budget + margin = hard < lock TTL.
+RUN_SOFT_TIME_LIMIT_SECONDS = 40 * 60
+RUN_RECORD_MARGIN_SECONDS = 2 * 60
+RUN_TIME_LIMIT_SECONDS = RUN_SOFT_TIME_LIMIT_SECONDS + SITE_FETCH_BUDGET_SECONDS + RUN_RECORD_MARGIN_SECONDS
 
 #: Sentinel of :meth:`WeatherFetchService.acquire_run_lock` — the lock store is down.
 LOCK_UNAVAILABLE = ""

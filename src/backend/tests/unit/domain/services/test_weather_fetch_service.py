@@ -227,6 +227,27 @@ def test_the_task_time_limits_end_a_run_before_its_lock_expires() -> None:
     assert fetch_weather_forecasts.time_limit == RUN_TIME_LIMIT_SECONDS
 
 
+def test_the_soft_to_hard_gap_outlasts_the_longest_site_chain() -> None:
+    """K2: after the soft limit the task still waits for the current site; the hard limit must not cut that wait.
+
+    Derived from the request schema's ``fetch_timeout_s`` ceiling, not restated: a
+    larger admin maximum or a longer chain would turn this red.
+    """
+    from app.api.v1.admin.weather_providers.schemas import WeatherProvidersUpdate
+    from app.domain.models.weather_fetch import (
+        MAX_FETCH_TIMEOUT_S,
+        SITE_FETCH_BUDGET_SECONDS,
+        SITE_FETCH_MAX_SLOW_SOURCES,
+    )
+
+    schema_ceiling = WeatherProvidersUpdate.model_json_schema()["properties"]["fetch_timeout_s"]["anyOf"][0]["maximum"]
+
+    assert schema_ceiling == MAX_FETCH_TIMEOUT_S
+    assert SITE_FETCH_BUDGET_SECONDS >= MAX_FETCH_TIMEOUT_S * SITE_FETCH_MAX_SLOW_SOURCES
+    assert RUN_TIME_LIMIT_SECONDS - RUN_SOFT_TIME_LIMIT_SECONDS > SITE_FETCH_BUDGET_SECONDS
+    assert RUN_TIME_LIMIT_SECONDS < RUN_LOCK_TTL_SECONDS < 3600
+
+
 def test_manual_fetch_is_refused_while_weather_is_disabled_without_taking_the_cooldown() -> None:
     service, _, gate = _service(enabled=False)
 

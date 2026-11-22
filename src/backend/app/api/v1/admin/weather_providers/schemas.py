@@ -10,7 +10,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.models.weather import WeatherForecast
-from app.domain.models.weather_fetch import MAX_FETCH_INTERVAL_HOURS, MIN_FETCH_INTERVAL_HOURS, WeatherFetchRun
+from app.domain.models.weather_fetch import (
+    MAX_FETCH_INTERVAL_HOURS,
+    MAX_FETCH_TIMEOUT_S,
+    MIN_FETCH_INTERVAL_HOURS,
+    WeatherFetchRun,
+)
 
 
 class WeatherProviderInfo(BaseModel):
@@ -53,7 +58,7 @@ class WeatherProvidersUpdate(BaseModel):
     openweathermap_enabled: bool | None = None
     openweathermap_base_url: str | None = Field(default=None, max_length=2048)
     openweathermap_global_api_key: str | None = Field(default=None, max_length=512)
-    fetch_timeout_s: int | None = Field(default=None, ge=1, le=120)
+    fetch_timeout_s: int | None = Field(default=None, ge=1, le=MAX_FETCH_TIMEOUT_S)
     #: Hours between two successful fetches (REQ-046 §3.6a, #2934); below 6 → 422.
     fetch_interval_hours: int | None = Field(default=None, ge=MIN_FETCH_INTERVAL_HOURS, le=MAX_FETCH_INTERVAL_HOURS)
     default_public_source: Literal["open-meteo", "dwd", "openweathermap"] | None = None

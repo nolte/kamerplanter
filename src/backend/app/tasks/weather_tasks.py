@@ -26,18 +26,24 @@ soft limit is handled: the run is recorded as failed and the lock released.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any
 
 import structlog
-from celery.exceptions import SoftTimeLimitExceeded  # type: ignore[import-untyped]  # celery ships no stubs
+from celery.exceptions import SoftTimeLimitExceeded
 
 from app.common.async_bridge import run_async
 from app.common.datetimes import now_utc
 from app.common.enums import WeatherFetchTrigger
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
-from app.domain.models.weather_fetch import OUTAGE_ALERT_AFTER_FAILURES, WeatherFetchRun, is_successful_run
+from app.domain.models.weather_fetch import (
+    OUTAGE_ALERT_AFTER_FAILURES,
+    SITE_FETCH_BUDGET_SECONDS,
+    WeatherFetchRun,
+    is_successful_run,
+)
 from app.domain.services.weather_fetch_service import RUN_SOFT_TIME_LIMIT_SECONDS, RUN_TIME_LIMIT_SECONDS
 from app.tasks import celery_app
 
@@ -220,7 +226,11 @@ def _fetch_all_sites() -> _FetchOutcome:
             continue
         outcome.sites += 1
         try:
-            forecasts: list[Any] = run_async(resolver.resolve_daily(site, config))
+            # The per-site budget bounds the wait after a soft time limit (K2) and keeps one
+            # site with a long chain of timing-out sources from eating the whole run.
+            forecasts: list[Any] = run_async(
+                asyncio.wait_for(resolver.resolve_daily(site, config), timeout=SITE_FETCH_BUDGET_SECONDS)
+            )
         except SoftTimeLimitExceeded:
             raise  # the run's time is up: abort it, do not count it as one bad site
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run

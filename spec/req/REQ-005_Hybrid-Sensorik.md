@@ -120,7 +120,7 @@ Neben den Indoor-Sensoren (Home Assistant, MQTT) unterstützt das System eine **
 
 **Celery-Tasks:**
 - `fetch_weather_forecasts`: Im Abrufintervall `fetch_interval_hours` (Minimum und Default 6 h; ein stündlicher Beat prüft die Fälligkeit) sowie auf manuellen Anstoß des Plattform-Admins, für alle Outdoor-Sites mit GPS-Koordinaten — Details REQ-046 §3.6a (#2934)
-- `check_frost_warnings`: Nach jedem **erfolgreichen** Wetterabruf und zusätzlich täglich um 06:10 UTC (Sicherheitsnetz bei langem Intervall oder Ausfall) — prüft alle Sites auf Frost und generiert Warnungen (umgesetzt als `evaluate_forecast_frost_warnings`, #392)
+- `check_frost_warnings`: Nach jedem **erfolgreichen** Wetterabruf und zusätzlich täglich um 06:35 UTC (Sicherheitsnetz bei langem Intervall oder Ausfall) — prüft alle Sites auf Frost und generiert Warnungen (umgesetzt als `evaluate_forecast_frost_warnings`, #392)
 - `adjust_watering_reminders`: Nach Wetter-Update — verschiebt Gieß-Erinnerungen bei Regen
 
 **Integration mit bestehenden Modulen:**

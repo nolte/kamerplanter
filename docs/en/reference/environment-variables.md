@@ -422,7 +422,7 @@ These variables control the weather forecast fetching and the proactive frost ea
 |----------|---------|---------|-------------|
 | `WEATHER_ENABLED` | `false` | No | Kill switch for the entire weather feature (source fetching + frost early-warning). See [Weather Sources per Location](../user-guide/weather-sources.md) for the actual source configuration. |
 | `WEATHER_DEFAULT_PUBLIC_SOURCE` | `open-meteo` | No | Factory-default public weather source for new locations without an explicit choice. |
-| `WEATHER_FETCH_INTERVAL_HOURS` | `6` | No | Fetch interval in hours (minimum `6`, maximum `168`; a smaller value keeps the backend from starting). At every full hour Kamerplanter checks whether that much time has passed since the last successful fetch; the frost early-warning and the irrigation demand run after every successful fetch (and additionally daily at 06:10/06:15 UTC). Overridable by the platform admin (see [Configuring Weather Services](../user-guide/weather-services.md#fetch-interval-and-manual-fetch)). |
+| `WEATHER_FETCH_INTERVAL_HOURS` | `6` | No | Fetch interval in hours (minimum `6`, maximum `168`; a smaller value keeps the backend from starting). At every full hour Kamerplanter checks whether that much time has passed since the last successful fetch; the frost early-warning and the irrigation demand run after every successful fetch (and additionally daily at 06:35/06:40 UTC). Overridable by the platform admin (see [Configuring Weather Services](../user-guide/weather-services.md#fetch-interval-and-manual-fetch)). |
 | `WEATHER_FETCH_TIMEOUT_S` | `20` | No | Timeout in seconds **per request** to a weather service — not how often data is fetched. Overridable by the platform admin. |
 | `OPEN_METEO_ENABLED` | `true` | No | Instance-wide default for the Open-Meteo source (keyless, EU-focused). Overridable per instance by the platform admin via weather-service management (see [Configuring Weather Services](../user-guide/weather-services.md)) — this variable only sets the starting value. |
 | `DWD_ENABLED` | `true` | No | Instance-wide default for the DWD/Bright Sky source (Deutscher Wetterdienst). Also platform-admin overridable. |
@@ -476,7 +476,7 @@ These variables control the background task that, after every successful weather
 
 | Variable | Default | Required | Description |
 |----------|---------|---------|-------------|
-| `IRRIGATION_DEMAND_ENABLED` | `true` | No | Dedicated kill switch for the `compute_irrigation_demand` task, which runs after every successful weather fetch (see `WEATHER_FETCH_INTERVAL_HOURS`) and additionally daily at 06:15 UTC, independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
+| `IRRIGATION_DEMAND_ENABLED` | `true` | No | Dedicated kill switch for the `compute_irrigation_demand` task, which runs after every successful weather fetch (see `WEATHER_FETCH_INTERVAL_HOURS`) and additionally daily at 06:40 UTC, independent of the general `WEATHER_ENABLED` — both must be active for the task to run. |
 | `IRRIGATION_ROOT_ZONE_DEPTH_MM` | `300.0` | No | Assumed effective root-zone depth in millimetres of soil. Used to convert a substrate's water-holding capacity (in percent) into a millimetre cap on the net irrigation demand — prevents an overly high daily recommendation under very dry starting conditions. |
 
 !!! note "Outdoor and greenhouse sites only, no new REST endpoints"

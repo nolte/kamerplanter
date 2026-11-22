@@ -17,6 +17,16 @@ MIN_FETCH_INTERVAL_HOURS = 6
 #: The largest interval an admin may set — one week; a longer gap leaves frost
 #: warnings and irrigation demand on stale forecasts.
 MAX_FETCH_INTERVAL_HOURS = 168
+#: The largest per-request timeout an admin may set (``fetch_timeout_s``, schema ``le``).
+MAX_FETCH_TIMEOUT_S = 120
+#: How many sources of a site's priority list one fetch run waits for at the longest
+#: per-request timeout. The per-site budget below cuts a longer chain: a site whose
+#: first three sources all time out at 120 s has exhausted its share of the run.
+SITE_FETCH_MAX_SLOW_SOURCES = 3
+#: Wall-clock budget for one site's source chain, enforced with ``asyncio.wait_for``.
+#: It bounds how long the task keeps running after the soft time limit fires, because
+#: ``run_async`` waits for the current site's coroutine before the exception gets out.
+SITE_FETCH_BUDGET_SECONDS = MAX_FETCH_TIMEOUT_S * SITE_FETCH_MAX_SLOW_SOURCES
 #: How long a manual fetch blocks the next one (R6).
 MANUAL_FETCH_COOLDOWN_SECONDS = 600
 #: After this many failed runs in a row the fetch logs ``weather_fetch_outage`` at
