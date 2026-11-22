@@ -1,11 +1,16 @@
 # SPEC-13 — Rechtsevidenzregister
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09
+Paket: spec/privacy · Version 1.2 · 2026-11-22 · Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
 Zweck: Jede rechtliche Aussage des Pakets verweist auf einen Eintrag L-nn dieses Registers.
 Ein Eintrag mit Status UNVERIFIED_AT_SOURCE darf keine MUSS-Anforderung tragen; er benennt,
 wie er zu verifizieren ist.
-Prüfdatum aller Einträge: 2026-11-09 (Abrufumgebung: Build-Umgebung ohne Browser).
+Prüfdatum: L-01…L-22 2026-11-09 (Abrufumgebung: Build-Umgebung ohne Browser); L-23…L-25 2026-11-22 (im Audit nicht
+an der Quelle abgerufen).
+Änderungen 1.2: L-12 um die vom Audit 2026-11-22 neu herangezogenen DSGVO-Artikel und Erwägungsgründe ergänzt;
+neu L-23 (§ 22 BDSG), L-24 (EDSA-Leitlinien 9/2022 Datenpannen), L-25 (Übermittlungsinstrumente Kapitel V:
+EU-US-Angemessenheitsbeschluss, Standardvertragsklauseln) — alle UNVERIFIED_AT_SOURCE; Verifikationsaufträge
+V-12…V-14.
 ```
 
 ## 0. Quellenhierarchie und Statuswerte
@@ -115,6 +120,16 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
   (ii) Speicherung **unbedingt erforderlich**. Beide sind je Speicherkategorie zu prüfen (`07` §2); „ausdrücklich
   gewünscht“ spricht für ein aktives Einschalten der Offline-Funktion (DEC-29).
 
+### L-23 · BDSG § 22 (Verarbeitung besonderer Kategorien personenbezogener Daten) — `UNVERIFIED_AT_SOURCE`, Gesetz
+
+- Quelle (zu verifizieren): gesetze-im-internet.de, BDSG 2018, § 22. Im Audit 2026-11-22 **nicht** an der Quelle
+  abgerufen; das Audit las nur dieses Register. Kein Wortlaut, keine Inhaltsangabe über den Titel hinaus.
+- Anlass: Das Audit 2026-11-22 nennt § 22 BDSG als **offenen Prüfpunkt** (Compliance-Matrix `06` §11 Nr. 53): Das
+  Paket behandelt die Norm nicht; sie wird erst relevant, wenn eine Funktion Art.-9-Daten **zielgerichtet** verarbeiten
+  soll — dann vor Umsetzung prüfen. Für zufällig in Freitext eingegebene Gesundheitsdaten (Art. 9 Abs. 1) trägt sie
+  im Paket keine Aussage.
+- Verifikationsauftrag **V-14**. Bis zur Erledigung: keine Anforderung stützt sich auf § 22 BDSG.
+
 ---
 
 ## 2. EU-Recht und EuGH — aus der Umgebung nicht abrufbar
@@ -145,6 +160,14 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
 - Betroffene Artikel im Paket: Art. 4 Nr. 5, 7, 8; Art. 5 Abs. 1 lit. b, c, e, Abs. 2; Art. 6 Abs. 1 lit. a, b, c, f,
   Abs. 4; Art. 11; Art. 12 Abs. 3; Art. 13, 14; Art. 15; Art. 17 Abs. 1, 3; Art. 19; Art. 21; Art. 25; Art. 26; Art. 28;
   Art. 30; Art. 32; Art. 35; Art. 36; Art. 88; Erwägungsgründe 26, 47, 50, 75, 91.
+- Vom Audit 2026-11-22 zusätzlich als Bezug herangezogen (bisher nicht geführt): Art. 2 Abs. 2 lit. c
+  (Haushaltsausnahme); Art. 7 (insb. Abs. 3 Widerruf); Art. 9 Abs. 1,
+  Abs. 2 lit. a; Art. 10; Art. 12 Abs. 1, 2, 4, 6; Art. 13 Abs. 1 lit. a–f, Abs. 2 lit. a–d, Abs. 3; Art. 15 Abs. 1
+  lit. a–h, Abs. 3, 4; Art. 16; Art. 17 Abs. 3 lit. e; Art. 18 (insb. Abs. 1 lit. c, Abs. 2); Art. 20; Art. 21 Abs. 1
+  S. 2, Abs. 3; Art. 22; Art. 24; Art. 28 Abs. 2, 3 lit. a, f, g, Abs. 4, 10; Art. 29; Art. 30 Abs. 1 lit. c–f;
+  Art. 32 Abs. 1 lit. a–d; Art. 33 Abs. 1, 2, 5; Art. 34 (insb. Abs. 3 lit. a); Art. 35 Abs. 1–4; Art. 44–46, 49
+  (insb. Abs. 1 lit. a); Art. 77; Erwägungsgründe 18, 63, 64. Status wie L-12 insgesamt: **nur Bezug, kein Wortlaut**
+  (V-07). Die Paketdokumente `06` §2.2/§2.3/§7.1/§11, `07` §2.2 und `11` §4.3 stützen sich in dieser Fassung darauf.
 - Umgang im Paket: Artikel werden **als Bezug genannt**, nicht wörtlich zitiert; Auslegungen tragen den Status
   `INFERRED` oder stützen sich auf verifizierte Leitlinien (L-14…L-19). Verifikationsauftrag **V-07**: Wortlaute aus
   EUR-Lex (DE) ergänzen, sobald ein Browserzugang besteht; die Metadaten (OJ L 119, CELEX) sind `VERIFIED_META`.
@@ -155,6 +178,19 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
 - Im Paket getroffene Aussage: „Die fortgesetzte Berufung auf § 26 BDSG ist rechtlich unsicher“ — Status
   `INFERRED`, nicht `VERIFIED_LEGAL`. Verifikationsauftrag **V-08**: Tenor und Rn. zur Vereinbarkeit nationaler
   Vorschriften mit Art. 88 DSGVO aus Curia übernehmen; DSK-Stellungnahme (falls vorhanden) als Leitlinie ergänzen.
+
+### L-25 · Übermittlungsinstrumente nach Kapitel V DSGVO: EU-US-Angemessenheitsbeschluss (Data Privacy Framework) und Standardvertragsklauseln der Kommission — `UNVERIFIED_AT_SOURCE`, Gesetz (Durchführungsrechtsakte)
+
+- Quelle (zu verifizieren): EUR-Lex (Durchführungsbeschlüsse der Kommission nach Art. 45 Abs. 3 und Art. 46 Abs. 2
+  lit. c DSGVO). Fundstellen, Datum und Geltungsstand werden hier **nicht** aus dem Gedächtnis ergänzt; im Audit
+  2026-11-22 nicht abgerufen.
+- Anlass: Das Audit 2026-11-22 (Drittlandübermittlung, LEG-31, LEG-33, LEG-49) fragt, ob für Cloud-LLM-Anbieter mit
+  Sitz in den USA die Einwilligung `ai_cloud_processing` als Ausnahme nach Art. 49 Abs. 1 lit. a genügt oder
+  Standardvertragsklauseln bzw. der Angemessenheitsbeschluss (DPF) nötig sind (Q-DSB-19); dasselbe gilt für NASA POWER,
+  Resend, Sentry SaaS, OAuth- und Push-Dienste (`06` §2.3). Kapitel V selbst ist über L-12 als Bezug geführt.
+- Verifikationsauftrag **V-12** (Kapitel V DSGVO und EU-US-Angemessenheitsbeschluss; nach PRA-1.03 und PRA-3.01). Bis
+  zur Erledigung: Die Register-Spalte „Drittland“ in `06` §2.3 ist ein Prüfauftrag, keine Feststellung einer
+  zulässigen oder unzulässigen Übermittlung.
 
 ---
 
@@ -235,6 +271,16 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
   Prüfschema der Leitlinie, ohne sie wörtlich zu zitieren (`INFERRED`). Verifikationsauftrag **V-10**: Rn. zu den
   „reasonable expectations“ und zu „mitigating measures“ ergänzen.
 
+### L-24 · EDSA, Leitlinien 9/2022 zur Meldung von Verletzungen des Schutzes personenbezogener Daten nach der DSGVO — `UNVERIFIED_AT_SOURCE`, Leitlinie
+
+- Quelle (zu verifizieren): edpb.europa.eu (Leitlinien 9/2022). Im Audit 2026-11-22 **nur namentlich** genannt, nicht
+  abgerufen; Version, Annahmedatum und Wortlaut werden nicht ergänzt.
+- Anlass: Datenpannenverfahren (Art. 33/34) fehlt vollständig (LEG-32; Verfahren und Register PRA-3.02, Grundsicherung
+  PRA-0.11). Das Audit leitet seine Aussagen zu Meldefrist, Dokumentation jeder Verletzung und Unterstützung durch den
+  Auftragsverarbeiter aus Art. 33/34 und Art. 28 Abs. 3 lit. f als **Bezug** (L-12) ab, nicht aus dieser Leitlinie.
+- Verifikationsauftrag **V-13**. Bis zur Erledigung: Inhalt und Fristen des Pannenregisters (Q-DSB-20) stützen sich nicht
+  auf die Leitlinie.
+
 ---
 
 ## 4. Offene Verifikationsaufträge (V-nn) — Teil der Roadmap (E17)
@@ -252,3 +298,11 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
 | V-09 | EDSA Endorsement 1/2018 (WP216, WP248) | edpb.europa.eu | Leitlinienstatus der WP-Dokumente als „vom EDSA bestätigt“ bleibt unbelegt |
 | V-10 | EDSA 1/2024 Rn. zu Erwartungen/Maßnahmen | edpb.europa.eu PDF | LIA-Schema bleibt `INFERRED` |
 | V-11 | Discovery (Code, nicht Recht): trägt `quality_assessments` oder `harvests` ein Feld für den THC-Gehalt der **weitergegebenen** Charge (KCanG § 26 Abs. 1 Nr. 5 lit. b)? Existiert eine Weitergabe-Entität? | `src/backend/app/domain/models/` (grep `thc`), REQ-010/REQ-012 | `06` §3.2 Zeile Nr. 5 lit. b bleibt `[?]`; R-16 deckt das Feld nur, wenn es den Nachweis trägt; sonst fällt es aus der Pflichtmenge (DA-03) **Erledigt (2026-11-15, VERIFIED_CODE):** kein Modell unter `domain/models/` trägt einen THC- oder Cannabinoid-Wert (`QualityAssessment`: Scores, `grade`, `defects`, `notes`; `HarvestBatch` ohne Wirkstofffeld), und es gibt keine Weitergabe-Entität. Nr. 5 lit. b wird von keinem Feld belegt und fällt aus der Pflichtmenge (DA-03); eine Weitergabe-Entität wäre ein eigenes REQ |
+| V-12 | Kapitel V DSGVO (Art. 44–46, 49) im Wortlaut; EU-US-Angemessenheitsbeschluss (DPF) und Standardvertragsklauseln: Fundstelle, Datum, Geltungsstand (L-25) | EUR-Lex | `06` §2.3 Spalte „Drittland“ bleibt Prüfauftrag; Eignung der Einwilligung als Art. 49 Abs. 1 lit. a offen (Q-DSB-19); Abarbeitung mit PRA-1.03 |
+| V-13 | EDSA-Leitlinien 9/2022 (Datenpannen): Version, Annahmedatum, einschlägige Rn. (L-24) | edpb.europa.eu | Pannenverfahren (PRA-3.02) stützt sich nur auf Art. 33/34 als Bezug |
+| V-14 | BDSG § 22 Wortlaut und Stand (L-23) | gesetze-im-internet.de | keine Anforderung stützt sich auf § 22 BDSG; Prüfung vor jeder Funktion, die Art.-9-Daten zielgerichtet verarbeitet |
+
+Hinweis (Audit 2026-11-22): Sitz und Region der externen Dienste (Resend, OpenWeatherMap, Sentry-Hosting u. a.) sind
+**keine** Rechtsquellen und daher keine V-Aufträge dieses Registers; sie werden im Empfänger-Register (PRA-1.03, `06`
+§2.3) ermittelt. Das Audit verweist an einer Stelle missverständlich auf „Regionen der Dienste (V-12/V-13)“; maßgeblich
+ist die Zuordnung oben.

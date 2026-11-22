@@ -1,7 +1,15 @@
 # SPEC-15 — Entscheidungsanalysen (DA-01 … DA-08)
 
 ```
-Paket: spec/privacy · Version 1.1 · 2026-11-09
+Paket: spec/privacy · Version 1.2 · 2026-11-22
+Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
+Änderungen 1.2: Audit-Korrekturen in §2 „Verifizierte Fakten“ von DA-01 (Plattform-Admin-Export widerlegt
+Fakt (c), LEG-53), DA-02 (Kopie fortlaufend über den Konsistenzjob), DA-03 (Klassifizierung inert, Pflichtzeilen ohne
+Zugriffsweg), DA-04 (Aufgaben-Leistungsfelder, `control_events`, Klassifizierung inert), DA-05 (Feldmenge,
+Snapshots), DA-06 (Verknüpfbarkeit über Mandantenlöschung und Import, Salt-Mehrfachverwendung), DA-07 (SW-API-Cache
+mit Rohantworten, „Angemeldet bleiben“, Fristen hart kodiert) und DA-08 (Kriterien gewerblich objektiv erfüllt,
+fehlendes Modell, Art.-36-Aussage); Empfehlungen unverändert, Folgefragen in `16` (Q-DSB/Q-LAW). In den
+Audit-Notizen beginnen Backend-Pfade ohne Präfix mit `src/backend/app/`.
 Jede Analyse folgt derselben Gliederung: 1 aktuelle Spezifikation · 2 verifizierte Fakten ·
 3 einschlägige Rechtsvorschriften (L-nn aus 13) · 4 technische Implikationen · 5 Optionen ·
 6 Vor-/Nachteile · 7 Empfehlung · 8 verbleibende Unsicherheit · 9 erforderliche Freigabe ·
@@ -26,6 +34,13 @@ der Zurechnung, Filterrechte, Exportformate sind Code, nicht Mandantenkonfigurat
 auf Fachdaten (VERIFIED_CODE: `require_platform_admin`, keine Domänenrouten; REQ-049 P4). (d) Der
 Betreiber verarbeitet Konten, Sicherheits-Audit, Logs, Backups für eigene Zwecke (VERIFIED_CODE).
 (e) Selbst gehostete Installation: Betreiber und Mandant fallen zusammen.
+*(Audit 2026-11-22: Fakt (c) ist widerlegt — der Plattform-Admin kann ein Vollarchiv fremder Mandanten auslösen,
+`POST /admin/platform/tenants/{key}/exports`, `src/backend/app/domain/services/tenant_export_service.py:282–283`;
+Widerspruch REQ-049 P4 ↔ REQ-056 §8, LEG-53/W-30. Fakten (a)/(b) bestätigt; zusätzlich ist die E-Mail aller
+Mitglieder für alle sichtbar (`api/v1/tenants/schemas.py:219–223`), die mandanteneigene KI-Cloud-Entscheidung wirkt
+nicht auf das verwendete Modell (LEG-31), und der Verantwortlichenkontakt ist global mit Platzhalter
+(`config/settings.py:1134–1135`). Das stützt die Bedingungen der Empfehlung; der Einwand „Betreiber sieht Fachdaten
+nicht“ gegen Option C gilt nur mit einer Ausnahmeliste zu P4. Folgefragen `16` §11: Q-LAW-05, Q-LAW-08.)*
 
 **3 Rechtsvorschriften.** Art. 4 Nr. 7, 8; Art. 26; Art. 28 DSGVO (L-12, UNVERIFIED_AT_SOURCE —
 nur als Bezug). EDSA 07/2020 Rn. 40 (wesentliche Mittel: „welche Daten, wie lange, wer hat
@@ -85,6 +100,11 @@ nutzen (VERIFIED_CODE: `CareEventService.create/log`, `CompletionActor`). Die Zu
 Token gestempelt (GP-NFR-054, VERIFIED_CODE). Die Aufbewahrung der Zurechnung beträgt 5 Jahre (R-25,
 VERIFIED_CODE). Der Backfill kopiert `applied_by_key`/`harvested_by_key` in `performed_by_user_key`; seit #2839
 wird ein Tombstone dabei zum Marker (VERIFIED_CODE, `care_event_backfill_mapper.account_of`).
+*(Audit 2026-11-22: Die Kopie ist keine einmalige Migration — der tägliche Konsistenzjob ruft denselben Mapper,
+`src/backend/app/domain/services/care_event_consistency_service.py:129`, Fenster 7 d `config/settings.py:1287`; ein
+Schalter nach §10 muss Migration **und** Konsistenzjob abdecken. CSV und Liste sind für jedes Mitglied ohne
+Rollenprüfung abrufbar, bis 5 J. und 50 000 Zeilen, ohne Audit (`api/v1/care_events/tenant_router.py:45–129`,
+`care_event_service.py:405–447`) — der Ist-Stand liegt außerhalb von LIA-1. Folgefragen `16` §1 Frage 4, §4 Frage 1.)*
 
 **3 Rechtsvorschriften.** Art. 5 Abs. 1 lit. b, c, e; Art. 6 Abs. 1 lit. b, f; Art. 6 Abs. 4; Art. 17 Abs. 3
 (L-12, nur Bezug). EDSA 1/2024 Prüfschema (L-22, VERIFIED_META). **Art. 17 Abs. 3 ist eine Ausnahme vom
@@ -181,6 +201,11 @@ die Zeile bleibt als Fachdatensatz nutzbar.
 **8 Verbleibende Unsicherheit.** V-04/V-06 (Inhaltskataloge), Anwenderbegriff in § 11 Abs. 2 (Name oder
 Kennung), Fristbeginn § 26 KCanG (nicht geregelt), ob Qualitätsbewertungen THC dokumentieren, ob ein
 Gemeinschaftsgarten „gärtnerischer Betrieb“ i. S. d. § 11 Abs. 2 S. 2 sein kann.
+*(Audit 2026-11-22: `record_keeping`/`organization_kind` sind seit v0110 gespeichert, aber in keinem Request- oder
+Response-Schema und von keinem Pfad gelesen (`src/backend/app/domain/models/tenant.py:31–38`, LEG-30) — Option C ist
+erst mit PRA-1.02 wirksam. Die Mandantenlöschung behält die Pflichtzeilen pseudonymisiert für alle Mandanten, ohne
+Zugriffsweg des Pflichtigen (`domain/engines/tenant_erasure_engine.py:44–57`, `:189–209`, LEG-47); Gegenfrage zur
+Speicherpflicht des AV `16` §15, Q-LAW-04.)*
 
 **9 Freigabe.** LEG-03, LEG-04, LEG-17 — Rechtsberatung. **Gate:** Umstellung von Tombstone auf Marker
 für `harvested_by_key` und die Reklassifizierung `legacy → none` sind **datenvernichtend** →
@@ -203,6 +228,13 @@ Einschränkungen PRIV-403…407, Mandanteneinstellung `attribution_visibility` (
 organization). Personenfilter nur Lead/Management, kein Statistik-Endpunkt (VERIFIED_CODE). CSV mit
 Namen für alle Mitglieder (VERIFIED_CODE). `care_confirmations` haben kein Akteursfeld; die 5 Jahre sind
 R-25 des abgeleiteten Ereignisses (VERIFIED_CODE).
+*(Audit 2026-11-22: „kein Statistik-Endpunkt“ unterschätzt das Überwachungspotenzial — Aufgaben speichern je Person
+`started_at`, `completed_at`, `actual_duration_minutes`, `quality_rating`, `difficulty_rating` und zeigen sie jedem
+Mitglied (`src/backend/app/domain/models/task.py:181–205`, `api/v1/tasks/schemas.py:304–357`; LEG-28, entgegen
+PRIV-407); `control_events.triggered_by_user` hält den rohen Kontoschlüssel ohne Löschung, Auskunft und Frist
+(`domain/models/actuator.py:227`, LEG-29). „Kein Mandantentyp gewerblich“ gilt fort: `organization_kind` ist seit
+v0110 gespeichert, aber weder setzbar noch gelesen (`domain/models/tenant.py:31–38`, LEG-30). Option B bleibt
+empfohlen; PRIV-407 erstreckt sich auf `tasks`. Folgefragen `16` §9: Q-LAW-01…03, Q-DSB-21.)*
 
 **3 Rechtsvorschriften.** § 26 Abs. 1 S. 1, Abs. 8 BDSG (L-09, VERIFIED_LEGAL): Ehrenamtliche (außer
 JFDG/BFDG) und Vereinsmitglieder sind keine Beschäftigten; § 87 Abs. 1 Nr. 6 BetrVG (L-10,
@@ -252,6 +284,11 @@ Entscheidungen `redact|keep|defer`, `keep` mit `reason_code`, `reason_text` ≤ 
 **2 Verifizierte Fakten.** Schwärzung existiert nur für `care_events`, nur Lead, ohne Liste
 (VERIFIED_CODE). REQ-025 §3.1.3 Regel 4 verbietet das Schlüsseln auf Freitext (VERIFIED_SPEC). Reach-Tests
 beweisen Löschung je Collection, nicht je Freitextfeld (VERIFIED_CODE).
+*(Audit 2026-11-22: Die Lücke ist größer — `care_events.material` und `measurements[].source/.extraction_method`
+berührt weder Schwärzung noch R-25 (`src/backend/app/domain/models/care_event.py:166`, `:254–256`;
+`data_access/arango/care_event_repository.py:573–595`); Plan-Snapshots halten Namen und Notizen 365 d und spielen sie
+per Restore zurück (`domain/services/garden_plan_import_service.py:1146–1149`, `:420–441`; LEG-34). Die Entdeckung
+nach §7 muss Snapshots einschließen. Folgefragen `16` §3 Fragen 4–6.)*
 
 **3 Rechtsvorschriften.** Art. 17 Abs. 1 („unverzüglich“), Art. 12 Abs. 3 (ein Monat, verlängerbar; EDSA
 01/2022 Rn. zur Monatsfrist, L-19 VERIFIED_LEGAL), Art. 5 Abs. 2 (Rechenschaft), Art. 17 Abs. 3 (Ausnahmen —
@@ -306,6 +343,12 @@ Salt instanzweit (`ERASURE_TOMBSTONE_SALT`); Art.-15-Suche über den Tombstone (
 `privacy_service.py` Walk); R-06-Purge nur bei Tombstone; Digest-Schlüssel der Client-Events ist derselbe Salt
 (VERIFIED_SPEC REQ-053 §32.6 Pkt. 16). Mandantenexport-Archive enthalten Zeilen „wie gespeichert“, also mit
 Tombstones (VERIFIED_SPEC REQ-056 §8).
+*(Audit 2026-11-22: Die Verknüpfbarkeit reicht weiter — die Mandantenlöschung schreibt denselben Tombstone auch für
+**lebende** Konten (`src/backend/app/domain/engines/tenant_erasure_engine.py:189–209`), der Import übernimmt `anon_`
+unverändert (`domain/engines/tenant_import_engine.py:405–406`, LEG-54), und der Salt dient zusätzlich
+`compute_request_key` (`domain/engines/erasure_engine.py:1214–1233`); `users._key` ist numerisch. `anon2_` wird nur
+erkannt, nie geschrieben (`domain/models/privacy.py:19–25`). Der Plan-Audit-Marker (DEC-16, v0109) ist umgesetzt.
+Folgefrage `16` §2 Frage 5.)*
 
 **3 Rechtsvorschriften.** Art. 4 Nr. 5 DSGVO, Erwägungsgrund 26 (Bezug, L-12); WP216 (L-14): Pseudonymisierung
 ist keine Anonymisierung; Kriterien Herausgreifen/Verknüpfbarkeit/Inferenz; EDSA 01/2025 (L-15): pseudonymisierte
@@ -361,6 +404,13 @@ Installationen); Fristen 90/30/14 d; Shared-Device-Modus; Quarantäne.
 **2 Verifizierte Fakten.** Cache und Puffer werden heute **ohne** Nutzerhandlung angelegt (VERIFIED_CODE:
 SW-Registrierung in `main.tsx`, Plan-Cache bei jedem Lesen); keine Einstellung für Fristen; localStorage mit
 `user_key`/E-Mail überlebt Logout; Logout-Wipe nicht abgewartet (VERIFIED_CODE, `07` §1, §7).
+*(Audit 2026-11-22: Der SW-API-Cache `kp:{user}:{tenant}` speichert Rohantworten ohne Projektion, mit Namen und
+Notizen anderer Mitglieder (`src/frontend/src/pwa/apiCache.ts:617–626`; LEG-27) — „unbedingt erforderlich“ ist damit
+auch eine Umfangsfrage. Die Fristen 365/90 d sind hart kodiert
+(`src/frontend/src/features/gardenPlanner/offline/retention.ts:13`, `:15`), eine Quarantäne fehlt. „Angemeldet
+bleiben“ ist implementiert (`src/frontend/src/pages/auth/LoginPage.tsx:39`, `:85`, `:198–205`; LEG-37), die
+Szenarienmatrix ging vom Gegenteil aus. Der Schalter nach Option B muss alle drei Lesespeicher und den Puffer
+erfassen. Folgefragen `16` §5 Fragen 1, 5–7.)*
 
 **3 Rechtsvorschriften.** TDDDG § 25 Abs. 1, Abs. 2 Nr. 2 (L-11, VERIFIED_LEGAL): kumulativ „unbedingt
 erforderlich“ **und** „vom Nutzer ausdrücklich gewünscht“. DSGVO Art. 5 Abs. 1 lit. c, e; Art. 25 Abs. 2
@@ -406,6 +456,12 @@ der neun Kriterien zutreffen“ — ein Schwellenwert, den die Leitlinie so nich
 **2 Verifizierte Fakten.** Keine DSFA, kein Verarbeitungsverzeichnis im Repository (VERIFIED_SPEC);
 Endnutzer-Doku behauptet eine DSFA (VERIFIED_SPEC, Widerspruch W-10). Verarbeitungsvorgänge O1–O10 und
 Risiken RISK-01…19 (`11`).
+*(Audit 2026-11-22: Mit den Aufgaben-Leistungsfeldern (LEG-28) und `control_events` (LEG-29) sind in gewerblichen
+Mandanten die Kriterien 1, 3 und 7 objektiv erfüllt, nicht nur über Filter/Export/Zeitstempel. Es fehlen das Modell
+„selbst gehostet, gewerblich“, für das das Gate in §9 (DEC-32, nur SaaS) nicht greift (LEG-48), die Weitergabe per
+Service-Account/MCP und KI/MCP als Kriterium 8. Die Aussage zu Art. 36 in §7 („nach heutiger Einschätzung nicht“)
+stützt sich auf nicht gebaute Maßnahmen und ist für den Ist-Zustand nicht belegt. Weil die Klassifizierung inert ist
+(LEG-30), ist das Gate in §9 bisher nur organisatorisch. Folgefrage `16` §17 Frage 2, Q-DSB-08.)*
 
 **3 Rechtsvorschriften.** Art. 35 Abs. 1, 3, 4; Art. 36 (Bezug, L-12). WP248 rev.01 (L-16, VERIFIED_LEGAL):
 neun Kriterien; „in most cases … two criteria would require a DPIA“; **auch ein Kriterium kann genügen**;

@@ -1,9 +1,16 @@
 # SPEC-03 — Lebenszyklus von Konto und Mitgliedschaft
 
 ```
-Paket: spec/privacy · Version 1.0 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
+Paket: spec/privacy · Version 1.2 · 2026-11-22 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97)
+Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
 Anforderungs-IDs: PRIV-100 … PRIV-139
-Abhängig von: 01 (Vokabular, Komponenten), 04 (Bedeutung von Marker/Tombstone), 06 (Fristen)
+Abhängig von: 01 (Vokabular, Komponenten), 04 (Bedeutung von Marker/Tombstone), 06 (Fristen), 09 (Backup/Journal)
+Änderungen 1.2: Kopf von 1.0 direkt auf Paketversion 1.2 (LEG-61); §0 Lebenszyklusmodell Konto/Mitgliedschaft/Mandant/
+Gerät mit Hold- und Journal-Übergängen; §1.1 Zielzustände `restricted`/`held`; §2.2–§2.4 Ist-Stand korrigiert (PRIV-101/104
+nicht gebaut, `erasure_mirror` → Journal, kein Residue-Scan der Kontolöschung); §2.5 Lösch-Matrix 34 Kategorien × 4
+Ereignisse mit Code-Belegen; §2.6 Art. 18/21 gespeichert, nicht durchgesetzt (LEG-23), kein Legal Hold (LEG-35); §4.2
+PRIV-003/119 umgesetzt (#2961); §10 Fotos, Dateien und Auskunft im Lebenszyklus (LEG-20, LEG-21, LEG-22, LEG-40, LEG-41,
+LEG-55).
 ```
 
 Dieses Dokument spezifiziert den vollständigen Lebenszyklus der Beziehung einer betroffenen Person zur
@@ -12,6 +19,115 @@ Wiedereintritt, Löschanfragen während des Offline-Betriebs, Löschung von Nutz
 aufzubewahrenden Datensätzen und Wiederaufnahme der Verarbeitung nach Teilausfall. Für jeden betroffenen
 Datensatz wird das erwartete Verhalten angegeben. Verifizierte Fakten sind mit **[verifiziert]**
 markiert, neues Verhalten mit **[Vorschlag]**.
+
+---
+
+## 0. Lebenszyklusmodell (Zielbild, Audit 2026-11-22)
+
+Seit v1.2 stehen hier die vollständigen Zustandsmodelle; `01` §5 verweist auf diesen Abschnitt, der Backup-Lebenszyklus
+steht in [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) §6.1a. Je Lebenszyklus sind die Übergänge
+markiert, die ein **Journal-Ereignis (J)** erzeugen (`09` §6.3, PRIV-709), und die Stellen, an denen der
+**Processing-Hold (H)** greift (§2.6). Die Architektur dazu (Komponenten `PrivacyJournal`, `ProcessingHoldGuard`,
+Resolver `resolve_tenant_privacy_profile`) steht in [`01-privacy-architecture.md`](01-privacy-architecture.md) §3.5.
+Alle Zustände und Übergänge mit „Lücke heute“ sind [PROPOSED]; die Spalte „Lücke heute“ ist der gemessene Stand
+(VERIFIED_CODE am SHA `007a4ea90`).
+
+### 0.1 Konto
+
+```mermaid
+stateDiagram-v2
+    [*] --> Active: registration
+    Active --> Restricted: Art. 18 scope all (H, J restriction_set)
+    Restricted --> Active: lifted (J restriction_lifted)
+    Active --> Closed: erasure request with step-up (J sessions_revoked)
+    Restricted --> Closed: erasure request
+    Closed --> Held: legal hold or active restriction at R-01 due date
+    Held --> Closed: hold lifted
+    Closed --> Erased: execute_scheduled_erasures after R-01 (J account_erased)
+    Erased --> Erased: residue scan, retry partially_completed
+    Erased --> [*]: erasure_requests purged after R-06
+
+    note right of Closed
+      Kein Abbruch-Pfad (VERIFIED_CODE).
+      Anzeigename heute noch bis zu 90 d auflösbar
+      → PRIV-104 unterdrückt ihn bei Closed.
+    end note
+```
+
+| Übergang | Wirkung (Soll) | Lücke heute | PRA |
+|---|---|---|---|
+| Active → Restricted | Lesemodus (423 auf verarbeitende Routen), Jobs überspringen die Person | Einschränkung ohne Wirkung (LEG-23, §2.6) | PRA-0.06, PRA-1.06 |
+| Closed → Held | Hard-Delete aufgeschoben, `held_reason` | kein Hold (LEG-35, §2.6) | PRA-1.06 |
+| Closed → Erased | Pläne, Storage-Phase über alle Mandanten mit Uploads, Freitext-Entdeckung, Residue-Scan, Journal | Storage-Phase nur aktuelle Mitgliedschaften (LEG-55, §10.3); `control_events` fehlt im Plan (LEG-29, `02`); kein Residue-Scan (PRIV-234); kein Journal (LEG-11, `09` §6) | PRA-1.04, PRA-1.07, PRA-2.01, PRA-2.07, PRA-2.13 |
+| Passwort/Sitzungen/Keys/Einwilligung (innerhalb Active) | Journal-Ereignis je Änderung | Restore setzt zurück (LEG-24, `09` §6.5 S6/S7) | PRA-1.04 |
+
+### 0.2 Mitgliedschaft (je Mandant)
+
+```mermaid
+stateDiagram-v2
+    [*] --> Invited
+    Invited --> Member: accept
+    Member --> Member: role change (J role_lowered if lowered)
+    Member --> Former: leave or remove (J membership_removed)
+    Former --> Member: rejoin
+    Former --> Suppressed: RETENTION_FORMER_MEMBER_NAME_DAYS elapsed
+    Member --> Erased: account erasure
+    Former --> Erased: account erasure
+    Suppressed --> Erased: account erasure
+```
+
+| Übergang | Wirkung (Soll) | Lücke heute | PRA |
+|---|---|---|---|
+| Member → Former | Zuständigkeiten geleert, Austrittshinweis (PRIV-115), Offline-Puffer des Mandanten auf Geräten als `membership.ended` | kein Hinweis; kein Fehlercode (PRIV-521, `07`) | PRA-2.03, PRA-2.15 |
+| Former → Suppressed | Anzeige `former_member`, Filter 422, CSV ohne Namen (PRIV-112/114) | unbefristet sichtbar (LEG-06 a) | PRA-2.03 |
+| Former (Art. 15) | Export enthält server-gestempelte Zeilen verlassener Mandanten | nicht enthalten (LEG-06 b, PRIV-111) | PRA-2.04 |
+
+### 0.3 Mandant
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unclassified: created without classification (legacy only)
+    [*] --> Active: created with organization_kind and record_keeping
+    Unclassified --> Active: lead with management classifies
+    Active --> Suspended: platform admin (J tenant_suspended)
+    Suspended --> Active: reinstated
+    Active --> Orphaned: last lead leaves
+    Orphaned --> Active: new lead
+    Active --> PendingDeletion: deletion requested, export offered
+    Orphaned --> PendingDeletion: platform decision
+    PendingDeletion --> Active: cancelled within grace
+    PendingDeletion --> Held: legal hold
+    Held --> PendingDeletion: hold lifted
+    PendingDeletion --> Deleted: grace elapsed (J tenant_erased)
+    Deleted --> [*]: statutory rows purged after R-16 to R-18
+```
+
+| Zustand/Übergang | Wirkung (Soll) | Lücke heute | PRA |
+|---|---|---|---|
+| Anlage | Klassifizierung Pflicht; Profil aus dem Resolver; DSFA-Bestätigung bei `commercial` | Klassifizierung nicht setzbar (LEG-30, `05`); kein DSFA-Auslöser (LEG-48, `11`) | PRA-1.02, PRA-3.04 |
+| Active → PendingDeletion | Pflichtexport angeboten und bestätigt | kein Angebot (LEG-47, `06`) | PRA-2.09 |
+| PendingDeletion → Deleted | Pflichtzeilen nur bei Pflichtklasse behalten, Herausgabeprozess | für jede Klasse behalten (LEG-47) | PRA-2.09 |
+| Plattform-Export (jeder Zustand) | nur mit `reason`; `orphaned` → Benachrichtigung aller aktiven Mitglieder | kein `reason`, Hinweis geht ins Leere (LEG-13, LEG-53; `06`, `05`, `14` W-30) | PRA-2.11 |
+
+### 0.4 Gerät
+
+```mermaid
+stateDiagram-v2
+    [*] --> NoOfflineData: first visit
+    NoOfflineData --> OptedIn: user enables offline mode
+    OptedIn --> ActiveSession: login
+    ActiveSession --> ActiveSession: sweep expired entries
+    ActiveSession --> Wiped: logout (awaited wipe, KP_CLEAR_DONE)
+    ActiveSession --> Quarantined: refresh 401 account.closed or dead session
+    Quarantined --> ActiveSession: same user logs in within grace
+    Quarantined --> Wiped: grace elapsed or other user logs in
+    Wiped --> NoOfflineData
+    OptedIn --> NoOfflineData: user disables offline mode
+```
+
+Die Übergangstabelle mit Sachverhalt und Evidenz (LEG-09, LEG-10, LEG-27, LEG-36, LEG-37, LEG-56; PRA-0.07, PRA-0.08,
+PRA-2.15 … PRA-2.17) steht in [`07-offline-privacy.md`](07-offline-privacy.md); hier gilt nur die Kopplung an den
+Kontolebenszyklus (§7).
 
 ---
 
@@ -27,6 +143,8 @@ markiert, neues Verhalten mit **[Vorschlag]**.
 | `partially_completed` | ein Versuch ist fehlgeschlagen oder hat Schritte unerreicht gelassen; `attempt_count`, `next_attempt_at` (Backoff `min(2^(n-1), 7)` Tage), Eskalationslog bei Versuch 5 | Admin sieht es unter `GET /admin/platform/erasures/{key}` |
 | `erased` | `users`-Zeile entfernt; `erasure_requests.user_key` ist der Tombstone; `status = completed` | nichts wird aufgelöst; Zeilen tragen Marker/Tombstone |
 | `purged` | `erasure_requests`-Zeile durch R-06 gelöscht (3 Jahre, nur wenn `user_key` ein Tombstone ist) | — |
+| `restricted` **[PROPOSED, existiert nicht]** | aktive Einschränkung mit `scope = all` (§2.6) | heute nicht beobachtbar: `processing_restrictions` wird gespeichert, aber nie gelesen (LEG-23) |
+| `held` **[PROPOSED, existiert nicht]** | `closed`, Hard-Delete aufgeschoben wegen Legal Hold oder aktiver Einschränkung mit `scope ∈ {all, retention}`; `held_reason` | heute nicht beobachtbar (LEG-35) |
 
 Es gibt **keinen Abbruch** einer Kontolöschungsanfrage **[verifiziert]** (Docstring in `privacy_service.py`:
 „there is no cancel route, the password hash is dropped with the request"). Dieses Paket behält diese
@@ -75,7 +193,9 @@ Anfrage (REQ-023 §3.9).
 **PRIV-101** [Vorschlag] Solange das Konto `closed` ist, MÜSSEN die Daten der Person als
 *eingeschränkt* behandelt werden (Art. 18 analog): keine Benachrichtigung wird an sie gesendet, keine Erinnerung nennt sie,
 keine Aufgabe wird ihr zugewiesen. [verifizierte Lücke] Heute ändern sich nur `is_active` und `password_hash`;
-`DOCUMENT(users/…)`-Joins lösen den Anzeigenamen noch bis zu 90 Tage lang auf.
+`DOCUMENT(users/…)`-Joins lösen den Anzeigenamen noch bis zu 90 Tage lang auf. (Audit 2026-11-22, `CONFIRMED`: der
+Namens-Join liest `is_active` nicht, `care_event_repository.py:657–662`; PRIV-101 und PRIV-104 sind nicht gebaut —
+90 Tage Sichtbarkeit nach dem Löschantrag.)
 
 **PRIV-102** [Vorschlag] Die betroffene Person MUSS den Status der Anfrage einsehen können
 (`GET /privacy/erasure/{key}` existiert) **ohne sich anzumelden**? — Nein: das Konto ist geschlossen, daher ist
@@ -108,14 +228,15 @@ Vertrag; `02` listet jedes Feld):
 | Benachrichtigungen, Benachrichtigungspräferenzen, Kalender-Feeds, KI-Konversationen, Identifikations-/Diagnoseanfragen, Schädlingserkennungen, eigene Schädlingsbeiträge | gelöscht | unverändert | — |
 | Mitgliedschaften, Standortzuweisungen, angenommene Einladungen | gelöscht | unverändert | — |
 | persönliche(r) Mandant(en) im Besitz der betroffenen Person | gelöscht mit allem darin (auch Zeilen anderer Mitglieder, die zum Anfragezeitpunkt benachrichtigt wurden; Ausnahme `retained_late_joiner`) | unverändert | REQ-025 Q-E1/Q-E5 |
-| Zeilen in geteilten Mandanten, die die betroffene Person verfasst/ausgeführt hat (Pflegeereignisse, Tagebuch, Aufgabenkommentare, Gartenobjekte, Beetvorlagen, Anhänge, manuelle Überschreibungen, Importjobs, Wetterkonfigurationen, verworfene Tipps, versendete Einladungen) | Konto-Referenzen → `_anonymized`; **sämtlicher Freitext bleibt erhalten**; Fotos bleiben erhalten (EXIF erneut entfernt) | Konto-Referenzen → Marker **und** ein `privacy_review_items`-Eintrag je Zeile mit prüfbarem Freitext (`04` §5); `attachments.original_filename` geleert (PRIV-211) | `04` |
+| Zeilen in geteilten Mandanten, die die betroffene Person verfasst/ausgeführt hat (Pflegeereignisse, Tagebuch, Aufgabenkommentare, Gartenobjekte, Beetvorlagen, Anhänge, manuelle Überschreibungen, Importjobs, Wetterkonfigurationen, verworfene Tipps, versendete Einladungen) | Konto-Referenzen → `_anonymized`; **sämtlicher Freitext bleibt erhalten**; Fotos bleiben erhalten; `original_filename` geleert, **`caption` bleibt** (LEG-20); EXIF erneut entfernt **nur in aktuellen Mitgliedsmandanten** (Audit 2026-11-22: LEG-55, §10.3) | Konto-Referenzen → Marker **und** ein `privacy_review_items`-Eintrag je Zeile mit prüfbarem Freitext (`04` §5); `attachments.original_filename` geleert (PRIV-211) | `04` |
 | `tasks.assigned_to_user_key` | Marker | Marker (unverändert; eine Aufgabe, die niemandem zugewiesen ist) | — |
 | `sites.plan.plan_updated_by` | Marker | Marker | — |
-| gesetzlich aufzubewahrende Zeilen (`harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections`) | Key → Tombstone, typisierter Anzeigename geleert; `notes` bleiben | unverändert **vorbehaltlich LEG-03/LEG-04**: hat der Mandant keine Aufbewahrungspflicht, MÜSSEN diese Zeilen stattdessen als `shared_history` behandelt werden (Marker, Prüfung) | `06` §3 |
+| gesetzlich aufzubewahrende Zeilen (`harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections`) | Key → Tombstone, typisierter Anzeigename geleert; `notes` bleiben — auch in Mandanten ohne Aufzeichnungspflicht 3–5 J. (Audit 2026-11-22, `CONFIRMED`) | unverändert **vorbehaltlich LEG-03/LEG-04**: hat der Mandant keine Aufbewahrungspflicht, MÜSSEN diese Zeilen stattdessen als `shared_history` behandelt werden (Marker, Prüfung) | `06` §3 |
 | `garden_plan_audit.user_key` | Tombstone | **Marker** (DEC-16): das Plan-Audit ist mandantenintern, nicht gesetzlich; Verknüpfbarkeit wird nicht benötigt; Freitext in `summary`/`snapshot` → Prüfeinträge | `04` §4.3 |
 | `security_audit_log.actor/target`, `erasure_requests.user_key`, `consent_records.user_key`, `mcp_audit_log.service_account_key` | Tombstone | unverändert | `06` |
-| `ai_audit_log.user_key` | Marker | unverändert | — |
-| `tenants.owner_user_key` einer fortbestehenden Organisation | Marker (REQ-056 §9.1 Übergabe geplant, nicht implementiert) | unverändert, bis REQ-056 umgesetzt ist | — |
+| `ai_audit_log.user_key` | Marker; bei **Mandanten**löschung bleibt der rohe `user_key` bis 30 d (`tenant_erasure_engine.py:253–260`, zweckgebunden) | unverändert | — |
+| `control_events.triggered_by_user` | roher Kontoschlüssel, **nicht im Löschplan**, nicht im Export, ohne Frist; Guard R6 übersieht die Form `_by_user` (Audit 2026-11-22: LEG-29) | in den Lebenszyklus aufnehmen (Marker oder `source = manual`, offene Architekturfrage `01` §11) | `02`, PRA-2.07 |
+| `tenants.owner_user_key` einer fortbestehenden Organisation | Marker (REQ-056 §9.1 Übergabe geplant, nicht implementiert); bei einem verbleibenden persönlichen Mandanten (`retained_late_joiner`) wird der Mandant umbenannt, Site-/Location-Namen aber nicht (Audit 2026-11-22, `erasure_engine.py:458–485`, gering) | unverändert, bis REQ-056 umgesetzt ist | — |
 | `care_events`-Zeilen, deren `performed_by_user_key` den **Tombstone** der betroffenen Person enthält (kopiert durch v0104/Konsistenzjob **vor #2839**) | seit #2839: Bestand durch v0107 auf den Marker gesetzt, Neuschreiben durch `account_of` verhindert (VERIFIED_CODE); die Löschregel selbst trifft weiterhin nur den echten Key | erfasst: `04` §3.3 verbietet hier Tombstones; Migration `09` §3 korrigiert Altkopien | #2770 |
 | Gerätespeicher auf den Geräten der betroffenen Person | dieses Gerät geleert (`AccountSettingsPage` → `clearOfflineData({discardWriteQueueOf})`); andere Geräte behalten die Schreibwarteschlange 90/365 Tage | Quarantäne toter Sitzungen `07` §7 | `07` |
 
@@ -130,12 +251,20 @@ Fenster, Checkpoint `pre_arango_completed_at` (Speicherphasen werden nicht wiede
 ArangoDB-Plan (alles oder nichts), `partially_completed` mit Backoff, Konfigurationsfehler halten
 an, ohne einen Versuch zu verbrauchen, ein tombstonierter `user_key` bedeutet „committed".
 
-**PRIV-108** [PROPOSED] Die beiden neuen Phasen (Entdeckung der Prüfeinträge, Löschungs-Spiegel-Eintrag
-`erasure_mirror`, DEC-26) MÜSSEN **nach** dem Commit der ArangoDB-Transaktion laufen und auf ihren eigenen Keys
-idempotent sein (`privacy_review_items._key = hash(erasure_key, collection, row_key)`; Spiegel-Key = `erasure_key`).
-Ein Fehler in diesen Phasen DARF die Löschung NICHT zurückrollen (die Zurechnung ist entfernt); der Auftrag trägt
-`post_commit_pending = true`, der Beat `privacy.post_commit_followups` setzt die Entdeckung am Cursor fort
-(`04` §5.1a). Der Auftrag erreicht `erasure_completed` erst, wenn Entdeckung und alle Prüfeinträge abgeschlossen sind.
+**PRIV-108** [PROPOSED; neu gefasst v1.2] Die Entdeckung der Prüfeinträge MUSS **nach** dem Commit der
+ArangoDB-Transaktion laufen und auf ihren eigenen Keys idempotent sein (`privacy_review_items._key = hash(erasure_key,
+collection, row_key)`). Ein Fehler in dieser Phase DARF die Löschung NICHT zurückrollen (die Zurechnung ist entfernt);
+der Auftrag trägt `post_commit_pending = true`, der Beat `privacy.post_commit_followups` setzt die Entdeckung am Cursor
+fort (`04` §5.1a). Der Auftrag erreicht `erasure_completed` erst, wenn Entdeckung und alle Prüfeinträge abgeschlossen
+sind. Das Journal-Ereignis `account_erased` ist dagegen **keine** Folgephase mehr: es entsteht als Outbox-Eintrag
+**im selben Schreibschritt** wie der Abschluss (PRIV-709, `09` §6.3). (Audit 2026-11-22: LEG-25 — ein nachgelagerter
+Spiegel-Eintrag `erasure_mirror` hätte genau die Löschungen verloren, die ein Restore zurückdreht; `erasure_mirror`
+ist zudem nicht gebaut, `grep` → 0.)
+
+**PRIV-135** [VERIFIED_CODE, Lücke; Audit 2026-11-22] Die Kontolöschung meldet `completed` **ohne Residue-Prüfung**:
+`grep residue` in `data_access/arango/erasure_executor.py` → 0, nur `tenant_erasure_executor.py` prüft Reste. Soll:
+Residue-Scan (kein Rohschlüssel, kein Tombstone außerhalb der Allowlist) als letzte Phase der Kontolöschung (PRIV-234,
+`04` §8; PRA-1.07).
 
 **PRIV-109** [Vorschlag] Eskalationsschwellen MÜSSEN für Konto- und Mandantenlöschung identisch sein.
 Heute eskaliert die Kontolöschung bei Versuch 5 (`ERASURE_ESCALATE_AFTER_ATTEMPTS`), die Mandantenlöschung
@@ -146,6 +275,127 @@ eine Einstellung `PRIVACY_OPERATION_ESCALATE_AFTER_ATTEMPTS`. Abnahme: TA-105.
 `PRIVACY_OPERATION_STALE_ALERT_DAYS` (Standard 14) in `partially_completed` verbleibt, MUSS als Metrik
 (`privacy_operations_open{kind,status}`) und in `GET /admin/platform/privacy/operations`
 (`08` §5) sichtbar sein. Heute ist das einzige Signal das Logfeld `open_failing`.
+
+### 2.5 Lösch-Matrix je Lebenszyklusereignis × Datenkategorie (Ist, Audit 2026-11-22)
+
+Gemessener Stand am SHA `007a4ea90` (VERIFIED_CODE, Strang A des Audits). Die Tabelle in §2.3 ist der normative
+Vertrag (Soll); diese Matrix ist der Ist-Stand über **alle vier** Ereignisse und Grundlage der Abnahme. Backend-Pfade
+ohne Präfix liegen unter `src/backend/app/` (Engines unter `domain/engines/`, Services unter `domain/services/`).
+
+Legende: **L** löschen · **P** pseudonymisieren (`anon_`, instanzweit) · **M** Zurechnung entfernen (Marker
+`_anonymized`, attributbezogen — Zeile **nicht** anonym) · **B** behalten unverändert · **G** Feld geleert · **—** nicht
+betroffen. „Antrag“ = `request_erasure` (Konto `closed`, 90 d Karenz R-01); „Vollzug“ = `erase_account`;
+„Mitgliedschaftsende“ = `leave_tenant`/`remove_member`/`admin_remove_membership`; „Mandantenlöschung“ = Vollzug nach
+`pending_deletion` (Gnadenfrist `RETENTION_TENANT_ERASURE_GRACE_DAYS` = 90, `config/settings.py:122`; während der Frist
+B, kein Zugriff, nur `active` löst auf).
+
+| # | Datenkategorie | Konto: Antrag | Konto: Vollzug | Mitgliedschaftsende | Mandantenlöschung | Code-Beleg |
+|---|---|---|---|---|---|---|
+| 1 | `users` (E-Mail, Anzeigename) | B (`is_active=false`, `password_hash=None`); Name bleibt **auflösbar** | L | — | — | `privacy_service.py:983`; `erasure_engine.py:853` |
+| 2 | Sitzungen, Refresh-Tokens, API-Keys, Prefs, Onboarding, Auth-Provider, E-Mail-Änderungen | Tokens widerrufen | L | — | API-Keys mit `tenant_scope` L | `erasure_engine.py:586–694`; `tenant_erasure_engine.py:243` |
+| 3 | Mitgliedschaften, `location_assignments` (inkl. `notes`) | B | L | L | L | `erasure_engine.py:620–671`; `membership_repository.py:130–142`; `tenant_erasure_engine.py:99–101` |
+| 4 | Benachrichtigungen, -Prefs, Kalender-Feeds | B | L | Feeds des Mandanten L; Benachrichtigungen B | L | `erasure_engine.py:750–772`; `tenant_service.py:3798–3806`; `tenant_erasure_engine.py:228–229` |
+| 5 | KI-Konversationen, Identifikations-/Diagnoseanfragen, Schädlingserkennungen | B | L | B | L | `erasure_engine.py:695–809`; `tenant_erasure_engine.py:210–213, 230` |
+| 6 | Schädlings-Referenzbilder (eigene) | B | L (Bytes + Dokument), Embeddings L (pgvector) | B | L | `erasure_engine.py:517–547, 733–739, 826–835` |
+| 7 | Persönlicher Mandant (Eigentum) inkl. Zeilen anderer Mitglieder | Einladungen widerrufen, Mitglieder benachrichtigt | L über Mandanteninventar (Ausnahme `retained_late_joiner`: Owner M, `name/slug` umbenannt) | — | — | `privacy_service.py:3138–3145`; `erasure_engine.py:458–485` |
+| 8 | Organisation (letzte `management`) | geregelt beim Antrag | Übergabe an Lead oder `orphaned` → Mandantenlöschung | INV-1 verhindert Austritt | — | `privacy_service.py:960, 996, 3146–3151` |
+| 9 | `care_events` Kontofelder (5) | B (Name sichtbar) | M | B (Name sichtbar, filterbar) | L | `erasure_engine.py:162–236`; `tenant_erasure_engine.py:117` |
+| 10 | `care_events` Freitexte (`summary`, `reason`, `observed_outcome`, `product_label`, `performed_by_label`, `void_reason`, `redaction_reason`) | B | **B** (nur manuelle Lead-Schwärzung; R-25 nach 5 J. `[redacted]`) | B | L | `care_event_repository.py:573–595, 1020–1084` |
+| 11 | `care_events.material`, `measurements[].source/extraction_method` | B | **B, unerreichbar** (weder Schwärzung noch R-25) | B | L | `domain/models/care_event.py:83, 166, 254–256` |
+| 12 | `care_events.photo_refs` / Anhänge | B | Bytes B, `created_by` M, `original_filename` G, `caption` B, EXIF erneut gestrippt **nur in aktuellen Mitgliedsmandanten** (LEG-55) | B | L (Prefix-Purge) | `erasure_engine.py:358–378, 502–516`; `privacy_service.py:3302–3369` |
+| 13 | Tagebuch (`created_by`, `analysis_*`) / Text, Titel, Tags, KI-Analyse | B | Kontofelder M; Freitext **B** | B | L | `erasure_engine.py:291–317`; `tenant_erasure_engine.py:182` |
+| 14 | Aufgaben: Zuweisung / Kommentare | B | `assigned_to_user_key` M; Kommentar-`created_by` M, Text B | Zuweisung im Mandanten geleert; Kommentare B | L | `erasure_engine.py:123–137, 321–333`; `tenant_service.py:3824ff.` |
+| 15 | Gartenobjekte, Beetvorlagen (`created_by`) / `label`, `notes`, `name` | B | M / Text **B** | B | L (globale Vorlagen `tenant_key=null` bleiben) | `erasure_engine.py:247–268`; `tenant_erasure_engine.py:112, 119` |
+| 16 | Locations (Namen/Notizen, inkl. aus Vorlage kopierte Namen) | B | B (kein Kontofeld) | B | L | `garden_plan_service.py:771`; `tenant_erasure_engine.py:108` |
+| 17 | `sites.plan.plan_updated_by` | B | M | B | L | `erasure_engine.py:138–149` |
+| 18 | `rooting_protocols.author_user_key` | B | M | B | L | `erasure_engine.py:150–161` |
+| 19 | `garden_plan_audit.user_key` / `summary` / `snapshot` | B | M / B / **B** (per Restore zurückspielbar, LEG-34) | B | L | `erasure_engine.py:269–283`; `tenant_erasure_engine.py:122`; R-26 Purge 365 d |
+| 20 | Gesetzliche Zeilen `harvest_batches`, `quality_assessments`, `treatment_applications`, `inspections`: `*_by_key` / Namensfeld / `notes` | B | **P** / G / B | B | **P** (auch für lebende Konten) / G / B; Purge nach R-16 (5 J.) bzw. R-17/R-18 (3 J.) | `erasure_engine.py:84–122, 237–246`; `tenant_erasure_engine.py:189–209, 353–366` |
+| 21 | `yield_metrics` | — | — | — | B bis R-16 | `tenant_erasure_engine.py:196–201` |
+| 22 | Gieß-/Tank-/Wartungsprotokolle `performed_by` (Freitextname), `notes`; `performed_by_user_key` (immer `null`) | B | **B** (ausgeschlossen) | B | L | `erasure_engine.py:948–1014` |
+| 23 | Gesendete / angenommene Einladungen | B (persönl. Mandant: widerrufen) | `invited_by_user_key` M / L | — | L | `erasure_engine.py:334–345, 813–825` |
+| 24 | Importjobs, Wetterkonfiguration, manuelle Overrides, verworfene Tipps | B | Kontofeld M, Inhalt (z. B. `manual_overrides.reason`) B | B | L | `erasure_engine.py:412–457` |
+| 25 | Mandanten-Export-/Importanträge | B | `requested_by_user_key` M | B | Export-Anträge L; Archive per Prefix L; sonst R-05/R-40 | `erasure_engine.py:391–411`; `tenant_export_service.py:1384–1416` |
+| 26 | Mandanten-Archiv (Objektspeicher; `members.jsonl` mit Schlüssel + Name und `anon_`) | B | **B bis R-05-Ablauf** | B | L | `domain/models/tenant_export.py:110–118`; `tenant_export_service.py:1388–1400` |
+| 27 | `ai_audit_log.user_key` | B | M | B | **B roh** bis 30 d | `erasure_engine.py:379–390`; `tenant_erasure_engine.py:253–260` |
+| 28 | `mcp_audit_log.service_account_key` | B | P | B | B | `erasure_engine.py:872–883`; `tenant_erasure_engine.py:261–268` |
+| 29 | `security_audit_log` actor/target | B (Löschantrag selbst protokolliert) | P | neue Zeile `MEMBERSHIP_LEFT/REMOVED` (730 d) | B | `erasure_engine.py:884–904`; `tenant_service.py:3762–3795` |
+| 30 | `consent_records` | B | erst widerrufen, dann P, `user_agent` G | — | — | `privacy_service.py:3152–3158`; `erasure_engine.py:905–931` |
+| 31 | `erasure_requests` (Nachweis) | angelegt | `user_key` P; `personal_tenant_keys` B; R-06 3 J. | — | — | `domain/models/privacy.py:200–279`; `erasure_engine.py:861–871` |
+| 32 | `tenant_erasure_records` | — | — | — | B (R-06a) | `tenant_erasure_engine.py:280–287` |
+| 33 | Art.-15-Exportdateien | B | L | — | — | `privacy_service.py:3207ff.` |
+| 34 | Logs | — | nur `sub_`-HMAC-Referenzen (eigenes Salt) | `sub_`/`ten_` | `ten_` | `erasure_engine.py:1258–1310`; AST-Scan aller `logger.*`-Kwargs: keine Roh-Konto-/E-Mail-Werte |
+| G1 | Gerätespeicher (andere Geräte) — Grenze | B | B bis 90/365 d | B | B | `07` |
+| G2 | Backups — Grenze | nicht prüfbar | kein Restore-Abgleich (Journal fehlt) | — | — | `09` §6 |
+
+Nicht in der Matrix, weil nicht im Löschplan: `control_events.triggered_by_user` (LEG-29, §2.3, `02`).
+
+**Begriffsabgrenzung (Ist).** *Löschen* = Dokument entfernt. *Anonymisieren* (zeilenbezogen) findet im Code **nur**
+durch R-25 nach 5 Jahren statt (Konto- und Freitextfelder gemeinsam) und — eingeschränkt — für `yield_metrics`. Alles,
+was der Code bei Kontolöschung „anonymisiert“ nennt, ist **Zurechnungsentfernung (M)**. *Pseudonymisieren (P)* nur in
+der Allowlist. *Einschränkung* (Art. 18) hat keine technische Wirkung (§2.6). *Aufbewahrung wegen Rechtspflicht* nur
+R-16…R-18 (collection-weit, nicht feldgenau — LEG-03, W-15).
+
+**Rekonstruierbarkeit gelöschter Identitäten über Sekundärdaten (Ist).** (1) Freitexte (`summary`, Tagebuch,
+Kommentare, Notizen, Vorlagennamen, Snapshots): ja, direkt, solange nicht geschwärzt (LEG-08, LEG-34; `04`).
+(2) `created_by`/`performed_by`: nach Vollzug nein (Marker), aber der Marker ist mandantenweit ein Sammelwert; mit
+Zeitpunkt, Beet und Gruppenwissen ist Herausgreifen möglich (ErwG 26) — daher nur „Zurechnung entfernt“.
+(3) Plan-Audit: `user_key` Marker, `summary`/`snapshot` Freitext. (4) Exportarchive/CSV: CSV beim Empfänger außerhalb
+der Reichweite; Mandantenarchiv bis R-05 mit Name + Schlüssel; `anon_` darin mandantenübergreifend vergleichbar
+(LEG-15). (5) Pseudonyme: mit Salt durch Durchrechnen des Schlüsselraums zum Originalschlüssel umkehrbar; der Name nur
+mit zusätzlicher Quelle (Backup, Archiv) — der Salt-Schutz ist die einzige Schranke (`09` §7). (6) Logs: keine
+Rohschlüssel; `sub_`-Referenzen mit Log-Salt korrelierbar; Grenze ist die Log-Aufbewahrung außerhalb des Repos (`06`,
+LEG-44).
+
+### 2.6 Einschränkung, Widerspruch und Legal Hold (Art. 18, Art. 21, Art. 17 Abs. 3 lit. e)
+
+**Ist-Stand (Audit 2026-11-22, LEG-23 P1, technisch `NEW_FINDING`/VERIFIED_CODE).** `POST /privacy/restrict` und
+`POST /privacy/object` legen `processing_restrictions`-Dokumente an (`api/v1/privacy/router.py:336–381`;
+`domain/services/privacy_service.py:1810–1888`, einziger Nutzer des Repositorys). **Kein Verarbeitungspfad liest sie:**
+die in REQ-025 §3.7 spezifizierte Dependency `check_processing_restriction` (423, AK-11) existiert nicht;
+`ProcessingRestrictionRepository.list_active_by_user` hat keinen Aufrufer
+(`domain/interfaces/processing_restriction_repository.py:38`); `scope` ist Freitext ohne Zuordnung zu einem Zweck
+(`api/v1/privacy/schemas.py:265–290`). Es gibt keine `GET`-Route zum Auflisten (die UI zeigt nur in derselben Sitzung
+angelegte Einträge, `src/frontend/src/pages/auth/PrivacySettingsPage.tsx:117, 232–252`) und keinen Betreiberpfad, der
+Anträge anzeigt. Kein Lösch-, Anonymisierungs- oder Purge-Job berücksichtigt eine Einschränkung: R-25, R-26, R-16…R-18,
+R-06, R-38 laufen unabhängig davon (`tasks/retention_tasks.py:298–348`). REQ-025 AK-12 (Widerspruch → Restriction
+`objection_pending`, `privacy_service.py:1863–1888`) ist erfüllt, aber ohne Wirkung. Die Nutzerdoku sichert das
+Gegenteil zu: „Während einer Einschränkung werden die betroffenen Daten nicht mehr aktiv verarbeitet.“
+(`docs/de/user-guide/privacy.md:153`). Verifikation: `grep -rn "check_processing_restriction\|list_active_by_user"
+src/backend/app`.
+
+**Ist-Stand Legal Hold (Audit 2026-11-22, LEG-35 P2).** Weder Code noch Paket kennen einen Legal Hold (`grep -i
+"legal.hold\|legal_hold"` in `src/backend/app` und `spec/privacy` → 0 vor v1.2). Automatische Jobs können damit
+irreversibel Beweismittel vernichten, die wegen Rechtsstreit, behördlicher Anordnung oder KCanG-/PflSchG-Prüfung zu
+erhalten wären.
+
+**PRIV-136** [PROPOSED; PRA-0.06 sofort, PRA-1.06] Eine Einschränkung oder ein Widerspruch MUSS (a) **sofort** den
+Verantwortlichen erreichen (Benachrichtigung an `controller_email` bei Anlage; Admin-Liste
+`GET /admin/platform/privacy/restrictions` mit Status `requested/applied/rejected`; `GET /privacy/restrict` für die
+Person) und der UI-/Doku-Text MUSS bis zur technischen Wirkung „Antrag wird an den Betreiber weitergeleitet und geprüft“
+lauten (PRA-0.05); (b) danach **technisch wirken**: `scope` wird ein geschlossenes Enum der realen Zwecke
+(`attribution_display`, `sensor_analytics`, `ai_processing`, `notifications`, `retention`, `all`; Zweckliste vom
+Product Owner, LEGAL_REVIEW_REQUIRED für die Zuordnung), jede zweckgebundene Verarbeitung prüft vor Ausführung über
+`ProcessingHoldGuard.require_not_held(ctx, purpose)` (423 für Routen, Überspringen für Jobs), `all` versetzt das Konto in
+den Zustand `restricted` (Lesemodus, 423 auf verarbeitende Routen außer `/privacy/*`) (A-RES-1…A-RES-4, `01` §3.5).
+Der Satz in `privacy.md:153` steht nur, wenn die Abnahmetests grün sind.
+
+**PRIV-137** [PROPOSED; PRA-1.06] Ein **Legal Hold** auf Person, Mandant oder Datensatz (Collection `legal_holds {scope:
+user|tenant|record, ref, reason_code, created_by, expires_at}`) MUSS Löschung, Anonymisierung und Purge durch jeden
+automatischen Job und durch Erasure- und Tenant-Erasure-Executor verhindern; der Job zählt übersprungene Zeilen
+(`held=n`). Anlage und Aufhebung nur durch Plattform-Admin, jeweils in `security_audit_log` (`LEGAL_HOLD_SET/LIFTED`),
+mit Ablaufdatum; nach Aufhebung holt der nächste Lauf nach (A-HOLD-1…3). Eine aktive Einschränkung mit
+`scope ∈ {all, retention}` wirkt als Hold auf die Daten der Person (A-RES-3). Kontolöschung einer gehaltenen Person:
+Schließung ja, Hard-Delete nein (Zustand `held`, `held_reason`, §1.1, §0.1); Mandantenlöschung: `PendingDeletion → Held`
+(§0.3). Spezialfall `RETENTION_LEGAL_HOLD_SECURITY_AUDIT` für `security_audit_log` bei offenem Vorfall (PRA-3.02,
+`01` §7a). Rechtsfreigabe nötig für Hold-Berechtigung und -Dauer (PRA-1.06).
+
+**Abnahme (Testbeschreibung; TA-Vergabe in `10`):** aktive Einschränkung `sensor_analytics` → betroffene Route 423
+(AK-11); Widerspruch erzeugt Betreiberbenachrichtigung (Mock-Mailer) und erscheint in der Admin-Liste; `GET
+/privacy/restrict` liefert Einträge nach Reload; aktive Einschränkung → Kontolöschung bleibt `scheduled` mit
+`held_reason`, `anonymize_expired_care_events` lässt ihre Zeilen unverändert und meldet `held=n`; Hold auf Mandant →
+`anonymize_expired_care_events` und `purge_expired_garden_plan_audit` lassen seine Zeilen unverändert; Aufhebung →
+nächster Lauf verarbeitet nach; Guard-Test: jeder Retention-Task ruft `held_subjects` (INV-P2).
 
 ---
 
@@ -159,7 +409,8 @@ samt Kanten und `location_assignments`, `security_audit_log`-Zeile, `_end_member
 `tasks.assigned_to_user_key` in diesem Mandanten und löscht die Kalender-Feeds des Mitglieds dort.
 **Sonst ändert sich nichts**: jede `performed_by`/`created_by`/`actor`-Referenz des ehemaligen
 Mitglieds bleibt, sein Anzeigename wird weiterhin für alle Mitglieder aufgelöst, der Pflegelog-Filter nach
-dieser Person funktioniert weiterhin für Leads, ihre Zeilen bleiben mit ihrem Namen in CSV-Exporten.
+dieser Person funktioniert weiterhin für Leads, ihre Zeilen bleiben mit ihrem Namen in CSV-Exporten. (Audit 2026-11-22, `CONFIRMED`: `membership_repository.py:130–142`;
+`tenant_service.py:3762–3795`; Matrix §2.5 Spalte „Mitgliedschaftsende“.)
 
 ### 3.2 Erforderliches Verhalten
 
@@ -175,7 +426,8 @@ des ehemaligen Mitglieds für andere Mitglieder dieses Mandanten NICHT aufgelös
 den Zustand `former_member` mit `display_name = null` zurück. Bevor die Frist abläuft, wird der Name
 angezeigt, damit Übergaben („wer hat Beet 3 zuletzt gegossen?") weiter funktionieren. Der Zeitpunkt des
 Mitgliedschaftsendes wird aus `security_audit_log` (`MEMBERSHIP_LEFT`/`REMOVED`, `created_at`) gelesen; existiert
-keine Audit-Zeile (Austritte vor #2111), wird der Key sofort als unterdrückt behandelt.
+keine Audit-Zeile (Austritte vor #2111), wird der Key sofort als unterdrückt behandelt. (Audit 2026-11-22: nicht gebaut,
+LEG-06 a technisch `CONFIRMED`; Umsetzung PRA-2.03, Lebenszyklus §0.2.)
 
 **PRIV-113** [Vorschlag] Leads und `management` KÖNNEN den Namen eines ehemaligen Mitglieds weiterhin für
 denselben Zeitraum **plus** die für Rechenschaftsfragen nötige Zeit auflösen? — Nein: die Unterdrückung
@@ -218,15 +470,17 @@ ein Marker ist von Entwurf an unumkehrbar (die Zuordnung ist weg). Der Wiederein
 Principal** der Anfrage setzen, niemals aus dem Body (REQ-053 GP-NFR-054 [verifiziert für Pflege-
 ereignisse]). Der Principal eines MCP-Tool-Aufrufs ist der Service-Account (`ctx.principal`); bei einem
 Abschluss über die Aufgabenwarteschlange der Nutzer des Tokens (`CompletionActor.user_key`); bei einer Benachrichtigungs-
-aktion der handelnde Nutzer; bei einem Celery-Job **niemand** (`null`).
+aktion der handelnde Nutzer; bei einem Celery-Job **niemand** (`null`). **Status (Audit 2026-11-22, LEG-61):** für alle
+vier Bestätigungspfade umgesetzt seit #2961 (2026-11-14); damit ist auch PRIV-003 (`01` §4.1) erfüllt; TA-120 ist der
+Abnahmetest.
 
 ### 4.2 Verifizierte Abweichungen und erforderliche Korrekturen
 
 | Pfad | Heute | Erforderlich | Issue |
 |------|-------|--------------|-------|
 | REST `POST /plants/{key}/confirm`, Benachrichtigungsaktion | Aufrufer gespeichert | unverändert | — |
-| Abschluss über Aufgabenwarteschlange → `record_care_task_completion` | `performed_by_user_key = null` (`_bed_event_for` ohne `user_key` aufgerufen) | Aufrufer (`ctx.user_key` verfügbar in `tasks/tenant_router.py`) | #2770 Punkt 2 → in #2839 bewusst nicht geändert, an **#2517** übergeben (E01-Rest) |
-| MCP `ConfirmCareTask` | `null` | Service-Account-Key (`account_type: service`), dargestellt als `service_account` | #2770 Punkt 2 → #2517 (E01-Rest) |
+| Abschluss über Aufgabenwarteschlange → `record_care_task_completion` | **umgesetzt #2961 (2026-11-14)**, VERIFIED_CODE (Audit 2026-11-22, `ALREADY_FIXED`): der Aufrufer wird gestempelt (`domain/services/care_reminder_service.py:986–990, 1295–1312`; Commit `8cff212c0`) — v1.0: `null` | Aufrufer | #2770 Punkt 2 → #2517 → **#2961** |
+| MCP `ConfirmCareTask` | **umgesetzt #2961**, VERIFIED_CODE: `user_key=ctx.principal.account_key` (`mcp_server/tools/care.py:76–85`) — v1.0: `null` | Service-Account-Key (`account_type: service`), dargestellt als `service_account` (Darstellung offen, E05/E08) | #2770 Punkt 2 → #2517 → **#2961** |
 | Live-Erinnerungs-/Bestätigungszeilen via `map_document` | **behoben #2839** (VERIFIED_CODE): `created_by = user_key` in `care_reminder_service.py`; Backfill übergibt `None` | `created_by = performed_by_user_key` auf **Live**-Pfaden; Backfill und Konsistenzjob behalten `null` (Systemherkunft) | #2770 Punkt 3 |
 | Backfill/Konsistenz `account_of` | **behoben #2839** (VERIFIED_CODE): Tombstone → `_anonymized` über `ErasureEngine.is_tombstone`; Bestand durch v0107 korrigiert; `anon2_` (E03) noch nicht erkannt | kopiert nur einen Wert, der ein aktueller `users._key` ist, *oder* schreibt `_anonymized` für einen Tombstone/Marker; niemals ein Label | #2770 Punkt 1, `04` §3.3 |
 
@@ -269,7 +523,8 @@ Nachweis: bei Mandantenlöschung werden sie gelöscht [verifizierter Kommentar i
 `tenant_erasure_engine.py`], bei Kontolöschung tragen sie den Marker, bei R-25 warten sie auf
 den PflSchG-Stichtag (`care_event_pflschg_cutoff = max(R-25, R-17)`) [verifiziert]. Die
 `treatment_applications`-Zeile ist der einzige §11-Nachweis (REQ-053 §13.2, E-16). **[rechtlich] LEG-07**
-bestätigt diese Lesart.
+bestätigt diese Lesart. (Audit 2026-11-22, `CONFIRMED`: `tenant_erasure_engine.py:111–117, 208`; die Zurechnungskopie
+aus Pflichtzeilen ins Pflegeprotokoll läuft fortlaufend über den täglichen Konsistenzjob, `09` §3a.)
 
 ---
 
@@ -283,8 +538,9 @@ zuerst deaktiviert, dann gelöscht, `client_event_tombstones`), gesetzlich aufzu
 am längsten aufzubewahrenden gesetzlichen Zeile oder 5 Jahre (R-06a).
 
 **PRIV-126** [Vorschlag] Die neuen Collections `privacy_review_items` und (falls separat)
-`redaction_log` MÜSSEN in `TenantErasureEngine.INVENTORY` als `_delete` stehen. Der Löschungs-Spiegel
-`erasure_mirror` und `migration_reports` sind plattformweit (`NOT_TENANT_SCOPED` mit Begründung, DEC-26).
+`redaction_log` MÜSSEN in `TenantErasureEngine.INVENTORY` als `_delete` stehen. Die Journal-Outbox
+`privacy_journal_outbox` (v1.1: Löschungs-Spiegel `erasure_mirror`, `09` §6.3), `legal_holds`, `privacy_requests`,
+`privacy_incidents` und `migration_reports` sind plattformweit (`NOT_TENANT_SCOPED` mit Begründung, DEC-26, `01` §8).
 
 **PRIV-127** [Vorschlag] Verwaiste Mandanten (`orphaned`, REQ-024 AK-65) MÜSSEN in die
 Überwachung der Datenschutzvorgänge (PRIV-110) einbezogen werden, weil ihr Karenzzeit-Timer läuft, ohne dass ein Mitglied
@@ -354,3 +610,124 @@ wird das Label wie bei einem ehemaligen Mitglied unterdrückt (PRIV-112).
 | TA-122 | Ein Mandant mit `record_keeping = none` behandelt die vier gesetzlichen Collections bei Löschung als geteilte Historie. |
 | TA-130 | Ein abgelehnter Refresh setzt die Warteschlange in Quarantäne; `401 account.closed` leert sie sofort. |
 | TA-131 | Ein nach Kontoschließung wiedergegebener gepufferter Schreibvorgang wird auf jedem `client_event_id`-Pfad abgelehnt. |
+
+Neue Anforderungen v1.2 ohne TA-ID (Testbeschreibungen in §2.6 und §10; TA-Vergabe in `10`): PRIV-135 (Residue-Scan
+der Kontolöschung), PRIV-136 (Art. 18/21 wirksam), PRIV-137 (Legal Hold), PRIV-138 (Speicherphase über alle
+Upload-Mandanten).
+
+---
+
+## 10. Fotos, Dateien und Auskunft im Lebenszyklus (LEG-20, LEG-21, LEG-22, LEG-40, LEG-41, LEG-55)
+
+Seit v1.2 stehen die Rechte an Fotos und Dateien über den Lebenszyklus hier an einem Ort. Abgrenzung: die
+Löschberechtigung eigener Fotos während der Mitgliedschaft (LEG-39) steht in
+[`05-access-and-visibility.md`](05-access-and-visibility.md); die Härtung des Upload-Strips (LEG-57) als TOM in
+[`01-privacy-architecture.md`](01-privacy-architecture.md) §7a; die Feldinventur der Anhänge in `02`. Rechtsfragen zu
+LEG-20/21/22/40 sind LEGAL_REVIEW_REQUIRED (Rechtsstatus im decision-log; Fragen an den DSB in `16`).
+
+### 10.1 Beetfotos und Plan-Unterlagen einer gelöschten Person (LEG-20)
+
+**Ist (Audit 2026-11-22, technisch `CONFIRMED`).** Die Kategorien `location` und `garden_plan_underlay` liegen im Scope
+`user_diary_attachments` (`data_access/storage/local_fs_adapter.py:577–600`); die Regel in `STORAGE_CLEANUP_RULES`
+lautet `anonymize_metadata_and_strip_exif` (Bytes behalten) mit der Begründung NFR-011 R-16/R-17/R-18
+(`domain/engines/erasure_engine.py:491–530`). Der Scope `user_personal` (löschen) ist leer (`local_fs_adapter.py:582`);
+der Regeltext nennt nicht existierende Kategorien `profile`, `user_notes` (`common/enums.py:1562–1588`) und eine nicht
+existierende Einstellung `STORAGE_KEEP_EXIF_<category>` (`erasure_engine.py:508–512`; nur `storage_strip_exif`,
+`config/settings.py:1340`). `anonymize_user_metadata` setzt `created_by = _anonymized` und leert `original_filename`,
+**`caption` (≤ 500, `domain/models/attachment.py:84`) bleibt** (`data_access/arango/attachment_repository.py:404–430`).
+Ein fremdes Beetfoto löscht nur `lead` (`domain/services/location_photo_service.py:128–135, 237–266`).
+
+**Bewertung.** Die zitierte Ausnahme (CanG/PflSchG) trägt für Beetfotos und Unterlagen nicht; die „Anonymisierung“
+eines Fotos, das Person oder Haus zeigt, ist i. d. R. keine Anonymisierung im Sinne von ErwG 26 (Auslegung,
+LEGAL_REVIEW_REQUIRED).
+
+**Anforderung [PROPOSED; PRA-2.12].** Sofort (ohne Rechtsfreigabe): Regelbegründung korrigieren (keine R-16…R-18 für
+`location`/`garden_plan_underlay`), `caption` in `anonymize_user_metadata` mitleeren, Regeltext ohne
+`STORAGE_KEEP_EXIF` und ohne nicht existierende Kategorien; `/privacy/erasure-preview` nennt Beetfotos ausdrücklich.
+Nach DSB-Antwort: Variante B (Kategorien nach `user_personal`, löschen) oder C (Wahlrecht im Löschdialog, Flag am
+Erasure-Request) über `_erasure_scope_categories`; Dedup-Schutz vorhanden (#1770). Abnahme: Erasure-Plan für eine Person
+mit `location`-Foto → je nach Entscheidung `hard_delete` bzw. Marker + `caption == ""`; Regel-`description` ohne
+R-16…R-18 für diese Kategorien.
+
+### 10.2 Auskunft über Fotos und Dateien; abgebildete Dritte (LEG-21) und Pflichtangaben der Auskunft (LEG-41)
+
+**Ist (Audit 2026-11-22, LEG-21 technisch `PARTIALLY_CONFIRMED`).** Die Kontoquelle `attachments` im Art.-15-Export
+liefert per `created_by` nur `tenant_key, category, original_filename, mime_type, byte_size, caption, taken_on` — **kein
+`_key`, kein `created_at`, kein Bezugsobjekt** (`domain/engines/data_export_engine.py:501–506`); nur im persönlichen
+Mandanten zusätzlich `_key`, `created_at` (`:802–818`). Tagebuch-`photo_refs` nur für mandantengebundene Quellen =
+aktuelle Mitgliedschaften (`domain/models/privacy.py:413–417`; vgl. PRIV-111, LEG-06 b). Das Bündel ist reines JSON
+(`api/v1/privacy/router.py:145–181`); Bilddateien gibt es nur über mandantengebundene Routen mit Mitgliedschaft
+(`api/v1/attachments/tenant_router.py:235–318`). Das Mandantenarchiv (REQ-056) enthält Originale
+(`tenant_export_engine.py:31, 77`), nur für `lead ∧ management` + Step-up (`api/v1/tenant_exports/router.py:66–90`). Für
+Anfragen abgebildeter Dritter ohne Konto gibt es weder Prozess noch Werkzeug. Folge: In geteilten Mandanten kann die
+Person nicht erkennen, **welches** Foto gemeint ist; für verlassene Mandanten erhält sie Metadaten ohne
+Abrufmöglichkeit.
+
+**Ist (Audit 2026-11-22, LEG-41 P2, VERIFIED_CODE).** `build_bundle` liefert Verantwortlichenkontakt, einen festen
+`legal_basis`-Satz und die Datensätze (`data_export_engine.py:1328–1388`). Es fehlen je Kategorie Zweck, Empfänger(-
+kategorien) einschließlich externer Dienste (Pl@ntNet, LLM-Provider, Sentry, Mastodon, Home Assistant), Speicherdauer,
+Herkunft (z. B. von anderen Mitgliedern erfasste Zuordnungen), Drittlandbezug und ein Hinweis zu Art. 22 (Art. 15 Abs. 1
+lit. a–h, Abs. 2). Der Policy-Endpunkt (`privacy_service.py:1981–2196`) enthält Retention-Teile, wird vom Bündel aber
+nicht referenziert.
+
+**Anforderung [PROPOSED; PRA-2.04, PRA-2.18].** Kurzfristig: Kontoquelle um `_key`, `created_at` und Bezugsobjekt
+erweitern (ohne `storage_key`), Bündelhinweis auf den Dateiabruf. Nach DSB-Antwort: Option „mit Dateien“ als ZIP (eigene
+Uploads inkl. verlassener Mandanten, EXIF-frei; `AttachmentService.open_stream`, signierte local-fs-Links
+`api/v1/attachments/token_router.py:37–80`). Prozessdoku „Anfrage einer abgebildeten Person“ plus Admin-Route zur
+Fotolöschung mit Audit (Vorgang in `privacy_requests`, `kind = third_party`, `01` §3.5). Abschnitt
+`processing_information` im Bündel aus **derselben Quelle** wie `get_privacy_policy` (je Sektion `purpose`,
+`legal_basis`, `retention`, `recipients`) und fester Satz zu Art. 22 („keine automatisierte Entscheidung mit
+Rechtswirkung; KI-Ergebnisse sind Vorschläge“) — A-DSR-3, keine zweite Liste. Abnahme: Bündelsektion „Uploaded files“
+enthält `_key` und `created_at`; Person verlässt Mandanten, fordert Export „mit Dateien“ an → ZIP enthält ihre dortigen
+Fotos (EXIF-frei), keine fremden; jede Bündelsektion trägt `purpose`/`retention`; Guard: jede Manifest-Collection ist
+einer Policy-Zeile zugeordnet.
+
+### 10.3 EXIF-Nachstrip bei Kontolöschung erreicht verlassene Mandanten nicht (LEG-55)
+
+**Ist (Audit 2026-11-22, P3, VERIFIED_CODE).** Die Speicherphase der Kontolöschung (`_run_storage_cleanup`,
+`domain/services/privacy_service.py:3302–3369`) iteriert `_erasure_tenant_keys` (`:3532–3551`) = aktuelle
+Mitgliedschaften + Mandanten mit Schädlingsbeiträgen. Fotos, die die Person in einem **verlassenen** Mandanten
+hochgeladen hat (die Mitgliedschaft wird beim Austritt gelöscht, §1.2), werden nicht EXIF-nachgestrippt. Die
+collection-weite ArangoDB-Regel (`domain/engines/erasure_engine.py:358–378`, `data_access/arango/erasure_executor.py:51,
+387–421`) setzt danach `created_by` auf den Marker und leert den Dateinamen — **kein späterer Lauf findet sie mehr**.
+Relevant für Altbestand vor dem Upload-Strip, HEIC-Altbestand und Installationen mit `STORAGE_STRIP_EXIF=false`; die
+Inventarzusage „bei Löschung erneut entfernt [v]“ in `02` ist damit zu weit.
+
+**PRIV-138** [PROPOSED; PRA-2.13] Die Mandantenmenge jeder Folgearbeit einer Kontolöschung MUSS aus den Daten bestimmt
+werden, nicht aus aktuellen Mitgliedschaften (A-LC-3, `01` §3.5): für den EXIF-Strip aus `attachments` per
+`created_by == user_key` über alle Mandanten, analog zur unbegrenzten ArangoDB-Regel; Reihenfolge Strip vor Marker
+bleibt. Abnahme: Person lädt ein JPEG mit EXIF (Strip aus) in Mandant B hoch, verlässt B, löscht ihr Konto → Objekt in B
+ohne EXIF, `created_by = _anonymized`; `test_erasure_exif_strip_reach.py` um den Fall „verlassener Mandant“ erweitert.
+
+### 10.4 Fremde Fotos an externe Erkennungsdienste (LEG-40)
+
+**Ist (Audit 2026-11-22, P2, VERIFIED_CODE).** `POST …/photos/{attachment_id}/assess` lässt jedes Mitglied ab `grower`
+ein beliebiges Galeriefoto des Mandanten — auch eines anderen oder gelöschten Mitglieds — an den gewählten Adapter
+senden (`api/v1/plant_instances/photo_router.py:277–311`). Die Einwilligungsprüfung (`plant_identification`,
+Drittlandtransfer) erfolgt für `ctx.user_key`, nicht für Uploader oder Abgebildete
+(`domain/services/plant_photo_service.py:282–286, 314–343`; `_resolve_plant_attachment` `:94–118` prüft nur Mandant und
+Kategorie; ebenso `identification_service.py:99–118, 240–260`). EXIF ist nur entfernt, wenn `STORAGE_STRIP_EXIF` beim
+Upload an war; vor dem Versand gibt es keinen Re-Strip.
+
+**Bewertung.** Wessen Einwilligung (Art. 6 Abs. 1 lit. a, Art. 49 Abs. 1 lit. a bei Drittland) die Übermittlung eines
+fremden Fotos trägt, ist offen (LEGAL_REVIEW_REQUIRED); für reine Pflanzenfotos ohne Personenbezug unkritisch. Der
+Einwilligungs-Guard ist personen-, nicht datenbezogen.
+
+**Anforderung [PROPOSED; PRA-2.12].** Vor jedem externen Versand fail-closed `strip_exif` (strict) auf die Bytes
+(ohne Rechtsfreigabe); externe Bewertung nur für eigene Uploads **oder** mit Einwilligung des Uploaders (nach
+DSB-Antwort). Abnahme: Assess eines Fotos mit `created_by != user_key` auf externem Adapter → 403 (oder
+Uploader-Einwilligung geprüft); Adapter erhält nachweislich EXIF-freie Bytes auch bei `storage_strip_exif=False`.
+
+### 10.5 Fotos im maschinenlesbaren Datenschutzhinweis (LEG-22)
+
+**Ist (Audit 2026-11-22, `DOCUMENTATION_GAP`).** `get_privacy_policy` (`GET /privacy/policy`,
+`privacy_service.py:1981–2196`) kennt in `retention_summary` die Kategorien `account_data, harvest_records,
+treatment_records, inspection_records, unverified_accounts, ip_addresses, consent_records, export_files,
+erasure_records, email_change_requests, refresh_tokens` — **keine** Kategorie für Fotos/Anhänge, obwohl `02` Fotos als
+MED-Klasse führt. `docs/de/user-guide/privacy.md:78` sagt „Angaben zu Fotos und Dateien (ohne die Dateien selbst)“.
+
+**Anforderung [PROPOSED; PRA-2.18].** Zeile `photos_and_attachments` (Unterkategorien `location`,
+`garden_plan_underlay`, `plant`, `diary`/`ipm`/`harvest`/`task`, `pest_reference`, `id_recognition`) mit
+Rechtsgrundlage, Speicherdauer und Löschverhalten (aus §2.5 Zeile 12 und §10.1) in `RetentionCategoryInfo`; Guard „jede
+`AttachmentCategory` ist einer Policy-Zeile zugeordnet“; abgebildete Dritte als eigene Betroffenenkategorie im
+Verarbeitungsverzeichnis (`06`). Die Gliederung entscheidet der DSB.
