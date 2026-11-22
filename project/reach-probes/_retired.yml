@@ -1,0 +1,11 @@
+# Retirement manifest; written by capability-reach-audit retire, read by the runner.
+# A record takes effect only with an approval, once committed with or after the deletion.
+entries:
+  - id: endpoint-sites-plan-read-model-answers
+    reason: duplicate
+    detail: "Replaced by endpoint-sites-plan-read-model-answers-v2 (#3090): the file's history was broken by a move to drafts/ and back, so the runner judged it weakened; the same approved content lives on under the new id."
+    recorded_at: "2026-11-22T18:55:44Z"
+    last_revision: 3350642c2ad409e3f4081f2dd020f09de431cbbc
+    approval:
+      approved_at: "2026-11-22T18:55:44Z"
+      approved_by: "nolte"
