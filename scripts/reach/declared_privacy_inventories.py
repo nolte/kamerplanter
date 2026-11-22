@@ -7,7 +7,14 @@ paths call — ``DataExportEngine.build_export_manifest`` (the Art. 15 walk) and
 ``ErasureEngine.build_erasure_plan`` (the Art. 17 executor) — and prints, as
 JSON, the ArangoDB collections each one declares:
 
-* ``export-manifest`` — every disclosed source's collection and edge collection;
+* ``export-manifest`` — every disclosed source's collection and edge collection,
+  except the sources the query-log observation cannot see by construction: a
+  personal-tenant source (``personal_tenant_scope``, #2135 — the organisation-tenant
+  subject of the reach seed owns no personal garden, so nothing reads it) and a
+  time-series source (``time_series`` — served by TimescaleDB, not ArangoDB, so it
+  never appears in ArangoDB's query log). The exclusion reads the manifest's own
+  declaration of each source, not the query log, so the expectation stays outside
+  the code it audits (#3090);
 * ``erasure-plan`` — every ``edge`` / ``document`` / ``user`` step's collection
   and every anonymisation and audit-pseudonymisation rule's collection.
 
@@ -30,7 +37,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subject", required=True)
     args = parser.parse_args(argv)
 
-    manifest = [s for s in DataExportEngine().build_export_manifest(args.subject) if s.disclosure_gap is None]
+    manifest = [
+        s
+        for s in DataExportEngine().build_export_manifest(args.subject)
+        if s.disclosure_gap is None and s.personal_tenant_scope is None and s.time_series is None
+    ]
     export = {s.collection for s in manifest} | {s.edge_collection for s in manifest if s.edge_collection}
 
     plan = ErasureEngine().build_erasure_plan(args.subject)
