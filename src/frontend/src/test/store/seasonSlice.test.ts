@@ -283,6 +283,27 @@ describe('seasonSlice reducers', () => {
     expect(state.currentStatus).toBeNull();
     expect(state.profileLoading).toBe(true);
   });
+  it('a new profile read without a clear drops the in-flight status read (#3078)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('r1', 'plant-A'));
+    state = reducer(state, fetchOverwinteringStatus.pending('s1', 'plant-A'));
+    expect(state.statusLoading).toBe(true);
+    state = reducer(state, fetchOverwintering.pending('r2', 'plant-A'));
+    expect(state.statusLoading).toBe(false);
+    const staleStatus = {
+      has_profile: false,
+      hardiness_light: 'green',
+      will_materialize: false,
+      site_overwinterable: true,
+    } as const;
+    state = reducer(state, fetchOverwinteringStatus.fulfilled(staleStatus, 's1', 'plant-A'));
+    expect(state.currentStatus).toBeNull();
+  });
+
+  it('clearing resets the profile loading flag', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('r1', 'plant-A'));
+    state = reducer(state, clearCurrentProfile());
+    expect(state.profileLoading).toBe(false);
+  });
 });
 
 describe('seasonSlice thunks', () => {

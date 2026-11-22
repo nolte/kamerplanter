@@ -129,6 +129,7 @@ const seasonSlice = createSlice({
   reducers: {
     clearCurrentProfile(state) {
       state.currentProfile = null;
+      state.profileLoading = false;
       state.profileError = null;
       state.currentStatus = null;
       state.statusLoading = false;
