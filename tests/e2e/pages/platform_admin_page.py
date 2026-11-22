@@ -32,6 +32,9 @@ class PlatformAdminPage(BasePage):
     #: The tenant and user tables' edit buttons, keyed per row (``edit-tenant-<key>``).
     TENANT_EDIT_BUTTONS = (By.CSS_SELECTOR, "[data-testid^='edit-tenant-']")
     USER_EDIT_BUTTONS = (By.CSS_SELECTOR, "[data-testid^='edit-user-']")
+    PLANS_OPEN = (By.CSS_SELECTOR, "[data-testid='admin-plans-open']")
+    PLANS_PAGE = (By.CSS_SELECTOR, "[data-testid='admin-plans-page']")
+    PLANS_BACK = (By.CSS_SELECTOR, "[data-testid='plans-back']")
 
     def __init__(self, driver: WebDriver, base_url: str) -> None:
         super().__init__(driver, base_url)
@@ -75,3 +78,11 @@ class PlatformAdminPage(BasePage):
             self.is_visible_within(locator, timeout=timeout)
             for locator in (self.OIDC_CARD, self.TENANT_EDIT_BUTTONS, self.USER_EDIT_BUTTONS)
         )
+
+    def open_plans_and_return(self, timeout: int = DEFAULT_TIMEOUT) -> None:
+        """Open the plans page from the hub, then follow its back link to the hub."""
+        self.scroll_and_click(self.wait_for_element_clickable(self.PLANS_OPEN, timeout=timeout))
+        self.wait_for_content(self.PLANS_PAGE, "admin plans page", timeout=timeout)
+        self.scroll_and_click(self.wait_for_element_clickable(self.PLANS_BACK, timeout=timeout))
+        self.poll(timeout).until(EC.url_contains(self.PATH))
+        self.wait_for_content(self.PAGE, "platform admin hub after back link", timeout=timeout)

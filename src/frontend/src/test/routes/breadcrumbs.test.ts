@@ -78,19 +78,21 @@ describe('buildBreadcrumbs', () => {
     ]);
   });
 
-  it.each([
-    ['/admin/tenants/t-1', 'pages.auth.adminTenantsTitle'],
-    ['/admin/users/u-1', 'pages.auth.adminUsersTitle'],
-  ])('links the list crumb of %s to the hub, not to an unrouted list path', (path, label) => {
-    // `/admin/tenants` and `/admin/users` are no routes of their own — the lists
-    // are the hub's tables — so a crumb pointing at them would end on a 404.
-    expect(buildBreadcrumbs(path)).toEqual([
-      { label: 'nav.dashboard', path: '/dashboard' },
-      { label: 'nav.platformAdmin', path: '/admin/platform' },
-      { label, path: '/admin/platform' },
-      { label: 'nav.detail' },
-    ]);
-  });
+  it.each(['/admin/tenants/t-1', '/admin/users/u-1'])(
+    'resolves %s to the hub as its list crumb, once',
+    (path) => {
+      // `/admin/tenants` and `/admin/users` are no routes of their own — the lists
+      // are the hub's tables — so the list crumb is the hub, and it appears once.
+      const crumbs = buildBreadcrumbs(path);
+      expect(crumbs).toEqual([
+        { label: 'nav.dashboard', path: '/dashboard' },
+        { label: 'nav.platformAdmin', path: '/admin/platform' },
+        { label: 'nav.detail' },
+      ]);
+      const targets = crumbs.map((c) => c.path).filter(Boolean);
+      expect(new Set(targets).size).toBe(targets.length);
+    },
+  );
 
   it('no longer routes any admin page through the settings page', () => {
     for (const path of ['/admin/platform', '/admin/tenants/t-1', '/admin/users/u-1', '/admin/plans']) {

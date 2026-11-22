@@ -263,8 +263,9 @@ export interface PlatformAdminRoute {
  *
  * The survey is over the **axis**, not over the URL prefix: every frontend module
  * that calls an `/admin/...` path was traced to the pages that import it, and each
- * backend `/admin/**` operation read for its dependency. Six routes reach the
- * platform-admin gate, and only three of them are whole admin pages:
+ * backend `/admin/**` operation read for its dependency. Re-counted for F-12
+ * (#2935): nine routes reach the platform-admin gate, and six of them are whole
+ * admin pages:
  *
  * - `admin/platform` (F-12, #2935), `admin/tenants/:key`, `admin/users/:key`,
  *   `admin/oidc-providers` (#1906), `admin/plans` (#2142), `admin/tenant-imports` (#2138) —

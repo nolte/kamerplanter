@@ -4,12 +4,21 @@ Spec-TC Mapping (test -> spec/e2e-testcases/TC-REQ-023.md, Abschnitt 12):
   test_sidebar_entry_opens_the_hub     ->  TC-023-050  Platform-Admin-Panel sichtbar und ladbar
   test_member_sees_no_sidebar_entry    ->  TC-023-051  Nicht-Platform-Admin hat keinen Zugang
   test_member_is_refused_at_the_hub    ->  TC-023-051  Nicht-Platform-Admin hat keinen Zugang
+  test_admin_page_back_link_returns_to_the_hub  ->  TC-023-080  Admin-Seiten führen zurück
+  test_settings_page_has_no_platform_tab        ->  TC-023-081  Einstellungen ohne Plattform-Tab
+
+Full mode only: the admin pages and the member/admin split exist there (in light
+mode the sole operator is the platform admin). Accounts are chosen the way the
+rest of the suite chooses them: ``@pytest.mark.platform_admin`` switches the
+session browser to the seeded platform admin, no marker keeps it on the demo
+member (``ensure_authenticated`` in ``conftest.py``). Neither class carries
+``requires_auth`` — that marker makes ``ensure_authenticated`` skip the account
+switch, which would leave each test on whichever account the previous test on
+this worker had.
 
 The platform administration used to be the *platform* tab of the account
-settings page (the location TC-023-050/051 still name). It is now its own page,
-reached from a sidebar entry only platform admins see. The cases' intent — the
-admin panel is visible and loads for a platform admin, and nobody else reaches
-it or its data — is what these tests assert at the new location.
+settings page; it is now its own page, reached from a sidebar entry only
+platform admins see.
 """
 
 from __future__ import annotations
@@ -21,10 +30,33 @@ import pytest
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from .pages.account_settings_page import AccountSettingsPage
 from .pages.dashboard_page import DashboardPage
 from .pages.platform_admin_page import PlatformAdminPage
 
 SIDEBAR_SETTINGS_ENTRY = (By.CSS_SELECTOR, "[data-testid='nav-settings']")
+SETTINGS_PLATFORM_TAB = (By.CSS_SELECTOR, "[data-testid='settings-tab-platform']")
+SETTINGS_PROFILE_TAB = (By.CSS_SELECTOR, "[data-testid='settings-tab-profile']")
+
+
+@pytest.fixture(autouse=True)
+def _full_mode_only(app_mode: str) -> None:
+    """Skip outside full mode — light mode has no member/admin split and no admin pages."""
+    if app_mode != "full":
+        pytest.skip("platform admin hub E2E needs full mode (accounts, admin pages)")
+
+
+def _require_account(browser: WebDriver, expected: str) -> None:
+    """Fail unless ``ensure_authenticated`` put the browser on *expected* ("admin"/"demo").
+
+    The switch is the fixture's job; this only refuses to run a case as the wrong
+    user, which would pass the member case as an admin or the admin case as a
+    member without testing either.
+    """
+    actual = getattr(browser, "_kp_account", "demo")
+    assert actual == expected, (
+        f"Expected the session on the {expected!r} account, it is on {actual!r}"
+    )
 
 
 @pytest.fixture
@@ -37,10 +69,18 @@ def dashboard(browser: WebDriver, base_url: str) -> DashboardPage:
     return DashboardPage(browser, base_url)
 
 
+@pytest.fixture
+def account_settings(browser: WebDriver, base_url: str) -> AccountSettingsPage:
+    return AccountSettingsPage(browser, base_url)
+
+
 @pytest.mark.platform_admin
-@pytest.mark.requires_auth
 class TestPlatformAdminHub:
-    """A platform admin reaches the hub from the sidebar and it loads (F-12 acceptance-1, -4)."""
+    """A platform admin reaches the hub from the sidebar and it loads (F-12 acceptance-1, -3, -4)."""
+
+    @pytest.fixture(autouse=True)
+    def _as_platform_admin(self, browser: WebDriver) -> None:
+        _require_account(browser, "admin")
 
     def test_sidebar_entry_opens_the_hub(
         self,
@@ -65,10 +105,51 @@ class TestPlatformAdminHub:
             "Expected the hub to load the admin data (statistics, tenant and user tables)"
         )
 
+    def test_admin_page_back_link_returns_to_the_hub(
+        self,
+        hub: PlatformAdminPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-023-080: Admin-Seiten führen zur Plattform-Verwaltung zurück.
 
-@pytest.mark.requires_auth
+        Spec: TC-023-080 -- hub -> plans page -> back arrow lands on the hub again.
+        """
+        hub.open()
+        hub.open_plans_and_return()
+        screenshot("F-12_back-link-to-hub", "Plans page back link returned to the hub")
+
+        assert hub.driver.current_url.rstrip("/").endswith(PlatformAdminPage.PATH), (
+            f"Expected the back link to lead to the hub, got {hub.driver.current_url}"
+        )
+
+    def test_settings_page_has_no_platform_tab(
+        self,
+        account_settings: AccountSettingsPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-023-081: Kontoeinstellungen enthalten keine Plattform-Verwaltung mehr.
+
+        Spec: TC-023-081 -- the old #platform address opens the first tab, no platform tab.
+        """
+        account_settings.open(tab="platform")
+        account_settings.wait_for_element_visible(SETTINGS_PROFILE_TAB)
+        screenshot("F-12_settings-without-platform-tab", "Settings page after the move")
+
+        assert account_settings.is_absent_within(SETTINGS_PLATFORM_TAB), (
+            "Expected no platform tab on the settings page, also for a platform admin"
+        )
+
+
 class TestPlatformAdminHubRefusal:
-    """A member who is not a platform admin neither sees nor reaches the hub (F-12 acceptance-2)."""
+    """A member who is not a platform admin neither sees nor reaches the hub (F-12 acceptance-2).
+
+    No marker on purpose: ``ensure_authenticated`` then switches the session to
+    the demo member, an ordinary tenant member without the platform attribute.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _as_member(self, browser: WebDriver) -> None:
+        _require_account(browser, "demo")
 
     def test_member_sees_no_sidebar_entry(
         self,

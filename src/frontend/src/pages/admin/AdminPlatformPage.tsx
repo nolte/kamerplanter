@@ -138,7 +138,7 @@ export default function AdminPlatformPage() {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                 <HomeIcon color={KAMERPLANTER_MODE === 'light' ? 'primary' : 'action'} />
-                <Typography variant="h6">{t('pages.auth.platformModeLight')}</Typography>
+                <Typography variant="h6" component="h2">{t('pages.auth.platformModeLight')}</Typography>
                 {KAMERPLANTER_MODE === 'light' && (
                   <Chip icon={<CheckCircleIcon />} label={t('pages.auth.platformModeActive')} color="primary" size="small" />
                 )}
@@ -165,7 +165,7 @@ export default function AdminPlatformPage() {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                 <GroupIcon color={KAMERPLANTER_MODE === 'full' ? 'primary' : 'action'} />
-                <Typography variant="h6">{t('pages.auth.platformModeFull')}</Typography>
+                <Typography variant="h6" component="h2">{t('pages.auth.platformModeFull')}</Typography>
                 {KAMERPLANTER_MODE === 'full' && (
                   <Chip icon={<CheckCircleIcon />} label={t('pages.auth.platformModeActive')} color="primary" size="small" />
                 )}
@@ -186,7 +186,7 @@ export default function AdminPlatformPage() {
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
                 <BusinessIcon color="action" />
-                <Typography variant="h6">{t('pages.auth.platformModeEnterprise')}</Typography>
+                <Typography variant="h6" component="h2">{t('pages.auth.platformModeEnterprise')}</Typography>
                 <Chip icon={<ScheduleIcon />} label={t('pages.auth.platformModeComingSoon')} size="small" variant="outlined" />
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
@@ -233,7 +233,7 @@ export default function AdminPlatformPage() {
                 ] as const).map(({ value, label }) => (
                   <Card key={label} variant="outlined">
                     <CardContent sx={{ textAlign: 'center', py: 2, '&:last-child': { pb: 2 } }}>
-                      <Typography variant="h3" sx={{ fontWeight: 300 }}>{value}</Typography>
+                      <Typography variant="h3" component="p" sx={{ fontWeight: 300 }}>{value}</Typography>
                       <Typography variant="caption" color="text.secondary">{label}</Typography>
                     </CardContent>
                   </Card>
@@ -248,7 +248,7 @@ export default function AdminPlatformPage() {
               >
                 <VpnKeyIcon color="primary" aria-hidden />
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" component="h3">{t('pages.admin.oidc.navCardTitle')}</Typography>
+                  <Typography variant="h6" component="h2">{t('pages.admin.oidc.navCardTitle')}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {t('pages.admin.oidc.navCardDescription')}
                   </Typography>
@@ -270,7 +270,7 @@ export default function AdminPlatformPage() {
               >
                 <DataUsageIcon color="primary" aria-hidden />
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" component="h3">{t('pages.plans.navCardTitle')}</Typography>
+                  <Typography variant="h6" component="h2">{t('pages.plans.navCardTitle')}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {t('pages.plans.navCardDescription')}
                   </Typography>
@@ -293,7 +293,7 @@ export default function AdminPlatformPage() {
               >
                 <UnarchiveIcon color="primary" aria-hidden />
                 <Box sx={{ flex: 1 }}>
-                  <Typography variant="h6" component="h3">{t('pages.tenantImports.navCardTitle')}</Typography>
+                  <Typography variant="h6" component="h2">{t('pages.tenantImports.navCardTitle')}</Typography>
                   <Typography variant="body2" color="text.secondary">
                     {t('pages.tenantImports.navCardDescription')}
                   </Typography>
@@ -316,7 +316,7 @@ export default function AdminPlatformPage() {
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                     <ApartmentIcon color="primary" />
-                    <Typography variant="h6">{t('pages.auth.adminTenantsTitle')}</Typography>
+                    <Typography variant="h6" component="h2">{t('pages.auth.adminTenantsTitle')}</Typography>
                     <Chip label={adminTenants.length} size="small" />
                   </Box>
                   <TableContainer>
@@ -392,7 +392,7 @@ export default function AdminPlatformPage() {
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
                     <PeopleIcon color="primary" />
-                    <Typography variant="h6">{t('pages.auth.adminUsersTitle')}</Typography>
+                    <Typography variant="h6" component="h2">{t('pages.auth.adminUsersTitle')}</Typography>
                     <Chip label={adminUsers.length} size="small" />
                   </Box>
                   <TableContainer>

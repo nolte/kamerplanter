@@ -140,3 +140,19 @@ describe('AdminPlatformPage — the platform admin hub', () => {
     await waitFor(() => expect(statsCalls).toBe(2));
   });
 });
+
+describe('AdminPlatformPage — heading hierarchy', () => {
+  it('puts every card heading one level below the page title (no skipped levels)', async () => {
+    serveAdminData();
+    renderWithProviders(<AdminPlatformPage />, { store: adminStore(), route: '/admin/platform' });
+    await screen.findByTestId('edit-user-usr-1');
+    await screen.findByTestId('pest-contributions-admin-card');
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    // Mode cards (3), launchers (3), tenant + user tables (2), moderation card (1).
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThanOrEqual(9);
+    for (const level of [3, 4, 5, 6]) {
+      expect(screen.queryAllByRole('heading', { level })).toHaveLength(0);
+    }
+  });
+});
