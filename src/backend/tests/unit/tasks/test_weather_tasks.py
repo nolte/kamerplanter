@@ -1,18 +1,24 @@
 """Unit tests for the REQ-046 ``fetch_weather_forecasts`` Celery task.
 
 Mocks ``app.common.dependencies`` (imported lazily inside the task body) and
-stubs the resolver so no real adapter / HTTP / DB is touched.
+stubs the resolver so no real adapter / HTTP / DB is touched. The fetch service
+is the real :class:`WeatherFetchService` over in-memory doubles, so the due-check,
+the running lock and the recorded run are the production code (#2934).
 """
 
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import ModuleType, SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
+from app.common.enums import WeatherFetchTrigger
 from app.domain.models.weather import WeatherForecast
+from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
+from app.domain.services.weather_fetch_service import WeatherFetchService
 from tests.support.ha_entity_grants import grant_service
+from tests.support.weather_fetch_doubles import FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo
 
 
 @pytest.fixture
@@ -27,9 +33,17 @@ def task_module(monkeypatch):
     # REQ-056 §5.2: every tenant here is active (a MagicMock tenant reads ``is_active``).
     mock_deps.get_tenant_repo = MagicMock()  # type: ignore[attr-defined]
     mock_deps._effective_weather_settings = MagicMock()  # type: ignore[attr-defined]
+    mock_deps.status_repo = InMemoryWeatherFetchStatusRepo()  # type: ignore[attr-defined]
+    mock_deps.gate = FakeWeatherFetchGate()  # type: ignore[attr-defined]
+    mock_deps.get_weather_fetch_service = lambda: WeatherFetchService(  # type: ignore[attr-defined]
+        mock_deps.status_repo, mock_deps.gate, interval_hours=lambda: 6
+    )
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
     import app.tasks.weather_tasks as module
+
+    mock_deps.followups = MagicMock()  # type: ignore[attr-defined]
+    monkeypatch.setattr(module, "_dispatch_followups", mock_deps.followups)
 
     yield module, mock_deps
 
@@ -155,3 +169,205 @@ class TestFetchWeatherForecasts:
 
         assert result == {"status": "ok", "written": 0, "skipped": 1, "errors": 0}
         forecast_repo.upsert_daily.assert_not_called()
+
+
+def _forecast() -> WeatherForecast:
+    return WeatherForecast(
+        site_key="",
+        forecast_date=datetime.now(tz=UTC).date(),
+        source="open-meteo",
+        fetched_at=datetime.now(tz=UTC),
+        data_kind="forecast",
+    )
+
+
+def _two_sites(deps, monkeypatch, outcomes: dict[str, object]) -> MagicMock:
+    """Two sites; ``outcomes[site_key]`` is a forecast list or an exception to raise."""
+    from app.domain.services import weather_source_resolver as mod
+
+    config_repo = MagicMock()
+    config_repo._db.aql.execute.return_value = iter(
+        [{"site_key": key, "tenant_key": "t1"} for key in ("site1", "site2")]
+    )
+    config_repo._from_doc.side_effect = lambda doc: doc
+    deps.get_weather_source_config_repo.return_value = config_repo
+    forecast_repo = MagicMock()
+    deps.get_weather_forecast_repo.return_value = forecast_repo
+    deps.get_site_repo.return_value.get_site_by_key.side_effect = lambda key: SimpleNamespace(
+        key=key, gps_coordinates=(52.5, 13.4), tenant_key="t1"
+    )
+
+    class _Resolver:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def resolve_daily(self, site, cfg):
+            outcome = outcomes[site.key]
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    monkeypatch.setattr(mod, "WeatherSourceResolver", _Resolver)
+    return forecast_repo
+
+
+def _succeeded(hours_ago: float) -> WeatherFetchRun:
+    started = datetime.now(tz=UTC) - timedelta(hours=hours_ago)
+    return WeatherFetchRun(
+        trigger=WeatherFetchTrigger.SCHEDULED, started_at=started, finished_at=started, success=True, sites=1
+    )
+
+
+class TestDueCheck:
+    """acceptance-2 — the hourly beat fetches only when the interval has passed."""
+
+    def test_not_due_returns_early_without_touching_a_source(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.status_repo.status = WeatherFetchStatus(last_success=_succeeded(2))
+
+        result = module.fetch_weather_forecasts()
+
+        assert result == {"status": "skipped", "reason": "not_due"}
+        deps.get_weather_source_config_repo.assert_not_called()
+        assert deps.status_repo.recorded == []
+        assert deps.gate.lock_ttls == []
+
+    def test_due_after_the_interval(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.status_repo.status = WeatherFetchStatus(last_success=_succeeded(6))
+        _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": [_forecast()]})
+
+        result = module.fetch_weather_forecasts()
+
+        assert result["status"] == "ok"
+        assert deps.status_repo.recorded[-1].success
+
+    def test_failed_last_run_is_retried_by_the_next_tick(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        _two_sites(deps, monkeypatch, {"site1": RuntimeError("down"), "site2": RuntimeError("down")})
+
+        first = module.fetch_weather_forecasts()
+        assert first["status"] == "failed"
+        assert deps.status_repo.status.last_success is None
+
+        _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": RuntimeError("down")})
+        second = module.fetch_weather_forecasts()
+
+        assert second["status"] == "ok"
+        assert deps.status_repo.status.last_success is not None
+
+    def test_manual_run_skips_the_due_check(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.status_repo.status = WeatherFetchStatus(last_success=_succeeded(1))
+        _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": [_forecast()]})
+
+        result = module.fetch_weather_forecasts(trigger="manual")
+
+        assert result["status"] == "ok"
+        run = deps.status_repo.recorded[-1]
+        assert run.trigger is WeatherFetchTrigger.MANUAL
+        # acceptance-4: a successful manual run restarts the interval.
+        assert deps.status_repo.status.last_success == run
+
+    def test_a_held_lock_skips_the_run(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.gate.running = True
+
+        result = module.fetch_weather_forecasts(trigger="manual")
+
+        assert result == {"status": "skipped", "reason": "already_running"}
+        deps.get_weather_source_config_repo.assert_not_called()
+
+    def test_the_run_holds_the_lock_and_releases_it(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        seen: list[bool] = []
+        repo = _two_sites(deps, monkeypatch, {"site1": [_forecast()], "site2": [_forecast()]})
+        repo.upsert_daily.side_effect = lambda _r: seen.append(deps.gate.running)
+
+        module.fetch_weather_forecasts()
+
+        assert seen and all(seen)
+        assert deps.gate.running is False
+
+
+class TestSuccessDefinition:
+    """acceptance-3 — only a successful run queues frost and irrigation."""
+
+    def test_every_site_failed_is_a_failure_without_followups(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        _two_sites(deps, monkeypatch, {"site1": RuntimeError("a"), "site2": RuntimeError("b")})
+
+        result = module.fetch_weather_forecasts()
+
+        assert result == {"status": "failed", "written": 0, "skipped": 0, "errors": 2}
+        run = deps.status_repo.recorded[-1]
+        assert (run.success, run.sites, run.sites_written, run.sites_failed) == (False, 2, 0, 2)
+        deps.followups.assert_not_called()
+
+    def test_one_written_site_is_a_success_that_queues_the_followups(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        _two_sites(deps, monkeypatch, {"site1": [_forecast(), _forecast()], "site2": RuntimeError("b")})
+
+        result = module.fetch_weather_forecasts()
+
+        assert result == {"status": "ok", "written": 2, "skipped": 0, "errors": 1}
+        run = deps.status_repo.recorded[-1]
+        assert (run.success, run.sites, run.sites_written, run.sites_failed, run.forecasts_written) == (
+            True,
+            2,
+            1,
+            1,
+            2,
+        )
+        deps.followups.assert_called_once_with()
+
+    def test_no_configured_site_is_a_success(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.get_weather_source_config_repo.return_value._db.aql.execute.return_value = iter([])
+
+        result = module.fetch_weather_forecasts()
+
+        assert result["status"] == "ok"
+        assert deps.status_repo.recorded[-1].success
+        deps.followups.assert_called_once_with()
+
+    def test_a_runtime_error_is_recorded_as_failure_and_releases_the_lock(self, task_module, monkeypatch):
+        module, deps = task_module
+        monkeypatch.setattr(module.settings, "weather_enabled", True, raising=False)
+        deps.get_weather_source_config_repo.return_value._db.aql.execute.side_effect = OSError("db gone")
+
+        with pytest.raises(OSError):
+            module.fetch_weather_forecasts()
+
+        run = deps.status_repo.recorded[-1]
+        assert (run.success, run.error_type) == (False, "OSError")
+        assert deps.gate.running is False
+        deps.followups.assert_not_called()
+
+
+def test_followups_queue_frost_and_irrigation(monkeypatch):
+    """R4: the real dispatcher queues both tasks; irrigation respects its own kill-switch."""
+    import app.tasks.weather_tasks as module
+    from app.tasks import frost_forecast_tasks, irrigation_tasks
+
+    frost = MagicMock()
+    irrigation = MagicMock()
+    monkeypatch.setattr(frost_forecast_tasks.evaluate_forecast_frost_warnings, "delay", frost)
+    monkeypatch.setattr(irrigation_tasks.compute_irrigation_demand, "delay", irrigation)
+
+    monkeypatch.setattr(module.settings, "irrigation_demand_enabled", True, raising=False)
+    module._dispatch_followups()
+    monkeypatch.setattr(module.settings, "irrigation_demand_enabled", False, raising=False)
+    module._dispatch_followups()
+
+    assert frost.call_count == 2
+    assert irrigation.call_count == 1

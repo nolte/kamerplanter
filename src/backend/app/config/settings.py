@@ -593,6 +593,10 @@ class Settings(BaseSettings):
     dwd_enabled: bool = True
     openweathermap_enabled: bool = True
     weather_fetch_timeout_s: int = 20
+    # REQ-046 §3.6a (#2934) — hours between two successful weather fetches. An hourly
+    # beat asks whether one is due; the platform admin's DB value overrides this one.
+    # 6 is the minimum (provider quota) and the default; 168 (one week) the maximum.
+    weather_fetch_interval_hours: int = Field(default=6, ge=6, le=168)
     weather_max_rps_per_provider: float = 1.0
 
     # REQ-041 NASA POWER — global, keyless reanalysis source for daily values and

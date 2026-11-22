@@ -631,17 +631,16 @@ if settings.timescaledb_enabled:
         "schedule": 300,
     }
 
-# REQ-046 daily weather fetch (conditional kill-switch)
+# REQ-046 §3.6a weather fetch (conditional kill-switch, #2934). The beat ticks hourly;
+# the task itself returns early unless ``fetch_interval_hours`` (platform-admin
+# setting, minimum 6) have passed since the last successful fetch, so a changed
+# interval applies without a restart. After every successful fetch the task queues
+# the frost early-warning (#392) and the irrigation demand (REQ-037) — neither has a
+# beat slot of its own any more.
 if settings.weather_enabled:
-    celery_app.conf.beat_schedule["weather-fetch-daily"] = {
+    celery_app.conf.beat_schedule["weather-fetch-hourly-check"] = {
         "task": "app.tasks.weather_tasks.fetch_weather_forecasts",
-        "schedule": crontab(hour=6, minute=0),
-    }
-    # Issue #392 — proactive frost early-warning, evaluated shortly after the
-    # daily fetch has persisted fresh forecasts.
-    celery_app.conf.beat_schedule["frost-forecast-evaluate-daily"] = {
-        "task": "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
-        "schedule": crontab(hour=6, minute=10),
+        "schedule": crontab(minute=0),
     }
     # REQ-041 — NASA POWER climate normals, refreshed monthly (1st, 04:00 UTC).
     # Near-static data guarded by an in-task TTL, so the beat is cheap.
@@ -658,14 +657,6 @@ if settings.weather_enabled:
                 "schedule": crontab(day_of_month=1, month_of_year="1,4,7,10", hour=5, minute=0),
             }
 
-    # REQ-037 — materialise the daily irrigation demand 15 min after the weather
-    # fetch has persisted fresh forecasts.
-    if settings.irrigation_demand_enabled:
-        celery_app.conf.beat_schedule["irrigation-demand-compute-daily"] = {
-            "task": "app.tasks.irrigation_tasks.compute_irrigation_demand",
-            "schedule": crontab(hour=6, minute=15),
-        }
-
 # REQ-018 environment-control loop (opt-in kill-switch)
 if settings.actuator_control_loop_enabled:
     celery_app.conf.beat_schedule["actuator-evaluate-control-rules-30s"] = {
@@ -681,7 +672,8 @@ if settings.actuator_control_loop_enabled:
         "schedule": 300,
     }
 
-# REQ-047 daily season-state evaluation (after the weather fetch; kill-switch)
+# REQ-047 daily season-state evaluation (kill-switch). Reads the newest stored
+# forecast; not tied to a weather fetch time since the fetch runs on an interval (#2934).
 if settings.season_state_eval_enabled:
     celery_app.conf.beat_schedule["season-evaluate-states-daily"] = {
         "task": "app.tasks.season_tasks.evaluate_season_states",

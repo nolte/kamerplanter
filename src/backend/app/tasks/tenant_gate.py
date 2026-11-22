@@ -67,9 +67,7 @@ TENANT_WRITING_BEATS: frozenset[str] = frozenset(
         "app.tasks.actuator_tasks.sync_actuator_states",
         "app.tasks.care_tasks.generate_due_care_reminders",
         "app.tasks.climate_tasks.fetch_climate_normals",
-        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
         "app.tasks.hardiness_tasks.refresh_site_hardiness_zones",
-        "app.tasks.irrigation_tasks.compute_irrigation_demand",
         "app.tasks.season_tasks.evaluate_quarter_climate",
         "app.tasks.season_tasks.evaluate_season_states",
         "app.tasks.sensor_ingestion_tasks.ingest_ha_readings",
@@ -86,6 +84,18 @@ TENANT_WRITING_BEATS: frozenset[str] = frozenset(
         "notifications.escalate_overdue",
         "notifications.send_daily_summary",
         "notifications.send_email_digests",
+    }
+)
+
+#: Tenant-writing tasks without a beat slot of their own: ``fetch_weather_forecasts``
+#: queues them after every successful fetch (#2934, REQ-056 AK-07). They write into
+#: tenants like a beat does and ask :class:`ActiveTenants` themselves;
+#: ``tests/unit/guards/test_beats_skip_inactive_tenants.py`` holds them to that and to
+#: staying off the schedule (a beat entry would move them into ``TENANT_WRITING_BEATS``).
+TENANT_WRITING_CHAINED_TASKS: frozenset[str] = frozenset(
+    {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
     }
 )
 

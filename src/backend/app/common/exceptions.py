@@ -1460,3 +1460,54 @@ class DiaryAnalysisLeaseExpiredError(ContractError):
             status_code=409,
             details={"entry_key": entry_key},
         )
+
+
+class WeatherFetchRunningError(KamerplanterError):
+    """REQ-046 §3.6a (#2934) — a manual fetch while a fetch runs (HTTP 409, NFR-006)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="A weather fetch is already running. Try again when it has finished.",
+            error_code="WEATHER_FETCH_RUNNING",
+            status_code=409,
+            details=[{"field": "weather_fetch", "reason": "A fetch is running.", "code": "WEATHER_FETCH_RUNNING"}],
+        )
+
+
+class WeatherFetchCooldownError(RateLimitError):
+    """REQ-046 §3.6a (#2934) — a manual fetch inside the cooldown (HTTP 429 + ``Retry-After``, NFR-007).
+
+    ``retry_after`` is the number of seconds until the cooldown after the previous
+    manual fetch ends; the error handler sends it as ``Retry-After``.
+    """
+
+    def __init__(self, retry_after: int) -> None:
+        KamerplanterError.__init__(
+            self,
+            message=f"A manual weather fetch was started recently. Retry after {retry_after}s.",
+            error_code="WEATHER_FETCH_COOLDOWN",
+            status_code=429,
+            details=[
+                {
+                    "field": "weather_fetch",
+                    "reason": "The cooldown after the previous manual fetch is running.",
+                    "code": "WEATHER_FETCH_COOLDOWN",
+                }
+            ],
+        )
+        self.retry_after = retry_after
+
+
+class WeatherFetchUnavailableError(KamerplanterError):
+    """REQ-046 §3.6a (#2934) — the fetch lock cannot be checked (HTTP 503).
+
+    Lock and cooldown live in Valkey. Without them a manual fetch could run next
+    to another one or skip the cooldown, so the trigger fails closed.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="The weather fetch cannot be started right now. Try again shortly.",
+            error_code="WEATHER_FETCH_UNAVAILABLE",
+            status_code=503,
+        )

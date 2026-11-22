@@ -160,7 +160,7 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 
 | Funktion | Benötigte Dienste | Aktivierung/Deaktivierung | Pflicht-Secrets/Voraussetzungen | Ressourcenauswirkung | Startup-Gate? |
 |---|---|---|---|---|---|
-| Wetterquellen-Abholung (Gesamtschalter) <!-- REQ-046 --> | Backend + Celery Beat | `WEATHER_ENABLED=true` (Default `false`) | — | zusätzliche Celery-Beat-Tasks, kein Zusatz-Pod | Nein |
+| Wetterquellen-Abholung (Gesamtschalter) <!-- REQ-046 --> | Backend + Celery Beat | `WEATHER_ENABLED=true` (Default `false`); Abrufintervall `WEATHER_FETCH_INTERVAL_HOURS` (Default und Minimum `6`) | — | zusätzliche Celery-Beat-Tasks, kein Zusatz-Pod | Nein |
 | Öffentliche Quelle: Open-Meteo | Backend | `OPEN_METEO_ENABLED=true` (Default) — Instanz-Default, pro Standort/Platform-Admin überschreibbar | — | — | Nein |
 | Öffentliche Quelle: DWD/Bright Sky | Backend | `DWD_ENABLED=true` (Default) — Instanz-Default | — | — | Nein |
 | Öffentliche Quelle: OpenWeatherMap | Backend | `OPENWEATHERMAP_ENABLED=true` (Default) — Instanz-Default | — | — | Nein |
@@ -168,7 +168,7 @@ Instanzweite Freischaltung (`AI_FEATURES_ENABLED=true`) reicht allein nicht: Ein
 | Reaktive Frost-Warnung (aktuelle Messung) | Backend | Immer aktiv, kein Schalter — nur `FROST_WARNING_THRESHOLD_CELSIUS` konfigurierbar | — | — | Nein |
 | Klimanormalen (NASA POWER) <!-- REQ-041 --> | Celery Beat | Benötigt `WEATHER_ENABLED=true` **und** `NASA_POWER_CLIMATE_ENABLED=true` (Default) | — | monatlicher Celery-Task | Nein |
 | Winterhärtezonen-Refresh (USDA) <!-- REQ-039 --> | Celery Beat | Benötigt die Klimanormalen (siehe oben) **und** `HARDINESS_ZONE_REFRESH_ENABLED=true` (Default) | — | vierteljährlicher Celery-Task | Nein |
-| Bewässerungsbedarf (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Benötigt `WEATHER_ENABLED=true` **und** `IRRIGATION_DEMAND_ENABLED=true` (Default) | — | täglicher Celery-Task | Nein |
+| Bewässerungsbedarf (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Benötigt `WEATHER_ENABLED=true` **und** `IRRIGATION_DEMAND_ENABLED=true` (Default) | — | Celery-Task nach jedem erfolgreichen Wetterabruf | Nein |
 | Saison-/Überwinterungs-Automatik <!-- REQ-047 --> | Celery Beat | `SEASON_STATE_EVAL_ENABLED=true` (Default) — nutzt zusätzlich die Live-Frost-Vorhersage, wenn `WEATHER_ENABLED=true` gesetzt ist | — | täglicher Celery-Task | Nein |
 
 ---

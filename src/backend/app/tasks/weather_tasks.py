@@ -1,28 +1,136 @@
-"""REQ-046 §3.6 — Celery task that fetches daily weather per configured site.
+"""REQ-046 §3.6 / §3.6a — Celery task that fetches daily weather per configured site.
 
 Iterates every ``:WeatherSourceConfig`` (cross-tenant), loads the owning site,
 resolves the prioritised source chain via :class:`WeatherSourceResolver` and
 upserts the resulting :class:`WeatherForecast` records. ``source`` / ``data_kind``
 carry the source that actually produced the data (public forecast or HA
 observed). Guarded by the ``weather_enabled`` kill-switch.
+
+Schedule (#2934): the beat starts the task **hourly**; a scheduled run returns early
+unless ``fetch_interval_hours`` have passed since the newest successful run
+(:meth:`WeatherFetchService.is_due`). A manual run (platform admin) skips that
+check. Every run holds the running lock, records its result in the status document
+and — only when it succeeded (:func:`is_successful_run`) — queues the frost
+early-warning and the irrigation demand, which no longer have beat slots of their
+own. A failed run is not retried by Celery: the next hourly tick is the retry.
 """
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
 
 import structlog
 
 from app.common.async_bridge import run_async
+from app.common.datetimes import now_utc
+from app.common.enums import WeatherFetchTrigger
 from app.common.log_privacy import log_tenant, loggable_error
 from app.config.settings import settings
+from app.domain.models.weather_fetch import WeatherFetchRun, is_successful_run
 from app.tasks import celery_app
 
 logger = structlog.get_logger(__name__)
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
-def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task self
-    """Fetch and store daily weather for every configured, enabled site."""
+@dataclass
+class _FetchOutcome:
+    sites: int = 0
+    sites_written: int = 0
+    skipped: int = 0
+    written: int = 0
+    errors: list[dict[str, str]] = field(default_factory=list)
+
+
+# No Celery retry (#2934): a failed run is retried by the next hourly due-check.
+@celery_app.task(bind=True, max_retries=0)
+def fetch_weather_forecasts(self, trigger: str = WeatherFetchTrigger.SCHEDULED.value) -> dict:  # noqa: ANN001 — Celery bound-task self
+    """Fetch and store daily weather for every configured, enabled site when a fetch is due."""
     if not settings.weather_enabled:
         return {"status": "skipped", "reason": "weather_disabled"}
 
+    from app.common.dependencies import get_weather_fetch_service
+
+    run_trigger = WeatherFetchTrigger(trigger)
+    fetch_service = get_weather_fetch_service()
+    if run_trigger is WeatherFetchTrigger.SCHEDULED and not fetch_service.is_due():
+        return {"status": "skipped", "reason": "not_due"}
+
+    token = fetch_service.acquire_run_lock()
+    if token is None:
+        logger.info("weather_fetch_already_running", trigger=run_trigger.value)
+        return {"status": "skipped", "reason": "already_running"}
+    if not token:
+        # Valkey is down: fetch unlocked rather than leave every site without weather.
+        logger.warning("weather_fetch_unlocked", trigger=run_trigger.value)
+
+    started_at = now_utc()
+    try:
+        try:
+            outcome = _fetch_all_sites()
+        except Exception as exc:
+            fetch_service.record_run(
+                WeatherFetchRun(
+                    trigger=run_trigger,
+                    started_at=started_at,
+                    finished_at=now_utc(),
+                    success=False,
+                    error_type=type(exc).__name__,
+                )
+            )
+            logger.error("weather_fetch_aborted", trigger=run_trigger.value, error=loggable_error(exc))
+            raise
+        success = is_successful_run(aborted=False, sites=outcome.sites, sites_written=outcome.sites_written)
+        fetch_service.record_run(
+            WeatherFetchRun(
+                trigger=run_trigger,
+                started_at=started_at,
+                finished_at=now_utc(),
+                success=success,
+                sites=outcome.sites,
+                sites_written=outcome.sites_written,
+                sites_failed=len(outcome.errors),
+                sites_skipped=outcome.skipped,
+                forecasts_written=outcome.written,
+            )
+        )
+    finally:
+        fetch_service.release_run_lock(token)
+
+    if success:
+        _dispatch_followups()
+    logger.info(
+        "weather_fetch_complete",
+        trigger=run_trigger.value,
+        success=success,
+        written=outcome.written,
+        skipped=outcome.skipped,
+        errors=len(outcome.errors),
+    )
+    return {
+        "status": "ok" if success else "failed",
+        "written": outcome.written,
+        "skipped": outcome.skipped,
+        "errors": len(outcome.errors),
+    }
+
+
+def _dispatch_followups() -> None:
+    """Queue the frost early-warning and the irrigation demand after a successful fetch (R4).
+
+    Both are idempotent per site and day, so up to four fetches a day duplicate
+    nothing. Each task keeps its own kill-switch and ``ActiveTenants`` gate.
+    """
+    from app.tasks.frost_forecast_tasks import evaluate_forecast_frost_warnings
+    from app.tasks.irrigation_tasks import compute_irrigation_demand
+
+    evaluate_forecast_frost_warnings.delay()
+    if settings.irrigation_demand_enabled:
+        compute_irrigation_demand.delay()
+
+
+def _fetch_all_sites() -> _FetchOutcome:
+    """One pass over every enabled source config; one failing site never aborts the pass."""
     from app.common.dependencies import (
         _effective_weather_settings,
         get_encryption_engine,
@@ -59,15 +167,12 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
         bind_vars={"@col": WEATHER_SOURCE_CONFIGS},
     )
 
-    written = 0
-    skipped = 0
-    errors: list[dict] = []
-
+    outcome = _FetchOutcome()
     for doc in cursor:
         config = WeatherSourceConfig(**config_repo._from_doc(doc))  # noqa: SLF001
         site = site_repo.get_site_by_key(config.site_key)
         if site is None or site.gps_coordinates is None:
-            skipped += 1
+            outcome.skipped += 1
             continue
         # SEC-002: defense-in-depth — a config's tenant_key must match its site's.
         # The API save-path guarantees this, but never write forecasts under a
@@ -79,22 +184,25 @@ def fetch_weather_forecasts(self) -> dict:  # noqa: ANN001 — Celery bound-task
                 config_tenant=log_tenant(config.tenant_key),
                 site_tenant=log_tenant(site.tenant_key),
             )
-            skipped += 1
+            outcome.skipped += 1
             continue
         if not tenant_is_active(site.tenant_key):
-            skipped += 1
+            outcome.skipped += 1
             continue
+        outcome.sites += 1
         try:
-            forecasts = run_async(resolver.resolve_daily(site, config))
+            forecasts: list[Any] = run_async(resolver.resolve_daily(site, config))
         except Exception as exc:  # noqa: BLE001 — one bad site must not abort the run
             logger.warning("weather_fetch_site_failed", site_key=config.site_key, error=loggable_error(exc))
-            errors.append({"site_key": config.site_key, "error": str(exc)})
+            outcome.errors.append({"site_key": config.site_key, "error": type(exc).__name__})
             continue
 
+        site_written = 0
         for forecast in forecasts:
             record = forecast.model_copy(update={"site_key": config.site_key, "tenant_key": site.tenant_key})
             forecast_repo.upsert_daily(record)
-            written += 1
-
-    logger.info("weather_fetch_complete", written=written, skipped=skipped, errors=len(errors))
-    return {"status": "ok", "written": written, "skipped": skipped, "errors": len(errors)}
+            site_written += 1
+        if site_written:
+            outcome.sites_written += 1
+            outcome.written += site_written
+    return outcome

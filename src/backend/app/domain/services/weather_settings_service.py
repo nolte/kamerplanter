@@ -8,7 +8,7 @@ Home-Assistant DB-override + env-fallback pattern
 Owns three concerns:
 
 * **Effective resolution** — per provider ``enabled`` + ``base_url`` and the
-  global ``fetch_timeout_s`` / ``default_public_source``, layering the DB
+  global ``fetch_timeout_s`` / ``fetch_interval_hours`` / ``default_public_source``, layering the DB
   override (``SystemSettings.weather_providers``) on top of the env defaults.
 * **Secret handling** — the global OpenWeatherMap fallback key is Fernet-
   encrypted (via :class:`EncryptionEngine`) and stored as ciphertext. A new
@@ -35,6 +35,7 @@ from app.common.log_privacy import loggable_error
 from app.config.settings import settings as env_settings
 from app.domain.models.system_settings import SystemSettings, WeatherProviderSettings
 from app.domain.models.weather import WeatherForecast
+from app.domain.models.weather_fetch import MAX_FETCH_INTERVAL_HOURS, MIN_FETCH_INTERVAL_HOURS
 from app.domain.services.weather_adapter_registry import WeatherAdapterRegistry
 
 if TYPE_CHECKING:
@@ -74,10 +75,21 @@ class EffectiveWeatherSettings(BaseModel):
     providers: dict[str, EffectiveWeatherProvider] = Field(default_factory=dict)
     openweathermap_global_api_key: str | None = None
     fetch_timeout_s: int = 20
+    fetch_interval_hours: int = MIN_FETCH_INTERVAL_HOURS
     default_public_source: str = "open-meteo"
 
     def provider(self, source_name: str) -> EffectiveWeatherProvider | None:
         return self.providers.get(source_name)
+
+
+def _effective_interval(db_value: int | None) -> int:
+    """The fetch interval in hours: DB override over env, never below the minimum.
+
+    The API refuses a smaller value (422) and the env setting has ``ge=6``; the clamp
+    keeps a document written by some other path from fetching more often anyway.
+    """
+    value = db_value if db_value is not None else env_settings.weather_fetch_interval_hours
+    return max(MIN_FETCH_INTERVAL_HOURS, min(MAX_FETCH_INTERVAL_HOURS, int(value)))
 
 
 class WeatherProviderTestResult(BaseModel):
@@ -110,6 +122,7 @@ def env_effective_weather_settings() -> EffectiveWeatherSettings:
         },
         openweathermap_global_api_key=None,
         fetch_timeout_s=env_settings.weather_fetch_timeout_s,
+        fetch_interval_hours=env_settings.weather_fetch_interval_hours,
         default_public_source=env_settings.weather_default_public_source,
     )
 
@@ -174,6 +187,7 @@ class WeatherSettingsService:
             fetch_timeout_s=(
                 wp.fetch_timeout_s if wp.fetch_timeout_s is not None else env_settings.weather_fetch_timeout_s
             ),
+            fetch_interval_hours=_effective_interval(wp.fetch_interval_hours),
             default_public_source=(wp.default_public_source or env_settings.weather_default_public_source),
         )
 
@@ -194,13 +208,21 @@ class WeatherSettingsService:
         openweathermap_base_url: str | None = None,
         openweathermap_global_api_key: str | None = None,
         fetch_timeout_s: int | None = None,
+        fetch_interval_hours: int | None = None,
         default_public_source: str | None = None,
     ) -> SystemSettings:
         """Persist the provider overrides (DB override, env fallback preserved).
 
-        Raises ``ValueError`` for an unknown ``default_public_source`` so the API
-        layer can map it to a 422 rather than persist an unusable default.
+        Raises ``ValueError`` for an unknown ``default_public_source`` or a
+        ``fetch_interval_hours`` outside ``MIN..MAX_FETCH_INTERVAL_HOURS`` so the API
+        layer can map it to a 422 rather than persist an unusable value.
         """
+        if fetch_interval_hours is not None and not (
+            MIN_FETCH_INTERVAL_HOURS <= fetch_interval_hours <= MAX_FETCH_INTERVAL_HOURS
+        ):
+            raise ValueError(
+                f"fetch_interval_hours must be between {MIN_FETCH_INTERVAL_HOURS} and {MAX_FETCH_INTERVAL_HOURS}.",
+            )
         if default_public_source is not None and default_public_source not in WEATHER_PROVIDER_NAMES:
             raise ValueError(
                 f"Unknown weather source '{default_public_source}'. Allowed: {', '.join(WEATHER_PROVIDER_NAMES)}.",
@@ -223,6 +245,8 @@ class WeatherSettingsService:
             wp.openweathermap_base_url = openweathermap_base_url
         if fetch_timeout_s is not None:
             wp.fetch_timeout_s = fetch_timeout_s
+        if fetch_interval_hours is not None:
+            wp.fetch_interval_hours = fetch_interval_hours
         if default_public_source is not None:
             wp.default_public_source = default_public_source
 

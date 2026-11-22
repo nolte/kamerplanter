@@ -11,9 +11,11 @@ Covers:
     non-admin; light mode lets the anonymous system user through).
 """
 
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from cryptography.fernet import Fernet
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -22,13 +24,16 @@ from fastapi.testclient import TestClient
 from app.api.v1.admin.weather_providers.router import router as weather_router
 from app.common import auth as auth_mod
 from app.common.auth import require_platform_admin
-from app.common.dependencies import get_weather_settings_service
-from app.common.enums import TenantRole
+from app.common.dependencies import get_weather_fetch_service, get_weather_settings_service
+from app.common.enums import TenantRole, WeatherFetchTrigger
 from app.common.error_handlers import app_error_handler, validation_error_handler
 from app.common.exceptions import KamerplanterError
 from app.domain.engines.encryption_engine import EncryptionEngine
 from app.domain.models.system_settings import SystemSettings, WeatherProviderSettings
+from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
+from app.domain.services.weather_fetch_service import WeatherFetchService
 from app.domain.services.weather_settings_service import WeatherSettingsService
+from tests.support.weather_fetch_doubles import FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo
 
 
 def _set_env(env: MagicMock) -> None:
@@ -39,6 +44,7 @@ def _set_env(env: MagicMock) -> None:
     env.openweathermap_enabled = True
     env.openweathermap_base_url = "https://env.owm"
     env.weather_fetch_timeout_s = 20
+    env.weather_fetch_interval_hours = 6
     env.weather_default_public_source = "open-meteo"
 
 
@@ -266,3 +272,170 @@ def test_put_allows_system_user_in_light_mode(monkeypatch):
     # Light mode must not consult tenant memberships at all.
     tenant_service.get_membership.assert_not_called()
     repo.upsert.assert_called_once()
+
+
+# ── REQ-046 §3.6a (#2934): fetch interval, manual fetch, fetch status ─────
+
+
+def test_get_reports_the_effective_fetch_interval():
+    stored = SystemSettings(weather_providers=WeatherProviderSettings(fetch_interval_hours=12))
+    service, _ = _service(stored=stored)
+    with _patch_env() as env:
+        _set_env(env)
+        resp = TestClient(_build_app(service)).get("/api/v1/admin/weather-providers")
+    assert resp.status_code == 200
+    assert resp.json()["fetch_interval_hours"] == 12
+
+
+def test_put_accepts_the_minimum_interval():
+    service, repo = _service(stored=None)
+    with _patch_env() as env:
+        _set_env(env)
+        resp = TestClient(_build_app(service)).put("/api/v1/admin/weather-providers", json={"fetch_interval_hours": 6})
+    assert resp.status_code == 200
+    assert repo.upsert.call_args[0][0].weather_providers.fetch_interval_hours == 6
+
+
+def test_put_rejects_an_interval_below_six_hours_with_422():
+    service, repo = _service(stored=None)
+    with _patch_env() as env:
+        _set_env(env)
+        resp = TestClient(_build_app(service)).put("/api/v1/admin/weather-providers", json={"fetch_interval_hours": 5})
+    assert resp.status_code == 422
+    repo.upsert.assert_not_called()
+
+
+def _fetch_app(
+    gate: FakeWeatherFetchGate | None = None, status_repo: InMemoryWeatherFetchStatusRepo | None = None
+) -> tuple[TestClient, FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo]:
+    gate = gate or FakeWeatherFetchGate()
+    status_repo = status_repo or InMemoryWeatherFetchStatusRepo()
+    service, _ = _service(stored=None)
+    app = _build_app(service)
+    app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
+        status_repo, gate, interval_hours=lambda: 6
+    )
+    return TestClient(app), gate, status_repo
+
+
+def _patch_delay(**kwargs):
+    from app.tasks.weather_tasks import fetch_weather_forecasts
+
+    return patch.object(fetch_weather_forecasts, "delay", **kwargs)
+
+
+def test_manual_fetch_is_queued_with_202():
+    client, gate, _ = _fetch_app()
+    with _patch_delay(return_value=SimpleNamespace(id="task-1")) as delay:
+        resp = client.post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 202
+    assert resp.json() == {"status": "queued", "task_id": "task-1"}
+    delay.assert_called_once_with(trigger="manual")
+    assert gate.claimed == [600]
+
+
+def test_manual_fetch_is_refused_with_409_while_a_fetch_runs():
+    client, gate, _ = _fetch_app(FakeWeatherFetchGate(running=True))
+    with _patch_delay() as delay:
+        resp = client.post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 409
+    assert resp.json()["error_code"] == "WEATHER_FETCH_RUNNING"
+    delay.assert_not_called()
+
+
+def test_manual_fetch_is_refused_with_429_and_retry_after_within_the_cooldown():
+    client, _, _ = _fetch_app()
+    with _patch_delay(return_value=SimpleNamespace(id="task-1")) as delay:
+        first = client.post("/api/v1/admin/weather-providers/fetch")
+        second = client.post("/api/v1/admin/weather-providers/fetch")
+    assert first.status_code == 202
+    assert second.status_code == 429
+    assert second.headers["Retry-After"] == "600"
+    assert second.json()["error_code"] == "WEATHER_FETCH_COOLDOWN"
+    delay.assert_called_once()
+
+
+def test_manual_fetch_answers_503_when_the_lock_cannot_be_checked():
+    client, _, _ = _fetch_app(FakeWeatherFetchGate(down=True))
+    with _patch_delay() as delay:
+        resp = client.post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 503
+    delay.assert_not_called()
+
+
+def test_a_manual_fetch_that_cannot_be_queued_gives_the_cooldown_back():
+    client, gate, _ = _fetch_app()
+    with _patch_delay(side_effect=ConnectionError("broker down")), pytest.raises(ConnectionError):
+        client.post("/api/v1/admin/weather-providers/fetch")
+    assert gate.released_cooldown
+    assert gate.cooldown == 0
+
+
+def test_fetch_status_reflects_the_recorded_runs():
+    started = datetime(2026, 11, 22, 9, 17, tzinfo=UTC)
+    failed = WeatherFetchRun(
+        trigger=WeatherFetchTrigger.MANUAL,
+        started_at=started + timedelta(hours=2),
+        finished_at=started + timedelta(hours=2, seconds=30),
+        success=False,
+        sites=3,
+        sites_failed=3,
+    )
+    succeeded = WeatherFetchRun(
+        trigger=WeatherFetchTrigger.SCHEDULED,
+        started_at=started,
+        finished_at=started + timedelta(seconds=40),
+        success=True,
+        sites=3,
+        sites_written=2,
+        sites_failed=1,
+        forecasts_written=14,
+    )
+    repo = InMemoryWeatherFetchStatusRepo(WeatherFetchStatus(last_run=failed, last_success=succeeded))
+    client, _, _ = _fetch_app(FakeWeatherFetchGate(cooldown=300), repo)
+
+    resp = client.get("/api/v1/admin/weather-providers/fetch-status")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["interval_hours"] == 6
+    assert body["last_success"]["sites"] == 3
+    assert body["last_success"]["sites_written"] == 2
+    assert body["last_success"]["sites_failed"] == 1
+    assert body["last_success"]["trigger"] == "scheduled"
+    assert body["last_run"]["success"] is False
+    assert body["last_run"]["trigger"] == "manual"
+    assert body["running"] is False
+    assert body["manual_fetch_available_in_s"] == 300
+    assert datetime.fromisoformat(body["next_scheduled_at"]) >= datetime(2026, 11, 22, 16, 0, tzinfo=UTC)
+
+
+def _real_gating_fetch_app(tenant_service: MagicMock) -> TestClient:
+    service, _ = _service(stored=None)
+    app = _build_app_with_real_gating(service, tenant_service)
+    app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
+        InMemoryWeatherFetchStatusRepo(), FakeWeatherFetchGate(), interval_hours=lambda: 6
+    )
+    return TestClient(app)
+
+
+@pytest.mark.parametrize("role", [TenantRole.VIEWER, TenantRole.GROWER])
+def test_manual_fetch_requires_platform_admin_full_mode(monkeypatch, role):
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
+    tenant_service = MagicMock()
+    tenant_service.get_membership.return_value = SimpleNamespace(role=role, is_active=True)
+    with _patch_env() as env, _patch_delay() as delay:
+        _set_env(env)
+        resp = _real_gating_fetch_app(tenant_service).post("/api/v1/admin/weather-providers/fetch")
+    assert resp.status_code == 403
+    delay.assert_not_called()
+
+
+def test_fetch_status_requires_platform_admin_full_mode(monkeypatch):
+    monkeypatch.setattr(auth_mod.settings, "kamerplanter_mode", "full")
+    tenant_service = MagicMock()
+    tenant_service.get_membership.return_value = SimpleNamespace(role=TenantRole.VIEWER, is_active=True)
+    with _patch_env() as env:
+        _set_env(env)
+        resp = _real_gating_fetch_app(tenant_service).get("/api/v1/admin/weather-providers/fetch-status")
+    assert resp.status_code == 403

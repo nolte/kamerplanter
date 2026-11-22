@@ -281,6 +281,7 @@ if TYPE_CHECKING:
     from app.domain.services.task_entity_guard import TaskEntityGuard
     from app.domain.services.tenant_export_service import TenantExportService
     from app.domain.services.user_preference_service import UserPreferenceService
+    from app.domain.services.weather_fetch_service import WeatherFetchService
     from app.domain.services.weather_settings_service import EffectiveWeatherSettings, WeatherSettingsService
     from app.domain.services.weather_source_service import WeatherSourceService
     from app.mcp_server.auth import McpAuthenticator
@@ -2177,6 +2178,24 @@ def get_weather_settings_service() -> WeatherSettingsService:
     return WeatherSettingsService(get_system_settings_repo(), get_encryption_engine())
 
 
+def get_weather_fetch_service() -> WeatherFetchService:
+    """REQ-046 §3.6a (#2934) — due-check, running lock, manual-fetch admission, status.
+
+    The interval is read on every call (DB over env), so a changed value applies on
+    the next hourly tick without a restart.
+    """
+    from app.data_access.arango.weather_fetch_status_repository import ArangoWeatherFetchStatusRepository
+    from app.data_access.external.weather_fetch_gate import RedisWeatherFetchGate
+    from app.domain.services.weather_fetch_service import WeatherFetchService
+
+    settings_service = get_weather_settings_service()
+    return WeatherFetchService(
+        ArangoWeatherFetchStatusRepository(get_db()),
+        RedisWeatherFetchGate(_get_redis_client()),
+        interval_hours=lambda: settings_service.get_effective_weather_settings().fetch_interval_hours,
+    )
+
+
 def _effective_weather_settings() -> EffectiveWeatherSettings:
     """Callable injected into the resolver / source service so both use the
     DB-backed effective provider config (base URL, timeout, enable flags, global
@@ -2393,6 +2412,10 @@ class _DecodedRedis(Protocol):
     def incrby(self, name: str, amount: int = ...) -> int: ...
 
     def expire(self, name: str, time: int) -> bool: ...
+
+    def exists(self, *names: str) -> int: ...
+
+    def eval(self, script: str, numkeys: int, *keys_and_args: str) -> object: ...
 
 
 def _get_redis_client() -> _DecodedRedis:

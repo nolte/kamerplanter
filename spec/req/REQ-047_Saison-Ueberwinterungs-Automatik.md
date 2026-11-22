@@ -7,7 +7,7 @@ Kategorie: Pflege & Erinnerungen / Automatisierung
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, ArangoDB, Celery, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
 Status: Umgesetzt (Kern PR #406/#410; Vertiefungen §§3.7–3.10 teils als Ausbaustufe „noch nicht implementiert" markiert)
-Version: 1.5
+Version: 1.6
 Abhängigkeit: REQ-022 (Pflegeerinnerungen/OverwinteringProfile/CareProfile — erweitert), REQ-039 (Winterhärte-Ampel + Frost-Defaults), REQ-005 (Wetter-/Frost-Livedaten), REQ-046 (Wetterquellen-Auflösung), REQ-041 (Klimanormale als Saison-Fallback), REQ-002 (Standort — Innen/Außen, GPS, Hemisphäre), REQ-001 (frost_sensitivity), REQ-003 (dormancy-Phase, Invariante D5, §D8 Rollen-Map, §D14 Sequenz-Resolver), REQ-006 (Task-Erzeugung), REQ-013 (Run/Dual-Support), REQ-024 (Mandanten-Scoping)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-022 (Pflegeerinnerungen/OverwinteringProfile/CareProfile — 
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.6 | 2026-11-22 | **#2934:** Die tägliche Saison-Auswertung ist nicht mehr an einen Wetterabruf um 06:00 gekoppelt — der Abruf läuft im Abrufintervall (REQ-046 §3.6a). `evaluate_season_states` behält seinen täglichen Termin (06:30 UTC) und liest die zuletzt gespeicherte Vorhersage. |
 | 1.5 | 2026-07-19 | **Dormanz-Kopplung der feingetypten Rest-Phasen bestätigt (#611 WS1, Audit #576/#586 → #616):** Klarstellung, wie die von #616 eingeführten Rest-Phasen (`winter_rest`, `summer_rest`, `rest_phase`, `dry_storage`, `winter_hull_change`) an die Überwinterungs-Automatik koppeln (neuer §3.5.1). **(a) Pflege-Kopplung — vollständig:** Der `DormancyCareActivator` schaltet den `dormancy_care_mode` **phasennamen-agnostisch** je Instanz (Pfad A ODER B) beim SeasonState-Übergang → `winter_dormancy`; die feingetypten Rest-Phasen sind über die REQ-003 §D8 Rollen-Map (`phase_role_map.is_rest_phase` → alle fünf → `dormancy`-Rolle) korrekt als Ruhe erkannt (Düngung aus, `dormancy_watering`). **(b) Wachstumsphasen-Kopplung — Lücke dokumentiert:** Der `SeasonPhaseCoupler.enter_dormancy` sucht die Zielphase per **literalem** Namen `dormancy` (`find_phase_key_by_name(species_key, "dormancy")`) und erkennt die abweichend benannten Rest-Phasen daher **nicht** — eine `cam_succulent_rest`-Sukkulente (Terminalphase `winter_rest`) wird vom Standort-Wintersignal nicht aktiv in ihre Ruhe beschleunigt (sie erreicht `winter_rest` nur über die eigene, zeitgetriebene Sequenz-Transition; `restart_cycle` funktioniert dagegen über `cycle_restart_entry_order` korrekt). Remediation-Vorschlag im Master-Data-Capture-Audit (`spec/analysis/master-data-capture-audit-2026-07.md`, Finding NCT-2): `enter_dormancy` gegen die Rollen-Map (`is_rest_phase`/`find_phase_key_by_role`) statt gegen den Literalnamen auflösen. Reine Spec-Klarstellung, keine Code-Änderung in dieser Version. |
 | 1.4 | 2026-07-13 | **ADR-006 E1/E3 per-Instanz-Gating (Epic #565 Phase 2):** Das E3-Instanz-Gating des `SeasonPhaseCoupler` liest jetzt die zentrale `resolve_effective_cycle`-Kaskade (REQ-003 v2.13) statt die konservative Inline-Auflösung. Damit gilt der neue **per-Instanz-Override** `PlantInstance.cultivation_cycle_type` auch für die Saison-Kopplung: eine als `annual` geführte Instanz an einem mehrjährigen Standort wird **nicht** in `dormancy`/Neustart getrieben (der einjährige Nutzer-Wille schlägt das Standort-Signal), während eine als `perennial` geführte Instanz einer ansonsten einjährigen Art in Dormanz/Neustart läuft. Der Season-State bleibt der klima-/kalendergetriebene Taktgeber; die Instanz-Kaskade bleibt die Wahrheit über die Zyklus-Natur. |
 | 1.3 | 2026-07-13 | **ADR-006 E3-Kopplung verdrahtet (Epic #565 Phase 1, WP-3):** Der Season-State treibt jetzt real die REQ-003-**Wachstumsphase**, nicht mehr nur den Pflege-Modus. Neuer `SeasonPhaseCoupler`: beim Übergang → `winter_dormancy` wird die Wachstumsphase effektiv mehrjähriger Pflanzen auf `dormancy` gesetzt, beim Übergang → `pre_spring` der Perennierungs-Zyklus am Restart-Anker neu gestartet (Zyklusnummer inkrementiert). Aufruf im `SeasonStateService`-Transition-Sideeffect (best-effort/`_safe`, bricht die Standort-Auswertung nie ab). **Instanz-Gating konservativ** (ADR-006 E3): getrieben wird nur, wenn der *praktizierte* Zyklus der Art perennierend ist (`LifecycleConfig.cultivation_cycle_type` → botanische `cycle_type`, sonst PhaseSequence-`cycle_type`) — eine effektiv einjährige Instanz an einem mehrjährigen Standort wird **nicht** in Dormanz/Neustart gezwungen. Die zentrale `resolve_effective_cycle`-Kaskade (E1/Phase 2) ist noch nicht da; das Gating nimmt sie nicht vorweg. |
@@ -408,7 +409,8 @@ Die #616 eingeführten fein-getypten Sequenzen (REQ-003 §D14) verwenden **botan
 ```python
 @shared_task(name='season.evaluate_states')
 def evaluate_season_states():
-    """Täglicher Celery-Beat-Task (nach fetch_weather_forecasts, ~06:30 UTC):
+    """Täglicher Celery-Beat-Task (~06:30 UTC; liest die zuletzt gespeicherte Vorhersage —
+    der Wetterabruf läuft im Abrufintervall, REQ-046 §3.6a, #2934):
 
     Für jede Site mit type ∈ {outdoor, greenhouse}:
       1. SeasonSignalResolver.resolve(site, today)  → bestes Signal (Kaskade)

@@ -7,7 +7,7 @@ Kategorie: Monitoring / Integration
 Fokus: Beides
 Technologie: Python 3.14+, FastAPI, httpx, ArangoDB, Celery, Home Assistant REST API, React 19, TypeScript 5.9, MUI 7, Redux Toolkit
 Status: Entwurf
-Version: 1.3 (Quellenauswahl je Standort und Verbindungstest: Nur Leitung, REQ-049 §2.10; #2181); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
+Version: 1.4 (Abrufintervall, manueller Abruf, Frost und Bewässerung nach jedem erfolgreichen Abruf; #2934); 1.3 (Quellenauswahl je Standort und Verbindungstest: Nur Leitung, REQ-049 §2.10; #2181); 1.2 (Abschnitt Autorisierung nach REQ-049 §3.3, gegen den Code gemessen; #2121); 1.1 (fremder Mandantenschlüssel → 404, #1871)
 Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (Standort), REQ-018 (HA-Aktorik/REST — geteilter HA-Client), REQ-023 (Secret-Storage für API-Keys), REQ-024 (Mandanten-Scoping), REQ-037 (ET — Konsument), REQ-039 (Winterhärte — Konsument), REQ-041 (NASA POWER — registriert Adapter hier)
 ```
 
@@ -15,6 +15,7 @@ Abhängigkeit: REQ-005 (Hybrid-Sensorik/Wetter — Basis-Datenmodell), REQ-002 (
 
 | Version | Datum | Änderung |
 |---------|-------|----------|
+| 1.4 | 2026-11-22 | **#2934 (Betreiberentscheidungen 2026-11-17):** Neuer §3.6a. Der Abruf läuft nicht mehr fest um 06:00, sondern in einem **Abrufintervall** `fetch_interval_hours` (Plattform-Admin, DB vor `WEATHER_FETCH_INTERVAL_HOURS`, Minimum und Default 6 h, Maximum 168 h; kleinere Werte → `422`). Ein stündlicher Beat startet `fetch_weather_forecasts`, das selbst prüft, ob seit dem letzten **erfolgreichen** Abruf das Intervall vergangen ist; ein geändertes Intervall gilt ohne Neustart. Erfolg = kein Laufzeitfehler und mindestens ein Standort geschrieben (oder kein Standort zu holen). Nur nach Erfolg laufen Frost-Frühwarnung und Bewässerungsbedarf (REQ-037) — beide ohne eigenen Beat. Manueller Abruf `POST /api/v1/admin/weather-providers/fetch` (`202`; `409` während eines Laufs, `429` + `Retry-After` 10 Minuten nach dem letzten manuellen Abruf), Status `GET /api/v1/admin/weather-providers/fetch-status`. |
 | 1.3 | 2026-10-09 | **#2181 (Entscheidung nach Spec-Hierarchie, keine Betreiberentscheidung — überstimmbar):** Die in v1.2 markierte Abweichung ist zugunsten von REQ-049 §2.10/§4.4 aufgelöst. `PUT /sites/{key}/weather-source` und `POST /sites/{key}/weather-sources/test` verlangen jetzt `lead` (`require_tenant_role(TenantRole.LEAD)`); Gärtner und Beobachter lesen die Auswahl weiter (`403` beim Schreiben). Der Verbindungstest folgt der Auswahl, weil er Teil des Auswählens ist und einen ausgehenden Abruf im Namen des Mandanten auslöst. Die Oberfläche zeigt Nicht-Leitungen die Liste schreibgeschützt. |
 | 1.2 | 2026-10-05 | **#2121 (MT-025):** Abschnitt „Autorisierung“ nach REQ-049 §3.3 ergänzt, gegen den Code gemessen. **Abweichung markiert:** die Quellenauswahl je Standort verlangt im Code `grower`, REQ-049 §2.10 sagt Leitung — Entscheidung offen (#2181). HA-Entitäten-Listen verlangen `technical` (#2112). |
 | 1.1 | 2026-10-03 | **#1871 B8 (Betreiberentscheidung):** Ein fremder Mandantenschlüssel bzw. eine fremde Site wird mit **404** beantwortet (AC-11), nicht mit 403. |
@@ -386,6 +387,50 @@ class WeatherSourceResolver:
 - **`fetch_weather_forecasts`** (bestehend, REQ-005): wird so erweitert, dass je Outdoor-/Greenhouse-Site mit GPS **die konfigurierte `:WeatherSourceConfig`** über den `WeatherSourceResolver` durchlaufen wird (statt einer fest verdrahteten Quelle). Ergebnis-Records werden geschrieben; `source`/`data_kind` tragen die tatsächlich gezogene Quelle. HA-Sensor-Ist-Werte (`is_current_conditions=True`) triggern **keine** Vorhersage-Frühwarnungen (REQ-005), können aber die Gieß-Logik (REQ-022/037) mit Ist-Regenmenge speisen.
 - **`weather_source_health_probe`** (NEU, optional, stündlich): prüft je aktiver HA-Quelle, ob die konfigurierten Entitäten noch existieren/verfügbar sind, und markiert eine Quelle in der UI als „gestört", ohne den Fetch-Lauf zu blockieren.
 
+### 3.6a Abrufintervall und manueller Abruf (#2934)
+
+**Intervall.** `fetch_interval_hours` (ganze Stunden, Minimum und Default **6**, Maximum 168) gilt instanzweit. Der
+Plattform-Admin setzt es über `PUT /api/v1/admin/weather-providers` (Feld `fetch_interval_hours`); ohne DB-Wert gilt
+`WEATHER_FETCH_INTERVAL_HOURS`. Ein Wert unter 6 wird mit `422` abgelehnt. Die Untergrenze begrenzt das Kontingent
+bezahlter Schlüssel (OpenWeatherMap) auf höchstens vier Abrufe am Tag.
+
+**Fälligkeit.** Der Beat `weather-fetch-hourly-check` startet `fetch_weather_forecasts` zu jeder vollen Stunde. Der
+Task liest das Intervall bei jedem Lauf und kehrt ohne Abruf zurück, solange seit dem **Start des letzten
+erfolgreichen** Abrufs weniger als das Intervall vergangen ist (5 Minuten Toleranz, damit der Takt nicht um eine
+Stunde je Intervall wandert). Ein geändertes Intervall gilt damit ab der nächsten vollen Stunde, ohne Neustart. Ein
+fehlgeschlagener Abruf setzt das Intervall nicht neu; die nächste stündliche Prüfung versucht es erneut. Celery
+wiederholt den Task nicht selbst.
+
+**Erfolg.** Ein Abruf gilt als erfolgreich, wenn er ohne Laufzeitfehler endet und mindestens einen Standort
+geschrieben hat — oder kein Standort zu holen war (aktive Konfiguration, Standort mit GPS, Mandant `active`). Schlägt
+die Quellenkette jedes Standorts fehl, ist der Abruf fehlgeschlagen.
+
+**Kopplung.** Nur nach einem erfolgreichen Abruf reiht der Task die Frost-Frühwarnung
+(`evaluate_forecast_frost_warnings`, #392) und den Bewässerungsbedarf (`compute_irrigation_demand`, REQ-037) ein. Beide
+haben keinen eigenen Beat mehr; beide sind je Standort und Tag idempotent und fragen den Mandantenzustand selbst
+(REQ-056 §5.2). Die Saison-Auswertung (REQ-047) behält ihren täglichen Termin und liest die zuletzt gespeicherte
+Vorhersage.
+
+**Manueller Abruf.** `POST /api/v1/admin/weather-providers/fetch` (Plattform-Admin) reiht einen Abruf über alle
+Standorte ein und antwortet sofort mit `202` und der Task-ID. Er überspringt die Fälligkeitsprüfung, zählt sonst wie
+ein geplanter Abruf und setzt bei Erfolg das Intervall neu. Abgelehnt wird er
+
+- mit `409 WEATHER_FETCH_RUNNING`, solange ein Abruf läuft — die Sperre hält der Task selbst, also blockiert auch ein
+  laufender geplanter Abruf;
+- mit `429 WEATHER_FETCH_COOLDOWN` samt `Retry-After` (Sekunden), solange seit dem letzten manuellen Abruf keine
+  10 Minuten vergangen sind (NFR-006, NFR-007);
+- mit `503 WEATHER_FETCH_UNAVAILABLE`, wenn Sperre und Wartezeit nicht geprüft werden können (Valkey nicht erreichbar).
+  Der geplante Abruf läuft in diesem Fall ohne Sperre weiter.
+
+Sperre und Wartezeit liegen in Valkey (`SET NX EX`), damit API und Worker denselben Zustand sehen.
+
+**Status.** `GET /api/v1/admin/weather-providers/fetch-status` (Plattform-Admin) liefert `last_run` (letzter Lauf) und
+`last_success` (letzter erfolgreicher Lauf) mit Auslöser (`scheduled`/`manual`), Start- und Endzeit, Erfolg, Zahl der
+Standorte, der geschriebenen und der fehlgeschlagenen Standorte, dazu `interval_hours`, `next_scheduled_at` (volle
+Stunde des nächsten geplanten Abrufs), `running` und `manual_fetch_available_in_s`. Der Status steht in einem eigenen
+Dokument (`system_settings/weather_fetch_status`), das nur der Abruf-Task schreibt — nicht im Einstellungs-Singleton,
+das ein Admin-`PUT` als Ganzes neu schreibt.
+
 ## 4. Frontend-Integration
 
 Neuer Abschnitt **„Wetterquelle"** im Standort-Detail (`SiteDetailPage.tsx`, REQ-002), sichtbar für Sites mit `type ∈ {outdoor, greenhouse}` und gesetzten GPS-Koordinaten. Mobile-First (Feedback), mit erklärenden Texten und Fachbegriff-Erläuterungen.
@@ -427,7 +472,8 @@ Alle Strings in DE (Default/Fallback) und EN. Namespaces: `pages.siteDetail.weat
 - `WEATHER_DEFAULT_PUBLIC_SOURCE` (Default `open-meteo`) — Default-Quelle, die neuen Outdoor-Sites automatisch zugeordnet wird (kein Key nötig, sofort nutzbar).
 - `OPENWEATHERMAP_ENABLED: bool` (Default `true`), `DWD_ENABLED`, `OPEN_METEO_ENABLED` — pro-Provider-Kill-Switch (ausgegraut in der UI, wenn aus).
 - `OPEN_METEO_BASE_URL`, `DWD_BASE_URL`, `OPENWEATHERMAP_BASE_URL` — überschreibbar für Tests/Proxy.
-- `WEATHER_FETCH_TIMEOUT_S` (Default `20`), `WEATHER_MAX_RPS_PER_PROVIDER` (Default `1.0`).
+- `WEATHER_FETCH_TIMEOUT_S` (Default `20`) — Zeitlimit **je Anfrage** an einen Dienst, nicht die Abrufhäufigkeit; `WEATHER_MAX_RPS_PER_PROVIDER` (Default `1.0`).
+- `WEATHER_FETCH_INTERVAL_HOURS` (Default `6`, Minimum `6`, Maximum `168`) — Abrufintervall in Stunden, solange der Plattform-Admin keines gesetzt hat (§3.6a).
 - HA-seitig werden die bestehenden HA-Verbindungs-Env/-Secrets (REQ-005/REQ-018) wiederverwendet; **keine** neuen HA-Secrets.
 
 **API-Key-Secret-Storage (OpenWeatherMap):**
@@ -464,6 +510,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 | Verfügbare Quellen, Vorhersage, Klimanormale (`GET /weather-sources/available`, `/sites/{key}/weather-forecast`, `/sites/{key}/climate-normals`) | Alle Rollen | — | — | — | — |
 | HA-Entitäten-Listen (`GET /ha/weather-entities`, `GET /ha/sensor-entities`) | Technik | — | — | — | Single-Household-Modell A (#2112, REQ-005 §4c): die Liste zeigt nur, was der Plattform-Admin dem Mandanten freigegeben hat (`tenant_ha_entity_grants`) |
 | Globales Angebot externer Wetterdienste samt Zugangsschlüssel | Plattform-Admin | Plattform-Admin | Plattform-Admin | Plattform-Admin | REQ-049 §2.9/§2.10 |
+| Abrufintervall, manueller Abruf, Abrufstatus (`/admin/weather-providers`, `/fetch`, `/fetch-status`) | Plattform-Admin | — | Plattform-Admin | — | `require_platform_admin`; manueller Abruf `202`/`409`/`429`/`503` (§3.6a, #2934) |
 
 ## 6. Abhängigkeiten
 
@@ -495,4 +542,7 @@ adressierten Mandanten, sofern nicht anders angegeben.
 - [ ] **AC-13 (Migration):** `weather_source_configs` + `has_weather_source_config` werden idempotent angelegt; additive `:WeatherForecast`-Felder brechen bestehende Records nicht (Defaults greifen).
 - [ ] **AC-14 (i18n):** Alle neuen UI-Strings liegen in DE und EN vor; DE ist Default/Fallback.
 - [ ] **AC-15 (Attribution):** DWD/Open-Meteo/OWM-Attributionen werden in der UI angezeigt und in der NOTICE-Datei geführt.
+- [x] **AC-16 (Abrufintervall, #2934):** Ein Plattform-Admin setzt `fetch_interval_hours` (≥ 6, sonst `422`); der stündliche Beat holt nur, wenn seit dem letzten erfolgreichen Abruf das Intervall vergangen ist; ein geänderter Wert gilt ohne Neustart; nach einem fehlgeschlagenen Abruf versucht es die nächste Stunde erneut.
+- [x] **AC-17 (Erfolg und Kopplung, #2934):** Nur ein erfolgreicher Abruf (kein Laufzeitfehler, ≥ 1 Standort geschrieben oder keiner zu holen) reiht Frost-Frühwarnung und Bewässerungsbedarf ein.
+- [x] **AC-18 (Manueller Abruf, #2934):** `POST /admin/weather-providers/fetch` antwortet `202`; `409` während eines Laufs, `429` + `Retry-After` innerhalb von 10 Minuten nach dem letzten manuellen Abruf; `GET /admin/weather-providers/fetch-status` nennt letzten Lauf, letzten Erfolg und nächsten geplanten Abruf.
 ```

@@ -176,3 +176,6 @@ def test_the_sweep_sees_both_ways_in() -> None:
     assert how["glossary.invalidate_after_reingest"] == "dispatched"
     # Behind a feature flag: read from the source, not from the live beat_schedule.
     assert how["app.tasks.weather_tasks.fetch_weather_forecasts"] == "scheduled"
+    # #2934: queued after every successful weather fetch, no beat slot of their own.
+    assert how["app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings"] == "dispatched"
+    assert how["app.tasks.irrigation_tasks.compute_irrigation_demand"] == "dispatched"

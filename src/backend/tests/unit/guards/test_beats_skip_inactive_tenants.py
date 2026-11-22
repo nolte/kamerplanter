@@ -31,7 +31,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from app.tasks.tenant_gate import TENANT_AGNOSTIC_BEATS, TENANT_WRITING_BEATS
+from app.tasks.tenant_gate import TENANT_AGNOSTIC_BEATS, TENANT_WRITING_BEATS, TENANT_WRITING_CHAINED_TASKS
 
 TASKS = Path(__file__).resolve().parents[3] / "app" / "tasks"
 
@@ -126,7 +126,7 @@ def test_the_schedule_read_covers_the_flagged_beats_too() -> None:
         "app.tasks.actuator_tasks.evaluate_control_rules",
         "app.tasks.season_tasks.evaluate_quarter_climate",
     } <= scheduled
-    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 55
+    assert len(scheduled) == len(TENANT_WRITING_BEATS) + len(TENANT_AGNOSTIC_BEATS) == 53
 
 
 def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
@@ -137,6 +137,24 @@ def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
 
     assert unresolved == [], "a tenant-writing beat whose function the index cannot find"
     assert ungated == [], "a tenant-writing beat that never asks ActiveTenants (REQ-056 §5.2)"
+
+
+def test_the_chained_tenant_writers_stay_off_the_schedule_and_ask_the_tenant_state() -> None:
+    """#2934: frost and irrigation lost their beat slots; the weather fetch queues them instead.
+
+    The schedule-driven sweep above no longer sees them, so they are held here: still
+    gated (REQ-056 §5.2), and not scheduled — a beat entry belongs in ``TENANT_WRITING_BEATS``.
+    """
+    index = _task_index()
+
+    assert {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
+    } == TENANT_WRITING_CHAINED_TASKS
+    assert TENANT_WRITING_CHAINED_TASKS.isdisjoint(_scheduled_task_names())
+    assert TENANT_WRITING_CHAINED_TASKS.isdisjoint(TENANT_WRITING_BEATS | set(TENANT_AGNOSTIC_BEATS))
+    assert sorted(TENANT_WRITING_CHAINED_TASKS - set(index)) == []
+    assert sorted(name for name in TENANT_WRITING_CHAINED_TASKS if not _asks_the_tenant_state(*index[name])) == []
 
 
 def test_the_predicate_tells_an_ungated_beat_from_a_gated_one() -> None:

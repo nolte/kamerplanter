@@ -109,6 +109,8 @@ class WeatherProviderSettings(BaseModel):
     # Fernet ciphertext of the global OWM fallback key (never plaintext).
     openweathermap_global_api_key_encrypted: str | None = None
     fetch_timeout_s: int | None = None
+    #: Hours between two successful fetches (REQ-046 §3.6a, #2934); ``None`` → env.
+    fetch_interval_hours: int | None = None
     default_public_source: str | None = None
 
 

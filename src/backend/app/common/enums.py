@@ -2416,6 +2416,13 @@ class LampKind(StrEnum):
     FLOOR = "floor"
 
 
+class WeatherFetchTrigger(StrEnum):
+    """What started a weather fetch run (REQ-046 §3.6a, #2934)."""
+
+    SCHEDULED = "scheduled"
+    MANUAL = "manual"
+
+
 CATEGORY_COLORS: dict[CalendarEventCategory, str] = {
     CalendarEventCategory.TRAINING: "#4CAF50",
     CalendarEventCategory.PRUNING: "#8BC34A",

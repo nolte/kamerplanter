@@ -4,11 +4,13 @@ The response NEVER carries the global OpenWeatherMap key (neither plaintext nor
 ciphertext) — only the presence flag ``openweathermap_global_api_key_set``.
 """
 
+from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.models.weather import WeatherForecast
+from app.domain.models.weather_fetch import MAX_FETCH_INTERVAL_HOURS, MIN_FETCH_INTERVAL_HOURS, WeatherFetchRun
 
 
 class WeatherProviderInfo(BaseModel):
@@ -26,6 +28,7 @@ class WeatherProvidersResponse(BaseModel):
     providers: list[WeatherProviderInfo]
     openweathermap_global_api_key_set: bool
     fetch_timeout_s: int
+    fetch_interval_hours: int
     default_public_source: str
 
 
@@ -51,6 +54,8 @@ class WeatherProvidersUpdate(BaseModel):
     openweathermap_base_url: str | None = Field(default=None, max_length=2048)
     openweathermap_global_api_key: str | None = Field(default=None, max_length=512)
     fetch_timeout_s: int | None = Field(default=None, ge=1, le=120)
+    #: Hours between two successful fetches (REQ-046 §3.6a, #2934); below 6 → 422.
+    fetch_interval_hours: int | None = Field(default=None, ge=MIN_FETCH_INTERVAL_HOURS, le=MAX_FETCH_INTERVAL_HOURS)
     default_public_source: Literal["open-meteo", "dwd", "openweathermap"] | None = None
 
 
@@ -60,3 +65,67 @@ class WeatherProviderTestResponse(BaseModel):
     reachable: bool
     preview: list[WeatherForecast] = Field(default_factory=list)
     error: str | None = None
+
+
+class WeatherFetchTriggerResponse(BaseModel):
+    """202 answer of a queued manual fetch; the result appears in the fetch status."""
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"status": "queued", "task_id": "9f1c2e4a-6b7d-4e3f-8a21-5c0d9e7b3f10"}]}
+    )
+
+    status: Literal["queued"] = "queued"
+    task_id: str | None = None
+
+
+class WeatherFetchStatusResponse(BaseModel):
+    """Newest run, newest successful run and the next scheduled run (REQ-046 §3.6a).
+
+    ``running`` and ``manual_fetch_available_in_s`` are ``None`` while the lock store
+    cannot be reached; ``manual_fetch_available_in_s`` is ``0`` when a manual fetch
+    may start now.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "interval_hours": 6,
+                    "last_run": {
+                        "trigger": "manual",
+                        "started_at": "2026-11-22T09:17:02Z",
+                        "finished_at": "2026-11-22T09:17:41Z",
+                        "success": True,
+                        "sites": 3,
+                        "sites_written": 2,
+                        "sites_failed": 1,
+                        "sites_skipped": 0,
+                        "forecasts_written": 14,
+                        "error_type": None,
+                    },
+                    "last_success": {
+                        "trigger": "manual",
+                        "started_at": "2026-11-22T09:17:02Z",
+                        "finished_at": "2026-11-22T09:17:41Z",
+                        "success": True,
+                        "sites": 3,
+                        "sites_written": 2,
+                        "sites_failed": 1,
+                        "sites_skipped": 0,
+                        "forecasts_written": 14,
+                        "error_type": None,
+                    },
+                    "next_scheduled_at": "2026-11-22T16:00:00Z",
+                    "running": False,
+                    "manual_fetch_available_in_s": 0,
+                }
+            ]
+        }
+    )
+
+    interval_hours: int
+    last_run: WeatherFetchRun | None = None
+    last_success: WeatherFetchRun | None = None
+    next_scheduled_at: datetime
+    running: bool | None = None
+    manual_fetch_available_in_s: int | None = None
