@@ -1,19 +1,13 @@
-# Reach probe; derived by capability-reach-scanner via capability-reach-audit.
+# Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit approval given in the orchestrating session on 2026-09-25 (re-derivation after #1846; REQ-025 probes re-anchored after the #1839 squash discarded their derived_from).
-#
-# Re-derived after #1846 (squash 9cacdb752): router.py changed; delete_tenant only gained the
-# client_ip dependency (forwarded to TenantService.delete_tenant for the step-up throttle, #1816).
-# Its body (confirm_slug + password), origin platform_admin and TenantErasureEngine.INVENTORY are
-# unchanged. derived_from moves to 9cacdb752; act script, targets, observe step and expectation
-# unchanged.
+# Re-derived 2026-11-22 (#3090) against the current declaration; approved interactively by the operator.
 id: endpoint-admin-tenant-delete-reaches-rows
 summary: collections of the executing tenant-erasure plan left without the tenant's rows after the platform-admin tenant delete
 declaration:
   source: endpoint
   path: src/backend/app/api/v1/admin/platform/router.py
-  location: 'DELETE /admin/platform/tenants/{key} (delete_tenant) — runs the declared tenant-erasure inventory (TenantErasureEngine.INVENTORY,
-    #1769) via TenantService.delete_tenant'
+  location: 'DELETE /admin/platform/tenants/{key} (delete_tenant, L451) - accepted with 202 (#1792); the tenant-erasure run
+    executes the declared inventory (TenantErasureEngine.INVENTORY, #1769) via TenantService.delete_tenant'
 tier: T2
 expected:
   kind: set
@@ -27,10 +21,13 @@ expected:
   - erased/api_keys
   - erased/aquaponic_systems
   - erased/attachments
+  - erased/bed_templates
   - erased/burping_events
   - erased/calendar_feeds
   - erased/care_confirmations
+  - erased/care_events
   - erased/care_profiles
+  - erased/client_event_tombstones
   - erased/climate_normals
   - erased/control_events
   - erased/control_rules
@@ -44,6 +41,8 @@ expected:
   - erased/fertilizers
   - erased/fish_feeding_events
   - erased/fish_stocks
+  - erased/garden_objects
+  - erased/garden_plan_audit
   - erased/ha_publish_settings
   - erased/harvest_observations
   - erased/identification_requests
@@ -52,6 +51,7 @@ expected:
   - erased/inventree_references
   - erased/invitations
   - erased/irrigation_demands
+  - erased/irrigation_zones
   - erased/location_assignments
   - erased/locations
   - erased/maintenance_logs
@@ -85,6 +85,7 @@ expected:
   - erased/species
   - erased/stock_transactions
   - erased/storage_observations
+  - erased/storage_release_retries
   - erased/substrate_batches
   - erased/substrates
   - erased/succession_plans
@@ -96,6 +97,8 @@ expected:
   - erased/task_comments
   - erased/task_templates
   - erased/tasks
+  - erased/tenant_export_requests
+  - erased/tenant_ha_entity_grants
   - erased/tenants
   - erased/water_tests
   - erased/watering_events
@@ -111,11 +114,12 @@ expected:
   - pseudonymised/treatment_applications
   - retained/ai_audit_log
   - retained/mcp_audit_log
+  - retained/security_audit_log
   - retained/yield_metrics
   - dangling-edges/0
   - stamped-elsewhere/0
   - control-changed/0
-derived_from: blob:0367a5efd2a96388e33a2d2b4e4ec9a8ae2bfa11
+derived_from: blob:b2fc629a069d2e3f94a1346b5a59180bd8f71798
 environment:
 - reach:stack:up
 - reach:seed:erasure-tenant
@@ -130,7 +134,7 @@ observe:
   - reach-tenant
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-04T12:35:32Z'
+  approved_at: "2026-11-22T18:26:03Z"
   approved_by: nolte
   observation_digest: 573d28565bbf85a7a0e63f16b643b286a465e9b95507b793c5621a8000401c7a
-  mode: reconfirmed
+  mode: derived

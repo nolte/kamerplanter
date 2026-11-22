@@ -64,7 +64,10 @@ from arango import ArangoClient  # noqa: E402
 SHAPE_OVERRIDES: dict[str, Any] = {
     "slots": lambda: {"slot_id": f"REACH{secrets.token_hex(3).upper()}_A1"},
     "actuators": lambda: {"protocol": "manual"},
-    "calendar_feeds": lambda: {"token": secrets.token_hex(16)},
+    # The feed stores only the SHA-256 of its iCal token since #2171 (#2229), never the token.
+    "calendar_feeds": lambda: {"token_hash": secrets.token_hex(32)},
+    # A grant names a real Home Assistant entity id (#2112), never a marker string.
+    "tenant_ha_entity_grants": lambda: {"entity_id": f"sensor.reach_{secrets.token_hex(4)}"},
     "control_rules": lambda: {
         "condition": {"operator": "gt", "threshold": 30.0},
         "hysteresis": {"on_threshold": 30.0, "off_threshold": 28.0},

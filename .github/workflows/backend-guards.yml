@@ -307,7 +307,7 @@ jobs:
         # is #1749.
         #
         # tests/unit/test_reach_garden_plan_helpers.py (#2448) reads the reach probe
-        # project/reach-probes/endpoint-sites-plan-read-model-answers.yml, a path
+        # project/reach-probes/drafts/endpoint-sites-plan-read-model-answers.yml (parked, unapproved), a path
         # backend.yml's filter leaves to this lane (`project/**`, covered_by in
         # .github/lane-inputs/backend--lint-test.yaml). #1749 holds the READER, so
         # the module runs here (twelve tests, about a second) rather than the path

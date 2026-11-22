@@ -82,6 +82,13 @@ STATE_OVERRIDES: dict[str, dict[str, Any]] = {
     "email_change_requests": {"status": "expired"},
     # Model validator: an override expires after it started.
     "manual_overrides": {"expires_at": "2026-09-02T00:00:00+00:00"},
+    # Field validator: ``category`` is a plain ``str`` held against the known categories
+    # (``CARE_EVENT_CATEGORIES``), so the required-field marker is refused; ``note`` is one of them.
+    "care_events": {"category": "note"},
+    # Model validator: each object class takes only some geometry kinds (``ALLOWED_GEOMETRY_KINDS``);
+    # the first enum member (``path``) refuses the rect the geometry default builds, ``storage`` is a rect,
+    # and ``props`` (a union tagged by the same class) left empty takes its tag from ``object_type``.
+    "garden_objects": {"object_type": "storage", "props": {}},
 }
 
 
@@ -172,6 +179,43 @@ def _field_names(model: type[BaseModel]) -> set[str]:
     return names
 
 
+#: How deep a declared field may sit: the erasure executor and the tombstone census address a rule's
+#: ``user_field`` in at most two segments (``sites.plan.plan_updated_by``), so a deeper path is a field
+#: no executing path could reach, and the seed refuses it as it refuses a misspelt one.
+MAX_PATH_SEGMENTS = 2
+
+
+def _embedded_model(model: type[BaseModel], head: str) -> type[BaseModel] | None:
+    """The model embedded at field *head* of *model* (``Site.plan`` -> ``SitePlan``), or None.
+
+    ``X | None`` and ``Annotated[X, ...]`` resolve to ``X``; a field that is not exactly one
+    embedded model (a plain value, a list, a union of two models) holds no addressable sub-field.
+    """
+    for name, field in model.model_fields.items():
+        if head not in (name, field.alias):
+            continue
+        annotation = _unwrap(field.annotation)
+        if typing.get_origin(annotation) in (typing.Union, types.UnionType):
+            options = [_unwrap(arg) for arg in typing.get_args(annotation) if arg is not type(None)]
+            annotation = options[0] if len(options) == 1 else None
+        if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
+            return annotation
+        return None
+    return None
+
+
+def _is_field_of(model: type[BaseModel], path: str) -> bool:
+    """Whether *path* names a field of *model*: a flat name, or ``head.tail`` one embedded model down."""
+    segments = path.split(".")
+    if len(segments) == 1:
+        return path in _field_names(model)
+    if len(segments) > MAX_PATH_SEGMENTS:
+        return False
+    head, tail = segments
+    embedded = _embedded_model(model, head)
+    return embedded is not None and tail in _field_names(embedded)
+
+
 # ── Type-correct values for required fields ─────────────────────────────────
 
 
@@ -191,7 +235,13 @@ def _value_for(annotation: Any, marker: str) -> Any:
         return _value_for(options[0], marker) if options else None
     if origin is typing.Literal:
         return typing.get_args(annotation)[0]
-    if origin in (list, set, frozenset, tuple):
+    if origin is tuple:
+        args = typing.get_args(annotation)
+        # ``tuple[X, ...]`` may be empty; a fixed ``tuple[float, float]`` (a point) needs every slot.
+        if not args or (len(args) == 2 and args[1] is Ellipsis):
+            return []
+        return [_value_for(arg, marker) for arg in args]
+    if origin in (list, set, frozenset):
         return []
     if origin is dict:
         return {}
@@ -222,6 +272,10 @@ def _required_values(model: type[BaseModel], marker: str) -> dict[str, Any]:
     for name, field in model.model_fields.items():
         if field.is_required():
             values[field.alias or name] = _value_for(field.annotation, f"{marker}:{name}")
+        elif typing.get_origin(_unwrap(field.annotation)) is typing.Literal and field.default is not None:
+            # A defaulted ``Literal`` is a discriminator tag (``RectGeometry.kind``): a member of a
+            # tagged union validates only with its tag present, so the default is written out.
+            values[field.alias or name] = field.default
     return values
 
 
@@ -247,6 +301,7 @@ class Seeder:
         self.models = collection_models()
         self.rows: list[dict[str, Any]] = []
         self.unmodelled: set[str] = set()
+        self.personal_tenant_sources: set[str] = set()
         self.unique_values: set[str] = set()
         self.covered: set[tuple[str, str, str]] = set()
         self.edge_definitions = {d["edge_collection"]: d for d in col.GRAPH_EDGE_DEFINITIONS}
@@ -299,7 +354,7 @@ class Seeder:
             self.unmodelled.add(collection)
             return None
         for model in candidates:
-            if set(fields) <= _field_names(model):
+            if all(_is_field_of(model, name) for name in fields):
                 return model
         names = ", ".join(model.__name__ for model in candidates)
         raise SeedError(
@@ -315,7 +370,20 @@ class Seeder:
         declared = [name for name in overrides if not name.startswith("_")]
         model = self._model_for(collection, [name for name in declared if name != "tenant_key"])
         overrides = {**STATE_OVERRIDES.get(collection, {}), **overrides}
+        # A dotted override (``plan.plan_updated_by``, the sites rule of REQ-053 GP-NFR-055) names a field
+        # one embedded object down. It is written as that object, never as a literal dotted attribute: the
+        # executor reads ``doc.plan.plan_updated_by``, so a top-level ``"plan.plan_updated_by"`` would be a
+        # row no executing path can find — the very false reach the model check exists to prevent.
+        nested: dict[str, dict[str, Any]] = {}
+        for name in [name for name in overrides if "." in name and not name.startswith("_")]:
+            head, tail = name.split(".", 1)
+            nested.setdefault(head, {})[tail] = overrides.pop(name)
         if model is None:
+            if nested:
+                raise SeedError(
+                    f"'{collection}' is bound to no model, so the embedded field(s) {sorted(nested)} cannot be "
+                    "checked; a seed that wrote them unchecked could certify a walk no real row can satisfy"
+                )
             doc = {"_key": key, "reach_seed": f"{MARKER_PREFIX}:{key}:reach_seed", **overrides}
             return self._insert(collection, doc, kind="document", role=role)
         names = _field_names(model)
@@ -325,7 +393,7 @@ class Seeder:
         optional_markers: set[str] = set()
         for name, field in model.model_fields.items():
             wire = field.alias or name
-            if wire.startswith("_") or wire in overrides or not _is_plain_str(field):
+            if wire.startswith("_") or wire in overrides or wire in nested or not _is_plain_str(field):
                 continue
             if inventory_check.USER_REFERENCE_FIELD.match(name) or any(part in name for part in _NO_MARKER):
                 continue
@@ -335,6 +403,13 @@ class Seeder:
         distinct = DISTINCT_CONTENT.get(collection, lambda _key: {})(key)
         doc.update(distinct)
         doc.update(overrides)
+        for head, values in nested.items():
+            embedded = _embedded_model(model, head)
+            if embedded is None:  # pragma: no cover — _model_for accepted the path
+                raise SeedError(f"'{collection}.{head}' is no embedded model of {model.__name__}")
+            current = doc.get(head)
+            base = current if isinstance(current, dict) else _required_values(embedded, f"{MARKER_PREFIX}:{key}:{head}")
+            doc[head] = {**base, **values}
         instance = self._validate(model, collection, doc, optional_markers)
         stored = instance.model_dump(mode="json", by_alias=True)
         # In the stored (serialised) form: that is what an export discloses.
@@ -537,7 +612,22 @@ class Seeder:
                         source.collection, {"tenant_key": self.tenant_key}, role=f"export:{source.collection}"
                     )
                 continue
-            field = source.filter_field or ""
+            if source.personal_tenant_scope is not None:
+                # A personal-tenant source (#2135/#2164/#2232/#2360) is the subject's personal garden,
+                # disclosed whole: it carries no account field by validator, so there is no field to
+                # put the subject in — the old ``filter_field or ""`` made it the field ``''`` and
+                # stopped the seed. Its rows belong in the subject's PERSONAL tenant, and this seed
+                # builds an organisational one on purpose (see the tenant above); the personal case
+                # has its own seed, ``seed_tenant_for_erasure.py --personal-of``. It is reported, so the
+                # record says which export sources no T2 probe seeded.
+                self.personal_tenant_sources.add(source.collection)
+                continue
+            field = source.filter_field
+            if not field:
+                raise SeedError(
+                    f"manifest source '{source.collection}' names no filter field and is no personal-tenant "
+                    "source; the seed cannot tell where the subject's row would be attributed"
+                )
             if (source.collection, field, "{}") in self.covered:
                 continue
             if field in EDGE_ENDPOINTS:
@@ -587,6 +677,7 @@ class Seeder:
             "rows": self.rows,
             "subject_edges": subject_edges,
             "unmodelled": sorted(self.unmodelled),
+            "personal_tenant_sources": sorted(self.personal_tenant_sources),
         }
 
 
