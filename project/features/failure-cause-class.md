@@ -1,9 +1,9 @@
 ---
 id: F-19
 title: Ursachenklasse am Ausfall
-status: draft
+status: ready
 roadmap_item: R-20
-sprint: null
+sprint: 4
 created: 2026-11-17
 ended: null
 verifies_sprint_value: null

@@ -200,10 +200,12 @@ id: R-20
 title: Bodengefahren und bodenbürtige Ausfälle beim Nachpflanzen
 detail: fine
 outcomes: [O-2, O-1]
-target_sprint: null
-mvp: false
+target_sprint: 4
+mvp: true
 status: proposed
 ```
+
+**MVP-Flip (Operator-Entscheid 2026-11-22):** `mvp: false → true`, damit Sprint 0004 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14, R-17 und R-18.
 
 Fällt eine Pflanze aus, unterscheidet der Nachpflanz-Hinweis heute nur grob
 nach Krankheit, Schädling oder unbekannt. Künftig hält der Gärtner fest, ob

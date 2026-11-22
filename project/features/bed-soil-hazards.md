@@ -1,9 +1,9 @@
 ---
 id: F-20
 title: Bodengefahren am Beet
-status: draft
+status: ready
 roadmap_item: R-20
-sprint: null
+sprint: 4
 created: 2026-11-17
 ended: null
 verifies_sprint_value: null
