@@ -1,27 +1,12 @@
 # Approved reach probe; derived by capability-reach-scanner, approved via capability-reach-audit.
 # Never edit in place: any later commit to this file is reported as weakened. Re-derive instead.
-# Approval: recorded under the repository owner's explicit authorization (2026-09-25) of the
-# approval gate for re-anchoring the probes #1797 left on pre-squash commits, relayed by the
-# orchestrating session — not an interactive batch answer. It records that the targets and the
-# observe argv below run on the operator's machine with their environment, as `task` in this
-# repository does.
-#
-# Re-derived after #1786 (16667ac9a) changed data_export_engine.py: one import line was added (bundle_object_key
-# delegates to export_bundle_key), so the cited lines moved +1.
-# The declared content, order and count are unchanged; derived_from is now 16667ac9a, the
-# declaration's latest commit on develop. Observe step, targets and expectation unchanged.
-# Earlier:
-# Re-derived after #1721 (#1719): the manifest the export walk executes now has 38
-# collections and 7 edges (new: api_keys, onboarding_states, pest_detections,
-# user_favorites, user_preferences). location_assignments is declared with a
-# disclosure_gap (not collected per person, the bundle says why) and is therefore not
-# an expected member.
+# Re-derived 2026-11-22 (#3090) against the current declaration; approved interactively by the operator.
 id: inventory-export-manifest-sources-populated
 summary: sources of the executing export manifest whose seeded rows reach the subject's Art. 15 archive
 declaration:
   source: inventory
   path: src/backend/app/domain/engines/data_export_engine.py
-  location: DataExportEngine.USER_DATA_MANIFEST (L41)
+  location: DataExportEngine.USER_DATA_MANIFEST (L113)
 tier: T2
 expected:
   kind: set
@@ -33,11 +18,14 @@ expected:
   - collection/api_keys
   - collection/attachments
   - collection/auth_providers
+  - collection/bed_templates
   - collection/calendar_feeds
+  - collection/care_events
   - collection/consent_records
   - collection/data_export_requests
   - collection/email_change_requests
   - collection/erasure_requests
+  - collection/garden_plan_audit
   - collection/harvest_batches
   - collection/identification_requests
   - collection/import_jobs
@@ -57,8 +45,12 @@ expected:
   - collection/processing_restrictions
   - collection/quality_assessments
   - collection/refresh_tokens
+  - collection/rooting_protocols
+  - collection/security_audit_log
   - collection/task_comments
   - collection/tasks
+  - collection/tenant_export_requests
+  - collection/tenant_import_requests
   - collection/tenants
   - collection/treatment_applications
   - collection/user_favorites
@@ -72,7 +64,7 @@ expected:
   - edge/requested_email_change
   - edge/requested_erasure
   - edge/requested_export
-derived_from: blob:7d44647ebcad3dd2b868327425031bbbc8268fd2
+derived_from: blob:3b7554e11b8a0e061d85c97b9e6a346faea1171c
 environment:
 - reach:stack:up
 - reach:seed:privacy-subject
@@ -87,7 +79,7 @@ observe:
   - reach-subject
   timeout_seconds: 300
 approval:
-  approved_at: '2026-10-04T12:35:32Z'
+  approved_at: "2026-11-22T18:26:03Z"
   approved_by: nolte
   observation_digest: 17281a965c090fdf0d4e4a3b73f6e4f4ab96d7690503b7c71280c6699879d8e4
-  mode: reconfirmed
+  mode: derived
