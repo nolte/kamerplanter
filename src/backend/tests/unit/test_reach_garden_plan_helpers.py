@@ -158,7 +158,7 @@ def test_the_probe_expects_exactly_the_facts_of_a_complete_answer():
     root = find_repo_root(Path(__file__).resolve())
     assert root is not None
     probe = yaml.safe_load(
-        (root / "project/reach-probes/endpoint-sites-plan-read-model-answers.yml").read_text("utf-8")
+        (root / "project/reach-probes/drafts/endpoint-sites-plan-read-model-answers.yml").read_text("utf-8")
     )
     assert sorted(probe["expected"]["values"]) == EXPECTED
 
