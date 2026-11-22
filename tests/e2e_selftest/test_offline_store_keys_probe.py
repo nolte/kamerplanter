@@ -28,9 +28,37 @@ PENDING = {
 }
 
 
+#: What the page's IndexedDB trace (#3082) holds when the probe's open is queued: a deletion the app asked for,
+#: blocked by a connection that got ``versionchange`` and never closed.
+TRACE = [
+    {
+        "id": 1,
+        "db": "kp-plan-cache",
+        "op": "open",
+        "version": 20,
+        "t": 812,
+        "wall": 1,
+        "stack": "Dexie.open < app",
+    },
+    {"id": 1, "db": "kp-plan-cache", "ev": "success", "t": 830},
+    {
+        "id": 2,
+        "db": "kp-plan-cache",
+        "op": "delete",
+        "version": None,
+        "t": 1500,
+        "wall": 2,
+        "stack": "wipe < app",
+    },
+    {"id": 1, "db": "kp-plan-cache", "ev": "versionchange 20->null", "t": 1502},
+    {"id": 2, "db": "kp-plan-cache", "ev": "blocked 20->null", "t": 1503},
+]
+
+
 class ProbeDriver:
-    def __init__(self, store_answer: object) -> None:
+    def __init__(self, store_answer: object, trace: object = None) -> None:
         self.store_answer = store_answer
+        self.trace = trace
         self.store_probes: list[tuple[object, ...]] = []
 
     def execute_async_script(self, script: str, *args: object) -> object:
@@ -39,6 +67,8 @@ class ProbeDriver:
         if script == offline._STORE_KEYS:
             self.store_probes.append(args)
             return self.store_answer
+        if script == offline._TRACE_ENTRIES:
+            return {"entries": self.trace}
         raise AssertionError(f"ProbeDriver got an unexpected script: {script[:60]!r}")
 
 
@@ -88,3 +118,62 @@ def test_a_written_record_is_still_found() -> None:
     )
 
     assert key == "u:t:bed_1"
+
+
+def test_a_pending_open_names_the_requests_ahead_of_it() -> None:
+    driver = ProbeDriver({**PENDING, "trace": TRACE})
+
+    with pytest.raises(offline.OfflineProbeError) as raised:
+        offline.indexeddb_record_keys(driver, offline.PLAN_CACHE_DB, "bedSheets")  # type: ignore[arg-type]
+
+    message = str(raised.value)
+    assert "#2 kp-plan-cache t=1500 delete (no version) from wipe < app" in message
+    assert "#2 kp-plan-cache t=1503 -> blocked 20->null" in message
+    assert "#1 kp-plan-cache t=1502 -> versionchange 20->null" in message
+    assert "#1 kp-plan-cache t=812 open (version 20) from Dexie.open < app" in message
+
+
+def test_a_pending_open_in_an_untraced_document_says_so() -> None:
+    driver = ProbeDriver({**PENDING, "trace": None})
+
+    with pytest.raises(
+        offline.OfflineProbeError, match="install_indexeddb_trace was not registered"
+    ):
+        offline.indexeddb_record_keys(driver, offline.PLAN_CACHE_DB, "bedSheets")  # type: ignore[arg-type]
+
+
+def test_a_record_that_never_came_quotes_the_trace() -> None:
+    driver = ProbeDriver({"keys": []}, trace=TRACE)
+
+    with pytest.raises(AssertionError) as raised:
+        offline.wait_for_cached_record(
+            driver,  # type: ignore[arg-type]
+            offline.PLAN_CACHE_DB,
+            "bedSheets",
+            "bed_1",
+            "TC-053-087",
+            timeout=1,
+        )
+
+    assert "holds no record" in str(raised.value)
+    assert "-> blocked 20->null" in str(raised.value)
+
+
+def test_the_trace_quotes_only_the_newest_entries() -> None:
+    entries = [{"id": n, "db": "kp-plan-cache", "ev": "success", "t": n} for n in range(100)]
+
+    text = offline.format_indexeddb_trace(entries)
+
+    assert f"last {offline.TRACE_QUOTED} of 100" in text
+    assert "#99 " in text and "#59 " not in text
+
+
+def test_the_trace_is_a_pass_through_for_the_two_app_databases() -> None:
+    script = offline._IDB_TRACE
+
+    assert '["kp-plan-cache", "kp-write-queue"]' in script
+    assert "originalOpen.apply(this, arguments)" in script
+    assert "originalDelete.apply(this, arguments)" in script
+    assert f"LIMIT = {offline.TRACE_LIMIT}" in script
+    # The probe opens through the saved original, so its polling is not traced.
+    assert "trace ? trace.open : IDBFactory.prototype.open" in offline._STORE_KEYS
