@@ -354,7 +354,7 @@ def _timestamp_optional_configured(repo_root: Path) -> bool:
     config = repo_root / "renovate.json5"
     try:
         text = config.read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise DashboardError(
             "the dashboard reports Renovate's undated-release warning, but renovate.json5 could not be read "
             f"({exc.__class__.__name__}) to decide whether `minimumReleaseAgeBehaviour: 'timestamp-optional'` "
@@ -1303,7 +1303,7 @@ def render(report: dict[str, Any]) -> str:
                 f"(#3076): {'; '.join(expected)}."
             )
         return (
-            "Renovate dashboard healthy: no repository problems, "
+            "Renovate dashboard healthy: no unexpected repository problems, "
             f"pep621 extracts from all {len(report['expected_pep621_files'])} expected trees, "
             f"managers seen: {', '.join(report['managers'])}." + remainder
         )
