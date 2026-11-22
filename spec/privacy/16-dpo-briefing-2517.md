@@ -2,14 +2,14 @@
 
 ```
 Paket: spec/privacy · Version 1.1 · 2026-11-22
-Gemessen gegen: develop ef39d1f8e (2026-11-22; nach #2968 und den Datenschutzmigrationen v0109–v0111, v0114)
+Gemessen gegen: develop ef39d1f8e (2026-11-22; nach #2968 und den Datenschutzmigrationen v0109–v0111)
 Zweck: Die in #2517 gesammelten Rechtsfragen als EIN Briefing (Betreiberentscheidung 2026-11-14, Pkt. 1).
 Keine Rechtsberatung. #2517 bleibt offen, bis die Antwort vorliegt; jede Antwort wird als LEG-Entscheidung
 in decision-log §B eingetragen (Status decided) und vom Betreiber durchgesetzt.
 Änderungen 1.1 (Neumessung): §1 Routen korrigiert (`GET /care-events`, `GET /locations/{key}/history`) und
 CSV-Download ergänzt; §2 Plan-Audit-Marker umgesetzt (v0109, DEC-16), `anon2_` weiterhin nicht gebaut, Frage 3
 neu (LEG-15); §4 Schlüsselfelder aus v0111 ergänzt; §6 Dateiname wird bei Löschung geleert (v0109, PRIV-211).
-§3 und §5 unverändert gemessen. Keine neue Frage aus #2517 oder den verknüpften Issues; keine neue LEG-Zeile.
+§3 und §5: Ist-Stand unverändert, Belege ergänzt. Keine neue Frage aus #2517 oder den verknüpften Issues; keine neue LEG-Zeile.
 ```
 
 ## 0. Wie dieses Briefing zu lesen ist
@@ -40,7 +40,7 @@ Drei Fragenkomplexe hatte die Registry noch nicht; sie sind mit diesem Dokument 
 der durchführenden Person (nie den Kontoschlüssel). Dieselbe Liste lädt jedes Mitglied mit `format=csv` als Datei
 mit bis zu 50 000 Zeilen herunter, Spalten `performed_by` und `performed_for` eingeschlossen
 (`domain/engines/care_event_csv_engine.py:22`). Der Personenfilter ist eingeschränkt (SR-020/E-16,
-`check_performed_by_filter`, `domain/services/care_event_service.py:150`), das Datum nicht: die Einschränkung
+`check_performed_by_filter`, `domain/services/care_event_service.py:151`), das Datum nicht: die Einschränkung
 entfernt die Abkürzung, nicht die Daten (`05` §1).
 Seit 2026-11-14 gilt für eine Pflege-Bestätigung **eine Regel: immer die aufrufende Person** — REST,
 Benachrichtigung, Aufgabenwarteschlange (`care_reminder_service.record_care_task_completion`,
@@ -68,7 +68,7 @@ ist spezifiziert (DEC-10, DA-04), nicht gebaut.
 **Ist-Stand.** Bei Kontolöschung erhalten die fünf Kontoverweise eines Pflegeereignisses (`performed_by_user_key`,
 `performed_for_user_key`, `created_by`, `voided_by`, `redacted_by`) den Sammelmarker `_anonymized`
 (`domain/engines/erasure_engine.py:162–235`), der **alle** gelöschten Mitglieder eines Mandanten bündelt; ein
-Filter auf `_anonymized` wird mit 422 abgewiesen (`care_event_service.py:163`, `04` §2). Ein Pseudonym
+Filter auf `_anonymized` wird mit 422 abgewiesen (`care_event_service.py:164`, `04` §2). Ein Pseudonym
 (Tombstone `anon_<16 hex>`, instanzweit, `ErasureEngine.compute_tombstone_hash`, `erasure_engine.py:1236`) erhalten
 die Pflichtaufzeichnungen, darunter `treatment_applications.applied_by_key` und `harvest_batches.harvested_by_key`
 (`erasure_engine.py:84`, `:109`).
@@ -161,9 +161,9 @@ Kategorienliste `data_access/storage/local_fs_adapter.py:567`): bei Kontolöschu
 Mitglieder, `created_by` wird `_anonymized`, EXIF wird entfernt. Seit v0109 (2026-11-15, PRIV-211) leert derselbe
 Schreibvorgang auch den ursprünglichen Dateinamen `original_filename`, der oft den Namen der Besitzerin trägt
 (`data_access/arango/attachment_repository.py:416–427`); v0109 hat das für bereits anonymisierte Zeilen
-nachgeholt. Die Regel begründet das Behalten mit NFR-011 R-16/R-17/R-18 (CanG/PflSchG) — für Gartenfotos trifft
-das nicht zu; tragfähig wäre allenfalls Art. 6 Abs. 1 lit. f. Der Umfang `user_personal` (Löschen) ist heute leer.
-Der Art.-15/20-Export enthält Metadaten und Verweise (`domain/engines/data_export_engine.py:805`), die Bilddateien
+nachgeholt. Die Regel begründet das Behalten mit NFR-011 R-16/R-17/R-18 (CanG/PflSchG) — nach Einschätzung des
+Betreibers trifft das für Gartenfotos nicht zu; welche Grundlage trägt, ist Frage LEG-20 unten. Der Umfang `user_personal` (Löschen) ist heute leer.
+Der Art.-15/20-Export enthält Metadaten und Verweise (eigener persönlicher Mandant: `domain/engines/data_export_engine.py:805`; Fotos aus einem gemeinsamen Mandanten über die `created_by`-Quelle: `data_export_engine.py:502`), die Bilddateien
 sind „in der App verfügbar“. Das Foto eines anderen oder gelöschten Mitglieds entfernen kann nur die Leitung
 (`domain/services/location_photo_service.py:251`); eine abgebildete Person ohne Konto hat keinen eigenen Weg.
 
