@@ -70,6 +70,14 @@ describe('AppRoutes — platform-admin guard placement (#1336)', () => {
     expect(adminRoutes.sort()).toEqual(Object.keys(PLATFORM_ADMIN_ROUTES).sort());
   });
 
+  it('registers the platform admin hub /admin/platform behind the guard (F-12, #2935)', () => {
+    // Named explicitly because the hub replaced a settings tab that was gated only
+    // at the page: the table-driven cases above would pass vacuously if the route
+    // were missing from both the router and the table.
+    expect(PLATFORM_ADMIN_ROUTES).toHaveProperty(['admin/platform']);
+    expect(isPlatformGuarded(routeFor('admin/platform').element)).toBe(true);
+  });
+
   it('records the backend gate it mirrors for every entry', () => {
     // The check the script cannot make: whether a decision is *correct* is read
     // by a human off the recorded gate, so an entry naming none is unreviewable.

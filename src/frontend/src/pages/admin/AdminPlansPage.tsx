@@ -27,6 +27,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { usePlanCatalogue } from '@/hooks/usePlanCatalogue';
 import ErrorPage from '@/pages/ErrorPage';
 import { formatPlanLimit } from '@/utils/entitlements';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 
 /** The columns shown in the table; the AI budgets are summarised to keep it readable on a laptop. */
 /** 48 px touch target on phones (UI-NFR-001 R-011), compact on desktop (R-013). */
@@ -44,7 +45,7 @@ function deleteBlocker(plan: Plan): 'default' | 'inUse' | null {
 /**
  * Admin › Plans — the installation's plan catalogue (REQ-056 §7.6, §15, AK-45).
  *
- * Reached from the platform tab of the settings page and guarded by `<RequirePlatformAdmin>`: every
+ * Reached from the platform admin's hub (`/admin/platform`, F-12) and guarded by `<RequirePlatformAdmin>`: every
  * request here is `require_platform_admin`, the list included. Full mode only — in light mode the
  * plan routes are not mounted (REQ-056 §7.8) and neither is this page.
  *
@@ -173,7 +174,7 @@ export default function AdminPlansPage() {
   return (
     <Box sx={{ mt: 2 }} data-testid="admin-plans-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/settings#platform')} sx={TOUCH_SX} aria-label={t('pages.plans.back')} data-testid="plans-back">
+        <IconButton onClick={() => navigate(ADMIN_PLATFORM_PATH)} sx={TOUCH_SX} aria-label={t('pages.plans.back')} data-testid="plans-back">
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>

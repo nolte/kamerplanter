@@ -1,3 +1,5 @@
+import { ADMIN_PLATFORM_PATH } from './adminPaths';
+
 interface BreadcrumbConfig {
   label: string;
   parent?: string;
@@ -86,12 +88,23 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-025 Datenschutz & Betroffenenrechte (DSGVO self-service)
   '/privacy': { label: 'pages.auth.privacySettings', parent: '/dashboard' },
 
-  // Admin
-  '/admin/tenants': { label: 'pages.auth.adminTenantsTitle', parent: '/settings' },
-  '/admin/users': { label: 'pages.auth.adminUsersTitle', parent: '/settings' },
-  '/admin/oidc-providers': { label: 'pages.admin.oidc.title', parent: '/settings' },
-  '/admin/plans': { label: 'pages.plans.title', parent: '/settings' },
-  '/admin/tenant-imports': { label: 'pages.tenantImports.title', parent: '/settings' },
+  // Admin — F-12 (#2935): every admin page hangs under the platform admin's hub.
+  // `/admin/tenants` and `/admin/users` exist only as the base of their detail
+  // routes, so their list link points at the hub's tenant and user tables.
+  [ADMIN_PLATFORM_PATH]: { label: 'nav.platformAdmin', parent: '/dashboard' },
+  '/admin/tenants': {
+    label: 'pages.auth.adminTenantsTitle',
+    parent: ADMIN_PLATFORM_PATH,
+    listPath: ADMIN_PLATFORM_PATH,
+  },
+  '/admin/users': {
+    label: 'pages.auth.adminUsersTitle',
+    parent: ADMIN_PLATFORM_PATH,
+    listPath: ADMIN_PLATFORM_PATH,
+  },
+  '/admin/oidc-providers': { label: 'pages.admin.oidc.title', parent: ADMIN_PLATFORM_PATH },
+  '/admin/plans': { label: 'pages.plans.title', parent: ADMIN_PLATFORM_PATH },
+  '/admin/tenant-imports': { label: 'pages.tenantImports.title', parent: ADMIN_PLATFORM_PATH },
 };
 
 export function buildBreadcrumbs(

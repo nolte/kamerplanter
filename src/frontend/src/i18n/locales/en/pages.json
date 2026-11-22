@@ -693,6 +693,11 @@
         "manualSubmit": "Release"
       }
     },
+    "adminPlatform": {
+      "title": "Platform administration",
+      "intro": "Manage everything here that applies to the whole installation, not just to your garden. Your personal settings stay under \"Settings\".",
+      "back": "Back to platform administration"
+    },
     "privacy": {
       "title": "Privacy & Data Subject Rights",
       "tabsAriaLabel": "Privacy sections",
@@ -874,7 +879,6 @@
       "tabKiosk": "Kiosk mode",
       "tabConnect": "Connect app",
       "tabModules": "Modules & Features",
-      "tabPlatform": "Platform Mode",
       "tabAdmin": "Administration",
       "tabNotifications": "Notifications",
       "tabIntegrations": "Integrations",
@@ -5110,7 +5114,7 @@
       "intro": "A plan sets an organization's quotas: how many members and service accounts, how much storage, how many photos per plant and how many AI calls a day. Every organization has exactly one plan; new organizations get the default plan. Organizations cannot choose their plan themselves – you assign it on the organization's page.",
       "valueLegend": "How to read the values: an empty value (“same as instance setting”) follows the installation's environment variable. “Unlimited” and “budget off” stand for the value 0 – it lifts the limit and never means “nothing allowed”. A lower limit removes nothing; only the next creation is refused.",
       "add": "Create plan",
-      "back": "Back to the platform settings",
+      "back": "Back to platform administration",
       "emptyTitle": "No plans yet",
       "emptyDescription": "Create a plan to give organizations other quotas than the instance settings.",
       "navCardTitle": "Plans and quotas",
@@ -5243,7 +5247,7 @@
     },
     "tenantImports": {
       "title": "Import a garden",
-      "back": "Back to the platform settings",
+      "back": "Back to platform administration",
       "intro": "Bring the archive of a garden export back as a new garden — from this or another installation. An import never merges into an existing garden: every record gets a new id, and the new garden only becomes reachable once its last record is written.",
       "rules": "How members are taken over: only the people you map to an existing account below become members of the new garden — with the role and additional permissions you set, never those in the archive. Unmapped members are dropped; their entries (e.g. \"created by\") are anonymised.",
       "resumed": "You signed in again. Choose the archive and the mapping once more and start the import within five minutes — the confirmation only holds for exactly this file.",

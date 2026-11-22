@@ -7,10 +7,29 @@ The platform admin area is exclusively accessible to users with the platform rol
 ## Prerequisites
 
 - Platform role **admin** (distinct from the tenant-admin role)
-- Access via `/admin/platform` (in full mode)
+- Access via the **Platform administration** entry in the side navigation (address `/admin/platform`)
 
 !!! warning "Do not confuse with tenant-admin"
     The platform-admin role is a **platform-wide** special role. It grants access to data across all tenants. The tenant-admin role, by contrast, is limited to a single tenant and is assigned via **Settings > Tenants > Members**.
+
+---
+
+## Opening platform administration {#opening-platform-administration}
+
+As a platform admin you see the **Platform administration** entry in the side navigation, below **Settings**. It opens the page `/admin/platform`, your starting point for everything that concerns the whole installation:
+
+- the **operating mode** cards (Light, Full, Enterprise) with the mode currently active
+- the platform's **figures**
+- the ways into the admin pages: **Manage OIDC providers**, **Manage plans** and **Open import** ("Import a garden" card)
+- the **Organizations** (all tenants) and **Users** tables, where the pencil icon opens a tenant or a user account for editing
+- the **Moderate contributed images** card, where you release users' pest photos to everyone
+
+Every admin page leads back here through its back arrow and the breadcrumb navigation. Anyone who is not a platform admin does not see the entry; opening the address directly shows a notice that the permission is missing.
+
+!!! info "Formerly under Settings"
+    Platform administration used to be the **Platform Mode** tab of your personal **Settings**, and the **Moderate contributed images** card sat in the **Integrations** tab. Settings no longer hold this content. If you bookmarked the old address, you now land on the first settings tab — open platform administration from the side navigation. <!-- Issue #2935 -->
+
+In light mode you, as the only operator, are a platform admin automatically. There the page shows the operating mode cards and the **Moderate contributed images** card; figures, tenants, users and the other admin pages exist in full mode only.
 
 ---
 
@@ -29,7 +48,7 @@ The platform admin area is exclusively accessible to users with the platform rol
 
 ## Tenant Management
 
-In the **Admin > Tenants** section you can:
+In the **Organizations** table of **Platform administration** you can:
 
 - View all platform tenants (name, slug, member count, creation date)
 - Deactivate or delete individual tenants
@@ -52,7 +71,7 @@ How many organizations an account may found itself is not a plan quota but the s
 
 #### Maintaining plans in the interface
 
-Under **Settings > Platform Mode**, **Manage plans** opens the **Plans** page. <!-- REQ-056 AK-45 -->
+In **Platform administration**, **Manage plans** opens the **Plans** page. <!-- REQ-056 AK-45 -->
 
 - The list shows every plan with its key, selected quotas and the number of tenants using it. The default plan carries the mark **Default**. An empty value reads **same as instance setting**, a `0` reads **unlimited** or **budget off** — never "0".
 - With **Create plan** you set the key (lower-case letters, digits, `_` or `-`, cannot be changed later), the name, optionally a description and the quotas. Leave a field empty so the server setting applies. Under every field you see how Kamerplanter will apply the value.
@@ -94,7 +113,7 @@ You save a single tenant as an archive and bring it back as a **new** tenant —
 
 Kamerplanter is connected to exactly **one** Home Assistant instance — yours, with your token — and uses it for all tenants. So that a tenant cannot reach your household's door contacts, presence sensors or switches, you release to each tenant only the entities it is meant to use: as a sensor, actuator, weather source or notification target. <!-- Issue #2112 -->
 
-1. Open **Admin > Tenants** and pick the tenant.
+1. Open **Platform administration** and pick the tenant in the **Organizations** table.
 2. The **Home Assistant entities** section lists every entity of your instance with its release state. Narrow it down with the search and the **Released only** switch.
 3. The switch next to an entity releases it or withdraws the release.
 4. Notification services (for example `notify.mobile_app_phone`) are not in the list. Enter them below under **Release entity by ID**.
@@ -116,7 +135,7 @@ What a release does:
 
 ## User Management
 
-In the **Admin > Users** section you can:
+In the **Users** table of **Platform administration** you can:
 
 - View all user accounts on the platform
 - Lock or deactivate user accounts
@@ -158,12 +177,12 @@ In the **Admin > Users** section you can:
 
 ## Statistics
 
-The **Admin > Statistics** section provides an overview of:
+At the top of **Platform administration** you see four figures for the installation:
 
-- Number of active tenants and users
-- Active planting runs platform-wide
-- Celery task queue status
-- Storage usage (ArangoDB, TimescaleDB, Redis)
+- **Active Users**
+- **Total Users**
+- **Active Organizations** (active tenants)
+- **Memberships**
 
 ---
 
@@ -171,7 +190,7 @@ The **Admin > Statistics** section provides an overview of:
 
 Here you configure federated authentication providers (e.g. Google, GitHub, corporate OIDC instances). These settings apply platform-wide to all tenants.
 
-You manage them on a page of their own: open **Settings > Platform Mode** and click **Manage OIDC providers** in the "Sign-in providers (OIDC)" card (address `/admin/oidc-providers`). The card only appears for platform admins. On the page you can:
+You manage them on a page of their own: open **Platform administration** and click **Manage OIDC providers** in the "Sign-in providers (OIDC)" card (address `/admin/oidc-providers`). On the page you can:
 
 - see every provider with its type, issuer URL, client ID, scopes, whether it is active and when its discovery document was last fetched
 - **add** a provider (**Add provider**)
@@ -553,7 +572,7 @@ As a platform admin you can **deselect individual reference images** after a vis
 
 On the [pest detail page](pest-detail.md), users can contribute their own photos for a pest. These images are **private** at first (visible only to that user's garden/tenant). As a platform admin you can **promote** especially good shots to be globally visible.
 
-Moderation lives in the admin area, in the **"Contributed pest images"** card:
+Moderation lives in [platform administration](#opening-platform-administration), in the **"Moderate contributed images"** card:
 
 1. Select the pest in question.
 2. You see all contributed images **across all tenants** with a preview, provenance (user/tenant/date) and status (private/global).

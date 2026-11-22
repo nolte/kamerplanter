@@ -57,11 +57,44 @@ describe('buildBreadcrumbs', () => {
     expect(buildBreadcrumbs('/stammdaten/species/sp-1/cultivars/cv-1')).toEqual([]);
   });
 
-  it('resolves a nested admin route to its /settings parent', () => {
-    expect(buildBreadcrumbs('/admin/tenants')).toEqual([
+  // F-12 (#2935): the admin pages hang under the platform admin's hub, not under
+  // the personal settings page that used to carry it as a tab.
+  it('resolves the platform admin hub under the dashboard', () => {
+    expect(buildBreadcrumbs('/admin/platform')).toEqual([
       { label: 'nav.dashboard', path: '/dashboard' },
-      { label: 'nav.settings', path: '/settings' },
-      { label: 'pages.auth.adminTenantsTitle' },
+      { label: 'nav.platformAdmin' },
     ]);
+  });
+
+  it.each([
+    ['/admin/oidc-providers', 'pages.admin.oidc.title'],
+    ['/admin/plans', 'pages.plans.title'],
+    ['/admin/tenant-imports', 'pages.tenantImports.title'],
+  ])('resolves %s to the platform admin hub as its parent', (path, label) => {
+    expect(buildBreadcrumbs(path)).toEqual([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.platformAdmin', path: '/admin/platform' },
+      { label },
+    ]);
+  });
+
+  it.each([
+    ['/admin/tenants/t-1', 'pages.auth.adminTenantsTitle'],
+    ['/admin/users/u-1', 'pages.auth.adminUsersTitle'],
+  ])('links the list crumb of %s to the hub, not to an unrouted list path', (path, label) => {
+    // `/admin/tenants` and `/admin/users` are no routes of their own — the lists
+    // are the hub's tables — so a crumb pointing at them would end on a 404.
+    expect(buildBreadcrumbs(path)).toEqual([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.platformAdmin', path: '/admin/platform' },
+      { label, path: '/admin/platform' },
+      { label: 'nav.detail' },
+    ]);
+  });
+
+  it('no longer routes any admin page through the settings page', () => {
+    for (const path of ['/admin/platform', '/admin/tenants/t-1', '/admin/users/u-1', '/admin/plans']) {
+      expect(buildBreadcrumbs(path).map((c) => c.path)).not.toContain('/settings');
+    }
   });
 });

@@ -5,7 +5,7 @@ A tenant export saves **one** garden (tenant) as an archive without touching the
 This page is for operators and platform admins. Backing up the whole installation is covered in [Backup & Restore](backup-restore.md).
 
 !!! warning "Not yet implemented"
-    You start an export in the garden settings (**Export** tab) and an import as a platform admin under **Settings > Platform mode > Imports** (internal reference: REQ-056 §15). You enter the member mapping by hand: the keys are in `members.jsonl` inside the archive, the page does not read the archive. There is no list of earlier imports yet; the import key is in the page address. Sensor readings from TimescaleDB are in the archive, but the import does not load them yet. <!-- REQ-056 / Issue #2138 -->
+    You start an export in the garden settings (**Export** tab) and an import as a platform admin in **Platform administration** via **Open import** ("Import a garden" card) (internal reference: REQ-056 §15). You enter the member mapping by hand: the keys are in `members.jsonl` inside the archive, the page does not read the archive. There is no list of earlier imports yet; the import key is in the page address. Sensor readings from TimescaleDB are in the archive, but the import does not load them yet. <!-- REQ-056 / Issue #2138 -->
 
 ---
 

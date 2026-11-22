@@ -693,6 +693,11 @@
         "manualSubmit": "Freigeben"
       }
     },
+    "adminPlatform": {
+      "title": "Plattform-Verwaltung",
+      "intro": "Hier verwaltest du alles, was für die ganze Installation gilt – nicht nur für deinen Garten. Deine persönlichen Einstellungen findest du weiterhin unter „Einstellungen“.",
+      "back": "Zurück zur Plattform-Verwaltung"
+    },
     "privacy": {
       "title": "Datenschutz & Betroffenenrechte",
       "tabsAriaLabel": "Datenschutz-Bereiche",
@@ -875,7 +880,6 @@
       "tabKiosk": "Kiosk-Modus",
       "tabConnect": "App verbinden",
       "tabModules": "Module & Funktionen",
-      "tabPlatform": "Plattform-Modus",
       "tabAdmin": "Administration",
       "tabNotifications": "Benachrichtigungen",
       "tabIntegrations": "Integrationen",
@@ -5110,7 +5114,7 @@
       "intro": "Ein Plan legt die Kontingente einer Organisation fest: wie viele Mitglieder und Dienstkonten, wie viel Speicher, wie viele Fotos je Pflanze und wie viele KI-Aufrufe am Tag. Jede Organisation hat genau einen Plan; neue Organisationen bekommen den Standard-Plan. Organisationen selbst können ihren Plan nicht wählen – du ordnest ihn auf der Seite der Organisation zu.",
       "valueLegend": "So liest du die Werte: Ein leerer Wert („wie Instanz-Einstellung“) folgt der Umgebungsvariable der Installation. „Unbegrenzt“ und „Budget aus“ stehen für den Wert 0 – er hebt die Grenze auf und bedeutet nie „nichts erlaubt“. Ein niedrigeres Limit entfernt nichts; abgelehnt wird erst die nächste Anlage.",
       "add": "Plan anlegen",
-      "back": "Zurück zu den Plattform-Einstellungen",
+      "back": "Zurück zur Plattform-Verwaltung",
       "emptyTitle": "Noch keine Pläne",
       "emptyDescription": "Lege einen Plan an, um Organisationen andere Kontingente zu geben als die Instanz-Einstellungen.",
       "navCardTitle": "Pläne und Kontingente",
@@ -5243,7 +5247,7 @@
     },
     "tenantImports": {
       "title": "Garten importieren",
-      "back": "Zurück zu den Plattform-Einstellungen",
+      "back": "Zurück zur Plattform-Verwaltung",
       "intro": "Hier spielst du das Archiv eines Garten-Exports als neuen Garten ein — aus dieser oder einer anderen Installation. Der Import führt nie in einen bestehenden Garten zusammen: Jeder Datensatz bekommt eine neue Kennung, und der neue Garten ist erst erreichbar, wenn der letzte Datensatz geschrieben ist.",
       "rules": "So funktioniert die Übernahme der Mitglieder: Nur wen du unten einem bestehenden Konto zuordnest, wird Mitglied des neuen Gartens — mit der Rolle und den Zusatzberechtigungen, die du festlegst, nie mit denen aus dem Archiv. Nicht zugeordnete Mitglieder entfallen; ihre Einträge (z. B. „angelegt von“) werden anonymisiert.",
       "resumed": "Du hast dich erneut angemeldet. Wähle das Archiv und die Zuordnung noch einmal aus und starte den Import innerhalb von fünf Minuten — die Bestätigung gilt nur für genau diese Datei.",

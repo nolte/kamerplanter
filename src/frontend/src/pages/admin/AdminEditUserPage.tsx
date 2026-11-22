@@ -55,6 +55,7 @@ import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog
 import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
 import type { AdminUser, AdminUserMembership, AdminTenant, AdminUserUpdate, TenantRole } from '@/api/types';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 
 const GRID_2COL = {
   display: 'grid',
@@ -237,7 +238,7 @@ export default function AdminEditUserPage() {
     await deleteAdminUser(user.key, { confirm_email: echo, ...toStepUpBody(credentials) });
     setConfirmDelete(false);
     notification.success(t('pages.auth.adminUserDeletionAccepted'));
-    navigate('/settings#platform');
+    navigate(ADMIN_PLATFORM_PATH);
   };
 
   // Adding only opens the confirmation (#2106): nothing is written until the admin's OWN step-up
@@ -317,7 +318,11 @@ export default function AdminEditUserPage() {
   return (
     <Box sx={{ mt: 2 }} data-testid="admin-edit-user-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => navigate('/settings#platform')} data-testid="back-btn">
+        <IconButton
+          onClick={() => navigate(ADMIN_PLATFORM_PATH)}
+          aria-label={t('pages.adminPlatform.back')}
+          data-testid="back-btn"
+        >
           <ArrowBackIcon />
         </IconButton>
         <PageTitle title={`${t('pages.auth.editUserTitle')}: ${user.display_name}`} />
