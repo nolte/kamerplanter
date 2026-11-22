@@ -235,10 +235,53 @@ describe('seasonSlice reducers', () => {
       will_materialize: false,
       site_overwinterable: true,
     } as const;
+    state = reducer(state, fetchOverwinteringStatus.pending('reqA2', 'plant-A'));
     state = reducer(state, fetchOverwinteringStatus.fulfilled(status, 'reqA2', 'plant-A'));
     expect(state.currentStatus).toEqual(status);
     state = reducer(state, fetchOverwintering.pending('reqB', 'plant-B'));
     expect(state.currentStatus).toBeNull();
+  });
+
+  it('drops an earlier answer for the same plant after clear + re-request (#3078)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('r1', 'plant-A'));
+    state = reducer(state, clearCurrentProfile());
+    expect(state.profileRequestId).toBeNull();
+    state = reducer(state, fetchOverwintering.pending('r2', 'plant-A'));
+    expect(state.profileRequestId).toBe('r2');
+
+    const fresh = { ...profile, key: 'ow-fresh', plant_key: 'plant-A' };
+    const stale = { ...profile, key: 'ow-stale', plant_key: 'plant-A' };
+    state = reducer(state, fetchOverwintering.fulfilled(fresh, 'r2', 'plant-A'));
+    // r1's slower answer arrives last — it must not replace r2's data.
+    state = reducer(state, fetchOverwintering.fulfilled(stale, 'r1', 'plant-A'));
+    expect(state.currentProfile).toEqual(fresh);
+    expect(state.profileLoading).toBe(false);
+    // The plant-key semantics callers rely on stay intact.
+    expect(state.requestedPlantKey).toBe('plant-A');
+
+    // A late failure of r1 must not raise an error over r2's data either.
+    state = reducer(state, fetchOverwintering.rejected(new Error('boom'), 'r1', 'plant-A'));
+    expect(state.profileError).toBeNull();
+    expect(state.currentProfile).toEqual(fresh);
+  });
+
+  it('drops an earlier status answer for the same plant after a new profile read (#3078)', () => {
+    let state = reducer(undefined, fetchOverwintering.pending('r1', 'plant-A'));
+    state = reducer(state, fetchOverwinteringStatus.pending('s1', 'plant-A'));
+    // The section re-reads the same plant before s1 resolves.
+    state = reducer(state, clearCurrentProfile());
+    state = reducer(state, fetchOverwintering.pending('r2', 'plant-A'));
+    const staleStatus = {
+      has_profile: false,
+      hardiness_light: 'green',
+      will_materialize: false,
+      site_overwinterable: true,
+    } as const;
+    state = reducer(state, fetchOverwinteringStatus.fulfilled(staleStatus, 's1', 'plant-A'));
+    expect(state.currentStatus).toBeNull();
+    state = reducer(state, fetchOverwinteringStatus.rejected(new Error('boom'), 's1', 'plant-A'));
+    expect(state.currentStatus).toBeNull();
+    expect(state.profileLoading).toBe(true);
   });
 });
 

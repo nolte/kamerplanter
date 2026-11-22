@@ -89,6 +89,7 @@ describe('HarvestReadinessSection — plant-detail wiring (REQ-007 §3)', () => 
         yieldMetric: null, loading: false, error: null,
         readiness: makeReadiness({ overall_score: 17 }),
         readinessPlantKey: 'pl-other',
+        readinessRequestId: null,
         readinessLoading: false,
         readinessError: null,
       },

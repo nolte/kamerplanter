@@ -30,6 +30,13 @@ interface HarvestState {
    */
   readinessPlantKey: string | null;
   /**
+   * `requestId` of the readiness read whose answer the slice still accepts
+   * (#3078). The plant key cannot tell two reads of the *same* plant apart
+   * (mount + reload after a recorded observation), so an earlier, slower answer
+   * would otherwise overwrite the newer assessment.
+   */
+  readinessRequestId: string | null;
+  /**
    * Dedicated flags for the readiness request. The shared ``loading``/``error``
    * pair is driven by the harvest list thunks (indicators, batches), so reusing
    * it would make an embedded readiness card flicker whenever an unrelated
@@ -50,6 +57,7 @@ const initialState: HarvestState = {
   yieldMetric: null,
   readiness: null,
   readinessPlantKey: null,
+  readinessRequestId: null,
   readinessLoading: false,
   readinessError: null,
   loading: false,
@@ -178,15 +186,17 @@ const harvestSlice = createSlice({
         // paints a stale score while the new one is in flight.
         state.readiness = null;
         state.readinessPlantKey = action.meta.arg;
+        state.readinessRequestId = action.meta.requestId;
       })
       .addCase(fetchReadiness.fulfilled, (state, action) => {
-        // Ignore a response that a newer request has already superseded.
-        if (action.meta.arg !== state.readinessPlantKey) return;
+        // Ignore a response that a newer request has already superseded — also
+        // an earlier read of the same plant (#3078).
+        if (action.meta.requestId !== state.readinessRequestId) return;
         state.readinessLoading = false;
         state.readiness = action.payload;
       })
       .addCase(fetchReadiness.rejected, (state, action) => {
-        if (action.meta.arg !== state.readinessPlantKey) return;
+        if (action.meta.requestId !== state.readinessRequestId) return;
         state.readinessLoading = false;
         state.readinessError = errorKey(action.error, 'errors.loadFailed');
       });

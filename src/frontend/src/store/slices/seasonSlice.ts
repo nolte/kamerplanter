@@ -40,6 +40,15 @@ export interface SeasonSliceState {
    * (the slice is shared across all `OverwinteringSection` mounts).
    */
   requestedPlantKey: string | null;
+  /**
+   * `requestId` of the profile read whose answer the slice still accepts
+   * (#3078). The plant key alone cannot tell two reads of the *same* plant
+   * apart (close + reopen, double mount), so an earlier, slower answer would
+   * otherwise overwrite the newer state. Cleared by `clearCurrentProfile`.
+   */
+  profileRequestId: string | null;
+  /** `requestId` of the status read whose answer the slice still accepts (#3078). */
+  statusRequestId: string | null;
 }
 
 const initialState: SeasonSliceState = {
@@ -52,6 +61,8 @@ const initialState: SeasonSliceState = {
   currentStatus: null,
   statusLoading: false,
   requestedPlantKey: null,
+  profileRequestId: null,
+  statusRequestId: null,
 };
 
 export const fetchSeasonOverview = createAsyncThunk(
@@ -124,6 +135,8 @@ const seasonSlice = createSlice({
       // Drop the pending request marker so a late response arriving after the
       // section unmounted can no longer write into the shared slice.
       state.requestedPlantKey = null;
+      state.profileRequestId = null;
+      state.statusRequestId = null;
     },
   },
   extraReducers: (builder) => {
@@ -146,6 +159,7 @@ const seasonSlice = createSlice({
         state.profileLoading = true;
         state.profileError = null;
         state.requestedPlantKey = action.meta.arg;
+        state.profileRequestId = action.meta.requestId;
         // Never keep a previous plant's profile visible while the new one loads:
         // the loading skeleton must win (its guard is `!currentProfile`).
         state.currentProfile = null;
@@ -153,15 +167,18 @@ const seasonSlice = createSlice({
         // plant's empty state — it is re-fetched lazily if this plant has none.
         state.currentStatus = null;
         state.statusLoading = false;
+        // An in-flight status read belongs to the previous profile read.
+        state.statusRequestId = null;
       })
       .addCase(fetchOverwintering.fulfilled, (state, action) => {
-        // Discard responses for a plant the user already navigated away from.
-        if (action.meta.arg !== state.requestedPlantKey) return;
+        // Discard every answer but the latest request's — also an earlier read
+        // of the same plant (#3078), not only one for another plant.
+        if (action.meta.requestId !== state.profileRequestId) return;
         state.profileLoading = false;
         state.currentProfile = action.payload;
       })
       .addCase(fetchOverwintering.rejected, (state, action) => {
-        if (action.meta.arg !== state.requestedPlantKey) return;
+        if (action.meta.requestId !== state.profileRequestId) return;
         state.profileLoading = false;
         // Surface a localised key (FE-L5), never the raw backend/technical
         // message — ErrorDisplay resolves `errors.*` keys to the active locale.
@@ -170,15 +187,16 @@ const seasonSlice = createSlice({
       // Status read (lazy, only when the profile read yielded no profile).
       .addCase(fetchOverwinteringStatus.pending, (state, action) => {
         state.requestedPlantKey = action.meta.arg;
+        state.statusRequestId = action.meta.requestId;
         state.statusLoading = true;
       })
       .addCase(fetchOverwinteringStatus.fulfilled, (state, action) => {
-        if (action.meta.arg !== state.requestedPlantKey) return;
+        if (action.meta.requestId !== state.statusRequestId) return;
         state.statusLoading = false;
         state.currentStatus = action.payload;
       })
       .addCase(fetchOverwinteringStatus.rejected, (state, action) => {
-        if (action.meta.arg !== state.requestedPlantKey) return;
+        if (action.meta.requestId !== state.statusRequestId) return;
         state.statusLoading = false;
         // Store an explicit "unknown" status (not null) so the empty state leaves
         // the skeleton and shows the neutral pending hint — never a false
