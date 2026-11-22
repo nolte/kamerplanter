@@ -1,12 +1,12 @@
 ---
 id: F-21
 title: Bodengefahren im Nachpflanz-Hinweis
-status: draft
+status: ready
 roadmap_item: R-20
-sprint: null
+sprint: 4
 created: 2026-11-17
 ended: null
-verifies_sprint_value: null
+verifies_sprint_value: acceptance-1
 consistency_check:
   performed_at: 2026-11-17
   agent_version: feature-consistency-reviewer@a38d18746
