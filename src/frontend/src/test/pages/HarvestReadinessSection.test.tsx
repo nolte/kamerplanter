@@ -186,7 +186,7 @@ describe('HarvestReadinessSection — recording an observation (#818)', () => {
   it('opens the observation dialog for this plant', async () => {
     const user = userEvent.setup();
     mocked.assessReadiness.mockResolvedValue(makeNoDataReadiness());
-    mocked.getIndicators.mockResolvedValue([]);
+    mocked.getAllIndicators.mockResolvedValue([]);
 
     renderWithProviders(<HarvestReadinessSection plantKey="pl-1" />);
 
@@ -202,7 +202,7 @@ describe('HarvestReadinessSection — recording an observation (#818)', () => {
     // the section, so the assertion covers the wiring and not a stub.
     const user = userEvent.setup();
     mocked.assessReadiness.mockResolvedValue(makeNoDataReadiness());
-    mocked.getIndicators.mockResolvedValue([
+    mocked.getAllIndicators.mockResolvedValue([
       {
         key: 'ind-1',
         indicator_type: 'trichome_color',
@@ -216,7 +216,7 @@ describe('HarvestReadinessSection — recording an observation (#818)', () => {
 
     await user.click(await screen.findByTestId('record-observation-button'));
     await screen.findByTestId('observation-create-dialog');
-    await waitFor(() => expect(mocked.getIndicators).toHaveBeenCalled());
+    await waitFor(() => expect(mocked.getAllIndicators).toHaveBeenCalled());
 
     // MUI's Select opens on mousedown only, so `click` alone would be a no-op.
     const indicatorField = screen.getByTestId('form-field-indicator_key');

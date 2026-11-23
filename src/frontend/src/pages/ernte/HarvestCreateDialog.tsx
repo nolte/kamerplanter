@@ -94,7 +94,7 @@ export default function HarvestCreateDialog({
       setLoadingPlants(true);
       setPlantsError(false);
       plantApi
-        .listPlantInstances()
+        .listAllPlantInstances()
         .then(setPlants)
         .catch((err: unknown) => {
           captureHandledError(err, { source: 'HarvestCreateDialog.plants' });

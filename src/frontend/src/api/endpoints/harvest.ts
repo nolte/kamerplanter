@@ -1,4 +1,5 @@
 import plainClient, { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   HarvestBatch,
   HarvestBatchCreate,
@@ -28,6 +29,11 @@ export async function getIndicators(
     { params: { offset, limit } },
   );
   return data;
+}
+
+/** Every harvest indicator, paged until a short page (#3015) — for the observation dialog's picker. */
+export async function getAllIndicators(pageSize = CATALOGUE_PAGE_SIZE): Promise<HarvestIndicator[]> {
+  return fetchAllPages(getIndicators, pageSize);
 }
 
 /**
@@ -107,6 +113,11 @@ export async function getBatches(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every harvest batch of the tenant, paged until a short page (#3015) — for the drying dialog's picker. */
+export async function getAllBatches(pageSize = CATALOGUE_PAGE_SIZE): Promise<HarvestBatch[]> {
+  return fetchAllPages(getBatches, pageSize);
 }
 
 export async function createBatch(

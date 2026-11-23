@@ -200,6 +200,39 @@ KNOWN_UNREGISTERED_LOADERS: dict[str, str] = {
         "exists for the same client-side-search reason (#995), which is why it looks "
         "like a catalogue loader from here. See the CATALOGUES docstring."
     ),
+    "endpoints/sites": (
+        'Sites are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/plantingRuns": (
+        'Planting runs are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/tanks": (
+        'Tanks are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/tasks": (
+        'Tasks and workflow templates are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/propagation": (
+        'Propagation events are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/feeding-events": (
+        'Feeding events are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/watering-logs": (
+        'Watering logs are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/watering-events": (
+        'Watering events are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/successionPlans": (
+        'Succession plans are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/postHarvest": (
+        'Post-harvest batches are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
+    "endpoints/harvest": (
+        'Harvest batches and indicators are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
+    ),
 }
 
 EXIT_OK = 0
@@ -326,6 +359,33 @@ CATALOGUES: tuple[Catalogue, ...] = (
         loader="listAllActivities",
         endpoint_module="endpoints/activities",
         capped_reader="listActivities",
+    ),
+    Catalogue(
+        name="phase_definitions",
+        seed_keys=("phase_definitions",),
+        identity=("name",),
+        owner="pages/phasen/PhaseDefinitionListPage.tsx",
+        loader="listAllPhaseDefinitions",
+        endpoint_module="endpoints/phaseSequences",
+        capped_reader="listPhaseDefinitions",
+    ),
+    Catalogue(
+        name="phase_sequences",
+        seed_keys=("phase_sequences",),
+        identity=("name",),
+        owner="pages/phasen/PhaseSequenceListPage.tsx",
+        loader="listAllPhaseSequences",
+        endpoint_module="endpoints/phaseSequences",
+        capped_reader="listPhaseSequences",
+    ),
+    Catalogue(
+        name="overwintering_profiles",
+        seed_keys=("overwintering_profiles",),
+        identity=("_key", "species_scientific_name"),
+        owner="store/slices/overwinteringProfilesSlice.ts",
+        loader="listAllOverwinteringProfiles",
+        endpoint_module="endpoints/overwinteringProfiles",
+        capped_reader="listOverwinteringProfiles",
     ),
     Catalogue(
         name="ipm_pests",

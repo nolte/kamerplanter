@@ -40,7 +40,7 @@ export default function SunTimesCalculatorCard() {
 
   useEffect(() => {
     if (sites.length === 0) {
-      void dispatch(fetchSites({}));
+      void dispatch(fetchSites({ all: true }));
     }
   }, [dispatch, sites.length]);
 

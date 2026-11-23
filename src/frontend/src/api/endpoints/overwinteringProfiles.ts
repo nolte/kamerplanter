@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   OverwinteringProfile,
   OverwinteringProfileAutoGenerate,
@@ -17,6 +18,13 @@ export async function listOverwinteringProfiles(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every overwintering profile of the tenant, paged until a short page (#3015). */
+export async function listAllOverwinteringProfiles(
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<OverwinteringProfile[]> {
+  return fetchAllPages(listOverwinteringProfiles, pageSize);
 }
 
 export async function getOverwinteringProfile(

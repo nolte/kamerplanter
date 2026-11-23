@@ -183,7 +183,7 @@ export default function PlantingRunDetailPage() {
   // its assign call to action nor "no schedule" in their place (#3037).
   const [planLoadFailed, setPlanLoadFailed] = useState(false);
   const [scheduleLoadFailed, setScheduleLoadFailed] = useState(false);
-  const loadSites = useCallback((): Promise<Site[]> => siteApi.listSites(0, 200), []);
+  const loadSites = useCallback((): Promise<Site[]> => siteApi.listAllSites(), []);
   const sitesLoad = useAsyncOptions(loadSites);
   const sitesList = sitesLoad.options;
 
@@ -224,7 +224,7 @@ export default function PlantingRunDetailPage() {
             if (stale()) return;
             setResolvedTank({ key: tk.key, name: tk.name, volumeLiters: tk.volume_liters });
           } else {
-            const allTanks = await tankApi.listTanks(0, 200);
+            const allTanks = await tankApi.listAllTanks();
             if (stale()) return;
             const match = allTanks.find((tk) => tk.location_key === r.location_key);
             if (match) {

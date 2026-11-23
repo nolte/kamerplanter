@@ -293,8 +293,11 @@ export function bedSheetEntry(scope: CacheScope, locationKey: string, language =
   };
 }
 
-/** The first page of the site list, per page size (#2789 review C7): `{user_key}:{tenant_key}#limit=<n>`. */
-export function siteListEntry(scope: CacheScope, limit: number): CacheEntry {
+/**
+ * The first page of the site list, per page size (#2789 review C7): `{user_key}:{tenant_key}#limit=<n>`; the complete
+ * list (`fetchSites({ all: true })`, #3015) under `#limit=all`.
+ */
+export function siteListEntry(scope: CacheScope, limit: number | 'all'): CacheEntry {
   return { table: 'siteLists', key: `${scopePrefix(scope)}#limit=${limit}`, scope };
 }
 

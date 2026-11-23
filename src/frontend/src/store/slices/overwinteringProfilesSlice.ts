@@ -53,8 +53,8 @@ function overviewCases(
 const { slice, reducer, fetchList, fetchOne, actions } =
   createListSlice<OverwinteringProfile>({
     name: 'overwinteringProfiles',
-    list: ({ offset = 0, limit = 50 } = {}) =>
-      api.listOverwinteringProfiles(offset, limit),
+    // Every page (#3015): 175 seeded profiles, and the list view searches and sorts client-side.
+    list: () => api.listAllOverwinteringProfiles(),
     getOne: (key) => api.getOverwinteringProfile(key),
     extraCases: overviewCases,
   });

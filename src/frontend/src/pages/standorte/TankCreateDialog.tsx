@@ -62,7 +62,7 @@ export default function TankCreateDialog({ open, onClose, onCreated }: Props) {
   const [saving, setSaving] = useState(false);
   const [selectedSiteKey, setSelectedSiteKey] = useState('');
   // AP-12 (FE-L3): load sites with explicit error state instead of a silent catch.
-  const loadSites = useCallback(() => sitesApi.listSites(0, 200), []);
+  const loadSites = useCallback(() => sitesApi.listAllSites(), []);
   const { options: sites, error: sitesError } = useAsyncOptions(loadSites, { enabled: open });
 
   const { control, handleSubmit, reset, setValue } = useDialogForm<FormData>({

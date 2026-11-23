@@ -27,7 +27,7 @@ export function usePropagationEvents(): UsePropagationEventsResult {
     const load = async () => {
       setLoading(true);
       try {
-        const data = await api.listPropagationEvents({ limit: 200 });
+        const data = await api.listAllPropagationEvents();
         if (!cancelled) setEvents(data);
       } catch (error) {
         if (!cancelled) handleError(error);

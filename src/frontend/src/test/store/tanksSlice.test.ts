@@ -82,16 +82,17 @@ describe('tanksSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchTanks forwards paging/filter args and stores the tanks', async () => {
-    mocked.listTanks.mockResolvedValue([{ key: 't1' }] as never);
+  it('fetchTanks loads every page with its tank type and stores the tanks (#3015)', async () => {
+    mocked.listAllTanks.mockResolvedValue([{ key: 't1' }] as never);
     const store = makeStore();
-    await store.dispatch(fetchTanks({ offset: 0, limit: 20, tankType: 'reservoir' }));
-    expect(mocked.listTanks).toHaveBeenCalledWith(0, 20, 'reservoir');
+    await store.dispatch(fetchTanks({ tankType: 'reservoir' }));
+    expect(mocked.listAllTanks).toHaveBeenCalledWith('reservoir');
+    expect(mocked.listTanks).not.toHaveBeenCalled();
     expect(store.getState().tanks.tanks).toEqual([{ key: 't1' }]);
   });
 
   it('fetchTanks surfaces a rejection as the slice error', async () => {
-    mocked.listTanks.mockRejectedValue(new Error('load failed'));
+    mocked.listAllTanks.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchTanks({}));
     expect(store.getState().tanks.error).toBe('errors.loadFailed');

@@ -6,8 +6,8 @@ import { createListSlice } from '@/store/createListSlice';
 // (`s.tanks.tanks`) stay unchanged (FR-002 §B1).
 const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'tanks',
-  list: ({ offset, limit, tankType }: { offset?: number; limit?: number; tankType?: string } = {}) =>
-    api.listTanks(offset, limit, tankType),
+  // Every page (#3015): the list view searches and sorts client-side, one page would hide the rest.
+  list: ({ tankType }: { tankType?: string } = {}) => api.listAllTanks(tankType),
   getOne: (key) => api.getTank(key),
   itemsField: 'tanks',
   currentField: 'currentTank',

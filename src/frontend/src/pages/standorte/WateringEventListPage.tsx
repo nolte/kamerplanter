@@ -295,7 +295,7 @@ export default function WateringEventListPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchWateringEvents({}));
+    dispatch(fetchWateringEvents());
   }, [dispatch]);
 
   const { getPlantsForEvent } = usePlantResolver(events);
@@ -442,7 +442,7 @@ export default function WateringEventListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchWateringEvents({}));
+          dispatch(fetchWateringEvents());
         }}
       />
       <WateringEventDetailDialog

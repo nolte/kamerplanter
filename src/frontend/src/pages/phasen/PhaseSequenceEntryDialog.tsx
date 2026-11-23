@@ -63,7 +63,7 @@ export default function PhaseSequenceEntryDialog({
 
   // A failed read is shown with a retry, never as an empty picker (#3037).
   const loadDefinitions = useCallback(
-    (): Promise<PhaseDefinition[]> => phaseSequenceApi.listPhaseDefinitions(0, 200),
+    (): Promise<PhaseDefinition[]> => phaseSequenceApi.listAllPhaseDefinitions(),
     [],
   );
   const definitionsLoad = useAsyncOptions(loadDefinitions, { enabled: open });

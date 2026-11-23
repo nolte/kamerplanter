@@ -151,13 +151,31 @@ describe('notifications endpoints — markAllRead orchestration', () => {
     await notifications.markAllRead();
 
     expect(client.get).toHaveBeenCalledWith('/notifications', {
-      params: { limit: 200, unread_only: true },
+      params: { offset: 0, limit: 200, unread_only: true },
     });
     // Only the two items without read_at should be marked read.
     expect(client.post).toHaveBeenCalledTimes(2);
     expect(client.post).toHaveBeenCalledWith('/notifications/n1/read');
     expect(client.post).toHaveBeenCalledWith('/notifications/n3/read');
     expect(client.post).not.toHaveBeenCalledWith('/notifications/n2/read');
+  });
+
+  it('reads every unread page before marking, so unread notification 201 is marked too (#3015)', async () => {
+    const unread = Array.from({ length: 201 }, (_, i) => ({ key: `n${i + 1}`, read_at: null }));
+    client.get.mockImplementation((_url: string, config: { params: { offset: number; limit: number } }) => {
+      const { offset, limit } = config.params;
+      return Promise.resolve({ data: { items: unread.slice(offset, offset + limit), total: unread.length } });
+    });
+    client.post.mockResolvedValue({ data: { key: 'x' } });
+
+    await notifications.markAllRead();
+
+    expect(client.get).toHaveBeenCalledTimes(2);
+    expect(client.get).toHaveBeenLastCalledWith('/notifications', {
+      params: { offset: 200, limit: 200, unread_only: true },
+    });
+    expect(client.post).toHaveBeenCalledTimes(201);
+    expect(client.post).toHaveBeenCalledWith('/notifications/n201/read');
   });
 
   it('marks nothing when there are no unread notifications', async () => {

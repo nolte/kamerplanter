@@ -35,8 +35,9 @@ const initialState: PostHarvestState = {
 
 export const fetchPostHarvestBatches = createAsyncThunk(
   'postHarvest/fetchBatches',
-  async ({ offset, limit }: { offset?: number; limit?: number } = {}) => {
-    return api.getBatches(offset, limit);
+  // Every page (#3015): the batch list searches and sorts client-side.
+  async () => {
+    return api.getAllBatches();
   },
 );
 

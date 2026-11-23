@@ -287,7 +287,7 @@ export default function LocationDetailPage() {
         }
       } else {
         try {
-          const allTanks = await tankApi.listTanks(0, 200);
+          const allTanks = await tankApi.listAllTanks();
           const match = allTanks.find((t) => t.location_key === key);
           if (stale()) return;
           setAssignedTank(match ?? null);
@@ -319,7 +319,7 @@ export default function LocationDetailPage() {
       }
       // Load assigned planting runs + plant instances for this location
       try {
-        const runs = await runApi.listPlantingRuns(0, 200, undefined, undefined, key);
+        const runs = await runApi.listAllPlantingRuns(undefined, undefined, key);
         if (stale()) return;
         setAssignedRuns(runs);
         // Load plant counts per run

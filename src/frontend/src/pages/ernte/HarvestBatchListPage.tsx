@@ -39,7 +39,7 @@ export default function HarvestBatchListPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchBatches({}));
+    dispatch(fetchBatches());
   }, [dispatch]);
 
   useEffect(() => {
@@ -214,7 +214,7 @@ export default function HarvestBatchListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchBatches({}));
+          dispatch(fetchBatches());
         }}
       />
     </Box>

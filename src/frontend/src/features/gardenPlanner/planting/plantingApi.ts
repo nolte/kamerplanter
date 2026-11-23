@@ -1,5 +1,6 @@
 import { tenantClient } from '@/api/client';
-import { createMixedCulture } from '@/api/endpoints/plantingRuns';
+import { createMixedCulture, listAllPlantingRuns } from '@/api/endpoints/plantingRuns';
+import { fetchAllPages } from '@/api/paginate';
 import { createTask } from '@/api/endpoints/tasks';
 import type { MixedCultureCreate, MixedCultureResponse, PlantingRun, TaskItem } from '@/api/types';
 import type { GardenObject } from '../model/types';
@@ -51,15 +52,17 @@ export async function validatePlanting(
   return data;
 }
 
-/** GP-API-024: the planned positions and plants of a bed, optionally of one state. */
+/** GP-API-024: the planned positions and plants of a bed, optionally of one state — every page (#3015). */
 export async function listPlantings(
   bedKey: string,
   state?: PlantingState,
 ): Promise<PlantingItem[]> {
-  const { data } = await tenantClient.get<PlantingItem[]>(`/locations/${bedKey}/plantings`, {
-    params: { ...(state ? { state } : {}), limit: 200 },
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await tenantClient.get<PlantingItem[]>(`/locations/${bedKey}/plantings`, {
+      params: { ...(state ? { state } : {}), offset, limit },
+    });
+    return data;
   });
-  return data;
 }
 
 /**
@@ -126,12 +129,9 @@ export async function thinSlot(slotKey: string, body: ThinningBody): Promise<Thi
   return data;
 }
 
-/** The runs of a bed (any status), to find the ones planted despite a crop-rotation hint. */
+/** The runs of a bed (any status), to find the ones planted despite a crop-rotation hint — every page (#3015). */
 export async function listBedRuns(bedKey: string): Promise<PlantingRun[]> {
-  const { data } = await tenantClient.get<PlantingRun[]>('/planting-runs', {
-    params: { location_key: bedKey, limit: 200 },
-  });
-  return data;
+  return listAllPlantingRuns(undefined, undefined, bedKey);
 }
 
 /** GP-FR-069: moving a plant to another bed is the existing `transplant` task, not a drag. */
