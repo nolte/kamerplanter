@@ -11,6 +11,9 @@ an der Quelle abgerufen).
 neu L-23 (§ 22 BDSG), L-24 (EDSA-Leitlinien 9/2022 Datenpannen), L-25 (Übermittlungsinstrumente Kapitel V:
 EU-US-Angemessenheitsbeschluss, Standardvertragsklauseln) — alle UNVERIFIED_AT_SOURCE; Verifikationsaufträge
 V-12…V-14.
+Nachtrag 2026-11-23: L-12 um die von `17-privacy-recovery.md` §10 zusätzlich als Bezug herangezogenen Normen ergänzt
+(UNVERIFIED_AT_SOURCE, V-07); keine neue L- oder V-Nummer — `17` stützt sich sonst nur auf bestehende Einträge
+(L-12, L-14, L-15, L-19 Rn. 110, L-21).
 ```
 
 ## 0. Quellenhierarchie und Statuswerte
@@ -168,6 +171,12 @@ Abs. 4, veröffentlicht, Bindungswirkung umstritten → als Leitlinie behandelt)
   Art. 32 Abs. 1 lit. a–d; Art. 33 Abs. 1, 2, 5; Art. 34 (insb. Abs. 3 lit. a); Art. 35 Abs. 1–4; Art. 44–46, 49
   (insb. Abs. 1 lit. a); Art. 77; Erwägungsgründe 18, 63, 64. Status wie L-12 insgesamt: **nur Bezug, kein Wortlaut**
   (V-07). Die Paketdokumente `06` §2.2/§2.3/§7.1/§11, `07` §2.2 und `11` §4.3 stützen sich in dieser Fassung darauf.
+- Von [`17-privacy-recovery.md`](17-privacy-recovery.md) §10 (Nachtrag 2026-11-23) zusätzlich als Bezug herangezogen:
+  Art. 4 Nr. 12 (Begriff der Verletzung des Schutzes personenbezogener Daten, Q-LAW-18); Art. 5 Abs. 1 lit. f
+  (Integrität und Vertraulichkeit); Art. 7 Abs. 1 (Nachweis der Einwilligung, Q-DSB-25); Art. 18 Abs. 3 (Unterrichtung
+  vor Aufhebung der Einschränkung); Art. 30 Abs. 1 lit. g (TOM-Beschreibung im Verzeichnis). Status
+  `UNVERIFIED_AT_SOURCE` wie L-12 insgesamt: **nur Bezug, kein Wortlaut** (V-07); keine MUSS-Anforderung in `17` stützt
+  sich allein darauf.
 - Umgang im Paket: Artikel werden **als Bezug genannt**, nicht wörtlich zitiert; Auslegungen tragen den Status
   `INFERRED` oder stützen sich auf verifizierte Leitlinien (L-14…L-19). Verifikationsauftrag **V-07**: Wortlaute aus
   EUR-Lex (DE) ergänzen, sobald ein Browserzugang besteht; die Metadaten (OJ L 119, CELEX) sind `VERIFIED_META`.
@@ -306,3 +315,7 @@ Hinweis (Audit 2026-11-22): Sitz und Region der externen Dienste (Resend, OpenWe
 **keine** Rechtsquellen und daher keine V-Aufträge dieses Registers; sie werden im Empfänger-Register (PRA-1.03, `06`
 §2.3) ermittelt. Das Audit verweist an einer Stelle missverständlich auf „Regionen der Dienste (V-12/V-13)“; maßgeblich
 ist die Zuordnung oben.
+
+Hinweis (Nachtrag 2026-11-23): Die Konsistenz von `arangodump` über Collections hinweg und die Unterstützung bedingter
+Schreibvorgänge beim eingesetzten S3-Anbieter (`17` §3.5, §5.4) sind **technische** Verifikationsaufgaben (Testfälle
+TA-730, TA-729 in `17` §11.1), keine Rechtsquellen und daher keine V-Aufträge dieses Registers.

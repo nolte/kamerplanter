@@ -11,6 +11,10 @@ nicht gebaut, `erasure_mirror` → Journal, kein Residue-Scan der Kontolöschung
 Ereignisse mit Code-Belegen; §2.6 Art. 18/21 gespeichert, nicht durchgesetzt (LEG-23), kein Legal Hold (LEG-35); §4.2
 PRIV-003/119 umgesetzt (#2961); §10 Fotos, Dateien und Auskunft im Lebenszyklus (LEG-20, LEG-21, LEG-22, LEG-40, LEG-41,
 LEG-55).
+Nachtrag 2026-11-23 (gemessen gegen develop ce7e858d0): §0 Journal-Ereignisse auf die Taxonomie in
+`17-privacy-recovery.md` §3.3 (UPPER_SNAKE_CASE) umgestellt, Mandant um `TENANT_ERASURE_REQUESTED`/`_CANCELLED`
+ergänzt; Zwischenzustand `completed_pending_journal` (PRIV-811); neuer §0.5 Restore-Übergänge; §2.4 PRIV-108
+angeglichen; §2.5 Zeile G2 und Abschnitt „nach Restore“ (Abbildung auf `17` §6.3); PRIV-126 Begründung Outbox.
 ```
 
 Dieses Dokument spezifiziert den vollständigen Lebenszyklus der Beziehung einer betroffenen Person zur
@@ -26,8 +30,9 @@ markiert, neues Verhalten mit **[Vorschlag]**.
 
 Seit v1.2 stehen hier die vollständigen Zustandsmodelle; `01` §5 verweist auf diesen Abschnitt, der Backup-Lebenszyklus
 steht in [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) §6.1a. Je Lebenszyklus sind die Übergänge
-markiert, die ein **Journal-Ereignis (J)** erzeugen (`09` §6.3, PRIV-709), und die Stellen, an denen der
-**Processing-Hold (H)** greift (§2.6). Die Architektur dazu (Komponenten `PrivacyJournal`, `ProcessingHoldGuard`,
+markiert, die ein **Journal-Ereignis (J)** erzeugen (Taxonomie [`17-privacy-recovery.md`](17-privacy-recovery.md)
+§3.3, präzisiert PRIV-709 aus `09` §6.3), und die Stellen, an denen der **Processing-Hold (H)** greift (§2.6). Wie
+ein Restore jeden Lebenszyklus berührt, steht in §0.5. Die Architektur dazu (Komponenten `PrivacyJournal`, `ProcessingHoldGuard`,
 Resolver `resolve_tenant_privacy_profile`) steht in [`01-privacy-architecture.md`](01-privacy-architecture.md) §3.5.
 Alle Zustände und Übergänge mit „Lücke heute“ sind [PROPOSED]; die Spalte „Lücke heute“ ist der gemessene Stand
 (VERIFIED_CODE am SHA `007a4ea90`).
@@ -37,14 +42,16 @@ Alle Zustände und Übergänge mit „Lücke heute“ sind [PROPOSED]; die Spalt
 ```mermaid
 stateDiagram-v2
     [*] --> Active: registration
-    Active --> Restricted: Art. 18 scope all (H, J restriction_set)
-    Restricted --> Active: lifted (J restriction_lifted)
-    Active --> Closed: erasure request with step-up (J sessions_revoked)
+    Active --> Restricted: Art. 18 scope all (H, J PROCESSING_RESTRICTION_REQUESTED, _APPLIED)
+    Restricted --> Active: lifted (J PROCESSING_RESTRICTION_RELEASED)
+    Active --> Closed: erasure request with step-up (J SUBJECT_ERASURE_REQUESTED, SESSIONS_REVOKED_ALL)
     Restricted --> Closed: erasure request
-    Closed --> Held: legal hold or active restriction at R-01 due date
-    Held --> Closed: hold lifted
-    Closed --> Erased: execute_scheduled_erasures after R-01 (J account_erased)
+    Closed --> Held: legal hold or active restriction at R-01 due date (J LEGAL_HOLD_APPLIED)
+    Held --> Closed: hold lifted (J LEGAL_HOLD_RELEASED)
+    Closed --> ErasedPendingJournal: execute_scheduled_erasures after R-01 (J SUBJECT_ERASURE_COMPLETED)
+    ErasedPendingJournal --> Erased: journal store acknowledged
     Erased --> Erased: residue scan, retry partially_completed
+    Erased --> Erased: restore, ERASURE_RECONCILIATION re-applies
     Erased --> [*]: erasure_requests purged after R-06
 
     note right of Closed
@@ -59,7 +66,8 @@ stateDiagram-v2
 | Active → Restricted | Lesemodus (423 auf verarbeitende Routen), Jobs überspringen die Person | Einschränkung ohne Wirkung (LEG-23, §2.6) | PRA-0.06, PRA-1.06 |
 | Closed → Held | Hard-Delete aufgeschoben, `held_reason` | kein Hold (LEG-35, §2.6) | PRA-1.06 |
 | Closed → Erased | Pläne, Storage-Phase über alle Mandanten mit Uploads, Freitext-Entdeckung, Residue-Scan, Journal | Storage-Phase nur aktuelle Mitgliedschaften (LEG-55, §10.3); `control_events` fehlt im Plan (LEG-29, `02`); kein Residue-Scan (PRIV-234); kein Journal (LEG-11, `09` §6) | PRA-1.04, PRA-1.07, PRA-2.01, PRA-2.07, PRA-2.13 |
-| Passwort/Sitzungen/Keys/Einwilligung (innerhalb Active) | Journal-Ereignis je Änderung | Restore setzt zurück (LEG-24, `09` §6.5 S6/S7) | PRA-1.04 |
+| Closed → ErasedPendingJournal → Erased | Vollzugs-Commit setzt `completed_pending_journal`; erst nach Bestätigung durch den Journal-Store `completed` (Nutzerbestätigung, Admin-Liste und Metriken zählen erst `completed`; `17` §4.3, PRIV-811) | kein Journal, Status `completed` direkt nach dem Vollzug | PRA-1.04 |
+| Passwort/Sitzungen/Keys/Einwilligung/E-Mail (innerhalb Active) | Journal-Ereignis je Änderung (`PASSWORD_CHANGED`, `SESSION_REVOKED`/`SESSIONS_REVOKED_ALL`, `API_KEY_REVOKED`, `CONSENT_WITHDRAWN`, `ACCOUNT_EMAIL_CHANGED`); Widerruf fail-closed (PRIV-812) | Restore setzt zurück (LEG-24, `09` §6.5 S6/S7); API-Key-Widerruf fail-open (LEG-66) | PRA-1.04, PRA-2.21 |
 
 ### 0.2 Mitgliedschaft (je Mandant)
 
@@ -67,8 +75,8 @@ stateDiagram-v2
 stateDiagram-v2
     [*] --> Invited
     Invited --> Member: accept
-    Member --> Member: role change (J role_lowered if lowered)
-    Member --> Former: leave or remove (J membership_removed)
+    Member --> Member: role change (J MEMBERSHIP_ROLE_LOWERED if lowered or admin_scopes removed)
+    Member --> Former: leave or remove (J MEMBERSHIP_REVOKED)
     Former --> Member: rejoin
     Former --> Suppressed: RETENTION_FORMER_MEMBER_NAME_DAYS elapsed
     Member --> Erased: account erasure
@@ -81,6 +89,7 @@ stateDiagram-v2
 | Member → Former | Zuständigkeiten geleert, Austrittshinweis (PRIV-115), Offline-Puffer des Mandanten auf Geräten als `membership.ended` | kein Hinweis; kein Fehlercode (PRIV-521, `07`) | PRA-2.03, PRA-2.15 |
 | Former → Suppressed | Anzeige `former_member`, Filter 422, CSV ohne Namen (PRIV-112/114) | unbefristet sichtbar (LEG-06 a) | PRA-2.03 |
 | Former (Art. 15) | Export enthält server-gestempelte Zeilen verlassener Mandanten | nicht enthalten (LEG-06 b, PRIV-111) | PRA-2.04 |
+| Former / gesenkte Rolle nach Restore | Mitgliedschaft bleibt entfernt bzw. Rolle gesenkt (ACCESS_RECONCILIATION, `17` §5.2); Erhöhungen und Hinzufügungen werden nicht journalisiert | Entzug und Audit-Zeile rollen gemeinsam zurück (`17` §1.3) | PRA-1.05 |
 
 ### 0.3 Mandant
 
@@ -89,16 +98,16 @@ stateDiagram-v2
     [*] --> Unclassified: created without classification (legacy only)
     [*] --> Active: created with organization_kind and record_keeping
     Unclassified --> Active: lead with management classifies
-    Active --> Suspended: platform admin (J tenant_suspended)
-    Suspended --> Active: reinstated
+    Active --> Suspended: platform admin (J TENANT_SUSPENDED)
+    Suspended --> Active: reinstated (J TENANT_REINSTATED)
     Active --> Orphaned: last lead leaves
     Orphaned --> Active: new lead
-    Active --> PendingDeletion: deletion requested, export offered
-    Orphaned --> PendingDeletion: platform decision
-    PendingDeletion --> Active: cancelled within grace
+    Active --> PendingDeletion: deletion requested, export offered (J TENANT_ERASURE_REQUESTED)
+    Orphaned --> PendingDeletion: platform decision (J TENANT_ERASURE_REQUESTED)
+    PendingDeletion --> Active: cancelled within grace (J TENANT_ERASURE_CANCELLED)
     PendingDeletion --> Held: legal hold
     Held --> PendingDeletion: hold lifted
-    PendingDeletion --> Deleted: grace elapsed (J tenant_erased)
+    PendingDeletion --> Deleted: grace elapsed (J TENANT_ERASURE_COMPLETED, completed_pending_journal until ack)
     Deleted --> [*]: statutory rows purged after R-16 to R-18
 ```
 
@@ -108,6 +117,8 @@ stateDiagram-v2
 | Active → PendingDeletion | Pflichtexport angeboten und bestätigt | kein Angebot (LEG-47, `06`) | PRA-2.09 |
 | PendingDeletion → Deleted | Pflichtzeilen nur bei Pflichtklasse behalten, Herausgabeprozess | für jede Klasse behalten (LEG-47) | PRA-2.09 |
 | Plattform-Export (jeder Zustand) | nur mit `reason`; `orphaned` → Benachrichtigung aller aktiven Mitglieder | kein `reason`, Hinweis geht ins Leere (LEG-13, LEG-53; `06`, `05`, `14` W-30) | PRA-2.11 |
+| Antrag/Abbruch/Vollzug im Journal | `pending_deletion` mit ursprünglichem Datum überlebt einen Restore; Abbruch in der Gnadenfrist entscheidet die Reihenfolge; Vollzug gilt erst nach Journal-Bestätigung als abgeschlossen (`17` §3.3, PRIV-811) | `pending_deletion` nach dem Backup geht verloren; im Gnadenfall setzt nur `resume_tenant_erasures` fort | PRA-1.04, PRA-1.05 |
+| Mandanten-Import (Teil-Restore) | Kontokennungen im Archiv werden gegen abgeschlossene Löschungen geprüft (`17` §6.4, PRIV-844) | kein Abgleich (LEG-65) | PRA-1.07 |
 
 ### 0.4 Gerät
 
@@ -127,7 +138,30 @@ stateDiagram-v2
 
 Die Übergangstabelle mit Sachverhalt und Evidenz (LEG-09, LEG-10, LEG-27, LEG-36, LEG-37, LEG-56; PRA-0.07, PRA-0.08,
 PRA-2.15 … PRA-2.17) steht in [`07-offline-privacy.md`](07-offline-privacy.md); hier gilt nur die Kopplung an den
-Kontolebenszyklus (§7).
+Kontolebenszyklus (§7). Nach einem Server-Restore wechselt die Restore-Epoche; das Gerät verwirft seine Lesecaches und
+legt Puffer-Einträge zur Bestätigung vor (`07` §9, PRIV-846).
+
+### 0.5 Restore-Übergänge (Nachtrag 2026-11-23) [PROPOSED]
+
+Ein Restore setzt die Datenbank auf den Stand des Backups (T0) zurück; jeder Lebenszyklus oben fällt dabei ohne
+Gegenmaßnahme auf seinen T0-Zustand zurück (VERIFIED_CODE, `17` §1.3). Der Restore-Lebenszyklus (`17` §5.1) hält das
+System geschlossen, bis die Reconciliation die nach T0 journalisierten Entscheidungen erneut angewendet hat. „Erneut
+anwenden“ heißt löschen, sperren, widerrufen — nie eine Ausweitung wiederherstellen (`17` §3.6).
+
+| Lebenszyklus | Zustand nach T0, Restore ohne Journal (Ist) | Reconciliation (Soll) | Phase in `17` §5.2 | Ausnahme |
+|---|---|---|---|---|
+| Konto Active → Closed | Konto wieder `active` mit Passwort | Konto schließen, Tokens widerrufen, `erasure_requests` mit ursprünglicher Fälligkeit angleichen | ERASURE_RECONCILIATION | — |
+| Konto Closed → Erased | Person mit Rohschlüssel und allen Zeilen zurück | `jsub_`/Tombstone je wiederhergestellter `users`-Zeile, Kontolöschung über den bestehenden Plan erneut, Nachweis in `erasure_requests` neu | ERASURE_RECONCILIATION | Löschungen im Status `completed_pending_journal` zum Zeitpunkt des Datenverlusts sind nur im Journal, wenn das Relay sie bestätigt hatte („unbestätigtes Fenster“ im Evidence-Report, `17` §4.3) |
+| Konto Active ↔ Restricted, Held | Sperre/Hold fehlt | Sperre bzw. Hold vor allen löschenden Folgephasen setzen; Aufhebungen nach T0 werden angewendet | PROCESSING_HOLD_RECONCILIATION | Wirkung erst mit PRA-1.06 |
+| Einwilligung | Widerruf verschwindet | `revoked_at` setzen | PROCESSING_HOLD_RECONCILIATION | `CONSENT_GRANTED` nach T0 wird nicht wiederhergestellt; erneute Abfrage (Vorschlag DEC-39, Q-DSB-25) |
+| Sitzungen, Passwort, API-Keys, E-Mail | Widerrufe rückgängig, altes Passwort gültig | jeweilige Aktion erneut; danach **global** alle Refresh-Token widerrufen und Generationen aller Konten erhöhen | ACCESS_RECONCILIATION | Rückfall ohne Journal: zusätzlich `JWT_SECRET_KEY` rotieren (`17` §5.5) |
+| Mitgliedschaft entzogen, Rolle gesenkt | Mitglied bzw. höhere Rechte zurück | entfernen bzw. senken, wenn aktueller Wert höher | ACCESS_RECONCILIATION | — |
+| Mandant Suspended | Sperre weg | sperren | ACCESS_RECONCILIATION | `TENANT_REINSTATED` nach T0 wird angewendet |
+| Mandant PendingDeletion → Deleted | Mandant `active`, Nebenspeicher bereits leer (inkonsistent) | Status bzw. Mandantenlöschung über alle Speicher erneut, `tenant_erasure_records` neu | ERASURE_RECONCILIATION, DERIVED_STORE_RECONCILIATION | `TENANT_ERASURE_CANCELLED` nach T0 hebt den Antrag auf |
+| Gerät | Puffer werden gegen den alten Stand gespielt | Restore-Epoche, Cache verwerfen, Puffer zur Bestätigung, Neuanmeldung durch Token-Entwertung | Freigabe (§5.7, PWA zuletzt) | — |
+
+Der Restore-Vorgang selbst hat ein eigenes Zustandsmodell (`RESTORE_REQUESTED` … `RESTORE_RELEASED`, `RESTORE_BLOCKED`,
+`FALLBACK_REVIEW`); es ist in `17` §5.1 beschrieben und wird hier nicht wiederholt. Je Datenbereich: `17` §6.3.
 
 ---
 
@@ -256,8 +290,10 @@ ArangoDB-Transaktion laufen und auf ihren eigenen Keys idempotent sein (`privacy
 collection, row_key)`). Ein Fehler in dieser Phase DARF die Löschung NICHT zurückrollen (die Zurechnung ist entfernt);
 der Auftrag trägt `post_commit_pending = true`, der Beat `privacy.post_commit_followups` setzt die Entdeckung am Cursor
 fort (`04` §5.1a). Der Auftrag erreicht `erasure_completed` erst, wenn Entdeckung und alle Prüfeinträge abgeschlossen
-sind. Das Journal-Ereignis `account_erased` ist dagegen **keine** Folgephase mehr: es entsteht als Outbox-Eintrag
-**im selben Schreibschritt** wie der Abschluss (PRIV-709, `09` §6.3). (Audit 2026-11-22: LEG-25 — ein nachgelagerter
+sind. Das Journal-Ereignis `SUBJECT_ERASURE_COMPLETED` (bis v1.2 `account_erased`) ist dagegen **keine** Folgephase
+mehr: es entsteht als Outbox-Eintrag **im selben Commit** wie der Vollzug (PRIV-709, präzisiert durch `17` PRIV-802).
+Der Vollzugs-Commit setzt `completed_pending_journal`; der Auftrag gilt erst als abgeschlossen, wenn zusätzlich das
+Relay die Bestätigung des Journal-Stores zurückgeschrieben hat (`17` §4.3, PRIV-811). (Audit 2026-11-22: LEG-25 — ein nachgelagerter
 Spiegel-Eintrag `erasure_mirror` hätte genau die Löschungen verloren, die ein Restore zurückdreht; `erasure_mirror`
 ist zudem nicht gebaut, `grep` → 0.)
 
@@ -326,9 +362,29 @@ B, kein Zugriff, nur `active` löst auf).
 | 33 | Art.-15-Exportdateien | B | L | — | — | `privacy_service.py:3207ff.` |
 | 34 | Logs | — | nur `sub_`-HMAC-Referenzen (eigenes Salt) | `sub_`/`ten_` | `ten_` | `erasure_engine.py:1258–1310`; AST-Scan aller `logger.*`-Kwargs: keine Roh-Konto-/E-Mail-Werte |
 | G1 | Gerätespeicher (andere Geräte) — Grenze | B | B bis 90/365 d | B | B | `07` |
-| G2 | Backups — Grenze | nicht prüfbar | kein Restore-Abgleich (Journal fehlt) | — | — | `09` §6 |
+| G2 | Backups — Grenze | nicht prüfbar | kein Restore-Abgleich (Journal fehlt); Dumps bis `retentionDays` (Default 30 d), bei `0`/negativ oder abgeschaltetem Backup unbefristet (LEG-11, LEG-68) | — | — | `09` §6.1; Soll `17` §6.3 |
 
 Nicht in der Matrix, weil nicht im Löschplan: `control_events.triggered_by_user` (LEG-29, §2.3, `02`).
+
+**Nach Restore (Nachtrag 2026-11-23).** Für jede Zeile der Matrix gilt heute: ein Restore setzt sie auf den Zustand
+des Backups zurück; jede Behandlung nach T0 (L, P, M, G, Schwärzung) ist rückgängig, ausgenommen fristbasierte Löschungen
+(nächster Beat-Lauf) und Anträge vor T0 (`execute_scheduled_erasures`, `resume_tenant_erasures`) (VERIFIED_CODE, `09`
+§6.1). Soll je Zeilengruppe (Datenbereiche aus `17` §6.3, alle `spezifiziert`):
+
+| Matrix-Zeilen | Datenbereich in `17` §6.3 | Auslösendes Journal-Ereignis | Behandlung nach Restore |
+|---|---|---|---|
+| 1, 2, 5, 6 | Benutzerkonten; Suchindizes (`vectordb`) | `SUBJECT_ERASURE_*`; `jsub_`/Tombstone je `users`-Zeile, auch gegen im Dump abgeschlossene Löschungen | Kontolöschung über den bestehenden Plan erneut, `vectordb`-Beiträge löschen |
+| 2 (Sitzungen, Keys, Auth-Provider, E-Mail), 3, 4, 23 | Berechtigungen | `API_KEY_REVOKED`, `SESSION*`, `PASSWORD_CHANGED`, `ACCOUNT_EMAIL_CHANGED`, `MEMBERSHIP_*`, `ACCESS_GRANT_REVOKED` (`auth_provider_link`, `push_subscription`, `calendar_feed_token`, `invitation`) | entziehen, widerrufen, senken; global Token-Entwertung |
+| 7, 8, Spalte „Mandantenlöschung“ | Mandantendaten | `TENANT_ERASURE_*` | Mandantenlöschung über alle Speicher erneut |
+| 9–11, 13–19, 22, 24 | Pflanzentagebücher, Pflegeprotokoll, Freitextfelder | über Konto-/Mandantenereignis; `REDACTION_APPLIED` | Marker erneut; Schwärzung (`[redacted]`) erneut inkl. Plan-Snapshots (LEG-34) |
+| 12, 26 | Bilder, Anhänge, Objektversionen; Exporte | `ATTACHMENT_DELETED`; Konto-/Mandantenlöschung | alle Versionen und Renditions löschen; Waisen in Quarantäne (R-65) |
+| 20, 21 | gesetzlich Aufzubewahrendes | Konto-/Mandantenereignis | bleibt pseudonymisiert und aus Produktfunktionen ausgeschlossen (PRIV-843) |
+| 25, 33 | Exporte | Fristen R-05/R-40 | Retention-Nachlauf; Anträge ohne Archiv `expired` |
+| 27–29, 31, 32 | Audit-Daten, Nachweis | E-Ereignisse | `erasure_requests`/`tenant_erasure_records` neu; je Zugangsentzug `RESTORE_REAPPLIED_<ACTION>`; verlorene Audit-Zeilen nicht rekonstruiert |
+| 30 | Einwilligungen | `CONSENT_WITHDRAWN` | widerrufen; Erteilungen nach T0 nicht wiederhergestellt |
+| 34 | — (Logs liegen nicht in der DB) | — | nicht vom Restore betroffen |
+| G1 | Offline-Daten | Restore-Epoche | `07` §9, PRIV-846 |
+| G2 | Backups | — | Fristen und Lifecycle `17` §7.2, §8 |
 
 **Begriffsabgrenzung (Ist).** *Löschen* = Dokument entfernt. *Anonymisieren* (zeilenbezogen) findet im Code **nur**
 durch R-25 nach 5 Jahren statt (Konto- und Freitextfelder gemeinsam) und — eingeschränkt — für `yield_metrics`. Alles,
@@ -539,8 +595,10 @@ am längsten aufzubewahrenden gesetzlichen Zeile oder 5 Jahre (R-06a).
 
 **PRIV-126** [Vorschlag] Die neuen Collections `privacy_review_items` und (falls separat)
 `redaction_log` MÜSSEN in `TenantErasureEngine.INVENTORY` als `_delete` stehen. Die Journal-Outbox
-`privacy_journal_outbox` (v1.1: Löschungs-Spiegel `erasure_mirror`, `09` §6.3), `legal_holds`, `privacy_requests`,
-`privacy_incidents` und `migration_reports` sind plattformweit (`NOT_TENANT_SCOPED` mit Begründung, DEC-26, `01` §8).
+`privacy_journal_outbox` (v1.1: Löschungs-Spiegel `erasure_mirror`, `09` §6.3; RC-02 in `17` §2.3), `legal_holds`,
+`privacy_requests`, `privacy_incidents` und `migration_reports` sind plattformweit (`NOT_TENANT_SCOPED` mit Begründung,
+DEC-26, `01` §8 PRIV-010). Für die Outbox gilt zusätzlich: eine Mandantenlöschung entfernt ihre eigenen Löschereignisse
+nicht vor der Bestätigung durch den Journal-Store.
 
 **PRIV-127** [Vorschlag] Verwaiste Mandanten (`orphaned`, REQ-024 AK-65) MÜSSEN in die
 Überwachung der Datenschutzvorgänge (PRIV-110) einbezogen werden, weil ihr Karenzzeit-Timer läuft, ohne dass ein Mitglied

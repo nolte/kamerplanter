@@ -13,6 +13,9 @@ physische Frist LEG-36, `notices` LEG-56, Cookie nur mit „Angemeldet bleiben�
 serverseitiges Verhalten (§1.2); Ist-Stand je Anforderung (Opt-in und Fristen nicht gebaut, Kill-Switch nur Betreiber,
 Logout-Wipe nicht abgewartet, keine Quarantäne/Fehlercodes); DSGVO und § 25 TDDDG getrennt (§2.2); Grundsicherung
 nach Art. 25/32 vs. Shared-Device-Modus als Produktempfehlung (§8.0); PRIV-534…539 neu; PRIV-524/§8a korrigiert.
+Nachtrag 2026-11-23 (gemessen gegen develop ce7e858d0): Ereignis-Matrix §1.1 um „Restore der Server-Datenbank“
+ergänzt; neuer §9.1 Offline-Daten im Restore-Fall (Restore-Epoche, Token-Entwertung, Gerät verwirft Caches) nach
+`17-privacy-recovery.md` PRIV-846; Abnahme TA-759 in §11.
 ```
 
 Die Offline-Schicht von REQ-053 Welle 9 ist implementiert (P-7-Bericht GDPR-001…006). Das Audit 2026-11-22 hat den
@@ -95,6 +98,7 @@ Abkürzungen: **L** gelöscht · **B** bleibt · **B\*** bleibt, aber für ander
 | **Wiederverbindung gelöschter Nutzer** | L (toter Refresh) | B bis Frist; Server weist ab (401); Login unmöglich (Zeile weg bzw. `is_active=False`, `password_hash=None`) | B\* | B unbefristet (LEG-56) | L | L/Race | B | — | — | kein Eintrag angenommen |
 | **Kill-Switch `PWA_CACHING_ENABLED=false`** | L | L | L | L | L | L | B | B | B | — |
 | **App-Start** | Purge > TTL | Purge > Frist | Purge | ergänzt | — | geladen | — | — | Refresh | — |
+| **Restore der Server-Datenbank auf Stand T0** (Nachtrag 2026-11-23; Soll §9.1) | B, wenn der Refresh-Token vor T0 ausgestellt wurde (Sitzung lebt mit Stand nach T0 weiter); sonst toter Refresh → L | **B** und wird **gegen den T0-Stand** gesendet; `client_event_tombstones` nach T0 fehlen in der wiederhergestellten DB, ein nach T0 gelöschter Eintrag kann neu entstehen | B\* | B | B (Stand nach T0) | B | B | B | vor T0 ausgestellt: gültig; nach T0 ausgestellt: fehlt in der DB → 401 | keine Restore-Erkennung, keine Epoche; Access-Token nur ungültig, wenn die Generation nach T0 erhöht wurde (`domain/engines/full_auth_provider.py:38`) |
 
 ### 1.2 Serverseitiges Verhalten (VERIFIED_CODE)
 
@@ -507,6 +511,36 @@ Kontos wird nie angenommen; die Ablehnung erfolgt heute per 401, nicht per `acco
 **PRIV-529** Der Konfliktdialog DARF NICHT den Namen eines anderen Mitglieds für den serverseitigen
 Gewinner zeigen (er zeigt nur den Aufgabenzustand) — im Komponententest absichern.
 
+### 9.1 Offline-Daten im Restore-Fall (Nachtrag 2026-11-23) [PROPOSED]
+
+**Ist (VERIFIED_CODE, `17` §1.4, §1.3).** Geräte halten den Stand nach dem Backup-Zeitpunkt T0. Nach einem Restore der
+Server-Datenbank laufen Sitzungen mit vor T0 ausgestellten Refresh-Tokens weiter, Lesecaches zeigen Daten, die es auf
+dem Server nicht mehr oder anders gibt, und gepufferte Schreibvorgänge werden gegen den alten Stand gespielt; weil die
+`client_event_tombstones` mit zurückrollen, greift der Schutz vor Wiedererstellung gelöschter Puffer-Einträge
+(PRIV-133, R-61) für Löschungen nach T0 nicht. Eine Restore-Erkennung im Client gibt es nicht.
+
+**Soll (`17` PRIV-846, PRIV-829, §5.3, §5.7).**
+
+| Schritt | Server | Gerät |
+|---|---|---|
+| Isolation (bis `RESTORE_RELEASED`) | Gate geschlossen: 503 `restore_in_progress` auf allen Routen außer Health; PWA bleibt eingeschaltet (der Kill-Switch würde ungesendete Puffer löschen, PRIV-523; nur Eskalation laut `17` §5); keine Presign-URLs | Sync scheitert mit 503 und bleibt `pending` (kein Versuchsverbrauch wie bei 401); siehe Wechselwirkung unten |
+| Reconciliation | **globale Token-Entwertung**: alle Refresh-Token widerrufen, `session_generation` und `access_token_generation` aller Konten erhöht | — |
+| Freigabe | `restore_epoch + 1` in `system_meta/privacy_recovery`; jede API-Antwort trägt `X-KP-Restore-Epoch`; PWA-Caching wird als **letzter** Schritt wieder eingeschaltet (`17` §5.7 Schritt 8) | erster Request nach Freigabe: Refresh 401 → Pfad „tote Sitzung“ (PRIV-519, Quarantäne) und Neuanmeldung |
+| nach Neuanmeldung | Header mit neuer Epoche | Epoche ≠ gespeicherte Epoche ⇒ Plan-Cache (S1) und SW-API-Cache (S4) **verwerfen**; Puffer-Einträge des Nutzers gehen in den Bestätigungsdialog „senden / verwerfen“ und werden **nicht** automatisch gesendet; neue Epoche speichern |
+| Telemetrie | — | nur Zähler (verworfene Caches, Puffer zur Bestätigung), keine Inhalte |
+
+Die Epoche ist monoton und enthält keine personenbezogenen Daten. Ein Puffer-Eintrag, den die Person nach dem Restore
+bestätigt, ist ein **neuer** Schreibvorgang gegen den bereinigten Stand: der Server prüft ihn wie jeden anderen
+(Mitgliedschaft, `is_active`, Schwärzung PRIV-528), sodass ein nach T0 gelöschtes Konto oder ein nach T0 entzogener
+Mandant nichts wieder einführen kann. Status: `spezifiziert` (PRA-2.15, Test TA-759).
+
+**Wechselwirkung mit dem Kill-Switch (entschieden in `17` §5.3, Zeile „PWA“).** `PWA_CACHING_ENABLED=false` löscht nach
+§1.1 auch den Schreibpuffer. Der Restore-Modus erzwingt den Kill-Switch deshalb **nicht**: Das Gate antwortet mit 503
+`restore_in_progress`, der Puffer bleibt `pending` und wird nach der Freigabe unter der neuen Restore-Epoche zur Bestätigung
+vorgelegt (PRIV-846). Lese- und SW-API-Cache verwerfen die Geräte beim Epochenwechsel. Den Kill-Switch setzt der Betreiber nur
+als Eskalation, wenn die Epochen-Abstimmung nicht möglich ist; der Verlust ungesendeter Einträge wird dann im Evidence-Report
+vermerkt.
+
 ---
 
 ## 10. Information auf der Geräteseite
@@ -549,4 +583,5 @@ den Fern-Widerruf nennen (PRIV-539).
 | TA-539 | Komponententest: bei `OFFLINE_SHARED_DEVICE_MODE=true` keine Checkbox „Angemeldet bleiben“; Backend-Test: Login mit `remember_me=true` im Modus → Cookie ohne `max_age`. |
 | TA-536 | Puffer mit Einträgen für Mandant X; Mandantenliste ohne X → Einträge gelöscht, Hinweis angezeigt. |
 | TA-540 | Spec-/Doku-Review: Nutzerdoku und §8a nennen den Fern-Widerruf von Sitzungen mit seiner Grenze. |
+| TA-759 (`17` §11.1, `10`) | Unit: Header mit neuer Restore-Epoche ⇒ Client verwirft Plan-Cache und SW-API-Cache, Puffer-Einträge gehen in den Bestätigungsdialog und nicht automatisch an den Server; gleiche Epoche ⇒ nichts verworfen (§9.1). |
 | E2E | `tests/e2e/test_req053_wave9_offline.py` erweitern: TC „Logout löscht jeden Nutzerschlüssel", TC „Quarantäne bei toter Sitzung", TC „Bereinigung bei Inaktivität im Modus für geteilte Geräte". |

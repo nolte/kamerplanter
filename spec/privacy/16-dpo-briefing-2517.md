@@ -16,12 +16,17 @@ Audit-Ergänzungen und 13 Folgefragen erweitert (bestehende Fragen unverändert,
 korrigiert (`retention.ts:13`, `:15` statt `queue.ts:450`), SW-API-Cache hält Rohantworten (LEG-27); neue
 Komplexe §7–§17 (LEG-11, -13, -16, -23…-25, -28…-33, -35, -38, -40…-42, -47…-53); bisheriger §7 „Was mit der
 Antwort geschieht“ ist jetzt §18 und nennt je Frage die PRA-Aufgabe und das Gate.
+Änderungen 1.2 (Nachtrag 2026-11-23, gemessen gegen develop ce7e858d0): §8 Ist-Stand nachgeführt (SSE
+`values.yaml:607–608`, LEG-24-Belege auf die Schreibpfade, LEG-62…LEG-70) und auf `17-privacy-recovery.md` bezogen;
+Q-DSB-15 und Q-DSB-16 präzisiert; neue Fragen Q-DSB-22…Q-DSB-26 und Q-LAW-18, Q-LAW-19 (§8 Frage 4–10); §0 Übersicht
+und Zählung, §18 Tabellen erweitert.
 ```
 
 ## 0. Wie dieses Briefing zu lesen ist
 
 Jede Frage ist genau einem oder mehreren Einträgen der Rechtsregistry zugeordnet: LEG-01…LEG-22 in
-[`decision-log.md`](decision-log.md) §B, die Audit-Befunde LEG-23…LEG-61 in [`decision-log.md`](decision-log.md) §D.
+[`decision-log.md`](decision-log.md) §B, die Audit-Befunde LEG-23…LEG-61 und die Befunde aus `17` LEG-62…LEG-70 in
+[`decision-log.md`](decision-log.md) §D.
 Die Registry trägt Optionen, Empfehlung, Gate und Durchsetzungspunkt; dieses Dokument ergänzt je Frage den
 **Ist-Stand im Code** (gemessen, mit Pfad:Zeile), den **ausgelieferten Default**, die **Norm** und die **konkrete
 Frage**. Was mit einer Antwort umgesetzt wird, steht als PRA-Aufgabe in
@@ -30,7 +35,7 @@ Quellenbelege (Wortlaut, URL, Prüfdatum) stehen im Rechtsevidenzregister
 [`13-legal-evidence-register.md`](13-legal-evidence-register.md) (L-nn); was dort `UNVERIFIED_AT_SOURCE` ist, wird
 hier nicht als Rechtsaussage verwendet. DSGVO-Artikel sind nur **Bezug** (L-12, `UNVERIFIED_AT_SOURCE`, V-07),
 nie Wortlaut. EuGH C-34/21 (L-13, V-08) und die BAG-Linie zur „Eignung“ (V-05) sind nicht an der Quelle
-verifiziert; die EDSA-Leitlinien 9/2022 (Datenpannen) stehen nicht im Register.
+verifiziert; die EDSA-Leitlinien 9/2022 (Datenpannen) stehen nur als L-24 `UNVERIFIED_AT_SOURCE` im Register (V-13).
 
 **Pfade.** Backend-Pfade ohne Präfix beginnen mit `src/backend/app/`; Frontend-Pfade (`main.tsx`, `sw.ts`, `pwa/`,
 `features/`, `store/`, `pages/`, `layouts/`, `lib/`) mit `src/frontend/src/`. Pfade mit `src/`, `scripts/`, `helm/`,
@@ -65,7 +70,7 @@ Drei Fragenkomplexe hatte die Registry vor v1.0 nicht; sie sind mit diesem Dokum
 | 5 | Gerätespeicher (Offline) | #2517 Kommentar 2026-11-09 Pkt. 1–5; Audit | LEG-09, LEG-10, LEG-12, LEG-27, LEG-37 | Q-DSB-06, Q-DSB-07, Q-LAW-16, Q-LAW-17 |
 | 6 | Beetfotos und Plan-Unterlagen | aus #2643 verschoben (2026-11-14) Pkt. 1–3; Audit | **LEG-20, LEG-21, LEG-22**, LEG-55 | Q-DSB-09…11, Q-LAW-12 |
 | 7 | Einschränkung, Widerspruch und Legal Hold | Audit | LEG-23, LEG-35 | Q-DSB-14 |
-| 8 | Backups, Restore und Widerrufe | Audit | LEG-11, LEG-24, LEG-25, LEG-26 | Q-DSB-15, Q-DSB-16, Q-LAW-14 |
+| 8 | Backups, Restore und Widerrufe | Audit; Nachtrag 2026-11-23 (`17`) | LEG-11, LEG-24, LEG-25, LEG-26, LEG-62…LEG-70 | Q-DSB-15, Q-DSB-16, Q-DSB-22…26, Q-LAW-14, Q-LAW-18, Q-LAW-19 |
 | 9 | Beschäftigtendaten: Leistungsdaten, Aktorik-Protokoll, Mandantenklassifizierung | Audit (vertieft §1 Frage 2) | LEG-05, LEG-28, LEG-29, LEG-30 | Q-LAW-01…03, Q-DSB-21 |
 | 10 | KI-Cloud-Verarbeitung und MCP | Audit | LEG-31, LEG-51, LEG-52 | Q-DSB-19, Q-LAW-10 |
 | 11 | Rollenmodell, Empfänger, Drittland, Unterauftragsverarbeiter, Plattform-Export | Audit | LEG-01, LEG-13, LEG-33, LEG-53 | Q-LAW-05, Q-LAW-07…09 |
@@ -76,7 +81,7 @@ Drei Fragenkomplexe hatte die Registry vor v1.0 nicht; sie sind mit diesem Dokum
 | 16 | GPS an Wetterdienste; Fehlertracking (LIA) | Audit | LEG-49, LEG-16 | Q-DSB-18 |
 | 17 | Verschlüsselung ruhender Daten; DSFA je Betriebsmodell | Audit (vertieft §5 Frage 4) | LEG-42, LEG-12, LEG-48 | Q-DSB-17, Q-DSB-08 |
 
-Zählung: 21 DSB-Fragen und 17 Fragen an die Rechtsberatung (38). Davon greifen 14 eine Frage aus #2517 auf
+Zählung: 26 DSB-Fragen und 19 Fragen an die Rechtsberatung (45; Nachtrag 2026-11-23: +5 DSB, +2 Recht in §8). Davon greifen 14 eine Frage aus #2517 auf
 (Q-DSB-01…11 ganz oder teilweise; Q-LAW-01, Q-LAW-03, Q-LAW-12 als Teilaspekt); sie werden in §1–§6 nicht neu
 gestellt, sondern um die Audit-Erkenntnis ergänzt.
 
@@ -469,28 +474,47 @@ Bedarf gewerblicher Kunden: Q-CUS-01 in `12`).
 Zweckliste und Hold-Berechtigung auf die Antwort. Fristüberwachung Art. 12 Abs. 3 und Empfängermitteilung Art. 19:
 PRA-2.20 (Umsetzung einer ausdrücklichen Pflicht, ohne Freigabe).
 
-## 8. Backups, Restore und Widerrufe (LEG-11, LEG-24, LEG-25, LEG-26)
+## 8. Backups, Restore und Widerrufe (LEG-11, LEG-24, LEG-25, LEG-26; Nachtrag 2026-11-23: LEG-62…LEG-70)
 
-**Ist-Stand** (`VERIFIED_CODE`). Der Backup-CronJob existiert und ist aus (`helm/kamerplanter/values.yaml:567–612`,
-`backup.enabled: false`, `retentionDays: 30`, SSE `AES256`; Controller `arangodb-backup` `:1324–1460`, arangodump inkl.
-Systemcollections). Es gibt keinen Lösch-Spiegel und kein Replay (`grep erasure_mirror\|privacy.mirror\|mirror.enabled`
-in `src`, `helm`, `docs` → 0). Der einzige Backup-Precheck prüft den Bucket (`values.yaml:382–387`); `retentionDays`
-ist unvalidiert, `0` bedeutet unbegrenzt (`:1418`). Die Betriebsdoku leitet zur Aktivierung an
-(`docs/de/deployment/backup-restore.md:21`, `:25–80`) und endet nach dem Restore mit „Anwendung starten“ (`:101–160`).
-Zufällige Teilwirkung: `execute_scheduled_erasures` (`privacy_service.py:2568–2602`) führt nach einem Restore Anträge
-im Status `scheduled`/`partially_completed` erneut aus; Anträge nach dem Dump und sofortige Admin-Löschungen gehen
-verloren. Ein `arangorestore --overwrite true` setzt zudem **Widerrufe** zurück: API-Keys (nur `revoked: True`,
-`data_access/arango/api_key_repository.py:70–77`), Refresh-Token-Familien und „alle Sitzungen beenden“,
-Passwortwechsel (`domain/services/auth_service.py:891`), Einwilligungswiderrufe
-(`data_access/arango/consent_repository.py:220–230`), Art.-18/21-Einträge, Mitgliedschaftsentzüge, Mandantensperren;
-`security_audit_log` liegt in derselben Datenbank (LEG-24). Light/Docker: `docs/de/deployment/docker-dauerbetrieb.md:205–233`
-ohne Frist, Verschlüsselung und Replay (LEG-43). Die empfohlene Bucket-Versionierung ohne Lifecycle-Regel
-(`backup-restore.md:14`, `:29`; `values.yaml:587–591`) hält gelöschte Fotos und Exportarchive unbefristet beim
-S3-Anbieter (LEG-26). Spec-Widerspruch: PRIV-709 verlangt den Spiegel „bei jedem Abschluss“, PRIV-710/PRIV-E14
-verlegen ihn in einen Beat-Sync vor dem Dump — der dann genau die verlorenen Löschungen nicht enthält (LEG-25, `09` §6).
-Ob Backups in Produktion aktiv sind, ist im Repo nicht prüfbar (PRA-0.03, Q-OP-02 in `12`).
+**Ist-Stand** (`VERIFIED_CODE`; Nachtrag 2026-11-23 nachgeprüft an develop `ce7e858d0`, für Backup relevante Dateien
+gegenüber `007a4ea90` unverändert). Der Backup-CronJob existiert und ist aus (`helm/kamerplanter/values.yaml:567–612`,
+`backup.enabled: false`, `retentionDays: 30`, SSE `AES256`/`aws:kms` in `:607–608`; Controller `arangodb-backup`
+`:1324–1460`, arangodump inkl. Systemcollections). Es gibt keinen Lösch-Spiegel, kein Journal und kein Replay
+(`grep erasure_mirror\|privacy.mirror\|mirror.enabled` in `src`, `helm`, `docs` → 0). Der einzige Backup-Precheck prüft
+den Bucket (`values.yaml:382–387`); `retentionDays` ist unvalidiert, `0` und jeder negative oder nicht-numerische Wert
+bedeuten unbegrenzt (`:1418`); `backup.enabled: false` beendet auch die Löschung vorhandener Dumps (`:1325`, LEG-68). Die
+Betriebsdoku leitet zur Aktivierung an (`docs/de/deployment/backup-restore.md:21`, `:25–80`) und endet nach dem Restore
+mit „Anwendung starten“ (`:101–160`); bei `celeryWorkers.dedicatedQueues: true` laufen dabei zwei Worker weiter
+(`:116–117, 156–157`; LEG-62), Worker und Beat warten nicht auf den Migrationsstand (LEG-70), Valkey behält bei einem
+Restore im bestehenden Namespace den Stand nach dem Backup (LEG-69). Zufällige Teilwirkung: `execute_scheduled_erasures`
+(`privacy_service.py:2568–2602`) führt nach einem Restore Anträge im Status `scheduled`/`partially_completed` erneut
+aus, `resume_tenant_erasures` (`tasks/tenant_tasks.py:31–40`) fällige Mandantenlöschungen; Anträge nach dem Dump und
+sofortige Admin-Löschungen gehen verloren. Ein `arangorestore --overwrite true` setzt zudem **Widerrufe** zurück:
+API-Keys (nur `revoked: True`, `data_access/arango/api_key_repository.py:70–77`; der Widerruf ist außerdem fail-open,
+LEG-66), Refresh-Token-Familien und „alle Sitzungen beenden“ (Schreibpfad
+`data_access/arango/refresh_token_repository.py:175–216`, Prüfung `domain/services/auth_service.py:888–893`),
+Passwortwechsel (`auth_service.py:1273, 1453ff., 1534`), Einwilligungswiderrufe (`domain/services/privacy_service.py:1955–1977`),
+Art.-18/21-Einträge, Mitgliedschaftsentzüge, Mandantensperren; `security_audit_log` liegt in derselben Datenbank
+(LEG-24). Das Startgate prüft nur die Länge, nicht die Identität des Tombstone-Salts (`main.py:96–98`; LEG-67). Der
+Mandanten-Import (einziger Teil-Restore) prüft nicht gegen abgeschlossene Löschungen
+(`domain/engines/tenant_import_engine.py:34–36`; LEG-65, Bezug zu Q-DSB-03). Light/Docker:
+`docs/de/deployment/docker-dauerbetrieb.md:205–233` ohne Frist, Verschlüsselung und Replay (LEG-43); der Restore läuft
+gegen die laufende Anwendung (`:218–230`; LEG-63); `backend` und `celery-worker` haben kein Anhänge-Volume
+(`docker-compose.release.yml:145–146, 194–195, 252–257`; LEG-64). Die empfohlene Bucket-Versionierung ohne
+Lifecycle-Regel (`backup-restore.md:14`, `:29`; `values.yaml:587–591`) hält gelöschte Fotos und Exportarchive
+unbefristet beim S3-Anbieter (LEG-26). Der Spec-Widerspruch PRIV-709 ↔ PRIV-710/PRIV-E14 (Beat-Sync vor dem Dump,
+LEG-25) ist in [`17-privacy-recovery.md`](17-privacy-recovery.md) aufgelöst: Outbox im selben Commit, Relay als
+Einzelschreiber (PRIV-802, PRIV-805). Ob Backups in Produktion aktiv sind, ist im Repo nicht prüfbar (PRA-0.03, Q-OP-02
+in `12`).
 
-**Ausgelieferter Default.** Backup aus; nach Aktivierung ohne Spiegel, Replay und Fristobergrenze.
+**Ausgelieferter Default.** Backup aus; nach Aktivierung ohne Journal, Replay und Fristobergrenze.
+
+**Vorgeschlagene Mechanik (`17`, Status `spezifiziert`).** Transactional Outbox in derselben Stream-Transaktion, Relay
+in einen Journal-Store außerhalb der DB (Object Lock bzw. append-only Volume), domänengetrennte Pseudonyme
+`jsub_`/`jten_`/`jrec_`, Journal-Frist R-63; Restore-Lebenszyklus mit fail-closed Gate für Backend, Worker und Beat,
+Isolation, Migration vor Replay, Reconciliation je Datenbereich, globale Token-Entwertung nach jedem Restore,
+Rückfall nur über `FALLBACK_REVIEW`, Evidence-Report (R-64). Architekturvorschläge DEC-35…DEC-40 (`decision-log.md` §A,
+`proposed`).
 
 **Rechtspflicht.** Löschung nach Art. 17 Abs. 1; Speicherbegrenzung (Art. 5 Abs. 1 lit. e); Wiederherstellbarkeit
 (Art. 32 Abs. 1 lit. c). Widerruf, Einschränkung und Widerspruch wirken für die Zukunft (Art. 7 Abs. 3, Art. 18 Abs. 2,
@@ -502,20 +526,95 @@ EDSA akzeptiert, dass eine Löschung im Backup erst mit dem nächsten Zyklus nac
 leitet daraus kurze Zyklen (≤ 35 Tage) und die erneute Anwendung nach einem Restore ab (DEC-13/DEC-26). Ein deutscher
 Primärbeleg fehlt (L-21). Ein Journal, das per Beat-Sync geschrieben wird, wäre zwischen Löschung und Sync wirkungslos
 (Art. 25 Abs. 1); das Audit empfiehlt write-through mit Outbox, ausgedehnt auf Widerrufe und Sicherheitsereignisse.
+Rechtliche Einordnung je Norm, getrennt nach gesicherter Anforderung, Empfehlung, risikobasierter Auslegung und offener
+Frage: `17` §10.
 
 **Fragen.**
 1. **Q-LAW-14** — Ist „Dumps ≤ 35 Tage mit Replay nach Restore“ ohne deutschen Primärbeleg vertretbar (LEG-11)? Hängt
    ab: Freigabe der Backup-Aktivierung (`deployment_allowed`, PRA-1.05). Kundenseitige Erwartung längerer
    Backup-Fristen (Q-CUS-06 in `12`): Pflichtdaten liegen in der Primär-DB, nicht im Backup.
 2. **Q-DSB-15** — Ist ein pseudonymes Journal außerhalb der Datenbank zulässig, obwohl Tombstones personenbezogen
-   bleiben (L-15), und ist die Aufbewahrung R-45 (3 Jahre) angemessen (LEG-11, LEG-25)? Hängt ab: Bau des Journals
-   (PRA-1.04).
+   bleiben (L-15), und ist die Aufbewahrung angemessen (LEG-11, LEG-25)? *Präzisiert (Nachtrag 2026-11-23):* Gefragt
+   ist die Frist **R-63** (wirksame Backup-Lebensdauer + 14 d, höchstens 90 d) statt R-45 (3 Jahre); die Frist selbst
+   ist Q-DSB-22. Hängt ab: Bau des Journals (PRA-1.04).
 3. **Q-DSB-16** — Zwischen Restore und Replay sind Löschungen und Widerrufe zurückgesetzt. Genügt als Maßnahme ein
    Wartungsmodus mit Startsperre (503 außer Health und Admin-Replay) bis zum abgeschlossenen Replay, ergänzt um eine
-   Post-Restore-Basis (`JWT_SECRET_KEY` rotieren, alle Refresh-Tokens widerrufen) (LEG-24, LEG-11)? Hängt ab: PRA-1.05.
+   Post-Restore-Basis (`JWT_SECRET_KEY` rotieren, alle Refresh-Tokens widerrufen) (LEG-24, LEG-11)? *Präzisiert
+   (Nachtrag 2026-11-23):* gemeint ist das Restore-Gate nach `17` §5.3 (schließt Backend, **Worker und Beat**, auch bei
+   `DEBUG`; Gründe u. a. Journal nicht erreichbar, Secret-Fingerabdruck abweichend, Migrationskopf veraltet) mit
+   globaler Token-Entwertung nach **jedem** Restore (PRIV-829); `JWT_SECRET_KEY` wird nur im Rückfall rotiert. Hängt
+   ab: PRA-1.05.
+
+**Neue Fragen (Nachtrag 2026-11-23, aus `17` §10.3).**
+
+4. **Q-DSB-22 — Journal-Frist.** Genügt für das Journal eine Aufbewahrung „wirksame Backup-Lebensdauer + 14 d,
+   höchstens 90 d“ (R-63), wenn der Löschnachweis über 3 Jahre in `erasure_requests` (R-06) liegt, statt 3 Jahre im
+   Journal (R-45)?
+   *Ist-Stand:* kein Journal (Grep → 0); der Nachweis ist der Tombstone in `erasure_requests`
+   (`domain/engines/erasure_engine.py:860–871`, Frist `config/settings.py:108`) bzw. `tenant_erasure_records`; beide
+   rollen bei einem Restore zurück und würden durch das Replay neu erzeugt (`17` §3.8).
+   *Default:* R-63 mit Default 53 d (30 + 7 + 2 + 14), Segmentablauf statt Umschreiben; Vorschlag DEC-36.
+   *Norm:* Art. 5 Abs. 1 lit. c, e und Abs. 2; Art. 17 Abs. 1 (Bezug, L-12); Pseudonyme bleiben personenbezogen (L-15).
+   *Abhängige PRA:* PRA-1.04 (Journal), PRA-0.10 (Frist-Check im Chart-Vertrag).
+5. **Q-DSB-23 — gewöhnliche Löschungen.** Dürfen gewöhnliche Löschungen von Fachdatensätzen durch Nutzer (Tagebucheintrag,
+   Notiz, Aufgabe; außerhalb der Privacy-Routen) nach einem Restore für höchstens die wirksame Backup-Lebensdauer
+   zurückkehren, oder müssen sie wie Anhänge journalisiert werden?
+   *Ist-Stand:* keine Löschung wird journalisiert; nach einem Restore kehren alle nach dem Backup gelöschten Zeilen
+   zurück, Selbstheilung nur für fristbasierte Zeilen (`tasks/retention_tasks.py:134–388`).
+   *Default:* nicht journalisiert, außer Anhänge (`ATTACHMENT_DELETED`) und Schwärzungen (`REDACTION_APPLIED`);
+   Vorschlag DEC-38; die Alternative `RECORD_DELETED` je Löschung ist ohne Schemaänderung ergänzbar (`17` §3.2).
+   *Norm:* Art. 17 Abs. 1; Art. 5 Abs. 1 lit. e; L-19 Rn. 110 (Auslegung „nächster Zyklus“).
+   *Abhängige PRA:* PRA-1.04.
+6. **Q-DSB-24 — Freigabe mit Journal-Lücke.** Ist eine Freigabe nach Restore **mit** Journal-Lücke (Rückfallbasis) vertretbar,
+   und welche Information der Betroffenen bzw. Mandanten ist dann nötig?
+   *Ist-Stand:* es gibt kein Gate; das System öffnet nach dem Restore ohne Prüfung (`backup-restore.md:155–160`).
+   *Default:* Gate bleibt zu; Freigabe nur über `FALLBACK_REVIEW` mit Pflichtmaßnahmen (globale Token-Entwertung,
+   `JWT_SECRET_KEY` rotieren, API-Keys auf Bestätigung, optionale Einwilligungen erneut bestätigen, offene Löschungen
+   ausführen, Retention-Nachlauf), Freigabe inkl. DSB, bei BM-001 Information der Mandanten; Report „mit Lücke“, nie
+   „vollständig“ (`17` §5.5, PRIV-832).
+   *Norm:* Art. 5 Abs. 2; Art. 32 Abs. 1 lit. b, c; Art. 34 (Bezug, L-12).
+   *Abhängige PRA:* PRA-1.05.
+7. **Q-DSB-25 — Einwilligungen nach dem Backup.** Darf eine nach dem Backup erteilte Einwilligung, deren Nachweis der Restore
+   verloren hat, aus dem Journal wiederhergestellt werden, oder ist sie erneut einzuholen?
+   *Ist-Stand:* der Nachweis (`granted_at`, `consent_version`, `ip_address`, `user_agent`) liegt nur in
+   `consent_records` (`domain/models/privacy.py:116–132`) und rollt mit zurück; das Journal soll nur `purpose` und
+   `consent_version` tragen.
+   *Default:* erneut einholen (`CONSENT_GRANTED` dient nur der Reihenfolge, `17` §3.6); Vorschlag DEC-39.
+   *Norm:* Art. 7 Abs. 1 (Nachweis), Art. 6 Abs. 1 lit. a (Bezug, L-12).
+   *Abhängige PRA:* PRA-1.05 (PROCESSING_HOLD_RECONCILIATION), PRA-1.04.
+8. **Q-DSB-26 — Art. 19 nach Restore.** Müssen Empfänger (Art. 19) nach einem Restore erneut unterrichtet werden, wenn zwischen
+   Restore und Freigabe keine Sendung stattfand, und bei Freigabe mit Lücke?
+   *Ist-Stand:* kein Art.-19-Mechanismus und keine Empfängerliste (LEG-33, `06` §11 Nr. 22); nach einem Restore starten
+   Beat und Digests (06:05–07:00) sofort und erreichen wiederhergestellte Konten (`tasks/__init__.py:395–615`).
+   *Default:* während der Isolation alle externen Abflüsse aus (Benachrichtigungen, KI, Erkennung, Wetter, Aktorik,
+   Kalender-Feeds), nach Freigabe keine Sendungen an gelöschte Subjekte; keine erneute Unterrichtung, solange nichts
+   gesendet wurde (`17` §5.3, §7.1).
+   *Norm:* Art. 19; Art. 17 Abs. 2 (Bezug, L-12).
+   *Abhängige PRA:* PRA-1.05, PRA-2.20, PRA-1.03.
+9. **Q-LAW-18 — Restore als Verletzung.** Ist ein Restore, der gelöschte Daten wieder verfügbar macht oder widerrufene Zugänge
+   reaktiviert (heutiger Zustand ohne Reconciliation), eine Verletzung des Schutzes personenbezogener Daten nach
+   Art. 4 Nr. 12 mit Prüfpflicht nach Art. 33/34?
+   *Ist-Stand:* genau das tritt heute bei jedem Restore ein (Szenarien S3–S7, `09` §6.5); ein Verfahren für
+   Datenschutzverletzungen fehlt (LEG-32, §12). Ob in der Vergangenheit Restores stattfanden, ist nicht prüfbar (PRA-0.03).
+   *Default:* ein nicht reconcilierter Restore wird als möglicher Vorfall geprüft (Alarm `PrivacyRecoveryBlocked`,
+   Metriken `17` §11.4); Fallakte im Incident-Register.
+   *Norm:* Art. 4 Nr. 12, Art. 33, Art. 34 (Bezug, L-12); EDSA-Leitlinien 9/2022 (L-24, `UNVERIFIED_AT_SOURCE`, V-13).
+   *Abhängige PRA:* PRA-3.02, PRA-0.03.
+10. **Q-LAW-19 — WORM-Journal und Löschantrag.** Kann einem Löschantrag hinsichtlich der Pseudonyme im WORM-Journal (Object Lock
+    bis R-63) Art. 17 Abs. 3 lit. b/e oder Art. 11 entgegengehalten werden, und ist Compliance-Mode (nicht
+    übersteuerbar) für BM-001 zulässig?
+    *Ist-Stand:* kein Journal; geplant ist Object Lock **Governance** (Compliance nur BM-001 nach Antwort), Inhalt nur
+    Pseudonyme, Enums und Zeitpunkte (`17` §3.7, §7.2, §7.3).
+    *Default:* Governance-Mode, Frist R-63, kein Nutzdateninhalt; das Journal wird nie an Mandanten exportiert.
+    *Norm:* Art. 17 Abs. 3 lit. b, e; Art. 11; Art. 5 Abs. 1 lit. e (Bezug, L-12); L-15 (Pseudonyme bleiben
+    personenbezogen).
+    *Abhängige PRA:* PRA-1.04.
 
 **Hängt ab, ohne Freigabe.** PRA-0.10 (Render-Fehler bei `backup.enabled` ohne Journal, `1 ≤ retentionDays ≤ 35`,
-Warnblock und manuelles Runbook, Bucket-Lifecycle-Doku); PRA-3.07 (Docker-Backup mit Frist und Verschlüsselung).
+Bucket-Expiration unabhängig vom CronJob, Warnblock und manuelles Runbook, Bucket-Lifecycle-Doku); PRA-0.12
+(Runbook-Sofortkorrektur: alle Worker anhalten, Docker-Restore nur gestoppt, Valkey leeren); PRA-2.21 (fail-closed
+Widerruf); PRA-2.22 (Salt-Identität, Backup-Manifest); PRA-1.08 (versionsvollständige Objektlöschung); PRA-3.07
+(Docker-Backup mit Frist und Verschlüsselung). Diese Maßnahmen schränken ein und brauchen keine Antwort.
 
 ## 9. Beschäftigtendaten: Leistungsdaten, Aktorik-Protokoll, Mandantenklassifizierung (LEG-05, LEG-28, LEG-29, LEG-30)
 
@@ -825,7 +924,7 @@ selbst gehostetes GlitchTip oder EU-Hosting vermeidet die Drittlandfrage.
 ## 17. Verschlüsselung ruhender Daten; DSFA je Betriebsmodell (LEG-42, LEG-12, LEG-48)
 
 **Ist-Stand.** (a) **Verschlüsselung ruhender Daten** ist weder erzwungen noch als Betreiberanforderung dokumentiert
-(`helm/kamerplanter/values.yaml:604–605`, `:3253–3261`; `grep -rni "at rest\|ruhend\|LUKS" docs/de/deployment
+(`helm/kamerplanter/values.yaml:607–608`, `:3253–3261`; `grep -rni "at rest\|ruhend\|LUKS" docs/de/deployment
 spec/stack.md spec/nfr/NFR-002*` → 0); vorhanden sind Feldverschlüsselung (`domain/engines/encryption_engine.py`) und
 SSE für S3 (`data_access/storage/s3_adapter.py:106`, `:297`). Volume-Verschlüsselung in Produktion klärt Q-OP-10
 (`12`). (b) **DSFA** (`VERIFIED_SPEC`): Es gibt keine DSFA und kein Verzeichnis im Repo; die Nutzerdoku behauptet
@@ -870,7 +969,8 @@ gewerblichen Mandanten Kriterium 1 (Bewertung) objektiv erfüllt, ebenso Kriteri
 
 | Antwort | Durchsetzung |
 |---------|--------------|
-| je Frage | LEG-Zeile in `decision-log.md` §B (LEG-01…LEG-22) bzw. Befundzeile in §D (LEG-23…LEG-61) auf `decided` mit Datum, Quelle der Entscheidung und umsetzender PRA-Aufgabe (PRA-3.01) |
+| je Frage | LEG-Zeile in `decision-log.md` §B (LEG-01…LEG-22) bzw. Befundzeile in §D (LEG-23…LEG-70) auf `decided` mit Datum, Quelle der Entscheidung und umsetzender PRA-Aufgabe (PRA-3.01) |
+| Backup/Restore-Fragen mit vorgeschlagener Architekturentscheidung (Q-DSB-22 → DEC-36, Q-DSB-23 → DEC-38, Q-DSB-25 → DEC-39; Nachtrag 2026-11-23) | zusätzlich DEC-Zeile in `decision-log.md` §A von `proposed` auf `accepted` oder `rejected`; bei `rejected` passt die Hauptsession `17` (Taxonomie §3.3, Frist §3.8, Konfliktregel §3.6) und `06` R-63 an |
 | einschränkend (weniger sichtbar, kürzere Frist, mehr löschen) | sofort umsetzbar (`processing_allowed: ja`), PRA-Aufgabe laut [`12`](12-implementation-roadmap.md) |
 | ausweitend (mehr Verarbeitung) | erst nach registrierter Entscheidung, hinter Schalter (`08` §8a) |
 | datenvernichtend (Reklassifizierung, Löschung statt Pseudonym) | erst nach Antwort und Betreiberfreigabe; Flag mit Default aus |
@@ -885,7 +985,7 @@ den Wert fest oder kehrt ihn um. Prüfdatum für alle offenen Punkte: 2027-01-31
 | §1 F2, Q-LAW-01, Q-LAW-03 | LEG-05 | PRA-2.05, PRA-3.01 | `leads_and_self` in `commercial` erzwungen | erzwungen vs. Default; Text der Mandantenvorlage |
 | §1 F3 | LEG-05 | — | Regel umgesetzt | Bestätigung |
 | Q-DSB-02 (§2 F2, F4) | LEG-06 | PRA-2.03, PRA-2.04 | Unterdrückung nach 90 d; Teilquelle verlassene Mandanten | endgültiger Fristwert; Umfang Art. 15 |
-| Q-DSB-03 (§2 F1, F3, F5) | LEG-15, LEG-54 | PRA-1.07 | `anon2_`, Importregel, Residue-Scan | Verhältnismäßigkeit des Bestands |
+| Q-DSB-03 (§2 F1, F3, F5) | LEG-15, LEG-54, LEG-65 (Nachtrag 2026-11-23) | PRA-1.07 | `anon2_`, Importregel, Residue-Scan; Import gleicht gegen abgeschlossene Löschungen ab (`17` §6.4) | Verhältnismäßigkeit des Bestands |
 | Q-DSB-04 (§3 F1–F4) | LEG-08, LEG-34 | PRA-2.01, PRA-2.02 | Prüfwarteschlange, Feldmenge inkl. `material`, Snapshots schwärzbar | Auto-Schwärzung nach SLA |
 | Q-LAW-06 (§3 F5) | LEG-06, LEG-08 | PRA-2.01, PRA-2.04 | Leads entscheiden in der Warteschlange | Entscheidungsbefugnis; Ort der Auskunft |
 | Q-LAW-11 (§3 F6) | LEG-08, LEG-12 | PRA-2.01, PRA-3.04 | Hinweistexte, Längengrenzen | DSFA-Bewertung der Art.-9-Hinweise |
@@ -900,8 +1000,15 @@ den Wert fest oder kehrt ihn um. Prüfdatum für alle offenen Punkte: 2027-01-31
 | Q-DSB-11 (§6 F3, F6) | LEG-22 | PRA-2.18 | Fotozeile im Policy-Endpunkt | Gliederung, Art.-14-Text |
 | Q-DSB-14 (§7) | LEG-23, LEG-35 | PRA-0.05, PRA-0.06, PRA-1.06 | Doku korrigiert, Antrag erreicht Betreiber | Zweckliste; Hold-Berechtigung und -Dauer |
 | Q-LAW-14 (§8 F1) | LEG-11 | PRA-0.10, PRA-1.05 | Render-Fehler ohne Journal, Dumps ≤ 35 d | Backup-Aktivierung (`deployment_allowed`) |
-| Q-DSB-15 (§8 F2) | LEG-11, LEG-25 | PRA-1.04 | — | Zulässigkeit des Journals; R-45 |
-| Q-DSB-16 (§8 F3) | LEG-24, LEG-11 | PRA-1.05 | — | Toleranzfenster / Wartungsmodus |
+| Q-DSB-15 (§8 F2) | LEG-11, LEG-25 | PRA-1.04 | — | Zulässigkeit des Journals; R-63 (statt R-45) |
+| Q-DSB-16 (§8 F3) | LEG-24, LEG-11, LEG-70 | PRA-1.05 | — | Toleranzfenster; Restore-Gate inkl. Worker/Beat (`17` §5.3) |
+| Q-DSB-22 (§8 F4) | LEG-11, LEG-44 | PRA-1.04, PRA-0.10 | — (Journal nicht gebaut); Vorschlag R-63 | Journal-Frist R-63; DEC-36 |
+| Q-DSB-23 (§8 F5) | LEG-11 | PRA-1.04 | nur Anhänge und Schwärzungen journalisiert | gewöhnliche Löschungen ohne Journal; DEC-38 |
+| Q-DSB-24 (§8 F6) | LEG-11, LEG-24 | PRA-1.05 | Gate bleibt zu, kein Rückfall ohne `FALLBACK_REVIEW` | Freigabe mit Lücke; Information Betroffener/Mandanten |
+| Q-DSB-25 (§8 F7) | LEG-24 | PRA-1.05, PRA-1.04 | Einwilligung nach dem Backup erneut einholen | Wiederherstellung aus dem Journal; DEC-39 |
+| Q-DSB-26 (§8 F8) | LEG-33, LEG-11 | PRA-1.05, PRA-2.20 | externe Abflüsse während der Isolation aus | erneute Mitteilung an Empfänger |
+| Q-LAW-18 (§8 F9) | LEG-24, LEG-32 | PRA-3.02, PRA-0.03 | Prüfung als möglicher Vorfall; Alarm `PrivacyRecoveryBlocked` | Einordnung als Verletzung, Meldepflicht |
+| Q-LAW-19 (§8 F10) | LEG-11, LEG-15 | PRA-1.04 | Object Lock Governance, nur Pseudonyme | Compliance-Mode BM-001; Ausnahme vom Löschanspruch |
 | Q-LAW-02 (§9 F2) | LEG-05, LEG-28 | PRA-2.06, PRA-3.04 | Leistungsfelder eingeschränkt | Mustertext Betriebsrat |
 | Q-DSB-21 (§9 F4) | LEG-28, LEG-29 | PRA-2.06, PRA-2.07 | Frist 90 d | Bestätigung des Werts |
 | Q-DSB-19 (§10 F1) | LEG-31 | PRA-0.09, PRA-1.03 | Gate am tatsächlichen Provider, fail-closed | Übermittlungsgrundlage, Einwilligungstext |
