@@ -13,6 +13,11 @@ Tombstone-Spiegel umgestellt (§6, DEC-26), Flags für datenvernichtende Schritt
 (LEG-24, LEG-25; PRIV-709/710 korrigiert), Restore-Detektor mit Startsperre und Replay über alle Speicher,
 Restore-Szenarien S1–S10, Bucket-Versionierung (LEG-26), Docker-Backup (LEG-43), Waisenobjekte (LEG-60),
 Invarianten INV-P5/P6/P10; §1 neueste Version v0114; §11/§12 angeglichen.
+Nachtrag 2026-11-23 (gemessen gegen develop ce7e858d0): §6 auf Ist-Stand, Kurzfassung und Verweis auf
+`17-privacy-recovery.md` gekürzt; §6.1 korrigiert und ergänzt (SSE `values.yaml:607–608`, negative Fristen, Selbstheilung
+`resume_tenant_erasures`, LEG-62…LEG-70); §6.1a Zustand „Disabled with dumps“ (LEG-68); PRIV-709…PRIV-714 als
+präzisiert/ersetzt durch `17` PRIV-8xx markiert; R-63 statt R-45; S1–S10 auf Szenarien A–H abgebildet; LEG-24-Belege auf
+die Schreibpfade korrigiert; §7, §11, §12 angeglichen.
 ```
 
 ---
@@ -284,50 +289,81 @@ keinen, PRIV-705 berührt das nicht). Tests: `tests/unit/migrations/versions/tes
 
 ---
 
-## 6. Backups und Wiederherstellung (DEC-26 ersetzt das Raw-Key-Ledger aus v1.0; v1.2: Journal statt Spiegel)
+## 6. Backups und Wiederherstellung (DEC-26 ersetzt das Raw-Key-Ledger aus v1.0; v1.2: Journal statt Spiegel; Detailkonzept in `17`)
 
 Seit v1.2 (Audit 2026-11-22) gilt: Der Löschungs-Spiegel aus v1.1 wird zu einem **Privacy-&-Security-Journal**
-verallgemeinert, das **im selben Schreibschritt** wie die fachliche Änderung entsteht (write-through), und ein Restore
-wird **automatisch** erkannt. Gründe: Ein Spiegel, der nur vor dem Dump synchronisiert wird, ist wirkungslos (LEG-25), und
+verallgemeinert, das **im selben Schreibschritt** wie die fachliche Änderung entsteht, und ein Restore wird
+**automatisch** erkannt. Gründe: Ein Spiegel, der nur vor dem Dump synchronisiert wird, ist wirkungslos (LEG-25), und
 ein Restore setzt nicht nur Löschungen, sondern auch Widerrufe und Sicherheitsänderungen zurück (LEG-24). DEC-26 wird
 damit **erweitert, nicht verworfen**; die Kernidee (§6.2, Abgleich über Tombstones ohne Rohschlüssel) bleibt.
-Architektur und Komponentenzuschnitt: [`01-privacy-architecture.md`](01-privacy-architecture.md) §3.5 (Konzepte
-„Journal“ und „Backup-Löschpropagation“) und §8a (Invarianten).
 
-### 6.1 Fakten [VERIFIED_CODE / VERIFIED_SPEC, Audit 2026-11-22 am SHA `007a4ea90`]
+**Nachtrag 2026-11-23.** Das einzige Detailkonzept für Journal, Restore-Lebenszyklus, Lösch-Reconciliation,
+Objektspeicher und Backup-Retention ist [`17-privacy-recovery.md`](17-privacy-recovery.md) (SPEC-17, PRIV-800…PRIV-874,
+Komponenten RC-01…RC-14). Dieser Abschnitt hält nur noch den gemessenen Ist-Stand (§6.1), den Backup-Lebenszyklus
+(§6.1a), die Kernidee (§6.2), eine Kurzfassung mit dem Status der Anforderungen PRIV-707…PRIV-714 (§6.3, §6.4) und die
+Ist-Szenarien S1–S10 mit ihrer Abbildung auf die Szenarien A–H in `17` §9 (§6.5). Architektur und Komponentenzuschnitt:
+[`01-privacy-architecture.md`](01-privacy-architecture.md) §3.5.5, §3.5.9 und §8a.
+
+### 6.1 Fakten [VERIFIED_CODE / VERIFIED_SPEC, Audit 2026-11-22 am SHA `007a4ea90`, nachgeprüft 2026-11-23 an `ce7e858d0`]
+
+Die für Backup relevanten Dateien (`values.yaml`, `backup-restore.md`, `main.py`, `tasks/__init__.py`) sind zwischen
+beiden SHAs unverändert; die Zeilenangaben gelten weiter, Abweichungen unten sind korrigierte Zitate.
 
 - **Helm-Backup existiert und ist funktionsfähig, aber aus.** CronJob `arangodb-backup` (`arangodump` inkl.
   Systemcollections → rclone → S3) in `helm/kamerplanter/values.yaml:567–612` (`backup.enabled: false`,
-  `retentionDays: 30` Z. 596, SSE `AES256`/`aws:kms` Z. 1443–1444); Controller `:1324–1460` (Dump `:1366–1373`,
-  Upload und Retention `:1409–1430`). TimescaleDB, Anhänge und `vectordb` deckt das Chart nicht ab.
-  (Audit 2026-11-22: korrigiert die Aussage „es existiert kein Backup“ in v1.1 — es existiert ein aktivierbares Backup
-  ohne Löschpropagation.)
+  `retentionDays: 30` Z. 596, SSE `AES256`/`aws:kms` in den Values Z. 607–608 und als Env Z. 1443–1444); Controller
+  `:1324–1460` (Dump `:1366–1374`, Upload und Retention `:1406–1430`); Chart-Vertrag
+  `scripts/ci/assert_chart_contracts.sh:177–216`. Vollsicherung je Lauf, kein PITR, keine client-seitige
+  Verschlüsselung. TimescaleDB, Anhänge und `vectordb` deckt das Chart nicht ab; die Backup-Doku nennt `vectordb` gar
+  nicht (`docs/de/deployment/backup-restore.md:11–18`). (Audit 2026-11-22: korrigiert die Aussage „es existiert kein
+  Backup“ in v1.1 — es existiert ein aktivierbares Backup ohne Löschpropagation.)
 - **Keine Fristgrenze.** `retentionDays` ist unvalidiert (kein `values.schema.json`); das Skript löscht nur bei `> 0`
-  (`values.yaml:1418`) ⇒ `retentionDays: 0` = **unbegrenzt**; bei einem Upload-Fehler bricht `set -eu` vor der Retention
-  ab.
+  (`values.yaml:1418`) ⇒ `retentionDays: 0` **und** jeder negative oder nicht-numerische Wert = **unbegrenzt**; bei
+  einem Upload-Fehler bricht `set -eu` vor der Retention ab; der neueste Dump wird nie gelöscht.
+- **Ausschalten beendet die Dump-Löschung (LEG-68).** Die Retention läuft nur im CronJob; `backup.enabled: false`
+  rendert ihn nicht (`values.yaml:1325, 1418–1430`), vorhandene Dumps bleiben dann unbefristet.
 - **Kein Precheck gegen fehlenden Schutz.** Der einzige Backup-Precheck prüft nur `backup.s3.bucket`
   (`values.yaml:382–387`, #2122); `grep mirror\|erasure` in `helm/kamerplanter/templates/` → 0. TA-718 ist offen.
-- **Kein Spiegel, kein Replay.** `grep erasure_mirror\|privacy.mirror\|mirror.enabled` in `src/`, `helm/`, `docs/` → 0;
-  `privacy_restore_replay` existiert nicht (kein Modul unter `src/backend/app/migrations/`).
+- **Kein Journal, kein Replay.** `grep erasure_mirror\|privacy.mirror\|mirror.enabled` in `src/`, `helm/`, `docs/` → 0;
+  weder `privacy_restore_replay` noch `privacy_restore` existiert (kein Modul unter `src/backend/app/migrations/`); kein
+  Outbox-Muster (`grep -ri outbox` → nur zwei ablehnende Kommentare, `domain/services/auth_service.py:1222`,
+  `tasks/auth_tasks.py:299`). Alle Datenschutzzustände liegen in derselben ArangoDB, die der Restore mit
+  `--overwrite true` ersetzt (`17` §1.3).
 - **Betriebsdoku leitet zur Aktivierung an, ohne Replay und ohne Warnung.** `docs/de/deployment/backup-restore.md:21`,
-  `:25–80`, `:44`, `:64–65`; Restore `:101–160` endet mit „Anwendung starten“; empfiehlt Versionierung am Backup- und
-  am Anhangs-Bucket (`:14`, `:29`; `values.yaml:587–591`) ohne Lifecycle (LEG-26). Der Drill vom 2026-10-04 prüfte nur
-  Dokumentanzahlen (`backup-restore.md:103–104`).
+  `:25–80`, `:44`, `:64–65`; Restore nur „in einen leeren Namespace“ (`:101–160`), endet mit „Anwendung starten“;
+  empfiehlt Versionierung am Backup- und am Anhangs-Bucket (`:14`, `:29`; `values.yaml:587–591`) ohne Lifecycle
+  (LEG-26). Der Drill vom 2026-10-04 prüfte nur Dokumentanzahlen (`backup-restore.md:103–104`).
+- **Unvollständige Isolation im Runbook.** Schritt 3/5 skaliert nur `backend`, `celery-worker`, `celery-beat`
+  (`backup-restore.md:116–117, 155–157`); bei `celeryWorkers.dedicatedQueues: true` laufen `celery-worker-default` und
+  `celery-worker-bulk` weiter (`values.yaml:160–166, 184–191`, `templates/_celery_workers.tpl:170`; LEG-62). Worker und
+  Beat warten nicht auf den Migrationsstand (`main.py:207–211`, `tasks/__init__.py:109–225`; LEG-70). Ein In-Place-Restore
+  ist nicht beschrieben; Valkey behält dann den Stand nach T0 (`backup-restore.md:18, 101`,
+  `mcp_server/session.py:32–34, 54`; LEG-69).
 - **Restore braucht** denselben `FERNET_KEY` und `ERASURE_TOMBSTONE_SALT` (`backup-restore.md:16, 21`; NFR-011 §4
   verlangt den Salt im DR-Backup) — konsistent mit `compute_tombstone_hash` (`domain/engines/erasure_engine.py:1236`).
+  Das Startgate prüft nur die Länge des Salts, nicht seine Identität (`main.py:96–98`; LEG-67).
 - `erasure_requests` behält nach Abschluss den **Tombstone** der Person (`user_key` pseudonymisiert) für R-06 (3 J.);
   `tenant_erasure_records` behält den Mandantenschlüssel (`ter_<tenant_key>`).
-- **Einzige zufällige Selbstheilung:** `execute_scheduled_erasures` (`domain/services/privacy_service.py:2568–2602`) wählt
-  nach einem Restore Anträge in `scheduled`/`partially_completed`/stale `in_progress` erneut — das deckt nur Szenario S2
-  (§6.5).
+- **Zufällige Selbstheilung (nur Teilmengen):** `execute_scheduled_erasures`
+  (`domain/services/privacy_service.py:2568–2602`) wählt nach einem Restore Anträge in
+  `scheduled`/`partially_completed`/stale `in_progress` erneut (Szenario S2); `resume_tenant_erasures`
+  (`tasks/tenant_tasks.py:31–40`) setzt fällige Mandantenlöschungen in der Gnadenfrist fort; die fristbasierten
+  Retention-Beats entfernen Fristabgelaufenes beim nächsten Lauf erneut (`tasks/retention_tasks.py:134–388`).
+  Access-Token nach einer Generationserhöhung nach T0 fallen weg (`domain/engines/full_auth_provider.py:38`). Mehr
+  Schutz gibt es nicht.
 - **Light/Docker:** `docs/de/deployment/docker-dauerbetrieb.md:205–233` empfiehlt tägliche `arangodump`-Kopien nach
   `./backup-YYYYMMDD` (unverschlüsselt, ohne Frist), übergibt `--server.password "$ARANGO_ROOT_PASSWORD"` als Argument
-  (in der Prozessliste sichtbar) und beschreibt den Restore ohne Hinweis auf Löschungen (`:218–230`) (LEG-43).
+  (in der Prozessliste sichtbar) (LEG-43); der Restore läuft gegen die **laufende** Anwendung (`:218–230`, alle Dienste
+  `restart: unless-stopped`, `docker-compose.release.yml:162, 200, 229`; LEG-63); `backend` und `celery-worker` haben
+  kein Anhänge-Volume (`docker-compose.release.yml:145–146, 194–195, 252–257`; LEG-64, Laufzeitwirkung nicht prüfbar).
+- **Teil-Restore:** einziger Pfad ist der Mandanten-Import als neuer Mandant, ohne Abgleich gegen abgeschlossene
+  Löschungen (`domain/engines/tenant_import_engine.py:34–36`, `docs/de/deployment/tenant-export-import.md:3, 22, 90`;
+  LEG-65).
 - **Produktionszustand nicht prüfbar** (ArgoCD außerhalb des Repos) → Prüfaufgabe PRA-0.03.
 - Rechtlich: EDSA 01/2022 Rn. 110 (L-19) trägt verzögertes Durchschlagen in Backups bei kurzem Zyklus und erneuter
   Anwendung nach Restore; keine deutsche Aufsichtsaussage gefunden (L-21) → LEG-11 ohne Primärbeleg
   (LEGAL_REVIEW_REQUIRED). Die Zulässigkeit eines pseudonymen Journals (Tombstones sind personenbezogen, ErwG 26) ist Teil
-  von LEG-11.
+  von LEG-11; Einordnung je Norm in `17` §10.
 
 ### 6.1a Backup-Lebenszyklus (Zielbild) [PROPOSED]
 
@@ -335,24 +371,22 @@ Architektur und Komponentenzuschnitt: [`01-privacy-architecture.md`](01-privacy-
 stateDiagram-v2
     [*] --> Disabled: default
     Disabled --> Enabled: helm values, requires privacy.journal.enabled
-    Enabled --> DumpTaken: CronJob creates dump at T0
+    Enabled --> DumpTaken: CronJob creates dump and manifest at T0
     DumpTaken --> Expired: age over retentionDays, max 35 d, incl. noncurrent versions
+    Enabled --> DisabledWithDumps: backup.enabled false, CronJob gone
+    DisabledWithDumps --> Expired: bucket lifecycle only, independent of the CronJob
     Expired --> [*]
-    DumpTaken --> Restored: restore at T1
-    Restored --> Maintenance: watermark DB below journal
-    Maintenance --> Replayed: privacy_restore_replay applies events after T0
-    Replayed --> Open: residue scan clean, report written
-    Maintenance --> FallbackOpen: journal unavailable, operator confirms fallback baseline
-    FallbackOpen --> Open
+    DumpTaken --> Restoring: restore at T1
+    Restoring --> Released: restore lifecycle in 17 section 5
+    Released --> [*]
 ```
 
-| Übergang | Wirkung (Soll) | Lücke heute (Audit 2026-11-22) | PRA |
-|---|---|---|---|
-| Disabled → Enabled | Render-Fail ohne Journal; Frist 1–35 d | aktivierbar ohne Schutz, `0` = unbegrenzt (LEG-11) | PRA-0.10 |
-| DumpTaken → Expired | Löschung inkl. nicht-aktueller Objektversionen | Versionierung ohne Lifecycle empfohlen (LEG-26); Docker ohne Frist (LEG-43) | PRA-0.03, PRA-0.10, PRA-3.07 |
-| Restored → Maintenance | automatische Erkennung, 503 | keine Erkennung | PRA-1.05 |
-| Maintenance → Replayed | alle Speicher, alle Ereignistypen | kein Replay; v1.1 plante nur Löschungen (LEG-24, LEG-25) | PRA-1.04, PRA-1.05 |
-| FallbackOpen | Secret-Rotation, Token-/Key-Widerruf, Warnung „Löschungen seit T0 unbekannt“ | — | PRA-1.05 |
+| Übergang | Wirkung (Soll) | Lücke heute (Audit 2026-11-22, Nachtrag 2026-11-23) | Detail in `17` | PRA |
+|---|---|---|---|---|
+| Disabled → Enabled | Render-Fail ohne Journal; Frist 1–35 d | aktivierbar ohne Schutz, `0`/negativ = unbegrenzt (LEG-11) | PRIV-855 | PRA-0.10 |
+| DumpTaken → Expired | Löschung inkl. nicht-aktueller Objektversionen; Bucket-`Expiration` unabhängig vom CronJob | Versionierung ohne Lifecycle empfohlen (LEG-26); Docker ohne Frist (LEG-43) | §7.2, PRIV-851 | PRA-0.03, PRA-0.10, PRA-3.07 |
+| Enabled → Disabled with dumps | vorhandene Dumps laufen über die Lifecycle-Regel ab; Hinweis in Doku und Chart | Dumps nach dem Abschalten unbefristet (LEG-68) | §7.6, PRIV-854 | PRA-0.10 |
+| DumpTaken → Restoring → Released | Zustandsmodell mit Isolation, Validierung, Migration, Replay, Reconciliation, Freigabe; Rückfall nur über `FALLBACK_REVIEW` | keine Erkennung, kein Replay, unvollständige Isolation (LEG-24, LEG-62, LEG-69, LEG-70) | §5.1–§5.7 | PRA-0.12, PRA-1.04, PRA-1.05 |
 
 ### 6.2 Kernidee: Erkennung wiederhergestellter gelöschter Konten **ohne** Rohschlüssel-Speicher
 
@@ -360,149 +394,110 @@ Nach einem Restore existiert die `users`-Zeile einer bereits gelöschten Person 
 Weil `compute_tombstone_hash(user_key, salt)` deterministisch ist (VERIFIED_CODE), lässt sich für **jede
 wiederhergestellte `users`-Zeile** der Tombstone berechnen und gegen die Liste abgeschlossener Löschanträge
 abgleichen. Der Abgleich braucht nur die **Tombstones** der abgeschlossenen Löschungen — keine Rohschlüssel. Das
-Raw-Key-Ledger aus v1.0 entfällt (W-09; weniger personenbezogene Daten, DEC-26). Das Journal (§6.3) übernimmt dieses
-Prinzip für alle Ereignistypen: Subjekt ist immer ein Tombstone oder eine Datensatz-ID, nie ein Rohschlüssel.
+Raw-Key-Ledger aus v1.0 entfällt (W-09; weniger personenbezogene Daten, DEC-26). Das Journal überträgt dieses Prinzip
+auf alle Ereignistypen: Subjekte sind domänengetrennte HMAC-Pseudonyme `jsub_`/`jten_`/`jrec_`, der Tombstone steht
+nur in `SUBJECT_ERASURE_COMPLETED` (`17` §3.9, PRIV-804).
 
-### 6.3 Privacy-&-Security-Journal (ersetzt den Löschungs-Spiegel `erasure_mirror`)
+### 6.3 Privacy-&-Security-Journal — Kurzfassung (Detail: `17` §3, §4)
 
-**PRIV-709 (neu gefasst v1.2; Audit 2026-11-22: LEG-24, LEG-25)** Jede privacy- oder sicherheitsrelevante
-Zustandsänderung MUSS **im selben Schreibschritt** (ArangoDB-Transaktion) einen Eintrag in die Outbox
-`privacy_journal_outbox` schreiben; ohne Eintrag kein Commit (A-JRN-1, INV-P5). Ereignistypen:
+Jede einschränkende, löschende oder entziehende Entscheidung, die nicht fristbasiert ist, erzeugt im **selben Commit**
+einen Eintrag in `privacy_journal_outbox`; ein Relay überträgt ihn als einziger Schreiber in einen Journal-Store
+außerhalb der Primär-DB (Object Lock bzw. append-only Volume), der nie Teil des Backups ist. Eine Konto-, Mandanten- oder
+Anhangslöschung gilt erst nach der Bestätigung durch den Store als `completed` (vorher `completed_pending_journal`).
+Das Journal enthält keine Nutzdaten.
 
-| Ereignis | Emittent | Subjekt im Eintrag |
+| ID | Inhalt (Stand v1.2) | Status nach Nachtrag 2026-11-23 |
 |---|---|---|
-| `account_erased` | `PrivacyService` (Abschluss der Kontolöschung, auch sofortige Admin-Löschung) | instanzweiter Tombstone (= `erasure_requests.user_key`), `tenant_tombstones[]` (mandantengebundene `anon2_`-Werte, PRIV-238), `erasure_key`, `plan_fingerprint` |
-| `tenant_erased` | `TenantService` | `tenant_key` bzw. `ter_<tenant_key>` |
-| `consent_revoked` | `PrivacyService` (Einwilligung) | Tombstone-HMAC, `purpose` |
-| `restriction_set` / `restriction_lifted`, `objection_recorded` | `PrivacyService` (Art. 18/21, `03` §2.6) | Tombstone-HMAC, `scope` |
-| `api_key_revoked` | API-Key-Service | Datensatz-ID des Keys |
-| `sessions_revoked`, `password_changed` | `AuthService` | Tombstone-HMAC bzw. Token-Familien-ID |
-| `membership_removed`, `role_lowered`, `tenant_suspended` | `TenantService` | Tombstone-HMAC, `tenant_key`, neue Rolle |
+| PRIV-709 | Outbox im selben Schreibschritt; ohne Eintrag kein Commit (A-JRN-1, INV-P5); Ereignisliste in Kleinbuchstaben | **präzisiert durch `17` PRIV-801…PRIV-805, PRIV-811, PRIV-815**: Taxonomie §3.3 in UPPER_SNAKE_CASE (Klassen E/H/C/A/D/O), Schema `kp.privacy-journal/v1` §3.4, Unit of Work RC-01, `aggregate.version`; Umsetzungsstatus `teilweise implementiert` (Transaktions-Helper `data_access/arango/transactions.py:321ff.`, kein Emittent) |
+| PRIV-710 | Flush ins Bucket binnen SLA, Object Lock, HMAC-Kette, Alters-Alarm | **präzisiert durch `17` PRIV-805…PRIV-810**: Relay `privacy.journal_relay` statt `privacy.journal_flush`, lückenlose `jseq`, Segmente mit eigenem Schlüssel `PRIVACY_JOURNAL_KEY` statt `FERNET_KEY`, Lückenprüfung inkl. Absturzfenster; Status `spezifiziert` |
 
-Kein Rohschlüssel, kein Name, kein Inhalt (A-JRN-3); monotone Sequenz und Hochwassermarke
-`instance_state.journal_high_watermark` in der DB (A-JRN-4). Die `ErasureEngine` bleibt rein deklarativ und emittiert
-nichts; der Service, der den Plan ausführt, schreibt den Eintrag.
+Abbildung der Ereignisnamen (alt → `17` §3.3): `account_erased` → `SUBJECT_ERASURE_COMPLETED`; `tenant_erased` →
+`TENANT_ERASURE_COMPLETED`; `consent_revoked` → `CONSENT_WITHDRAWN`; `restriction_set` →
+`PROCESSING_RESTRICTION_REQUESTED`/`_APPLIED`; `restriction_lifted` → `PROCESSING_RESTRICTION_RELEASED`;
+`objection_recorded` → `OBJECTION_RECORDED`; `api_key_revoked` → `API_KEY_REVOKED`; `sessions_revoked` →
+`SESSION_REVOKED`/`SESSIONS_REVOKED_ALL`; `password_changed` → `PASSWORD_CHANGED`; `membership_removed` →
+`MEMBERSHIP_REVOKED`; `role_lowered` → `MEMBERSHIP_ROLE_LOWERED`; `tenant_suspended` → `TENANT_SUSPENDED`. Neu u. a.
+`SUBJECT_ERASURE_REQUESTED`, `TENANT_ERASURE_REQUESTED`/`_CANCELLED`, `ACCOUNT_EMAIL_CHANGED`, `ACCESS_GRANT_REVOKED`,
+`ATTACHMENT_DELETED`, `REDACTION_APPLIED`, `LEGAL_HOLD_*` und Betriebsereignisse der Klasse O. Nicht journalisiert:
+fristbasierte Löschungen (ersetzt durch den Retention-Nachlauf vor Freigabe, PRIV-842) und gewöhnliche Löschungen von
+Fachdatensätzen außerhalb der Privacy-Routen (Vorschlag DEC-38, Q-DSB-23).
 
-**PRIV-710 (neu gefasst v1.2; Audit 2026-11-22: LEG-25)** Der Celery-Task `privacy.journal_flush` MUSS Outbox-Einträge
-**binnen eines SLA (Minuten)** an ein Bucket-Objekt `privacy/journal/<seq>.jsonl.fernet` anhängen (verschlüsselt mit
-`FERNET_KEY`, HMAC-Kette über die Einträge), das vom Backup unabhängig ist und nicht gelöscht werden kann: eigener
-S3-Schlüssel nur mit `PutObject` (ohne `Delete`), Prefix mit **Object Lock** (Governance, Dauer ≥ Dump-Frist + Puffer)
-(A-JRN-2). Metrik `privacy_journal_outbox_age_seconds` mit Alarm bei > 1 h. Ein Beat dient nur noch als
-Nachzügler-Sweep und Prüfung „Outbox leer“. Die v1.1-Fassung („Spiegel-Sync **vor** der Dump-Erstellung“) ist
-**aufgehoben**: Ein nur beim Dump synchronisierter Spiegel enthält genau die Löschungen, die ohnehin im Dump
-(`erasure_requests`) stehen, und keine der Löschungen zwischen letztem Dump und Restore — also genau die, die der
-Restore verliert. Damit sind PRIV-709 und PRIV-710 widerspruchsfrei; PRIV-E14 in `12` ist entsprechend anzugleichen
-(dort „Beats (`sync`, `purge`)“).
+**Aufbewahrung des Journals:** R-63 = wirksame Backup-Lebensdauer + 14 d, höchstens 90 d (Default 53 d), per
+**Segmentablauf** (Object-Lock-`retain-until` und Lifecycle-Expiration). Das bis v1.2 geplante gefilterte Neuschreiben
+der Journal-Objekte (`privacy.purge_journal`) entfällt, weil es mit Object Lock unvereinbar ist (PRIV-808). R-45 (3 J.)
+ist durch R-63 ersetzt; der Löschnachweis über 3 J. bleibt in `erasure_requests` (R-06) bzw. `tenant_erasure_records`
+(R-06a), die das Replay nach einem Restore neu erzeugt (`06`, `17` §3.8; Zulässigkeit Q-DSB-15, Q-DSB-22).
 
-**Aufbewahrung des Journals:** wie R-06 (3 J.) bzw. R-06a; danach Bereinigung durch `privacy.purge_erasure_mirror`
-(künftig `privacy.purge_journal`: Objekte gefiltert neu schreiben, HMAC-Kette neu, nach Ablauf des Object Lock).
-Rechtsgrundlage Art. 17-Durchsetzung (R-45); Zulässigkeit offen (LEG-11, LEGAL_REVIEW_REQUIRED). Zugriff: nur Flush-Task
-(schreibend) und Restore-Prozess (lesend).
+**Verlust des Journals:** Gate bleibt zu; Replik prüfen; sonst `FALLBACK_REVIEW` mit Pflichtmaßnahmen und Freigabe inkl.
+DSB, Report „mit Lücke“ (`17` §5.5, PRIV-832; A-BAK-5).
 
-**Verlust des Journals:** Rückfall auf die im Dump enthaltenen `erasure_requests`/`tenant_erasure_records` (decken alle
-Löschungen **vor** dem Dump) plus die Rückfall-Basis aus PRIV-711 Schritt 6; der Restore gilt als **nicht abgeschlossen**
-(A-BAK-5), Restrisiko-Zeile RISK-10.
+**Journal ohne S3** (Light, Docker; BM-002/BM-003): eigenes Volume `privacy_journal`, BM-002 mit zweitem Medium
+(`17` §5.8, §8.4; `01` §11).
 
-**Offene Architekturfrage:** Journal-Speicher für Installationen ohne S3 (Light, Docker; BM-002/BM-003) — lokales
-append-only Verzeichnis auf separatem Volume oder kein Backup ohne S3 (`01` §11, PRA-1.04, PRA-3.07).
+### 6.4 Restore-Erkennung und Wiederherstellungsverfahren — Kurzfassung (Detail: `17` §5–§8)
 
-### 6.4 Restore-Erkennung und Wiederherstellungsverfahren
+Ein Restore folgt einem Zustandsmodell von `RESTORE_REQUESTED` über Isolation, Backup-Validierung, Einspielen,
+Migration, Journal-Replay und Reconciliation je Datenbereich bis `RESTORE_RELEASED`; bis dahin ist ein Restore-Gate für
+Backend, Worker und Beat geschlossen (fail-closed, auch bei `DEBUG`). Nach **jedem** Restore werden alle Refresh-Token
+widerrufen und die Token-Generationen aller Konten erhöht. Der Replay beginnt bei `min(DB-Marke, journal_seq_at_start)`
+aus dem Backup-Manifest.
 
-**PRIV-711 (neu gefasst v1.2; Audit 2026-11-22: LEG-24)** Das Backend (Lifespan in `src/backend/app/main.py`) und der
-Worker (Initialisierung vor jedem Beat) MÜSSEN beim Start die DB-Hochwassermarke mit der höchsten Sequenz im
-Journal-Bucket vergleichen. Liegt die DB-Marke darunter, MUSS das System im **Wartungsmodus** bleiben (503 außer Health
-und Admin-Replay) und keinen Beat ausführen, bis der Replay abgeschlossen ist (A-BAK-3, INV-P6). Damit ist der Replay
-nicht vergessbar. Der Replay läuft als
-`python -m app.migrations.privacy_restore_replay` im vorhandenen Migrationsframework (Phasen
-`precheck/dry_run/apply/verify` wie PRIV-718, Bericht in `migration_reports` als `restore_replay`):
+| ID | Inhalt (Stand v1.2) | Status nach Nachtrag 2026-11-23 |
+|---|---|---|
+| PRIV-707 | Backup nur mit Journal und `1 ≤ retentionDays ≤ 35` (Render-Fail, A-BAK-1/2, INV-P10); Interim PRA-0.10 mit Override `backup.acknowledgeNoErasureReplay=true` und manuellem Runbook („Löschaufträge mit `completed_at > dump_ts` erneut, JWT-Secret rotieren, Refresh-Tokens widerrufen“) | **bleibt**; Durchsetzung über den Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` statt helm-unittest (es gibt kein helm-unittest im Repo; PRIV-855, `teilweise implementiert`: nur Bucket-Precheck) |
+| PRIV-708 | Dump-Aufbewahrung ≤ `BACKUP_RETENTION_DAYS` (Standard 30, Obergrenze 35); Datenschutzinformation nennt Frist und Replay (`CONFIRMED` als Lücke) | **bleibt**; ergänzt um die Journal-Frist durch PRIV-874 (PRA-2.18) |
+| PRIV-711 | Hochwassermarke im Lifespan, Wartungsmodus, Replay `python -m app.migrations.privacy_restore_replay` in sieben Schritten inkl. Rückfall-Basis und Residue-Scan | **ersetzt durch `17` §5 (PRIV-820…PRIV-833)**: Zustandsmodell, Gate-Gründe §5.3, Restore-Modus `privacy.restore.isolate`/`KP_RESTORE_MODE`, Worker-/Beat-Gate, Valkey leeren, Migrationen vor Replay, Controller `python -m app.migrations.privacy_restore`; Kern (Hochwassermarke, Startsperre, Replay über alle Speicher, Residue-Scan) bleibt; Schritt 6 präzisiert durch PRIV-829/PRIV-832 |
+| PRIV-712 | Restore-Drill je Szenario S3, S5, S6, S7 | **präzisiert durch `17` PRIV-872** und TA-744…TA-755 (Szenarien A–H, §6.5 unten) |
+| PRIV-713 | Versionierung nur mit `NoncurrentVersionExpiration ≤ 35 d`, `ExpiredObjectDeleteMarker`; Snapshots ≤ 35 d | **präzisiert durch `17` PRIV-850…PRIV-854**: versionsvollständige Objektlöschung (VersionId, Delete-Marker, Renditions, Multipart), Lifecycle je Bucket, kein Object Lock auf dem Anhangs-Bucket, Waisen-Quarantäne R-65, Bucket-Expiration unabhängig vom CronJob |
+| PRIV-714 (§7) | Salt-Rotation nur mit Re-Keying | **ergänzt durch `17` PRIV-813** (Identitätsprüfung des Salts über Fingerabdruck, LEG-67) |
 
-1. Vereinigung der Ereignisse aus dem Journal-Bucket (entschlüsselt, HMAC-Kette geprüft) mit den wiederhergestellten
-   `erasure_requests` (`status = completed`, `user_key =~ TOMBSTONE_REGEX`) und `tenant_erasure_records`.
-2. Für **jede** wiederhergestellte `users`-Zeile: instanzweiter `compute_tombstone_hash(_key, salt)` → Treffer ⇒
-   `erase_account_now`-Äquivalent erneut ausführen (idempotent; der instanzweite Tombstone existiert je Löschung genau
-   einmal, PRIV-238). Mandantengebundene `anon2_`-Werte werden aus den wiederhergestellten Mitgliedschaften neu
-   abgeleitet und gegen `tenant_tombstones` geprüft — sie sind nie der Schlüssel des Abgleichs.
-3. Für jedes `tenant_erased` (Journal ∪ Dump), dessen Mandantenzeile existiert ⇒ Mandantenlöschung erneut ausführen.
-4. **Alle übrigen Ereignistypen** jünger als die DB-Marke idempotent anwenden: Einwilligung widerrufen,
-   Einschränkung/Widerspruch wiederherstellen, API-Keys und Token-Familien widerrufen, `password_changed` ⇒
-   Passwort-Reset erzwingen, Mitgliedschaft entfernen bzw. Rolle herabsetzen, Mandant sperren.
-5. **Alle Speicher** (A-BAK-4): ArangoDB, TimescaleDB (`delete by tenant_key/sensor_key`), Objektspeicher (Präfix
-   `t/<tenant>/`, Exportbündel), `vectordb` (`delete_user_contributions`/`delete_tenant_contributions`); Prüfeinträge
-   (idempotente Schlüssel) neu erzeugen.
-6. **Rückfall-Basis ohne Journal:** `JWT_SECRET_KEY` rotieren, alle `refresh_tokens` widerrufen, alle API-Keys aus der
-   Zeit vor dem Restore auf „Bestätigung durch Eigentümer erforderlich“, Betreiberwarnung „Löschungen seit T0 unbekannt“;
-   der Restore gilt als nicht abgeschlossen, bis der Betreiber ausdrücklich bestätigt (A-BAK-5).
-7. Residue-Scan (`04` §8) über alle Collections; Rest > 0 ⇒ Restore gilt als **nicht abgeschlossen**, Backend bleibt im
-   Wartungsmodus; danach Marke angleichen.
+Interim bis PRA-1.05: Runbook-Sofortkorrektur PRA-0.12 (alle `celery-worker*` anhalten, Docker-Restore nur bei
+gestopptem Stack, Valkey leeren, Worker/Beat erst nach Backend-Migration, manuelle Rückfallbasis; `17` §11.2, §11.3).
 
-**PRIV-712** Restore-Drill (Doku, nightly TA-710; Quartals-Drill PRA-3.09) mit präpariertem Konto je Szenario S3, S5,
-S6, S7 (§6.5): nach Replay fehlt der Rohschlüssel in jeder Collection; keine Zeile außerhalb der Allowlist trägt den
-Tombstone; ein widerrufener API-Key liefert 401, der Consent-Guard 403 `ConsentRequiredError`, ein Login mit altem
-Passwort schlägt fehl, vor dem Restore ausgestellte Refresh-Tokens liefern 401.
-
-**PRIV-713 (präzisiert v1.2; Audit 2026-11-22: LEG-26)** Bucket-Versionierung (Backup- **und** Anhangs-Bucket) ist nur
-mit Lifecycle-Regel `NoncurrentVersionExpiration ≤ 35 d` und `ExpiredObjectDeleteMarker` zulässig; TimescaleDB- und
-local-fs-Snapshots folgen derselben Frist (≤ 35 d). Ohne diese Regel erzeugen `rclone purge` (`values.yaml:1426`), das
-Löschen von Exportarchiven (R-05) und das Löschen von Fotos bei Konto-/Mandantenlöschung nur Delete-Marker; die Inhalte
-bleiben als nicht-aktuelle Versionen **unbefristet** beim S3-Anbieter — die im Chart sichtbare 30-Tage-Frist ist dann
-nicht die tatsächliche. Heute nennt keine Doku die Regel (`grep -rni "lifecycle\|noncurrent" docs/de/deployment
-helm/kamerplanter/values.yaml` → 0). Umsetzung als Betreiberdoku mit Beispiel-JSON (AWS/MinIO), optional Object Lock
-(Governance) = `retentionDays` und ein best-effort-Startcheck (`GetBucketLifecycleConfiguration`) mit Warnung — PRA-0.10.
-Abnahme: Drill „Objekt löschen → nach Frist + 1 d keine Version mehr (`aws s3api list-object-versions`)“.
-
-**PRIV-707 (angepasst v1.2)** Backups DÜRFEN in Produktion NICHT aktiviert werden, bevor Journal (6.3) und Verfahren
-(6.4) existieren. Helm: `backup.enabled` erfordert `privacy.journal.enabled` (v1.1: `privacy.mirror.enabled`) **und**
-`1 ≤ backup.retentionDays ≤ 35`, sonst Render-Fail (A-BAK-1, A-BAK-2, INV-P10). **Interim bis PRA-1.04 (PRA-0.10):**
-Render-Fail bei `backup.enabled` ohne Journal, außer mit ausdrücklichem Override `backup.acknowledgeNoErasureReplay=true`;
-Warnblock in `backup-restore.md` (DE/EN) mit manuellem Runbook „nach Restore Löschaufträge mit `completed_at > dump_ts`
-erneut ausführen, JWT-Secret rotieren, Refresh-Tokens widerrufen“. **PRIV-708 [LEG-11]** Dump-Aufbewahrung ≤
-`BACKUP_RETENTION_DAYS` (Standard 30, Obergrenze 35); die Datenschutzinformation nennt Frist und Replay (heute
-`CONFIRMED` als Lücke: keine Backup-Frist in der Nutzerdoku, `RetentionService` ohne Backup-Zeile; Umsetzung über
-PRA-2.18).
-
-### 6.5 Restore-Szenarien S1–S10 (Ist, Audit 2026-11-22)
+### 6.5 Restore-Szenarien S1–S10 (Ist, Audit 2026-11-22) und Abbildung auf `17` §9
 
 Ausgangslage: Restore nach `backup-restore.md:101–160` (Dump mit Stand T0, Restore zum Zeitpunkt T1 > T0), danach
-starten Backend und Beat ohne weitere Schritte.
+starten Backend und Beat ohne weitere Schritte. Den Soll-Ablauf je Fall beschreiben die Szenarien A–H in
+[`17`](17-privacy-recovery.md) §9; sie werden hier nicht wiederholt.
 
-| # | Ereignis zwischen T0 und T1 | Zustand nach Restore | Selbstheilung heute? | Ergebnis | Abhilfe |
+| # | Ereignis zwischen T0 und T1 | Zustand nach Restore (Ist) | Selbstheilung heute? | Ergebnis | Soll in `17` |
 |---|---|---|---|---|---|
-| S1 | Konto vor T0 gelöscht (Antrag `completed`) | Konto fehlt im Dump | — | korrekt | — |
-| S2 | Antrag vor T0 (`scheduled`), Hard-Delete zwischen T0 und T1 | Konto soft-deleted zurück, Antrag `scheduled` | **ja**: nächster 04:00-Lauf wählt den Antrag erneut (`privacy_service.py:2601–2602`); Objekte (Phase 0) bereits gelöscht → Referenzen tot | korrekt nach ≤ 24 h, Restexposition | Startsperre verkürzt auf 0 |
-| S3 | Antrag **nach** T0 gestellt und vollzogen | Konto **aktiv** zurück, kein Antrag | **nein** | **gelöschte Person stillschweigend wiederhergestellt** (Art. 17, Art. 6) | Journal `account_erased` + Replay |
-| S4 | Sofortige Admin-Löschung nach T0 | wie S3 | nein | wie S3 | wie S3 |
-| S5 | Mandantenlöschung nach T0 | Mandant `active` zurück; TimescaleDB/Objekte/Vektoren des Mandanten bereits gelöscht (inkonsistent) | nein | Wiederverarbeitung + Inkonsistenz | Journal `tenant_erased` + Replay über alle Speicher |
-| S6 | Einwilligungswiderruf / Art.-18-Einschränkung / Widerspruch nach T0 | Einwilligung wieder `granted`, Einschränkung fehlt | nein | Verarbeitung ohne Rechtsgrundlage (LEG-24) | Journal `consent_revoked`, `restriction_set`, `objection_recorded` |
-| S7 | API-Key-Widerruf, Sitzungsende, Passwortwechsel nach T0 | alter Zustand gültig | nein (Refresh-Tokens älter als 30 d entfernt der TTL) | Sicherheitslücke — reaktiviert genau die im Vorfall widerrufenen Zugänge (LEG-24) | Journal `api_key_revoked`, `sessions_revoked`, `password_changed`; Rückfall-Basis |
-| S8 | Restore nur ArangoDB, TimescaleDB/Objekte nicht | DB älter als Nebenspeicher | Waisen-Sweeps; Reconcile nur Bericht (LEG-60) | Objekte nach T0 verwaist, Katalogzeilen ohne Objekt | §6.6 Waisenobjekte |
-| S9 | Restore eines S3-Anhangs-/Snapshot-Stands (Versionierung) | gelöschte Fotos/Exporte zurück | nein | wie S3, für Objekte | PRIV-713; Replay Objektspeicher |
-| S10 | Light/Docker-Restore | wie S3–S7 | nein | geringere Relevanz (Haushalt, ggf. Art. 2 Abs. 2 lit. c), S7 bleibt sicherheitsrelevant | §6.6 Docker-Backup; Rückfall-Basis |
+| S1 | Konto vor T0 gelöscht (Antrag `completed`) | Konto fehlt im Dump | — | korrekt | — (ERASURE_RECONCILIATION prüft im Dump abgeschlossene Löschungen trotzdem gegen) |
+| S2 | Antrag vor T0 (`scheduled`), Hard-Delete zwischen T0 und T1 | Konto soft-deleted zurück, Antrag `scheduled` | **ja**: nächster 04:00-Lauf wählt den Antrag erneut (`privacy_service.py:2601–2602`); Objekte (Phase 0) bereits gelöscht → Referenzen tot | korrekt nach ≤ 24 h, Restexposition | Szenario A (ERASURE_RECONCILIATION vor Freigabe statt nächster Beat-Lauf) |
+| S3 | Antrag **nach** T0 gestellt und vollzogen | Konto **aktiv** zurück, kein Antrag | **nein** | **gelöschte Person stillschweigend wiederhergestellt** (Art. 17, Art. 6) | Szenario A |
+| S4 | Sofortige Admin-Löschung nach T0 | wie S3 | nein | wie S3 | Szenario A |
+| S5 | Mandantenlöschung nach T0 | Mandant `active` zurück; TimescaleDB/Objekte/Vektoren des Mandanten bereits gelöscht (inkonsistent) | nein (im Gnadenfall `resume_tenant_erasures`) | Wiederverarbeitung + Inkonsistenz | Szenario B |
+| S6 | Einwilligungswiderruf / Art.-18-Einschränkung / Widerspruch nach T0 | Einwilligung wieder `granted`, Einschränkung fehlt | nein | Verarbeitung ohne Rechtsgrundlage (LEG-24) | Szenario C (Einwilligung), Szenario D (Einschränkung, Widerspruch) |
+| S7 | API-Key-Widerruf, Sitzungsende, Passwortwechsel nach T0 | alter Zustand gültig | nein (Refresh-Tokens älter als 30 d entfernt der TTL) | Sicherheitslücke — reaktiviert genau die im Vorfall widerrufenen Zugänge (LEG-24) | kein eigener Buchstabe: ACCESS_RECONCILIATION + globale Token-Entwertung (`17` §5.2, PRIV-829; Test TA-752) |
+| S8 | Restore nur ArangoDB, TimescaleDB/Objekte nicht | DB älter als Nebenspeicher | Waisen-Sweeps; Reconcile nur Bericht (LEG-60) | Objekte nach T0 verwaist, Katalogzeilen ohne Objekt | OBJECT_STORAGE_/DERIVED_STORE_RECONCILIATION, Waisen-Quarantäne (`17` §7.4; TA-753) |
+| S9 | Restore eines S3-Anhangs-/Snapshot-Stands (Versionierung) | gelöschte Fotos/Exporte zurück | nein | wie S3, für Objekte | Szenario F |
+| S10 | Light/Docker-Restore | wie S3–S7; Restore gegen laufende Anwendung (LEG-63) | nein | geringere Relevanz (Haushalt, ggf. Art. 2 Abs. 2 lit. c), S7 bleibt sicherheitsrelevant | Docker-Variante `17` §5.8, Runbook §11.3 (TA-757) |
 
-Evidenz zu LEG-24: `data_access/arango/api_key_repository.py:70–77` (Widerruf nur `revoked: True` im Dokument),
-`domain/services/auth_service.py:891`, `data_access/arango/consent_repository.py:220–230`,
-`processing_restriction_repository.py`; `security_audit_log` liegt in derselben ArangoDB und rollt mit zurück — deshalb
-gehen sicherheitsrelevante Audit-Ereignisse zusätzlich ins Journal (A-AUD-3, `01` §3.5).
+Ohne S-Gegenstück, neu in `17` §9: **E** Journal nicht erreichbar oder Sequenzlücke, **G** Journal älter als die
+wiederhergestellte DB, **H** Teilfehler in der Reconciliation.
 
-**Technisch erzwingbarer Ansatz (Zusammenfassung):** (1) Journal statt Löschspiegel mit Outbox im selben Schreibschritt
-(PRIV-709); (2) write-through ins Bucket mit Object Lock und Alters-Alarm (PRIV-710); (3) Hochwassermarke und
-Startsperre (PRIV-711); (4) Replay über alle Speicher und Ereignistypen mit Residue-Scan (PRIV-711); (5) Rückfall-Basis
-ohne Journal (PRIV-711 Schritt 6); (6) Chart-Durchsetzung (PRIV-707, INV-P10); (7) Transparenz (PRIV-708);
-(8) Drill je Szenario S3, S5, S6, S7 (PRIV-712). Umsetzung: PRA-0.10, PRA-1.04, PRA-1.05, PRA-3.09.
+Evidenz zu LEG-24 (Schreibpfade, Zitate korrigiert 2026-11-23): API-Key-Widerruf
+`data_access/arango/api_key_repository.py:70–77` (nur `revoked: True` im Dokument; verschluckt zusätzlich jede
+Exception, LEG-66); Sitzungsende `data_access/arango/refresh_token_repository.py:175–216` (`revoke_all_for_user`; die
+Prüfung der `session_generation` steht in `domain/services/auth_service.py:888–893`); Einwilligungswiderruf
+`domain/services/privacy_service.py:1955–1977` (`consent_repo.update`; `consent_repository.py:220–230` ist der
+Erasure-Pfad `revoke_all_unrevoked`); Einschränkung `processing_restriction_repository.py`; `security_audit_log` liegt
+in derselben ArangoDB und rollt mit zurück — deshalb gehen sicherheitsrelevante Zustandsänderungen als typisierte
+Journal-Ereignisse der Klasse A ins Journal (`17` §3.3; ersetzt A-AUD-3, `01` §3.5.8).
 
 ### 6.6 Nebenpfade: Docker-Backup und Waisenobjekte
 
-**Docker-/Light-Backup (LEG-43, P2, VERIFIED_CODE `docs/de/deployment/docker-dauerbetrieb.md:205–233`).** Anforderung
-[PROPOSED, PRA-3.07]: Skript `scripts/backup-docker.sh` mit Passwort-Übergabe wie im Helm-Job (nicht als Argument),
-Frist ≤ 35 d (`find … -mtime +30 -delete`), optional Verschlüsselung (`age`/`gpg`); Restore-Hinweis auf den Replay
-(PRIV-711), sobald vorhanden. Abnahme: Doku zeigt das Passwort nicht als Argument; Frist ≤ 35 d im Beispiel; Hinweis auf
-Löschpropagation.
+**Docker-/Light-Backup (LEG-43, LEG-63, LEG-64; P2).** Ist-Stand §6.1. Soll: Skript `scripts/backup-docker.sh` mit
+Passwort-Übergabe wie im Helm-Job (nicht als Argument), Frist ≤ 35 d, optional Verschlüsselung (`age`/`gpg`), Manifest
+(PRA-3.07); Restore nur bei gestopptem Stack mit Valkey-Leerung und Reconcile per `docker-compose.restore.yml`;
+Anhänge-Volume für `backend` **und** `celery-worker` (PRIV-833, `17` §5.8, §11.3; PRA-0.12, PRA-2.23). Abnahme: TA-757.
 
 **Waisenobjekte (LEG-60, P3, VERIFIED_CODE).** `storage_reconcile_delete_enabled` ist per Default `False`
 (`config/settings.py:1386`); der Abgleich `reconcile_orphaned_storage_objects` (Beat 04:10, `tasks/storage_tasks.py:531`)
 meldet nur. Objekte ohne Katalogeintrag — nach fehlgeschlagenen Löschpfaden oder nach einem DB-Restore auf älteren Stand
-(S8) — bleiben ohne Frist. Die Voreinstellung schützt bewusst vor Fehllöschung, gibt der Betreiberentscheidung aber
-keine Frist. Anforderung [PROPOSED, PRA-3.06]: Betreiberdoku „Freigabe nach erstem Trockenlauf-Bericht“; Metrik
-`orphan_objects_total` und Warnung, wenn > 0 länger als 30 d; Aufbewahrungszeile in `06`.
+(S8) — bleiben ohne Frist. Soll im Normalbetrieb [PROPOSED, PRA-3.06]: Betreiberdoku „Freigabe nach erstem
+Trockenlauf-Bericht“, Metrik und Warnung > 30 d; nach einem Restore gilt unabhängig davon die Quarantäne mit Frist R-65
+(30 d, `17` §7.4, PRIV-853; PRA-1.08).
 
 ---
 
@@ -512,8 +507,10 @@ keine Frist. Anforderung [PROPOSED, PRA-3.06]: Betreiberdoku „Freigabe nach er
 (1) neuer Salt als `ERASURE_TOMBSTONE_SALT_NEXT`; (2) Migration `vNNNN_rekey_tombstones`: für jede Allowlist-Zelle
 mit Tombstone **ohne** Kenntnis des Rohschlüssels ist eine Neuberechnung **unmöglich** — daher kann Re-Keying nur
 Tombstones betreffen, deren Rohschlüssel noch existiert (aktive Konten in gelöschten Mandanten); für alle anderen
-bleibt der alte Tombstone gültig und die Allowlist-Regex kennt beide Generationen (`anon_`, `anon2_`, DEC-25); (3) der
-Journal (§6.3) wird um die neue Generation ergänzt. Folge: Eine Kompromittierung des Salts ist nicht durch Rotation
+bleibt der alte Tombstone gültig und die Allowlist-Regex kennt beide Generationen (`anon_`, `anon2_`, DEC-25); (3) das
+Journal (§6.3) wird um die neue Generation ergänzt (Epochenkopf `JOURNAL_EPOCH_STARTED` mit neuem `salt_fp`, `17` §3.3).
+Ergänzt durch `17` PRIV-813: Start- und Restore-Gate prüfen die **Identität** des Salts über einen Fingerabdruck in
+`system_meta/privacy_recovery`, nicht nur seine Länge (LEG-67). Folge: Eine Kompromittierung des Salts ist nicht durch Rotation
 heilbar; Schutz liegt in Zugriffsbeschränkung des Secrets (Betriebsdoku, RISK-20).
 
 ---
@@ -555,7 +552,7 @@ Betriebsendpunkt (E15).
 | v0111 | entfernt je Zeile ein Schlüsselfeld, das `null` ist, und ein Label, das noch die Kopie seiner Quelle ist; ein später gestempelter Schlüssel oder ein geändertes Label bleibt. Schritt 4 (`inspector = ""`, zugeordneter Service-Schlüssel) wird nicht zurückgenommen: der Text war ein Pseudo-Schlüssel, kein Name | je Mandant transaktional (PRIV-718, statt „je Collection“ in v1.1); Wiederholung beim nächsten Start; idempotent |
 | v0114 | keiner: den Schlüssel nach `author` zurückzuschreiben stellte den Befund wieder her; ein älterer Build liest ein Protokoll ohne `author` als eines ohne Autor | je Mandant transaktional; Wiederholung beim nächsten Start; idempotent |
 | Reklassifizierung | keiner | je Mandant; Zustand `reclassification_pending` bis Erfolg |
-| Restore-Replay | keiner (wendet Löschungen und alle übrigen Journal-Ereignisse erneut an, §6.4) | Residue > 0 oder Journal fehlt ohne Betreiberbestätigung ⇒ Wartungsmodus bleibt |
+| Restore-Replay | keiner (wendet Löschungen und alle übrigen Journal-Ereignisse erneut an; Zustandsmodell `17` §5) | Checkpoint je Aktion in `migration_reports` (Art `restore_replay`), Idempotenzschlüssel `(restore_id, event_id, action)`; nach Abbruch setzt `privacy_restore run` beim Checkpoint fort (`17` §6.2, Szenario H); Residue > 0 oder Journal fehlt ohne `FALLBACK_REVIEW` ⇒ Gate bleibt zu |
 
 ---
 
@@ -569,10 +566,10 @@ Betriebsendpunkt (E15).
 | TA-702 | v0111 setzt nie einen `*_user_key` aus einem Namen; `mcp:<key>` nur für existierendes Service-Konto. |
 | TA-703 | Reklassifizierung wirkt nur mit gesetztem Flag; ohne Flag `reclassification_pending` + Metrik. |
 | TA-704 | Guard: `kind` deklariert; Backfill nutzt `ActiveTenants`, Korrektur nicht. |
-| TA-709 | Journal-Eintrag (ohne Rohschlüssel) im selben Schreibschritt; ohne Outbox-Eintrag kein Commit (je Ereignistyp, INV-P5); Bucket-Objekt binnen SLA ohne Dump-Lauf vorhanden, verschlüsselt, HMAC-Kette gültig; Metrik `privacy_journal_outbox_age_seconds` exportiert; Bereinigung filtert. (v1.2, PRA-1.04) |
-| TA-710 | Restore-Drill: Dump vor Löschung → Löschung (bzw. Einwilligungswiderruf, API-Key-Widerruf, Passwortwechsel; S3–S7) → Restore → Backend startet im Wartungsmodus (503, INV-P6) → Replay erkennt das Konto über den Tombstone-Abgleich → Rohschlüssel in keiner Collection; Residue 0; API-Key 401, Consent-Guard 403, alter Passwort-Login scheitert; Journalverlust → kein „abgeschlossen“ ohne Betreiberbestätigung. (v1.2, PRA-1.05) |
+| TA-709 | Journal-Eintrag (ohne Rohschlüssel) im selben Schreibschritt; ohne Outbox-Eintrag kein Commit (je Ereignistyp, INV-P5); Bucket-Objekt binnen SLA ohne Dump-Lauf vorhanden, verschlüsselt, HMAC-Kette gültig; Metrik `privacy_journal_outbox_age_seconds` exportiert. (v1.2, PRA-1.04) Nachtrag 2026-11-23: präzisiert durch `17` TA-726…TA-738 (Schema, Pseudonyme, Minimierungs-Scan TA-728, Relay, Atomarität TA-721, statischer Guard TA-735, Abschlussregel); „Bereinigung filtert“ entfällt (Segmentablauf, PRIV-808). Abbildung TA-R → TA in `10`. |
+| TA-710 | Restore-Drill: Dump vor Löschung → Löschung (bzw. Einwilligungswiderruf, API-Key-Widerruf, Passwortwechsel; S3–S7) → Restore → Backend startet im Wartungsmodus (503, INV-P6) → Replay erkennt das Konto über den Tombstone-Abgleich → Rohschlüssel in keiner Collection; Residue 0; API-Key 401, Consent-Guard 403, alter Passwort-Login scheitert; Journalverlust → kein „abgeschlossen“ ohne Betreiberbestätigung. (v1.2, PRA-1.05) Nachtrag 2026-11-23: präzisiert durch `17` TA-744…TA-755 (Szenarien A–H, Zugänge, Waisen, Caches, wiederholter Restore); Abbildung TA-R → TA in `10`. |
 | TA-711 | Restore-Doku enthält Replay; `mkdocs build --strict`. |
 | TA-716 | Korrektur verarbeitet `suspended`; Backfill überspringt. |
 | TA-719 | v0114: nach dem Lauf trägt keine Mandantenzeile `rooting_protocols.author`; ein lebendes Konto wird zum Schlüssel, ein gelöschtes zum Marker; ein schon gesetztes `author_user_key` bleibt. |
 | TA-717 | Resume-Job listet und plant erneut. |
-| TA-718 | Helm: `backup.enabled=true` ohne `privacy.journal.enabled` (v1.1: `privacy.mirror.enabled`) und ohne Override schlägt im Template-Precheck fehl; `backup.retentionDays=0` bzw. `=36` ebenso (INV-P10, PRA-0.10). |
+| TA-718 | Helm: `backup.enabled=true` ohne `privacy.journal.enabled` (v1.1: `privacy.mirror.enabled`) und ohne Override schlägt im Template-Precheck fehl; `backup.retentionDays=0`, `=-1` bzw. `=36` ebenso (INV-P10, PRA-0.10). Prüfweg: Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` (`expect_refusal`), nicht helm-unittest; Journal-Frist und Restore-Modus in `17` TA-740/TA-741. |

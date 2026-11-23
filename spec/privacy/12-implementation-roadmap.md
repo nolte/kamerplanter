@@ -13,6 +13,12 @@ Flags/Gates je Epic, Readiness-Tabelle (§4), Verifikationsaufträge V-nn in E17
 verknüpft; PRIV-003/119 (#2961), PRIV-201 und PRIV-211 (v0109) als erledigt belegt; E14 auf Journal write-through mit
 Outbox umgestellt (auch Widerrufe, LEG-24/LEG-25); Readiness §4 auf den Audit-Stand und je Betriebsmodell (§4a);
 Klassen-Defaults des Audits (§3); offene Punkte für Product Owner, Betreiber und gewerbliche Kunden (§7); LEG→PRA (§6.6).
+Nachtrag Recovery (2026-11-23, gemessen gegen develop ce7e858d0; für Backup relevante Dateien gegenüber 007a4ea90
+unverändert): Mechanik von E14 in SPEC-17 (`17-privacy-recovery.md`); neue Aufgaben PRA-0.12, PRA-1.08, PRA-2.21,
+PRA-2.22, PRA-2.23, PRA-3.11; Erweiterungen von PRA-0.03, 0.10, 1.04, 1.05, 1.06, 1.07, 2.02, 2.09, 2.15, 2.18, 3.02,
+3.06, 3.07, 3.09 (Zeile „Recovery-Nachtrag“); Befunde LEG-62…LEG-70 in §6.6; Zählung §6.7 auf 54; Q-PO-24, Q-OP-16;
+geplantes Incident-Dokument heißt `19-incident-response.md` (`17` ist belegt, `18` ist das Empfängerregister);
+Zitatkorrekturen (SSE `values.yaml:607–608`; LEG-24-Schreibpfade).
 ```
 
 ---
@@ -30,7 +36,11 @@ Klassen-Defaults des Audits (§3); offene Punkte für Product Owner, Betreiber u
   eines Epics um, präzisiert oder ändert es (z. B. E14, PRA-1.04) oder kommt neu hinzu. Jedes Epic in §1 nennt seine
   PRA-Aufgaben („Audit-Bezug“), jede PRA-Aufgabe in §6 ihr Epic („Bezug zu Epic/PRIV“). PRIV- und TA-IDs bleiben;
   neue Abnahmefälle stehen in [`10`](10-testing-and-acceptance.md) (TA-031 ff., TA-132 ff., …, TA-9xx). Die Befunde
-  LEG-23…LEG-61 sind im [decision-log](decision-log.md) registriert; ihr Sachverhalt steht im jeweiligen Fachdokument.
+  LEG-23…LEG-61 (Audit) und LEG-62…LEG-70 (Recovery-Prüfung 2026-11-23) sind im [decision-log](decision-log.md)
+  registriert; ihr Sachverhalt steht im jeweiligen Fachdokument.
+- **Nachtrag Recovery 2026-11-23:** Das Detailkonzept für Journal, Restore-Lebenszyklus und Reconciliation steht in
+  [`17`](17-privacy-recovery.md) (PRIV-800…PRIV-874, Komponenten RC-01…RC-14); dieses Dokument führt nur die Aufgaben
+  (PRA) und ihre Abnahmefälle. Testfälle aus `17` §11.1 (TA-726…TA-760) sind in `10` §2.11b auf reguläre TA abgebildet.
 - Drei Gates (README §Produktionsgates): `engineering_allowed` (Code, Tests, Flag aus) · `deployment_allowed`
   (ausgerollt, Flag aus) · `processing_allowed` (Flag an). Einschränkende/schutzverstärkende Maßnahmen brauchen
   keine Rechtsfreigabe; ausweitende oder datenvernichtende stehen hinter Flags (`08` §8a).
@@ -208,8 +218,20 @@ die höhere.
   enthielte genau die Löschungen, die ohnehin im Dump stehen, und keine derjenigen, die ein Restore verliert (LEG-25;
   Widerspruch PRIV-709 „bei jedem Abschluss“ ↔ PRIV-710/E14 „Sync vor dem Dump“). Außerdem setzt ein Restore nicht nur
   Löschungen zurück, sondern auch API-Key-Widerrufe (`api_key_repository.py:70-77`), Sitzungsende
-  (`auth_service.py:891`), Passwortwechsel, Einwilligungswiderrufe (`consent_repository.py:220-230`),
-  Art.-18/21-Einträge, Mitgliedschaftsentzüge und Mandantensperren (LEG-24); `security_audit_log` rollt mit zurück.
+  (Schreibpfad `data_access/arango/refresh_token_repository.py:175–216`; Prüfung `auth_service.py:888–893`),
+  Passwortwechsel, Einwilligungswiderrufe (`domain/services/privacy_service.py:1955–1977`; `consent_repository.py:220–230`
+  ist der Erasure-Pfad `revoke_all_unrevoked`), Art.-18/21-Einträge, Mitgliedschaftsentzüge und Mandantensperren
+  (LEG-24); `security_audit_log` rollt mit zurück. (Zitate korrigiert im Recovery-Nachtrag 2026-11-23.)
+- **Mechanik seit dem Recovery-Nachtrag 2026-11-23: [`17`](17-privacy-recovery.md)** (SPEC-17). `17` präzisiert bzw.
+  ersetzt die Stichpunkte unten (Abbildung `17` §0.4): Ereignistaxonomie in UPPER_SNAKE_CASE (`17` §3.3, Abbildung alt
+  → neu, z. B. `account_erased` → `SUBJECT_ERASURE_COMPLETED`, `sessions_revoked` → `SESSION_REVOKED`/
+  `SESSIONS_REVOKED_ALL`); Pseudonyme `jsub_`/`jten_`/`jrec_` statt Tombstone bzw. Datensatz-ID (PRIV-804); Relay
+  `privacy.journal_relay` statt `privacy.journal_flush` (PRIV-805); Recovery-Zustand `system_meta/privacy_recovery`
+  (RC-06) statt `instance_state.journal_high_watermark`; Journal-Frist R-63 per Segmentablauf statt R-45 und gefiltertem
+  Neuschreiben (PRIV-808); Restore-Lebenszyklus mit Zustandsmodell und Gate (`17` §5) statt Detektor + Replay-CLI
+  (Controller `python -m app.migrations.privacy_restore`, PRIV-820…833); Löschabschluss erst nach Journal-Ack
+  (PRIV-811). Die Stichpunkte „Neue Mechanik“ und „Restore“ bleiben als Fassung v1.2 stehen, gelten aber nur, soweit
+  `17` nichts anderes festlegt.
 - **Neue Mechanik (PRA-1.04)**: Collection `privacy_journal_outbox`, geschrieben **im selben Schreibschritt** wie die
   fachliche Änderung (write-through) für `account_erased`, `tenant_erased`, `consent_revoked`,
   `restriction_set`/`restriction_lifted`, `objection_recorded`, `api_key_revoked`, `sessions_revoked`,
@@ -222,16 +244,25 @@ die höhere.
   Wartungsmodus 503), CLI `python -m app.migrations.privacy_restore_replay` (ArangoDB, TimescaleDB, Objektspeicher,
   `vectordb`; Sicherheitsereignisse widerrufen Keys/Token-Familien, `password_changed` ⇒ Reset), Residue-Scan, Bericht
   `migration_reports/restore_replay`; Rückfall ohne Journal (JWT-Secret rotieren, Refresh-Tokens löschen, API-Keys
-  „Bestätigung erforderlich“). Helm-Precheck `backup.enabled ⇒ privacy.journal.enabled` (TA-718), Doku
-  `backup-restore.md`, Nightly-Drill (PRA-3.09). Bis dahin: Interimssperre PRA-0.10.
+  „Bestätigung erforderlich“). Helm-Precheck `backup.enabled ⇒ privacy.journal.enabled` (TA-718; Durchsetzung über
+  den Chart-Vertrag `scripts/ci/assert_chart_contracts.sh`, nicht helm-unittest — PRIV-855), Doku
+  `backup-restore.md`, Nightly-Drill (PRA-3.09). Bis dahin: Interimssperre PRA-0.10 und Runbook-Sofortkorrektur PRA-0.12.
 - **Ist (Audit 2026-11-22, VERIFIED_CODE)**: nichts davon gebaut (`erasure_mirror` 0 Treffer in `src`/`helm`/`docs`);
   Backup-CronJob voll funktionsfähig, Default aus (`helm/kamerplanter/values.yaml:567-612`, `retentionDays: 30`);
   einziger Precheck prüft `backup.s3.bucket` (`values.yaml:382-387`); `retentionDays: 0` = unbegrenzt; die Doku
   empfiehlt Bucket-Versionierung ohne Lifecycle (`docs/de/deployment/backup-restore.md:29`, LEG-26).
-- Abhängigkeiten: E03, E07, DEC-26 (zu erweitern um Nicht-Lösch-Ereignisse, Q-PO-11), PRA-0.10. Akzeptanz: TA-709,
-  TA-710, TA-711, TA-718, TA-720…TA-724, TA-804, TA-811. Gate: `deployment_allowed` für Backups **nein**, bis
-  PRA-1.04/1.05 gemergt sind; LEG-11 Prüfdatum; Journal-Zulässigkeit und Toleranzfenster sind Rechtsfragen (`16`).
-- **Audit-Bezug**: PRA-0.03 (Betriebsprüfung), PRA-0.10 (Interim), PRA-1.04 (Journal), PRA-1.05 (Replay), PRA-3.09 (Drill).
+- Abhängigkeiten: E03, E07, DEC-26 (zu erweitern um Nicht-Lösch-Ereignisse, Q-PO-11; erweitert durch `17` und die
+  Vorschläge DEC-35…DEC-40), PRA-0.10, PRA-2.21, PRA-2.22. Akzeptanz: TA-709, TA-710, TA-711, TA-718, TA-720…TA-724,
+  TA-804, TA-811; aus `17` §11.1 (Recovery-Nachtrag) TA-726…TA-760 (Abbildung TA-R → TA in `10` §2.11b). Gate:
+  `deployment_allowed` für Backups **nein**, bis PRA-1.04/1.05/1.08 gemergt sind und der Drill A–H (PRA-3.09) grün ist;
+  LEG-11 Prüfdatum; Journal-Zulässigkeit, Journal-Frist R-63 und Toleranzfenster sind Rechtsfragen (`16`; Vorschläge
+  Q-DSB-22…26, Q-LAW-18/19 in `17` §10.3).
+- **Audit-Bezug**: PRA-0.03 (Betriebsprüfung), PRA-0.10 (Interim), PRA-1.04 (Journal), PRA-1.05 (Replay), PRA-3.09 (Drill);
+  Recovery-Nachtrag: PRA-0.12 (Runbook-Sofortkorrektur), PRA-1.08 (Objektversionen, Reconciler), PRA-2.21 (fail-closed
+  Widerruf), PRA-2.22 (Secret-Identität, Manifest), PRA-2.23 (Docker-Anhänge), PRA-3.11 (Mandantenschlüssel Objektspeicher).
+- **Umsetzungsstatus (Recovery-Nachtrag 2026-11-23):** spezifiziert. Bausteine existieren (`teilweise implementiert`
+  im Sinne von `17` §0.3/§1.5: Backup-CronJob, Stream-Transaktion, Tombstone-Muster, Löschpfade mit Wiederaufnahme,
+  Token-Generationen, Readiness, Migrationsframework); keine Anforderung von E14 ist `implementiert und getestet`.
 
 ### P3
 
@@ -299,7 +330,9 @@ Lane-Reihenfolge der Epics: E01 → E03 → E02 → E04 → E05 → E10 → E09 
 E18 → E16/E17 (Doku parallel). **Ergänzt mit v1.2:** Die PRA-Aufgaben der Phase 0 laufen vor allen Epic-Lanes
 (Prüfaufgaben PRA-0.01…0.04 sofort, Code-Fixes PRA-0.06…0.10 als kleine Lanes); PRA-1.02 (E09-Rest) und PRA-1.01
 (E05-Erweiterung) rücken wegen der Abhängigkeiten von PRA-2.05…2.10 nach vorn; E14 wird zu PRA-1.04/1.05 und damit
-Phase 1. Die PRA-Kanten stehen in §6.1.
+Phase 1. Die PRA-Kanten stehen in §6.1. **Recovery-Nachtrag 2026-11-23:** PRA-0.12 läuft mit PRA-0.03 sofort;
+PRA-2.21 und PRA-2.22 sind trotz Phase 2 Voraussetzungen von PRA-1.04 bzw. PRA-1.05 und rücken davor; PRA-1.08 läuft
+mit PRA-1.05 (Umsetzungsschritte `17` §14).
 
 ---
 
@@ -359,7 +392,7 @@ Flag/Konfiguration) · **BLOCKED_LEGAL** (produktive Verarbeitung erst nach Rech
 | E11 Defaults 90/30/14 d und Opt-in als „ausdrücklich gewünscht“ | READY_WITH_GUARDS | LEG-09, LEG-10 (Prüfdatum) | Audit: Fristen hart kodiert 365/90 d | Settings mit Obergrenzen (PRA-2.15) |
 | E12 (PRIV-116, 118) | READY | — | DA-02 | nach E06/E07/E09 |
 | E13 (R-46…R-48, v0111) | IN_PROGRESS (Discovery + v0111 + Modellfelder DONE 2026-11-15) | — (V-11 erledigt) | VERIFIED_CODE `09` §5; Audit: v0111-Felder ohne Schreiber | Lane: Stempeln + Marker-Regeln, Request-Schemas/UI, R-46…R-48, `data_controller`; Folge-Issue `rooting_protocols.author` erledigt (#2976, v0114, `09` §5a) |
-| E14 Journal write-through + Replay (PRIV-707…713, geändert v1.2) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach PRA-1.04/1.05; DEC-26-Erweiterung (Q-PO-11); Journal-Speicher ohne S3 (Q-PO-21); Journal-Zulässigkeit und Toleranzfenster (`16`); LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21); Audit: nichts gebaut, Design v1.1 wirkungslos (LEG-25) | PRA-0.10 (Interim) → PRA-1.04 → PRA-1.05; Betreiber entscheidet Dump-Frist |
+| E14 Journal write-through + Replay (PRIV-707…713, geändert v1.2) | READY_WITH_GUARDS | `deployment_allowed` Backups erst nach PRA-1.04/1.05; DEC-26-Erweiterung (Q-PO-11); Journal-Speicher ohne S3 (Q-PO-21); Journal-Zulässigkeit und Toleranzfenster (`16`); LEG-11 Prüfdatum | L-19 (Backups), kein deutscher Primärbeleg (L-21); Audit: nichts gebaut, Design v1.1 wirkungslos (LEG-25); Recovery-Nachtrag 2026-11-23: Detailkonzept `17`, neue Befunde LEG-62…LEG-70, Vorschläge DEC-35…DEC-40 (`proposed`) | PRA-0.03/PRA-0.12 sofort → PRA-0.10 (Interim) → PRA-2.21, PRA-2.22 → PRA-1.04 → PRA-1.05 mit PRA-1.08 → PRA-3.09 (Drill A–H); Betreiber entscheidet Dump-Frist und DEC-35…40 |
 | E15 | READY | — | Audit: Endpunkte 0 Treffer (Planstand korrekt) | nach E04/E07 |
 | E16 Spec-Änderungen | READY | Betreiberfreigabe je DEC | `14` | PRA-0.05 sofort; Doku-Lane |
 | E16 Art.-13/14-Texte, AVV | BLOCKED_LEGAL | LEG-01, LEG-12, LEG-22, LEG-41, LEG-50 | DA-01 | Technik PRA-2.18 vorab; Texte nach Rechtsberatung (PRA-3.01, PRA-3.03) |
@@ -385,7 +418,7 @@ IP-Anonymisierung, Retention-Beats).
 | Privater Self-Host (eine Person / ein Haushalt) | betreibbar | Phase 0 empfohlen: PRA-0.05 (Falschaussagen), PRA-0.07 (SW-Cache), PRA-0.09 (KI-Gate) | LEG-23, LEG-27, LEG-31 |
 | Gemeinschaftsgarten / Verein, selbst gehostet (BM-002) | betreibbar nach Phase 0 | zusätzlich die P1-Aufgaben zu Zurechnung (PRA-2.05), Freitexten (PRA-2.01) und Art. 18/21 (PRA-0.06, PRA-1.06); Grundsicherung geteilte Geräte (PRA-0.08) | LEG-02, LEG-08, LEG-10, LEG-23 |
 | Gewerblich, selbst gehostet (Beschäftigte) | **nicht freigabefähig** | LEG-05, LEG-28, LEG-29, LEG-30 geschlossen: PRA-1.02, PRA-2.05, PRA-2.06, PRA-2.07, PRA-3.04; vorher Prüfung PRA-0.04 | LEG-05, LEG-28, LEG-29, LEG-30, LEG-48 |
-| Kamerplanter-SaaS (BM-001) | **nicht freigabefähig** — deckt sich mit `deployment_allowed = nein` (DEC-32) | Rollenmodell/AVV (PRA-3.03), Empfängerregister (PRA-1.03), Datenpannen-Verfahren (PRA-0.11, PRA-3.02), Löschpropagation bei Restore (PRA-1.04, PRA-1.05), Art. 18/21 (PRA-1.06); BM-001-Freigabe ist Q-PO-23 | LEG-01, LEG-11, LEG-23, LEG-24, LEG-32, LEG-33 |
+| Kamerplanter-SaaS (BM-001) | **nicht freigabefähig** — deckt sich mit `deployment_allowed = nein` (DEC-32) | Rollenmodell/AVV (PRA-3.03), Empfängerregister (PRA-1.03), Datenpannen-Verfahren (PRA-0.11, PRA-3.02), Löschpropagation bei Restore (PRA-1.04, PRA-1.05, PRA-1.08 mit PRA-2.21/PRA-2.22 und Drill A–H PRA-3.09; Einsatzreife Backup/Restore je Betriebsmodell: `17` §14), Art. 18/21 (PRA-1.06); BM-001-Freigabe ist Q-PO-23 | LEG-01, LEG-11, LEG-23, LEG-24, LEG-32, LEG-33, LEG-62…LEG-70 |
 
 Die drei wichtigsten Maßnahmen vor einem kommerziellen SaaS-Betrieb: (1) Verantwortlichkeit und Meldewege —
 PRA-3.03, PRA-1.03, PRA-0.11/PRA-3.02 (LEG-01, LEG-32, LEG-33); (2) Löschung und Widerruf dauerhaft durchsetzen —
@@ -409,7 +442,7 @@ Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-
 
 ---
 
-## 6. Audit-Maßnahmen PRA-0.01…PRA-3.10 (Audit 2026-11-22)
+## 6. Audit-Maßnahmen PRA-0.01…PRA-3.11 (Audit 2026-11-22, Recovery-Nachtrag 2026-11-23)
 
 ### 6.0 Konventionen
 
@@ -433,6 +466,13 @@ Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-
   stehen in [`16`](16-dpo-briefing-2517.md).
 - **Zusatzfelder v1.2.** „Bezug zu Epic/PRIV“ (Gegenrichtung zum „Audit-Bezug“ in §1) und „Abnahmefälle (`10`)“
   (TA-IDs aus [`10`](10-testing-and-acceptance.md)); „Stand v1.2“, wo dieser Nachtrag einen Teil bereits erledigt.
+- **Recovery-Nachtrag 2026-11-23.** Sechs neue Aufgaben (PRA-0.12, PRA-1.08, PRA-2.21, PRA-2.22, PRA-2.23, PRA-3.11)
+  aus der Recovery-Prüfung (gemessen gegen develop `ce7e858d0`, Detail in [`17`](17-privacy-recovery.md)); bestehende
+  Aufgaben werden erweitert statt dupliziert (Zeile „Recovery-Nachtrag“). Neues Pflichtfeld **„Umsetzungsstatus“** mit
+  genau einem Wert `spezifiziert` · `teilweise implementiert` (Baustein mit Pfad:Zeile und Lücke) · `implementiert und
+  getestet` (PR/Commit, TA, Testlauf); ein dokumentiertes Konzept ist keine technische Compliance (`17` §0.3). Für die
+  Aufgaben PRA-0.01…PRA-3.10 ohne Recovery-Nachtrag gilt bis zur Nachführung `spezifiziert`, sofern „Stand v1.2“ nichts
+  anderes belegt. Zeilen der neuen Aufgaben am SHA `ce7e858d0`.
 
 ### 6.1 Übersicht
 
@@ -441,22 +481,24 @@ Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-
 |---|---|---|---|---|---|
 | PRA-0.01 | Prüfung: Knowledge-Service-LLM in Produktion | Betrieb | P0 | LEG-31 | — |
 | PRA-0.02 | Prüfung: BM-001-Freigabeplan und Datenpannen-Grundsicherung | Betrieb | P0 | LEG-32 | (DEC-32) |
-| PRA-0.03 | Prüfung: Backups und Bucket-Versionierung in Produktion | Betrieb | P0 | LEG-11, LEG-24, LEG-26 | E14 (Gate) |
+| PRA-0.03 | Prüfung: Backups und Bucket-Versionierung in Produktion | Betrieb | P0 | LEG-11, LEG-24, LEG-26, LEG-62, LEG-67, LEG-69 | E14 (Gate) |
 | PRA-0.04 | Prüfung: gewerbliche Mandanten mit Beschäftigten produktiv | Betrieb | P0 | LEG-05, LEG-28 | — |
 | PRA-0.05 | Falschaussagen gegenüber Betroffenen korrigieren | Doku | P1 | LEG-23, LEG-12, LEG-27, LEG-37 | E16 |
 | PRA-0.06 | Art.-18/21-Anträge erreichen den Betreiber | Code | P1 | LEG-23 | — |
 | PRA-0.07 | Service-Worker-Cache projizieren | Code | P1 | LEG-27 | E11 |
 | PRA-0.08 | Offline-Grundsicherung beim Logout | Code | P1 | LEG-10 | E10 (Teil) |
 | PRA-0.09 | KI-Cloud-Gate am tatsächlichen Provider | Code | P1 | LEG-31 | — |
-| PRA-0.10 | Backup-Interimssperre und Bucket-Lifecycle-Doku | Code, Doku | P1 | LEG-11, LEG-26 | E14 (Interim) |
+| PRA-0.10 | Backup-Interimssperre und Bucket-Lifecycle-Doku | Code, Doku | P1 | LEG-11, LEG-26, LEG-68 | E14 (Interim) |
 | PRA-0.11 | `SECURITY.md` und Notfall-Kurzrunbook | Doku, Betrieb | P1 | LEG-32 | — |
+| PRA-0.12 | Restore-Runbook-Sofortkorrektur (alle Worker, Docker gestoppt, Valkey, Startreihenfolge, Rückfallbasis, `vectordb`) | Doku, Betrieb | P1 (P0 bei aktivem Backup) | LEG-62, LEG-63, LEG-69, LEG-70 | E14 (Interim) |
 | PRA-1.01 | Privacy-Register: Feldklassifizierung, Guards, Inventar | Code, Doku | P1 | LEG-46, LEG-29 | E05 |
 | PRA-1.02 | Mandantenklassifizierung setzbar und wirksam | Code | P1 | LEG-30 | E09 (Rest) |
 | PRA-1.03 | Empfänger- und Unterauftragsverarbeiter-Register | Doku, Code | P1 | LEG-33, LEG-16 | E16/E17 |
 | PRA-1.04 | Privacy-&-Security-Journal mit Outbox (write-through) | Code, Doku | P1 | LEG-25, LEG-11, LEG-24 | E14 (ersetzt Mechanik) |
-| PRA-1.05 | Restore-Erkennung, Startsperre, Replay | Code, Betrieb | P1 | LEG-11, LEG-24, LEG-26 | E14 |
+| PRA-1.05 | Restore-Erkennung, Startsperre, Replay | Code, Betrieb | P1 | LEG-11, LEG-24, LEG-26, LEG-62, LEG-63, LEG-69, LEG-70 | E14 |
 | PRA-1.06 | Processing-Hold-Guard: Art. 18/21 und Legal Hold | Code | P1 | LEG-23, LEG-35 | — |
-| PRA-1.07 | Mandantengebundene Pseudonyme, Import-Regel, Residue-Scan | Code | P2 | LEG-15, LEG-54 | E03 (Rest), E18 |
+| PRA-1.07 | Mandantengebundene Pseudonyme, Import-Regel, Residue-Scan | Code | P2 | LEG-15, LEG-54, LEG-65 | E03 (Rest), E18 |
+| PRA-1.08 | Versionsvollständige Objektlöschung und Object-Storage-Reconciler | Code | P1 | LEG-26, LEG-60 | E14 |
 | PRA-2.01 | Freitext-Prüfwarteschlange und generische Schwärzung | Code | P1 | LEG-08 | E07 |
 | PRA-2.02 | Plan-Snapshots in Schwärzung und Restore | Code | P2 | LEG-34 | — |
 | PRA-2.03 | Ehemalige Mitglieder unterdrücken | Code | P2 | LEG-06 | E06, E12 |
@@ -477,6 +519,9 @@ Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-
 | PRA-2.18 | Transparenz aus einer Quelle: Art. 13 und Art. 15 | Code, Doku | P2 | LEG-22, LEG-41, LEG-50 | E16 |
 | PRA-2.19 | Privilegierte Zugänge: zweiter Faktor, Leseaudit | Code, Betrieb | P2 | LEG-45 | — |
 | PRA-2.20 | Betroffenenanfragen: Fristüberwachung und Empfängermitteilung (Art. 12 Abs. 3, Art. 19) | Code | P2 | LEG-23, LEG-33 | — |
+| PRA-2.21 | Widerrufspfade fail-closed | Code | P2 (vor PRA-1.04) | LEG-66 | E14 (Voraussetzung) |
+| PRA-2.22 | Secret-Identitäts-Gate und Backup-Manifest | Code, Helm | P2 | LEG-67 | E14 (Voraussetzung) |
+| PRA-2.23 | Docker-Release: Anhänge-Volume für backend und celery-worker | Code (Compose), Doku | P2 (P3, falls Uploads scheitern) | LEG-64 | — |
 | PRA-3.01 | Rechtsentscheidungen einholen (DSB-Paket) | Doku | P1 | alle mit LEGAL_REVIEW_REQUIRED | E17 |
 | PRA-3.02 | Datenpannen-Management (Art. 33/34) | Doku, Code, Betrieb | P1 | LEG-32 | — |
 | PRA-3.03 | Rollenmodell, AVV-Muster, Art.-26-Vorlage | Doku | P1 | LEG-01, LEG-13 | E16, E13 |
@@ -487,6 +532,7 @@ Enums additiv mit DE/EN-i18n; Bundle-Budget; kein Prod-Deploy; Branch feat/priv-
 | PRA-3.08 | Valkey-Authentifizierung, NetworkPolicy-Voraussetzung | Code, Betrieb | P3 | LEG-59 | — |
 | PRA-3.09 | Nachweisführung: Drills, Tabletop, Evidenzablage | Betrieb, Doku | P2 | LEG-11, LEG-24, LEG-32 | E14 (Drill) |
 | PRA-3.10 | Spec-Paket nachführen | Doku | P3 | LEG-58, LEG-61 | E16 |
+| PRA-3.11 | Mandantenschlüssel für Objektspeicher (BM-001) evaluieren | Doku, Code-Spike | P3 | LEG-11 (Teil) | E14 |
 
 Abhängigkeitsgraph (nur PRA-Kanten; Epic-Kanten stehen in `12` §2):
 
@@ -520,7 +566,16 @@ flowchart LR
     P103 --> P303["PRA-3.03 Rollen/AVV"]
     P105 --> P309["PRA-3.09 Nachweise"]
     P302 --> P309
+    P003 --> P012["PRA-0.12 Restore-Runbook"]
+    P221["PRA-2.21 fail-closed Widerruf"] --> P104
+    P222["PRA-2.22 Secret-Identität, Manifest"] --> P105
+    P105 <--> P108["PRA-1.08 Objektversionen, Reconciler"]
+    P108 --> P309
+    P108 --> P311["PRA-3.11 Mandantenschlüssel"]
 ```
+
+Kante `PRA-1.05 ↔ PRA-1.08` (Recovery-Nachtrag): der Reconciler ist eine Phase des Restore-Lebenszyklus, der
+Restore braucht die versionsvollständige Löschung; beide in einer Lane oder direkt hintereinander.
 
 ---
 
@@ -565,13 +620,15 @@ flowchart LR
 | Feld | Inhalt |
 |---|---|
 | Task-ID | PRA-0.03 |
-| LEG-IDs | LEG-11, LEG-24, LEG-26 (bedingte Eskalation P1 → P0 bei aktivem Backup bzw. versioniertem Bucket ohne Lifecycle) |
+| LEG-IDs | LEG-11, LEG-24, LEG-26 (bedingte Eskalation P1 → P0 bei aktivem Backup bzw. versioniertem Bucket ohne Lifecycle); Recovery-Nachtrag: LEG-62, LEG-67, LEG-69 |
 | Problem | Der Backup-CronJob ist voll funktionsfähig, aber per Default aus (`helm/kamerplanter/values.yaml:567-612`, `retentionDays: 30` Z. 596); Löschungs-Spiegel und Replay fehlen (Grep `erasure_mirror` in `src helm docs` → 0). Ein Restore stellt gelöschte Konten (Szenario S3/S4) und widerrufene Zugänge, Einwilligungen, Art.-18-Einschränkungen (S6/S7) still wieder her (LEG-24). `docs/de/deployment/backup-restore.md:29` empfiehlt Bucket-Versionierung ohne Lifecycle-Regel; gelöschte Fotos, Exporte und Dumps bleiben dann als nicht-aktuelle Versionen unbefristet (LEG-26). Ob eine Produktion `backup.enabled=true` oder versionierte Buckets nutzt, ist im Repo nicht prüfbar. |
 | Empfohlene Lösung | Betreiber prüft je Installation: (1) `backup.enabled`, (2) Versionierungsstatus und Lifecycle-Regeln von Backup- und Anhangs-Bucket (`aws s3api get-bucket-versioning` / `get-bucket-lifecycle-configuration` bzw. MinIO-Äquivalent), (3) ob seit Aktivierung ein Restore stattfand. Bei aktivem Backup: bis PRA-1.05 kein Restore ohne manuelles Runbook (PRA-0.10) und Liste der seit Dump abgeschlossenen Löschungen (`erasure_requests` mit `completed_at > dump_ts`) vorhalten. Bei Versionierung ohne Lifecycle: Regel `NoncurrentVersionExpiration ≤ 35 d` + `ExpiredObjectDeleteMarker` sofort setzen. Hat ein Restore stattgefunden: Löschaufträge seit Dump-Zeitpunkt erneut ausführen und JWT-Secret rotieren (Rückfall-Basis aus Strang D §c Pkt. 5). |
 | Betroffene Komponenten | Betriebs-Repo (ArgoCD-Values), S3/MinIO-Konfiguration, `docs/de/deployment/backup-restore.md` |
 | Abhängigkeiten | PRA-0.10 (Runbook), PRA-1.05 (endgültig) |
 | Bezug zu Epic/PRIV | neu; Betriebsprüfung zum Gate „`deployment_allowed` Backups nein bis E14“ (§4) |
-| Abnahmefälle (`10`) | TA-903 |
+| Abnahmefälle (`10`) | TA-903; TA-758 (Lifecycle-Nachweis, Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Zusätzlich je Installation prüfen und datiert festhalten: (4) ob frühere Restores mit laufenden `celery-worker-default`/`-bulk` (bei `celeryWorkers.dedicatedQueues: true`, LEG-62) oder ohne Leerung von Valkey (LEG-69) stattfanden — dann wie ein Restore ohne Replay behandeln (Rückfallbasis); (5) ob `ERASURE_TOMBSTONE_SALT` seit Aktivierung des Backups unverändert ist (Vergleich des verwahrten Secrets mit dem laufenden; ein Fingerabdruck existiert erst mit PRA-2.22, LEG-67). Detail: [`17`](17-privacy-recovery.md) §1.6, §14. |
+| Umsetzungsstatus | spezifiziert (Betreiberprüfung außerhalb des Repos; kein Nachweis abgelegt) |
 | Priorität | **P0** — bei positivem Befund rechtsgrundlose Wiederverarbeitung gelöschter Personen (Art. 17, Art. 6) bzw. unbefristete Aufbewahrung gelöschter Daten (Art. 5 Abs. 1 lit. e). |
 | Abnahmekriterien | Datierter Eintrag je Installation zu (1)–(3); bei Versionierung liegt die gesetzte Lifecycle-Regel als JSON vor; `list-object-versions` zeigt nach Frist + 1 d keine Version eines gelöschten Testobjekts. |
 | Nötige Verifikation | Betreiberprüfung außerhalb des Repos; Drill aus Strang D (Abnahmekriterium zu LEG-26). |
@@ -685,16 +742,18 @@ flowchart LR
 | Feld | Inhalt |
 |---|---|
 | Task-ID | PRA-0.10 |
-| LEG-IDs | LEG-11, LEG-26 (enthält den in LEG-11 aufgegangenen Rohbefund „Backup ohne Vorbedingung aktivierbar“) |
+| LEG-IDs | LEG-11, LEG-26 (enthält den in LEG-11 aufgegangenen Rohbefund „Backup ohne Vorbedingung aktivierbar“); Recovery-Nachtrag: LEG-68 |
 | Problem | Chart und Doku erlauben bzw. empfehlen die Aktivierung ohne Schutz: einziger Backup-Precheck prüft nur `backup.s3.bucket` (`helm/kamerplanter/values.yaml:382-387`); `retentionDays` ist unvalidiert, `0` heißt unbegrenzt (`values.yaml:1418`); `docs/de/deployment/backup-restore.md:25-80` leitet zur Aktivierung an, der Restore `:101-160` endet mit „Anwendung starten“; `:29` empfiehlt Versionierung ohne Lifecycle (Grep `lifecycle|noncurrent` in `docs/de/deployment`, `values.yaml` → 0). |
 | Empfohlene Lösung | (1) Helm-Precheck: `fail`, wenn `backup.enabled` und nicht `privacy.journal.enabled` (bis PRA-1.04 existiert, nur mit ausdrücklichem Override `backup.acknowledgeNoErasureReplay=true`); `fail`, wenn `retentionDays ∉ [1, 35]`. (2) Warnblock in `backup-restore.md` (DE/EN) „nicht in Produktion aktivieren, bevor Replay verfügbar ist“ und manuelles Runbook „nach Restore Löschaufträge mit `completed_at > dump_ts` erneut ausführen, JWT-Secret rotieren, Refresh-Tokens widerrufen“. (3) Abschnitt Bucket-Lifecycle: Versionierung nur mit `NoncurrentVersionExpiration ≤ 35 d` und `ExpiredObjectDeleteMarker` für Backup- und Anhangs-Bucket, Beispiel-JSON AWS/MinIO; optional Object Lock (Governance) = `retentionDays`. |
-| Betroffene Komponenten | `helm/kamerplanter/values.yaml`, `helm/kamerplanter/templates/*` (Precheck), Helm-Unit-Tests, `docs/de/deployment/backup-restore.md`, `docs/en/deployment/backup-restore.md`, `docs/de/deployment/helm.md` |
+| Betroffene Komponenten | `helm/kamerplanter/values.yaml`, `helm/kamerplanter/templates/*` (Precheck), Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` (korrigiert im Recovery-Nachtrag: es gibt kein helm-unittest im Repo), `docs/de/deployment/backup-restore.md`, `docs/en/deployment/backup-restore.md`, `docs/de/deployment/helm.md` |
 | Abhängigkeiten | PRA-0.03; endgültig PRA-1.04/1.05 (dann entfällt der Override) |
 | Bezug zu Epic/PRIV | Interimsschritt zu E14; präzisiert PRIV-707/713 und TA-718 (Precheck auf `privacy.journal.enabled`) |
-| Abnahmefälle (`10`) | TA-718 (präzisiert), TA-720, TA-711 (erweitert) |
+| Abnahmefälle (`10`) | TA-718 (präzisiert), TA-720, TA-711 (erweitert); TA-740, TA-741, TA-758 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | (4) Bucket-Regel `Expiration` = `retentionDays + 1` für den Dump-Präfix, **unabhängig vom CronJob**, und Doku des Zustands „Disabled with dumps“: `backup.enabled: false` rendert den CronJob nicht (`helm/kamerplanter/values.yaml:1325`), die Retention im CronJob (`:1418–1430`) endet, vorhandene Dumps blieben unbefristet (LEG-68, PRIV-854). (5) Lifecycle zusätzlich mit `AbortIncompleteMultipartUpload` 1 d; Backup-Bucket Object Lock nur Governance ≤ `retentionDays`, **kein** Object Lock auf dem Anhangs-Bucket (PRIV-851, PRIV-852). (6) Durchsetzung der Prechecks über `scripts/ci/assert_chart_contracts.sh` (`:177–216`) statt helm-unittest (PRIV-855). (7) Sobald PRA-1.04 existiert: Render-Check `privacy.journal.retentionDays ≥ L_eff + 14` und `≤ 90` (R-63, PRIV-808). Detail: [`17`](17-privacy-recovery.md) §7.2, §7.6. |
+| Umsetzungsstatus | teilweise implementiert — Chart-Vertrag prüft nur den Bucket-Precheck (`scripts/ci/assert_chart_contracts.sh:177–216`, `values.yaml:382–387`); Frist-, Journal- und Lifecycle-Teile spezifiziert |
 | Priorität | **P1** — Default sicher, aber aktivierbar und empfohlen ohne Schutz; P0 über PRA-0.03, falls aktiv. |
 | Abnahmekriterien | `helm template --set backup.enabled=true --set backup.s3.bucket=x` → Render-Fehler; mit Override → rendert; `--set backup.retentionDays=0` und `=36` → Render-Fehler; Doku enthält Warnblock und Lifecycle-Beispiel; `mkdocs build --strict` grün. |
-| Nötige Verifikation | helm-unittest, Docs-Build. |
+| Nötige Verifikation | Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` (statt helm-unittest, Recovery-Nachtrag), Docs-Build. |
 | Rechtsfreigabe nötig | nein |
 
 #### PRA-0.11 · Doku, Betrieb · `SECURITY.md` und Notfall-Kurzrunbook
@@ -713,6 +772,24 @@ flowchart LR
 | Abnahmekriterien | `SECURITY.md` vorhanden; Runbook in der Nav; `mkdocs build --strict` grün; jeder genannte Hebel verweist auf eine existierende Route oder Einstellung. |
 | Nötige Verifikation | Docs-Build, Review. |
 | Rechtsfreigabe nötig | nein |
+
+#### PRA-0.12 · Doku, Betrieb · Restore-Runbook-Sofortkorrektur
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-0.12 |
+| LEG-IDs | LEG-62, LEG-63, LEG-69, LEG-70 (bedingte Eskalation P1 → P0 bei aktivem Backup, PRA-0.03) |
+| Problem | Recovery-Prüfung 2026-11-23 (develop `ce7e858d0`, [`17`](17-privacy-recovery.md) §1.2, §1.6). Das Kubernetes-Runbook skaliert nur `backend`, `celery-worker`, `celery-beat` (`docs/de/deployment/backup-restore.md:116–117, 156–157`, EN identisch); mit `celeryWorkers.dedicatedQueues: true` rendert das Chart zusätzlich `celery-worker-default` und `celery-worker-bulk` (`helm/kamerplanter/values.yaml:160–166, 184–191`, Läufe bis 3 h `:226–227`; `templates/_celery_workers.tpl:170`), die während `arangorestore --overwrite true` gegen eine teils überschriebene DB weiterschreiben (LEG-62). Der Docker-Restore spielt gegen die laufende Anwendung ein (`docs/de/deployment/docker-dauerbetrieb.md:218–230`; alle Dienste `restart: unless-stopped`, `docker-compose.release.yml:162, 200, 229`) (LEG-63). Ein In-Place-Restore ist undokumentiert, Valkey gilt als „nicht nötig“ (`backup-restore.md:18, 101`) und behält MCP-Sitzungen mit rohem `account_key` (`mcp_server/session.py:32–34, 54`), Celery-Nachrichten mit `user_key` (`tasks/auth_tasks.py:202`) und Dedup-Schlüssel (`domain/engines/notification_engine.py:35–39`) aus der Zeit nach dem Dump (LEG-69). Worker und Beat starten ohne Warten auf den Migrationsstand (Migrationen nur im Backend-Lifespan `main.py:207–211`; Worker-Gates ohne Migrationskopf `tasks/__init__.py:109–225`; Runbook `backup-restore.md:155–157`) (LEG-70). Die Backup-Tabelle nennt `vectordb` nicht (`backup-restore.md:11–18`). |
+| Empfohlene Lösung | Sofortkorrektur der Betriebsdoku (DE kanonisch, EN-Spiegel), bis PRA-1.05 die Mechanik liefert; Vorlage `17` §11.2/§11.3 (Interim-Hinweise dort): (1) Kubernetes: **alle** Deployments mit Präfix `kamerplanter-celery-` (inkl. `-default`, `-bulk`) und Beat vor dem Einspielen auf 0, Prüfung „kein laufender Worker-/Beat-Pod“. (2) Docker: `docker compose stop frontend backend celery-worker celery-beat` vor `arangorestore`; Passwort nicht als Argument. (3) Valkey vor dem Einspielen leeren (`valkey-cli FLUSHALL`) oder neue Instanz; In-Place-Restore als Variante mit genau diesen Schritten beschreiben. (4) Wiederanlauf in Reihenfolge: Backend (Migrationen unter Lock, Readiness grün) → Worker Queue `critical` → übrige Worker → Beat → externe Integrationen. (5) Manuelle Rückfallbasis aus PRA-0.10 (Löschaufträge mit `completed_at > dump_ts` erneut ausführen, JWT-Secret rotieren, alle Refresh-Tokens widerrufen) als Pflichtschritt **vor** der Freigabe. (6) Backup-Tabelle um `vectordb` und das Anhänge-Volume ergänzen (jeweils „nicht durch das Chart gesichert“ mit Sicherungsweg). |
+| Betroffene Komponenten | `docs/de/deployment/backup-restore.md`, `docs/en/deployment/backup-restore.md`, `docs/de/deployment/docker-dauerbetrieb.md` (und EN-Spiegel), `docs/de/deployment/helm.md` (Hinweis `dedicatedQueues`) |
+| Abhängigkeiten | PRA-0.03 (Ergebnis bestimmt die Dringlichkeit); PRA-0.10 (Rückfallbasis, Warnblock); endgültig PRA-1.05 |
+| Bezug zu Epic/PRIV | Interimsschritt zu E14 (Restore-Lebenszyklus `17` §5); setzt PRIV-873 und den Interimsteil von PRIV-822, PRIV-825, PRIV-833 um |
+| Abnahmefälle (`10`) | TA-711 (erweitert), TA-743, TA-757 |
+| Umsetzungsstatus | spezifiziert (`17` §11.2/§11.3; Runbook am SHA unverändert, `backup-restore.md:116–117, 156–157`) |
+| Priorität | **P1** — P0 über PRA-0.03, wenn ein Backup aktiv ist: ein Restore nach heutigem Runbook schreibt mit laufenden Workern gegen eine teils überschriebene DB und öffnet ohne Abgleich (Art. 32 Abs. 1 lit. b/c). |
+| Abnahmekriterien | Runbook (DE/EN) nennt alle `celery-worker*`-Deployments bzw. einen Label-Selektor und die Prüfung „0 Pods“; Docker-Abschnitt stoppt alle App-Dienste vor `arangorestore` und übergibt kein Passwort als Argument; Valkey-Leerung steht vor dem Einspielen; Startreihenfolge Backend → `critical` → übrige Worker → Beat; Rückfallbasis ist Pflichtschritt; Backup-Tabelle nennt `vectordb` und Anhänge; DE/EN strukturgleich; `mkdocs build --strict` grün. |
+| Nötige Verifikation | Docs-Build, Review; Trockenlauf des Runbooks in einer Testinstallation mit `celeryWorkers.dedicatedQueues: true` (Nachweis PRA-3.09). |
+| Rechtsfreigabe nötig | nein — schutzverstärkend. |
 
 ---
 
@@ -775,34 +852,38 @@ flowchart LR
 |---|---|
 | Task-ID | PRA-1.04 |
 | LEG-IDs | LEG-25, LEG-11, LEG-24 |
-| Problem | PRIV-709 (`09:276-285`) verlangt den Spiegel „bei jedem Abschluss“, PRIV-710 (`09:287-291`) und PRIV-E14 (Fassung v1.1, Beats `sync`, `purge`) verlegen die Bucket-Aktualisierung in einen Sync vor dem Dump — der Spiegel enthielte dann genau die Löschungen, die ohnehin im Dump stehen, und keine derjenigen, die ein Restore verliert (LEG-25). DEC-26 deckt nur Löschungen ab; ein Restore setzt auch API-Key-Widerrufe (`api_key_repository.py:70-77`), Sitzungsende (`auth_service.py:891`), Passwortwechsel, Einwilligungswiderrufe (`consent_repository.py:220-230`), Art.-18/21-Einträge, Mitgliedschaftsentzüge und Mandantensperren zurück (LEG-24). `security_audit_log` liegt in derselben DB und rollt mit zurück. Nichts davon ist gebaut (LEG-11). |
+| Problem | PRIV-709 (`09:276-285`) verlangt den Spiegel „bei jedem Abschluss“, PRIV-710 (`09:287-291`) und PRIV-E14 (Fassung v1.1, Beats `sync`, `purge`) verlegen die Bucket-Aktualisierung in einen Sync vor dem Dump — der Spiegel enthielte dann genau die Löschungen, die ohnehin im Dump stehen, und keine derjenigen, die ein Restore verliert (LEG-25). DEC-26 deckt nur Löschungen ab; ein Restore setzt auch API-Key-Widerrufe (`api_key_repository.py:70-77`), Sitzungsende (Schreibpfad `data_access/arango/refresh_token_repository.py:175–216`, Prüfung `auth_service.py:888–893`), Passwortwechsel, Einwilligungswiderrufe (`domain/services/privacy_service.py:1955–1977`; Zitate korrigiert im Recovery-Nachtrag), Art.-18/21-Einträge, Mitgliedschaftsentzüge und Mandantensperren zurück (LEG-24). `security_audit_log` liegt in derselben DB und rollt mit zurück. Nichts davon ist gebaut (LEG-11). |
 | Empfohlene Lösung | PRIV-E14 ändern und umsetzen: (1) Spec-Revision PRIV-709/710/E14 auf write-through mit Outbox (über regulären Spec-Nachtrag). (2) Collection `privacy_journal_outbox` in ArangoDB, im selben Schreibschritt wie die fachliche Änderung; Ereignistypen `account_erased`, `tenant_erased`, `consent_revoked`, `restriction_set`/`restriction_lifted`, `objection_recorded`, `api_key_revoked`, `sessions_revoked`, `password_changed`, `membership_removed`, `role_lowered`, `tenant_suspended`; Subjekt nur als `compute_tombstone_hash` (`domain/engines/erasure_engine.py:1236`) bzw. Datensatz-ID, monotone Sequenz. (3) Celery-Task `privacy.journal_flush` überträgt binnen Minuten nach `privacy/journal/<seq>.jsonl.fernet` mit HMAC-Kette; eigener S3-Schlüssel nur `PutObject`, Prefix mit Object Lock (Governance, ≥ Dump-Frist + Puffer). (4) Metrik `privacy_journal_outbox_age_seconds`, Alarm bei > 1 h. (5) `instance_state.journal_high_watermark` in der DB. (6) Helm: Secret, Prefix, Value `privacy.journal.enabled`; PRA-0.10-Override entfällt. |
 | Betroffene Komponenten | `domain/services/privacy_service.py`, `domain/services/auth_service.py`, Consent-/Restriction-/API-Key-/Membership-Services, neues Repository `data_access/arango/privacy_journal_repository.py`, `tasks/` (Flush), `observability/` (Metrik), `helm/kamerplanter/values.yaml` + Templates, `spec/privacy/09`, `spec/privacy/12` |
-| Abhängigkeiten | DEC-26 (proposed → accepted, erweitert um Nicht-Lösch-Ereignisse), PRIV-E03 (Tombstone-Formate), PRA-0.10 |
+| Abhängigkeiten | DEC-26 (proposed → accepted, erweitert um Nicht-Lösch-Ereignisse), PRIV-E03 (Tombstone-Formate), PRA-0.10; Recovery-Nachtrag: PRA-2.21 (fail-closed Widerruf, sonst Ereignis ohne Widerruf), DEC-35, DEC-36, DEC-38 (`proposed`) |
 | Bezug zu Epic/PRIV | **ersetzt die Mechanik von E14** (Spiegel + Beat-Sync → Journal write-through mit Outbox; PRIV-709/710); erweitert DEC-26 um Nicht-Lösch-Ereignisse |
-| Abnahmefälle (`10`) | TA-709, TA-718 (angepasst), TA-721, TA-722 |
+| Abnahmefälle (`10`) | TA-709, TA-718 (angepasst), TA-721 (präzisiert), TA-722; TA-726…TA-729, TA-731, TA-732, TA-734…TA-736, TA-740 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Mechanik nach [`17`](17-privacy-recovery.md) §2–§4 (präzisiert Punkte (2)–(6) der Lösung): Unit of Work RC-01 (Interface in `domain/interfaces/`, Umsetzung in `data_access/arango/`, Muster `record_tombstone_in`, `client_event_tombstones.py:67`); Taxonomie `17` §3.3 statt der Ereignisliste oben (Abbildung alt → neu dort); Schema `kp.privacy-journal/v1` mit `aggregate.version`; Pseudonyme `jsub_`/`jten_`/`jrec_` statt Tombstone bzw. Datensatz-ID; Relay `privacy.journal_relay` (Einzelschreiber, `jseq`, Hash-Kette, Segment-MAC) statt `privacy.journal_flush`; Recovery-Zustand `system_meta/privacy_recovery` statt `instance_state.journal_high_watermark`; Löschstatus `completed_pending_journal` bis zum Ack (PRIV-811); Journal-Frist R-63 per Segmentablauf statt R-45 und gefiltertem Neuschreiben (PRIV-808); neues Secret `PRIVACY_JOURNAL_KEY` (PRIV-807); Replik für BM-001/Commercial (PRIV-806); Outbox-Purge nach Ack + 7 d. |
+| Umsetzungsstatus | teilweise implementiert — Bausteine `stream_transaction` (`data_access/arango/transactions.py:321ff.`) und `record_tombstone_in` (`client_event_tombstones.py:67`) vorhanden; Outbox, Relay, Store, Emittenten-Umbau spezifiziert; die Emittenten-Pfade sind heute nicht transaktional (`privacy_service.py:983–984`) |
 | Stand v1.2 | E14 in §1 mit v1.2 auf write-through mit Outbox umgestellt; PRIV-709/710 werden in `09` nachgeführt (Nachtrag v1.2). Code offen. |
 | Priorität | **P1** — Designfehler vor Implementierung von E14; ohne Korrektur würde die Backup-Freigabe auf einer unwirksamen Kontrolle beruhen. |
 | Abnahmekriterien | Integrationstest mit MinIO: Löschung abschließen ohne Dump-Lauf → Bucket-Journal enthält den Eintrag innerhalb des konfigurierten SLA; je Ereignistyp ein Test, dass die fachliche Änderung ohne Outbox-Eintrag nicht committet; Metrik exportiert; Journal enthält keinen Rohschlüssel (Regex-Scan); TA-709, TA-718 (angepasst auf `privacy.journal.enabled`). |
 | Nötige Verifikation | Integrationstest gegen MinIO mit Object Lock; Spec-Review der Revision. |
-| Rechtsfreigabe nötig | ja — Zulässigkeit eines pseudonymen Journals (Tombstones sind personenbezogen, ErwG 26) und seine Aufbewahrung (R-45, 3 J); Mechanik ist schutzverstärkend. |
+| Rechtsfreigabe nötig | ja — Zulässigkeit eines pseudonymen Journals (Pseudonyme sind personenbezogen, ErwG 26, L-15) und seine Aufbewahrung: seit dem Recovery-Nachtrag R-63 (wirksame Backup-Lebensdauer + 14 d, ≤ 90 d) statt R-45 (3 J.), Vorschlag DEC-36, Fragen Q-DSB-15 (präzisiert), Q-DSB-22, Q-LAW-19 (`17` §10.3); Mechanik ist schutzverstärkend. |
 
 #### PRA-1.05 · Code, Betrieb · Restore-Erkennung, Startsperre, Replay
 
 | Feld | Inhalt |
 |---|---|
 | Task-ID | PRA-1.05 |
-| LEG-IDs | LEG-11, LEG-24, LEG-26 (Objekt-Restore aus Versionen) |
+| LEG-IDs | LEG-11, LEG-24, LEG-26 (Objekt-Restore aus Versionen); Recovery-Nachtrag: LEG-62, LEG-63, LEG-69, LEG-70 |
 | Problem | Kein Replay (`privacy_restore_replay` existiert nicht; `src/backend/app/migrations/` ohne Modul), keine Restore-Erkennung; die einzige Selbstheilung ist zufällig (`execute_scheduled_erasures` wählt `scheduled`/`partially_completed` erneut, `privacy_service.py:2568-2602`, nur Szenario S2). Szenarien S3–S9 (Strang D §c) bleiben unkorrigiert. |
 | Empfohlene Lösung | (1) Restore-Detektor im Backend-Lifespan und in der Worker-Initialisierung vor jedem Beat: DB-Marke `journal_high_watermark` < höchste Sequenz im Bucket ⇒ Wartungsmodus (503 außer Health und Admin-Replay). (2) CLI `python -m app.migrations.privacy_restore_replay`: wendet alle Ereignisse > Marke idempotent an — ArangoDB, TimescaleDB (`delete by tenant_key/sensor_key`), Objektspeicher (Präfix `t/<tenant>/`, Exportbündel), `vectordb` (`delete_user_contributions`/`delete_tenant_contributions`); Sicherheitsereignisse: Keys und Token-Familien widerrufen, `password_changed` ⇒ Reset erzwingen; danach Residue-Scan (kein Rohschlüssel, kein Tombstone außerhalb der Allowlist), Bericht `migration_reports/restore_replay`. (3) Rückfall ohne Journal: JWT-Secret rotieren, alle Refresh-Tokens löschen, alle API-Keys auf „Bestätigung erforderlich“, Restore gilt als nicht abgeschlossen. (4) Spiegelverlust: Replay verweigert „abgeschlossen“ ohne ausdrückliche Betreiberbestätigung. (5) Betreiberdoku: Restore-Kapitel um Replay-Schritt; Light/Docker-Pfad verweist darauf (PRA-3.07). |
 | Betroffene Komponenten | `src/backend/app/main.py` (Lifespan), Worker-Init unter `tasks/`, `migrations/` (neues CLI-Modul), Repositories für ArangoDB/TimescaleDB/Objektspeicher/`vectordb`, `docs/de/deployment/backup-restore.md`, `docs/de/deployment/docker-dauerbetrieb.md` |
-| Abhängigkeiten | PRA-1.04; PRIV-E03 (Residue-Scan, siehe PRA-1.07); PRIV-E14 |
+| Abhängigkeiten | PRA-1.04; PRIV-E03 (Residue-Scan, siehe PRA-1.07); PRIV-E14; Recovery-Nachtrag: PRA-2.22 (Secret-Identität, Manifest), PRA-1.08 (Objekt-Reconciler), DEC-37, DEC-39, DEC-40 (`proposed`) |
 | Bezug zu Epic/PRIV | setzt das Replay von E14 um (PRIV-711/712) und erweitert es auf Sicherheitsereignisse |
-| Abnahmefälle (`10`) | TA-710, TA-711, TA-804 (präzisiert), TA-723, TA-724, TA-811 |
+| Abnahmefälle (`10`) | TA-710, TA-711, TA-804 (präzisiert), TA-723, TA-724, TA-811; TA-730, TA-733, TA-738, TA-741…TA-755, TA-760 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Restore-Lebenszyklus nach [`17`](17-privacy-recovery.md) §5 (präzisiert bzw. ersetzt Punkte (1)–(4) der Lösung): Zustandsmodell `RESTORE_REQUESTED` … `RESTORE_RELEASED` mit `RESTORE_BLOCKED`/`FALLBACK_REVIEW`, Checkpoints in RC-06/`migration_reports`; Gate-Gründe `17` §5.3 (u. a. `WATERMARK_BEHIND_JOURNAL`, `JOURNAL_BEHIND_DATABASE`, `SECRET_MISMATCH`, `SCHEMA_BEHIND`), auch bei `DEBUG`; Worker-/Beat-Gate über `worker_process_init`/`task_prerun`/`beat_init` (LEG-70); Restore-Modus `privacy.restore.isolate` bzw. `KP_RESTORE_MODE` rendert alle `celery-worker*` und Beat mit 0 (einzige Ausnahme von `renderChecks.scaling`, LEG-62); Valkey vor DATA_RESTORED leeren (LEG-69); Migrationen vor Replay; Replay-Startpunkt `min(DB-Marke, journal_seq_at_start)` aus dem Manifest (PRA-2.22); Reconciliation je Datenbereich (`17` §6.3); globale Token-Entwertung nach **jedem** Restore (PRIV-829, DEC-37); Freigabekriterien und -reihenfolge `17` §5.6/§5.7; Evidence-Report `17` §11.5 (R-64); Docker-Variante mit `docker-compose.restore.yml` (LEG-63). Controller `python -m app.migrations.privacy_restore` (präzisiert `privacy_restore_replay`). |
+| Umsetzungsstatus | teilweise implementiert — Lifespan-Reihenfolge, Migrationslock/-barriere, Readiness, Celery-Signale, Generationen und idempotente Löschpfade existieren (`main.py:172ff.`, `migrations/framework/runner.py:35`, `api/v1/health/router.py:18–45`, `tasks/__init__.py:10–15`, `full_auth_provider.py:38`, `privacy_service.py:2568–2602`); Gate, Controller, Reconciler, Restore-Modus spezifiziert |
 | Priorität | **P1** — ohne Replay verarbeitet ein Restore gelöschte Personen rechtsgrundlos neu (Art. 17, Art. 6) und reaktiviert kompromittierte Zugänge (Art. 32 Abs. 1 lit. b). |
 | Abnahmekriterien | Integrationstests S3–S7: Dump → Konto löschen / Einwilligung widerrufen / API-Key widerrufen / Passwort ändern → Restore → Backend 503 → Replay → kein Rohschlüssel, Consent-Guard 403 `ConsentRequiredError`, API-Key 401, alter Passwort-Login schlägt fehl, Refresh-Tokens vor Restore 401; Spiegelverlust-Test; TA-710, TA-711, TA-804. |
 | Nötige Verifikation | Integrationstests; Drill (PRA-3.09). |
-| Rechtsfreigabe nötig | ja — Toleranzfenster zwischen Restore und Replay (Wartungsmodus als hinreichende Maßnahme?) und LEG-11 (≤ 35 d mit Replay, L-19, kein deutscher Primärbeleg L-21). |
+| Rechtsfreigabe nötig | ja — Toleranzfenster zwischen Restore und Replay (Wartungsmodus als hinreichende Maßnahme?) und LEG-11 (≤ 35 d mit Replay, L-19, kein deutscher Primärbeleg L-21); Recovery-Nachtrag: Freigabe mit Journal-Lücke (Q-DSB-24), erneute Mitteilung an Empfänger (Q-DSB-26), Wiederherstellung von Einwilligungen (Q-DSB-25, DEC-39), unkontrollierter Restore als Verletzung (Q-LAW-18) — Vorschläge in `17` §10.3. |
 
 #### PRA-1.06 · Code · Processing-Hold-Guard: Art. 18/21 und Legal Hold
 
@@ -815,7 +896,9 @@ flowchart LR
 | Betroffene Komponenten | neues `domain/guards/processing_hold_guard.py`, `domain/services/privacy_service.py`, `tasks/retention_tasks.py`, `domain/services/retention_service.py`, `data_access/arango/erasure_executor.py`, `data_access/arango/tenant_erasure_executor.py`, Admin-API, Migration für `scope`-Enum |
 | Abhängigkeiten | PRA-0.06; Zweckliste vom Product Owner; PRA-1.04 (Ereignisse) |
 | Bezug zu Epic/PRIV | neu (REQ-025 §3.7/AK-11; Legal Hold neu); kein Epic |
-| Abnahmefälle (`10`) | TA-133, TA-134, TA-135, TA-136 |
+| Abnahmefälle (`10`) | TA-133, TA-134, TA-135, TA-136; TA-747 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Journal-Ereignisse der Klasse H nach [`17`](17-privacy-recovery.md) §3.3 statt `restriction_set`/`lifted` in Punkt (5): `PROCESSING_RESTRICTION_REQUESTED`/`_APPLIED`/`_REJECTED`/`_RELEASED`, `OBJECTION_RECORDED`, `LEGAL_HOLD_APPLIED`/`_RELEASED`; der Hold-Filter wirkt auch im Retention-Nachlauf des Restores vor der Freigabe (PRIV-842, Phase PROCESSING_HOLD_RECONCILIATION vor allen löschenden Folgephasen). |
+| Umsetzungsstatus | spezifiziert (`list_active_by_user` ohne Aufrufer, `processing_restriction_repository.py:38`; kein Legal Hold) |
 | Priorität | **P1** — ausdrückliche Pflicht (Art. 18 Abs. 1/2, Art. 21 Abs. 1) ohne technische Wirkung; automatische Löschjobs können zu erhaltende Beweismittel vernichten (Art. 17 Abs. 3 lit. e). |
 | Abnahmekriterien | AK-11 (REQ-025): aktive Einschränkung `sensor_analytics` → betroffene Route 423; Hold auf Mandant → `anonymize_expired_care_events` und `purge_expired_garden_plan_audit` lassen Zeilen unverändert und melden `held=n`; aktive Einschränkung → Kontolöschung bleibt `scheduled` mit `held_reason`; Aufhebung → nächster Lauf verarbeitet; Guard-Test: jeder Retention-Task ruft den Hold-Filter (statische Prüfung). |
 | Nötige Verifikation | Integrationstest je Job; Guard-Test. |
@@ -826,17 +909,37 @@ flowchart LR
 | Feld | Inhalt |
 |---|---|
 | Task-ID | PRA-1.07 |
-| LEG-IDs | LEG-15 (nur der nicht erledigte Teil; Plan-Audit-Marker ist ALREADY_FIXED durch DEC-16/v0109), LEG-54 |
+| LEG-IDs | LEG-15 (nur der nicht erledigte Teil; Plan-Audit-Marker ist ALREADY_FIXED durch DEC-16/v0109), LEG-54; Recovery-Nachtrag: LEG-65 |
 | Problem | `anon2_` existiert nur in Regex und Import (`domain/models/privacy.py:25`, `domain/engines/tenant_import_engine.py:401`); neue Pseudonymisierungen sind weiterhin instanzweit deterministisch (`anon_`). Der Mandanten-Import übernimmt `anon_` unverändert (`tenant_import_engine.py:399-406`), nach Import ist dasselbe Pseudonym in zwei Mandanten verknüpfbar und für den Art.-15-Export der Person unsichtbar (`data_access/arango/personal_data_repository.py:122-131`). `carry_account_reference` fehlt an Kopierstellen außer `account_of` (`care_event_backfill_mapper.py:183-191`); kein Residue-Scan nach Kontolöschung (PRIV-234). |
 | Empfohlene Lösung | PRIV-E03-Rest: (1) DEC-25: `anon2_ = HMAC(salt, "tombstone:"+tenant+":"+user)[:16]` für neue mandantenbezogene Zeilen bei Konto- und Mandantenlöschung; Art.-15-Suche je `(tenant_key, user_key)`. (2) `carry_account_reference(value, target_kind)` an allen Kopierstellen (`task_completion_engine.py:125, 256`, Plan-Audit, Import). (3) Import: `anon_` nur behalten bei gleicher Installation (Archiv-`installation_id`) **und** Allowlist-Zelle, sonst Marker. (4) Residue-Scan nach Commit der Kontolöschung: je kontoförmigem Feld Zählung echter Schlüssel/Tombstones außerhalb der Allowlist; > 0 → `partially_completed` + `residue`. (5) Salt-Mehrfachverwendung per PRIV-E18 auflösen. |
 | Betroffene Komponenten | `domain/engines/erasure_engine.py`, `data_access/arango/tenant_erasure_executor.py`, `data_access/arango/personal_data_repository.py`, `domain/engines/task_completion_engine.py`, `domain/engines/tenant_import_engine.py`, `data_access/arango/erasure_executor.py`, `domain/services/privacy_service.py` (`_finalize_erasure`) |
 | Abhängigkeiten | PRIV-E03, DEC-25 (Betreiberfreigabe Format), PRIV-E18 |
 | Bezug zu Epic/PRIV | setzt den Rest von E03 um (PRIV-205, PRIV-234, PRIV-238); Import-Regel neu; Salt-Trennung über E18 |
-| Abnahmefälle (`10`) | TA-121, TA-102/TA-208 (präzisiert), TA-238, TA-240 |
+| Abnahmefälle (`10`) | TA-121, TA-102/TA-208 (präzisiert), TA-238, TA-240; TA-744, TA-756 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | (6) Import-Abgleich gegen abgeschlossene Löschungen ([`17`](17-privacy-recovery.md) §6.4, LEG-65, PRIV-844): der Mandanten-Import ist der einzige Teil-Restore (`docs/de/deployment/tenant-export-import.md:3, 90`) und prüft heute nicht gegen `erasure_requests` (`domain/engines/tenant_import_engine.py:34–36`); vor dem Schreiben Tombstone und `jsub_` je Kontokennung des Archivs gegen `erasure_requests` (completed) und das Journal abgleichen; Treffer ⇒ Marker, Freitexte in die Prüfwarteschlange, Fotos dieser Person nicht importieren, Zuordnung zu einem bestehenden Konto gesperrt; Bericht zählt Treffer ohne Kennungen. (7) Residue-Scan auch als Freigabekriterium des Restores (PRIV-845). Rechtsteil: Q-DSB-03 erweitern (decision-log §D). |
+| Umsetzungsstatus | spezifiziert (`anon2_` ohne Erzeuger, `domain/models/privacy.py:25`; kein Import-Abgleich) |
 | Priorität | **P2** — Pseudonyme bleiben intern; Verknüpfbarkeit über Mandanten ist vermeidbare Exposition, keine offenkundig rechtswidrige Verarbeitung. |
 | Abnahmekriterien | TA-201, TA-208, TA-238; Unit-Test Import: `anon_…` aus fremder Installation → `_anonymized`, aus gleicher Installation nur in Allowlist-Zelle unverändert; Konsistenz-Beat meldet nach Import 0 Tombstones außerhalb der Allowlist; eingeschleuste Rohschlüssel-Zeile → `partially_completed` mit `residue`. |
 | Nötige Verifikation | Unit- und Integrationstests mit zwei Mandanten. |
 | Rechtsfreigabe nötig | nein — schutzverstärkend; LEG-15 bestätigt nur die Verhältnismäßigkeit des Bestands. |
+
+#### PRA-1.08 · Code · Versionsvollständige Objektlöschung und Object-Storage-Reconciler
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-1.08 |
+| LEG-IDs | LEG-26, LEG-60 |
+| Problem | Recovery-Prüfung 2026-11-23 ([`17`](17-privacy-recovery.md) §7, Szenario F). Der S3-Adapter löscht ohne `VersionId` (`data_access/storage/s3_adapter.py:164, 176`); auf einem versionierten Bucket entsteht nur ein Delete-Marker, die Bytes bleiben (LEG-26). Renditions (WEBP-Thumbnails, `domain/engines/storage/__init__.py:8`, `data_access/storage/local_fs_adapter.py:47`) und unvollständige Multipart-Uploads sind kein eigener Löschgegenstand. Nach einem DB-Restore auf T0 existieren Objekte ohne Katalogeintrag, und wiederhergestellte Katalogzeilen gelöschter Anhänge verweisen auf alte Versionen; der Waisen-Abgleich berichtet nur (`config/settings.py:1386` `storage_reconcile_delete_enabled=False`; Beat 04:10 `tasks/__init__.py:432–434`; `tasks/storage_tasks.py:531`) (LEG-60). |
+| Empfohlene Lösung | (1) Löschung je logischem Objekt: `ListObjectVersions` über Original- und Rendition-Schlüssel, `DeleteObject` je `VersionId` und je Delete-Marker; local-fs: Original und `rendition_keys`; jeder Fehlschlag ist ein Fehler, kein stiller Erfolg. (2) Object-Storage-Reconciler RC-10 (Erweiterung `tasks/storage_tasks.py`, `domain/engines/storage/reconciliation_keys.py`) als Phase OBJECT_STORAGE_RECONCILIATION des Restores (`17` §5.2): gelöschte Subjekte, Mandanten und Anhänge (Ereignisse der Klassen E und D) über alle Versionen und Renditions löschen; Objekte ohne Katalog in den nicht auslieferbaren Präfix `quarantine/<restore_id>/` (keine Presign-URL), physische Löschung nach R-65 (30 d), Rückführung in den Katalog nur durch Plattform-Admin und nie für Präfixe gelöschter Subjekte; Katalog ohne Objekt als fehlend markieren. (3) Metriken `storage_orphan_objects_total`, `storage_quarantine_objects_total` (`17` §11.4). (4) `storage_reconcile_delete_enabled` bleibt im Normalbetrieb `False`; die Quarantäne-Regel gilt nur im Restore. |
+| Betroffene Komponenten | `data_access/storage/s3_adapter.py`, `data_access/storage/local_fs_adapter.py`, `domain/engines/storage/`, `tasks/storage_tasks.py`, `data_access/arango/attachment_repository.py`, `observability/`, Restore-Controller (PRA-1.05) |
+| Abhängigkeiten | PRA-1.05 (Einbindung als Reconciliation-Phase; umgekehrt braucht PRA-1.05 diesen Reconciler, §6.1); PRA-0.10 (Lifecycle begrenzt Restbestände); PRA-3.06 (R-65 in der Matrix) |
+| Bezug zu Epic/PRIV | neu; Teil der Backup-Löschpropagation von E14; setzt PRIV-850 und PRIV-853 um (präzisiert PRIV-713) |
+| Abnahmefälle (`10`) | TA-749, TA-753 |
+| Umsetzungsstatus | spezifiziert — der Bericht-Reconcile existiert (`tasks/storage_tasks.py:531`), die versionsvollständige Löschung fehlt (`s3_adapter.py:164, 176`) |
+| Priorität | **P1** — ohne sie ist jede Objektlöschung auf einem versionierten Bucket unvollständig, und ein Restore macht gelöschte Fotos wieder abrufbar (Art. 17 Abs. 1, Art. 5 Abs. 1 lit. e). |
+| Abnahmekriterien | TA-749: Foto nach dem Dump gelöscht (versionierter MinIO) ⇒ nach der Freigabe liefert `list-object-versions` für Original und Renditions nichts; TA-753: nach dem Dump hochgeladenes Objekt ⇒ nach dem Restore in Quarantäne, Abruf 404, nach R-65 gelöscht; Unit: Löschfehler einer Version ⇒ Ausnahme, das Restore-Gate bleibt zu. |
+| Nötige Verifikation | Integrationstests gegen MinIO mit Versionierung; Drill F (PRA-3.09). |
+| Rechtsfreigabe nötig | ja — nur für die Quarantäne-Frist R-65 und die physische Löschung nicht zugeordneter Objekte nach Fristablauf (mögliche legitime Uploads nach T0, datenvernichtend); die versionsvollständige Löschung bereits gelöschter Objekte nicht. |
 
 ---
 
@@ -871,6 +974,8 @@ flowchart LR
 | Abhängigkeiten | PRA-2.01 |
 | Bezug zu Epic/PRIV | neu (Snapshots fehlten in E07) |
 | Abnahmefälle (`10`) | TA-244 |
+| Recovery-Nachtrag (2026-11-23) | Jede Snapshot-Schwärzung emittiert nach PRA-1.04 das Journal-Ereignis `REDACTION_APPLIED` (`jrec_` + Feldnamen, kein Inhalt; [`17`](17-privacy-recovery.md) §3.3), damit ein DB-Restore die Schwärzung in Live-Zeile und Snapshots erneut anwendet (LEG-34, `17` §6.3 „Freitextfelder“). |
+| Umsetzungsstatus | spezifiziert |
 | Priorität | **P2** — konkreter Weg, eine durchgeführte Löschung oder Schwärzung rückgängig zu machen (Art. 16, Art. 17 Abs. 1). |
 | Abnahmekriterien | Integrationstest: Location-Notiz schwärzen → alle Snapshots der Site enthalten für diesen `key` `[redacted]`; Restore eines älteren Snapshots → Live-Notiz bleibt `[redacted]`; Kontolöschung einer Person mit Beetvorlage → Prüfeintrag referenziert auch die Snapshot-Zeile. |
 | Nötige Verifikation | Integrationstest Restore. |
@@ -989,7 +1094,9 @@ flowchart LR
 | Betroffene Komponenten | `domain/engines/tenant_erasure_engine.py`, `domain/services/tenant_service.py`, Frontend Löschdialog, Betreiberdoku (Herausgabeprozess) |
 | Abhängigkeiten | PRA-1.02, LEG-03 (welche Zeilen gesetzlich sind), PRIV-E09 |
 | Bezug zu Epic/PRIV | neu; nutzt das Flag `PRIVACY_RECORD_KEEPING_RECLASSIFY` aus E09 |
-| Abnahmefälle (`10`) | TA-419 |
+| Abnahmefälle (`10`) | TA-419; TA-745 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Nach einem Restore mit Mandantenlöschung im Replay bleiben Pflichtzeilen pseudonymisiert und aus Produktfunktionen (Listen, Suche, Export an Mitglieder, KI-Kontext) ausgeschlossen (PRIV-843, [`17`](17-privacy-recovery.md) §6.1). |
+| Umsetzungsstatus | spezifiziert |
 | Priorität | **P2** — Aufbewahrung ohne erreichbaren Zweck (Art. 5 Abs. 1 lit. b/e), aber kein Datenabfluss. |
 | Abnahmekriterien | Integrationstest: Klasse `none` mit Flag an → keine Pflichtzeilen mehr nach Löschung; `pflschg_professional` → Zeilen bleiben, Herausgabe erzeugt Audit-Zeile; Dialog-Test: Löschung ohne Export-Bestätigung nicht absendbar. |
 | Nötige Verifikation | Integrationstest, Dialog-Test, Review der Betreiberdoku. |
@@ -1092,7 +1199,9 @@ flowchart LR
 | Betroffene Komponenten | `features/gardenPlanner/offline/{queueTypes,queue,retention,planCache,queueDb}.ts`, `pwa/sessionListener.ts`, `config/runtimeConfig.ts`, `OfflineSyncHost.tsx`, `pages/…/AccountSettingsPage.tsx`, `domain/services/auth_service.py`, `common/auth.py`, `features/gardenPlanner/offline/sync.ts`, `helm/kamerplanter/values.yaml`, `spec/req/REQ-025…` §10, `docs/*/user-guide/privacy.md` |
 | Abhängigkeiten | PRA-0.07, PRA-0.08, PRIV-E10, PRIV-E11; Security-Review zu Enumeration (PRIV-520) |
 | Bezug zu Epic/PRIV | setzt den Rest von E10 und E11 um (PRIV-500, 511, 519…521, 525, 530…533) |
-| Abnahmefälle (`10`) | TA-500, TA-511, TA-519…TA-521, TA-530…TA-532 (präzisiert), TA-536 |
+| Abnahmefälle (`10`) | TA-500, TA-511, TA-519…TA-521, TA-530…TA-532 (präzisiert), TA-536; TA-759 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | (7) Restore-Epoche im Client (PRIV-846, [`17`](17-privacy-recovery.md) §2.5, §6.3): API-Header `X-KP-Restore-Epoch`; bei neuer Epoche verwirft der Client Plan-Cache und SW-API-Cache und legt Puffer-Einträge zur Bestätigung vor, statt sie automatisch an den wiederhergestellten Server zu senden. |
+| Umsetzungsstatus | spezifiziert |
 | Priorität | **P1** — rechtlich unsichere Speicherung auf Endgeräten aller Bestandsnutzer ohne Handlung (TDDDG § 25) und nachweisbare Art.-17-Lücke auf Geräten. |
 | Abnahmekriterien | TA-500, TA-511, TA-519, TA-520, TA-521, TA-530, TA-531, TA-532; Vitest mit fixierter Uhr; E2E „Quarantäne bei toter Sitzung“ und „Opt-in-Übergang“; pytest für beide Fehlercodes. |
 | Nötige Verifikation | Vitest, pytest, E2E. |
@@ -1143,7 +1252,9 @@ flowchart LR
 | Betroffene Komponenten | `domain/models/privacy.py`, `domain/services/privacy_service.py`, `domain/services/retention_service.py`, `domain/engines/data_export_engine.py`, `config/settings.py`, `src/backend/app/main.py`, `docs/de/reference/environment-variables.md`, `docs/*/user-guide/data-retention.md` |
 | Abhängigkeiten | PRA-1.01, PRA-1.03; PRA-1.05 für Punkt (4); Texte über PRA-3.01 |
 | Bezug zu Epic/PRIV | neu; liefert die technische Quelle für die Art.-13-Texte von E16 und PRIV-708 |
-| Abnahmefälle (`10`) | TA-421, TA-422, TA-423, TA-424, TA-637 |
+| Abnahmefälle (`10`) | TA-421 (präzisiert im Recovery-Nachtrag), TA-422, TA-423, TA-424, TA-637 |
+| Recovery-Nachtrag (2026-11-23) | Punkt (4) um die Journal-Frist ergänzt (PRIV-874, ergänzt PRIV-708): Datenschutzinformation nennt Dump-Frist, Journal-Frist R-63 (≤ 90 d, nur Pseudonyme) und die Wiederanwendung von Löschungen, Widerrufen und Sperren nach einem Restore ([`17`](17-privacy-recovery.md) §3.8). |
+| Umsetzungsstatus | spezifiziert |
 | Priorität | **P2** — Pflichtinformationen (Art. 13, Art. 15 Abs. 1) unvollständig, ohne Datenabfluss. |
 | Abnahmekriterien | API-Test: Antwort enthält die neuen Felder, Empfängerliste nicht leer, sobald ein externer Adapter aktiv; Startup-Test: `production` mit Platzhalter-E-Mail → Startverweigerung mit wertfreier Meldung; Unit: jede Bündelsektion trägt `purpose`/`retention`; Guard: jede Manifest-Collection einer Policy-Zeile zugeordnet; Guard `AttachmentCategory` grün; Art. 77 in `rights_summary`. |
 | Nötige Verifikation | API-, Startup-, Unit-Tests, Guards. |
@@ -1183,6 +1294,60 @@ flowchart LR
 | Nötige Verifikation | Unit-, Service- und Beat-Tests. |
 | Rechtsfreigabe nötig | nein — Umsetzung einer ausdrücklichen Pflicht; Texte an Betroffene über PRA-3.01. |
 
+#### PRA-2.21 · Code · Widerrufspfade fail-closed
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-2.21 |
+| LEG-IDs | LEG-66 |
+| Problem | Recovery-Prüfung 2026-11-23 ([`17`](17-privacy-recovery.md) §4.4). `ApiKeyRepository.revoke` fängt jede Exception und gibt `False` zurück (`data_access/arango/api_key_repository.py:70–77`); `domain/services/auth_service.py:2404–2412` ignoriert den Rückgabewert und loggt `api_key_revoked`; die Route antwortet „API key revoked.“ (`api/v1/auth/router.py:914–922`). Gleiches Muster in `domain/services/privacy_service.py:868` und `domain/services/tenant_service.py:3216, 3287`. Ein fehlgeschlagener Schreibschritt lässt einen kompromittierten Key aktiv, während Person und Log das Gegenteil sagen; mit einem Journal entstünde zusätzlich ein Ereignis ohne Widerruf. |
+| Empfohlene Lösung | (1) Widerrufspfade werfen bei Fehlschlag eine typisierte Ausnahme statt `False`; Services leiten sie weiter, die Route antwortet 5xx (Fehlercode nach NFR-006), Log ohne Erfolgsmeldung. (2) Dieselbe Korrektur an `privacy_service.py:868` und `tenant_service.py:3216, 3287`; `mode_switch_service.py:208` prüft bereits und dient als Vorbild. (3) Guard: keine Widerrufsmethode eines Repositorys verschluckt Exceptions (AST-Scan auf `except Exception` mit `return False`). (4) Nach PRA-1.04 entsteht `API_KEY_REVOKED` ausschließlich im Commit des Widerrufs (PRIV-812). |
+| Betroffene Komponenten | `data_access/arango/api_key_repository.py`, `domain/services/auth_service.py`, `api/v1/auth/router.py`, `domain/services/privacy_service.py`, `domain/services/tenant_service.py`, `tests/unit/guards/` |
+| Abhängigkeiten | — ; Voraussetzung für PRA-1.04 (§6.1) |
+| Bezug zu Epic/PRIV | neu; Voraussetzung von E14; setzt PRIV-812 um |
+| Abnahmefälle (`10`) | TA-737 |
+| Umsetzungsstatus | spezifiziert (Vorbild mit Rückgabeprüfung: `mode_switch_service.py:208`) |
+| Priorität | **P2** — vor PRA-1.04 umzusetzen; wirkt auch ohne Restore (Art. 32 Abs. 1 lit. b). |
+| Abnahmekriterien | TA-737: Repository-Fehler bei `revoke` ⇒ Exception, Route 5xx, kein Erfolgs-Log, nach PRA-1.04 kein Outbox-Eintrag; der Guard schlägt bei einem eingebrachten `except Exception: return False` fehl. |
+| Nötige Verifikation | Unit- und API-Test, Guard. |
+| Rechtsfreigabe nötig | nein |
+
+#### PRA-2.22 · Code, Helm · Secret-Identitäts-Gate und Backup-Manifest
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-2.22 |
+| LEG-IDs | LEG-67; Manifest-Teil LEG-11 |
+| Problem | Recovery-Prüfung 2026-11-23 ([`17`](17-privacy-recovery.md) §3.9, §5.4). Die Startgates prüfen nur die Länge von `ERASURE_TOMBSTONE_SALT` (`main.py:96–98`; `tasks/__init__.py:109ff.`), einen gespeicherten Fingerabdruck gibt es nicht (`system_meta`, `data_access/arango/collections.py:166–168`). Ein Restore mit neu erzeugtem Salt (die Doku warnt nur, `docs/de/deployment/backup-restore.md:20–21`) startet fehlerfrei; danach trifft kein Tombstone- oder Pseudonym-Abgleich (`compute_tombstone_hash`, `domain/engines/erasure_engine.py:1236`), Tombstones zweier Generationen sind nicht verknüpfbar (PRIV-714). Der Backup-CronJob schreibt kein Manifest (`helm/kamerplanter/values.yaml:1324–1460`); der Replay-Startpunkt lässt sich nicht gegen den Journal-Kopf vor dem Dump absichern. |
+| Empfohlene Lösung | (1) Fingerabdrücke `HMAC(secret, "kp:<name>-fp:v1")` für Tombstone-Salt, Fernet-Key und (nach PRA-1.04) `PRIVACY_JOURNAL_KEY` beim ersten Start in `system_meta/privacy_recovery` (RC-06); jeder Start von Backend und Worker vergleicht und verweigert bei Abweichung (`SECRET_MISMATCH`), auch bei `DEBUG`. (2) Ein bewusster Secret-Wechsel nur über ein Kommando, das alten und neuen Fingerabdruck nachweist (Rotation nach PRIV-714). (3) Init-Schritt im CronJob `arangodb-backup`: Journal-Kopf (sobald vorhanden) **vor** `arangodump` lesen und `manifest.json` (Zeit, `journal_seq_at_start`, Schema-Kopf, Fingerabdrücke, Prüfsumme) neben den Dump schreiben; das Docker-Skript (PRA-3.07) gleichwertig. (4) Der Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` prüft den Manifest-Schritt. |
+| Betroffene Komponenten | `src/backend/app/main.py`, `tasks/__init__.py`, `data_access/arango/mode_switch_repository.py` bzw. Repository für `system_meta`, `helm/kamerplanter/values.yaml` (CronJob), `scripts/ci/assert_chart_contracts.sh`, `scripts/backup-docker.sh` (PRA-3.07) |
+| Abhängigkeiten | — ; Voraussetzung für PRA-1.05 (Gate-Grund `SECRET_MISMATCH`, Backup-Validierung, Replay-Startpunkt); Journal-Schlüssel-Teil nach PRA-1.04 |
+| Bezug zu Epic/PRIV | neu; Voraussetzung von E14; setzt PRIV-813 und PRIV-814 um, ergänzt PRIV-714 |
+| Abnahmefälle (`10`) | TA-739, TA-730 |
+| Umsetzungsstatus | spezifiziert (Längengate `main.py:96–98` und Ablageort `system_meta` existieren) |
+| Priorität | **P2** — fail-open genau an der Stelle, auf der Journal und Abgleich aufbauen; vor PRA-1.05. |
+| Abnahmekriterien | TA-739: Start mit anderem Salt gleicher Länge ⇒ Backend verweigert (Gate `SECRET_MISMATCH`), Worker verweigern Aufgaben; TA-730: das Manifest trägt einen `journal_seq_at_start`, der vor dem Dump gelesen wurde; Chart-Vertrag: CronJob ohne Manifest-Schritt ⇒ Fehler. |
+| Nötige Verifikation | Startup- und Integrationstest, Chart-Vertrag. |
+| Rechtsfreigabe nötig | nein |
+
+#### PRA-2.23 · Code (Compose), Doku · Docker-Release: Anhänge-Volume für backend und celery-worker
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-2.23 |
+| LEG-IDs | LEG-64 |
+| Problem | Recovery-Prüfung 2026-11-23 ([`17`](17-privacy-recovery.md) §5.8). Default `storage_backend="local-fs"`, Root `/data/attachments` (`config/settings.py:1303, 1430`); `docker-compose.release.yml` mountet für `backend` und `celery-worker` nur `./spec/knowledge/rag` (`:145–146, 194–195`), Volumes gibt es nur für `arangodb_data`, `valkey_data`, `timescaledb_data`, `vectordb_data`, `ollama_models` (`:252–257`); das Image legt `/data` nicht an (`src/backend/Dockerfile:110–115`, `USER 1000`). Die Doku sagt „alle anderen Daten werden in Docker Volumes gespeichert“ (`docs/de/deployment/docker-dauerbetrieb.md:195, 201–204`). Folge (statisch abgeleitet): Anhänge sind entweder nicht schreibbar oder liegen im flüchtigen Container-Dateisystem, sind nicht gesichert, und die Löschphase 0 im Worker erreicht die Dateien des Backend-Containers nicht. Ob Uploads scheitern oder schreiben, ist ohne Container-Start nicht prüfbar. |
+| Empfohlene Lösung | (1) Benanntes Volume `attachments` unter `/data/attachments`, gemountet in `backend` **und** `celery-worker` (gleicher Pfad), Besitz UID 1000. (2) Doku: Volume in der Volume-Liste und in der Backup-Anleitung mit derselben Frist wie die DB-Dumps. (3) Smoke-Test: Upload über das Backend, Kontolöschung über den Worker entfernt dieselbe Datei. |
+| Betroffene Komponenten | `docker-compose.release.yml`, `src/backend/Dockerfile` (optional `/data` anlegen), `docs/de/deployment/docker-dauerbetrieb.md` (und EN-Spiegel) |
+| Abhängigkeiten | — ; Backup-Teil zusammen mit PRA-3.07 |
+| Bezug zu Epic/PRIV | neu; Teil von PRIV-833 |
+| Abnahmefälle (`10`) | TA-757 |
+| Umsetzungsstatus | spezifiziert |
+| Priorität | **P2** — falls Uploads schreiben, entstehen Fotos ohne Löschpfad (Art. 17) und ohne Sicherung; **P3**, falls ein Container-Test zeigt, dass Uploads scheitern (dann Funktionsfehler). |
+| Abnahmekriterien | Compose-Datei mountet `attachments` in beiden Diensten; Smoke-Test Upload → Kontolöschung → Datei nicht mehr vorhanden; Doku nennt Volume und Sicherung; TA-757. |
+| Nötige Verifikation | Container-Start (Laufzeit), Docs-Build. |
+| Rechtsfreigabe nötig | nein |
+
 ---
 
 ### 6.5 Phase 3 — Governance und Betriebsreife
@@ -1211,13 +1376,15 @@ flowchart LR
 | Task-ID | PRA-3.02 |
 | LEG-IDs | LEG-32 |
 | Problem | Erkennung, Bewertung, 72-h-Meldung, Benachrichtigung und Dokumentation jeder Verletzung (Art. 33 Abs. 5) fehlen; vorhandene Signale (`security_audit_log` R-38 730 d, Lockout-Logs, Refresh-Replay-Erkennung `revoke_family`, MCP-/KI-Audit) münden in keinen Alarm; IP-Anonymisierung nach 7 d verkürzt das Forensikfenster (Stränge D, F). |
-| Empfohlene Lösung | (1) `spec/privacy/17-incident-response.md`: Klassifizierung (Vertraulichkeit/Integrität/Verfügbarkeit × Datenkategorie × Betriebsmodell), Rollen (Betreiber, Mandant, Unter-AV, DSB), Ablauf Erkennung → Eindämmung → Bewertung (Risikomatrix Art. 33/34) → Meldung (≤ 72 h, Vorlage) → Benachrichtigung (Vorlage Art. 34) → Abschluss; TA-Einträge in `10`. (2) Collection `privacy_incidents` (nur Plattform-Admin, R-nn ≥ 3 J) mit Feldern nach Art. 33 Abs. 5, Route `POST /admin/platform/privacy/incidents`, Audit. (3) Funktion „Mandanten benachrichtigen“ (Mail an alle `management` ausgewählter Mandanten, auditiert; Art. 33 Abs. 2 für BM-001). (4) PrometheusRules aus NFR-007 §3.2 plus Sicherheits-Alerts (gehäufte `not_found`/`permission.denied` je API-Key in MCP, Spitze bei Tenant-Exporten, Step-up-Sperren, `refresh_token_replay`, Lockout-Häufung, Fehlerspitze in `erasure`, Admin-Login neue IP/UA). (5) Beweissicherung über `RETENTION_LEGAL_HOLD_SECURITY_AUDIT` (PRA-1.06). (6) Runbook aus PRA-0.11 zum Vollverfahren ausbauen. |
-| Betroffene Komponenten | `spec/privacy/17-…` (neu), `spec/privacy/10`, `spec/privacy/README.md`, Backend (Router/Service/Repository für `privacy_incidents`), `helm/kamerplanter/templates` (`monitoring.enabled`), `docs/*/deployment/incident-response.md` |
+| Empfohlene Lösung | (1) `spec/privacy/19-incident-response.md` (umnummeriert im Recovery-Nachtrag 2026-11-23: `17` ist SPEC-17 Privacy Recovery, `18` das Empfängerregister): Klassifizierung (Vertraulichkeit/Integrität/Verfügbarkeit × Datenkategorie × Betriebsmodell), Rollen (Betreiber, Mandant, Unter-AV, DSB), Ablauf Erkennung → Eindämmung → Bewertung (Risikomatrix Art. 33/34) → Meldung (≤ 72 h, Vorlage) → Benachrichtigung (Vorlage Art. 34) → Abschluss; TA-Einträge in `10`. (2) Collection `privacy_incidents` (nur Plattform-Admin, R-nn ≥ 3 J) mit Feldern nach Art. 33 Abs. 5, Route `POST /admin/platform/privacy/incidents`, Audit. (3) Funktion „Mandanten benachrichtigen“ (Mail an alle `management` ausgewählter Mandanten, auditiert; Art. 33 Abs. 2 für BM-001). (4) PrometheusRules aus NFR-007 §3.2 plus Sicherheits-Alerts (gehäufte `not_found`/`permission.denied` je API-Key in MCP, Spitze bei Tenant-Exporten, Step-up-Sperren, `refresh_token_replay`, Lockout-Häufung, Fehlerspitze in `erasure`, Admin-Login neue IP/UA). (5) Beweissicherung über `RETENTION_LEGAL_HOLD_SECURITY_AUDIT` (PRA-1.06). (6) Runbook aus PRA-0.11 zum Vollverfahren ausbauen. |
+| Betroffene Komponenten | `spec/privacy/19-incident-response.md` (neu), `spec/privacy/10`, `spec/privacy/README.md`, Backend (Router/Service/Repository für `privacy_incidents`), `helm/kamerplanter/templates` (`monitoring.enabled`), `docs/*/deployment/incident-response.md` |
 | Abhängigkeiten | PRA-0.11, PRA-1.03 (Unter-AV-Kontakte), PRA-1.06 (Audit-Hold), NFR-007 |
-| Bezug zu Epic/PRIV | neu (geplantes Dokument `17`) |
-| Abnahmefälle (`10`) | TA-037, TA-038, TA-136, TA-910 |
+| Bezug zu Epic/PRIV | neu (geplantes Dokument `19`) |
+| Abnahmefälle (`10`) | TA-037, TA-038, TA-136, TA-910; TA-722 (präzisiert, Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | (7) Metriken und Alarme aus [`17`](17-privacy-recovery.md) §11.4 als `PrometheusRule` (u. a. `privacy_journal_outbox_age_seconds`, `privacy_recovery_gate_closed{reason}`, `backup_oldest_dump_age_days`), Alarm `PrivacyRecoveryBlocked` mit Runbook-Link (PRIV-871); (8) ein Restore ohne Reconciliation (heutiger Zustand) wird im Verfahren als möglicher Vorfall geprüft (Q-LAW-18, Vorschlag in `17` §10.3). |
+| Umsetzungsstatus | spezifiziert |
 | Priorität | **P1** — fehlende Grundsicherung; **Release-Blocker für BM-001** (PRA-0.02). |
-| Abnahmekriterien | `17` existiert, ist im README verlinkt und hat TA-Einträge; API-Test: `POST /admin/platform/privacy/incidents` 403 für Nicht-Admins, Register verlangt Art, Kategorien, Zahl der Betroffenen, Folgen, Maßnahmen, Meldezeitpunkt; Helm-Template-Test: `monitoring.enabled=true` rendert mindestens eine `PrometheusRule` mit Sicherheits-Alert; Unit-Test: Setting unterbindet `purge_expired_security_audit`; Tabletop-Übung protokolliert (PRA-3.09). |
+| Abnahmekriterien | `19` existiert, ist im README verlinkt und hat TA-Einträge; API-Test: `POST /admin/platform/privacy/incidents` 403 für Nicht-Admins, Register verlangt Art, Kategorien, Zahl der Betroffenen, Folgen, Maßnahmen, Meldezeitpunkt; Helm-Template-Test: `monitoring.enabled=true` rendert mindestens eine `PrometheusRule` mit Sicherheits-Alert; Unit-Test: Setting unterbindet `purge_expired_security_audit`; Tabletop-Übung protokolliert (PRA-3.09). |
 | Nötige Verifikation | Helm-Template-Test, API-Tests, Tabletop. |
 | Rechtsfreigabe nötig | ja — Meldevorlagen, Fristen und Rolle des Plattformbetreibers für Meldungen der Mandanten. |
 
@@ -1283,7 +1450,9 @@ flowchart LR
 | Betroffene Komponenten | `spec/privacy/06`, `spec/nfr/NFR-011…`, `docs/*/user-guide/data-retention.md`, `helm/kamerplanter/values.yaml`, `tasks/storage_tasks.py` (Reconcile), `observability/` |
 | Abhängigkeiten | PRA-1.01, PRIV-E13; Betreiberantwort zu Log-Pipeline und Snapshots |
 | Bezug zu Epic/PRIV | verweist für R-46…R-48 auf E13 (keine Dublette); R-49 ff. neu |
-| Abnahmefälle (`10`) | TA-135, TA-427, TA-914 |
+| Abnahmefälle (`10`) | TA-135, TA-427, TA-914; TA-753 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Zeilen aus [`17`](17-privacy-recovery.md) §3.8/§7.4 in `06`: R-63 Journal (`L_eff + 14 d`, ≤ 90 d; ersetzt R-45), R-64 Restore-Evidence-Reports (3 J., ohne Personendaten), R-65 Quarantäne verwaister Objekte nach Restore (30 d), Outbox bis Ack + 7 d; Waisen-Quarantäne nach Restore (PRIV-853) neben der Metrik aus Punkt (4). |
+| Umsetzungsstatus | spezifiziert (Bericht-Reconcile existiert, `tasks/storage_tasks.py:531`) |
 | Priorität | **P2** — Art. 30 Abs. 1 lit. f und Art. 13 Abs. 2 lit. a unvollständig; Lücken in der Matrix sind Lücken im Replay- und Residue-Scope. |
 | Abnahmekriterien | Jede Zeile der Strang-D-Matrix hat ID, Frist, Durchsetzung; `06` und `data-retention.md` konsistent (Spec-Drift-Check); Unit-Test: Metrik und Warnung bei 31 d alten Waisen; Betreiber bestätigt Log-Frist (Nachweis PRA-3.09). |
 | Nötige Verifikation | Spec-Drift-Check, Unit-Test, Betreibernachweis. |
@@ -1295,12 +1464,14 @@ flowchart LR
 |---|---|
 | Task-ID | PRA-3.07 |
 | LEG-IDs | LEG-42, LEG-43 |
-| Problem | Nachweisbar sind nur Fernet für Feld-Secrets und SSE für S3 (`s3_adapter.py:106, 297`; Backup `values.yaml:604-605`); für ArangoDB-, Valkey-, TimescaleDB- und `backend-attachments`-Volumes verlangt keine Doku eine verschlüsselte StorageClass (Grep `at rest|ruhend|LUKS` → 0) (LEG-42). Der Docker-Pfad (`docs/de/deployment/docker-dauerbetrieb.md:205-233`) empfiehlt unbefristete Klartext-Dumps, übergibt `--server.password` als Argument und beschreibt den Restore ohne Löschhinweis (LEG-43). |
+| Problem | Nachweisbar sind nur Fernet für Feld-Secrets und SSE für S3 (`s3_adapter.py:106, 297`; Backup `values.yaml:607–608`, Zitat korrigiert im Recovery-Nachtrag); für ArangoDB-, Valkey-, TimescaleDB- und `backend-attachments`-Volumes verlangt keine Doku eine verschlüsselte StorageClass (Grep `at rest|ruhend|LUKS` → 0) (LEG-42). Der Docker-Pfad (`docs/de/deployment/docker-dauerbetrieb.md:205-233`) empfiehlt unbefristete Klartext-Dumps, übergibt `--server.password` als Argument und beschreibt den Restore ohne Löschhinweis (LEG-43). |
 | Empfohlene Lösung | (1) Betreiberanforderung in `docs/de/deployment/helm.md`/`kubernetes.md`: StorageClass mit Volume-Verschlüsselung (Talos-Disk-Encryption, LUKS, CSI-Encryption); optional Value `security.requireEncryptedStorageClass` mit Allowlist und Render-Fail. (2) Backup: Option rclone `crypt`-Remote zusätzlich zu SSE. (3) `scripts/backup-docker.sh` mit Passwort-Expansion wie im Helm-Job, `find … -mtime +30 -delete`, optional `age`/`gpg`; Restore-Hinweis auf Replay (PRA-1.05). (4) TOM-Verzeichnis: Abwägung zur Verschlüsselung dokumentieren (Art. 5 Abs. 2, Art. 32 Abs. 1 lit. a). |
 | Betroffene Komponenten | `docs/de/deployment/helm.md`, `docs/de/deployment/kubernetes.md`, `docs/de/deployment/docker-dauerbetrieb.md`, `scripts/backup-docker.sh` (neu), `helm/kamerplanter/values.yaml` (optional) |
 | Abhängigkeiten | PRA-1.05 (Replay-Hinweis) |
 | Bezug zu Epic/PRIV | neu |
-| Abnahmefälle (`10`) | TA-039, TA-725, TA-915 |
+| Abnahmefälle (`10`) | TA-039, TA-725, TA-915 (präzisiert); TA-757 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | (5) Backup-Verschlüsselung je Generation (rclone `crypt` oder `age`, Schlüssel je Monat, Vernichtung `L_eff + 7 d` nach dem letzten Dump der Generation; Pflicht für BM-001, sonst empfohlen; Q-OP-16) (PRIV-860, [`17`](17-privacy-recovery.md) §8.2); (6) `scripts/backup-docker.sh` schreibt das Manifest aus PRA-2.22; Docker-Restore nach `17` §11.3 (gestoppte Anwendung, Valkey leer, Reconcile per Override; PRIV-833). |
+| Umsetzungsstatus | spezifiziert (nur SSE, `values.yaml:1443–1444`) |
 | Priorität | **P2** — Diebstahl eines Datenträgers oder Snapshots legt alle Daten offen; Art. 34 Abs. 3 lit. a hängt an Verschlüsselung. |
 | Abnahmekriterien | Doku-Abschnitte vorhanden; Docker-Doku zeigt das Passwort nicht als Argument, nennt Frist ≤ 35 d und Löschpropagation; optional Render-Test mit nicht gelisteter StorageClass → Fehler; Backup-Drill mit `crypt`-Remote (PRA-3.09). |
 | Nötige Verifikation | Docs-Build, Drill, Betreiberbestätigung der StorageClass. |
@@ -1330,11 +1501,13 @@ flowchart LR
 | Task-ID | PRA-3.09 |
 | LEG-IDs | LEG-11, LEG-24, LEG-32 |
 | Problem | Der Restore-Drill 2026-10-04 prüfte nur Dokumentanzahlen (`docs/de/deployment/backup-restore.md:103-104`); kein Drill mit präpariertem gelöschtem Konto (PRIV-712/TA-710), keine Tabletop-Übung für Datenpannen, keine Ablage für Betreibernachweise (Ergebnisse von PRA-0.01…0.04, Log-Frist, StorageClass, Lifecycle-Regeln). Rechenschaftspflicht Art. 5 Abs. 2. |
-| Empfohlene Lösung | (1) Quartals-Drill (Nightly, sobald automatisierbar) mit präpariertem Konto je Szenario S3, S5, S6, S7 (Strang D §c), Bericht `migration_reports/restore_replay` als Nachweis. (2) Jährliche Tabletop-Übung nach `17` (PRA-3.02) mit Protokoll. (3) Evidenzablage: je Installation ein datiertes Nachweisdokument im Betriebs-Repo (außerhalb des Produkt-Repos), Vorlage unter `docs/de/deployment/`; Nachweistypen Konfigurationsprüfung, Drill, Tabletop, Betreiberbestätigung. (4) Audit-Aktionen für privacy-relevante Admin-Handlungen vollständig (Liste in Zielarchitektur ([`01`](01-privacy-architecture.md))). |
+| Empfohlene Lösung | (1) Quartals-Drill (Nightly, sobald automatisierbar) mit präpariertem Konto je Szenario S3, S5, S6, S7 (Strang D §c), Bericht `migration_reports/restore_replay` als Nachweis. (2) Jährliche Tabletop-Übung nach `19` (PRA-3.02; umnummeriert im Recovery-Nachtrag) mit Protokoll. (3) Evidenzablage: je Installation ein datiertes Nachweisdokument im Betriebs-Repo (außerhalb des Produkt-Repos), Vorlage unter `docs/de/deployment/`; Nachweistypen Konfigurationsprüfung, Drill, Tabletop, Betreiberbestätigung. (4) Audit-Aktionen für privacy-relevante Admin-Handlungen vollständig (Liste in Zielarchitektur ([`01`](01-privacy-architecture.md))). |
 | Betroffene Komponenten | `docs/de/deployment/backup-restore.md`, `docs/de/deployment/` (Nachweisvorlage), CI-Workflow für Nightly-Drill, Betriebs-Repo |
 | Abhängigkeiten | PRA-1.05, PRA-3.02, PRA-0.01…0.04 |
 | Bezug zu Epic/PRIV | setzt den Nightly-Drill von E14 (PRIV-712, TA-710) als Nachweis um |
-| Abnahmefälle (`10`) | TA-916 |
+| Abnahmefälle (`10`) | TA-916 (präzisiert); TA-744…TA-751, TA-760 (Recovery-Nachtrag) |
+| Recovery-Nachtrag (2026-11-23) | Drill mit den Szenarien A–H aus [`17`](17-privacy-recovery.md) §9 (TA-744…TA-751) statt S3/S5/S6/S7 in Punkt (1); ein Restore gilt im Drill nur als erfolgreich, wenn INTEGRITY_VALIDATED erreicht ist; Evidence-Report-Vorlage nach `17` §11.5 (R-64, TA-760) als Nachweistyp der Evidenzablage (PRIV-870, PRIV-872). |
+| Umsetzungsstatus | spezifiziert (Drill 2026-10-04 prüfte nur Dokumentanzahlen, `test-reports/backup-restore/2026-10-04-arangodb-restore-drill.md`) |
 | Priorität | **P2** — Wirksamkeitsnachweis der P1-Kontrollen (Art. 32 Abs. 1 lit. d); ohne ihn bleibt LEG-11 nicht freigebbar. |
 | Abnahmekriterien | Erster Drill-Bericht mit allen vier Szenarien grün; Tabletop-Protokoll vorhanden; Nachweisvorlage in der Doku; Einträge zu PRA-0.01…0.04 abgelegt. |
 | Nötige Verifikation | Drill-Lauf, Review der Protokolle. |
@@ -1358,11 +1531,30 @@ flowchart LR
 | Nötige Verifikation | Grep, Skript, Spec-Drift-Check. |
 | Rechtsfreigabe nötig | nein |
 
+#### PRA-3.11 · Doku, Code-Spike · Mandantenschlüssel für Objektspeicher (BM-001) evaluieren
+
+| Feld | Inhalt |
+|---|---|
+| Task-ID | PRA-3.11 |
+| LEG-IDs | LEG-11 (Teil: Objektkopien in Versionen, Replikaten und Offsite-Kopien) |
+| Problem | Recovery-Prüfung 2026-11-23 ([`17`](17-privacy-recovery.md) §8). Heute ist nichts mit einem Subjekt- oder Mandantenschlüssel verschlüsselt; Fernet schützt nur Feld-Secrets (`domain/engines/encryption_engine.py:55–90`), Objekte tragen nur SSE (`data_access/storage/s3_adapter.py:106, 297`). Eine Mandantenlöschung erreicht Objektkopien in Versionen, Replikaten und Offsite-Kopien nur über Lifecycle-Fristen. |
+| Empfohlene Lösung | Spike und Entscheidungsvorlage zu Q-PO-24: SSE-C oder Envelope-Verschlüsselung je Mandant für den Objektspeicher in BM-001 — Schlüsselverwaltung (KMS, Rotation, Vernichtung nach Mandantenlöschung + Frist), Auswirkung auf Presign, Renditions, Export/Import, Kosten; die Grenzen nach `17` §8.3 (Metadaten, Kopien vor der Verschlüsselung, abgeleitete Daten, Schlüsselverlust) in der Betreiberdoku (PRIV-861). Kein Crypto-Shredding je Subjekt im Datenbestand (`17` §8.2 Pkt. 4); Crypto-Shredding ersetzt das Journal nicht. |
+| Betroffene Komponenten | `spec/privacy/17-privacy-recovery.md` §8 (Ergebnis), `data_access/storage/s3_adapter.py` (Spike), `docs/de/deployment/backup-restore.md` (Grenzen) |
+| Abhängigkeiten | Q-PO-24; PRA-1.08; PRA-3.07 (Generationsschlüssel) |
+| Bezug zu Epic/PRIV | neu; Ergänzung zu E14; setzt PRIV-861 um |
+| Abnahmefälle (`10`) | TA-918 |
+| Umsetzungsstatus | spezifiziert |
+| Priorität | **P3** — Ergänzung nach Journal und Lifecycle; nur für BM-001 entscheidungsrelevant. |
+| Abnahmekriterien | Entscheidungsvorlage mit Variantenvergleich liegt vor und ist im decision-log §A eingetragen (neue DEC oder begründete Ablehnung); Betreiberdoku nennt die Grenzen nach `17` §8.3; TA-918. |
+| Nötige Verifikation | Review; ggf. Spike-Messung (Latenz, Kosten). |
+| Rechtsfreigabe nötig | nein |
+
 ---
 
 ### 6.6 Abdeckung LEG → PRA
 
-Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22. Keine LEG-ID hat den Gesamtstatus `ALREADY_FIXED`; bei LEG-15 ist nur der Teil
+Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22, ergänzt um die Befunde LEG-62…LEG-70 der Recovery-Prüfung
+2026-11-23 ([`17`](17-privacy-recovery.md) §1.6). Keine LEG-ID hat den Gesamtstatus `ALREADY_FIXED`; bei LEG-15 ist nur der Teil
 „Plan-Audit-Marker“ erledigt, der Rest ist abgedeckt.
 
 | LEG | Status (technisch) | Prio Befund | Abgedeckt durch |
@@ -1375,7 +1567,7 @@ Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22. Keine LEG-ID h
 | LEG-08 | CONFIRMED | P1 | PRA-2.01, PRA-3.01 |
 | LEG-09 | CONFIRMED (Ist-Stand) | P1 | PRA-2.15, PRA-3.01 |
 | LEG-10 | CONFIRMED (Ist-Stand) | P1 | PRA-0.08, PRA-2.15, PRA-2.17, PRA-3.01 |
-| LEG-11 | CONFIRMED | P1 | PRA-0.03, PRA-0.10, PRA-1.04, PRA-1.05, PRA-3.09, PRA-3.01 |
+| LEG-11 | CONFIRMED | P1 | PRA-0.03, PRA-0.10, PRA-1.04, PRA-1.05, PRA-3.09, PRA-3.01; Recovery-Nachtrag: PRA-0.12, PRA-1.08, PRA-2.22, PRA-3.11 (Teil) |
 | LEG-12 | PARTIALLY_CONFIRMED | P1 | PRA-0.05, PRA-3.04, PRA-3.01 |
 | LEG-13 | PARTIALLY_CONFIRMED | P2 | PRA-2.11, PRA-3.03, PRA-3.01 |
 | LEG-15 | PARTIALLY_CONFIRMED (Teil ALREADY_FIXED) | P2 | PRA-1.07, PRA-3.01 |
@@ -1384,9 +1576,9 @@ Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22. Keine LEG-ID h
 | LEG-21 | PARTIALLY_CONFIRMED | P2 | PRA-2.04, PRA-3.01 |
 | LEG-22 | DOCUMENTATION_GAP | P2 | PRA-2.18, PRA-3.01 |
 | LEG-23 | NEW_FINDING | P1 | PRA-0.05, PRA-0.06, PRA-1.06, PRA-2.20 |
-| LEG-24 | NEW_FINDING | P1 | PRA-0.03, PRA-1.04, PRA-1.05, PRA-3.09 |
+| LEG-24 | NEW_FINDING | P1 | PRA-0.03, PRA-1.04, PRA-1.05, PRA-3.09; Recovery-Nachtrag: PRA-2.21 (Voraussetzung) |
 | LEG-25 | NEW_FINDING | P1 | PRA-1.04 |
-| LEG-26 | NEW_FINDING | P1 | PRA-0.03, PRA-0.10, PRA-1.05 |
+| LEG-26 | NEW_FINDING | P1 | PRA-0.03, PRA-0.10, PRA-1.05, PRA-1.08 |
 | LEG-27 | NEW_FINDING | P1 | PRA-0.05, PRA-0.07 |
 | LEG-28 | NEW_FINDING | P1 | PRA-0.04, PRA-2.06 |
 | LEG-29 | NEW_FINDING | P1 | PRA-1.01, PRA-2.07 |
@@ -1403,7 +1595,7 @@ Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22. Keine LEG-ID h
 | LEG-40 | NEW_FINDING | P2 | PRA-2.12 |
 | LEG-41 | NEW_FINDING | P2 | PRA-2.18 |
 | LEG-42 | NEW_FINDING | P2 | PRA-3.07 |
-| LEG-43 | NEW_FINDING | P2 | PRA-3.07 |
+| LEG-43 | NEW_FINDING | P2 | PRA-3.07; Recovery-Nachtrag: PRA-0.12 (Docker-Restore) |
 | LEG-44 | NEW_FINDING | P2 | PRA-3.06 |
 | LEG-45 | NEW_FINDING | P2 | PRA-2.19 |
 | LEG-46 | NEW_FINDING | P2 | PRA-1.01 |
@@ -1420,10 +1612,20 @@ Status nach der verbindlichen ID-Zuordnung des Audits 2026-11-22. Keine LEG-ID h
 | LEG-57 | NEW_FINDING | P3 | PRA-2.13 |
 | LEG-58 | NEW_FINDING | P3 | PRA-3.10 |
 | LEG-59 | NEW_FINDING | P3 | PRA-3.08 |
-| LEG-60 | NEW_FINDING | P3 | PRA-3.06 |
+| LEG-60 | NEW_FINDING | P3 | PRA-3.06, PRA-1.08 |
 | LEG-61 | NEW_FINDING | P3 | PRA-3.10 |
+| LEG-62 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-0.12, PRA-1.05 |
+| LEG-63 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-0.12, PRA-1.05 |
+| LEG-64 | NEW_FINDING (Recovery 2026-11-23; Laufzeitwirkung nicht prüfbar) | P2 (P3, falls Uploads scheitern) | PRA-2.23 |
+| LEG-65 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-1.07 |
+| LEG-66 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-2.21 |
+| LEG-67 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-2.22, PRA-0.03 (Prüfung) |
+| LEG-68 | NEW_FINDING (Recovery 2026-11-23) | P2 | PRA-0.10 |
+| LEG-69 | NEW_FINDING (Recovery 2026-11-23) | P3 | PRA-0.12, PRA-1.05 |
+| LEG-70 | NEW_FINDING (Recovery 2026-11-23) | P3 | PRA-0.12, PRA-1.05 |
 
-**LEG ohne Abdeckung:** keine (55 von 55 LEG-IDs abgedeckt: 16 revalidierte + 39 neue).
+**LEG ohne Abdeckung:** keine (64 von 64 LEG-IDs abgedeckt: 16 revalidierte + 39 neue des Audits + 9 neue der
+Recovery-Prüfung 2026-11-23). Die Zitatkorrekturen der Recovery-Prüfung (früher „N10“) sind kein Befund.
 
 Herkunft der Strang-Vorschläge (Zusammenführungen): R-A10 und R-C10 → PRA-2.13 · RD-1 und R-F10 → PRA-0.10 ·
 RD-6 und R-F3 → PRA-0.11/PRA-3.02 · R-A1, R-A2, R-A3, R-A13 → PRA-2.01 · R-B2, R-B3, R-B4 → PRA-0.08 ·
@@ -1445,43 +1647,50 @@ R-A5 → PRA-2.03 · R-A11 → PRA-1.06.
 | Priorität | Anzahl | Aufgaben |
 |---|---|---|
 | P0 | 4 | PRA-0.01, 0.02, 0.03, 0.04 (Prüfaufgaben) |
-| P1 | 22 | PRA-0.05…0.11, 1.01…1.06, 2.01, 2.05, 2.06, 2.07, 2.15, 3.01…3.04 |
-| P2 | 18 | PRA-1.07, 2.02, 2.03, 2.04, 2.08…2.12, 2.14, 2.16…2.20, 3.06, 3.07, 3.09 |
-| P3 | 4 | PRA-2.13, 3.05, 3.08, 3.10 |
-| **Summe** | **48** | |
+| P1 | 24 | PRA-0.05…0.12, 1.01…1.06, 1.08, 2.01, 2.05, 2.06, 2.07, 2.15, 3.01…3.04 |
+| P2 | 21 | PRA-1.07, 2.02, 2.03, 2.04, 2.08…2.12, 2.14, 2.16…2.23, 3.06, 3.07, 3.09 |
+| P3 | 5 | PRA-2.13, 3.05, 3.08, 3.10, 3.11 |
+| **Summe** | **54** (48 Audit + 6 Recovery-Nachtrag) | |
 
 Bedingte Eskalationen auf P0: PRA-0.09 (wenn PRA-0.01 Cloud-LLM in Produktion findet), PRA-3.02 (vor BM-001-Release),
-PRA-0.10/PRA-1.04/PRA-1.05 (wenn PRA-0.03 aktives Backup oder versionierte Buckets ohne Lifecycle findet),
+PRA-0.10/PRA-0.12/PRA-1.04/PRA-1.05 (wenn PRA-0.03 aktives Backup oder versionierte Buckets ohne Lifecycle findet),
 PRA-2.06 (wenn PRA-0.04 gewerbliche Mandanten mit Beschäftigten findet).
 
 **Je Phase**
 
 | Phase | Anzahl | P0 | P1 | P2 | P3 |
 |---|---|---|---|---|---|
-| Phase 0 — Sofortige Risikominderung | 11 | 4 | 7 | 0 | 0 |
-| Phase 1 — Grundlegende Privacy-Architektur | 7 | 0 | 6 | 1 | 0 |
-| Phase 2 — Kernumsetzung | 20 | 0 | 5 | 14 | 1 |
-| Phase 3 — Governance und Betriebsreife | 10 | 0 | 4 | 3 | 3 |
-| **Summe** | **48** | **4** | **22** | **18** | **4** |
+| Phase 0 — Sofortige Risikominderung | 12 | 4 | 8 | 0 | 0 |
+| Phase 1 — Grundlegende Privacy-Architektur | 8 | 0 | 7 | 1 | 0 |
+| Phase 2 — Kernumsetzung | 23 | 0 | 5 | 17 | 1 |
+| Phase 3 — Governance und Betriebsreife | 11 | 0 | 4 | 3 | 4 |
+| **Summe** | **54** | **4** | **24** | **21** | **5** |
 
 **Je Art (Hauptanteil, erste Nennung in der Überschrift)**
 
 | Art | Anzahl |
 |---|---|
-| Code | 32 |
-| Doku | 11 |
+| Code | 36 |
+| Doku | 13 |
 | Betrieb | 5 |
 
-Mit Betriebsanteil (auch als Zweitnennung): 12 Aufgaben; mit Doku-Anteil: 18.
+Mit Betriebsanteil (auch als Zweitnennung): 13 Aufgaben; mit Doku-Anteil: 21. (Recovery-Nachtrag: PRA-1.08, 2.21,
+2.22, 2.23 zählen als Code, PRA-0.12 und PRA-3.11 als Doku.)
 
-**Rechtsfreigabe nötig:** 20 Aufgaben ganz oder in einem benannten Teil (PRA-1.03, 1.04, 1.05, 1.06, 2.01, 2.03, 2.04,
-2.05, 2.08, 2.09, 2.10, 2.11, 2.12, 2.15, 2.18, 3.01, 3.02, 3.03, 3.04, 3.05); 28 ohne (die Audit-Zählung „27“ ist ein Rechenfehler: 48 − 20 = 28).
+**Rechtsfreigabe nötig:** 21 Aufgaben ganz oder in einem benannten Teil (PRA-1.03, 1.04, 1.05, 1.06, 1.08, 2.01, 2.03,
+2.04, 2.05, 2.08, 2.09, 2.10, 2.11, 2.12, 2.15, 2.18, 3.01, 3.02, 3.03, 3.04, 3.05); 33 ohne (Audit: 20 mit, 28 ohne —
+die Audit-Zählung „27“ war ein Rechenfehler; Recovery-Nachtrag: PRA-1.08 mit, PRA-0.12, 2.21, 2.22, 2.23, 3.11 ohne).
+
+**Umsetzungsstatus (Recovery-Nachtrag):** keine der 54 Aufgaben ist `implementiert und getestet`; `teilweise
+implementiert` (Bausteine mit Pfad:Zeile in der Zeile „Umsetzungsstatus“): PRA-0.10, PRA-1.04, PRA-1.05; alle übrigen
+`spezifiziert` (PRA-3.10 mit erledigtem Paketteil, „Stand v1.2“).
 
 ---
 
 ## 7. Offene Punkte für Product Owner, Betreiber und gewerbliche Kunden (Audit 2026-11-22)
 
-Die offenen Fragen des Audits an Product Owner (Q-PO-01…23), Betreiber (Q-OP-01…15) und gewerbliche Kunden
+Die offenen Fragen des Audits an Product Owner (Q-PO-01…23; Q-PO-24 aus dem Recovery-Nachtrag), Betreiber (Q-OP-01…15;
+Q-OP-16 aus dem Recovery-Nachtrag) und gewerbliche Kunden
 (Q-CUS-01…12), ohne Dubletten (gleichlautende Fragen mehrerer Stränge zusammengeführt, Herkunft in „Kontext“). Die
 Fragen an den externen DSB (Q-DSB-*) und die Rechtsberatung (Q-LAW-*) stehen in [`16`](16-dpo-briefing-2517.md); die
 rechtliche Würdigung in [`13`](13-legal-evidence-register.md). Status aller Punkte: `OPEN_DECISION` (PO), Betreiberfakt
@@ -1555,7 +1764,9 @@ Q-PO-23 und Q-OP-12 richten sich an Product Owner **und** Betreiber gemeinsam.
 
 #### Q-PO-11 — Journal auch für Widerrufe, Einschränkungen und Sicherheitsereignisse?
 - **Kontext/Evidenz:** DEC-26 deckt nur Löschungen; ein Restore setzt API-Key-Widerrufe, Sitzungen, Passwortwechsel,
-  Consent und Art. 18/21 zurück (`api_key_repository.py:70–77`, `consent_repository.py:220–230`). Strang D.
+  Consent und Art. 18/21 zurück (`api_key_repository.py:70–77`; Einwilligungswiderruf `domain/services/privacy_service.py:1955–1977`,
+  Zitat korrigiert im Recovery-Nachtrag). Strang D. **Recovery-Nachtrag 2026-11-23:** [`17`](17-privacy-recovery.md) §3.1–§3.3
+  schlägt „ja“ vor (Klassen H, C, A, D); die Entscheidung bleibt offen (DEC-35, DEC-38 `proposed`; Q-DSB-23).
 - **LEG/PRA:** LEG-24 · PRA-1.04
 - **Abhängig:** Ereignistypen der Outbox, Replay-Umfang.
 
@@ -1632,6 +1843,14 @@ Q-PO-23 und Q-OP-12 richten sich an Product Owner **und** Betreiber gemeinsam.
 - **LEG/PRA:** LEG-32, LEG-01, LEG-33 · PRA-0.02
 - **Abhängig:** Release-Blocker in der DEC-32-Checkliste; Priorität von PRA-3.02.
 
+#### Q-PO-24 — Mandantenschlüssel für den Objektspeicher in BM-001?
+- **Kontext/Evidenz:** Recovery-Nachtrag 2026-11-23. Objekte tragen nur SSE (`data_access/storage/s3_adapter.py:106, 297`);
+  eine Mandantenlöschung erreicht Kopien in Versionen, Replikaten und Offsite-Kopien nur über Lifecycle-Fristen.
+  Mandantenschlüssel (SSE-C/Envelope) würden sie unlesbar machen, kosten aber Schlüsselverwaltung und Wiederherstellbarkeit
+  ([`17`](17-privacy-recovery.md) §8.1–§8.4). Empfehlung `17`: prüfen, kein Crypto-Shredding je Subjekt.
+- **LEG/PRA:** LEG-11 · PRA-3.11, PRA-1.08
+- **Abhängig:** BM-001-Freigabe (Q-PO-23); Ergebnis als DEC in decision-log §A.
+
 ### 7.2 Betreiber
 
 #### Q-OP-01 — Welche externen Dienste laufen in Produktion?
@@ -1690,8 +1909,8 @@ Q-PO-23 und Q-OP-12 richten sich an Product Owner **und** Betreiber gemeinsam.
 - **Abhängig:** Zeilen R-49 ff. der Aufbewahrungsmatrix; Helm-Values.
 
 #### Q-OP-10 — Volume-Verschlüsselung; Snapshots von TimescaleDB und Valkey
-- **Kontext/Evidenz:** Verschlüsselung ruhender Daten weder erzwungen noch dokumentiert (`values.yaml:604–605,
-  3253–3261`). Strang D.
+- **Kontext/Evidenz:** Verschlüsselung ruhender Daten weder erzwungen noch dokumentiert (Backup-SSE `values.yaml:607–608`
+  — Zitat korrigiert im Recovery-Nachtrag —, `3253–3261`). Strang D.
 - **LEG/PRA:** LEG-42, LEG-44 · PRA-3.07, PRA-3.06
 - **Abhängig:** TOM-Verzeichnis; Ausnahme Art. 34 Abs. 3 lit. a.
 
@@ -1722,6 +1941,14 @@ Q-PO-23 und Q-OP-12 richten sich an Product Owner **und** Betreiber gemeinsam.
   Nein“ (`environment-variables.md:95–96`). Strang F.
 - **LEG/PRA:** LEG-50, LEG-01 · PRA-2.18
 - **Abhängig:** Startup-Check; Migrationshinweis für bestehende Installationen.
+
+#### Q-OP-16 — Ab welchem Betriebsmodell ist die Backup-Verschlüsselung je Generation Pflicht?
+- **Kontext/Evidenz:** Recovery-Nachtrag 2026-11-23. Dumps tragen nur SSE, keine client-seitige Verschlüsselung
+  (`helm/kamerplanter/values.yaml:1443–1444`); Docker-Dumps liegen im Klartext (`docs/de/deployment/docker-dauerbetrieb.md:199–233`).
+  Vorschlag `17` §8.2/§8.4: Pflicht für BM-001, empfohlen für BM-002/Commercial, Generationsdauer ein Monat,
+  Schlüsselvernichtung `L_eff + 7 d`.
+- **LEG/PRA:** LEG-42, LEG-43, LEG-11 · PRA-3.07
+- **Abhängig:** Schlüsselverwahrung beim Betreiber; Drill mit `crypt`-Remote (TA-915).
 
 ### 7.3 Gewerbliche Kunden
 
@@ -1796,8 +2023,8 @@ Q-PO-23 und Q-OP-12 richten sich an Product Owner **und** Betreiber gemeinsam.
 
 | Adressat | Fragen | Ort |
 |---|---|---|
-| Product Owner | 23 (Q-PO-01…23) | §7.1 |
-| Betreiber | 15 (Q-OP-01…15) | §7.2 |
+| Product Owner | 24 (Q-PO-01…24; Q-PO-24 Recovery-Nachtrag) | §7.1 |
+| Betreiber | 16 (Q-OP-01…16; Q-OP-16 Recovery-Nachtrag) | §7.2 |
 | Gewerbliche Kunden | 12 (Q-CUS-01…12) | §7.3 |
-| Externer DSB, Rechtsberatung | 21 + 17 (Q-DSB-01…21, Q-LAW-01…17) | [`16`](16-dpo-briefing-2517.md) |
-| **Summe Audit** | **88** | |
+| Externer DSB, Rechtsberatung | 26 + 19 (Q-DSB-01…26, Q-LAW-01…19; davon Q-DSB-22…26 und Q-LAW-18/19 Vorschläge des Recovery-Nachtrags aus [`17`](17-privacy-recovery.md) §10.3, Aufnahme in `16` §0/§18) | [`16`](16-dpo-briefing-2517.md) |
+| **Summe** | **97** (Audit 88 + Recovery-Nachtrag 9) | |

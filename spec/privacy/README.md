@@ -7,7 +7,12 @@ Vorgänger: 1.1 · 2026-11-09 · gemessen gegen develop 24d1c2988; Nachtrag #283
 Änderungen 1.2: Audit 2026-11-22 vollständig in die Fachdokumente übernommen (Befunde LEG-23…LEG-61 in
 decision-log §D, Maßnahmen PRA-0.01…PRA-3.10 in 12, Fragen in 16, Widersprüche W-30…W-53 in 14); neuer Abschnitt
 „Stand nach Audit 2026-11-22“; Dokumentenindex, Umsetzungsreihenfolge und Ist-Aussagen auf den gemessenen Stand
-gebracht; angrenzende Dokumente, Duplikate, fehlende Dokumente und Spezifikationen, Zuständigkeiten aufgenommen
+gebracht; angrenzende Dokumente, Duplikate, fehlende Dokumente und Spezifikationen, Zuständigkeiten aufgenommen.
+Nachtrag Recovery (2026-11-23, gemessen gegen develop ce7e858d0, nur lesend): neues Dokument SPEC-17
+`17-privacy-recovery.md` (Journal, Restore-Lebenszyklus, Reconciliation; PRIV-800…PRIV-874, RC-01…RC-14); 09 §6 auf
+Ist-Stand + Verweis auf 17; Befunde LEG-62…LEG-70 (decision-log §D), Vorschläge DEC-35…DEC-40 (`proposed`), Aufgaben
+PRA-0.12, PRA-1.08, PRA-2.21…PRA-2.23, PRA-3.11 (12), Abnahmefälle TA-726…TA-760 und TA-918 (10), Widersprüche
+W-54…W-60 (14); geplantes Incident-Dokument umnummeriert auf 19 (18 bleibt das Empfängerregister)
 Status: umsetzungsreif für die in 12 §4 als READY/READY_WITH_GUARDS geführten Anforderungen; produktive
 Verarbeitung gegateter Maßnahmen erst nach registrierter Rechtsentscheidung (decision-log §B); kommerzieller
 SaaS-Betrieb (BM-001) und gewerbliche Mandanten mit Beschäftigten nicht freigabefähig (Stand nach Audit, unten)
@@ -35,18 +40,23 @@ Es baut auf REQ-025, NFR-011, REQ-023/024/049, REQ-053 und UI-NFR-012 auf und ä
 | 06 | [`06-retention-and-legal-basis.md`](06-retention-and-legal-basis.md) | Rollenmatrix (PA-nn), Verarbeitungstätigkeiten-Matrix, **feldgenaue Pflichtaufzeichnungen**, LIAs, Beschäftigte/Ehrenamt, Aufbewahrung, Produktionsgates, **Compliance-Matrix** (Audit 2026-11-22) | PRIV-400…414 |
 | 07 | [`07-offline-privacy.md`](07-offline-privacy.md) | Gerätespeicher, TDDDG/DSGVO getrennt, **Opt-in und Übergang**, Fristen, Widerruf, Shared-Device-Szenarien | PRIV-500…533 |
 | 08 | [`08-api-and-data-model.md`](08-api-and-data-model.md) | Registry, `PersonRef`, Laufzeit-Provenienz, Collections (`erasure_mirror`), Defaults ohne Modell-Default, Routen, **Feature-Flags** | PRIV-600…610 |
-| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0109–v0111, Reklassifizierung (Flag), **Löschungs-Spiegel und Restore-Replay**, Re-Keying, Geräte-Migration | PRIV-700…718 |
-| 10 | [`10-testing-and-acceptance.md`](10-testing-and-acceptance.md) | TA-Matrix, Negativtests „kann nicht wieder auftauchen“, Gates; Abnahmetests der PRA-Aufgaben | TA-001…TA-810 ff. |
+| 09 | [`09-migrations-and-backfills.md`](09-migrations-and-backfills.md) | Migrationsphasen, v0109–v0111, Reklassifizierung (Flag), **Backup/Restore: gemessener Ist-Stand und Szenarien S1–S10** (Detailkonzept seit 2026-11-23 in `17`), Re-Keying, Geräte-Migration | PRIV-700…718 |
+| 10 | [`10-testing-and-acceptance.md`](10-testing-and-acceptance.md) | TA-Matrix, Negativtests „kann nicht wieder auftauchen“, Gates; Abnahmetests der PRA-Aufgaben; Abnahmefälle Privacy Recovery (§2.11a) mit Abbildung TA-R → TA (§2.11b) | TA-001…TA-811, TA-901…TA-918 (Recovery: TA-726…TA-760) |
 | 11 | [`11-dpia-pre-screening.md`](11-dpia-pre-screening.md) | Verarbeitungsvorgänge, Risikoregister, **begründete Art.-35-Bewertung je Betriebsmodell** (inkl. „selbst gehostet, gewerblich“, LEG-48) | RISK-01 ff. |
-| 12 | [`12-implementation-roadmap.md`](12-implementation-roadmap.md) | Epics E01…E18, Defaults je Klasse, **Readiness-Tabelle** (§4, inkl. Readiness je Betriebsmodell), **Remediation-Aufgaben des Audits** in vier Phasen, offene Punkte für Product Owner, Betreiber und gewerbliche Kunden | PRA-0.01…PRA-3.10; Q-PO/Q-OP/Q-CUS-nn |
+| 12 | [`12-implementation-roadmap.md`](12-implementation-roadmap.md) | Epics E01…E18, Defaults je Klasse, **Readiness-Tabelle** (§4, inkl. Readiness je Betriebsmodell), **Remediation-Aufgaben des Audits und des Recovery-Nachtrags** in vier Phasen mit Umsetzungsstatus, offene Punkte für Product Owner, Betreiber und gewerbliche Kunden | PRA-0.01…PRA-3.11; Q-PO/Q-OP/Q-CUS-nn |
 | 13 | [`13-legal-evidence-register.md`](13-legal-evidence-register.md) | **Rechtsevidenzregister** L-nn mit Wortlaut, URL, Fassung, Prüfdatum; Verifikationsaufträge V-nn | L-01 ff., V-01 ff. |
-| 14 | [`14-contradiction-register.md`](14-contradiction-register.md) | **Widerspruchsregister** mit Auflösung, Test und gemessenem Stand (Audit 2026-11-22) | W-01…W-53 |
+| 14 | [`14-contradiction-register.md`](14-contradiction-register.md) | **Widerspruchsregister** mit Auflösung, Test und gemessenem Stand (Audit 2026-11-22, Recovery-Prüfung 2026-11-23) | W-01…W-60 |
 | 15 | [`15-decision-analyses.md`](15-decision-analyses.md) | **Entscheidungsanalysen** DA-01…DA-08 (Rollen, Rechtsgrundlagen, KCanG/PflSchG, Beschäftigte, Freitext, Pseudonymisierung, Offline/TDDDG, DSFA) | — |
 | 16 | [`16-dpo-briefing-2517.md`](16-dpo-briefing-2517.md) | **Briefing für DSB/Rechtsberatung** (#2517): Fragen je Komplex mit Ist-Stand, Default und LEG-Zuordnung; Nachtrag mit den Rechtsfragen des Audits | LEG-20…22; Q-DSB-nn, Q-LAW-nn |
-| — | [`decision-log.md`](decision-log.md) | **Entscheidungsregistry**: DEC-01…34 (§A), Rechtsfragen LEG-01…22 mit Scope, PA, Owner, Gate, Durchsetzungspunkt, Prüfdatum und Audit-Prüfstatus (§B), Betreiberentscheidungen (§C), **Register der Audit-Befunde LEG-23…LEG-61** (§D) | DEC-nn, LEG-nn |
+| 17 | [`17`](17-privacy-recovery.md) | **SPEC-17 Privacy Recovery**: Backup-/Restore-Privacy-Architektur, Privacy Recovery Journal (Taxonomie, Schema, Pseudonyme, Frist R-63), Transaktionssicherheit (Outbox), Restore-Lebenszyklus mit fail-closed-Gate, Lösch-Reconciliation je Datenbereich, Object Storage/Versionierung, Backup-Retention und Crypto-Shredding, Szenarien A–H, Runbooks, Evidence-Report, Einsatzreife Backup/Restore je Betriebsmodell (§14) | PRIV-800…PRIV-899 (vergeben 800…874); RC-01…RC-14 |
+| — | [`decision-log.md`](decision-log.md) | **Entscheidungsregistry**: DEC-01…40 (§A; DEC-35…40 `proposed`), Rechtsfragen LEG-01…22 mit Scope, PA, Owner, Gate, Durchsetzungspunkt, Prüfdatum und Audit-Prüfstatus (§B), Betreiberentscheidungen (§C), **Register der Befunde LEG-23…LEG-70** (§D; LEG-62…LEG-70 aus der Recovery-Prüfung 2026-11-23) | DEC-nn, LEG-nn |
 
-Lesereihenfolge: `01` → `15` (Analysen) → `06` (Recht) → `03`/`04`/`05` (Verhalten) → `07` → `08`/`09` → `10` → `12`.
-`02`, `13`, `14` sind Nachschlagewerke; `11` und das Decision-Log sind die Übergabe an DSB und Betreiber.
+Lesereihenfolge: `01` → `15` (Analysen) → `06` (Recht) → `03`/`04`/`05` (Verhalten) → `07` → `08`/`09` → `17` (Backup/Restore)
+→ `10` → `12`. `02`, `13`, `14` sind Nachschlagewerke; `11` und das Decision-Log sind die Übergabe an DSB und Betreiber.
+
+**Geplante Dokumente** (noch nicht angelegt): `18-recipients-and-subprocessors.md` — Empfänger- und
+Unterauftragsverarbeiter-Register (PRA-1.03, TA-907); `19-incident-response.md` — Verfahren für Datenschutzverletzungen
+nach Art. 33/34 (PRA-3.02, TA-910; bis 2026-11-23 als `17-incident-response.md` geplant, umnummeriert, `14` W-58).
 
 ## Evidenzklassifizierung (DEC-33)
 
@@ -84,7 +94,8 @@ werden daher nur als Bezug genannt, deutsche Gesetze (gesetze-im-internet.de) un
 REQ-025 / NFR-011 / REQ-053 …  ──(baut auf / schlägt versionierte Änderungen vor: 06 §9, 14, E16)──▶
 PRIV-nnn (normativ, mit Evidenzklasse, Komponente, Begründung)
    ├── Akzeptanz: TA-nnn (10; Testart, Assertion, Pfad)
-   ├── Umsetzung: E01…E18 (12; Abhängigkeiten, Gate, Flag)
+   ├── Komponente: A-* (01 §3.5), RC-01…RC-14 (17 §2.3)
+   ├── Umsetzung: E01…E18, PRA-x.yy (12; Abhängigkeiten, Gate, Flag, Umsetzungsstatus)
    ├── Entscheidung: DEC-nn / LEG-nn (decision-log; Owner, Gate, Prüfdatum)
    ├── Evidenz: L-nn / V-nn (13)
    └── Widerspruch: W-nn (14)
@@ -165,22 +176,24 @@ PRA-2.15/2.16.
 | Gewerblich, selbst gehostet (Beschäftigte) | **nicht freigabefähig**, solange LEG-28/29/30 und LEG-05 offen sind |
 | Kamerplanter-SaaS (BM-001) | **nicht freigabefähig** — kein Rollenmodell/AVV, kein Empfängerregister, kein Datenpannen-Verfahren, keine Löschpropagation bei Restore; deckt sich mit dem Gate `deployment_allowed = nein` (DEC-32) |
 
-Readiness je Epic und je Betriebsmodell mit Bedingungen: [`12`](12-implementation-roadmap.md) §4.
+Readiness je Epic und je Betriebsmodell mit Bedingungen: [`12`](12-implementation-roadmap.md) §4. Einsatzreife des
+Backup-/Restore-Aspekts je Betriebsmodell (Reifegrad heute 1 von 5): [`17`](17-privacy-recovery.md) §14.
 
 ### Kennzahlen
 
 | Kennzahl | Wert | Wo im Paket |
 |---|---|---|
-| Inventarisierte Dokumente | 62 (18 im Paket, 44 außerhalb) + 4 erwartete, fehlende | unten |
+| Inventarisierte Dokumente | 62 (18 im Paket, 44 außerhalb) + 4 erwartete, fehlende; seit 2026-11-23 19 im Paket (`17` neu), geplant `18`, `19` | unten |
 | Revalidierte bestehende LEG | 16 (LEG-01, -02, -05, -06, -07, -08, -09, -10, -11, -12, -13, -15, -16, -20, -21, -22) | decision-log §B |
 | … technisch `CONFIRMED` / `PARTIALLY_CONFIRMED` / `DOCUMENTATION_GAP` / nur rechtlich offen | 8 / 5 / 2 / 1 (LEG-16); `ALREADY_FIXED` 0 vollständig, 1 Teil (Plan-Audit-Marker in LEG-15); rechtlich offen alle 16 | decision-log §B |
 | Weitere geprüfte Spec-Aussagen | 137: 96 `CONFIRMED` (17 davon „Ist richtig beschrieben, Anforderung nicht umgesetzt“), 14 `PARTIALLY_CONFIRMED`, 1 `NOT_REPRODUCIBLE`, 6 `ALREADY_FIXED`, 13 `DOCUMENTATION_GAP`, 6 `NEW_FINDING`, 1 ungeprüft | Fachdokumente (Ist-Stand je PRIV) |
-| Neue Befunde | 39 (LEG-23…LEG-61): P0 0 · P1 11 · P2 20 · P3 8; bedingte Eskalation auf P0 bei LEG-31 und LEG-32 | decision-log §D |
-| Remediation-Aufgaben | 48: P0 4 · P1 22 · P2 18 · P3 4; 20 mit Rechtsfreigabe | `12` (PRA-0.01…PRA-3.10) |
-| Offene Fragen | 88 (Product Owner 23, Betreiber 15, DSB 21, Rechtsberatung 17, gewerbliche Kunden 12) | DSB/Recht: `16`; übrige: `12` |
+| Neue Befunde | 48: Audit 39 (LEG-23…LEG-61) + Recovery-Prüfung 9 (LEG-62…LEG-70); P0 0 · P1 11 · P2 27 · P3 10; bedingte Eskalation auf P0 bei LEG-31 und LEG-32 | decision-log §D |
+| Remediation-Aufgaben | 54 (48 Audit + 6 Recovery): P0 4 · P1 24 · P2 21 · P3 5; 21 mit Rechtsfreigabe; `implementiert und getestet` 0, `teilweise implementiert` 3 (PRA-0.10, 1.04, 1.05) | `12` (PRA-0.01…PRA-3.11) |
+| Offene Fragen | 97 (Product Owner 24, Betreiber 16, DSB 26, Rechtsberatung 19, gewerbliche Kunden 12; davon 9 aus dem Recovery-Nachtrag, DSB/Recht als Vorschläge in `17` §10.3) | DSB/Recht: `16`; übrige: `12` |
+| Privacy Recovery (SPEC-17) | 50 Anforderungen PRIV-800…874 (0 `implementiert und getestet`, 5 `teilweise implementiert`), 14 Komponenten RC-01…RC-14, 36 Testfälle → TA-726…TA-760 + TA-721 (präz.), 6 DEC-Vorschläge; Reifegrad Backup/Restore heute 1 von 5 | `17`, `10` §2.11a/§2.16 |
 | Punkte für externen Rechtsrat | 38 | `13`, `16` |
 | Compliance-Matrix | 59 Zeilen: erfüllt 3 · teilweise 23 · nicht erfüllt 16 · Rechtsprüfung offen 16 · nicht anwendbar 1 | `06` |
-| Widerspruchsregister | W-01…W-29: 17 aufgelöst, 12 offen bzw. festgehalten (W-16, W-21 nicht neu gemessen); neu W-30…W-53 | `14` |
+| Widerspruchsregister | W-01…W-29: 17 aufgelöst, 12 offen bzw. festgehalten (W-16, W-21 nicht neu gemessen); neu W-30…W-53 (Audit), W-54…W-60 (Recovery-Prüfung; W-58 aufgelöst) | `14` |
 
 Die vier P0-Aufgaben PRA-0.01…PRA-0.04 sind Prüfaufgaben am Produktionsbetrieb; ihr Ergebnis entscheidet, ob eine
 P0-Lage vorliegt (Cloud-LLM in Produktion, BM-001-Freigabe, aktive Backups/Bucket-Versionierung, gewerbliche Mandanten
@@ -191,7 +204,7 @@ mit Beschäftigten).
 | Risiko | LEG | Warum es zählt |
 |---|---|---|
 | Art. 18/21 wirkungslos — gespeichert, kein Verarbeitungs- oder Löschpfad liest sie; die Nutzerdoku sagt das Gegenteil | LEG-23 | Betroffenenrecht nur dem Anschein nach erfüllt; falsche Information nach Art. 12 |
-| Restore macht Löschungen und Widerrufe rückgängig — kein Spiegel, kein Replay; widerrufene API-Keys, Sitzungen, Einwilligungen kehren zurück | LEG-11, LEG-24, LEG-25, LEG-26 | Art. 17 und Art. 32 hängen davon ab, dass nie aus einem Backup wiederhergestellt wird |
+| Restore macht Löschungen und Widerrufe rückgängig — kein Spiegel, kein Replay; widerrufene API-Keys, Sitzungen, Einwilligungen kehren zurück; das Runbook hält nicht alle Worker an, Docker spielt gegen die laufende Anwendung ein, der Salt wird nur auf Länge geprüft (Recovery-Prüfung 2026-11-23, Konzept `17`) | LEG-11, LEG-24, LEG-25, LEG-26, LEG-62…LEG-70 | Art. 17 und Art. 32 hängen davon ab, dass nie aus einem Backup wiederhergestellt wird |
 | KI-Cloud-Gate prüft den falschen Provider | LEG-31 | bei einem Cloud-LLM in Produktion Übermittlung ohne Einwilligung (P0-Bedingung) |
 | Beschäftigtenschutz inert — Klassifizierung nie gelesen; Aufgaben speichern Dauer, Zeiten, Bewertungen je Person für alle lesbar; `control_events` mit rohem Kontoschlüssel | LEG-05, LEG-28, LEG-29, LEG-30 | Leistungs- und Verhaltenskontrolle in gewerblichen Umgebungen möglich (§ 26 BDSG, § 87 Abs. 1 Nr. 6 BetrVG) |
 | Offline-Speicher größer und länger als zugesagt — SW-Cache mit Rohantworten, kein Opt-in, Fristen fest kodiert, Puffer nicht wählbarer Mandanten bis 365 d | LEG-09, LEG-10, LEG-27, LEG-36 | § 25 TDDDG, Art. 5 Abs. 1 lit. c/e; falsche Transparenzangaben |
@@ -204,8 +217,10 @@ mit Beschäftigten).
    Art. 33/34 mit `SECURITY.md`, Pannenregister und Mandantenbenachrichtigung (PRA-0.11, PRA-3.02). Betrifft LEG-01,
    LEG-32, LEG-33.
 2. **Löschung und Widerruf dauerhaft durchsetzen** — Journal mit Outbox (PRA-1.04), Restore-Erkennung mit Startsperre
-   und Replay (PRA-1.05), Processing-Hold-Guard für Art. 18/21 und Legal Hold (PRA-1.06). Betrifft LEG-11, LEG-23,
-   LEG-24, LEG-25, LEG-26, LEG-35.
+   und Replay (PRA-1.05), Processing-Hold-Guard für Art. 18/21 und Legal Hold (PRA-1.06); seit dem Recovery-Nachtrag
+   mit den Voraussetzungen PRA-2.21 (fail-closed Widerruf) und PRA-2.22 (Secret-Identität, Manifest), der
+   versionsvollständigen Objektlöschung PRA-1.08 und der Runbook-Sofortkorrektur PRA-0.12 (Konzept `17`). Betrifft
+   LEG-11, LEG-23, LEG-24, LEG-25, LEG-26, LEG-35, LEG-62…LEG-70.
 3. **Beschäftigtenumgebungen technisch absichern** — Mandantenklassifizierung setzbar und wirksam (PRA-1.02),
    Aufgaben-Leistungsdaten und `control_events` minimieren (PRA-2.06, PRA-2.07), Sichtbarkeit der Zurechnung steuern
    (PRA-2.05), DSFA je Betriebsmodell fortschreiben (PRA-3.04). Betrifft LEG-05, LEG-12, LEG-28, LEG-29, LEG-30, LEG-48.
@@ -225,7 +240,7 @@ Maßnahmen und Readiness: [`12`](12-implementation-roadmap.md).
 | Befunde LEG-23…LEG-61 | Register decision-log §D; Sachverhalt und Evidenz im dort genannten Fachdokument |
 | veraltete Entscheidungen | decision-log §A (DEC-Status) und §C |
 | Widersprüche (Register-Stand, neue Spec-/Doku-vs-Code-Widersprüche) | `14` |
-| Zielarchitektur; Lebenszyklen; Backup/Restore/Journal | `01`; `03`; `09` |
+| Zielarchitektur; Lebenszyklen; Backup/Restore/Journal | `01`; `03`; `09` (Ist-Stand) und `17` (Detailkonzept, seit 2026-11-23) |
 | Remediation-Roadmap PRA-*; Abnahmetests | `12`; `10` |
 | rechtliche Bewertung; neue Rechtsquellen | `13`; Fragen in `16` |
 | offene Fragen | DSB/Rechtsberatung `16`; Product Owner, Betreiber, gewerbliche Kunden `12` |
@@ -298,7 +313,7 @@ Erwartet, aber im Repository nicht vorhanden — jede Lücke ist einem Befund un
 | Agentensicherheit für MCP (indirekte Prompt-Injection, `dry_run`-Default) und MCP-Freitextpolitik für Inhalte anderer Mitglieder | LEG-51, LEG-52 | `05` |
 | Abschließende Ausnahmeliste zu REQ-049 P4 (Plattform-Export) | LEG-53, W-30 | `05`, E16 |
 | Legal-Hold-Mechanismus | LEG-35 | `03` |
-| Restore-Semantik für Widerrufe (API-Keys, Sitzungen, Passwort, Consent, Art. 18/21) — DEC-26 deckt nur Löschungen | LEG-24 | `09` |
+| Restore-Semantik für Widerrufe (API-Keys, Sitzungen, Passwort, Consent, Art. 18/21) — DEC-26 deckt nur Löschungen | LEG-24 | `17` (seit 2026-11-23 spezifiziert, §3.3, §6.3; Status `spezifiziert`) |
 | Aufbewahrung für Nebenspeicher (Logs 30 d nur im NFR-011-Änderungsverlauf v1.13, Valkey-AOF, vectordb, Volume-Snapshots, S3-Versionen, Sentry) | LEG-44 | `06` |
 | Verschlüsselung ruhender Daten (Nachweis) und zweiter Faktor für Plattform-Admins | LEG-42, LEG-45 | `01` |
 | DSFA-Vorprüfung „selbst gehostet, gewerblich“ und Weitergabe per Service-Account/MCP; KI/MCP bisher nicht bewertet | LEG-48 | `11` |
@@ -345,7 +360,7 @@ außerhalb des Pakets BM-001 Meldepflicht 72 h (LEG-32), NFR-001 §6.7 (W-10), R
 | PRIV-213 `material`, Messwert-Strings schwärzbar | `domain/models/care_event.py:83`, `:166`, `:254-256` | LEG-08 |
 | PRIV-234 Residue-Scan auch für Kontolöschung | nur `tenant_erasure_executor.py` | LEG-08 |
 | PRIV-101/104 Daten im Zustand `closed` eingeschränkt | Namens-Join ohne `is_active` (`care_event_repository.py:657-662`) | E02 |
-| PRIV-108, PRIV-707…713, TA-718 Löschungs-Spiegel, Replay, Helm-Precheck | 0 Treffer `erasure_mirror` | LEG-11 |
+| PRIV-108, PRIV-707…713, TA-718 Löschungs-Spiegel, Replay, Helm-Precheck | 0 Treffer `erasure_mirror`; präzisiert bzw. ersetzt durch `17` (PRIV-800…874), ebenfalls nicht gebaut | LEG-11, LEG-62…LEG-70 |
 | PRIV-708 Datenschutzinformation nennt Backup-Frist und Replay | fehlt | LEG-11 |
 | PRIV-713 Versionierung/Snapshots ≤ 35 d mit Lifecycle | ohne Lifecycle (`helm/kamerplanter/values.yaml:587-591`) | LEG-26 |
 | PRIV-505, PRIV-511…514, PRIV-516, PRIV-519…521, PRIV-523, PRIV-530 Gerätefristen, Hygiene, Logout, Quarantäne, Codes | offen | LEG-10 |

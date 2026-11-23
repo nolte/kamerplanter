@@ -14,6 +14,12 @@ Retention- und Empfängerregister, Restore-Detektor/Replay, Betrieb); §3.4 Ents
 (Recht/Architektur/Umsetzung/Betrieb, A-*-Anforderungen) inkl. KI-Cloud-Gate; §5 Zustandsmodelle nach `03` §0 verlegt;
 §7 Vertrauensgrenzen ergänzt; §7a TOM-Ist-Stand; §7b Befunde LEG-32, LEG-42, LEG-45, LEG-57, LEG-59; §8a Invarianten
 INV-P1…INV-P10; §11 offene Architekturfragen; PRIV-003 umgesetzt (#2961).
+Nachtrag 2026-11-23 (gemessen gegen develop ce7e858d0): Recovery-Komponenten RC-01…RC-14 aus
+[`17-privacy-recovery.md`](17-privacy-recovery.md) in Komponentenkarte (§3.1), Zuständigkeiten (§3.2), Entscheidungen
+(§3.4) und Konzepte §3.5.5/§3.5.8/§3.5.9 eingeordnet; A-JRN-1…4, A-BAK-3…5 präzisiert, A-AUD-3 ersetzt; §7
+Backup-Grenze auf `17` §2.5; §7b SSE-Zitat `values.yaml:607–608` korrigiert; PRIV-010 Begründung für die plattformweite
+Outbox; §8a INV-P5/P6/P10 präzisiert (Durchsetzung INV-P10 über `scripts/ci/assert_chart_contracts.sh`, kein
+helm-unittest im Repo); §11 Empfehlung Journal ohne S3.
 Sprache: Deutsch (Spezifikation); Quellcode und GitHub-Texte bleiben englisch
 Anforderungs-IDs: PRIV-001 … PRIV-029 (dieses Dokument)
 ```
@@ -180,7 +186,7 @@ flowchart TB
         PLE["Privacy Lifecycle Engine<br/>ErasureEngine, TenantErasureEngine, PrivacyService,<br/>RedactionService (new), PropagationRules (new), residue scan"]
         DSR["Data Subject Requests<br/>DataExportEngine, erasure_requests,<br/>privacy_requests (new)"]
         PADM["Privacy Administration<br/>privacy_review_items (new), PrivacyOpsService (new)"]
-        JRN["PrivacyJournal (new)<br/>outbox, flush, high-water mark"]
+        JRN["PrivacyJournal (new)<br/>RC-01 unit of work, RC-02 outbox, watermark"]
         INC["Incident Register (new)<br/>privacy_incidents"]
     end
 
@@ -193,7 +199,7 @@ flowchart TB
     subgraph Jobs["Celery beat"]
         BEATS["Retention beats (one per rule)"]
         CONS["Consistency jobs<br/>care_events.consistency, privacy.consistency"]
-        FLUSH["privacy.journal_flush (new)"]
+        FLUSH["privacy.journal_relay (new, RC-03)"]
     end
 
     subgraph Data["Data access and persistence"]
@@ -201,13 +207,13 @@ flowchart TB
         TSDB[("TimescaleDB<br/>sensor readings")]
         OBJ[("Object storage<br/>attachments")]
         PGV[("vectordb (pgvector)<br/>reference index")]
-        JB[("Journal bucket (new)<br/>Object Lock")]
+        JB[("Journal store (new, RC-04)<br/>Object Lock or append-only volume,<br/>never part of a backup")]
         BK[("Backup bucket")]
     end
 
     subgraph Ops["Operations"]
-        DET["Restore detector (new)<br/>lifespan, worker init"]
-        RPL["privacy_restore_replay CLI (new)"]
+        DET["Restore gate (new, RC-06, RC-07)<br/>lifespan, worker, beat"]
+        RPL["privacy_restore controller (new, RC-08)<br/>reconcilers RC-09, RC-10"]
         ALR["PrometheusRules (new)"]
         EVD["Evidence store (operations repo)"]
     end
@@ -254,12 +260,30 @@ flowchart TB
     REG -. "guarded by<br/>scripts/check_privacy_inventory.py" .-> REG
 ```
 
+**Recovery-Komponenten (Nachtrag 2026-11-23).** Das Detailkonzept für Journal, Restore-Lebenszyklus und
+Reconciliation ist [`17-privacy-recovery.md`](17-privacy-recovery.md) (§2.3, Komponenten RC-01…RC-14, alle
+`spezifiziert`). Einordnung in diese Karte:
+
+| Knoten der Karte | RC in `17` §2.3 | Konzept (§3.5) |
+|---|---|---|
+| `PrivacyJournal` (JRN) | RC-01 Emitter + Unit of Work, RC-02 Outbox `privacy_journal_outbox` | §3.5.5 |
+| `privacy.journal_relay` (Celery, Queue `critical`) | RC-03 Journal-Relay (Einzelschreiber, `jseq`, Hash-Kette) | §3.5.5 |
+| Journal store | RC-04 Journal-Store, RC-05 Reader/Verifier | §3.5.5 |
+| Restore gate | RC-06 Recovery-State `system_meta/privacy_recovery`, RC-07 Restore-Gate | §3.5.9 |
+| `privacy_restore` controller | RC-08 Restore-Controller, RC-09 Reconciler je Datenbereich, RC-10 Object-Storage-Reconciler | §3.5.9 (RC-09 Hold/Consent nutzt `ProcessingHoldGuard`, §3.5.4) |
+| Backup bucket (CronJob) | RC-11 Backup-Manifest und -Inventar | §3.5.9 |
+| Evidence store | RC-12 Evidence-Report und Evidenzablage | §3.5.8 |
+| — (Helm-Value/Compose-Override) | RC-13 Isolationssteuerung `privacy.restore.isolate`, `KP_RESTORE_MODE` | §3.5.9 |
+| PrometheusRules | RC-14 Überwachung | §3.5.11 |
+
+Kein neuer Dienst und kein neuer Container; die Entscheidung aus §3.4 bleibt (`17` §2.3).
+
 ### 3.2 Zuständigkeiten
 
 | Komponente | Status | Verantwortet | Verantwortet nicht | Schnittstelle (eingehend → ausgehend) | Verfeinert in |
 |------------|--------|--------------|--------------------|----------------------------------------|---------------|
-| **Identity & Membership Lifecycle (IML)** | Bestand, erweitert | Kontozustände (`active` → `closed` → `erased`, Ziel zusätzlich `restricted`/`held`), Mitgliedschaftszustände, die *Zurechnungsrolle* jeder Kontoreferenz (`IdentityReferenceRegistry`), Auflösung des Anzeigenamens für alle API-Antworten (`resolve_display`), die Darstellungszustände `member`, `former_member`, `erased`, `third_party`, `system`, `service_account` | Löschen oder Umschreiben von Zeilen (PLE), Entscheiden, wer einen Namen sehen darf (ACV) | emittiert Journal-Ereignisse `membership_removed`, `role_lowered`, `sessions_revoked`, `password_changed` (PRA-2.03, PRA-1.04) | `03-account-and-membership-lifecycle.md`, `08-api-and-data-model.md` §2 |
-| **Privacy Lifecycle Engine (PLE)** | Bestand, erweitert | den Löschplan und seine Ausführung, Anonymisierungs- und Pseudonymisierungsregeln, Schwärzung (manuell und kaskadierend), Propagation auf abgeleitete Zeilen, Idempotenz, Wiederholung, Behandlung von Teilausfällen, Residue-Scan (auch Kontolöschung, PRIV-135), mandantengebundene Pseudonyme, den Zustandsautomaten der Freitextprüfung (`04` §5.1a); der ausführende Service schreibt das Journal-Ereignis `account_erased`/`tenant_erased` (die `ErasureEngine` bleibt rein deklarativ). v1.1 sah hier den Löschungs-Spiegel `erasure_mirror` vor; er geht im `PrivacyJournal` auf (Audit 2026-11-22: LEG-25, `09` §6.3) | Aufbewahrungsfristen (RET), Holds (Zweck-Guards), UI (PADM) | Pläne aus REG; prüft `held_subjects`; emittiert Journal-Ereignisse (PRA-1.07, PRA-2.01, PRA-2.02, PRA-2.13) | `03`, `04-anonymization-and-redaction.md`, `09-migrations-and-backfills.md` |
+| **Identity & Membership Lifecycle (IML)** | Bestand, erweitert | Kontozustände (`active` → `closed` → `erased`, Ziel zusätzlich `restricted`/`held`), Mitgliedschaftszustände, die *Zurechnungsrolle* jeder Kontoreferenz (`IdentityReferenceRegistry`), Auflösung des Anzeigenamens für alle API-Antworten (`resolve_display`), die Darstellungszustände `member`, `former_member`, `erased`, `third_party`, `system`, `service_account` | Löschen oder Umschreiben von Zeilen (PLE), Entscheiden, wer einen Namen sehen darf (ACV) | emittiert Journal-Ereignisse `MEMBERSHIP_REVOKED`, `MEMBERSHIP_ROLE_LOWERED`, `SESSION_REVOKED`/`SESSIONS_REVOKED_ALL`, `PASSWORD_CHANGED`, `ACCOUNT_EMAIL_CHANGED`, `ACCESS_GRANT_REVOKED` (Taxonomie `17` §3.3; PRA-2.03, PRA-1.04) | `03-account-and-membership-lifecycle.md`, `08-api-and-data-model.md` §2 |
+| **Privacy Lifecycle Engine (PLE)** | Bestand, erweitert | den Löschplan und seine Ausführung, Anonymisierungs- und Pseudonymisierungsregeln, Schwärzung (manuell und kaskadierend), Propagation auf abgeleitete Zeilen, Idempotenz, Wiederholung, Behandlung von Teilausfällen, Residue-Scan (auch Kontolöschung, PRIV-135), mandantengebundene Pseudonyme, den Zustandsautomaten der Freitextprüfung (`04` §5.1a); der ausführende Service schreibt das Journal-Ereignis `SUBJECT_ERASURE_COMPLETED`/`TENANT_ERASURE_COMPLETED` (bis v1.2: `account_erased`/`tenant_erased`; `17` §3.3) und setzt bis zur Journal-Bestätigung den Status `completed_pending_journal` (PRIV-811) (die `ErasureEngine` bleibt rein deklarativ). v1.1 sah hier den Löschungs-Spiegel `erasure_mirror` vor; er geht im `PrivacyJournal` auf (Audit 2026-11-22: LEG-25, `09` §6.3) | Aufbewahrungsfristen (RET), Holds (Zweck-Guards), UI (PADM) | Pläne aus REG; prüft `held_subjects`; emittiert Journal-Ereignisse (PRA-1.07, PRA-2.01, PRA-2.02, PRA-2.13) | `03`, `04-anonymization-and-redaction.md`, `09-migrations-and-backfills.md` |
 | **Lineage & Privacy Register (REG)** | Bestand (PRIV-E05), erweitert | deklarative Metadaten: Feldklassifizierung je personenbezogenem Feld (A-REG-1), welches Feld von welchem abgeleitet ist (`DERIVED_FIELDS`), welche Zeilen gesetzlich sind, die Allowlist schwärzbarer Felder, die Collections, in denen Tombstones erlaubt sind; Guard-Skripte, die die Registries vollständig halten | Ausführung (PLE, Beats) | Python-Modul; Guards R1–R8, `check_privacy_registry_doc.py` (PRA-1.01) | `02-personal-data-inventory.md` |
 | **Retention Policy Register (RET)** | Bestand, erweitert | deklarative `RetentionRule`-Liste je Speicherstelle inkl. Nebenspeicher (Logs, Valkey, `vectordb`, Snapshots, nicht-aktuelle S3-Versionen, Backups, Endgerät) mit Frist, Grundlage und Durchsetzungsart; Ober-/Untergrenzen (`RETENTION_CEILINGS`) | Ausführung (Beats) | Guard Beat ↔ Regel; Quelle für Art. 13/15 (PRA-3.06, PRA-2.18) | `06-retention-and-legal-basis.md` |
 | **Empfängerregister (RCP)** | neu (Doku + YAML) | Dienste, Rollen, Regionen, Übermittlungsgrundlagen | Vertragsinhalt | YAML; Guard über `data_access/external/` und `src/knowledge-service/app/llm/`; Quelle für Art. 13/15 und Verzeichnis (PRA-1.03) | `06` |
@@ -268,11 +292,11 @@ flowchart TB
 | **Tenant Privacy Profile Resolver (TPP)** | neu (reine Funktion) | wirksame Privacy-Defaults je Mandantenklasse | Speicherung der Einstellungen | `resolve_tenant_privacy_profile(settings) -> TenantPrivacyProfile`; einziger Leser von `organization_kind` (INV-P3, PRA-1.02) | §3.5.7; `05`, `06` |
 | **Data Subject Requests (DSR)** | Bestand + `privacy_requests` neu | Vorgänge Art. 15–21 mit Zustand, Frist und Verantwortlichem, Admin-Lesemodell, Art.-15-Metainformationen | Wirkung der Einschränkung (Zweck-Guards) | `POST/GET /privacy/*`, `GET /admin/platform/privacy/requests`; liest REG/RET/RCP (PRA-0.06, PRA-2.04, PRA-2.18, PRA-2.20) | §3.5.6; `03` §2.6, §10.2; `08` |
 | **Privacy Administration (PADM)** | neu | die Prüfwarteschlange (`privacy_review_items`), die Lead-/Management-UI, um zu sehen, was eine Löschung in ihrem Mandanten hinterlassen hat, und zu entscheiden (schwärzen / mit Begründung behalten), Überwachung unvollständiger Datenschutzvorgänge, Dokumentation von Ausnahmen | die Regeln selbst; Vorgänge der Betroffenenrechte (DSR) | `/t/{slug}/privacy/review`, `GET /admin/platform/privacy/operations` | `04`, `05`, `08`, `12-implementation-roadmap.md` |
-| **PrivacyJournal (JRN)** | neu | Outbox im selben Schreibschritt, Flush ins Bucket, Hochwassermarke, Outbox-Metrik | Replay-Ausführung | `journal.append(event)` (nur innerhalb einer Transaktion); Task `privacy.journal_flush` (PRA-1.04) | §3.5.5; `09` §6.3 |
+| **PrivacyJournal (JRN)** — RC-01…RC-05 | neu | Unit of Work mit Outbox im selben Commit, Relay als Einzelschreiber in den Journal-Store außerhalb der DB, Hochwassermarke, Verifier (Kette, Lücken, DB↔Store), Outbox-Metriken | Replay-Ausführung | `append_privacy_event_in(txn, …)` (nur innerhalb einer Stream-Transaktion); Task `privacy.journal_relay` (PRA-1.04) | §3.5.5; `17` §3, §4 |
 | **Incident Register (INC)** | neu | Fallakte nach Art. 33 Abs. 5, Mandantenbenachrichtigung | Erkennung (Alarmregeln) | `POST/GET /admin/platform/privacy/incidents` (PRA-3.02) | §3.5.11, §7b |
 | **Offline Privacy Layer (OPL)** | Bestand, erweitert | alles, was auf dem Endgerät gespeichert wird: Opt-in, Namespaces, Projektion **beider** Lesecaches, physische Fristen, Lebenszyklus des Schreibpuffers, Quarantäne, Logout-Wipe, Sitzungsisolation, Behandlung von Widerrufen, Modus für geteilte Geräte | serverseitige Deduplizierung (`client_event_writes.py`, PLE), serverseitige Rechte | `KP_SET_NAMESPACE`, `KP_CLEAR_DATA`/`KP_CLEAR_DONE`, Fehlercodes `account.closed`/`membership.ended` (PRA-0.07, PRA-0.08, PRA-2.15 … PRA-2.17) | `07-offline-privacy.md` |
-| **Restore-Detektor / Replay** | neu | Restore erkennen, Wartungsmodus, Replay über alle Speicher, Residue-Scan, Bericht | Backup-Erstellung | Lifespan-Check in `src/backend/app/main.py` und Worker-Init; CLI `python -m app.migrations.privacy_restore_replay` (PRA-1.05) | §3.5.9; `09` §6.4 |
-| **PrometheusRules / Evidenzablage** | neu (Betrieb) | Alarme auf Sicherheits- und Privacy-Signale; datierte Nachweise je Installation | — | Chart (`monitoring.enabled`); Betriebs-Repo (PRA-3.02, PRA-3.09) | §3.5.8, §3.5.11 |
+| **Restore-Gate / Restore-Controller** — RC-06…RC-11, RC-13 | neu | Recovery-State, Gate für Backend, Worker und Beat (§5.3 in `17`), Restore-Lebenszyklus mit Checkpoints, Reconciliation je Datenbereich und im Objektspeicher, Backup-Manifest, Isolationssteuerung | Backup-Erstellung (CronJob), Freigabeentscheidung (Betreiber) | `evaluate_recovery_gate()` im Lifespan, `worker_process_init`/`task_prerun`, `beat_init`; CLI `python -m app.migrations.privacy_restore <phase>` (präzisiert `privacy_restore_replay`); Helm `privacy.restore.isolate` (PRA-1.05, PRA-1.08, PRA-2.22) | §3.5.9; `17` §5–§7 |
+| **PrometheusRules / Evidenzablage** — RC-12, RC-14 | neu (Betrieb) | Alarme auf Sicherheits- und Privacy-Signale (inkl. `PrivacyRecoveryBlocked`); datierte Nachweise je Installation, Restore-Evidence-Report außerhalb der DB (R-64) | — | Chart (`monitoring.enabled`); Betriebs-Repo bzw. Prefix `privacy/evidence/` (PRA-3.02, PRA-3.09) | §3.5.8, §3.5.11; `17` §11.4, §11.5 |
 
 ### 3.3 Warum kein separater Datenschutzdienst und keine Middleware
 
@@ -300,13 +324,13 @@ flowchart TB
 | Zentrales Privacy-Register | **Erweiterung** der Registry (REG, PRIV-E05) um eine Feldklassifizierung; keine Laufzeitkomponente | `domain/models/privacy.py`, Registry aus PRIV-E05, `scripts/check_privacy_inventory.py` | „Inventar ist Code“ ist bewährt; die Lücke ist die Guard-Abdeckung, nicht der Speicherort | PRA-1.01 |
 | Verarbeitungsverzeichnis (Art. 30) | **Generiertes Artefakt**, keine Komponente | `06` §2 (PA-nn), Empfängerregister aus PRA-1.03, Feldklassifizierung | Art. 30 verlangt ein Dokument, keinen Dienst; Generierung verhindert eine zweite Liste | PRA-1.03, PRA-3.03 |
 | Retention-Policy-Register | **Erweiterung**: deklarative `RetentionRule`-Liste neben `RETENTION_CEILINGS`, ausdrücklich auch für Nicht-DB-Speicher | `config/settings.py`, `domain/services/retention_service.py`, `tasks/retention_tasks.py` | Beats existieren je Regel; es fehlen Regeln für Nebenspeicher und ein Guard Beat ↔ Regel | PRA-3.06, PRA-2.18 |
-| ErasureEngine: Lösch-Spiegel/Journal | **Neue Komponente** `PrivacyJournal` (Outbox + Flush-Task + Bucket-Objekt); die ErasureEngine emittiert nichts, der ausführende Service schreibt | neues Repository unter `data_access/arango/`, Task unter `tasks/` | Ereignisse stammen aus fünf Services (Erasure, Consent, Auth, Membership, Tenant) und müssen außerhalb der DB überleben | PRA-1.04 |
+| ErasureEngine: Lösch-Spiegel/Journal | **Neue Komponente** `PrivacyJournal` (Transactional Outbox in derselben Stream-Transaktion + Relay + Journal-Store außerhalb der DB, RC-01…RC-05; Variante A in `17` §4.1, Vorschlag DEC-35); die ErasureEngine emittiert nichts, der ausführende Service schreibt | neues Repository unter `data_access/arango/`, Task unter `tasks/` | Ereignisse stammen aus fünf Services (Erasure, Consent, Auth, Membership, Tenant) und müssen außerhalb der DB überleben | PRA-1.04 |
 | ErasureEngine: Legal Hold + Restriction-Guard | **Neue Komponente** `ProcessingHoldGuard` in `domain/guards/`, analog `consent_guard` | `domain/guards/`, Aufrufe in Retention-Tasks und Executors | Querschnittsprüfung auf Service-Ebene; das Muster existiert bereits und ist bewusst keine Middleware | PRA-1.06 |
 | Privacy-Lifecycle-Service | **Kein neuer Orchestrator**; Lebenszyklus bleibt in den besitzenden Services, ergänzt um Ereignistypen und Post-Transition-Hooks | `PrivacyService`, `TenantService`, `UserService`, Offline-Schicht | ein Orchestrator würde Claim/Retry/Backoff duplizieren (§3.3); es fehlt die Ereignisspur, nicht die Steuerung | PRA-1.04 |
 | Betroffenenanfragen-Workflow | **Erweiterung** der bestehenden Zustandsdokumente plus **kleine neue Collection** `privacy_requests` für Rechte ohne Selbstbedienung | `erasure_requests`, `data_export_requests`, `processing_restrictions`; Admin-Lesemodell | Erasure/Export haben Zustandsautomaten; Art. 16/18/21/19 und Anfragen Dritter haben keinen Ort | PRA-0.06, PRA-1.06, PRA-2.04 |
 | Mandanten-Privacy-Konfiguration | **Erweiterung** von `TenantSettings` plus **ein Resolver** `resolve_tenant_privacy_profile` | `domain/models/tenant.py`, neuer reiner Resolver in `domain/engines/` | Werte existieren (v0110); ein einziger Leser verhindert verstreute Klassenregeln | PRA-1.02 |
 | Audit- und Evidenzverwaltung | **Erweiterung** von `security_audit_log` (Aktionen, Hold) plus **Betriebsartefakt** Evidenzablage | `common/enums.py`, `security_audit_service`, Betriebs-Repo | Audit-Store existiert mit Frist R-38; Nachweise über Drills und Prüfungen sind Betriebsdokumente | PRA-3.09, PRA-1.06 |
-| Backup-Löschpropagation | **Neue Bausteine** im Bestand: Restore-Detektor (Lifespan), Replay-CLI (Migrationsframework), Helm-Durchsetzung | `src/backend/app/main.py`, `migrations/`, `helm/kamerplanter/` | Replay passt in das vorhandene Migrations-CLI; Erkennung muss vor jedem Request greifen | PRA-0.10, PRA-1.05 |
+| Backup-Löschpropagation | **Neue Bausteine** im Bestand: Restore-Gate (Lifespan, Worker, Beat), Restore-Controller mit Zustandsmodell (Migrationsframework), Reconciler, Isolationssteuerung, Chart-Vertrag (RC-06…RC-13, `17` §5) | `src/backend/app/main.py`, `tasks/__init__.py`, `migrations/`, `helm/kamerplanter/`, `scripts/ci/assert_chart_contracts.sh` | Replay passt in das vorhandene Migrations-CLI; Erkennung muss vor jedem Request **und** jedem Job greifen | PRA-0.10, PRA-0.12, PRA-1.05, PRA-1.08 |
 | DSFA-Dokumentation | **Dokument** plus **Kopplung** an die Klassifizierung (auditierte Bestätigung) | `11`, `TenantService` | DSFA ist Pflicht des Verantwortlichen; das Produkt liefert Baustein und Auslöser | PRA-3.04 |
 | Incident-Management | **Neue Komponente** `privacy_incidents` (Register) plus Runbook und Alert-Regeln | neuer Router/Service/Repo unter `api/v1/admin/platform/`, `helm/…/templates` | Art. 33 Abs. 5 verlangt Dokumentation jeder Verletzung; es gibt keinen Store dafür | PRA-0.11, PRA-3.02 |
 | KI-Cloud-Prüfung (Querschnitt) | **Neue Komponente** `CloudGate` neben `consent_guard` | `domain/guards/` | eine Prüfung vor jedem Knowledge-Service-Aufruf; Quelle der Wahrheit ist der Knowledge-Service, nicht der Mandanten-Datensatz | PRA-0.09 |
@@ -425,16 +449,24 @@ davon ist gebaut (`grep erasure_mirror` → 0). Sachverhalt in `09` §6.
 1. **Recht.** (a) Art. 17 Abs. 1, Art. 7 Abs. 3, Art. 18 Abs. 2, Art. 21 Abs. 3, Art. 32 Abs. 1 lit. b/c. (b) EDSA
    01/2022 Rn. 110 (L-19). (e) Zulässigkeit eines pseudonymen Journals (Tombstones sind personenbezogen, ErwG 26) — LEG-11.
 2. **Architektur.** **A-JRN-1** Jede privacy- oder sicherheitsrelevante Zustandsänderung erzeugt im **selben
-   Schreibschritt** einen Journal-Eintrag (Outbox); ohne Eintrag kein Commit (INV-P5). **A-JRN-2** Der Eintrag erreicht
-   binnen eines SLA (Minuten) einen Speicher außerhalb der Datenbank, der vom Backup unabhängig ist und nicht gelöscht
-   werden kann (append-only, Object Lock). **A-JRN-3** Kein Rohschlüssel im Journal; Subjekt als
-   `compute_tombstone_hash` oder Datensatz-ID. **A-JRN-4** Monotone Sequenz und Hochwassermarke in der DB.
-3. **Umsetzung.** `privacy_journal_outbox` (ArangoDB) + Task `privacy.journal_flush` + Bucket-Prefix
-   `privacy/journal/<seq>.jsonl.fernet` mit HMAC-Kette; Metrik `privacy_journal_outbox_age_seconds`. Emittenten:
-   `PrivacyService` (Konto-/Mandantenlöschung, Einwilligung, Einschränkung, Widerspruch), `AuthService` (Sitzungen,
-   Passwort), API-Key-Service, `TenantService` (Mitgliedschaft, Rolle, Sperre); die `ErasureEngine` bleibt rein
-   deklarativ. Ereignisliste: `09` §6.3 (PRIV-709) — PRA-1.04.
-4. **Betrieb.** S3-Schlüssel nur mit `PutObject`; Object-Lock-Dauer ≥ Dump-Frist + Puffer; Alarm auf Outbox-Alter.
+   Schreibschritt** einen Journal-Eintrag (Outbox); ohne Eintrag kein Commit (INV-P5) — präzisiert in `17` durch
+   PRIV-802 (eine Stream-Transaktion, Unit of Work RC-01). **A-JRN-2** Der Eintrag erreicht binnen eines SLA (Minuten)
+   einen Speicher außerhalb der Datenbank, der vom Backup unabhängig ist und nicht gelöscht werden kann (append-only,
+   Object Lock) — präzisiert durch PRIV-805 (Relay als Einzelschreiber) und PRIV-806 (Store nie Teil von Backup oder
+   Restore, Replik für BM-001/Commercial). **A-JRN-3** Kein Rohschlüssel im Journal; Subjekt als
+   `compute_tombstone_hash` oder Datensatz-ID — präzisiert durch PRIV-804 (domänengetrennte HMAC-Pseudonyme
+   `jsub_`/`jten_`/`jrec_`, Tombstone nur in `SUBJECT_ERASURE_COMPLETED`). **A-JRN-4** Monotone Sequenz und
+   Hochwassermarke in der DB — präzisiert durch PRIV-809 (Lücken-, Ketten- und DB↔Store-Prüfung inkl. Absturzfenster).
+3. **Umsetzung.** `privacy_journal_outbox` (ArangoDB, RC-02) + Task `privacy.journal_relay` (RC-03, ersetzt
+   `privacy.journal_flush`) + Journal-Store (RC-04: S3-Prefix mit Object Lock oder append-only Volume) mit Segmenten
+   (Fernet-verschlüsselt und MAC-gesichert mit `PRIVACY_JOURNAL_KEY`, PRIV-807), Hash-Kette und Recovery-State
+   `system_meta/privacy_recovery` (RC-06); Metriken `17` §11.4. Emittenten: `PrivacyService` (Konto-/Mandantenlöschung,
+   Einwilligung, Einschränkung, Widerspruch), `AuthService` (Sitzungen, Passwort, E-Mail), API-Key-Service,
+   `TenantService` (Mitgliedschaft, Rolle, Sperre), Attachment-Service (Anhangslöschung); die `ErasureEngine` bleibt rein
+   deklarativ. Ereignistaxonomie und Schema: `17` §3.3/§3.4 (präzisiert die Liste aus PRIV-709 in `09` §6.3) — PRA-1.04.
+4. **Betrieb.** Relay-Zugang nur mit `PutObject`/`GetObject`/`ListBucket`, ohne `DeleteObject`; Object-Lock-Dauer und
+   Segmentablauf = Journal-Frist R-63 (`06`, `17` §3.8: wirksame Backup-Lebensdauer + 14 d, höchstens 90 d); Alarm auf
+   Outbox-Alter; `PRIVACY_JOURNAL_KEY` getrennt vom Backup verwahrt, gemeinsam mit `ERASURE_TOMBSTONE_SALT`.
 
 **Entscheidung:** Eigene Komponente — querschnittlich (fünf Emittenten) und muss außerhalb der DB überleben. DEC-26
 wird erweitert, nicht verworfen.
@@ -504,7 +536,10 @@ Dokumentanzahlen, `backup-restore.md:103–104`).
    und brauchen eine Frist.
 2. **Architektur.** **A-AUD-1** Jede privacy-relevante Admin- oder Leitungshandlung erzeugt genau eine Audit-Zeile ohne
    Inhaltsdaten (Akteur, Mandant, Aktion, Zähler). **A-AUD-2** Der Audit-Purge respektiert einen Hold. **A-AUD-3**
-   Sicherheitsrelevante Audit-Ereignisse gehen zusätzlich ins Journal (überleben Restore). **A-AUD-4**
+   ~~Sicherheitsrelevante Audit-Ereignisse gehen zusätzlich ins Journal.~~ **Ersetzt** (Nachtrag 2026-11-23,
+   `17` §0.4): Sicherheitsereignisse gehen nicht als Kopie der Audit-Zeile, sondern als typisierte Journal-Ereignisse
+   der Klasse A (`17` §3.3) ins Journal; verlorene Audit-Zeilen zwischen Backup und Restore werden nicht rekonstruiert,
+   der Restore schreibt je angewendetem Zugangsentzug eine Zeile `RESTORE_REAPPLIED_<ACTION>` (`17` §6.3). **A-AUD-4**
    Betriebsnachweise sind datiert, je Installation abgelegt und referenzieren die Kontrolle (PRA-ID), die sie belegen.
 3. **Umsetzung.** Neue Aktionen in `common/enums.py`: `ATTRIBUTION_EXPORTED`, `ATTRIBUTION_FILTER_USED`,
    `ERASURE_PREVIEW_READ`, `RESTRICTION_REQUESTED/APPLIED/REJECTED`, `LEGAL_HOLD_SET/LIFTED`,
@@ -528,13 +563,18 @@ S1–S10. Sachverhalt und Evidenz: `09` §6.1, §6.5.
 2. **Architektur.** **A-BAK-1** Ein Backup kann nicht ohne Journal aktiviert werden (Render-Fail). **A-BAK-2**
    Backup-Fristen haben eine harte Obergrenze (≤ 35 d), auch für nicht-aktuelle Objektversionen. **A-BAK-3** Ein
    Restore wird **automatisch** erkannt (Hochwassermarke DB < Journal), und das System nimmt bis zum Replay keine
-   Verarbeitung auf (Wartungsmodus, INV-P6). **A-BAK-4** Der Replay umfasst alle Speicher (ArangoDB, TimescaleDB,
-   Objektspeicher, `vectordb`) und alle Journal-Ereignistypen und endet mit Residue-Scan und Bericht. **A-BAK-5** Ohne
-   Journal gilt eine Rückfall-Basis (Secret-Rotation, Token-/Key-Widerruf), und der Restore gilt als nicht abgeschlossen.
-3. **Umsetzung.** Helm-Precheck (PRA-0.10, INV-P10); Restore-Detektor im Lifespan von `src/backend/app/main.py` und in
-   der Worker-Initialisierung; CLI `python -m app.migrations.privacy_restore_replay` im vorhandenen Migrationsframework
-   mit `migration_reports`; Bucket-Lifecycle-Doku — PRA-0.10, PRA-1.04, PRA-1.05, PRA-3.07. Anforderungen PRIV-707…713
-   in `09` §6.
+   Verarbeitung auf (Wartungsmodus, INV-P6) — präzisiert in `17` durch PRIV-821 (Gate-Gründe §5.3, auch bei `DEBUG`) und
+   PRIV-823 (Worker und Beat prüfen Gate und Migrationskopf, LEG-70). **A-BAK-4** Der Replay umfasst alle Speicher
+   (ArangoDB, TimescaleDB, Objektspeicher, `vectordb`) und alle Journal-Ereignistypen und endet mit Residue-Scan und
+   Bericht — präzisiert durch PRIV-840 (Reconciliation je Datenbereich, `17` §6.3). **A-BAK-5** Ohne Journal gilt eine
+   Rückfall-Basis (Secret-Rotation, Token-/Key-Widerruf), und der Restore gilt als nicht abgeschlossen — präzisiert durch
+   PRIV-832 (Rückfall nur über `FALLBACK_REVIEW` mit Freigabe inkl. DSB, Report „mit Lücke“).
+3. **Umsetzung.** Chart-Vertrag (PRA-0.10, INV-P10); Restore-Gate (RC-07) im Lifespan von `src/backend/app/main.py`,
+   in `worker_process_init`/`task_prerun` und `beat_init`; Restore-Controller `python -m app.migrations.privacy_restore`
+   (RC-08, präzisiert `privacy_restore_replay`) im vorhandenen Migrationsframework mit `migration_reports` (Art
+   `restore_replay`) und dem Zustandsmodell `17` §5.1; Reconciler RC-09/RC-10; Isolationssteuerung RC-13; Backup-Manifest
+   RC-11; Bucket-Lifecycle-Doku — PRA-0.10, PRA-0.12, PRA-1.04, PRA-1.05, PRA-1.08, PRA-2.22, PRA-3.07. Anforderungen
+   PRIV-707…713 in `09` §6 und PRIV-800 ff. in [`17`](17-privacy-recovery.md).
 4. **Betrieb.** Lifecycle-Regeln und Object Lock setzen; Restore nur nach Runbook; Drill (PRA-3.09); Docker-Skript mit
    Frist.
 
@@ -794,7 +834,7 @@ sequenceDiagram
     PS->>PS: pre_arango_completed_at checkpoint
     PS->>EX: run_erasure_plan(plan, tombstone)
     EX->>EX: edges → documents → ANONYMIZE → PSEUDONYMIZE → users (one txn)
-    EX->>EX: ★ Outbox-Eintrag account_erased im selben Schreibschritt (09 §6.3, v1.2 statt erasure_mirror)
+    EX->>EX: ★ Outbox-Eintrag SUBJECT_ERASURE_COMPLETED im selben Commit, Status completed_pending_journal (17 §3.3, §4.3)
     EX-->>PS: report (reached / unreached steps)
     PS->>PS: ★ Residue-Scan (PRIV-135)
     PS->>RQ: ★ Entdeckung der Prüfeinträge je geteiltem Mandanten (04 §5, paginiert)
@@ -857,7 +897,7 @@ Puffer entstehen nur nach ausdrücklichem Einschalten des Offline-Modus (`07` §
 | **Mitglied ↔ Mitglied (innerhalb eines Mandanten)** | Namen von Ausführenden/Erstellern, Freitext, E-Mail-Adressen von Mitgliedern | Rollen-Gates; `performed_by`-Filter für viewer/grower auf die eigene Person beschränkt | Sichtbarkeitsregeln (`05`): Namen ehemaliger Mitglieder unterdrückt, Ausführende vor Nicht-Leads verborgen, wo die Mandanteneinstellung es vorsieht, Mitglieds-E-Mails nur für `management`, CSV mit Namen auditiert |
 | **Mandant ↔ Plattformbetreiber** | Mitgliedschaftslisten, Zähler, Sicherheits-Audit; **keine Domänendaten** (REQ-049 P4, AK-09) — Audit 2026-11-22: der Plattform-Export nach REQ-056 §8 widerspricht dem (LEG-53, W-30, `05`/`14`); Plattform-Admins lesen E-Mail und Mitgliedschaften aller Konten ohne zweiten Faktor und ohne Leseaudit (LEG-45, §7b) | `require_platform_admin` | Die Überwachung von Datenschutzvorgängen legt Zähler und Zustände offen, nie Zeileninhalte; zweiter Faktor und Leseaudit (PRA-2.19); Export nur mit `reason` (PRA-2.11) |
 | **Verantwortlicher ↔ Auftragsverarbeiter** [rechtlich] | Wer ist Verantwortlicher für die Mitgliedsdaten eines Community-/Gewerbe-Mandanten — die Mandantenorganisation (mit dem Betreiber als Auftragsverarbeiter, Art. 28) oder der Betreiber (gemeinsam, Art. 26)? | in den Specs nirgends behandelt | **LEG-01**; das Paket unterstellt, dass die *Mandantenorganisation Verantwortlicher für Mitgliedsdaten und der Betreiber Auftragsverarbeiter ist*, und kennzeichnet jede Stelle, an der diese Annahme eine Rolle spielt |
-| **Primärspeicher ↔ Backups** | vollständige Kopien | Helm-CronJob vorhanden, **Default aus**, aber ohne Löschpropagation, Precheck und Fristgrenze aktivierbar; Doku empfiehlt Versionierung ohne Lifecycle (Audit 2026-11-22: LEG-11, LEG-26; korrigiert „es existiert kein Backup“) | Privacy-&-Security-Journal außerhalb der DB (write-through, Object Lock), Restore-Detektor mit Startsperre und Replay über alle Speicher (`09` §6, DEC-26 erweitert, §3.5.5, §3.5.9), bevor ein Backup in Produktion aktiviert wird; Dumps und nicht-aktuelle Versionen ≤ 35 d |
+| **Primärspeicher ↔ Backups** | vollständige Kopien | Helm-CronJob vorhanden, **Default aus**, aber ohne Löschpropagation, Precheck und Fristgrenze aktivierbar; Doku empfiehlt Versionierung ohne Lifecycle (Audit 2026-11-22: LEG-11, LEG-26; korrigiert „es existiert kein Backup“) | Privacy-&-Security-Journal außerhalb der DB (Outbox im selben Commit, Relay, Object Lock), Restore-Gate und Restore-Lebenszyklus mit Reconciliation über alle Speicher (`09` §6, DEC-26 erweitert, §3.5.5, §3.5.9), bevor ein Backup in Produktion aktiviert wird; Dumps und nicht-aktuelle Versionen ≤ 35 d. Präzisiert in `17` §2.5 (Grenzen Primär-DB ↔ Journal-Store und Primär-DB ↔ Backup-Bucket): der Journal-Store ist **nie** Teil des Backups und wird nie mit der DB auf einen älteren Stand gesetzt |
 | **Backend ↔ Knowledge-Service / LLM-Anbieter** | Prompts mit Stammwerten, Notizen, Chat-Freitext; keine Konto-IDs | `consent_guard` (`ai_tenant_data_access`), Prompt-Injection-Schutz im KS (`knowledge-service/app/prompt_engine.py:148–190`), KS protokolliert keine Fragen | `CloudGate` am tatsächlichen Provider (§3.5.12, LEG-31); Empfängerregister (§3.5.2) |
 | **Pod ↔ Pod (im Cluster)** | Datenbank- und Broker-Verkehr (ArangoDB, Valkey, TimescaleDB) | NetworkPolicy default-deny (nur Prod-Release) | Valkey-Authentifizierung, CNI-Voraussetzung dokumentiert, optional mTLS (LEG-59, §7b) |
 
@@ -898,8 +938,8 @@ des Audits. Fehlende oder teilweise Kontrollen verweisen auf den Befund (§7b bz
 | API-Rate-Limits je Klasse | Settings | `settings.py:787–1089` | `CONFIRMED` |
 | Incident-/Breach-Verfahren | — | — | **Lücke** (LEG-32, §7b) |
 | Backup/Wiederherstellbarkeit (Art. 32 Abs. 1 lit. c) | NFR-002 §8, `backup-restore.md` | CronJob vorhanden, Default aus; Drill 2026-10-04 | `PARTIALLY_CONFIRMED` (`09` §6.1) |
-| Löschpropagation in Backups | DEC-26, PRIV-707…713 | fehlt | **Lücke** (LEG-11, `09` §6) |
-| Restore-Integrität von Sicherheits- und Rechtezustand | — | fehlt | **Lücke** (LEG-24, `09` §6.5) |
+| Löschpropagation in Backups | DEC-26, PRIV-707…713, PRIV-800 ff. (`17`) | fehlt | **Lücke** (LEG-11, `09` §6, `17`) |
+| Restore-Integrität von Sicherheits- und Rechtezustand | `17` §5 (spezifiziert) | fehlt; Runbook hält Worker bei `dedicatedQueues` nicht an, Docker-Restore gegen laufende Anwendung, Valkey behält den Stand nach T0 (LEG-62, LEG-63, LEG-69) | **Lücke** (LEG-24, `09` §6.5, `17` §1.6) |
 
 ### 7b. Befunde zu Architektur und TOM (Audit 2026-11-22)
 
@@ -927,7 +967,7 @@ PRA-0.02, PRA-0.11, PRA-3.02, PRA-3.09.
 sind nur Feld-Secrets via Fernet (`domain/engines/encryption_engine.py`) und SSE für S3
 (`data_access/storage/s3_adapter.py:106, 297`). Nicht nachweisbar oder verlangt ist die Verschlüsselung der ArangoDB-,
 Valkey- (AOF mit Broker- und OAuth-State-Daten), TimescaleDB- und `backend-attachments`-Volumes (local-fs, Fotos)
-(`helm/kamerplanter/values.yaml:604–605, 3253–3261`); ArangoDB Community kennt keine Encryption-at-rest; `grep -rni "at
+(`helm/kamerplanter/values.yaml:607–608, 3253–3261`; Nachtrag 2026-11-23: SSE steht in `:607–608`, nicht `:604–605`); ArangoDB Community kennt keine Encryption-at-rest; `grep -rni "at
 rest\|ruhend\|LUKS" docs/de/deployment spec/stack.md spec/nfr/NFR-002*` → 0. Diebstahl eines Node-Datenträgers oder
 PV-Snapshots legt alle Daten offen. Recht: (c) Art. 32 Abs. 1 lit. a (Beispielmaßnahme, dokumentationsbedürftige
 Abwägung, Art. 5 Abs. 2); Art. 34 Abs. 3 lit. a (Ausnahme von der Benachrichtigung nur bei Verschlüsselung). Soll
@@ -974,7 +1014,11 @@ Doku-Hinweis „CNI muss NetworkPolicies durchsetzen“; optional mTLS/Service-M
 `migration_reports`, `redaction_log`, falls separat) MUSS `tenant_key` tragen (oder
 plattformweit sein und mit Begründung in `TenantErasureEngine.NOT_TENANT_SCOPED` geführt
 werden) und MUSS zu `TenantErasureEngine.INVENTORY` hinzugefügt werden; der Guard
-`tests/unit/guards/test_tenant_erasure_inventory_is_complete.py` erzwingt dies.
+`tests/unit/guards/test_tenant_erasure_inventory_is_complete.py` erzwingt dies. `privacy_journal_outbox` ist
+**plattformweit** und wird in `NOT_TENANT_SCOPED` geführt (Nachtrag 2026-11-23, `17` §2.3 RC-02): Einträge tragen nur
+Pseudonyme (`jsub_`/`jten_`/`jrec_`, `17` §3.9), keinen `tenant_key`; eine Mandantenlöschung darf ihre eigenen
+Löschereignisse nicht aus der Outbox entfernen, bevor das Relay sie bestätigt hat, und der Purge der Outbox folgt der
+Bestätigung (+ 7 d, `17` §3.8), nicht dem Mandanten.
 
 **PRIV-011** Die Prüfwarteschlange MUSS ausschließlich über `/api/v1/t/{slug}/privacy/…`
 lesbar sein, und zwar für Mitglieder mit `management` oder der Rolle `lead` dieses Mandanten
@@ -994,12 +1038,12 @@ globale Katalogdaten (Arten/Cultivare mit `tenant_has_access`), die keine Kontor
 | INV-P2 | Kein Retention-Beat ohne Regel, keine `beat`-Regel ohne Beat; jeder Beat ruft `held_subjects`. | Guard (statisch) | PRA-1.06, PRA-3.06 |
 | INV-P3 | `organization_kind` wird nur im Resolver gelesen. | Guard (Grep-basiert, mit Ausnahmeliste Modell/Migration/Export) | PRA-1.02 |
 | INV-P4 | Jede Methode, die den Knowledge-Service aufruft, ruft vorher `CloudGate.require`. | Guard | PRA-0.09 |
-| INV-P5 | Jede Zustandsänderung aus der Ereignisliste (`09` §6.3) committet nur mit Outbox-Eintrag. | Integrationstest je Ereignistyp | PRA-1.04 |
-| INV-P6 | Der Backend-Start verweigert die Verarbeitung, wenn die DB-Hochwassermarke unter der Journal-Sequenz liegt. | Integrationstest S3–S7 (`09` §6.5) | PRA-1.05 |
+| INV-P5 | Jede Zustandsänderung aus der Ereignistaxonomie (`17` §3.3; bis v1.2 Liste `09` §6.3) committet nur mit Outbox-Eintrag. | Integrationstest je Ereignistyp **+ statischer Emittenten-Guard** (TA-735, PRIV-801) | PRA-1.04 |
+| INV-P6 | Backend, Worker und Beat verweigern die Verarbeitung, solange das Restore-Gate geschlossen ist (Gründe `17` §5.3: Restore läuft, DB-Hochwassermarke hinter dem Journal, Journal hinter der DB, Integritätsfehler, Journal nicht erreichbar, Secret-Fingerabdruck abweichend, Migrationskopf veraltet). | Integrationstests Szenarien A–H (`17` §9, TA-742, TA-744…R27) | PRA-1.05 |
 | INV-P7 | Jede Allowlist-Route des SW-Caches hat eine Projektion. | Vitest-Guard | PRA-0.07 |
 | INV-P8 | Jeder externe Adapter steht im Empfängerregister. | Guard | PRA-1.03 |
 | INV-P9 | Kein Antwortschema liefert Dauer-/Bewertungsfelder zusammen mit Personenbezug ohne Rollenfilter. | Guard TA-309 | PRA-2.06 |
-| INV-P10 | `helm template` mit `backup.enabled` ohne Journal oder mit Frist außerhalb [1, 35] schlägt fehl. | helm-unittest | PRA-0.10 |
+| INV-P10 | `helm template` mit `backup.enabled` ohne Journal oder mit Frist außerhalb [1, 35] schlägt fehl; ebenso eine Journal-Frist `privacy.journal.retentionDays` < wirksame Backup-Lebensdauer + 14 d oder > 90 d (PRIV-808, PRIV-855). | Chart-Vertrag `scripts/ci/assert_chart_contracts.sh` (`expect_refusal`, läuft in `.github/workflows/skaffold-verify.yml`); es gibt kein helm-unittest im Repo (TA-740) | PRA-0.10 |
 
 ---
 
@@ -1048,6 +1092,7 @@ globale Katalogdaten (Arten/Cultivare mit `tenant_has_access`), die keine Kontor
 | PRIV-009 | TA-100…TA-130 (Lebenszyklus) |
 | PRIV-010, 011, 012 | TA-010 neue Collections im Mandanteninventar; TA-011 Route-Walk der Prüfwarteschlange; TA-012 keine mandantenübergreifende Propagation |
 | A-* (§3.5), INV-P1…INV-P10 (§8a) | Testbeschreibungen in §3.5/§8a; TA-Vergabe in `10` (PRA-3.10) |
+| PRIV-800…PRIV-874 (`17` §12) | TA-726…TA-760 (`17` §11.1); Abbildung auf reguläre TA-IDs in `10` |
 
 ---
 
@@ -1059,7 +1104,7 @@ globale Katalogdaten (Arten/Cultivare mit `tenant_has_access`), die keine Kontor
 |---|---|---|---|
 | Mandanteneigene KI-Provider: an den Knowledge-Service durchreichen oder entfernen? | Provider je Anfrage im KS / nur Anzeige / entfernen | Produktentscheidung; KS-Schnittstelle | PRA-0.09 |
 | `control_events` bei manuellen Befehlen: Schlüssel mit Marker oder nur `source = manual`? | Kontoreferenz mit Lebenszyklus / keine Personenangabe | Produktentscheidung, Bedarf an Nachvollziehbarkeit | PRA-2.07 |
-| Journal-Speicher für Installationen ohne S3 (Light, Docker) | lokales append-only Verzeichnis auf separatem Volume / kein Backup ohne S3 | Betriebsmodelle BM-002/BM-003 | PRA-1.04, PRA-3.07 |
+| Journal-Speicher für Installationen ohne S3 (Light, Docker) | lokales append-only Verzeichnis auf separatem Volume / kein Backup ohne S3 — **Empfehlung** (`17` §5.8, §8.4): eigenes Volume `privacy_journal` (nicht `arangodb_data`), Segmente mit `fsync`, nach Abschluss schreibgeschützt; BM-003 ohne weiteres Medium vertretbar, BM-002 mit Kopie auf ein zweites Medium; Manipulationssicherheit ohne WORM geringer (`INFERRED`) | Betriebsmodelle BM-002/BM-003; Betreiberentscheidung | PRA-1.04, PRA-3.07 |
 | Snapshot-Frist im Gartenplan kürzer als R-26? | 30 d / 365 d mit Schwärzungspropagation | Produktentscheidung | PRA-2.02 |
 | Auslagerung von Restriktions- und Policy-Logik aus `PrivacyService` (reicht mindestens bis Zeile 3 573 und vereint Löschung, Export, Einwilligung, Einschränkung und Policy) | eigene Services / Bestand | Wartbarkeit (keine Privacy-Pflicht) | PRA-1.06, PRA-2.18 |
 | Wird `privacy_requests` auch für Löschung/Export als Vorgangssicht genutzt? | nur manuelle Rechte / einheitliche Sicht über alle | Umfang des Admin-Lesemodells | PRA-0.06, PRA-2.04 |
