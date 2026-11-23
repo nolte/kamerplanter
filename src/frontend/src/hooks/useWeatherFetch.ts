@@ -97,7 +97,9 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
   const [refusal, setRefusal] = useState<WeatherFetchRefusal | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
 
-  const mountedRef = useRef(true);
+  // One controller per mount: unmounting aborts every status read still in flight,
+  // so a card that is gone neither sets state nor leaves an admin read behind.
+  const controllerRef = useRef<AbortController | null>(null);
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const statusRef = useRef<WeatherFetchStatusResponse | null>(null);
 
@@ -109,12 +111,19 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
   }, []);
 
   useEffect(() => {
-    mountedRef.current = true;
+    const controller = new AbortController();
+    controllerRef.current = controller;
     return () => {
-      mountedRef.current = false;
+      controller.abort();
       stopPolling();
     };
   }, [stopPolling]);
+
+  /** The signal of the current mount; an aborted one before the first effect has run. */
+  const currentSignal = useCallback((): AbortSignal => {
+    if (controllerRef.current) return controllerRef.current.signal;
+    return AbortSignal.abort();
+  }, []);
 
   const applyStatus = useCallback((next: WeatherFetchStatusResponse) => {
     statusRef.current = next;
@@ -124,24 +133,24 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
   }, []);
 
   /** Read the status; every state update happens in the promise callbacks, never synchronously. */
-  const readStatus = useCallback(
-    () =>
-      getWeatherFetchStatus().then(
-        (next) => {
-          if (!mountedRef.current) return;
-          applyStatus(next);
-          setStatusError(false);
-          setStatusLoading(false);
-        },
-        (err: unknown) => {
-          if (!mountedRef.current) return;
-          captureHandledError(err, { source: 'useWeatherFetch.status' });
-          setStatusError(true);
-          setStatusLoading(false);
-        },
-      ),
-    [applyStatus],
-  );
+  const readStatus = useCallback(() => {
+    const signal = currentSignal();
+    return getWeatherFetchStatus(signal).then(
+      (next) => {
+        if (signal.aborted) return;
+        applyStatus(next);
+        setStatusError(false);
+        setStatusLoading(false);
+      },
+      (err: unknown) => {
+        // An aborted read belongs to a card that is gone: nothing to show or report.
+        if (signal.aborted) return;
+        captureHandledError(err, { source: 'useWeatherFetch.status' });
+        setStatusError(true);
+        setStatusLoading(false);
+      },
+    );
+  }, [applyStatus, currentSignal]);
 
   const reloadStatus = useCallback(async () => {
     setStatusLoading(true);
@@ -179,9 +188,10 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
       const tick = async () => {
         pollTimerRef.current = null;
         polls += 1;
+        const signal = currentSignal();
         try {
-          const next = await getWeatherFetchStatus();
-          if (!mountedRef.current) return;
+          const next = await getWeatherFetchStatus(signal);
+          if (signal.aborted) return;
           applyStatus(next);
           setStatusError(false);
           const latest = next.last_run ?? null;
@@ -197,7 +207,7 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
             return;
           }
         } catch (err) {
-          if (!mountedRef.current) return;
+          if (signal.aborted) return;
           // A failed read costs one poll of the budget; the next tick tries again.
           captureHandledError(err, { source: 'useWeatherFetch.poll' });
         }
@@ -209,11 +219,12 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
       };
       pollTimerRef.current = setTimeout(() => void tick(), WEATHER_FETCH_POLL_INTERVAL_MS);
     },
-    [applyStatus, stopPolling],
+    [applyStatus, currentSignal, stopPolling],
   );
 
   const trigger = useCallback(async () => {
     const clickedAt = Date.now();
+    const signal = currentSignal();
     stopPolling();
     setPhase('starting');
     setResult(null);
@@ -223,22 +234,23 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
     // scheduled run that ran while the page was open must not pass for this click's.
     let baseline = runId(statusRef.current?.last_run);
     try {
-      const fresh = await getWeatherFetchStatus();
-      if (!mountedRef.current) return;
+      const fresh = await getWeatherFetchStatus(signal);
+      if (signal.aborted) return;
       applyStatus(fresh);
       baseline = runId(fresh.last_run);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (signal.aborted) return;
       // Not fatal: the click-time bound in the poll still keeps an older run out.
       captureHandledError(err, { source: 'useWeatherFetch.baseline' });
     }
     try {
+      // The POST itself is not aborted: a click that reached the server stays a click.
       await triggerWeatherFetch();
-      if (!mountedRef.current) return;
+      if (signal.aborted) return;
       setPhase('running');
       pollUntilFinished(baseline, clickedAt - WEATHER_FETCH_CLOCK_TOLERANCE_MS, true);
     } catch (err) {
-      if (!mountedRef.current) return;
+      if (signal.aborted) return;
       if (isApiError(err) && err.errorCode === 'WEATHER_FETCH_RUNNING') {
         // Another run (scheduled or someone else's) holds the lock: follow that one.
         setPhase('running');
@@ -253,8 +265,8 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
         if (waitSeconds === null) {
           // No readable Retry-After (a proxy may drop it): the status knows the same wait.
           try {
-            const next = await getWeatherFetchStatus();
-            if (!mountedRef.current) return;
+            const next = await getWeatherFetchStatus(signal);
+            if (signal.aborted) return;
             applyStatus(next);
             waitSeconds = next.manual_fetch_available_in_s ?? null;
           } catch (statusErr) {
@@ -273,7 +285,7 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
         setRefusal({ kind: 'error' });
       }
     }
-  }, [applyStatus, pollUntilFinished, stopPolling]);
+  }, [applyStatus, currentSignal, pollUntilFinished, stopPolling]);
 
   const weatherDisabled = status !== null && !status.next_scheduled_at;
   const canTrigger =

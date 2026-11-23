@@ -57,7 +57,14 @@ describe('adminWeatherProviders endpoints', () => {
   it('getWeatherFetchStatus GETs the fetch status (F-14)', async () => {
     client.get.mockResolvedValue({ data: { interval_hours: 6 } });
     const result = await api.getWeatherFetchStatus();
-    expect(client.get).toHaveBeenCalledWith('/admin/weather-providers/fetch-status');
+    expect(client.get).toHaveBeenCalledWith('/admin/weather-providers/fetch-status', { signal: undefined });
     expect(result).toEqual({ interval_hours: 6 });
+  });
+
+  it('getWeatherFetchStatus hands the abort signal to the client', async () => {
+    client.get.mockResolvedValue({ data: { interval_hours: 6 } });
+    const controller = new AbortController();
+    await api.getWeatherFetchStatus(controller.signal);
+    expect(client.get).toHaveBeenCalledWith('/admin/weather-providers/fetch-status', { signal: controller.signal });
   });
 });

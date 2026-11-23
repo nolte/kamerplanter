@@ -52,8 +52,14 @@ export async function triggerWeatherFetch(): Promise<WeatherFetchTriggerResponse
   return data;
 }
 
-/** GET the newest run, the newest successful run and the next scheduled fetch. */
-export async function getWeatherFetchStatus(): Promise<WeatherFetchStatusResponse> {
-  const { data } = await apiClient.get<WeatherFetchStatusResponse>(`${BASE}/fetch-status`);
+/**
+ * GET the newest run, the newest successful run and the next scheduled fetch.
+ *
+ * `signal` cancels a read whose card has gone: an aborted request is never sent
+ * (axios checks the signal before dispatch), so leaving the page does not leave
+ * an admin read in flight.
+ */
+export async function getWeatherFetchStatus(signal?: AbortSignal): Promise<WeatherFetchStatusResponse> {
+  const { data } = await apiClient.get<WeatherFetchStatusResponse>(`${BASE}/fetch-status`, { signal });
   return data;
 }

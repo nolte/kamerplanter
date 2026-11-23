@@ -521,4 +521,24 @@ describe('WeatherFetchPanel', () => {
     expect(screen.getByTestId('weather-fetch-live')).toContainElement(refusal);
     expect(refusal).toHaveAttribute('role', 'none');
   });
+
+  // PR #3108 CI: a status read still in the request chain when the card unmounted was
+  // sent anyway and landed in the next test (a plain member's page). The read carries the
+  // mount's abort signal, so axios drops it before dispatch.
+  it('aborts a status read still in flight when the card unmounts', async () => {
+    const signals: (AbortSignal | undefined)[] = [];
+    mockStatus.mockImplementation((signal?: AbortSignal) => {
+      signals.push(signal);
+      return new Promise(() => {}); // never answers: the read is still in flight at unmount
+    });
+    const { unmount } = setup();
+    await waitFor(() => expect(signals.length).toBeGreaterThan(0));
+    const signal = signals[signals.length - 1];
+    expect(signal).toBeDefined();
+    expect(signal!.aborted).toBe(false);
+
+    unmount();
+
+    expect(signal!.aborted).toBe(true);
+  });
 });
