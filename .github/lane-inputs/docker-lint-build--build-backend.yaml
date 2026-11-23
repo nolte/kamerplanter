@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: backend
 status: derived
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 6
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 4
 job_spec_sha256: 2ed572914233fe95db3b8982896b0d086e1c0388d7cadafe3af20c5d82c3d586
 invocations:
 - command: derive-docker --context src/backend --dockerfile src/backend/Dockerfile
@@ -24,7 +24,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 3182
+  context_files_after_dockerignore: 3199
 subprocesses: []
 accepted_gaps: []
 reads:
@@ -242,6 +242,7 @@ reads:
 - src/backend/app/api/v1/plant_instances/environment_router.py
 - src/backend/app/api/v1/plant_instances/photo_router.py
 - src/backend/app/api/v1/plant_instances/photo_schemas.py
+- src/backend/app/api/v1/plant_instances/row_labels.py
 - src/backend/app/api/v1/plant_instances/schemas.py
 - src/backend/app/api/v1/plant_instances/tenant_router.py
 - src/backend/app/api/v1/planting_runs/__init__.py
@@ -482,6 +483,7 @@ reads:
 - src/backend/app/data_access/arango/watering_log_repository.py
 - src/backend/app/data_access/arango/watering_queries.py
 - src/backend/app/data_access/arango/watering_repository.py
+- src/backend/app/data_access/arango/weather_fetch_status_repository.py
 - src/backend/app/data_access/arango/weather_forecast_repository.py
 - src/backend/app/data_access/arango/weather_source_config_repository.py
 - src/backend/app/data_access/external/__init__.py
@@ -530,6 +532,7 @@ reads:
 - src/backend/app/data_access/external/templated_email_adapter.py
 - src/backend/app/data_access/external/unknown_account_store.py
 - src/backend/app/data_access/external/weather_attributions.py
+- src/backend/app/data_access/external/weather_fetch_gate.py
 - src/backend/app/data_access/external/wikimedia_media_client.py
 - src/backend/app/data_access/repositories/__init__.py
 - src/backend/app/data_access/repositories/propagation_repository.py
@@ -818,6 +821,7 @@ reads:
 - src/backend/app/domain/interfaces/watering_log_repository.py
 - src/backend/app/domain/interfaces/watering_repository.py
 - src/backend/app/domain/interfaces/weather_adapter.py
+- src/backend/app/domain/interfaces/weather_fetch.py
 - src/backend/app/domain/interfaces/weather_forecast_repository.py
 - src/backend/app/domain/interfaces/weather_source_config_repository.py
 - src/backend/app/domain/models/__init__.py
@@ -918,6 +922,7 @@ reads:
 - src/backend/app/domain/models/watering_event.py
 - src/backend/app/domain/models/watering_log.py
 - src/backend/app/domain/models/weather.py
+- src/backend/app/domain/models/weather_fetch.py
 - src/backend/app/domain/services/__init__.py
 - src/backend/app/domain/services/activity_plan_service.py
 - src/backend/app/domain/services/activity_service.py
@@ -1056,6 +1061,7 @@ reads:
 - src/backend/app/domain/services/watering_log_service.py
 - src/backend/app/domain/services/watering_service.py
 - src/backend/app/domain/services/weather_adapter_registry.py
+- src/backend/app/domain/services/weather_fetch_service.py
 - src/backend/app/domain/services/weather_settings_service.py
 - src/backend/app/domain/services/weather_source_resolver.py
 - src/backend/app/domain/services/weather_source_service.py
@@ -1467,6 +1473,7 @@ reads:
 - src/backend/tests/api/test_companion_edges_api.py
 - src/backend/tests/api/test_companion_planting_router.py
 - src/backend/tests/api/test_cors_active_tenant_header.py
+- src/backend/tests/api/test_cors_exposed_headers.py
 - src/backend/tests/api/test_crop_rotation_router.py
 - src/backend/tests/api/test_cross_tenant_reads_followups_router.py
 - src/backend/tests/api/test_cross_tenant_reads_router.py
@@ -1850,6 +1857,7 @@ reads:
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
+- src/backend/tests/integration/test_weather_fetch_status_repository.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/__init__.py
@@ -1900,6 +1908,7 @@ reads:
 - src/backend/tests/support/timezones.py
 - src/backend/tests/support/underlay_fakes.py
 - src/backend/tests/support/version_bounds.py
+- src/backend/tests/support/weather_fetch_doubles.py
 - src/backend/tests/unit/__init__.py
 - src/backend/tests/unit/adapters/__init__.py
 - src/backend/tests/unit/adapters/test_adapter_registry.py
@@ -2123,6 +2132,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_user_repository_token_lookups.py
 - src/backend/tests/unit/data_access/arango/test_user_singleton_index.py
 - src/backend/tests/unit/data_access/arango/test_weather_collections.py
+- src/backend/tests/unit/data_access/arango/test_weather_fetch_status_repository.py
 - src/backend/tests/unit/data_access/arango/test_weather_forecast_repository.py
 - src/backend/tests/unit/data_access/arango/test_weather_source_config_repository.py
 - src/backend/tests/unit/data_access/arango/test_write_funnel_revalidation.py
@@ -2147,6 +2157,7 @@ reads:
 - src/backend/tests/unit/data_access/external/test_step_up_code_store.py
 - src/backend/tests/unit/data_access/external/test_step_up_throttle.py
 - src/backend/tests/unit/data_access/external/test_unknown_account_store.py
+- src/backend/tests/unit/data_access/external/test_weather_fetch_gate.py
 - src/backend/tests/unit/data_access/external/test_wikimedia_media_client.py
 - src/backend/tests/unit/data_access/storage/test_erasure_renditions.py
 - src/backend/tests/unit/data_access/storage/test_erasure_scope_mapping.py
@@ -2689,6 +2700,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_watering_log_update_rules.py
 - src/backend/tests/unit/domain/services/test_watering_service_suggest.py
 - src/backend/tests/unit/domain/services/test_weather_adapter_registry.py
+- src/backend/tests/unit/domain/services/test_weather_fetch_service.py
 - src/backend/tests/unit/domain/services/test_weather_settings_service.py
 - src/backend/tests/unit/domain/services/test_weather_source_resolver.py
 - src/backend/tests/unit/domain/services/test_weather_source_service.py
@@ -2846,6 +2858,7 @@ reads:
 - src/backend/tests/unit/guards/test_secret_model_fields_are_encrypted.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
 - src/backend/tests/unit/guards/test_service_constructors_read_their_parameters.py
+- src/backend/tests/unit/guards/test_settings_branch_protection_is_complete.py
 - src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
 - src/backend/tests/unit/guards/test_slot_occupation_writes_only_the_flag.py
@@ -3173,13 +3186,16 @@ reads:
 - src/backend/tests/unit/test_plant_photo_service.py
 - src/backend/tests/unit/test_plant_scoped_route_tenant_check.py
 - src/backend/tests/unit/test_privacy_inventory_check.py
+- src/backend/tests/unit/test_reach_declared_privacy_inventories.py
 - src/backend/tests/unit/test_reach_garden_plan_helpers.py
 - src/backend/tests/unit/test_reach_observation_helpers.py
 - src/backend/tests/unit/test_reach_pest_orphan_helpers.py
+- src/backend/tests/unit/test_reach_privacy_subject_seed.py
 - src/backend/tests/unit/test_reach_rendition_and_pest_helpers.py
 - src/backend/tests/unit/test_reach_report_verdict.py
 - src/backend/tests/unit/test_reach_stack_up_waits_only_for_healthchecked_services.py
 - src/backend/tests/unit/test_reach_storage_and_index_helpers.py
+- src/backend/tests/unit/test_reach_tenant_erasure_seed.py
 - src/backend/tests/unit/test_reach_vectordb_recreate_waits_only_for_the_api.py
 - src/backend/tests/unit/test_reach_workflow_runs_helper.py
 - src/backend/tests/unit/test_recurrence_boundary_check.py
@@ -3195,6 +3211,7 @@ reads:
 - src/backend/tests/unit/test_seed_harvest_integrity_check.py
 - src/backend/tests/unit/test_settings_identification_defaults.py
 - src/backend/tests/unit/test_skill_plugin_shadowing_check.py
+- src/backend/tests/unit/test_stale_image_upstreams_check.py
 - src/backend/tests/unit/test_startup_gate.py
 - src/backend/tests/unit/test_storage_reconcile_settings.py
 - src/backend/tests/unit/test_symptom_catalog.py

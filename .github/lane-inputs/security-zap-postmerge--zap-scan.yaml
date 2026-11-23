@@ -9,8 +9,8 @@ job: zap-scan
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
 replay_seconds: 5
 job_spec_sha256: fea0fd594fd977eb144f7505fb22c6326f7d75a0150c36fa209aa79ec284d955
 invocations:
@@ -31,7 +31,7 @@ invocations:
   - uv.lock
   - .
   - .
-  context_files_after_dockerignore: 3182
+  context_files_after_dockerignore: 3199
 - command: derive-docker --context src/frontend --dockerfile src/frontend/Dockerfile
   cwd: .
   recorder: docker build context probe (FROM scratch, COPY . — the daemon applies .dockerignore) narrowed to the Dockerfile's
@@ -52,7 +52,7 @@ invocations:
   - nginx.conf
   - nginx-security-headers.inc
   - docker-entrypoint.d/
-  context_files_after_dockerignore: 1882
+  context_files_after_dockerignore: 1973
 - command: python3 scripts/security/zap_gate.py /tmp/lane-inputs-scratch/zap-empty.json --profile baseline --rules tests/security/zap-rules.tsv
     --emit-blocking /tmp/lane-inputs-scratch/blocking-baseline.json
   cwd: .
@@ -299,6 +299,7 @@ reads:
 - src/backend/app/api/v1/plant_instances/environment_router.py
 - src/backend/app/api/v1/plant_instances/photo_router.py
 - src/backend/app/api/v1/plant_instances/photo_schemas.py
+- src/backend/app/api/v1/plant_instances/row_labels.py
 - src/backend/app/api/v1/plant_instances/schemas.py
 - src/backend/app/api/v1/plant_instances/tenant_router.py
 - src/backend/app/api/v1/planting_runs/__init__.py
@@ -539,6 +540,7 @@ reads:
 - src/backend/app/data_access/arango/watering_log_repository.py
 - src/backend/app/data_access/arango/watering_queries.py
 - src/backend/app/data_access/arango/watering_repository.py
+- src/backend/app/data_access/arango/weather_fetch_status_repository.py
 - src/backend/app/data_access/arango/weather_forecast_repository.py
 - src/backend/app/data_access/arango/weather_source_config_repository.py
 - src/backend/app/data_access/external/__init__.py
@@ -587,6 +589,7 @@ reads:
 - src/backend/app/data_access/external/templated_email_adapter.py
 - src/backend/app/data_access/external/unknown_account_store.py
 - src/backend/app/data_access/external/weather_attributions.py
+- src/backend/app/data_access/external/weather_fetch_gate.py
 - src/backend/app/data_access/external/wikimedia_media_client.py
 - src/backend/app/data_access/repositories/__init__.py
 - src/backend/app/data_access/repositories/propagation_repository.py
@@ -875,6 +878,7 @@ reads:
 - src/backend/app/domain/interfaces/watering_log_repository.py
 - src/backend/app/domain/interfaces/watering_repository.py
 - src/backend/app/domain/interfaces/weather_adapter.py
+- src/backend/app/domain/interfaces/weather_fetch.py
 - src/backend/app/domain/interfaces/weather_forecast_repository.py
 - src/backend/app/domain/interfaces/weather_source_config_repository.py
 - src/backend/app/domain/models/__init__.py
@@ -975,6 +979,7 @@ reads:
 - src/backend/app/domain/models/watering_event.py
 - src/backend/app/domain/models/watering_log.py
 - src/backend/app/domain/models/weather.py
+- src/backend/app/domain/models/weather_fetch.py
 - src/backend/app/domain/services/__init__.py
 - src/backend/app/domain/services/activity_plan_service.py
 - src/backend/app/domain/services/activity_service.py
@@ -1113,6 +1118,7 @@ reads:
 - src/backend/app/domain/services/watering_log_service.py
 - src/backend/app/domain/services/watering_service.py
 - src/backend/app/domain/services/weather_adapter_registry.py
+- src/backend/app/domain/services/weather_fetch_service.py
 - src/backend/app/domain/services/weather_settings_service.py
 - src/backend/app/domain/services/weather_source_resolver.py
 - src/backend/app/domain/services/weather_source_service.py
@@ -1524,6 +1530,7 @@ reads:
 - src/backend/tests/api/test_companion_edges_api.py
 - src/backend/tests/api/test_companion_planting_router.py
 - src/backend/tests/api/test_cors_active_tenant_header.py
+- src/backend/tests/api/test_cors_exposed_headers.py
 - src/backend/tests/api/test_crop_rotation_router.py
 - src/backend/tests/api/test_cross_tenant_reads_followups_router.py
 - src/backend/tests/api/test_cross_tenant_reads_router.py
@@ -1907,6 +1914,7 @@ reads:
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
+- src/backend/tests/integration/test_weather_fetch_status_repository.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/__init__.py
@@ -1957,6 +1965,7 @@ reads:
 - src/backend/tests/support/timezones.py
 - src/backend/tests/support/underlay_fakes.py
 - src/backend/tests/support/version_bounds.py
+- src/backend/tests/support/weather_fetch_doubles.py
 - src/backend/tests/unit/__init__.py
 - src/backend/tests/unit/adapters/__init__.py
 - src/backend/tests/unit/adapters/test_adapter_registry.py
@@ -2180,6 +2189,7 @@ reads:
 - src/backend/tests/unit/data_access/arango/test_user_repository_token_lookups.py
 - src/backend/tests/unit/data_access/arango/test_user_singleton_index.py
 - src/backend/tests/unit/data_access/arango/test_weather_collections.py
+- src/backend/tests/unit/data_access/arango/test_weather_fetch_status_repository.py
 - src/backend/tests/unit/data_access/arango/test_weather_forecast_repository.py
 - src/backend/tests/unit/data_access/arango/test_weather_source_config_repository.py
 - src/backend/tests/unit/data_access/arango/test_write_funnel_revalidation.py
@@ -2204,6 +2214,7 @@ reads:
 - src/backend/tests/unit/data_access/external/test_step_up_code_store.py
 - src/backend/tests/unit/data_access/external/test_step_up_throttle.py
 - src/backend/tests/unit/data_access/external/test_unknown_account_store.py
+- src/backend/tests/unit/data_access/external/test_weather_fetch_gate.py
 - src/backend/tests/unit/data_access/external/test_wikimedia_media_client.py
 - src/backend/tests/unit/data_access/storage/test_erasure_renditions.py
 - src/backend/tests/unit/data_access/storage/test_erasure_scope_mapping.py
@@ -2746,6 +2757,7 @@ reads:
 - src/backend/tests/unit/domain/services/test_watering_log_update_rules.py
 - src/backend/tests/unit/domain/services/test_watering_service_suggest.py
 - src/backend/tests/unit/domain/services/test_weather_adapter_registry.py
+- src/backend/tests/unit/domain/services/test_weather_fetch_service.py
 - src/backend/tests/unit/domain/services/test_weather_settings_service.py
 - src/backend/tests/unit/domain/services/test_weather_source_resolver.py
 - src/backend/tests/unit/domain/services/test_weather_source_service.py
@@ -2903,6 +2915,7 @@ reads:
 - src/backend/tests/unit/guards/test_secret_model_fields_are_encrypted.py
 - src/backend/tests/unit/guards/test_seed_schema_hook_wiring.py
 - src/backend/tests/unit/guards/test_service_constructors_read_their_parameters.py
+- src/backend/tests/unit/guards/test_settings_branch_protection_is_complete.py
 - src/backend/tests/unit/guards/test_settings_labels_fit_api.py
 - src/backend/tests/unit/guards/test_skaffold_render_assertion.py
 - src/backend/tests/unit/guards/test_slot_occupation_writes_only_the_flag.py
@@ -3230,13 +3243,16 @@ reads:
 - src/backend/tests/unit/test_plant_photo_service.py
 - src/backend/tests/unit/test_plant_scoped_route_tenant_check.py
 - src/backend/tests/unit/test_privacy_inventory_check.py
+- src/backend/tests/unit/test_reach_declared_privacy_inventories.py
 - src/backend/tests/unit/test_reach_garden_plan_helpers.py
 - src/backend/tests/unit/test_reach_observation_helpers.py
 - src/backend/tests/unit/test_reach_pest_orphan_helpers.py
+- src/backend/tests/unit/test_reach_privacy_subject_seed.py
 - src/backend/tests/unit/test_reach_rendition_and_pest_helpers.py
 - src/backend/tests/unit/test_reach_report_verdict.py
 - src/backend/tests/unit/test_reach_stack_up_waits_only_for_healthchecked_services.py
 - src/backend/tests/unit/test_reach_storage_and_index_helpers.py
+- src/backend/tests/unit/test_reach_tenant_erasure_seed.py
 - src/backend/tests/unit/test_reach_vectordb_recreate_waits_only_for_the_api.py
 - src/backend/tests/unit/test_reach_workflow_runs_helper.py
 - src/backend/tests/unit/test_recurrence_boundary_check.py
@@ -3252,6 +3268,7 @@ reads:
 - src/backend/tests/unit/test_seed_harvest_integrity_check.py
 - src/backend/tests/unit/test_settings_identification_defaults.py
 - src/backend/tests/unit/test_skill_plugin_shadowing_check.py
+- src/backend/tests/unit/test_stale_image_upstreams_check.py
 - src/backend/tests/unit/test_startup_gate.py
 - src/backend/tests/unit/test_storage_reconcile_settings.py
 - src/backend/tests/unit/test_symptom_catalog.py
@@ -3368,6 +3385,7 @@ reads:
 - src/frontend/src/api/index.ts
 - src/frontend/src/api/offlineReadRequest.ts
 - src/frontend/src/api/paginate.ts
+- src/frontend/src/api/requestLimiter.ts
 - src/frontend/src/api/types.ts
 - src/frontend/src/assets/brand/illustrations/features/feature-kami-aquaponik.svg
 - src/frontend/src/assets/brand/illustrations/features/feature-kami-calendar.svg
@@ -3438,6 +3456,7 @@ reads:
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
 - src/frontend/src/components/admin/TenantImportStatusCard.tsx
 - src/frontend/src/components/admin/TenantPlanCard.tsx
+- src/frontend/src/components/admin/WeatherFetchPanel.tsx
 - src/frontend/src/components/ai/AIResponse.tsx
 - src/frontend/src/components/ai/AiChatDrawer.tsx
 - src/frontend/src/components/ai/DailyTipCard.tsx
@@ -3451,9 +3470,11 @@ reads:
 - src/frontend/src/components/common/ColumnFilterBar.tsx
 - src/frontend/src/components/common/ConfirmDialog.tsx
 - src/frontend/src/components/common/DataTable.tsx
+- src/frontend/src/components/common/DataTableRowLink.tsx
 - src/frontend/src/components/common/EmptyState.tsx
 - src/frontend/src/components/common/ErrorBoundary.tsx
 - src/frontend/src/components/common/ErrorDisplay.tsx
+- src/frontend/src/components/common/ErrorIllustration.tsx
 - src/frontend/src/components/common/ExpertiseFieldWrapper.tsx
 - src/frontend/src/components/common/FavoriteToggle.tsx
 - src/frontend/src/components/common/HelpTooltip.tsx
@@ -3461,14 +3482,17 @@ reads:
 - src/frontend/src/components/common/LoadingStatus.tsx
 - src/frontend/src/components/common/MobileCard.tsx
 - src/frontend/src/components/common/ModuleGuard.tsx
+- src/frontend/src/components/common/OptionsLoadError.tsx
 - src/frontend/src/components/common/OriginChip.tsx
 - src/frontend/src/components/common/PhotoUpload.tsx
 - src/frontend/src/components/common/PrintButton.tsx
 - src/frontend/src/components/common/ReferenceImageGrid.tsx
 - src/frontend/src/components/common/ShowAllFieldsToggle.tsx
+- src/frontend/src/components/common/SnackbarCloseButton.tsx
 - src/frontend/src/components/common/StepUpCodeField.tsx
 - src/frontend/src/components/common/StepUpConfirmDialog.tsx
 - src/frontend/src/components/common/StepUpReauthButton.tsx
+- src/frontend/src/components/common/StretchedLink.tsx
 - src/frontend/src/components/common/TabPanel.tsx
 - src/frontend/src/components/common/TaskOriginBadge.tsx
 - src/frontend/src/components/common/TaskTimer.tsx
@@ -3495,11 +3519,14 @@ reads:
 - src/frontend/src/components/diary/DiaryPhotoLightbox.tsx
 - src/frontend/src/components/diary/DiaryPhotoStrip.tsx
 - src/frontend/src/components/diary/confidence.ts
+- src/frontend/src/components/form/FieldHelp.tsx
 - src/frontend/src/components/form/Form.tsx
 - src/frontend/src/components/form/FormActions.tsx
 - src/frontend/src/components/form/FormChipInput.tsx
 - src/frontend/src/components/form/FormClimateZoneField.tsx
 - src/frontend/src/components/form/FormDateField.tsx
+- src/frontend/src/components/form/FormDialog.tsx
+- src/frontend/src/components/form/FormDialogCancelButton.tsx
 - src/frontend/src/components/form/FormMonthField.tsx
 - src/frontend/src/components/form/FormMultiSelectField.tsx
 - src/frontend/src/components/form/FormNumberField.tsx
@@ -3517,6 +3544,7 @@ reads:
 - src/frontend/src/components/form/SpeciesMultiAutocompleteField.tsx
 - src/frontend/src/components/form/SubstrateSelectField.tsx
 - src/frontend/src/components/form/UnsavedChangesGuard.tsx
+- src/frontend/src/components/form/formDialogContext.ts
 - src/frontend/src/components/glossary/TermTooltip.tsx
 - src/frontend/src/components/ha/HaPublishToggle.tsx
 - src/frontend/src/components/identification/IdentificationConsentGate.tsx
@@ -3532,6 +3560,7 @@ reads:
 - src/frontend/src/components/layout/NotificationDrawer.tsx
 - src/frontend/src/components/layout/PageHeaderActions.tsx
 - src/frontend/src/components/layout/PageTitle.tsx
+- src/frontend/src/components/layout/RouteAnnouncer.tsx
 - src/frontend/src/components/layout/TenantSwitcher.tsx
 - src/frontend/src/components/layout/ThemeToggle.tsx
 - src/frontend/src/components/pests/PestDetectionDialog.tsx
@@ -3563,6 +3592,7 @@ reads:
 - src/frontend/src/config/mode.ts
 - src/frontend/src/config/moduleCatalog.ts
 - src/frontend/src/config/runtimeConfig.ts
+- src/frontend/src/config/settingsGroups.ts
 - src/frontend/src/contracts/dashboard-widgets.json
 - src/frontend/src/contracts/notification-channels.json
 - src/frontend/src/features/gardenPlanner/a11y/companionLayer.test.tsx
@@ -3743,6 +3773,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/editorTestKit.tsx
 - src/frontend/src/features/gardenPlanner/editor/keyTargets.ts
 - src/frontend/src/features/gardenPlanner/editor/layers.ts
+- src/frontend/src/features/gardenPlanner/editor/layout.test.ts
 - src/frontend/src/features/gardenPlanner/editor/layout.ts
 - src/frontend/src/features/gardenPlanner/editor/miniMap.test.ts
 - src/frontend/src/features/gardenPlanner/editor/miniMap.ts
@@ -3822,6 +3853,8 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/useAutoSave.ts
 - src/frontend/src/features/gardenPlanner/editor/useBedTypes.ts
 - src/frontend/src/features/gardenPlanner/editor/useCanvasArea.ts
+- src/frontend/src/features/gardenPlanner/editor/useCanvasRoom.test.ts
+- src/frontend/src/features/gardenPlanner/editor/useCanvasRoom.ts
 - src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.test.ts
 - src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorKeyboard.test.tsx
@@ -4172,6 +4205,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/zones/zonesApi.ts
 - src/frontend/src/features/gardenPlanner/zones/zonesI18n.test.ts
 - src/frontend/src/features/gardenPlanner/zones/zonesTestKit.ts
+- src/frontend/src/hooks/useAbortableLoad.ts
 - src/frontend/src/hooks/useActuators.ts
 - src/frontend/src/hooks/useApiError.ts
 - src/frontend/src/hooks/useAquaponicSystems.ts
@@ -4187,6 +4221,7 @@ reads:
 - src/frontend/src/hooks/useCountdownTimer.ts
 - src/frontend/src/hooks/useDashboardLayout.ts
 - src/frontend/src/hooks/useDebounce.ts
+- src/frontend/src/hooks/useDialogForm.ts
 - src/frontend/src/hooks/useDocumentTitle.ts
 - src/frontend/src/hooks/useEquipment.ts
 - src/frontend/src/hooks/useErasurePreview.ts
@@ -4195,6 +4230,7 @@ reads:
 - src/frontend/src/hooks/useFieldViolations.ts
 - src/frontend/src/hooks/useGeolocation.ts
 - src/frontend/src/hooks/useGlossaryTerm.ts
+- src/frontend/src/hooks/useInViewport.ts
 - src/frontend/src/hooks/useLocalizedField.ts
 - src/frontend/src/hooks/useModuleVisibility.ts
 - src/frontend/src/hooks/useMonthLabels.ts
@@ -4231,6 +4267,7 @@ reads:
 - src/frontend/src/hooks/useTenantPermissions.ts
 - src/frontend/src/hooks/useUnsyncedWritesGuard.tsx
 - src/frontend/src/hooks/useWateringVolumeSuggestion.ts
+- src/frontend/src/hooks/useWeatherFetch.ts
 - src/frontend/src/hooks/useWebcamCapture.ts
 - src/frontend/src/i18n/apiLanguage.ts
 - src/frontend/src/i18n/i18n.ts
@@ -4269,6 +4306,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
 - src/frontend/src/pages/admin/AdminPlansPage.tsx
+- src/frontend/src/pages/admin/AdminPlatformPage.tsx
 - src/frontend/src/pages/admin/AdminTenantImportsPage.tsx
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
 - src/frontend/src/pages/aquaponik/AquaponikPage.tsx
@@ -4305,6 +4343,16 @@ reads:
 - src/frontend/src/pages/auth/StepUpCallbackPage.tsx
 - src/frontend/src/pages/auth/StorageSettingsTab.tsx
 - src/frontend/src/pages/auth/WeatherProvidersSettingsTab.tsx
+- src/frontend/src/pages/auth/settings/AccountSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/DisplaySettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/InstallationSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/IntegrationsSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/NotificationsSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/SecuritySettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/SettingsNavigation.tsx
+- src/frontend/src/pages/auth/settings/SettingsSection.tsx
+- src/frontend/src/pages/auth/settings/settingsLayout.ts
+- src/frontend/src/pages/auth/settings/useSettingsGates.ts
 - src/frontend/src/pages/duengung/ChannelFertilizerDialog.tsx
 - src/frontend/src/pages/duengung/DeliveryChannelAccordion.tsx
 - src/frontend/src/pages/duengung/DeliveryChannelChips.tsx
@@ -4524,6 +4572,7 @@ reads:
 - src/frontend/src/pwa/storageWipe.ts
 - src/frontend/src/pwa/writeQueueWipe.ts
 - src/frontend/src/routes/AppRoutes.tsx
+- src/frontend/src/routes/adminPaths.ts
 - src/frontend/src/routes/breadcrumbs.ts
 - src/frontend/src/routes/roleGuardedRoutes.ts
 - src/frontend/src/store/createListSlice.ts
@@ -4571,8 +4620,10 @@ reads:
 - src/frontend/src/test/PlantLabelDialog.test.tsx
 - src/frontend/src/test/PrintButton.test.tsx
 - src/frontend/src/test/a11y/accessibility.test.tsx
+- src/frontend/src/test/a11y/accountSettingsPage.a11y.test.tsx
 - src/frontend/src/test/a11y/adminOidcProviders.a11y.test.tsx
 - src/frontend/src/test/a11y/adminPlans.a11y.test.tsx
+- src/frontend/src/test/a11y/adminPlatform.a11y.test.tsx
 - src/frontend/src/test/a11y/adminTenantImports.a11y.test.tsx
 - src/frontend/src/test/a11y/dialogs.a11y.test.tsx
 - src/frontend/src/test/a11y/emailChangePages.a11y.test.tsx
@@ -4642,32 +4693,41 @@ reads:
 - src/frontend/src/test/api/endpoints/watering-logs.test.ts
 - src/frontend/src/test/api/endpoints/wateringConfirm.test.ts
 - src/frontend/src/test/api/environment.test.ts
+- src/frontend/src/test/api/errorContract.test.tsx
 - src/frontend/src/test/api/errors.stepUp.test.ts
 - src/frontend/src/test/api/errors.test.ts
 - src/frontend/src/test/api/inventree.test.ts
 - src/frontend/src/test/api/liveStateFixture.ts
 - src/frontend/src/test/api/paginate.test.ts
 - src/frontend/src/test/api/propagation.test.ts
+- src/frontend/src/test/api/requestLimiter.test.ts
+- src/frontend/src/test/auth/AuthProvider.test.tsx
 - src/frontend/src/test/auth/loginReturn.test.tsx
 - src/frontend/src/test/auth/pendingInvitation.test.tsx
 - src/frontend/src/test/checkBundleBudget.test.ts
 - src/frontend/src/test/components/AuthImage.test.tsx
+- src/frontend/src/test/components/CareConfirmDialogKeyboard.test.tsx
 - src/frontend/src/test/components/CatalogueLoadError.test.tsx
 - src/frontend/src/test/components/ConfirmDialog.test.tsx
 - src/frontend/src/test/components/DashboardPendingSignal.test.tsx
 - src/frontend/src/test/components/DataTable.test.tsx
+- src/frontend/src/test/components/DataTableHeaderHelp.test.tsx
+- src/frontend/src/test/components/DataTableRowLinks.test.tsx
 - src/frontend/src/test/components/DiaryAnalysisResult.test.tsx
 - src/frontend/src/test/components/DiaryEntryCardEnvironment.test.tsx
 - src/frontend/src/test/components/DiaryPhotoStrip.test.tsx
 - src/frontend/src/test/components/EmptyState.test.tsx
 - src/frontend/src/test/components/ErrorBoundary.test.tsx
 - src/frontend/src/test/components/ErrorDisplay.test.tsx
+- src/frontend/src/test/components/ErrorIllustration.test.tsx
 - src/frontend/src/test/components/Form.test.tsx
 - src/frontend/src/test/components/FormActions.test.tsx
 - src/frontend/src/test/components/FormActionsScrollPadding.test.tsx
 - src/frontend/src/test/components/FormActionsSticky.test.tsx
 - src/frontend/src/test/components/FormChipInput.test.tsx
 - src/frontend/src/test/components/FormClimateZoneField.test.tsx
+- src/frontend/src/test/components/FormDialog.test.tsx
+- src/frontend/src/test/components/FormFieldHelpTerm.test.tsx
 - src/frontend/src/test/components/FormFields.test.tsx
 - src/frontend/src/test/components/FormMonthField.test.tsx
 - src/frontend/src/test/components/FormNumberField.test.tsx
@@ -4691,10 +4751,12 @@ reads:
 - src/frontend/src/test/components/RecognitionStatusCard.test.tsx
 - src/frontend/src/test/components/ReferenceImageCuration.test.tsx
 - src/frontend/src/test/components/ReferenceImageGallery.test.tsx
+- src/frontend/src/test/components/RouteAnnouncer.test.tsx
 - src/frontend/src/test/components/ScheduledTenantDeletionsCard.test.tsx
 - src/frontend/src/test/components/SeasonOverviewPanel.test.tsx
 - src/frontend/src/test/components/SensorHistoryChart.test.tsx
 - src/frontend/src/test/components/ShowAllFieldsToggle.test.tsx
+- src/frontend/src/test/components/SnackbarCloseButton.test.tsx
 - src/frontend/src/test/components/SpeciesAutocompleteField.test.tsx
 - src/frontend/src/test/components/SpeciesMultiAutocompleteField.test.tsx
 - src/frontend/src/test/components/SpeciesThumbnail.test.tsx
@@ -4716,6 +4778,7 @@ reads:
 - src/frontend/src/test/components/admin/PestContributionsAdminCard.test.tsx
 - src/frontend/src/test/components/admin/PestRecognitionAdminCard.test.tsx
 - src/frontend/src/test/components/admin/TenantPlanCard.test.tsx
+- src/frontend/src/test/components/admin/WeatherFetchPanel.test.tsx
 - src/frontend/src/test/components/ai/AIResponse.test.tsx
 - src/frontend/src/test/components/ai/DailyTipCard.test.tsx
 - src/frontend/src/test/components/ai/TipCardsPanel.test.tsx
@@ -4724,6 +4787,7 @@ reads:
 - src/frontend/src/test/components/dashboard/DashboardEditGrid.test.tsx
 - src/frontend/src/test/components/dashboard/GenericWidget.test.tsx
 - src/frontend/src/test/components/dashboard/PlantGridWidget.test.tsx
+- src/frontend/src/test/components/dashboard/QuickActionsWidget.test.tsx
 - src/frontend/src/test/components/dashboard/WidgetConfigDialog.test.tsx
 - src/frontend/src/test/components/dashboard/WidgetFrame.test.tsx
 - src/frontend/src/test/components/dashboard/widgetRegistry.test.ts
@@ -4754,34 +4818,47 @@ reads:
 - src/frontend/src/test/components/tenants/LightModeTakeoverDialog.test.tsx
 - src/frontend/src/test/components/tenants/TenantQuotaCard.test.tsx
 - src/frontend/src/test/config/moduleCatalog.test.ts
+- src/frontend/src/test/config/settingsGroups.test.ts
 - src/frontend/src/test/contracts/dashboardWidgets.contract.test.ts
 - src/frontend/src/test/contracts/notificationChannels.contract.test.ts
 - src/frontend/src/test/dashboardBundleBudget.test.ts
 - src/frontend/src/test/dashboardLayout.test.ts
 - src/frontend/src/test/gardenPlanFixtures.ts
 - src/frontend/src/test/gardenPlanVectors.ts
+- src/frontend/src/test/guards/calendarDayHasOneHelper.test.ts
 - src/frontend/src/test/guards/commonNamesDisplayedInUiLanguage.test.ts
 - src/frontend/src/test/guards/deleteControlsRoleGated.test.ts
+- src/frontend/src/test/guards/domainColorsSingleSource.test.ts
 - src/frontend/src/test/guards/effectDepsAreStablePerRender.test.ts
+- src/frontend/src/test/guards/fallbackCatchesAreLogged.test.ts
 - src/frontend/src/test/guards/featuresNotFromPages.test.ts
 - src/frontend/src/test/guards/gardenPlannerRendererBoundary.test.ts
+- src/frontend/src/test/guards/helpTermsExistInGlossary.test.ts
+- src/frontend/src/test/guards/initialBundleExclusions.test.ts
+- src/frontend/src/test/guards/jsxScan.ts
+- src/frontend/src/test/guards/navigationIsALink.test.ts
 - src/frontend/src/test/guards/offlineDataClearedOnSessionChange.test.ts
 - src/frontend/src/test/guards/offlineReadsBypassHttpCache.test.ts
 - src/frontend/src/test/guards/queueScopeIsAskedOfTheServer.test.ts
+- src/frontend/src/test/guards/settingsLinksUseGroups.test.ts
 - src/frontend/src/test/guards/stepUpActionsHaveASurface.test.ts
 - src/frontend/src/test/guards/swApiCachePerClient.test.ts
 - src/frontend/src/test/guards/swCacheAllowlist.test.ts
 - src/frontend/src/test/guards/swWebPushTakenOver.test.ts
+- src/frontend/src/test/guards/swallowedErrorsAreLogged.test.ts
+- src/frontend/src/test/guards/testabilityContract.test.ts
 - src/frontend/src/test/guards/trackerSdkBehindConsent.test.ts
 - src/frontend/src/test/guards/unsyncedWritesBeforeSessionChange.test.tsx
 - src/frontend/src/test/helpers.tsx
 - src/frontend/src/test/hooks/catalogueReducersMounted.test.ts
+- src/frontend/src/test/hooks/useAbortableLoad.test.ts
 - src/frontend/src/test/hooks/useApiError.test.tsx
 - src/frontend/src/test/hooks/useAsyncOptions.test.tsx
 - src/frontend/src/test/hooks/useAuthImage.test.ts
 - src/frontend/src/test/hooks/useCanCreateCatalogEntry.test.tsx
 - src/frontend/src/test/hooks/useCatalogue.test.tsx
 - src/frontend/src/test/hooks/useColumnFilters.test.tsx
+- src/frontend/src/test/hooks/useCountdownTimer.test.ts
 - src/frontend/src/test/hooks/useDashboardLayout.test.tsx
 - src/frontend/src/test/hooks/useDebounce.test.ts
 - src/frontend/src/test/hooks/useDocumentTitle.test.tsx
@@ -4794,25 +4871,31 @@ reads:
 - src/frontend/src/test/hooks/usePagination.test.ts
 - src/frontend/src/test/hooks/usePlanCatalogue.test.tsx
 - src/frontend/src/test/hooks/useRequestLanguage.test.tsx
+- src/frontend/src/test/hooks/useRunNutrientData.test.ts
 - src/frontend/src/test/hooks/useServerFavorites.test.ts
 - src/frontend/src/test/hooks/useSowingFavorites.test.tsx
 - src/frontend/src/test/hooks/useTableState.test.ts
 - src/frontend/src/test/hooks/useTenantEntitlements.test.tsx
 - src/frontend/src/test/hooks/useTenantPermissions.test.tsx
 - src/frontend/src/test/hooks/useWebcamCapture.test.ts
+- src/frontend/src/test/i18n/a11yLabels3017.test.ts
+- src/frontend/src/test/i18n/adminPlatform.test.ts
 - src/frontend/src/test/i18n/apiLanguage.test.ts
 - src/frontend/src/test/i18n/catalogCreateDenied.test.ts
 - src/frontend/src/test/i18n/diary.test.ts
+- src/frontend/src/test/i18n/lazyEnglishCore.test.ts
 - src/frontend/src/test/i18n/notificationChannels.test.ts
 - src/frontend/src/test/i18n/privacyInformalAddress.test.ts
 - src/frontend/src/test/i18n/siteThresholds.test.ts
 - src/frontend/src/test/i18n/successionPlans.test.ts
 - src/frontend/src/test/i18n/tenantInvitations.test.ts
+- src/frontend/src/test/i18n/weatherFetch.test.ts
 - src/frontend/src/test/i18nTestResources.ts
 - src/frontend/src/test/kiosk/KioskLayout.test.tsx
 - src/frontend/src/test/kiosk/KioskProvider.test.tsx
 - src/frontend/src/test/kiosk/KioskSettingsTab.test.tsx
 - src/frontend/src/test/kiosk/KioskStartPage.test.tsx
+- src/frontend/src/test/kiosk/KioskTimeoutOverlay.test.tsx
 - src/frontend/src/test/kiosk/useKioskTimeout.test.tsx
 - src/frontend/src/test/layouts/MainLayout.kiosk.test.tsx
 - src/frontend/src/test/layouts/MainLayout.light.test.tsx
@@ -4830,15 +4913,17 @@ reads:
 - src/frontend/src/test/pages/AccountDeletionStepUp.test.tsx
 - src/frontend/src/test/pages/AccountSettingsApiKeysLightMode.test.tsx
 - src/frontend/src/test/pages/AccountSettingsEmailChange.test.tsx
+- src/frontend/src/test/pages/AccountSettingsGroupedNavigation.test.tsx
 - src/frontend/src/test/pages/AccountSettingsInstanceGating.test.tsx
+- src/frontend/src/test/pages/AccountSettingsLayoutSwitch.test.tsx
 - src/frontend/src/test/pages/AccountSettingsPageFlows.test.tsx
 - src/frontend/src/test/pages/AccountSettingsPasswordStepUp.test.tsx
 - src/frontend/src/test/pages/AccountSettingsPlantnet.test.tsx
-- src/frontend/src/test/pages/AccountSettingsPlatformTabGating.test.tsx
 - src/frontend/src/test/pages/AccountSettingsSessions.test.tsx
 - src/frontend/src/test/pages/ActivityDetailPage.test.tsx
 - src/frontend/src/test/pages/ActivityListPageGating.test.tsx
 - src/frontend/src/test/pages/ActivityPlanTab.test.tsx
+- src/frontend/src/test/pages/AdminBackLinksToHub.test.tsx
 - src/frontend/src/test/pages/AdminEditLoadFailure.test.tsx
 - src/frontend/src/test/pages/AdminEditTenantDeleteStepUp.test.tsx
 - src/frontend/src/test/pages/AdminEditTenantErasureLifecycle.test.tsx
@@ -4853,6 +4938,9 @@ reads:
 - src/frontend/src/test/pages/AdminEditUserTrustRaiseStepUp.test.tsx
 - src/frontend/src/test/pages/AdminOidcProvidersPage.test.tsx
 - src/frontend/src/test/pages/AdminPlansPage.test.tsx
+- src/frontend/src/test/pages/AdminPlatformPage.light.test.tsx
+- src/frontend/src/test/pages/AdminPlatformPage.test.tsx
+- src/frontend/src/test/pages/AdminPlatformPageGating.test.tsx
 - src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx
 - src/frontend/src/test/pages/AquaponikPage.test.tsx
 - src/frontend/src/test/pages/BatchDetailPage.test.tsx
@@ -4870,8 +4958,10 @@ reads:
 - src/frontend/src/test/pages/ConnectDeviceDialog.test.tsx
 - src/frontend/src/test/pages/ConnectLandingPage.test.tsx
 - src/frontend/src/test/pages/CropRotationPageDropdown.test.tsx
+- src/frontend/src/test/pages/CropRotationPageStaleSuccessors.test.tsx
 - src/frontend/src/test/pages/CultivarCreateDialog.test.tsx
 - src/frontend/src/test/pages/CultivarDetailPageActions.test.tsx
+- src/frontend/src/test/pages/CultivarDetailPageLoadErrors.test.tsx
 - src/frontend/src/test/pages/CultivarDetailPagePhaseA.test.tsx
 - src/frontend/src/test/pages/CultivarListSection.test.tsx
 - src/frontend/src/test/pages/CultivarListSectionMobile.test.tsx
@@ -4962,9 +5052,11 @@ reads:
 - src/frontend/src/test/pages/PlantInstanceCreateDialog.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageAncestry.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageCareTab.test.tsx
+- src/frontend/src/test/pages/PlantInstanceDetailPageCareTabKeyChange.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageCatalogueState.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHarvestReadiness.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageHeader.test.tsx
+- src/frontend/src/test/pages/PlantInstanceDetailPageSectionLoad.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageTasksTab.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageTasksTabMobile.test.tsx
 - src/frontend/src/test/pages/PlantInstanceDetailPageWateringTabMobile.test.tsx
@@ -4974,6 +5066,7 @@ reads:
 - src/frontend/src/test/pages/PlantPhotoGallery.test.tsx
 - src/frontend/src/test/pages/PlantingRunCompleteHarvest.test.tsx
 - src/frontend/src/test/pages/PlantingRunCreateDialog.test.tsx
+- src/frontend/src/test/pages/PlantingRunDetailPageSectionLoad.test.tsx
 - src/frontend/src/test/pages/PostHarvestDialogs.test.tsx
 - src/frontend/src/test/pages/PostHarvestPage.test.tsx
 - src/frontend/src/test/pages/PostHarvestPageMobile.test.tsx
@@ -5016,6 +5109,7 @@ reads:
 - src/frontend/src/test/pages/SurvivalStatsPanel.test.tsx
 - src/frontend/src/test/pages/TankDetailPage.test.tsx
 - src/frontend/src/test/pages/TaskDetailPage.test.tsx
+- src/frontend/src/test/pages/TaskQueueCareProfileDialog.test.tsx
 - src/frontend/src/test/pages/TaskQueueFilterScope.test.tsx
 - src/frontend/src/test/pages/TaskQueueOriginFilter.test.tsx
 - src/frontend/src/test/pages/TaskQueuePage.test.tsx
@@ -5025,6 +5119,7 @@ reads:
 - src/frontend/src/test/pages/TenantSettingsExportTab.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationDelivery.test.tsx
 - src/frontend/src/test/pages/TenantSettingsInvitationsMobile.test.tsx
+- src/frontend/src/test/pages/TenantSettingsLoadFailure.test.tsx
 - src/frontend/src/test/pages/TenantSettingsMemberRemovalStepUp.test.tsx
 - src/frontend/src/test/pages/TenantSettingsQuotaTab.test.tsx
 - src/frontend/src/test/pages/TerminationDialog.test.tsx
@@ -5044,9 +5139,12 @@ reads:
 - src/frontend/src/test/pages/WorkflowPhaseDialog.test.tsx
 - src/frontend/src/test/pages/WorkflowTemplateListPage.test.tsx
 - src/frontend/src/test/pages/calculationsPresets.test.ts
+- src/frontend/src/test/pages/detailPageStaleResponses.test.tsx
 - src/frontend/src/test/pages/feedingEventDose.test.ts
+- src/frontend/src/test/pages/formDialogDirtyClose.test.tsx
 - src/frontend/src/test/pages/harvestability.test.ts
 - src/frontend/src/test/pages/onboarding/NutrientPlanStep.test.tsx
+- src/frontend/src/test/pages/settingsLayout.test.tsx
 - src/frontend/src/test/pages/siteForm.test.ts
 - src/frontend/src/test/pages/useNutrientPlanActions.test.tsx
 - src/frontend/src/test/pages/useNutrientPlanData.test.tsx
@@ -5057,6 +5155,7 @@ reads:
 - src/frontend/src/test/pwa/offlineData.test.ts
 - src/frontend/src/test/routes/authRouteGuards.test.tsx
 - src/frontend/src/test/routes/breadcrumbs.test.ts
+- src/frontend/src/test/routes/layoutErrorElement.test.tsx
 - src/frontend/src/test/routes/platformAdminRouteGuards.test.tsx
 - src/frontend/src/test/routes/privacyRoute.test.ts
 - src/frontend/src/test/routes/roleRestrictedIdentificationRoute.test.tsx
@@ -5101,8 +5200,13 @@ reads:
 - src/frontend/src/test/store/wateringEventsSlice.test.ts
 - src/frontend/src/test/store/wateringLogsSlice.test.ts
 - src/frontend/src/test/theme/ThemeContext.test.tsx
+- src/frontend/src/test/theme/darkSurfaceContrast.test.tsx
+- src/frontend/src/test/theme/dialogScrollbarGutter.test.tsx
+- src/frontend/src/test/theme/domainColors.test.ts
+- src/frontend/src/test/theme/focusRingAndTargets.test.tsx
 - src/frontend/src/test/theme/kioskTheme.test.tsx
 - src/frontend/src/test/theme/paletteContrast.test.ts
+- src/frontend/src/test/utils/calendarDay.test.ts
 - src/frontend/src/test/utils/entitlements.test.ts
 - src/frontend/src/test/utils/formatting.test.ts
 - src/frontend/src/test/utils/idGenerator.test.ts
@@ -5119,6 +5223,7 @@ reads:
 - src/frontend/src/test/waitBudget.ts
 - src/frontend/src/test/writeQueueTestKit.ts
 - src/frontend/src/theme/ThemeContext.tsx
+- src/frontend/src/theme/domainColors.ts
 - src/frontend/src/theme/index.ts
 - src/frontend/src/theme/palette.ts
 - src/frontend/src/theme/theme.ts
@@ -5126,16 +5231,19 @@ reads:
 - src/frontend/src/theme/typography.ts
 - src/frontend/src/types/web-nfc.d.ts
 - src/frontend/src/utils/browserNavigation.ts
+- src/frontend/src/utils/calendarDay.ts
 - src/frontend/src/utils/careConfirmActions.ts
 - src/frontend/src/utils/entitlements.ts
 - src/frontend/src/utils/formatting.ts
 - src/frontend/src/utils/idGenerator.ts
 - src/frontend/src/utils/imageNormalization.ts
+- src/frontend/src/utils/isPlainPrimaryClick.ts
 - src/frontend/src/utils/loginReturn.ts
 - src/frontend/src/utils/oidcProviders.ts
 - src/frontend/src/utils/pendingInvitation.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
 - src/frontend/src/utils/plantDisplay.ts
+- src/frontend/src/utils/sameOriginPath.ts
 - src/frontend/src/utils/saveBlob.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts
