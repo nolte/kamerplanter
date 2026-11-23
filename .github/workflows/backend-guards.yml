@@ -423,7 +423,7 @@ jobs:
         # service of THIS job and not a second job, so the required context
         # `Integration tests (ArangoDB)` keeps one runner slot and one queue
         # wait (see the relevance step below).
-        image: timescale/timescaledb:2.32.0-pg16@sha256:2f87efeaec6fbdd3ba4a6993b921c05d069cd8e980792cb23c7c5f32a6fe68a7
+        image: timescale/timescaledb:2.32.1-pg16@sha256:5d7a2f9d9d593315368338aa6054fda37d7707b4a12a912e30dcb7523385e2b4
         credentials:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
