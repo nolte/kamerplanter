@@ -54,6 +54,8 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 | R-003 | Filter- und Suchparameter SOLLEN in der URL als Query-Parameter abgebildet werden, damit gefilterte Ansichten teilbar sind. | SOLL |
 | R-004 | URLs MÜSSEN stabil sein — Änderungen an der URL-Struktur erfordern Weiterleitungen (301) von alten auf neue URLs. | MUSS |
 
+> **Ausnahme zu R-004 — Tab-Fragmente der Einstellungsseite (F-11, #2935):** Die frühere Einstellungsseite adressierte ihre Tabs über das URL-Fragment (`/settings#<tab>`). Ein Fragment erreicht den Server nicht, eine 301-Weiterleitung ist dafür technisch unmöglich; eine clientseitige Umschlüsselung der alten Tab-Namen hat der Betreiber am 2026-11-17 abgelehnt. Alte Lesezeichen landen deshalb auf der ersten sichtbaren Einstellungsgruppe; alle Links innerhalb der App zeigen auf die neue Form `/settings/<gruppe>#<abschnitt>`. Für Pfade gilt R-018 unverändert: eine unbekannte Gruppe (`/settings/<unbekannt>`) zeigt die 404-Seite.
+
 ### 2.2 Browser-History
 
 | # | Regel | Stufe |

@@ -123,11 +123,32 @@ Nach mehreren fehlgeschlagenen Anmeldeversuchen in Folge sperrt das System dein 
 
 ---
 
+## So sind die Einstellungen aufgebaut
+
+Öffne die Einstellungen über dein Profilbild bzw. deine Initialen oben rechts in der Navigationsleiste (im Light-Modus über das Zahnrad). Die Einstellungen sind in Gruppen gegliedert; innerhalb einer Gruppe stehen die einzelnen Abschnitte untereinander.
+
+| Gruppe | Abschnitte |
+|--------|-----------|
+| **Profil & Konto** | Profil (Name, Sprache, Zeitzone, E-Mail-Adresse ändern), Konto (Konto löschen) |
+| **Anzeige & Verhalten** | Erfahrungsstufe, Kiosk-Modus, Module & Funktionen, Dashboard |
+| **Benachrichtigungen** | Benachrichtigungskanäle |
+| **Sicherheit & Zugang** | Passwort & Anmeldemethoden, Sitzungen, API-Schlüssel, im Light-Modus App verbinden |
+| **Integrationen** | Smart Home, HA-Veröffentlichung (sobald Smart Home aktiv ist) |
+| **Installation** | Speicher, Wetterdienste, Home-Assistant-Verbindung, Pflanzenbestimmung (Pl@ntNet), Pflanzen- und Schädlingserkennung |
+
+Die Gruppe **Installation** siehst du nur als Betreiber (Plattform-Admin, im Light-Modus immer). Sie steht in der Navigation unter der Überschrift **Betrieb**, durch eine Trennlinie von deinen persönlichen Gruppen abgesetzt, weil alles darin für die ganze Installation und alle Nutzer gilt. Abschnitte, die für dich nicht gelten — etwa Passwort und Sitzungen im Light-Modus — erscheinen nicht; eine Gruppe ohne sichtbaren Abschnitt wird ausgeblendet.
+
+- **Am Computer** steht links die Navigation mit allen Gruppen; die geöffnete Gruppe klappt ihre Abschnitte auf, sodass du direkt zu einem Abschnitt springen kannst.
+- **Auf dem Smartphone** siehst du zuerst die Liste der Gruppen. Ein Tipp öffnet die Gruppe; mit dem Zurück-Pfeil oben links kommst du zur Liste zurück.
+
+!!! tip "Direkt verlinken"
+    Jede Gruppe hat eine eigene Adresse (`/settings/<gruppe>`, z. B. `/settings/security`), jeder Abschnitt zusätzlich ein Sprungziel (`/settings/security#apikeys`). Lesezeichen auf die früheren Tab-Adressen wie `/settings#ha` werden nicht umgeleitet — sie öffnen die erste Gruppe. Eine unbekannte Gruppe zeigt die Fehlerseite „Seite nicht gefunden". <!-- Issue #2935 -->
+
+---
+
 ## Profil, Sprache und Zeitzone verwalten
 
-Öffne deine Kontoeinstellungen über dein Profilbild bzw. deine Initialen oben rechts in der Navigationsleiste.
-
-Im Tab **Profil** kannst du folgende Angaben ändern:
+Im Abschnitt **Profil** der Gruppe **Profil & Konto** kannst du folgende Angaben ändern:
 
 | Einstellung | Beschreibung |
 |-------------|-------------|
@@ -142,7 +163,7 @@ Klicke nach Änderungen auf **Speichern**.
 
 ## E-Mail-Adresse ändern
 
-Im Tab **Profil** der Kontoeinstellungen findest du unterhalb deiner Profildaten den Abschnitt **E-Mail-Adresse ändern**. Das ist der Berichtigungsweg nach DSGVO Art. 16 — die ausführliche Aufschlüsselung, was dabei mit deinen Daten passiert, findest du unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
+Im Abschnitt **Profil** der Gruppe **Profil & Konto** findest du unterhalb deiner Profildaten den Abschnitt **E-Mail-Adresse ändern**. Das ist der Berichtigungsweg nach DSGVO Art. 16 — die ausführliche Aufschlüsselung, was dabei mit deinen Daten passiert, findest du unter [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 1. Trage die **neue E-Mail-Adresse** ein und klicke auf **Änderung anfordern**
 2. Bestätige dich im aufklappenden Dialog — mit deinem **aktuellen Passwort**, sofern dein Konto eines hat, sonst über **Erneut anmelden** (Google, generischer OIDC-Anbieter) oder, nur bei ausschließlich GitHub/Apple, über **Code per E-Mail senden**
@@ -160,7 +181,7 @@ Bis zur Bestätigung meldest du dich weiterhin mit deiner bisherigen Adresse an.
 
 ## Passwort ändern und Anmeldeanbieter verwalten
 
-Im Tab **Sicherheit** der Kontoeinstellungen verwaltest du, wie du dich anmeldest.
+Im Abschnitt **Passwort & Anmeldemethoden** der Gruppe **Sicherheit & Zugang** verwaltest du, wie du dich anmeldest.
 
 ### Passwort ändern oder festlegen
 
@@ -186,7 +207,7 @@ Zum Trennen bestätigst du zusätzlich mit deinem aktuellen Passwort — hast du
 
 ## Aktive Sitzungen einsehen und beenden
 
-Im Tab **Sitzungen** siehst du alle Geräte und Browser, auf denen du aktuell angemeldet bist:
+Im Abschnitt **Sitzungen** der Gruppe **Sicherheit & Zugang** siehst du alle Geräte und Browser, auf denen du aktuell angemeldet bist:
 
 | Spalte | Bedeutung |
 |--------|-----------|
@@ -205,7 +226,7 @@ Um eine fremde oder nicht mehr benötigte Sitzung zu beenden, klicke auf das Pap
 
 ### Mobilgerät per QR-Code verbinden
 
-Im selben Tab **Sitzungen** klickst du auf **Mobilgerät verbinden**, um ein Smartphone oder Tablet mit deinem Konto zu verbinden, ohne dein Passwort auf dem fremden Gerät einzutippen.
+Im selben Abschnitt **Sitzungen** klickst du auf **Mobilgerät verbinden**, um ein Smartphone oder Tablet mit deinem Konto zu verbinden, ohne dein Passwort auf dem fremden Gerät einzutippen.
 
 1. Klicke auf **Mobilgerät verbinden**
 2. Bestätige mit deinem aktuellen Passwort — hast du keines, meldest du dich stattdessen frisch bei deinem Anmeldeanbieter an, oder lässt dir, nur bei ausschließlich GitHub oder Apple, einen Code per E-Mail schicken
@@ -222,7 +243,7 @@ Im selben Tab **Sitzungen** klickst du auf **Mobilgerät verbinden**, um ein Sma
 
 ## API-Schlüssel verwalten
 
-Im Tab **API-Schlüssel** erstellst und widerrufst du persönliche Zugangsschlüssel für automatisierte Zugriffe — etwa eigene Skripte, den MCP-Server oder eine Home-Assistant-Integration, die sich nicht interaktiv anmelden können.
+Im Abschnitt **API-Schlüssel** der Gruppe **Sicherheit & Zugang** erstellst und widerrufst du persönliche Zugangsschlüssel für automatisierte Zugriffe — etwa eigene Skripte, den MCP-Server oder eine Home-Assistant-Integration, die sich nicht interaktiv anmelden können.
 
 ### API-Schlüssel erstellen
 
@@ -250,21 +271,21 @@ Weiterführende technische Details (Endpunkte, IP-Allowlist, Rate-Limits) findes
 
 ## Erfahrungsstufe und weitere Einstellungen
 
-Im Tab **Erfahrungsstufe** der Kontoeinstellungen kannst du außerdem:
+Im Abschnitt **Erfahrungsstufe** der Gruppe **Anzeige & Verhalten** kannst du außerdem:
 
 - deine Erfahrungsstufe (Einsteiger, Mittelstufe, Experte) anpassen — siehe [Erste Schritte — Onboarding](onboarding.md) für die Details zu den drei Stufen
 - deine **Gießkannengröße** hinterlegen, die als Vorbelegung in Dosierungsrechnern verwendet wird
 - den **Einrichtungsassistenten** erneut starten, etwa um ein weiteres Szenario einzurichten
 
-Welche Funktionsbereiche du unabhängig von deiner Erfahrungsstufe ein- oder ausblendest, regelst du im Tab **Module & Funktionen** — siehe [Module & Funktionen](module-visibility.md).
+Welche Funktionsbereiche du unabhängig von deiner Erfahrungsstufe ein- oder ausblendest, regelst du im Abschnitt **Module & Funktionen** derselben Gruppe — siehe [Module & Funktionen](module-visibility.md).
 
-Persönliche API-Schlüssel verwaltest du im Tab **API-Schlüssel** — siehe [API-Schlüssel verwalten](#api-schlussel-verwalten) oben.
+Persönliche API-Schlüssel verwaltest du im Abschnitt **API-Schlüssel** — siehe [API-Schlüssel verwalten](#api-schlussel-verwalten) oben.
 
 ---
 
 ## Konto löschen
 
-Im Tab **Konto** der Kontoeinstellungen findest du im rot markierten Bereich die Schaltfläche **Konto löschen**. Das ist derselbe Löschweg wie im Datenschutz-Bereich (siehe [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo)): Dein Konto wird sofort geschlossen — du kannst dich danach nicht mehr anmelden —, und deine personenbezogenen Daten werden nach Ablauf der Karenzzeit (standardmäßig 90 Tage) endgültig gelöscht. Gesetzlich geschützte Daten (Ernte- und Behandlungsdokumentation) werden stattdessen anonymisiert, nicht gelöscht. Dein persönlicher Garten wird mit allem Inhalt mitgelöscht, auch wenn weitere Mitglieder darin sind; der Bestätigungsdialog zeigt dir vorher, welche Gärten das betrifft.
+Im Abschnitt **Konto** der Gruppe **Profil & Konto** findest du im rot markierten Bereich die Schaltfläche **Konto löschen**. Das ist derselbe Löschweg wie im Datenschutz-Bereich (siehe [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo)): Dein Konto wird sofort geschlossen — du kannst dich danach nicht mehr anmelden —, und deine personenbezogenen Daten werden nach Ablauf der Karenzzeit (standardmäßig 90 Tage) endgültig gelöscht. Gesetzlich geschützte Daten (Ernte- und Behandlungsdokumentation) werden stattdessen anonymisiert, nicht gelöscht. Dein persönlicher Garten wird mit allem Inhalt mitgelöscht, auch wenn weitere Mitglieder darin sind; der Bestätigungsdialog zeigt dir vorher, welche Gärten das betrifft.
 
 Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut eintippst. Hat dein Konto ein lokales Passwort, gibst du zusätzlich dein **aktuelles Passwort** ein. Meldest du dich stattdessen über Google oder einen generischen OIDC-Anbieter an, klickst du im Dialog auf **Erneut anmelden** und bestätigst dich frisch beim Anbieter; nur wenn du dich ausschließlich über GitHub oder Apple anmeldest — die das nicht unterstützen —, klickst du auf **Code per E-Mail senden** und gibst den zugeschickten Bestätigungscode ein.
 
@@ -272,7 +293,7 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
     Sobald du bestätigst, ist die Löschung nicht mehr rückgängig zu machen. Lade vorher deinen Datenexport herunter, wenn du deine Daten sichern möchtest (siehe [Datenschutz & DSGVO](privacy.md)). Die vollständige Aufschlüsselung, welche Daten sofort bzw. nach 90 Tagen gelöscht und welche nur anonymisiert werden, findest du unter [Konto löschen (Art. 17 DSGVO)](privacy.md#account-loschen-art-17-dsgvo).
 
 !!! note "Nach zu vielen Fehlversuchen gesperrt"
-    Tippst du das Passwort mehrfach falsch ein, sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt dir die verbleibende Wartezeit an. Diese Sperre betrifft nur die Bestätigung der Löschung, nicht die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** einzelne Sitzungen beenden oder dein Passwort über **Passwort vergessen?** zurücksetzen.
+    Tippst du das Passwort mehrfach falsch ein, sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt dir die verbleibende Wartezeit an. Diese Sperre betrifft nur die Bestätigung der Löschung, nicht die Anmeldung: Du kannst dich weiterhin normal anmelden, im Abschnitt **Sitzungen** einzelne Sitzungen beenden oder dein Passwort über **Passwort vergessen?** zurücksetzen.
 
 ---
 
@@ -282,7 +303,7 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
     Prüfe zuerst deinen Spam-Ordner. Der Bestätigungslink ist 24 Stunden gültig. Ist er abgelaufen oder nie angekommen, melde dich mit deinem Passwort an — dabei schickt Kamerplanter dir einen neuen Link — oder fordere über **Neue Bestätigungs-E-Mail senden** einen an (siehe [Neuen Bestätigungslink anfordern](#neuen-bestatigungslink-anfordern)). Eine erneute Registrierung hilft nicht: Für eine schon vergebene Adresse verschickt sie keinen neuen Link.
 
 ??? question "Kann ich meine E-Mail-Adresse ändern?"
-    Ja, im Tab **Profil** der Kontoeinstellungen im Abschnitt **E-Mail-Adresse ändern** (siehe oben). Die neue Adresse muss über einen Bestätigungslink freigeschaltet werden; deine bisherige Adresse kann die Änderung anschließend 7 Tage lang rückgängig machen. Details: [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
+    Ja, in der Gruppe **Profil & Konto** im Abschnitt **E-Mail-Adresse ändern** (siehe oben). Die neue Adresse muss über einen Bestätigungslink freigeschaltet werden; deine bisherige Adresse kann die Änderung anschließend 7 Tage lang rückgängig machen. Details: [E-Mail-Adresse ändern (Art. 16 DSGVO)](privacy.md#e-mail-adresse-andern-art-16-dsgvo).
 
 ??? question "Was passiert, wenn ich einen Anmeldeanbieter wie Google trenne?"
     Du kannst dich danach nicht mehr über diesen Anbieter anmelden. Solange mindestens ein weiterer Anmeldeweg (Passwort oder anderer Anbieter) übrig bleibt, funktioniert die Anmeldung über diesen Weg weiter.
@@ -294,7 +315,7 @@ Der Bestätigungsdialog verlangt, dass du deine **eigene E-Mail-Adresse** erneut
     Ein API-Schlüssel oder ein per QR-Code gekoppeltes Gerät meldet eine Anwendung dauerhaft bei deinem Konto an — beides überlebt sogar eine spätere Passwortänderung. Die erneute Bestätigung stellt sicher, dass wirklich du diesen Schritt auslöst und nicht jemand, der kurzzeitig Zugriff auf einen offen gelassenen Browser hatte.
 
 ??? question "Ich vermute, mein Konto wurde kompromittiert — was mache ich?"
-    Ändere dein Passwort (das beendet automatisch alle Sitzungen), oder verwende zusätzlich **Alle Sitzungen abmelden**. Widerrufe danach im Tab **API-Schlüssel** jeden Schlüssel, den du nicht wiedererkennst — API-Schlüssel werden durch eine Passwortänderung **nicht** automatisch widerrufen.
+    Ändere dein Passwort (das beendet automatisch alle Sitzungen), oder verwende zusätzlich **Alle Sitzungen abmelden**. Widerrufe danach im Abschnitt **API-Schlüssel** jeden Schlüssel, den du nicht wiedererkennst — API-Schlüssel werden durch eine Passwortänderung **nicht** automatisch widerrufen.
 
 ---
 

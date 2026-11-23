@@ -129,8 +129,8 @@ Ask questions about plant care and get answers based on the integrated knowledge
 You can switch levels at any time:
 
 1. Click your **profile picture** (top right)
-2. Select **Account Settings**
-3. Go to the **Experience Level** tab
+2. Select **Settings**
+3. Open the **Display & behaviour** group, **Experience level** section
 4. Choose your desired level
 
 Don't worry: switching levels never deletes data. Kamerplanter only shows or hides UI elements.

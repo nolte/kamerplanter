@@ -83,6 +83,7 @@ interface SidebarProps {
 export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
+  const isSettingsPath = location.pathname === '/settings' || location.pathname.startsWith('/settings/');
   const { isNavVisible, level } = useExpertiseLevel();
   const { findModuleByPath, overrides, isSmartHomeEnabled } = useModuleVisibility();
   // Issue #685 — cluster-wide AI feature flag. `null` = unknown (probe pending):
@@ -601,8 +602,9 @@ export default function Sidebar({ open }: SidebarProps) {
           <ListItemButton
             component={Link}
             to="/settings"
-            selected={location.pathname === '/settings'}
-            aria-current={location.pathname === '/settings' ? 'page' : undefined}
+            // F-11 (#2935): a settings group is `/settings/<group>`, still the settings entry.
+            selected={isSettingsPath}
+            aria-current={isSettingsPath ? 'page' : undefined}
             data-testid="nav-settings"
             onClick={isMobile ? handleClose : undefined}
             sx={{ borderRadius: 1, mx: 0.5 }}

@@ -872,20 +872,6 @@
       "passwordResetSuccess": "Password successfully reset",
       "accountSettings": "Account Settings",
       "privacySettings": "Privacy",
-      "tabProfile": "Profile",
-      "tabSecurity": "Security",
-      "tabSessions": "Sessions",
-      "tabExperience": "Experience",
-      "tabKiosk": "Kiosk mode",
-      "tabConnect": "Connect app",
-      "tabModules": "Modules & Features",
-      "tabAdmin": "Administration",
-      "tabNotifications": "Notifications",
-      "tabIntegrations": "Integrations",
-      "tabHaPublish": "HA Publishing",
-      "tabStorage": "Storage",
-      "tabWeatherProviders": "Weather Services",
-      "tabAccount": "Account",
       "smartHome": {
         "title": "Smart Home & Sensors",
         "description": "Enable this option if you want to use smart home devices, sensors or actuators with Kamerplanter.",
@@ -1050,7 +1036,6 @@
       "rememberMeTooltip": "Only enable on private devices. Your session will stay active for up to 30 days.",
       "sessionPersistent": "Persistent",
       "sessionTemporary": "Session",
-      "tabApiKeys": "API Keys",
       "timezone": "Timezone",
       "setPassword": "Set Password",
       "setPasswordButton": "Set Password",
@@ -1092,7 +1077,6 @@
       "emailReadOnly": "Your email address cannot be changed here.",
       "unlinkProvider": "Unlink provider",
       "deleteAccountDescription": "Your account is closed immediately; your data is permanently deleted once the deletion period has passed. This action cannot be undone.",
-      "tabDashboard": "Dashboard",
       "stepUpLocked": "Too many failed confirmations. Try again in {{minutes}} minutes.",
       "stepUpCodeUndeliverable": "The confirmation code cannot be delivered by e-mail. Please contact the operator.",
       "stepUpLockedNoMinutes": "Too many failed confirmations. Try again later.",
@@ -8632,6 +8616,59 @@
     "runs": {
       "plantCount": "Plants",
       "standalonePlants": "Standalone plants (no run)"
+    },
+    "settings": {
+      "title": "Settings",
+      "navLabel": "Settings groups",
+      "backToGroups": "Back to the settings overview",
+      "operatorHeading": "Operation",
+      "integrationsInstallationHint": "The Home Assistant connection, the Pl@ntNet key and recognition for the whole installation are set in the group",
+      "groups": {
+        "account": {
+          "title": "Profile & account",
+          "description": "Your name, language and time zone, your email address and deleting your account."
+        },
+        "display": {
+          "title": "Display & behaviour",
+          "description": "Experience level, kiosk mode, visible modules and your dashboard."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "Which channels Kamerplanter uses to notify you, and when."
+        },
+        "security": {
+          "title": "Security & access",
+          "description": "Password and sign-in methods, active sessions, devices and API keys."
+        },
+        "integrations": {
+          "title": "Integrations",
+          "description": "Smart home features and what Kamerplanter reports to Home Assistant."
+        },
+        "installation": {
+          "title": "Installation",
+          "description": "Applies to the whole installation and every user: storage, weather services, the Home Assistant connection, Pl@ntNet and recognition."
+        }
+      },
+      "sections": {
+        "profile": "Profile",
+        "account": "Account",
+        "experience": "Experience level",
+        "kiosk": "Kiosk mode",
+        "modules": "Modules & features",
+        "dashboard": "Dashboard",
+        "notifications": "Notification channels",
+        "security": "Password & sign-in methods",
+        "sessions": "Sessions",
+        "apikeys": "API keys",
+        "connect": "Connect app",
+        "ha": "Smart home",
+        "haPublish": "HA publishing",
+        "storage": "Storage",
+        "weatherProviders": "Weather services",
+        "haConnection": "Home Assistant connection",
+        "plantIdentification": "Plant identification (Pl@ntNet)",
+        "recognition": "Plant and pest recognition"
+      }
     }
   }
 }

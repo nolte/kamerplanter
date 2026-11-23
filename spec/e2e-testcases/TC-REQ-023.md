@@ -656,11 +656,11 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 ---
 
-## Abschnitt 5: Kontoeinstellungen — Tab Profil
+## Abschnitt 5: Einstellungen — Gruppe „Profil & Konto“
 
 ### TC-023-026: Profil anzeigen (Happy Path)
 
-**Requirement**: REQ-023 §4.2 AccountSettingsPage Tab "Profil", AK-15
+**Requirement**: REQ-023 §4.2 AccountSettingsPage Gruppe "Profil & Konto", AK-15; F-11 (#2935)
 **Priority**: High
 **Category**: Detailansicht
 
@@ -668,12 +668,13 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 - Nutzer ist als Demo-Nutzer eingeloggt
 
 **Testschritte**:
-1. Nutzer navigiert zu `/settings/account`
-2. Der Tab "Profil" ist standardmäßig aktiv (oder Nutzer klickt auf Tab "Profil")
+1. Nutzer navigiert zu `/settings` (bzw. `/settings/account#profile`)
+2. Nutzer öffnet über die Gruppen-Navigation die Gruppe "Sicherheit & Zugang"
 
 **Erwartete Ergebnisse**:
-- Tab-Leiste mit den Tabs ist sichtbar (im Full-Modus: Profil, Sicherheit, Sitzungen, API-Schlüssel, Erfahrungsstufe, Integrationen, Konto — die Plattform-Verwaltung ist kein Tab mehr, sondern die Seite `/admin/platform`)
-- Im Profil-Tab ist ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
+- Die Einstellungen sind in Gruppen gegliedert, nicht in einer horizontal scrollenden Tab-Leiste: auf dem Desktop eine Seitennavigation, auf dem Smartphone eine Gruppenliste (im Full-Modus für ein Mitglied: Profil & Konto, Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang, Integrationen; die Gruppe "Installation" erscheint nur für Betreiber, abgesetzt durch Trennlinie und Überschrift "Betrieb"; die Plattform-Verwaltung ist keine Gruppe, sondern die Seite `/admin/platform`)
+- Nach Schritt 2 zeigt die Gruppe "Sicherheit & Zugang" das Passwort-Formular; die Adresse lautet `/settings/security`
+- In der Gruppe "Profil & Konto" ist im Abschnitt "Profil" ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
 - Das "Anzeigename"-Feld ist mit dem aktuellen Namen des Nutzers vorausgefüllt
 - Ein "Speichern"-Button ist vorhanden
 
@@ -1499,10 +1500,70 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 1. Nutzer ruft die frühere Adresse des Plattform-Tabs `/settings#platform` auf
 
 **Erwartete Ergebnisse**:
-- Die Kontoeinstellungen öffnen sich auf dem ersten Tab ("Profil")
-- Ein Tab "Plattform-Modus" ist nicht vorhanden — auch nicht für einen Platform-Admin; die Inhalte liegen auf `/admin/platform`
+- Die Einstellungen öffnen sich auf der ersten sichtbaren Gruppe ("Profil & Konto"; auf dem Smartphone die Gruppenliste) — die alte Tab-Adresse wird nicht umgeleitet (F-11)
+- Eine Gruppe oder ein Abschnitt "Plattform" ist nicht vorhanden — auch nicht für einen Platform-Admin; die Inhalte liegen auf `/admin/platform`
 
 **Tags**: [REQ-023, platform-admin, konto-einstellungen]
+
+---
+
+### TC-023-082: Einstellungsabschnitt per Deep Link öffnen
+
+**Requirement**: REQ-023 §4.2 AccountSettingsPage; F-11 (#2935) acceptance-1, acceptance-4
+**Priority**: Medium
+**Category**: Navigation
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer eingeloggt
+
+**Testschritte**:
+1. Nutzer ruft `/settings/security#apikeys` auf
+2. Nur Smartphone/Tablet: Nutzer tippt auf den Zurück-Pfeil
+
+**Erwartete Ergebnisse**:
+- Die Gruppe "Sicherheit & Zugang" ist geöffnet, der Abschnitt "API-Schlüssel" ist sichtbar
+- Smartphone/Tablet: Die Gruppe erscheint als Detailansicht mit Zurück-Pfeil; nach Schritt 2 ist die Gruppenliste zu sehen
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, deep-link, mobile]
+
+---
+
+### TC-023-083: Unbekannte Einstellungsgruppe zeigt die 404-Seite
+
+**Requirement**: UI-NFR-005 R-018; F-11 (#2935) acceptance-4
+**Priority**: Low
+**Category**: Fehlerbehandlung
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer eingeloggt
+
+**Testschritte**:
+1. Nutzer ruft `/settings/no-such-group` auf
+
+**Erwartete Ergebnisse**:
+- Die 404-Seite wird angezeigt
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, fehler]
+
+---
+
+### TC-023-084: Betreiber-Gruppe ist für ein Mitglied nicht erreichbar
+
+**Requirement**: REQ-023 §4.2; F-11 (#2935) acceptance-3, acceptance-4
+**Priority**: Medium
+**Category**: Berechtigung
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer (kein Platform-Admin) eingeloggt, Full-Modus
+
+**Testschritte**:
+1. Nutzer ruft `/settings/installation#storage` auf
+
+**Erwartete Ergebnisse**:
+- Die Einstellungen öffnen die erste sichtbare Gruppe (`/settings/account`)
+- Der Abschnitt "Speicher" und die Gruppe "Installation" werden nicht angezeigt
+
+**Tags**: [REQ-023, konto-einstellungen, berechtigung, navigation]
 
 ---
 
@@ -2000,6 +2061,7 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 | §4.2 E-Mail-Verifizierung | Verifizierungsseite | TC-023-007 bis TC-023-008 |
 | §4.2 Login-Seite | Login, SSO-Buttons, Checkbox | TC-023-009 bis TC-023-019 |
 | §4.2 AccountSettings Profil | Profil anzeigen, bearbeiten | TC-023-026 bis TC-023-028 |
+| §4.2 Einstellungsgruppen (F-11) | Gruppen-Navigation, Deep Link, 404, Betreiber-Gruppe | TC-023-026, TC-023-082 bis TC-023-084 |
 | §4.2 AccountSettings Sicherheit | Passwort, Provider-Verwaltung | TC-023-029 bis TC-023-034 |
 | §4.2 AccountSettings Sitzungen | Session-Verwaltung | TC-023-035 bis TC-023-036 |
 | §3.8/§4.6 Gerätekopplung (QR) | QR-Dialog: öffnen, QR anzeigen, Countdown, neuer Code (#1118) | TC-023-073 bis TC-023-076 |

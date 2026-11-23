@@ -17,7 +17,7 @@ class ExpertiseLevelPage(BasePage):
     """Interact with experience-level UI across AccountSettings, Sidebar, and dialogs.
 
     Covers:
-    - ExperienceLevelSwitcher (AccountSettingsPage, tab ``experience``)
+    - ExperienceLevelSwitcher (AccountSettingsPage, group ``display``, section ``experience``)
     - Navigation tiering in the Sidebar
     - ShowAllFieldsToggle in create dialogs
     - ExpertiseFieldWrapper field visibility
@@ -33,7 +33,6 @@ class ExpertiseLevelPage(BasePage):
 
     # ── AccountSettingsPage ──────────────────────────────────────────
     ACCOUNT_SETTINGS_PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
-    TAB_BUTTONS = (By.CSS_SELECTOR, ".MuiTab-root")
 
     # ── Sidebar ──────────────────────────────────────────────────────
     SIDEBAR = (By.CSS_SELECTOR, "[data-testid='sidebar']")
@@ -78,8 +77,8 @@ class ExpertiseLevelPage(BasePage):
     # ── Navigation ───────────────────────────────────────────────────
 
     def open_experience_tab(self) -> ExpertiseLevelPage:
-        """Navigate to AccountSettings with the experience tab selected."""
-        self.navigate(f"{self.ACCOUNT_SETTINGS_PATH}#experience")
+        """Navigate to the settings group "Display & behaviour" at its experience section (F-11)."""
+        self.navigate(f"{self.ACCOUNT_SETTINGS_PATH}/display#experience")
         self.wait_for_element(self.ACCOUNT_SETTINGS_PAGE)
         self.wait_for_element(self.TOGGLE_BEGINNER)
         return self

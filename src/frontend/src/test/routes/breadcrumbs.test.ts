@@ -99,4 +99,17 @@ describe('buildBreadcrumbs', () => {
       expect(buildBreadcrumbs(path).map((c) => c.path)).not.toContain('/settings');
     }
   });
+
+  it('names a settings group below the settings page (F-11)', () => {
+    expect(buildBreadcrumbs('/settings/security')).toEqual([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.settings', path: '/settings' },
+      { label: 'pages.settings.groups.security.title' },
+    ]);
+    // Every group has its own crumb — none falls back to a "detail" crumb.
+    for (const group of ['account', 'display', 'notifications', 'security', 'integrations', 'installation']) {
+      const crumbs = buildBreadcrumbs(`/settings/${group}`);
+      expect(crumbs[crumbs.length - 1]).toEqual({ label: `pages.settings.groups.${group}.title` });
+    }
+  });
 });

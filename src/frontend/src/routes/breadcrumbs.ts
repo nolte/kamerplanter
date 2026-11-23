@@ -82,8 +82,14 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-015 Kalender
   '/kalender': { label: 'nav.calendar', parent: '/dashboard' },
 
-  // Settings
+  // Settings — F-11 (#2935): one crumb per group below the settings page.
   '/settings': { label: 'nav.settings', parent: '/dashboard' },
+  '/settings/account': { label: 'pages.settings.groups.account.title', parent: '/settings' },
+  '/settings/display': { label: 'pages.settings.groups.display.title', parent: '/settings' },
+  '/settings/notifications': { label: 'pages.settings.groups.notifications.title', parent: '/settings' },
+  '/settings/security': { label: 'pages.settings.groups.security.title', parent: '/settings' },
+  '/settings/integrations': { label: 'pages.settings.groups.integrations.title', parent: '/settings' },
+  '/settings/installation': { label: 'pages.settings.groups.installation.title', parent: '/settings' },
 
   // REQ-025 Datenschutz & Betroffenenrechte (DSGVO self-service)
   '/privacy': { label: 'pages.auth.privacySettings', parent: '/dashboard' },

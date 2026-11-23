@@ -130,7 +130,7 @@ describe('erasure preview — account settings delete dialog (AK-FK-06)', () => 
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#account',
+      route: '/settings/account#account',
     });
     await user.click(await screen.findByTestId('delete-account-btn'));
 

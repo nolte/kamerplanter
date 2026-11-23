@@ -10,14 +10,14 @@ As a platform admin, this is where you set the **instance-wide default settings*
 ## Prerequisites
 
 - Platform role **admin** (full mode) or light-mode operation
-- Access via **Account Settings > Weather Services**
+- Access via **Settings > Installation > Weather services**
 
 ---
 
 ## Where to find the settings
 
-1. Open **Account Settings** (click your profile picture in the top right).
-2. Select the **Weather Services** tab — it appears in the same place as the **Storage** tab, right next to it.
+1. Open the **Settings** (click your profile picture in the top right).
+2. Open the **Installation** group — it sits in the navigation under the **Operation** heading, set apart from your personal settings — and its **Weather services** section, right below **Storage**.
 
 The page shows three areas: one card per weather service, the global OpenWeatherMap key, and the general fetch settings.
 

@@ -1,7 +1,7 @@
 """Page object for the Notification Settings tab (REQ-030).
 
-The notification settings live as a tab inside the AccountSettingsPage at
-``/settings#notifications``.  This page object encapsulates the channel
+The notification settings live as a section of the settings group "Notifications" at
+``/settings/notifications``.  This page object encapsulates the channel
 toggles, channel-specific configuration fields and the save button rendered
 by ``NotificationSettingsTab.tsx``.
 
@@ -28,24 +28,24 @@ from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
 class NotificationSettingsPage(BasePage):
-    """Interact with the Notification Settings tab (``/settings#notifications``).
+    """Interact with the Notification Settings tab (``/settings/notifications``).
 
     Locators reference the data-testid attributes defined in
     ``src/frontend/src/pages/auth/NotificationSettingsTab.tsx``.
 
-    Note on the URL format: ``AccountSettingsPage`` deep-links its tabs through
-    ``useTabUrl``, which reads the tab key from the URL *hash* fragment (e.g.
-    ``/settings#notifications``), matching the in-app links (ModuleGuard,
-    DashboardPage, …).  A query-string form is silently ignored and lands on
-    the default (profile) tab, so the save-button anchor never renders.
+    Note on the URL format: since F-11 (#2935) the settings page addresses a
+    group by path and a section by hash fragment (``/settings/<group>#<section>``),
+    matching the in-app links (ModuleGuard, DashboardPage, …). The former
+    ``/settings#notifications`` form is not mapped and lands on the first group,
+    so the save-button anchor would never render.
     """
 
-    PATH = "/settings#notifications"
+    PATH = "/settings/notifications#notifications"
 
     # ── Container / structural ──────────────────────────────────────────
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
     SAVE_BUTTON = (By.CSS_SELECTOR, "[data-testid='notification-settings-save']")
-    TAB_BUTTONS = (By.CSS_SELECTOR, ".MuiTab-root")
+    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-group-title']")
 
     # ── Channel toggles ─────────────────────────────────────────────────
     CHANNEL_KEYS: tuple[str, ...] = ("home_assistant", "email", "pwa", "apprise")
@@ -134,10 +134,9 @@ class NotificationSettingsPage(BasePage):
         elements = self.driver.find_elements(*self.SAVE_BUTTON)
         return len(elements) > 0 and elements[0].is_displayed()
 
-    def get_tab_labels(self) -> list[str]:
-        """Return the visible tab labels in the AccountSettings tab strip."""
-        tabs = self.tab_elements(self.TAB_BUTTONS)
-        return [tab.text for tab in tabs if tab.is_displayed()]
+    def get_group_title(self) -> str:
+        """Return the heading of the open settings group (rendered on desktop and phone)."""
+        return self.wait_for_element_visible(self.GROUP_TITLE).text
 
     # ── Channel queries ─────────────────────────────────────────────────
 

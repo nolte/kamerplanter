@@ -79,27 +79,28 @@ describe('Settings page — carries no platform administration any more (F-12)',
         route: '/settings#platform',
       });
 
-      // The page rendered; an old `#platform` bookmark falls back to the first tab.
-      expect(await screen.findByTestId('settings-tab-profile')).toBeInTheDocument();
-      expect(screen.queryByTestId('settings-tab-platform')).not.toBeInTheDocument();
+      // The page rendered; an old `#platform` bookmark lands on the first group (F-11).
+      expect(await screen.findByTestId('settings-section-profile')).toBeInTheDocument();
+      expect(screen.queryByTestId('settings-group-platform')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('settings-section-platform')).not.toBeInTheDocument();
       expect(screen.queryByTestId('admin-oidc-card')).not.toBeInTheDocument();
       await waitFor(() => expect(adminReads).toBe(0));
     },
   );
 
-  it('does not probe the admin endpoints from the integrations tab either', async () => {
-    renderWithProviders(<AccountSettingsPage />, { store: storeFor(false), route: '/settings#ha' });
+  it('does not probe the admin endpoints from the integrations group either', async () => {
+    renderWithProviders(<AccountSettingsPage />, { store: storeFor(false), route: '/settings/integrations#ha' });
 
-    expect(await screen.findByTestId('settings-tab-ha')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-section-ha')).toBeInTheDocument();
     await waitFor(() => expect(adminReads).toBe(0));
   });
 
-  it('shows a platform admin no pest-contribution card in the integrations tab', async () => {
-    // The card moved to /admin/platform; the HA tab keeps the installation cards.
-    renderWithProviders(<AccountSettingsPage />, { store: storeFor(true), route: '/settings#ha' });
+  it('shows a platform admin no pest-contribution card in the installation group', async () => {
+    // The card moved to /admin/platform; the Installation group (F-11) keeps the installation cards.
+    renderWithProviders(<AccountSettingsPage />, { store: storeFor(true), route: '/settings/installation#recognition' });
 
-    expect(await screen.findByTestId('settings-tab-ha')).toBeInTheDocument();
-    // Its sibling installation card is still here — the tab did render its admin half.
+    expect(await screen.findByTestId('settings-section-recognition')).toBeInTheDocument();
+    // Its sibling installation card is still here — the group did render its admin half.
     expect(await screen.findByTestId('pest-recognition-admin-card')).toBeInTheDocument();
     expect(screen.queryByTestId('pest-contributions-admin-card')).not.toBeInTheDocument();
   });

@@ -147,7 +147,7 @@ describe('AccountSettingsPage — profile tab', () => {
       http.get('/api/v1/users/me', () => HttpResponse.json({ ...AUTH_USER })),
     );
     const user = userEvent.setup();
-    renderAt('/account#profile');
+    renderAt('/settings/account#profile');
 
     const nameField = await screen.findByTestId('profile-display-name');
     const input = nameField.querySelector('input') as HTMLInputElement;
@@ -163,7 +163,7 @@ describe('AccountSettingsPage — profile tab', () => {
 
 describe('AccountSettingsPage — security tab', () => {
   it('lists linked providers and shows the current-password field for local accounts', async () => {
-    renderAt('/account#security');
+    renderAt('/settings/security#security');
     // Local provider present → current password field is shown.
     expect(await screen.findByTestId('current-password-field')).toBeInTheDocument();
     expect(screen.getByTestId('new-password-field')).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe('AccountSettingsPage — security tab', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#security');
+    renderAt('/settings/security#security');
 
     const current = (await screen.findByTestId('current-password-field')).querySelector(
       'input',
@@ -208,7 +208,7 @@ describe('AccountSettingsPage — removing a sign-in method (#1847)', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#security');
+    renderAt('/settings/security#security');
 
     await user.click(await screen.findByTestId('unlink-provider-prov-2'));
 
@@ -235,7 +235,7 @@ describe('AccountSettingsPage — removing a sign-in method (#1847)', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#security');
+    renderAt('/settings/security#security');
 
     await user.click(await screen.findByTestId('unlink-provider-prov-2'));
     await user.click(await screen.findByTestId('unlink-provider-cancel'));
@@ -255,7 +255,7 @@ describe('AccountSettingsPage — sessions tab', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#sessions');
+    renderAt('/settings/security#sessions');
 
     // Current session chip rendered; only the non-current row has a revoke button.
     expect(await screen.findByText('Mozilla/5.0 Chrome')).toBeInTheDocument();
@@ -287,7 +287,7 @@ describe('AccountSettingsPage — API keys tab', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#apikeys');
+    renderAt('/settings/security#apikeys');
 
     await user.click(await screen.findByRole('button', { name: 'Create API Key' }));
     const dialog = await screen.findByRole('dialog');
@@ -326,7 +326,7 @@ describe('AccountSettingsPage — API keys tab', () => {
       ),
     );
     const user = userEvent.setup();
-    renderAt('/account#apikeys');
+    renderAt('/settings/security#apikeys');
 
     await user.click(await screen.findByRole('button', { name: 'Create API Key' }));
     const dialog = await screen.findByRole('dialog');
@@ -350,7 +350,7 @@ describe('AccountSettingsPage — API keys tab', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#apikeys');
+    renderAt('/settings/security#apikeys');
 
     await screen.findByText('CI');
     const row = screen.getByText('CI').closest('tr')!;
@@ -367,7 +367,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
   it('reopens the API-key dialog and creates the key with the pending token', async () => {
     const { storePendingStepUpToken, saveStepUpResume } = await import('@/utils/stepUpReauth');
     storePendingStepUpToken(token, 'api_key_creation', null);
-    saveStepUpResume({ surface: 'create-api-key', action: 'api_key_creation', returnPath: '/account#apikeys' });
+    saveStepUpResume({ surface: 'create-api-key', action: 'api_key_creation', returnPath: '/settings/security#apikeys' });
     let body: unknown = null;
     server.use(
       http.post('/api/v1/auth/api-keys', async ({ request }) => {
@@ -376,7 +376,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#apikeys');
+    renderAt('/settings/security#apikeys');
 
     // No click on "create": the label dialog reopens on its own.
     const labelDialog = await screen.findByTestId('api-key-label-dialog');
@@ -396,7 +396,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
     saveStepUpResume({
       surface: 'connect-device-step-up',
       action: 'device_pairing',
-      returnPath: '/account#sessions',
+      returnPath: '/settings/security#sessions',
     });
     let body: unknown = null;
     server.use(
@@ -415,7 +415,7 @@ describe('AccountSettingsPage — back from the fresh sign-in (#1815, #1847)', (
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#sessions');
+    renderAt('/settings/security#sessions');
 
     expect(await screen.findByTestId('connect-device-step-up-reauth-done')).toBeInTheDocument();
     await user.click(screen.getByTestId('connect-device-step-up-confirm'));
@@ -443,7 +443,7 @@ describe('AccountSettingsPage — Home Assistant section', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#ha', true);
+    renderAt('/settings/installation', true);
 
     const urlField = await screen.findByTestId('ha-url-field');
     const urlInput = urlField.querySelector('input') as HTMLInputElement;
@@ -466,7 +466,7 @@ describe('AccountSettingsPage — Home Assistant section', () => {
       http.post('/api/v1/admin/settings/home-assistant/test', () => HttpResponse.error()),
     );
     const user = userEvent.setup();
-    renderAt('/account#ha', true);
+    renderAt('/settings/installation', true);
 
     const urlField = await screen.findByTestId('ha-url-field');
     await user.type(urlField.querySelector('input') as HTMLInputElement, 'http://ha.local');
@@ -476,7 +476,7 @@ describe('AccountSettingsPage — Home Assistant section', () => {
   });
 
   it('hides the HA integration card when smart home is disabled', async () => {
-    renderAt('/account#ha', false);
+    renderAt('/settings/installation', false);
     // Pl@ntNet card is always present; HA card is gated behind the toggle.
     expect(await screen.findByTestId('plantnet-key-field')).toBeInTheDocument();
     expect(screen.queryByTestId('ha-url-field')).not.toBeInTheDocument();
@@ -502,7 +502,7 @@ describe('AccountSettingsPage — Pl@ntNet reset cancel', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#ha');
+    renderAt('/settings/installation');
 
     await user.click(await screen.findByTestId('plantnet-reset-btn'));
     await user.click(await screen.findByTestId('plantnet-reset-cancel-btn'));
@@ -528,7 +528,7 @@ describe('AccountSettingsPage — Pl@ntNet field interaction', () => {
       ),
     );
     const user = userEvent.setup();
-    renderAt('/account#ha');
+    renderAt('/settings/installation');
 
     // Produce a test-result alert first.
     await user.click(await screen.findByTestId('plantnet-test-btn'));
@@ -553,7 +553,7 @@ describe('AccountSettingsPage — account tab', () => {
       }),
     );
     const user = userEvent.setup();
-    renderAt('/account#account');
+    renderAt('/settings/account#account');
 
     await user.click(await screen.findByTestId('delete-account-btn'));
     const dialog = await screen.findByTestId('delete-account-dialog');

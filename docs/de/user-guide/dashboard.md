@@ -142,7 +142,7 @@ Diese Ansicht ist besonders nützlich für Menschen mit vielen Zimmerpflanzen, d
 
 ## Dashboard-Anpassung nach Erfahrungsstufe
 
-Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto → Einstellungen → Erfahrungsstufe**):
+Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Einstellungen → Anzeige & Verhalten → Erfahrungsstufe**):
 
 **Einsteiger:**
 - Vereinfachte Ansicht mit Fokus auf Pflegeaufgaben
@@ -170,7 +170,7 @@ Das Dashboard passt sich deiner Erfahrungsstufe an (einstellbar unter **Konto �
     Sensordaten erscheinen nur im Dashboard, wenn mindestens ein Sensor konfiguriert und aktiv ist. Falls du keine Smart-Home-Integration hast, nutze manuelle Messungen — diese erscheinen ebenfalls im Dashboard, sind aber mit einem "Manuell"-Label versehen.
 
 ??? question "Kann ich das Dashboard anpassen oder Widgets neu anordnen?"
-    Ja. Über den Tab **Einstellungen → Dashboard** oder den **Bearbeiten**-Modus direkt auf dem Dashboard kannst du Widgets auswählen, per Drag-and-Drop (oder tastaturbedienbar über Buttons) anordnen und in der Größe ändern. Details dazu findest du unter [Dashboard personalisieren](dashboard-personalization.md).
+    Ja. Über **Einstellungen → Anzeige & Verhalten → Dashboard** oder den **Bearbeiten**-Modus direkt auf dem Dashboard kannst du Widgets auswählen, per Drag-and-Drop (oder tastaturbedienbar über Buttons) anordnen und in der Größe ändern. Details dazu findest du unter [Dashboard personalisieren](dashboard-personalization.md).
 
 ??? question "Warum erscheinen manche Pflanzen nicht im Dashboard?"
     Das Dashboard zeigt nur **aktive** Pflanzen (nicht abgeschlossene, nicht entfernte). Pflanzen in einem abgeschlossenen Pflanzdurchlauf erscheinen nicht mehr. Falls eine aktive Pflanze nicht erscheint, prüfe, ob sie im richtigen Mandanten ist.

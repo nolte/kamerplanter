@@ -1636,7 +1636,7 @@ Nach Ablauf einer Sperre wird genau ein weiterer Versuch geprüft; schlägt er f
 | `ResendVerificationPage` | `/resend-verification` | Neuen Bestätigungslink anfordern (§3.2b, #2037) |
 | `PasswordResetRequestPage` | `/password-reset` | Passwort-Reset anfordern |
 | `PasswordResetConfirmPage` | `/password-reset/:token` | Neues Passwort setzen |
-| `AccountSettingsPage` | `/settings/account` | Profil, Auth-Provider, Sessions |
+| `AccountSettingsPage` | `/settings`, `/settings/<gruppe>#<abschnitt>` | Gruppierte Einstellungen (F-11, #2935): Profil & Konto (`/settings/account`), Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang (Passwort, Auth-Provider, Sessions, API-Schlüssel), Integrationen, Installation (nur Betreiber) |
 | `AdminOidcProvidersPage` | `/admin/oidc-providers` | OIDC-Provider-Konfigurationen der Installation: Liste, Anlegen, Bearbeiten, Löschen, Discovery-Test (nur Plattform-Admin, §3.9, #1906) |
 
 ### 4.2 Komponenten

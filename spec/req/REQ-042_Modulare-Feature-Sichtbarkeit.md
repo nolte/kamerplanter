@@ -271,7 +271,7 @@ export function useModuleVisibility() {
 - **Deep-Link-Guard (`ModuleGuard`):** Route-Wrapper. Wird eine Route eines ausgeblendeten Moduls direkt per URL aufgerufen, wird die Seite **nicht** mit 404 abgewiesen, sondern zeigt einen Hinweis „Dieses Modul ist ausgeblendet" mit Button „In Einstellungen aktivieren". So gehen geteilte/gespeicherte Links nicht verloren.
 - **Unterpunkte im Pfadraum eines Kern-Moduls (`garden_planner`, REQ-053):** `isPathVisible` findet den **ersten** Katalog-Eintrag, dessen `navPaths` als Präfix passen. Eine Route wie `/standorte/sites/:key/plan` liegt unter dem Präfix des Kern-Moduls `locations` und würde dadurch immer als sichtbar gelten. Solche Module werden deshalb **nicht** über das Pfad-Präfix, sondern an ihrem Einstiegspunkt gesteuert: Die Site-Detailseite rendert den „Plan"-Einstieg nur bei `isModuleVisible('garden_planner')`, und die Plan-Route trägt den `ModuleGuard` mit explizitem Modul-Key. Der Katalogeintrag führt die Route trotzdem (Dokumentation, Dashboard-Widgets), parametrisierte Segmente (`:key`) werden beim Präfix-Vergleich nicht ausgewertet.
 
-### 4.4 Einstellungsdialog: Tab „Module & Funktionen"
+### 4.4 Einstellungen: Abschnitt „Module & Funktionen"
 
 Neuer Tab in `AccountSettingsPage` (neben dem bestehenden `ExperienceLevelSwitcher` aus REQ-021):
 
@@ -291,7 +291,7 @@ Im Onboarding-Wizard (REQ-020) kann ein optionaler Schritt „Was möchtest du n
 ## 6. Akzeptanzkriterien
 
 **Funktional:**
-- [ ] In den Einstellungen existiert ein Tab „Module & Funktionen" mit nach Kategorie gruppierten Modul-Schaltern.
+- [ ] In den Einstellungen existiert in der Gruppe „Anzeige & Verhalten" der Abschnitt „Module & Funktionen" (`/settings/display#modules`, F-11) mit nach Kategorie gruppierten Modul-Schaltern.
 - [ ] Ein als `disabled` markiertes Modul (z. B. Tankmanagement) verschwindet aus Seitenleiste, Dashboard-Widgets und Quick-Actions.
 - [ ] Ein als `enabled` markiertes Modul erscheint auch dann, wenn die aktuelle Erfahrungsstufe es per Default ausblenden würde.
 - [ ] Module ohne Übersteuerung folgen weiterhin automatisch der Erfahrungsstufe; ein Stufenwechsel verändert ihre Sichtbarkeit.

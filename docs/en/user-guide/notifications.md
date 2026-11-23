@@ -7,7 +7,7 @@ Kamerplanter can keep you informed about due care tasks, sensor alarms, tank lev
 
 ## Prerequisites
 
-- A Kamerplanter account with access to **Settings → Notifications** (`/settings#notifications`)
+- A Kamerplanter account with access to **Settings → Notifications** (`/settings/notifications`)
 - For the **Home Assistant** channel: an already configured Home Assistant connection (see [Home Assistant Integration](../guides/home-assistant-integration.md))
 - For the **Browser Push** channel: a Kamerplanter instance with Web Push enabled (see [Setting Up Browser Push](../guides/browser-push-setup.md)) — your operator sets this up once
 - For the **Apprise** channel: at least one valid Apprise URL for the service you want (e.g. Telegram, ntfy, Gotify)

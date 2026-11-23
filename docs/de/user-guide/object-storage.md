@@ -10,7 +10,7 @@ Kamerplanter speichert alle Binärdaten — Fotos, Importe, Exporte und Backups 
 ## Voraussetzungen
 
 - Plattform-Rolle **admin** (Full-Modus) oder Light-Modus-Betrieb
-- Zugang über **Admin-Einstellungen > Speicher**
+- Zugang über **Einstellungen > Installation > Speicher**
 
 ---
 
@@ -27,7 +27,7 @@ Das aktive Backend ist plattformweit. Alle Mandanten verwenden denselben Storage
 
 ## Backend konfigurieren
 
-Öffne **Admin-Einstellungen > Speicher**. Die Seite zeigt:
+Öffne **Einstellungen > Installation > Speicher**. Der Abschnitt zeigt:
 
 - Das aktuell aktive Backend (`local-fs` oder `s3`)
 - Den Verbindungsstatus (grün = erreichbar, rot = Fehler)

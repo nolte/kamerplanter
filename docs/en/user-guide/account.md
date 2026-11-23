@@ -123,11 +123,32 @@ After several failed sign-in attempts in a row, the system temporarily locks you
 
 ---
 
+## How the settings are organised
+
+Open the settings via your profile picture or initials in the top right of the navigation bar (in light mode via the gear icon). The settings are split into groups; within a group the individual sections are listed one below the other.
+
+| Group | Sections |
+|-------|----------|
+| **Profile & account** | Profile (name, language, time zone, change email address), Account (delete account) |
+| **Display & behaviour** | Experience level, Kiosk mode, Modules & features, Dashboard |
+| **Notifications** | Notification channels |
+| **Security & access** | Password & sign-in methods, Sessions, API keys, in light mode Connect app |
+| **Integrations** | Smart home, HA publishing (once smart home is on) |
+| **Installation** | Storage, Weather services, Home Assistant connection, Plant identification (Pl@ntNet), Plant and pest recognition |
+
+You only see the **Installation** group as an operator (platform admin; always in light mode). It sits in the navigation under the **Operation** heading, set apart from your personal groups by a divider, because everything in it applies to the whole installation and every user. Sections that do not apply to you — such as password and sessions in light mode — do not appear; a group without a visible section is hidden.
+
+- **On a computer** the navigation with every group is on the left; the open group expands to its sections so you can jump straight to one.
+- **On a phone** you first see the list of groups. A tap opens the group; the back arrow in the top left takes you back to the list.
+
+!!! tip "Linking directly"
+    Every group has its own address (`/settings/<group>`, e.g. `/settings/security`), and every section an anchor on top (`/settings/security#apikeys`). Bookmarks of the former tab addresses such as `/settings#ha` are not redirected — they open the first group. An unknown group shows the "Page not found" error page. <!-- Issue #2935 -->
+
+---
+
 ## Managing Profile, Language and Timezone
 
-Open your account settings via your profile picture or initials in the top right of the navigation bar.
-
-In the **Profile** tab you can change:
+In the **Profile** section of the **Profile & account** group you can change:
 
 | Setting | Description |
 |---------|-------------|
@@ -142,7 +163,7 @@ Click **Save** after making changes.
 
 ## Changing Your Email Address
 
-In the **Profile** tab of your account settings, below your profile data, you'll find the **Change Email Address** section. This is the correction path under GDPR Art. 16 — for the full breakdown of what happens to your data, see [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
+In the **Profile** section of the **Profile & account** group, below your profile data, you'll find the **Change Email Address** section. This is the correction path under GDPR Art. 16 — for the full breakdown of what happens to your data, see [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
 
 1. Enter the **new email address** and click **Request Change**
 2. Confirm yourself in the dialog that opens — with your **current password**, if your account has one, otherwise via **Sign in again** (Google, generic OIDC provider) or, only for accounts linked exclusively to GitHub/Apple, via **Send code by email**
@@ -160,7 +181,7 @@ Until confirmed, you keep signing in with your previous address.
 
 ## Changing Your Password and Managing Sign-In Providers
 
-In the **Security** tab of your account settings you manage how you sign in.
+In the **Password & sign-in methods** section of the **Security & access** group you manage how you sign in.
 
 ### Changing or Setting Your Password
 
@@ -186,7 +207,7 @@ To unlink one, you additionally confirm with your current password — if you do
 
 ## Viewing and Ending Active Sessions
 
-The **Sessions** tab shows all devices and browsers you are currently signed in on:
+The **Sessions** section of the **Security & access** group shows all devices and browsers you are currently signed in on:
 
 | Column | Meaning |
 |--------|---------|
@@ -205,7 +226,7 @@ To end a session you don't recognize or no longer need, click the trash icon on 
 
 ### Connecting a Mobile Device by QR Code
 
-In the same **Sessions** tab, click **Connect mobile device** to connect a phone or tablet to your account without typing your password on that device.
+In the same **Sessions** section, click **Connect mobile device** to connect a phone or tablet to your account without typing your password on that device.
 
 1. Click **Connect mobile device**
 2. Confirm with your current password — if you don't have one, sign in again with your sign-in provider, or, only if you sign in exclusively through GitHub or Apple, have a code sent by email
@@ -222,7 +243,7 @@ In the same **Sessions** tab, click **Connect mobile device** to connect a phone
 
 ## Managing API Keys
 
-In the **API Keys** tab, you create and revoke personal access keys for programmatic access — for example your own scripts, the MCP server, or a Home Assistant integration that cannot sign in interactively.
+In the **API keys** section of the **Security & access** group, you create and revoke personal access keys for programmatic access — for example your own scripts, the MCP server, or a Home Assistant integration that cannot sign in interactively.
 
 ### Creating an API Key
 
@@ -250,21 +271,21 @@ For further technical details (endpoints, IP allowlist, rate limits), see the [A
 
 ## Experience Level and Other Settings
 
-In the **Experience** tab of your account settings you can also:
+In the **Experience level** section of the **Display & behaviour** group you can also:
 
 - adjust your experience level (Beginner, Intermediate, Expert) — see [Getting Started — Onboarding](onboarding.md) for details on the three levels
 - set your **watering can size**, which is used as a default in dosing calculators
 - restart the **setup wizard**, for example to add another scenario
 
-Which functional areas you show or hide independently of your experience level is controlled in the **Modules & Features** tab — see [Modules & Features](module-visibility.md).
+Which functional areas you show or hide independently of your experience level is controlled in the **Modules & features** section of the same group — see [Modules & Features](module-visibility.md).
 
-Personal API keys are managed in the **API Keys** tab — see [Managing API Keys](#managing-api-keys) above.
+Personal API keys are managed in the **API keys** section — see [Managing API Keys](#managing-api-keys) above.
 
 ---
 
 ## Deleting Your Account
 
-In the **Account** tab of your account settings, the red-highlighted area contains the **Delete Account** button. This is the same erasure path as the Privacy area (see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17)): your account is closed immediately — you can no longer sign in afterwards — and your personal data is permanently erased after the grace period (90 days by default). Legally protected data (harvest and treatment documentation) is anonymized instead of deleted. Your personal garden is deleted with everything in it, even when other members are in it; the confirmation dialog shows you beforehand which gardens this affects.
+In the **Account** section of the **Profile & account** group, the red-highlighted area contains the **Delete Account** button. This is the same erasure path as the Privacy area (see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17)): your account is closed immediately — you can no longer sign in afterwards — and your personal data is permanently erased after the grace period (90 days by default). Legally protected data (harvest and treatment documentation) is anonymized instead of deleted. Your personal garden is deleted with everything in it, even when other members are in it; the confirmation dialog shows you beforehand which gardens this affects.
 
 The confirmation dialog asks you to type your **own email address** back in. If your account has a local password, you also enter your **current password**. If you sign in through Google or a generic OIDC provider instead, you click **Sign in again** in the dialog and confirm with a fresh sign-in at that provider; only if you sign in exclusively through GitHub or Apple — which cannot do that — you click **Send code by email** and enter the confirmation code it mails you.
 
@@ -272,7 +293,7 @@ The confirmation dialog asks you to type your **own email address** back in. If 
     Once you confirm, the deletion cannot be undone. Download your data export first if you want to keep a copy of your data (see [Privacy & GDPR](privacy.md)). For the full breakdown of what is deleted immediately, what is deleted after 90 days, and what is only anonymized, see [Deleting Your Account (GDPR Art. 17)](privacy.md#deleting-your-account-gdpr-art-17).
 
 !!! note "Locked out after too many attempts"
-    If you enter the password wrong repeatedly, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock only affects the deletion confirmation, not signing in: you can still sign in normally, end individual sessions in the **Sessions** tab, or reset your password via **Forgot password?**.
+    If you enter the password wrong repeatedly, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock only affects the deletion confirmation, not signing in: you can still sign in normally, end individual sessions in the **Sessions** section, or reset your password via **Forgot password?**.
 
 ---
 
@@ -282,7 +303,7 @@ The confirmation dialog asks you to type your **own email address** back in. If 
     Check your spam folder first. The confirmation link is valid for 24 hours. If it has expired or never arrived, sign in with your password — Kamerplanter then sends you a new link — or request one via **Send a new verification email** (see [Requesting a New Verification Link](#requesting-a-new-verification-link)). Registering again does not help: for an address that is already taken, it sends no new link.
 
 ??? question "Can I change my email address?"
-    Yes, in the **Profile** tab of your account settings, in the **Change Email Address** section (see above). The new address must be confirmed via a confirmation link; your previous address can then undo the change for 7 days. Details: [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
+    Yes, in the **Profile & account** group, in the **Change Email Address** section (see above). The new address must be confirmed via a confirmation link; your previous address can then undo the change for 7 days. Details: [Changing Your Email Address (GDPR Art. 16)](privacy.md#changing-your-email-address-gdpr-art-16).
 
 ??? question "What happens if I unlink a sign-in provider like Google?"
     You will no longer be able to sign in through that provider. As long as at least one other sign-in method (password or another provider) remains, sign-in continues to work through that method.
@@ -294,7 +315,7 @@ The confirmation dialog asks you to type your **own email address** back in. If 
     An API key or a device paired by QR code signs an application in to your account permanently — both survive a later password change. The re-confirmation makes sure it is really you triggering the step, not someone who briefly had access to a browser you left open.
 
 ??? question "I suspect my account was compromised — what do I do?"
-    Change your password (this automatically ends all sessions), or additionally use **Sign out everywhere**. Then revoke any key you don't recognize in the **API Keys** tab — a password change does **not** automatically revoke API keys.
+    Change your password (this automatically ends all sessions), or additionally use **Sign out everywhere**. Then revoke any key you don't recognize in the **API keys** section — a password change does **not** automatically revoke API keys.
 
 ---
 

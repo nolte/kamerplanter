@@ -61,7 +61,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     const reauth = await screen.findByTestId('change-password-reauth');
@@ -81,7 +81,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     expect(readStepUpResume()).toMatchObject({
       surface: 'change-password',
       action: 'password_change',
-      returnPath: '/account#security',
+      returnPath: '/settings/security#security',
     });
   });
 
@@ -91,7 +91,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     saveStepUpResume({
       surface: 'change-password',
       action: 'password_change',
-      returnPath: '/account#security',
+      returnPath: '/settings/security#security',
     });
     let body: unknown = null;
     server.use(
@@ -103,7 +103,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     expect(await screen.findByTestId('change-password-reauth-done')).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     await screen.findByTestId('change-password-reauth-done');
@@ -193,7 +193,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     await screen.findByTestId('change-password-reauth-done');
@@ -210,7 +210,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     await screen.findByTestId('change-password-reauth-done');
@@ -225,7 +225,7 @@ describe('AccountSettingsPage — password form with a fresh sign-in (#1815)', (
     storeStepUpReauthError('step_up_cancelled', 'password_change');
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#security',
+      route: '/settings/security#security',
     });
 
     expect(await screen.findByText(i18n.t('pages.auth.stepUpReauthCancelled'))).toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('Step-up dialogs reopen after the fresh sign-in (#1815)', () => {
     saveStepUpResume({
       surface: 'delete-account',
       action: 'account_erasure',
-      returnPath: '/account#account',
+      returnPath: '/settings/account#account',
     });
     let body: unknown = null;
     server.use(
@@ -257,7 +257,7 @@ describe('Step-up dialogs reopen after the fresh sign-in (#1815)', () => {
     const user = userEvent.setup();
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#account',
+      route: '/settings/account#account',
     });
 
     const dialog = await screen.findByTestId('delete-account-dialog');
@@ -282,7 +282,7 @@ describe('Step-up dialogs reopen after the fresh sign-in (#1815)', () => {
     });
     renderWithProviders(<AccountSettingsPage />, {
       store: createTestStore(authState()),
-      route: '/account#account',
+      route: '/settings/account#account',
     });
 
     await screen.findByTestId('delete-account-btn');

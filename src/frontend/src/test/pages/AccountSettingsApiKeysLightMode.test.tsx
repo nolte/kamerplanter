@@ -55,7 +55,6 @@ function lightModeStore() {
 describe('AccountSettingsPage — API keys in light mode', () => {
   beforeEach(() => {
     vi.resetModules();
-    window.location.hash = '#apikeys';
   });
 
   it('loads the existing keys on mount instead of showing an empty table', async () => {
@@ -86,7 +85,7 @@ describe('AccountSettingsPage — API keys in light mode', () => {
     );
 
     const { default: AccountSettingsPage } = await import('@/pages/auth/AccountSettingsPage');
-    renderWithProviders(<AccountSettingsPage />, { store: lightModeStore() });
+    renderWithProviders(<AccountSettingsPage />, { store: lightModeStore(), route: '/settings/security' });
 
     // The assertion is the request itself, not the rendered row: the missing
     // fetch *was* the bug, and rendering the table is already covered by the
@@ -112,7 +111,7 @@ describe('AccountSettingsPage — API keys in light mode', () => {
 
     const { default: AccountSettingsPage } = await import('@/pages/auth/AccountSettingsPage');
     const user = userEvent.setup();
-    renderWithProviders(<AccountSettingsPage />, { store: lightModeStore(), route: '/account#apikeys' });
+    renderWithProviders(<AccountSettingsPage />, { store: lightModeStore(), route: '/settings/security#apikeys' });
 
     await user.click(await screen.findByTestId('create-api-key-button'));
     const dialog = await screen.findByTestId('api-key-label-dialog');

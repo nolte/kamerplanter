@@ -6,8 +6,10 @@ import { renderWithProviders, createTestStore } from '@/test/helpers';
 import AccountSettingsPage from '@/pages/auth/AccountSettingsPage';
 
 /**
- * #1385 — the Integrations tab carries two kinds of setting, and only one of
- * them belongs to the signed-in user.
+ * #1385 — the former Integrations tab carried two kinds of setting, and only one
+ * of them belongs to the signed-in user. Since F-11 (#2935) they live in two
+ * groups: the per-user switch in Integrations, the installation-wide cards in
+ * Installation, which a plain member does not see at all.
  *
  * The smart-home master switch is a per-user preference: every member may turn
  * their own smart-home features on and off. The Home Assistant connection and
@@ -19,7 +21,7 @@ import AccountSettingsPage from '@/pages/auth/AccountSettingsPage';
  * client, and the next edit to the tab can make them visible again while every
  * other suite (whose user is a platform admin) stays green.
  *
- * The tab is deep-linked through the URL hash (#ha), as in the sibling suites.
+ * The groups are addressed by path (`/settings/<group>`), as in the sibling suites.
  */
 
 const BASE_USER = {
@@ -98,16 +100,16 @@ beforeEach(() => {
   );
 });
 
-function renderTab(isPlatformAdmin: boolean) {
+function renderGroup(isPlatformAdmin: boolean, group: 'integrations' | 'installation') {
   return renderWithProviders(<AccountSettingsPage />, {
     store: storeFor(isPlatformAdmin),
-    route: '/account#ha',
+    route: `/settings/${group}`,
   });
 }
 
-describe('Integrations tab — installation-wide settings are platform-admin only', () => {
+describe('Integrations and Installation — installation-wide settings are platform-admin only', () => {
   it('shows a plain member the per-user switch and neither instance-wide card', async () => {
-    renderTab(false);
+    renderGroup(false, 'integrations');
 
     // The tab rendered, and the setting that is genuinely the user's own is here.
     // Asserted first: without it, the two absences below would also be satisfied
@@ -116,11 +118,17 @@ describe('Integrations tab — installation-wide settings are platform-admin onl
 
     expect(screen.queryByTestId('ha-url-field')).not.toBeInTheDocument();
     expect(screen.queryByTestId('plantnet-key-field')).not.toBeInTheDocument();
+    // Nor a pointer to a group this member cannot open.
+    expect(screen.queryByTestId('integrations-installation-hint')).not.toBeInTheDocument();
   });
 
   it('does not even request the settings a plain member may not read', async () => {
-    renderTab(false);
-    await screen.findByTestId('smart-home-master-toggle');
+    // The deep link into the Installation group itself: the group is not this
+    // member's, so the page lands on the first group they see instead.
+    const { router } = renderGroup(false, 'installation');
+    await screen.findByTestId('settings-section-profile');
+    expect(router.state.location.pathname).toBe('/settings/account');
+    expect(screen.queryByTestId('settings-group-installation')).not.toBeInTheDocument();
 
     // The server answers 403 since #1385, and the page's loader swallows the
     // rejection — so a request fired here would be invisible rather than
@@ -133,8 +141,8 @@ describe('Integrations tab — installation-wide settings are platform-admin onl
     // installation-wide run, and its status read returns the inference service's
     // internal URL; the pest card's routes were gated server-side while the card
     // itself was shown to everyone, so its button answered 403.
-    renderTab(false);
-    await screen.findByTestId('smart-home-master-toggle');
+    renderGroup(false, 'installation');
+    await screen.findByTestId('settings-section-profile');
 
     expect(screen.queryByTestId('recognition-status-card')).not.toBeInTheDocument();
     expect(screen.queryByTestId('pest-recognition-admin-card')).not.toBeInTheDocument();
@@ -143,7 +151,7 @@ describe('Integrations tab — installation-wide settings are platform-admin onl
   it('shows a platform admin both recognition cards', async () => {
     // The control. Without it the assertion above is satisfied by a page that
     // renders neither card for anyone.
-    renderTab(true);
+    renderGroup(true, 'installation');
     expect(await screen.findByTestId('recognition-status-card')).toBeInTheDocument();
     expect(screen.getByTestId('pest-recognition-admin-card')).toBeInTheDocument();
   });
@@ -151,11 +159,13 @@ describe('Integrations tab — installation-wide settings are platform-admin onl
   it('shows a platform admin both cards, and reads the settings', async () => {
     // The control. Without it, a page that renders neither card for anyone
     // passes both tests above.
-    renderTab(true);
+    renderGroup(true, 'installation');
 
     expect(await screen.findByTestId('ha-url-field')).toBeInTheDocument();
     expect(screen.getByTestId('plantnet-key-field')).toBeInTheDocument();
-    expect(screen.getByTestId('smart-home-master-toggle')).toBeInTheDocument();
+    // The operator group is listed, set apart under its own heading.
+    expect(screen.getByTestId('settings-group-installation')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-nav-operator-heading')).toBeInTheDocument();
     await waitFor(() => expect(settingsReads).toBeGreaterThan(0));
   });
 });

@@ -10,7 +10,7 @@ Kamerplanter stores all binary data â€” photos, imports, exports, and backups â€
 ## Prerequisites
 
 - Platform role **admin** (Full Mode) or Light Mode operation
-- Access via **Admin Settings > Storage**
+- Access via **Settings > Installation > Storage**
 
 ---
 
@@ -27,7 +27,7 @@ The active backend is platform-wide. All tenants share the same storage adapter 
 
 ## Configuring the Backend
 
-Open **Admin Settings > Storage**. The page shows:
+Open **Settings > Installation > Storage**. The section shows:
 
 - The currently active backend (`local-fs` or `s3`)
 - Connection status (green = reachable, red = error)

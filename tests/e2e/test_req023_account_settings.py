@@ -7,7 +7,10 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-023.md):
   TC-REQ-023-027  ->  TC-023-029  Passwort-aendern Button disabled wenn leer
   TC-REQ-023-028  ->  TC-023-032  Verknuepfte Auth-Provider anzeigen
   TC-REQ-023-029  ->  TC-023-033  Letzten Auth-Provider entfernen -- verhindert
-  TC-REQ-023-030  ->  TC-023-026  Tab-Navigation in Kontoeinstellungen
+  TC-REQ-023-030  ->  TC-023-026  Gruppen-Navigation in den Einstellungen
+  TC-REQ-023-031  ->  TC-023-082  Abschnitt per Deep Link oeffnen
+  TC-REQ-023-032  ->  TC-023-083  Unbekannte Einstellungsgruppe zeigt 404
+  TC-REQ-023-033  ->  TC-023-084  Betreiber-Gruppe fuer Mitglied nicht erreichbar
 """
 
 from __future__ import annotations
@@ -18,6 +21,8 @@ from typing import Callable
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from selenium.webdriver.common.by import By
+
 from .pages import AccountSettingsPage, LoginPage
 from ._auth_helpers import clear_auth_session
 
@@ -26,6 +31,8 @@ pytestmark = pytest.mark.requires_auth
 # -- Demo credentials ---------------------------------------------------------
 DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
+
+NOT_FOUND_PAGE = (By.CSS_SELECTOR, "[data-testid='not-found-page']")
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -65,23 +72,20 @@ class TestAccountSettingsProfile:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-026: Profile tab shows display name, email, and tabs.
+        """TC-023-026: Profile section shows display name and email in its group.
 
         Spec: TC-023-026 -- Profil anzeigen (Happy Path).
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="profile")
+        account_page.open(section="profile")
         screenshot(
             "TC-REQ-023-024_account-profile-loaded",
             "Account settings profile tab after load",
         )
 
-        tab_labels = account_page.get_tab_labels()
-        assert len(tab_labels) > 0, (
-            "TC-REQ-023-024 FAIL: Expected at least one tab in account settings"
-        )
-        assert any("profil" in label.lower() for label in tab_labels), (
-            f"TC-REQ-023-024 FAIL: Expected 'Profil' tab, got: {tab_labels}"
+        group_title = account_page.get_group_title()
+        assert "profil" in group_title.lower(), (
+            f"TC-REQ-023-024 FAIL: Expected the group 'Profil & Konto', got: {group_title!r}"
         )
 
         display_name = account_page.get_display_name()
@@ -108,7 +112,7 @@ class TestAccountSettingsProfile:
         Spec: TC-023-027 -- Anzeigename aendern und speichern.
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="profile")
+        account_page.open(section="profile")
 
         original_name = account_page.get_display_name()
         screenshot(
@@ -154,7 +158,7 @@ class TestAccountSettingsSecurity:
         Spec: TC-023-029 -- Passwort aendern (lokales Passwort vorhanden).
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="security")
+        account_page.open(section="security")
         screenshot(
             "TC-REQ-023-026_security-tab-loaded",
             "Security tab after load",
@@ -177,7 +181,7 @@ class TestAccountSettingsSecurity:
         Spec: TC-023-029 -- Passwort aendern Button disabled.
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="security")
+        account_page.open(section="security")
         screenshot(
             "TC-REQ-023-027_security-button-disabled",
             "Change password button disabled",
@@ -200,7 +204,7 @@ class TestAccountSettingsSecurity:
         Spec: TC-023-032 -- Verknuepfte Auth-Provider anzeigen.
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="security")
+        account_page.open(section="security")
         screenshot(
             "TC-REQ-023-028_linked-providers",
             "Linked auth providers in security tab",
@@ -227,7 +231,7 @@ class TestAccountSettingsSecurity:
         Spec: TC-023-033 -- Letzten Auth-Provider entfernen -- verhindert.
         """
         _ensure_logged_in(login_page)
-        account_page.open(tab="security")
+        account_page.open(section="security")
         screenshot(
             "TC-REQ-023-029_single-provider-no-unlink",
             "No unlink button for single provider",
@@ -242,47 +246,120 @@ class TestAccountSettingsSecurity:
             )
 
 
-# -- TC-023-026c: Tab navigation -----------------------------------------------
+# -- TC-023-026c, TC-023-082..084: Group navigation -----------------------------------------------
 
 
 class TestAccountSettingsTabs:
-    """Tab navigation in account settings (Spec: TC-023-026)."""
+    """Group navigation in the settings (Spec: TC-023-026, TC-023-082 to TC-023-084)."""
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
-    def test_tab_navigation(
+    def test_group_navigation(
         self,
         login_page: LoginPage,
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-026: Tabs in account settings are clickable and switch content.
+        """TC-023-026: The settings groups are listed and open their content (F-11).
 
-        Spec: TC-023-026 -- Profil anzeigen -- Tab-Navigation.
+        Spec: TC-023-026 -- Profil anzeigen -- Gruppen-Navigation. On a desktop
+        the groups sit in a side navigation, on a phone in a group list whose
+        detail view carries a back arrow; both use the same entry ids.
         """
         _ensure_logged_in(login_page)
         account_page.open()
         screenshot(
-            "TC-REQ-023-030_account-default-tab",
-            "Account settings default tab",
+            "TC-REQ-023-030_settings-groups",
+            "Settings page with its group navigation",
         )
 
-        tab_labels = account_page.get_tab_labels()
-
-        expected_tabs = ["Profil", "Sicherheit", "Benachrichtigungen", "Erfahrung"]
-        for expected in expected_tabs:
-            # Case-insensitive: MUI tabs render with text-transform uppercase,
-            # and Selenium's element.text returns the rendered (upper-cased) text.
-            assert any(expected.upper() in label.upper() for label in tab_labels), (
-                f"TC-REQ-023-030 FAIL: Expected tab '{expected}' in tab list, got: {tab_labels}"
+        groups = account_page.get_group_keys()
+        for expected in ("account", "display", "notifications", "security", "integrations"):
+            assert expected in groups, (
+                f"TC-REQ-023-030 FAIL: Expected group '{expected}' in the navigation, got: {groups}"
             )
+        # The demo member is no operator: the Installation group is not offered.
+        assert "installation" not in groups, (
+            f"TC-REQ-023-030 FAIL: Expected no Installation group for a member, got: {groups}"
+        )
 
-        account_page.click_tab("Sicherheit")
+        account_page.click_group("security")
         screenshot(
-            "TC-REQ-023-030_security-tab-active",
-            "Security tab active after click",
+            "TC-REQ-023-030_security-group-open",
+            "Security group open after click",
         )
 
         assert account_page.is_current_password_visible(), (
-            "TC-REQ-023-030 FAIL: Expected security tab content after tab click"
+            "TC-REQ-023-030 FAIL: Expected the password form in the security group"
+        )
+        account_page.wait_for_url_contains("/settings/security")
+
+    def test_section_deep_link(
+        self,
+        login_page: LoginPage,
+        account_page: AccountSettingsPage,
+        device_profile: dict,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-023-082: /settings/<group>#<section> opens the group at the section.
+
+        Spec: TC-023-082 -- Abschnitt per Deep Link oeffnen.
+        """
+        _ensure_logged_in(login_page)
+        account_page.open(section="apikeys")
+        screenshot("TC-REQ-023-031_apikeys-deep-link", "Security group opened at the API keys")
+
+        section = account_page.wait_for_element_visible(account_page.section("apikeys"))
+        assert section.is_displayed(), (
+            "TC-REQ-023-031 FAIL: Expected the API keys section to be visible"
+        )
+        title = account_page.get_group_title()
+        assert "sicherheit" in title.lower(), (
+            f"TC-REQ-023-031 FAIL: Expected the group 'Sicherheit & Zugang', got: {title!r}"
+        )
+        if device_profile["name"] != "desktop":
+            # Phone/tablet: the detail view leads back to the group list.
+            assert account_page.is_back_button_visible(), (
+                "TC-REQ-023-031 FAIL: Expected a back arrow in the group's detail view"
+            )
+            account_page.click_back()
+            account_page.wait_for_url_contains("/settings")
+            assert "security" in account_page.get_group_keys(), (
+                "TC-REQ-023-031 FAIL: Expected the group list after the back arrow"
+            )
+
+    def test_unknown_group_shows_not_found(
+        self,
+        login_page: LoginPage,
+        account_page: AccountSettingsPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-023-083: An unknown settings group shows the 404 page.
+
+        Spec: TC-023-083 -- Unbekannte Einstellungsgruppe zeigt 404.
+        """
+        _ensure_logged_in(login_page)
+        account_page.open_path("/settings/no-such-group", NOT_FOUND_PAGE)
+        not_found = account_page.wait_for_element_visible(NOT_FOUND_PAGE)
+        screenshot("TC-REQ-023-032_unknown-group", "404 page for an unknown settings group")
+        assert not_found.is_displayed(), "TC-REQ-023-032 FAIL: Expected the 404 page"
+
+    def test_operator_group_not_reachable_for_member(
+        self,
+        login_page: LoginPage,
+        account_page: AccountSettingsPage,
+        screenshot: Callable[..., Path],
+    ) -> None:
+        """TC-023-084: A member's deep link into Installation lands on the first group.
+
+        Spec: TC-023-084 -- Betreiber-Gruppe fuer Mitglied nicht erreichbar.
+        """
+        _ensure_logged_in(login_page)
+        account_page.open_path(
+            "/settings/installation#storage", account_page.group_panel("account")
+        )
+        account_page.wait_for_url_contains("/settings/account")
+        screenshot("TC-REQ-023-033_installation-redirect", "Member lands on the first group")
+        assert account_page.is_absent_within(account_page.section("storage")), (
+            "TC-REQ-023-033 FAIL: Expected no storage section for an ordinary member"
         )

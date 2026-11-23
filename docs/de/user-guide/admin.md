@@ -27,7 +27,7 @@ Als Plattform-Admin siehst du in der Seitennavigation unter **Einstellungen** de
 Jede Admin-Seite führt über ihren Zurück-Pfeil und die Brotkrumen-Navigation wieder hierher. Wer kein Plattform-Admin ist, sieht den Eintrag nicht; ruft er die Adresse direkt auf, zeigt Kamerplanter einen Hinweis, dass ihm die Berechtigung fehlt.
 
 !!! info "Früher unter Einstellungen"
-    Die Plattform-Verwaltung war früher der Tab **Plattform-Modus** in deinen persönlichen **Einstellungen**, die Karte **Beigesteuerte Bilder moderieren** lag im Tab **Integrationen**. Die Einstellungen enthalten diese Inhalte nicht mehr. Hast du dir die alte Adresse gemerkt, landest du jetzt auf dem ersten Tab der Einstellungen — öffne die Plattform-Verwaltung über die Seitennavigation. <!-- Issue #2935 -->
+    Die Plattform-Verwaltung war früher der Tab **Plattform-Modus** in deinen persönlichen **Einstellungen**, die Karte **Beigesteuerte Bilder moderieren** lag im Tab **Integrationen**. Die Einstellungen enthalten diese Inhalte nicht mehr. Hast du dir die alte Adresse gemerkt, landest du jetzt auf der ersten Gruppe der Einstellungen — öffne die Plattform-Verwaltung über die Seitennavigation. <!-- Issue #2935 -->
 
 Im Light-Modus bist du als einziger Betreiber automatisch Plattform-Admin. Dort zeigt die Seite die Karten zum Betriebsmodus und die Karte **Beigesteuerte Bilder moderieren**; Kennzahlen, Mandanten, Nutzer und die übrigen Admin-Seiten gibt es nur im Full-Modus.
 
@@ -286,9 +286,9 @@ Der Pl@ntNet-API-Key ist eine **instanzweite Einstellung** — ein einziger Key 
 Dies ist der **bevorzugte Weg** — kein Pod-Neustart, keine Datei-Änderung, wirkt sofort.
 
 1. Melde dich als Plattform-Admin an
-2. Öffne **Konto-Einstellungen** (oben rechts auf dein Profilbild klicken)
-3. Wähle den Tab **Integrationen**
-4. Scrolle zum Abschnitt **Pflanzenerkennung**
+2. Öffne die **Einstellungen** (oben rechts auf dein Profilbild klicken)
+3. Öffne die Gruppe **Installation** (unter der Überschrift **Betrieb**)
+4. Gehe zum Abschnitt **Pflanzenbestimmung (Pl@ntNet)**
 5. Gib den kopierten API-Key in das Feld **Pl@ntNet API-Key** ein
 6. Klicke auf **Speichern**
 
@@ -604,7 +604,7 @@ Die Moderation findest du in der [Plattform-Verwaltung](#plattform-verwaltung-oe
         Eine reine Lese-Rolle für den Admin-Bereich (Statistiken und Mandanten-Übersichten ansehen, nichts ändern) ist geplant, aber nicht umgesetzt. <!-- REQ-024 §1a.4 Platform-Viewer, #2179 -->
 
 ??? question "Wo genau in der UI finde ich die Einstellung für den Pl@ntNet-Key?"
-    Öffne **Konto-Einstellungen** (Klick auf dein Profilbild oben rechts) → Tab **Integrationen** → Abschnitt **Pflanzenerkennung**. Dort kannst du den Key eintragen, prüfen und entfernen. Die Einstellung ist nur für Nutzer mit der Plattform-Rolle **admin** sichtbar.
+    Öffne die **Einstellungen** (Klick auf dein Profilbild oben rechts) → Gruppe **Installation** → Abschnitt **Pflanzenbestimmung (Pl@ntNet)**. Dort kannst du den Key eintragen, prüfen und entfernen. Die Einstellung ist nur für Nutzer mit der Plattform-Rolle **admin** sichtbar.
 
 ??? question "Kann ich den Key auch ohne UI als Umgebungsvariable setzen?"
     Ja. Die Umgebungsvariable `PLANTNET_API_KEY` ist weiterhin gültig und eignet sich für GitOps-Workflows oder automatisierte Deployments. Wichtig: Ein über die UI in der Datenbank gespeicherter Key hat **Vorrang** vor der Umgebungsvariable und wirkt sofort ohne Pod-Neustart.

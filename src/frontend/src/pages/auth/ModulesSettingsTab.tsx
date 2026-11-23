@@ -35,6 +35,7 @@ import {
   type ModuleKey,
 } from '@/config/moduleCatalog';
 import type { ModuleVisibilityState } from '@/api/types';
+import { settingsSectionPath } from '@/config/settingsGroups';
 
 const CORE_MODULES: ModuleDefinition[] = Object.values(moduleCatalog).filter(
   (m) => m.core,
@@ -311,7 +312,7 @@ export default function ModulesSettingsTab() {
                                 size="small"
                                 variant="text"
                                 component={RouterLink}
-                                to="/settings#ha"
+                                to={settingsSectionPath('ha')}
                                 sx={{ mt: 0.25, py: 1.25, px: 1, minWidth: 'auto', fontSize: '0.75rem' }}
                                 data-testid={`module-smarthome-link-${def.key}`}
                               >
