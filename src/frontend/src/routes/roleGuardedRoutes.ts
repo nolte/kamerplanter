@@ -117,7 +117,8 @@ export const ACTION_GATED_ROUTES: readonly string[] = [
   'ki-assistent',
   'diagnose',
   'tagebuch',
-  'settings',
+  // F-11 (#2935) — `/settings` and `/settings/<group>`: one route, one decision.
+  'settings/:group?',
   'tenants/settings',
   'ueberwinterung/profile',
   'kalender',

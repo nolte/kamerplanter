@@ -304,9 +304,12 @@ export const router = createBrowserRouter(
               }
             />
 
-            {/* Account Settings */}
+            {/* Settings (F-11, #2935): `/settings` and `/settings/<group>#<section>`.
+                One route with an optional segment, so moving between groups keeps
+                the page mounted. The page itself answers an unknown group with the
+                404 page and an invisible one with the first group the user sees. */}
             <Route
-              path="settings"
+              path="settings/:group?"
               element={
                 <Suspense fallback={<LoadingSkeleton variant="form" />}>
                   <AccountSettingsPage />

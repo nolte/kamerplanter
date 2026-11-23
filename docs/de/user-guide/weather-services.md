@@ -10,14 +10,14 @@ Als Platform-Admin legst du hier die **instanzweiten Standardeinstellungen** fü
 ## Voraussetzungen
 
 - Plattform-Rolle **admin** (Full-Modus) oder Light-Modus-Betrieb
-- Zugang über **Konto-Einstellungen > Wetterdienste**
+- Zugang über **Einstellungen > Installation > Wetterdienste**
 
 ---
 
 ## Wo du die Einstellungen findest
 
-1. Öffne **Konto-Einstellungen** (Klick auf dein Profilbild oben rechts).
-2. Wähle den Tab **Wetterdienste** — er erscheint an derselben Stelle wie der Tab **Speicher**, direkt daneben.
+1. Öffne die **Einstellungen** (Klick auf dein Profilbild oben rechts).
+2. Öffne die Gruppe **Installation** — sie steht in der Navigation unter der Überschrift **Betrieb**, abgesetzt von deinen persönlichen Einstellungen — und dort den Abschnitt **Wetterdienste**, direkt unter **Speicher**.
 
 Die Seite zeigt drei Bereiche: eine Karte pro Wetterdienst, den globalen OpenWeatherMap-Schlüssel und die allgemeinen Abruf-Einstellungen.
 

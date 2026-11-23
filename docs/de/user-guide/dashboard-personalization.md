@@ -19,13 +19,13 @@ Du kannst dein Dashboard auf zwei gleichwertigen Wegen anpassen:
 
 | Fläche | Wo | Besonderheit |
 |--------|-----|-------------|
-| **Einstellungen → Dashboard** | Kontoeinstellungen, Tab „Dashboard" | Vollständig tastaturbedienbar: Widgets an-/abwählen, per Buttons anordnen und in der Größe ändern, konfigurieren, zurücksetzen |
+| **Einstellungen → Anzeige & Verhalten → Dashboard** | Einstellungen, Gruppe „Anzeige & Verhalten", Abschnitt „Dashboard" | Vollständig tastaturbedienbar: Widgets an-/abwählen, per Buttons anordnen und in der Größe ändern, konfigurieren, zurücksetzen |
 | **Bearbeiten-Modus** | Direkt auf der Dashboard-Seite | Widgets per Maus oder Touch verschieben und in der Größe ändern (Drag-and-Drop) |
 
 Beide Flächen speichern dieselbe Einstellung — Änderungen aus der einen Fläche siehst du sofort in der anderen.
 
 !!! tip "Direkter Einstieg vom Dashboard aus"
-    Klicke im Dashboard-Header auf das Zahnradsymbol **„Widgets verwalten"**, um direkt zum Tab „Dashboard" in den Einstellungen zu springen.
+    Klicke im Dashboard-Header auf das Zahnradsymbol **„Widgets verwalten"**, um direkt zum Abschnitt „Dashboard" in den Einstellungen zu springen.
 
 Beim allerersten Besuch des Dashboards zeigt dir ein einmaliger Hinweis, dass du dein Dashboard anpassen kannst. Du kannst ihn über das Schließen-Symbol ausblenden — er erscheint danach nicht mehr.
 
@@ -36,8 +36,8 @@ Beim allerersten Besuch des Dashboards zeigt dir ein einmaliger Hinweis, dass du
 ### Schritt 1: Einstellungen öffnen
 
 1. Klicke oben rechts auf dein **Profilbild** oder das Nutzer-Symbol.
-2. Wähle **Kontoeinstellungen**.
-3. Wechsle zum Tab **Dashboard**.
+2. Wähle **Einstellungen**.
+3. Öffne die Gruppe **Anzeige & Verhalten** und dort den Abschnitt **Dashboard**.
 
 ### Schritt 2: Widget auswählen
 

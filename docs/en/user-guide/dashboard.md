@@ -142,7 +142,7 @@ This view is especially useful for people with many houseplants who want to see 
 
 ## Dashboard Adaptation by Experience Level
 
-The dashboard adapts to your experience level (configurable under **Account → Settings → Experience Level**):
+The dashboard adapts to your experience level (configurable under **Settings → Display & behaviour → Experience level**):
 
 **Beginner:**
 - Simplified view focusing on care tasks
@@ -170,7 +170,7 @@ The dashboard adapts to your experience level (configurable under **Account → 
     Sensor data appears on the dashboard only when at least one sensor is configured and active. If you have no smart home integration, use manual measurements — these appear on the dashboard too, labelled "Manual".
 
 ??? question "Can I customize the dashboard or rearrange widgets?"
-    Yes. Using the **Settings → Dashboard** tab or the **Edit** mode directly on the dashboard, you can choose widgets, arrange them via drag-and-drop (or via keyboard-operable buttons), and resize them. See [Personalizing Your Dashboard](dashboard-personalization.md) for details.
+    Yes. Using **Settings → Display & behaviour → Dashboard** or the **Edit** mode directly on the dashboard, you can choose widgets, arrange them via drag-and-drop (or via keyboard-operable buttons), and resize them. See [Personalizing Your Dashboard](dashboard-personalization.md) for details.
 
 ??? question "Why do some plants not appear on the dashboard?"
     The dashboard shows only **active** plants (not completed, not removed). Plants in a completed planting run no longer appear. If an active plant is missing, check that it is in the correct tenant.

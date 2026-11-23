@@ -1,4 +1,4 @@
-"""Page object for the Account Settings page (REQ-023)."""
+"""Page object for the grouped settings page (REQ-023, F-11)."""
 
 from __future__ import annotations
 
@@ -10,30 +10,76 @@ from selenium.webdriver.support import expected_conditions as EC
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
+#: Which settings group holds a section (F-11, #2935) -- mirrors
+#: ``src/frontend/src/config/settingsGroups.ts``. A section is addressed as
+#: ``/settings/<group>#<section>``; the former ``/settings#<tab>`` form is not
+#: mapped and lands on the first group.
+SECTION_GROUPS: dict[str, str] = {
+    "profile": "account",
+    "account": "account",
+    "experience": "display",
+    "kiosk": "display",
+    "modules": "display",
+    "dashboard": "display",
+    "notifications": "notifications",
+    "security": "security",
+    "sessions": "security",
+    "apikeys": "security",
+    "connect": "security",
+    "ha": "integrations",
+    "ha-publish": "integrations",
+    "storage": "installation",
+    "weather-providers": "installation",
+    "ha-connection": "installation",
+    "plant-identification": "installation",
+    "recognition": "installation",
+}
+
+
 class AccountSettingsPage(BasePage):
-    """Interact with the Account Settings page (``/settings``)."""
+    """Interact with the grouped settings page (``/settings``, ``/settings/<group>``)."""
 
     PATH = "/settings"
 
     # ── Page-level locators ─────────────────────────────────────────────
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
-    TABS = (By.CSS_SELECTOR, ".MuiTabs-root")
-    TAB_BUTTONS = (By.CSS_SELECTOR, ".MuiTab-root")
+    #: Group entries: the desktop side navigation and the phone's group list
+    #: carry the same ``settings-group-<key>`` ids. The prefix belongs to the
+    #: entries alone -- the open group's panel and heading are ``settings-panel-*``.
+    GROUP_ENTRIES = (By.CSS_SELECTOR, "[data-testid^='settings-group-']")
+    GROUP_LIST = (By.CSS_SELECTOR, "[data-testid='settings-nav-list']")
+    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-panel-title']")
+    BACK_BUTTON = (By.CSS_SELECTOR, "[data-testid='settings-back-button']")
     ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
 
-    # ── Profile tab locators ────────────────────────────────────────────
+    @staticmethod
+    def group_entry(group: str) -> tuple[str, str]:
+        """Locator of the navigation entry of *group*."""
+        return (By.CSS_SELECTOR, f"[data-testid='settings-group-{group}']")
+
+    @staticmethod
+    def group_panel(group: str) -> tuple[str, str]:
+        """Locator of the open group's content panel."""
+        return (By.CSS_SELECTOR, f"[data-testid='settings-panel-{group}']")
+
+    @staticmethod
+    def section(section: str) -> tuple[str, str]:
+        """Locator of a section inside the open group."""
+        return (By.CSS_SELECTOR, f"[data-testid='settings-section-{section}']")
+
+    # ── Profile section locators ────────────────────────────────────────────
     DISPLAY_NAME_INPUT = (By.CSS_SELECTOR, "[data-testid='profile-display-name'] input")
     EMAIL_INPUT = (By.CSS_SELECTOR, "[data-testid='profile-email'] input")
     PROFILE_SAVE_BUTTON = (By.CSS_SELECTOR, "[data-testid='profile-save-btn']")
     LOCALE_SELECT = (By.CSS_SELECTOR, "[data-testid='profile-locale']")
     TIMEZONE_INPUT = (By.CSS_SELECTOR, "[data-testid='profile-timezone'] input")
 
-    # ── Security tab locators ───────────────────────────────────────────
+    # ── Security section locators ───────────────────────────────────────────
     CURRENT_PASSWORD_INPUT = (By.CSS_SELECTOR, "[data-testid='current-password-field'] input")
     NEW_PASSWORD_INPUT = (By.CSS_SELECTOR, "[data-testid='new-password-field'] input")
     CHANGE_PASSWORD_BUTTON = (By.CSS_SELECTOR, "[data-testid='change-password-btn']")
     #: The linked-provider list is the page's only `List`/`ListItemText`
-    #: (`AccountSettingsPage.tsx:714`), so the page hook scopes it exactly.
+    #: (`SecuritySettingsGroup.tsx`), so the page hook scopes it exactly.
     #: Unscoped, `.MuiListItemText-primary` also matched every Sidebar nav
     #: label -- those are `ListItemText`s too, mounted in the same DOM and
     #: displayed at >= `md` -- which inflated the provider list to the whole
@@ -43,12 +89,12 @@ class AccountSettingsPage(BasePage):
         "[data-testid='account-settings-page'] .MuiListItemText-primary",
     )
 
-    # ── Experience tab locators ─────────────────────────────────────────
+    # ── Experience section locators ─────────────────────────────────────────
     EXPERIENCE_BEGINNER = (By.CSS_SELECTOR, "[data-testid='experience-toggle-beginner']")
     EXPERIENCE_INTERMEDIATE = (By.CSS_SELECTOR, "[data-testid='experience-toggle-intermediate']")
     EXPERIENCE_EXPERT = (By.CSS_SELECTOR, "[data-testid='experience-toggle-expert']")
 
-    # ── Account tab locators ────────────────────────────────────────────
+    # ── Account section locators ────────────────────────────────────────────
     DELETE_ACCOUNT_BUTTON = (By.CSS_SELECTOR, "[data-testid='delete-account-btn']")
 
     # ── Snackbar ────────────────────────────────────────────────────────
@@ -60,44 +106,71 @@ class AccountSettingsPage(BasePage):
 
     # ── Navigation ──────────────────────────────────────────────────────
 
-    def open(self, tab: str | None = None) -> AccountSettingsPage:
-        """Navigate to the account settings page and wait for it to load.
+    def open(self, section: str | None = None) -> AccountSettingsPage:
+        """Navigate to the settings page and wait for it to load.
 
         Args:
-            tab: Optional tab key to select (profile, security, sessions, etc.)
+            section: Optional section key (profile, security, sessions, ...);
+                opens ``/settings/<group>#<section>`` with the group taken from
+                :data:`SECTION_GROUPS`. Without it, ``/settings`` -- the first
+                group on a desktop, the group list on a phone.
         """
         path = self.PATH
-        if tab:
-            path = f"{self.PATH}#{tab}"
+        if section:
+            path = f"{self.PATH}/{SECTION_GROUPS[section]}#{section}"
         self.navigate(path)
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
+        if section:
+            self.wait_for_element(self.section(section))
         return self
 
-    # ── Tab navigation ──────────────────────────────────────────────────
+    def open_path(self, path: str, settled: tuple[str, str]) -> None:
+        """Load an arbitrary settings *path* and wait for the *settled* element.
 
-    def get_tab_labels(self) -> list[str]:
-        """Return the text labels of all visible tabs."""
-        tabs = self.tab_elements(self.TAB_BUTTONS)
-        return [tab.text for tab in tabs if tab.is_displayed()]
+        For the routing cases of F-11 (#2935) whose path is deliberately not a
+        section the user sees -- an unknown group (404 page), a group the user
+        may not open (lands on the first group) or a former ``/settings#<tab>``
+        bookmark. Waiting on the expected shape keeps the read that follows from
+        racing the lazily loaded route.
+        """
+        self.navigate_direct(path, settled, what=f"settings route {path}")
 
-    def click_tab(self, label: str) -> None:
-        """Click a tab by its label text (case-insensitive)."""
-        tabs = self.tab_elements(self.TAB_BUTTONS)
-        target = label.lower()
-        for tab in tabs:
-            if tab.text.strip().lower() == target:
-                self.scroll_and_click(tab)
-                return
-        msg = f"Tab '{label}' not found. Available: {self.get_tab_labels()}"
-        raise ValueError(msg)
+    # ── Group navigation (F-11) ─────────────────────────────────────────
 
-    def click_tab_by_index(self, index: int) -> None:
-        """Click a tab by its zero-based index."""
-        tabs = self.tab_elements(self.TAB_BUTTONS)
-        self.scroll_and_click(self.require_index(tabs, index, "account settings tab"))
+    def get_group_keys(self) -> list[str]:
+        """Return the keys of the displayed group entries, in navigation order.
 
-    # ── Profile tab ─────────────────────────────────────────────────────
+        On a desktop these are the side navigation's entries, on a phone the
+        group list's -- shown on ``/settings`` only, a group's detail view has
+        the back arrow instead.
+        """
+        entries = self.tab_elements(self.GROUP_ENTRIES)
+        return [
+            (entry.get_attribute("data-testid") or "").removeprefix("settings-group-")
+            for entry in entries
+            if entry.is_displayed()
+        ]
+
+    def click_group(self, group: str) -> None:
+        """Open *group* from the navigation and wait for its panel."""
+        self.scroll_and_click(self.wait_for_element_clickable(self.group_entry(group)))
+        self.wait_for_element(self.group_panel(group))
+
+    def get_group_title(self) -> str:
+        """Return the heading of the open group."""
+        return self.wait_for_element_visible(self.GROUP_TITLE).text
+
+    def is_back_button_visible(self) -> bool:
+        """Whether the phone's detail view shows its back arrow."""
+        elements = self.driver.find_elements(*self.BACK_BUTTON)
+        return len(elements) > 0 and elements[0].is_displayed()
+
+    def click_back(self) -> None:
+        """Leave a group's detail view for the group list (phone)."""
+        self.scroll_and_click(self.wait_for_element_clickable(self.BACK_BUTTON))
+
+    # ── Profile section ─────────────────────────────────────────────────
 
     def wait_for_profile_loaded(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the profile fields carry the fetched user, not their blank initial state.
@@ -106,7 +179,7 @@ class AccountSettingsPage(BasePage):
         and flips `auth.initialized` -- **before** the separate `fetchProfile()`
         dispatch `AuthProvider.initAuth` chains after it has itself settled
         (`authSlice.ts`: `refreshAccessToken.fulfilled` sets `initialized` on its
-        own, independent of `fetchProfile`). `AccountSettingsPage.tsx` seeds
+        own, independent of `fetchProfile`). `AccountSettingsGroup.tsx` seeds
         `displayName` from `user` via a `useEffect` and reads `user?.email`
         directly, and `user` is still `null` in that window -- so
         `profile-display-name`/`profile-email` can both be present in the DOM
@@ -157,16 +230,16 @@ class AccountSettingsPage(BasePage):
         btn = self.wait_for_element_clickable(self.PROFILE_SAVE_BUTTON)
         self.scroll_and_click(btn)
 
-    # ── Security tab ────────────────────────────────────────────────────
+    # ── Security section ────────────────────────────────────────────────
 
     def is_current_password_visible(self) -> bool:
         """Check if the current-password field is visible (only for local accounts).
 
         Gated on the same `providers` fetch :meth:`get_linked_providers` is:
-        `AccountSettingsPage.tsx` derives `hasLocalProvider` from `providers`,
+        `SecuritySettingsGroup.tsx` derives `hasLocalProvider` from `providers`,
         which starts at `[]` and is populated only once `loadProviders()`'s
         `listProviders()` call resolves. The field carries no loading
-        indicator of its own, so a bare read right after `open(tab="security")`
+        indicator of its own, so a bare read right after `open(section="security")`
         cannot tell "the fetch is still in flight" from "this account has no
         local provider" -- anchored on the linked-provider list settling
         first, the same signal :meth:`get_linked_providers` waits on.
@@ -209,7 +282,7 @@ class AccountSettingsPage(BasePage):
         populated only once `loadProviders()`'s `listProviders()` call
         resolves (a `useEffect` fired on every mount), and this page renders
         no loading indicator or empty-state testid for that gap -- a bare
-        `find_elements` right after `open(tab="security")` cannot tell "the
+        `find_elements` right after `open(section="security")` cannot tell "the
         fetch is still in flight" from "the demo user genuinely has no linked
         providers", which is exactly what `test_linked_providers_displayed`
         asserts on. An empty list after the full budget is still a genuine

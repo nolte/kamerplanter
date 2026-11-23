@@ -27,7 +27,7 @@ As a platform admin you see the **Platform administration** entry in the side na
 Every admin page leads back here through its back arrow and the breadcrumb navigation. Anyone who is not a platform admin does not see the entry; opening the address directly shows a notice that the permission is missing.
 
 !!! info "Formerly under Settings"
-    Platform administration used to be the **Platform Mode** tab of your personal **Settings**, and the **Moderate contributed images** card sat in the **Integrations** tab. Settings no longer hold this content. If you bookmarked the old address, you now land on the first settings tab — open platform administration from the side navigation. <!-- Issue #2935 -->
+    Platform administration used to be the **Platform Mode** tab of your personal **Settings**, and the **Moderate contributed images** card sat in the **Integrations** tab. Settings no longer hold this content. If you bookmarked the old address, you now land on the first settings group — open platform administration from the side navigation. <!-- Issue #2935 -->
 
 In light mode you, as the only operator, are a platform admin automatically. There the page shows the operating mode cards and the **Moderate contributed images** card; figures, tenants, users and the other admin pages exist in full mode only.
 
@@ -286,9 +286,9 @@ The Pl@ntNet API key is an **instance-wide setting** — a single key applies to
 This is the **preferred method** — no pod restart required, no file changes, takes effect immediately.
 
 1. Sign in as a platform admin
-2. Open **Account Settings** (click your profile picture in the top right)
-3. Select the **Integrations** tab
-4. Scroll to the **Plant Identification** section
+2. Open the **Settings** (click your profile picture in the top right)
+3. Open the **Installation** group (under the **Operation** heading)
+4. Go to the **Plant identification (Pl@ntNet)** section
 5. Enter the copied API key in the **Pl@ntNet API Key** field
 6. Click **Save**
 
@@ -604,7 +604,7 @@ Moderation lives in [platform administration](#opening-platform-administration),
         A read-only role for the admin area (view statistics and tenant overviews, change nothing) is planned but not implemented. <!-- REQ-024 §1a.4 platform viewer, #2179 -->
 
 ??? question "Where exactly in the UI do I find the Pl@ntNet key setting?"
-    Open **Account Settings** (click your profile picture in the top right) → **Integrations** tab → **Plant Identification** section. There you can enter, test, and remove the key. The setting is only visible to users with the platform role **admin**.
+    Open the **Settings** (click your profile picture in the top right) → **Installation** group → **Plant identification (Pl@ntNet)** section. There you can enter, test, and remove the key. The setting is only visible to users with the platform role **admin**.
 
 ??? question "Can I also set the key as an environment variable instead of using the UI?"
     Yes. The environment variable `PLANTNET_API_KEY` remains fully supported and is suitable for GitOps workflows or automated deployments. Important: a key stored in the database via the Admin UI takes **precedence** over the environment variable and takes effect immediately without a pod restart.

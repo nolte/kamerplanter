@@ -19,13 +19,13 @@ You can adjust your dashboard in two equivalent ways:
 
 | Surface | Where | Highlight |
 |---------|-------|-----------|
-| **Settings → Dashboard** | Account settings, "Dashboard" tab | Fully keyboard-accessible: add/remove widgets, reorder and resize via buttons, configure, reset |
+| **Settings → Display & behaviour → Dashboard** | Settings, "Display & behaviour" group, "Dashboard" section | Fully keyboard-accessible: add/remove widgets, reorder and resize via buttons, configure, reset |
 | **Edit mode** | Directly on the dashboard page | Move and resize widgets with the mouse or touch (drag-and-drop) |
 
 Both surfaces save the same setting — changes made on one surface appear immediately on the other.
 
 !!! tip "Quick access from the dashboard"
-    Click the gear icon **"Manage widgets"** in the dashboard header to jump directly to the "Dashboard" tab in settings.
+    Click the gear icon **"Manage widgets"** in the dashboard header to jump directly to the "Dashboard" section in settings.
 
 The very first time you visit the dashboard, a one-time notice tells you that you can personalize your dashboard. You can dismiss it via the close icon — it will not reappear afterwards.
 
@@ -36,8 +36,8 @@ The very first time you visit the dashboard, a one-time notice tells you that yo
 ### Step 1: Open Settings
 
 1. Click your **profile picture** or user icon in the top-right corner.
-2. Select **Account Settings**.
-3. Switch to the **Dashboard** tab.
+2. Select **Settings**.
+3. Open the **Display & behaviour** group and its **Dashboard** section.
 
 ### Step 2: Choose a widget
 

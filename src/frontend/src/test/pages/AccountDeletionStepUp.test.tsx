@@ -53,7 +53,7 @@ function providers(list: { provider: string }[]) {
   );
 }
 
-function renderAccountTab(route = '/account#account') {
+function renderAccountTab(route = '/settings/account#account') {
   return renderWithProviders(<AccountSettingsPage />, { store: createTestStore(authState()), route });
 }
 
@@ -169,7 +169,7 @@ describe('AccountSettingsPage — password change lockout (#1816)', () => {
     providers([{ provider: 'local' }]);
     server.use(http.post('/api/v1/users/me/password', () => lockedResponse('7')));
     const user = userEvent.setup();
-    renderAccountTab('/account#security');
+    renderAccountTab('/settings/security#security');
 
     const current = (await screen.findByTestId('current-password-field')).querySelector('input') as HTMLInputElement;
     const next = screen.getByTestId('new-password-field').querySelector('input') as HTMLInputElement;

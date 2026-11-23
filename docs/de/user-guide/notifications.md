@@ -7,7 +7,7 @@ Kamerplanter kann dich über fällige Pflegeaufgaben, Sensor-Alarme, Tankfüllst
 
 ## Voraussetzungen
 
-- Ein Kamerplanter-Konto mit Zugriff auf **Einstellungen → Benachrichtigungen** (`/settings#notifications`)
+- Ein Kamerplanter-Konto mit Zugriff auf **Einstellungen → Benachrichtigungen** (`/settings/notifications`)
 - Für den Kanal **Home Assistant**: eine bereits eingerichtete Home-Assistant-Verbindung (siehe [Home Assistant Integration](../guides/home-assistant-integration.md))
 - Für den Kanal **Browser-Push**: eine Kamerplanter-Instanz mit aktiviertem Web-Push (siehe [Browser-Push einrichten](../guides/browser-push-setup.md)) — das richtet dein Betreiber einmalig ein
 - Für den Kanal **Apprise**: mindestens eine gültige Apprise-URL des gewünschten Diensts (z. B. Telegram, ntfy, Gotify)

@@ -1,6 +1,6 @@
 # Module & Funktionen
 
-In den Kontoeinstellungen kannst du unter dem Tab **Module & Funktionen** jeden Navigationsbereich der Seitenleiste — mit Ausnahme der Kern-Module — gezielt ein- oder ausblenden. Das ermöglicht eine aufgeräumte Oberfläche, die genau auf deine Arbeitsweise zugeschnitten ist — unabhängig davon, welche Erfahrungsstufe du gewählt hast.
+In den Einstellungen kannst du in der Gruppe **Anzeige & Verhalten** im Abschnitt **Module & Funktionen** jeden Navigationsbereich der Seitenleiste — mit Ausnahme der Kern-Module — gezielt ein- oder ausblenden. Das ermöglicht eine aufgeräumte Oberfläche, die genau auf deine Arbeitsweise zugeschnitten ist — unabhängig davon, welche Erfahrungsstufe du gewählt hast.
 
 !!! note "Reine Anzeige-Präferenz"
     Das Ein- und Ausblenden von Modulen ist eine **persönliche Darstellungseinstellung**. Es handelt sich um keine Zugriffskontrolle: Das System speichert weiterhin alle deine Daten, und du kannst ein ausgeblendetes Modul jederzeit wieder einblenden — ohne Datenverlust.
@@ -20,8 +20,8 @@ In den Kontoeinstellungen kannst du unter dem Tab **Module & Funktionen** jeden 
 ## Einstellungen öffnen
 
 1. Klicke oben rechts auf dein **Profilbild** oder das Nutzer-Symbol.
-2. Wähle **Kontoeinstellungen**.
-3. Wechsle zum Tab **Module & Funktionen**.
+2. Wähle **Einstellungen**.
+3. Öffne die Gruppe **Anzeige & Verhalten** und dort den Abschnitt **Module & Funktionen**.
 
 Du siehst eine nach Kategorien gruppierte Liste aller Module, die du ein- oder ausblenden kannst.
 
@@ -58,7 +58,7 @@ Rufst du eine Seite eines ausgeblendeten Moduls direkt über eine URL oder einen
 
 > „Dieses Modul ist ausgeblendet. Möchtest du es wieder aktivieren?"
 
-Mit einem Klick auf **In Einstellungen aktivieren** gelangst du direkt zum Tab „Module & Funktionen". So gehen geteilte oder bookmarkte Links nie verloren.
+Mit einem Klick auf **In Einstellungen aktivieren** gelangst du direkt zum Abschnitt „Module & Funktionen". So gehen geteilte oder bookmarkte Links nie verloren.
 
 ---
 
@@ -93,7 +93,7 @@ Die Änderungen werden sofort gespeichert — ohne separaten Bestätigungs-Butto
 
 ## Kern-Module: immer sichtbar
 
-Die folgenden Module sind Grundfunktionen der Anwendung und lassen sich nicht ausblenden. Sie erscheinen im Tab „Module & Funktionen" als fixierte Einträge mit dem Hinweis „Grundfunktion, immer sichtbar":
+Die folgenden Module sind Grundfunktionen der Anwendung und lassen sich nicht ausblenden. Sie erscheinen im Abschnitt „Module & Funktionen" als fixierte Einträge mit dem Hinweis „Grundfunktion, immer sichtbar":
 
 | Modul | Beschreibung |
 |-------|-------------|

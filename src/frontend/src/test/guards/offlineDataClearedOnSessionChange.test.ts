@@ -522,7 +522,7 @@ describe('offline data is cleared on account erasure and on a dead session (#278
     });
     try {
       holdClear();
-      renderWithProviders(createElement(AccountSettingsPage), { store: createTestStore(authState()), route: '/account#account' });
+      renderWithProviders(createElement(AccountSettingsPage), { store: createTestStore(authState()), route: '/settings/account#account' });
       await userEvent.click(await screen.findByTestId('delete-account-btn'));
       const dialog = await screen.findByTestId('delete-account-dialog');
       const email = dialog.querySelector('[data-testid="delete-account-email"] input') as HTMLInputElement;

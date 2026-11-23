@@ -129,8 +129,8 @@ Stelle Fragen zu Pflanzenpflege und bekomme Antworten basierend auf der integrie
 Du kannst die Stufe jederzeit wechseln:
 
 1. Klicke auf dein **Profilbild** (oben rechts)
-2. Wähle **Kontoeinstellungen**
-3. Gehe zum Tab **Erfahrungsstufe**
+2. Wähle **Einstellungen**
+3. Öffne die Gruppe **Anzeige & Verhalten**, Abschnitt **Erfahrungsstufe**
 4. Wähle die gewünschte Stufe
 
 Keine Sorge: Beim Wechsel gehen keine Daten verloren. Kamerplanter blendet nur die Bedienelemente ein oder aus.

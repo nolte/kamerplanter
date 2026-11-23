@@ -12,7 +12,7 @@ Diese Anleitung zeigt dir Schritt für Schritt, wie du vom ersten Öffnen von Ka
 Wenn du Kamerplanter zum ersten Mal öffnest, begrüßt dich der **Onboarding-Wizard**. Er führt dich in fünf kurzen Schritten durch die Einrichtung.
 
 !!! info "Wizard schon abgeschlossen?"
-    Du kannst den Wizard jederzeit erneut starten: Gehe zu **Kontoeinstellungen** und klicke auf **Onboarding-Wizard erneut starten**.
+    Du kannst den Wizard jederzeit erneut starten: Gehe zu **Einstellungen** und klicke auf **Onboarding-Wizard erneut starten**.
 
 ---
 

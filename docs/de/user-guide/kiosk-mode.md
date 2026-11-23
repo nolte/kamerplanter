@@ -22,9 +22,9 @@ In Gewächshaus und Growraum gelten besondere Bedingungen: Erde, Nährlösung un
 
 ## Kiosk-Modus aktivieren
 
-### Schritt 1: Kontoeinstellungen öffnen
+### Schritt 1: Einstellungen öffnen
 
-Klicke oben rechts auf dein **Profilbild** bzw. deine Initialen und wähle **Kontoeinstellungen**. Wechsle zum Tab **Kiosk-Modus**.
+Klicke oben rechts auf dein **Profilbild** bzw. deine Initialen und wähle **Einstellungen**. Öffne die Gruppe **Anzeige & Verhalten** und dort den Abschnitt **Kiosk-Modus**.
 
 ### Schritt 2: Kiosk-Modus einschalten
 
@@ -60,7 +60,7 @@ Unterhalb der Kacheln zeigt die Startseite die Anzahl deiner offenen Aufgaben so
 
 Die kontrastreiche Darstellung (High-Contrast-Design) verwendet reines Schwarz-Weiß mit besonders starkem Kontrast (WCAG AAA — die höchste Barrierefreiheits-Stufe der Web Content Accessibility Guidelines, mindestens 7:1 Kontrastverhältnis für Text) und verzichtet auf feine Grautöne, Schatten und Farbverläufe. Das verbessert die Lesbarkeit erheblich, etwa bei direkter Sonneneinstrahlung im Gewächshaus.
 
-Sie ist standardmäßig aktiv, sobald du den Kiosk-Modus einschaltest. Du kannst sie aber auch **unabhängig** vom Kiosk-Modus nutzen — zum Beispiel für den Balkon bei hellem Tageslicht: Aktiviere dazu im Tab **Kiosk-Modus** der Kontoeinstellungen separat den Schalter **Kontrastreiches Design verwenden**.
+Sie ist standardmäßig aktiv, sobald du den Kiosk-Modus einschaltest. Du kannst sie aber auch **unabhängig** vom Kiosk-Modus nutzen — zum Beispiel für den Balkon bei hellem Tageslicht: Aktiviere dazu in den Einstellungen im Abschnitt **Kiosk-Modus** (Gruppe **Anzeige & Verhalten**) separat den Schalter **Kontrastreiches Design verwenden**.
 
 ---
 

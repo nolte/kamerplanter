@@ -24,6 +24,6 @@ describe('AppRoutes', () => {
     const paths = collectPaths(router.routes);
     expect(paths).toContain('privacy');
     // Sanity: the sibling account-settings route is present too.
-    expect(paths).toContain('settings');
+    expect(paths).toContain('settings/:group?');
   });
 });

@@ -51,7 +51,7 @@ type Breakpoint = 'lg' | 'md' | 'sm';
 
 /**
  * REQ-045 §3.8 — the primary, fully keyboard-accessible personalization surface
- * (Settings → Dashboard, deep-link /settings#dashboard). Add/remove widgets,
+ * (Settings → Dashboard, deep-link /settings/display#dashboard). Add/remove widgets,
  * per-widget config, accessible reorder/resize (UI-NFR-002), per-breakpoint
  * editing, and reset-to-default.
  */
@@ -63,7 +63,7 @@ export default function DashboardSettingsTab() {
   const { isSmartHomeEnabled } = useSmartHomeEnabled();
   const [breakpoint, setBreakpoint] = useState<Breakpoint>('lg');
 
-  // The settings tab is reachable directly via /settings#dashboard without
+  // The settings tab is reachable directly via /settings/display#dashboard without
   // visiting /dashboard first — load the server-authoritative widget catalog so
   // gated widgets show as locked (not silently toggleable).
   useEffect(() => {

@@ -35,8 +35,10 @@ from .pages.dashboard_page import DashboardPage
 from .pages.platform_admin_page import PlatformAdminPage
 
 SIDEBAR_SETTINGS_ENTRY = (By.CSS_SELECTOR, "[data-testid='nav-settings']")
-SETTINGS_PLATFORM_TAB = (By.CSS_SELECTOR, "[data-testid='settings-tab-platform']")
-SETTINGS_PROFILE_TAB = (By.CSS_SELECTOR, "[data-testid='settings-tab-profile']")
+# F-11 (#2935): the settings page has groups instead of tabs; the group entries
+# are rendered on desktop (side navigation) and phone (group list) alike.
+SETTINGS_PLATFORM_GROUP = (By.CSS_SELECTOR, "[data-testid='settings-group-platform']")
+SETTINGS_ACCOUNT_GROUP = (By.CSS_SELECTOR, "[data-testid='settings-group-account']")
 
 
 @pytest.fixture(autouse=True)
@@ -129,14 +131,14 @@ class TestPlatformAdminHub:
     ) -> None:
         """TC-023-081: Kontoeinstellungen enthalten keine Plattform-Verwaltung mehr.
 
-        Spec: TC-023-081 -- the old #platform address opens the first tab, no platform tab.
+        Spec: TC-023-081 -- the old #platform address opens the settings without a platform entry.
         """
-        account_settings.open(tab="platform")
-        account_settings.wait_for_element_visible(SETTINGS_PROFILE_TAB)
+        account_settings.open_path("/settings#platform", SETTINGS_ACCOUNT_GROUP)
+        account_settings.wait_for_element_visible(SETTINGS_ACCOUNT_GROUP)
         screenshot("F-12_settings-without-platform-tab", "Settings page after the move")
 
-        assert account_settings.is_absent_within(SETTINGS_PLATFORM_TAB), (
-            "Expected no platform tab on the settings page, also for a platform admin"
+        assert account_settings.is_absent_within(SETTINGS_PLATFORM_GROUP), (
+            "Expected no platform group on the settings page, also for a platform admin"
         )
 
 

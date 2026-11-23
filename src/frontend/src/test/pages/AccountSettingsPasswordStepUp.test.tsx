@@ -53,7 +53,7 @@ function errorResponse(status: number, errorCode: string) {
 function renderSecurityTab() {
   return renderWithProviders(<AccountSettingsPage />, {
     store: createTestStore(authState()),
-    route: '/account#security',
+    route: '/settings/security#security',
   });
 }
 
@@ -218,7 +218,7 @@ describe('AccountSettingsPage — account deletion code (review SEC-003)', () =>
       }),
     );
     const user = userEvent.setup();
-    renderWithProviders(<AccountSettingsPage />, { store: createTestStore(authState()), route: '/account#account' });
+    renderWithProviders(<AccountSettingsPage />, { store: createTestStore(authState()), route: '/settings/account#account' });
 
     await user.click(await screen.findByTestId('delete-account-btn'));
     const dialog = await screen.findByTestId('delete-account-dialog');

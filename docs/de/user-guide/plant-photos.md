@@ -120,7 +120,7 @@ Du kannst die Prüfung jederzeit wiederholen — zum Beispiel nach dem Ersetzen 
         Wenn du Pl@ntNet wählst, wird das Foto an die Pl@ntNet-API übertragen. Deine Kamerplanter-Instanz hat keine Kontrolle darüber, wie Pl@ntNet das Foto verarbeitet oder speichert. Bitte lies die [Datenschutzerklärung von Pl@ntNet](https://plantnet.org/privacy-policy/) bevor du diesen Weg wählst.
 
         - Du musst einmalig **einwilligen**, dass deine Fotos zur Identifizierung an Pl@ntNet gesendet werden dürfen (dieselbe Einwilligung wie bei der Pflanzenerkennung).
-        - Die Einwilligung kannst du jederzeit unter **Konto-Einstellungen → Datenschutz → Einwilligungen** widerrufen.
+        - Die Einwilligung kannst du jederzeit unter **Datenschutz → Einwilligungen** widerrufen.
         - Im **Light-Modus** (anonymer Zugang) ist Pl@ntNet nur nutzbar, wenn der Betreiber der Instanz es ausdrücklich freigeschaltet hat.
 
 === "DINOv2 (self-hosted, noch nicht verfügbar)"
@@ -231,7 +231,7 @@ Wenn du einwilligst und die self-hosted Erkennung aktiv ist, werden Galerie-Foto
 Die Einwilligung für den Datenbeitrag (`reference_contribution`) findest du in den Datenschutz-Einstellungen:
 
 1. Klicke oben rechts auf dein Profilbild.
-2. Wähle **Konto-Einstellungen** > **Datenschutz** > **Einwilligungen**.
+2. Wähle **Datenschutz** > **Einwilligungen**.
 3. Aktiviere oder deaktiviere **Foto-Beitrag zur Pflanzenerkennung**.
 
 Der Widerruf gilt sofort für alle zukünftigen Beiträge — Galerie-Fotos ebenso wie [freigegebene Schädlingsfotos](pest-detail.md#eigene-fotos-beitragen). Bereits erzeugte Merkmals-Vektoren entfernt der Widerruf selbst nicht; sie werden gelöscht, wenn du das zugehörige Foto löschst, und spätestens bei der Kontolöschung.

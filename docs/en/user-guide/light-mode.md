@@ -164,7 +164,7 @@ A full back-and-forth switch is possible. All data remains in the database. When
     Kamerplanter does **not** check this combination: if the Knowledge Service runs with `LLM_PROVIDER=anthropic`, every AI question goes to Anthropic, in Light Mode too. In Light Mode, use `LLM_PROVIDER=ollama` or `LLM_PROVIDER=openai_compatible` with an `LLM_API_URL` inside your own network — or turn the AI features off with `AI_FEATURES_ENABLED=false`. Details: [AI Provider Setup](ai-providers.md).
 
 ??? question "Can I change the language and experience level in Light Mode?"
-    Yes. **Account Settings** are available in a limited form in Light Mode: you can adjust language, timezone, and experience level. Password, sessions, and privacy settings are hidden because they are not relevant in Light Mode.
+    Yes. The **Settings** are available in a limited form in Light Mode: you can adjust language, timezone, and experience level. Password, sessions, and privacy settings are hidden because they are not relevant in Light Mode.
 
 ---
 

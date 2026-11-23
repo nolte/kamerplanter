@@ -135,7 +135,7 @@ function renderSessionsTab(sessions: unknown[], sessionsAnswer?: () => Response)
   );
   return renderWithProviders(<AccountSettingsPage />, {
     store: storeWithUser(),
-    route: '/account#sessions',
+    route: '/settings/security#sessions',
   });
 }
 

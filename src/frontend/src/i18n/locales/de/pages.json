@@ -870,23 +870,7 @@
       "newPassword": "Neues Passwort festlegen",
       "setNewPassword": "Passwort speichern",
       "passwordResetSuccess": "Passwort erfolgreich zurückgesetzt",
-      "accountSettings": "Kontoeinstellungen",
       "privacySettings": "Datenschutz",
-      "tabProfile": "Profil",
-      "tabSecurity": "Sicherheit",
-      "tabSessions": "Sitzungen",
-      "tabApiKeys": "API-Schlüssel",
-      "tabExperience": "Erfahrungsstufe",
-      "tabKiosk": "Kiosk-Modus",
-      "tabConnect": "App verbinden",
-      "tabModules": "Module & Funktionen",
-      "tabAdmin": "Administration",
-      "tabNotifications": "Benachrichtigungen",
-      "tabIntegrations": "Integrationen",
-      "tabHaPublish": "HA-Veröffentlichung",
-      "tabStorage": "Speicher",
-      "tabWeatherProviders": "Wetterdienste",
-      "tabAccount": "Konto",
       "smartHome": {
         "title": "Smart Home & Sensorik",
         "description": "Aktiviere diese Option wenn du Smart-Home-Geräte, Sensoren oder Aktoren mit Kamerplanter verwenden möchtest.",
@@ -1092,7 +1076,6 @@
       "emailReadOnly": "Die E-Mail-Adresse kann nicht geändert werden.",
       "unlinkProvider": "Anbieter trennen",
       "deleteAccountDescription": "Dein Konto wird sofort geschlossen; deine Daten werden nach Ablauf der Löschfrist endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
-      "tabDashboard": "Dashboard",
       "stepUpLocked": "Zu viele fehlgeschlagene Bestätigungen. Versuche es in {{minutes}} Minuten erneut.",
       "stepUpCodeUndeliverable": "Der Bestätigungscode kann nicht per E-Mail zugestellt werden. Wende dich an den Betreiber.",
       "stepUpLockedNoMinutes": "Zu viele fehlgeschlagene Bestätigungen. Versuche es später erneut.",
@@ -8632,6 +8615,59 @@
     "runs": {
       "plantCount": "Pflanzen",
       "standalonePlants": "Einzelpflanzen (ohne Durchlauf)"
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "navLabel": "Einstellungsgruppen",
+      "backToGroups": "Zurück zur Übersicht der Einstellungen",
+      "operatorHeading": "Betrieb",
+      "integrationsInstallationHint": "Die Verbindung zu Home Assistant, den Pl@ntNet-Schlüssel und die Erkennung für die ganze Installation stellst du in der Gruppe",
+      "groups": {
+        "account": {
+          "title": "Profil & Konto",
+          "description": "Dein Name, Sprache und Zeitzone, deine E-Mail-Adresse und das Löschen deines Kontos."
+        },
+        "display": {
+          "title": "Anzeige & Verhalten",
+          "description": "Erfahrungsstufe, Kiosk-Modus, sichtbare Module und dein Dashboard."
+        },
+        "notifications": {
+          "title": "Benachrichtigungen",
+          "description": "Über welche Kanäle und wann Kamerplanter dich benachrichtigt."
+        },
+        "security": {
+          "title": "Sicherheit & Zugang",
+          "description": "Passwort und Anmeldemethoden, aktive Sitzungen, Geräte und API-Schlüssel."
+        },
+        "integrations": {
+          "title": "Integrationen",
+          "description": "Smart-Home-Funktionen und was Kamerplanter an Home Assistant meldet."
+        },
+        "installation": {
+          "title": "Installation",
+          "description": "Gilt für die ganze Installation und alle Nutzer: Speicher, Wetterdienste, Home-Assistant-Verbindung, Pl@ntNet und Erkennung."
+        }
+      },
+      "sections": {
+        "profile": "Profil",
+        "account": "Konto",
+        "experience": "Erfahrungsstufe",
+        "kiosk": "Kiosk-Modus",
+        "modules": "Module & Funktionen",
+        "dashboard": "Dashboard",
+        "notifications": "Benachrichtigungskanäle",
+        "security": "Passwort & Anmeldemethoden",
+        "sessions": "Sitzungen",
+        "apikeys": "API-Schlüssel",
+        "connect": "App verbinden",
+        "ha": "Smart Home",
+        "haPublish": "HA-Veröffentlichung",
+        "storage": "Speicher",
+        "weatherProviders": "Wetterdienste",
+        "haConnection": "Home-Assistant-Verbindung",
+        "plantIdentification": "Pflanzenbestimmung (Pl@ntNet)",
+        "recognition": "Pflanzen- und Schädlingserkennung"
+      }
     }
   }
 }
