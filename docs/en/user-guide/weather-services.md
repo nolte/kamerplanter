@@ -66,8 +66,24 @@ OpenWeatherMap is the only one of the three services that requires a personal AP
 
 | Field | Description |
 |------|-------------|
-| **Timeout** | Maximum wait time per weather request in seconds (1–120). If a service does not respond within this time, the request is considered failed and Kamerplanter — if configured — tries the next source in that site's priority list. |
+| **Timeout** | Maximum wait time **per request** to a weather service in seconds (1–120) — not how often Kamerplanter fetches weather data; that is the [fetch interval](#fetch-interval-and-manual-fetch). If a service does not respond within this time, the request is considered failed and Kamerplanter — if configured — tries the next source in that site's priority list. |
 | **Default Source** | The public weather service Kamerplanter suggests when a site has not defined its own priority list yet. |
+
+---
+
+## Fetch Interval and Manual Fetch {#fetch-interval-and-manual-fetch}
+
+Kamerplanter fetches the weather data of all sites at a fixed **fetch interval**: every **6 hours** by default, so up to four times a day. Shorter than 6 hours is not possible — that protects the quota of paid keys such as OpenWeatherMap. Longer intervals (up to one week) are possible.
+
+- **When it fetches:** At every full hour, Kamerplanter checks whether the interval has passed since the last successful fetch, and fetches if so. A changed interval applies from the next full hour, without a restart.
+- **When a fetch fails:** A fetch counts as successful when it supplied at least one site with weather data. If not a single site gets data, Kamerplanter tries again at the next full hour.
+- **What happens next:** After every successful fetch, Kamerplanter immediately recalculates the [frost early-warning](notifications.md#frost-early-warning) and the [irrigation demand](watering-log.md#suggested-watering-volume). In addition, both run once a day in the morning on the most recently fetched data — so an approaching frost night is not missed even with a long interval or a weather-service outage.
+- **During a longer outage:** When three fetches in a row fail, the backend writes an error entry (`weather_fetch_outage`) to its log.
+- **Manual fetch:** You can also start a fetch for all sites right away. It runs in the background; its result (success or failure, time, number of sites and of sites with errors) then appears in the fetch status. A successful manual fetch restarts the interval. While a fetch is running, another one is refused; after a manual fetch you have to wait 10 minutes before you start the next one. While the weather feature is switched off, no manual fetch is possible either.
+- **Fetch status:** It shows the time and result of the last successful fetch and the next scheduled fetch.
+
+!!! warning "Not yet implemented"
+    An input field for the fetch interval, a "Fetch now" button and the status display will appear on this page in one of the next versions. Until then, you set the interval via the `WEATHER_FETCH_INTERVAL_HOURS` environment variable or, as platform admin, directly through the API (see below).
 
 ---
 
@@ -84,12 +100,21 @@ Every value set here overrides the corresponding backend environment variable wh
 | `OPENWEATHERMAP_ENABLED` | `true` | OpenWeatherMap → Enabled |
 | `OPENWEATHERMAP_BASE_URL` | `https://api.openweathermap.org/data/2.5` | OpenWeatherMap → Base URL |
 | `WEATHER_FETCH_TIMEOUT_S` | `20` | Timeout |
+| `WEATHER_FETCH_INTERVAL_HOURS` | `6` (minimum `6`, maximum `168`) | Fetch interval |
 | `WEATHER_DEFAULT_PUBLIC_SOURCE` | `open-meteo` | Default Source |
 
 A value set via the UI takes effect immediately, without a backend restart. Resetting a base URL to empty via the UI editor clears the database override again — the environment-variable default then applies once more.
 
 !!! info "SSRF protection for base-URL overrides"
     A base URL set via the UI is validated server-side (scheme allowlist, no private/internal addresses) before it is persisted — the same check used for the storage and Home Assistant settings. This prevents a misconfigured base URL from redirecting the backend to an unintended internal target.
+
+**Fetch interval and manual fetch through the API** (platform admin only):
+
+| Call | Effect |
+|---|---|
+| `PUT /api/v1/admin/weather-providers` with `{"fetch_interval_hours": 12}` | Sets the fetch interval; the backend rejects values below `6` or above `168` with `422`. |
+| `POST /api/v1/admin/weather-providers/fetch` | Starts a fetch for all sites and answers immediately with `202`. `409 WEATHER_FETCH_DISABLED` with `WEATHER_ENABLED=false`; `409` while a fetch is running; `429` with `Retry-After` (seconds) while fewer than 10 minutes have passed since the last manual fetch; `503` when Valkey or the task broker cannot be reached. |
+| `GET /api/v1/admin/weather-providers/fetch-status` | Last run, last successful run (trigger, times, sites, sites with errors), next scheduled fetch (empty while the weather feature is switched off), whether a fetch is running right now and in how many seconds a manual fetch is possible again. |
 
 ---
 

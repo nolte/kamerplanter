@@ -1,7 +1,8 @@
 """Issue #392 — Celery task that emits proactive frost early-warnings.
 
-Reads the daily :class:`WeatherForecast` records persisted by the REQ-046
-``fetch_weather_forecasts`` task, evaluates the in-horizon frost risk per site
+Queued by the REQ-046 ``fetch_weather_forecasts`` task after every successful
+fetch (#2934) and, as a safety net, by its daily beat at 06:35 UTC. Reads the daily :class:`WeatherForecast`
+records that task persisted, evaluates the in-horizon frost risk per site
 with the pure :func:`evaluate_forecast_frost_warning` engine and, when a frost
 night is predicted, emits **one** N-003 notification per tenant member —
 idempotent per ``(site_key, expected frost date)`` (R9).

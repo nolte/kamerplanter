@@ -160,7 +160,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 
 | Feature | Required services | Activation/deactivation | Mandatory secrets/prerequisites | Resource impact | Startup gate? |
 |---|---|---|---|---|---|
-| Weather source fetching (master switch) <!-- REQ-046 --> | Backend + Celery Beat | `WEATHER_ENABLED=true` (default `false`) | — | additional Celery Beat tasks, no extra pod | No |
+| Weather source fetching (master switch) <!-- REQ-046 --> | Backend + Celery Beat | `WEATHER_ENABLED=true` (default `false`); fetch interval `WEATHER_FETCH_INTERVAL_HOURS` (default and minimum `6`) | — | additional Celery Beat tasks, no extra pod | No |
 | Public source: Open-Meteo | Backend | `OPEN_METEO_ENABLED=true` (default) — instance default, overridable per location by the platform admin | — | — | No |
 | Public source: DWD/Bright Sky | Backend | `DWD_ENABLED=true` (default) — instance default | — | — | No |
 | Public source: OpenWeatherMap | Backend | `OPENWEATHERMAP_ENABLED=true` (default) — instance default | — | — | No |
@@ -168,7 +168,7 @@ Unlocking the instance (`AI_FEATURES_ENABLED=true`) is not sufficient on its own
 | Reactive frost warning (current reading) | Backend | Always active, no switch — only `FROST_WARNING_THRESHOLD_CELSIUS` is configurable | — | — | No |
 | Climate normals (NASA POWER) <!-- REQ-041 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `NASA_POWER_CLIMATE_ENABLED=true` (default) | — | monthly Celery task | No |
 | Hardiness zone refresh (USDA) <!-- REQ-039 --> | Celery Beat | Requires climate normals (see above) **and** `HARDINESS_ZONE_REFRESH_ENABLED=true` (default) | — | quarterly Celery task | No |
-| Irrigation demand (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `IRRIGATION_DEMAND_ENABLED=true` (default) | — | daily Celery task | No |
+| Irrigation demand (ET₀, FAO-56) <!-- REQ-037 --> | Celery Beat | Requires `WEATHER_ENABLED=true` **and** `IRRIGATION_DEMAND_ENABLED=true` (default) | — | Celery task after every successful weather fetch and daily | No |
 | Season & overwintering automation <!-- REQ-047 --> | Celery Beat | `SEASON_STATE_EVAL_ENABLED=true` (default) — additionally uses the live frost forecast when `WEATHER_ENABLED=true` is set | — | daily Celery task | No |
 
 ---

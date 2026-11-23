@@ -48,6 +48,7 @@ def _set_env(env: MagicMock) -> None:
     env.openweathermap_enabled = True
     env.openweathermap_base_url = "https://env.owm"
     env.weather_fetch_timeout_s = 20
+    env.weather_fetch_interval_hours = 6
     env.weather_default_public_source = "open-meteo"
 
 
@@ -94,6 +95,54 @@ class TestEffectiveSettings:
             _set_env(env)
             effective = service.get_effective_weather_settings()
         assert effective.openweathermap_global_api_key == "global-secret"
+
+
+class TestFetchInterval:
+    """acceptance-1 (#2934) — ``fetch_interval_hours``: DB over env, never below 6."""
+
+    def test_env_default_without_db_value(self):
+        service, _ = _service(stored=None)
+        with _patch_env() as env:
+            _set_env(env)
+            env.weather_fetch_interval_hours = 8
+            effective = service.get_effective_weather_settings()
+        assert effective.fetch_interval_hours == 8
+
+    def test_db_value_wins_over_env(self):
+        stored = SystemSettings(weather_providers=WeatherProviderSettings(fetch_interval_hours=12))
+        service, _ = _service(stored=stored)
+        with _patch_env() as env:
+            _set_env(env)
+            effective = service.get_effective_weather_settings()
+        assert effective.fetch_interval_hours == 12
+
+    def test_a_stored_value_below_the_minimum_is_clamped(self):
+        stored = SystemSettings(weather_providers=WeatherProviderSettings(fetch_interval_hours=1))
+        service, _ = _service(stored=stored)
+        with _patch_env() as env:
+            _set_env(env)
+            effective = service.get_effective_weather_settings()
+        assert effective.fetch_interval_hours == 6
+
+    def test_update_persists_the_interval(self):
+        service, repo = _service(stored=None)
+        service.update_weather_settings(fetch_interval_hours=6)
+        assert repo.upsert.call_args[0][0].weather_providers.fetch_interval_hours == 6
+
+    @pytest.mark.parametrize("hours", [0, 5, 169])
+    def test_update_rejects_an_interval_out_of_range(self, hours):
+        service, repo = _service(stored=None)
+        with pytest.raises(ValueError, match="fetch_interval_hours"):
+            service.update_weather_settings(fetch_interval_hours=hours)
+        repo.upsert.assert_not_called()
+
+    def test_env_setting_refuses_less_than_six_hours(self):
+        from pydantic import ValidationError
+
+        from app.config.settings import Settings
+
+        with pytest.raises(ValidationError):
+            Settings(weather_fetch_interval_hours=5)
 
 
 class TestUpdate:

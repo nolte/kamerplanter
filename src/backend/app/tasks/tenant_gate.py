@@ -89,6 +89,19 @@ TENANT_WRITING_BEATS: frozenset[str] = frozenset(
     }
 )
 
+#: Tenant-writing beats that ``fetch_weather_forecasts`` additionally queues after every
+#: successful fetch (#2934, REQ-056 AK-07): they run on their daily slot (safety net,
+#: operator decision 2026-11-22) *and* on every fetch, so both paths must skip a tenant
+#: that is not ``active``. A subset of :data:`TENANT_WRITING_BEATS`;
+#: ``tests/unit/guards/test_beats_skip_inactive_tenants.py`` derives the set from the
+#: imports of ``weather_tasks._dispatch_followups`` and holds it to this constant.
+TENANT_WRITING_CHAINED_TASKS: frozenset[str] = frozenset(
+    {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
+    }
+)
+
 _RETENTION = "retention or erasure: NFR-011 periods run out during a suspension as well (REQ-056 §5.2)"
 _GLOBAL = "global, no tenant data: runs regardless of any tenant's state"
 _STORAGE = "storage reconciliation: collects what nothing references, whatever the owner's state"

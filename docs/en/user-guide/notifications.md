@@ -186,7 +186,7 @@ These escalation days are fixed and currently not individually configurable; you
 
 ## Frost Early-Warning {#frost-early-warning}
 
-For your outdoor and greenhouse sites, Kamerplanter checks the current weather forecast once a day and proactively lets you know when a frost night is coming up — before the temperature has actually dropped. The notification names the site, the expected date, and the predicted minimum temperature.
+For your outdoor and greenhouse sites, Kamerplanter checks the current forecast after every fetch of new weather data — every six hours by default, depending on the [fetch interval](weather-services.md#fetch-interval-and-manual-fetch) your operator has set — and additionally once every morning, and proactively lets you know when a frost night is coming up — before the temperature has actually dropped. The notification names the site, the expected date, and the predicted minimum temperature.
 
 - **Urgency:** High (orange) — it appears like any other notification in the [notification center](#the-notification-center) and is delivered through all your enabled delivery channels.
 - **No repeat spam:** For the same frost night at a site, you receive the warning exactly **once**. Only a new or earlier expected frost date triggers a new notification.
