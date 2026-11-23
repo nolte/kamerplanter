@@ -1,5 +1,5 @@
 import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios';
-import { ApiError } from './errors';
+import { ApiError, parseRetryAfter } from './errors';
 import { bypassHttpCacheForOfflineReads } from './offlineReadRequest';
 import type { ApiErrorResponse } from './types';
 import { isLightMode } from '@/config/mode';
@@ -119,7 +119,14 @@ function rethrowApiError(error: unknown): never {
   if (axios.isAxiosError(error) && error.response) {
     const data = error.response.data as ApiErrorResponse;
     if (data?.error_id && data?.error_code) {
-      throw new ApiError(data, error.response.status);
+      // The envelope has no retry hint; a 429/503 carries it in `Retry-After` (NFR-007).
+      const headers: unknown = error.response.headers;
+      const retryAfter = parseRetryAfter(
+        headers instanceof AxiosHeaders
+          ? headers.get('retry-after')
+          : (headers as Record<string, unknown> | undefined)?.['retry-after'],
+      );
+      throw new ApiError(data, error.response.status, retryAfter);
     }
   }
   throw error;

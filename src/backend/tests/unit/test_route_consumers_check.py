@@ -346,10 +346,10 @@ class TestTheRouteOperand:
         consumes it in the same change.
 
         +2 (2026-11-23): the manual weather fetch and its status (REQ-046 §3.6a, #2934, F-13):
-        ``POST /admin/weather-providers/fetch`` and ``GET /admin/weather-providers/fetch-status``. No consumer
-        in this change: the platform-admin card that calls both is F-14 (sprint 0003), built on top of it. Not
-        entered in ``scripts/route_consumer_exemptions.yaml`` — the registry is deliberately empty and an
-        exemption is a triage decision; the two routes show up as candidates until F-14 lands.
+        ``POST /admin/weather-providers/fetch`` and ``GET /admin/weather-providers/fetch-status``. Consumed
+        since F-14 (sprint 0003) by ``triggerWeatherFetch`` and ``getWeatherFetchStatus`` in
+        ``src/frontend/src/api/endpoints/adminWeatherProviders.ts`` — the installation's weather card
+        (``WeatherFetchPanel``); no longer candidates.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
         assert len(checker.collect_operations(app)) == 910

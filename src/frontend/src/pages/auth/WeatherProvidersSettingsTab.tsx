@@ -24,6 +24,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useNotification } from '@/hooks/useNotification';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
+import WeatherFetchPanel from '@/components/admin/WeatherFetchPanel';
 import {
   getWeatherProviders,
   putWeatherProviders,
@@ -37,6 +38,18 @@ import type {
 
 /** The masked placeholder shown when a global key is stored (matches backend). */
 const MASKED_PLACEHOLDER = '••••';
+
+/** Bounds of the fetch interval in hours (backend `MIN_/MAX_FETCH_INTERVAL_HOURS`, REQ-046 §3.6a). */
+const MIN_FETCH_INTERVAL_HOURS = 6;
+const MAX_FETCH_INTERVAL_HOURS = 168;
+/** Bounds of the per-request timeout in seconds (backend `fetch_timeout_s`). */
+const MIN_FETCH_TIMEOUT_S = 1;
+const MAX_FETCH_TIMEOUT_S = 120;
+
+/** Whether `value` is a whole number within `[min, max]`; an empty field is not. */
+function isWholeNumberIn(value: number | '', min: number, max: number): boolean {
+  return value !== '' && Number.isInteger(value) && value >= min && value <= max;
+}
 
 /** Per-provider payload keys, keyed by the provider `source_name`. */
 const ENABLED_KEY: Record<string, keyof WeatherProvidersUpdate> = {
@@ -62,6 +75,8 @@ interface WeatherForm {
   /** New plaintext OWM key; empty = unchanged (keep stored ciphertext). */
   globalOwmKey: string;
   fetchTimeoutS: number | '';
+  /** Hours between two scheduled fetches (6–168). */
+  fetchIntervalHours: number | '';
   defaultPublicSource: string;
 }
 
@@ -80,6 +95,7 @@ function toForm(s: WeatherProvidersResponse): WeatherForm {
     })),
     globalOwmKey: '',
     fetchTimeoutS: s.fetch_timeout_s,
+    fetchIntervalHours: s.fetch_interval_hours,
     defaultPublicSource: s.default_public_source,
   };
 }
@@ -89,7 +105,8 @@ function toForm(s: WeatherProvidersResponse): WeatherForm {
  *
  * Instance-wide defaults for the public weather providers (Open-Meteo, DWD,
  * OpenWeatherMap): per-provider enable + base-URL override, a connection test,
- * the fetch timeout and the default public source, plus the global OpenWeatherMap
+ * the fetch interval, the per-request timeout and the default public source, the
+ * fetch status with a manual "fetch now" (F-14, #2934), plus the global OpenWeatherMap
  * fallback key. Mirrors {@link StorageSettingsTab}: the secret is never returned
  * (only a presence flag), the field is masked, and an empty value keeps the
  * stored ciphertext unchanged.
@@ -105,6 +122,8 @@ export default function WeatherProvidersSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [keyVisible, setKeyVisible] = useState(false);
   const [tests, setTests] = useState<Record<string, TestState>>({});
+  // Bumped after a save: a new interval moves the next scheduled fetch the status shows.
+  const [fetchStatusVersion, setFetchStatusVersion] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -150,6 +169,7 @@ export default function WeatherProvidersSettingsTab() {
       // Empty string = "unchanged" — the backend keeps the stored ciphertext.
       openweathermap_global_api_key: form?.globalOwmKey ?? '',
       fetch_timeout_s: form && form.fetchTimeoutS !== '' ? Number(form.fetchTimeoutS) : null,
+      fetch_interval_hours: form && form.fetchIntervalHours !== '' ? Number(form.fetchIntervalHours) : null,
       default_public_source:
         (form?.defaultPublicSource as WeatherProvidersUpdate['default_public_source']) ?? null,
     };
@@ -163,8 +183,12 @@ export default function WeatherProvidersSettingsTab() {
     return payload;
   }, [form]);
 
+  const intervalValid = form ? isWholeNumberIn(form.fetchIntervalHours, MIN_FETCH_INTERVAL_HOURS, MAX_FETCH_INTERVAL_HOURS) : true;
+  const timeoutValid = form ? isWholeNumberIn(form.fetchTimeoutS, MIN_FETCH_TIMEOUT_S, MAX_FETCH_TIMEOUT_S) : true;
+  const formValid = intervalValid && timeoutValid;
+
   const handleSave = useCallback(async () => {
-    if (!form) return;
+    if (!form || !formValid) return;
     setSaving(true);
     try {
       const resp = await putWeatherProviders(buildPayload());
@@ -172,13 +196,14 @@ export default function WeatherProvidersSettingsTab() {
       setForm(toForm(resp));
       setTests({});
       setKeyVisible(false);
+      setFetchStatusVersion((v) => v + 1);
       notify.success(t('pages.weatherProviders.saveSuccess'));
     } catch {
       notify.error(t('pages.weatherProviders.saveError'));
     } finally {
       setSaving(false);
     }
-  }, [form, buildPayload, notify, t]);
+  }, [form, formValid, buildPayload, notify, t]);
 
   const handleTest = useCallback(
     async (sourceName: string) => {
@@ -389,14 +414,56 @@ export default function WeatherProvidersSettingsTab() {
           >
             <TextField
               type="number"
+              required
+              label={t('pages.weatherProviders.fetchInterval')}
+              value={form.fetchIntervalHours}
+              onChange={(e) =>
+                setFormField('fetchIntervalHours', e.target.value === '' ? '' : Number(e.target.value))
+              }
+              error={!intervalValid}
+              helperText={
+                intervalValid
+                  ? t('pages.weatherProviders.fetchIntervalHelper')
+                  : t('pages.weatherProviders.fetchIntervalError', {
+                      min: MIN_FETCH_INTERVAL_HOURS,
+                      max: MAX_FETCH_INTERVAL_HOURS,
+                    })
+              }
+              slotProps={{
+                // Whole hours only: the backend field is an integer (no decimal input here).
+                htmlInput: {
+                  min: MIN_FETCH_INTERVAL_HOURS,
+                  max: MAX_FETCH_INTERVAL_HOURS,
+                  step: 1,
+                  inputMode: 'numeric',
+                },
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">{t('pages.weatherProviders.fetchIntervalUnit')}</InputAdornment>
+                  ),
+                },
+              }}
+              data-testid="weather-fetch-interval"
+            />
+            <TextField
+              type="number"
+              required
               label={t('pages.weatherProviders.fetchTimeout')}
               value={form.fetchTimeoutS}
               onChange={(e) =>
                 setFormField('fetchTimeoutS', e.target.value === '' ? '' : Number(e.target.value))
               }
-              helperText={t('pages.weatherProviders.fetchTimeoutHelper')}
+              error={!timeoutValid}
+              helperText={
+                timeoutValid
+                  ? t('pages.weatherProviders.fetchTimeoutHelper')
+                  : t('pages.weatherProviders.fetchTimeoutError', {
+                      min: MIN_FETCH_TIMEOUT_S,
+                      max: MAX_FETCH_TIMEOUT_S,
+                    })
+              }
               slotProps={{
-                htmlInput: { min: 1, max: 120, step: 1, inputMode: 'numeric' },
+                htmlInput: { min: MIN_FETCH_TIMEOUT_S, max: MAX_FETCH_TIMEOUT_S, step: 1, inputMode: 'numeric' },
                 input: { endAdornment: <InputAdornment position="end">s</InputAdornment> },
               }}
               data-testid="weather-fetch-timeout"
@@ -416,6 +483,9 @@ export default function WeatherProvidersSettingsTab() {
               ))}
             </TextField>
           </Box>
+          <Divider sx={{ my: 3 }} />
+          {/* F-14 (#2934): status and manual fetch act at once; they are not part of the form's save. */}
+          <WeatherFetchPanel statusVersion={fetchStatusVersion} />
         </CardContent>
       </Card>
 
@@ -426,7 +496,7 @@ export default function WeatherProvidersSettingsTab() {
         <Button
           variant="contained"
           onClick={() => void handleSave()}
-          disabled={saving}
+          disabled={saving || !formValid}
           aria-busy={saving}
           startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
           data-testid="weather-providers-save-button"
