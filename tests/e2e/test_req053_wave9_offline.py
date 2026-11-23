@@ -47,12 +47,11 @@ from __future__ import annotations
 
 import json
 import re
-from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from selenium.common.exceptions import TimeoutException, WebDriverException
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -69,14 +68,12 @@ from ._garden_plan_helpers import (
 )
 from ._offline_helpers import (
     PLAN_CACHE_DB,
-    OfflineProbeError,
     PUBLIC_CACHE_PREFIXES,
     app_manifest,
     browser_now_ms,
     cache_names,
     cdp,
     indexeddb_database_names,
-    install_indexeddb_trace,
     navigation_entry,
     navigator_online,
     response_headers,
@@ -94,7 +91,9 @@ from .pages.field_mode_page import set_phone_viewport
 from .pages.offline_page import AccountMenu, OfflineFieldMode, OfflinePlanPage, OfflineSyncHost
 
 #: Every case switches the network or reads browser storage over CDP (``_offline_helpers.cdp``): Chrome only.
-pytestmark = pytest.mark.requires_chrome
+# trace_indexeddb (#3082): TC-053-086/087/088 fail intermittently with an open of ``kp-plan-cache`` queued behind a
+# request another connection blocks; the trace, started before the login, names who asked for what.
+pytestmark = [pytest.mark.requires_chrome, pytest.mark.trace_indexeddb]
 
 #: "Ohne Verbindung: Du siehst den Stand von {{time}}." (``pages.gardenPlan.offline.cachedAt``), time as HH:MM.
 CACHED_BANNER = re.compile(r"^Ohne Verbindung: Du siehst den Stand von .*\d{1,2}:\d{2}.*\.$")
@@ -118,19 +117,6 @@ PHOTOS_NEED_STORAGE = (
 
 
 # ── fixtures and local helpers ──────────────────────────────────────────────
-
-
-@pytest.fixture(autouse=True)
-def _trace_indexeddb(browser: WebDriver) -> None:
-    """Record the app's opens and deletions of ``kp-plan-cache`` / ``kp-write-queue`` in every document (#3082).
-
-    TC-053-086/087/088 fail intermittently with an open of ``kp-plan-cache`` queued behind a request another
-    connection blocks; the trace names who asked for what, so the probe's error says which request is ahead.
-    This module only: one CDP command per case, nothing for the rest of the suite. A diagnostic must never fail the
-    tests it diagnoses: if CDP refuses the registration the case runs untraced, and the probe's message says so.
-    """
-    with suppress(OfflineProbeError, WebDriverException):
-        install_indexeddb_trace(browser)
 
 
 @pytest.fixture
