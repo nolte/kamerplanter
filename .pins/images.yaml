@@ -29,7 +29,7 @@
 # the meaning of "validated" changed under an unchanged repository. No waiting
 # period for this pin (operator decision 2026-10-30, #2581; see renovate.json5).
 # renovate: datasource=docker depName=renovate/renovate
-RENOVATE_IMAGE: renovate/renovate:44.258.1@sha256:f88c659a3fbec410e4661cfc1f3a1c1a848c421c81418cd5d6f491c05cf4412e
+RENOVATE_IMAGE: renovate/renovate:44.258.2@sha256:a40f6261cb670c2ea0a906adf289bde0c52207fc39b8e1d407f2afe29d63aa07
 
 # hadolint for `lint:docker`. Keep in sync with HADOLINT_IMAGE in
 # .github/workflows/docker-lint-build.yml and .github/workflows/lane-inputs.yml
