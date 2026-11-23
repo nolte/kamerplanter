@@ -140,21 +140,25 @@ def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
 
 
 def _tasks_the_weather_fetch_chains() -> set[str]:
-    """The Celery names ``weather_tasks._dispatch_followups`` imports — read from the source.
+    """The Celery names ``weather_tasks._dispatch_followups`` queues — read from the source.
 
-    Every ``from app.tasks.<module> import <task>`` inside the function is a task the
-    fetch queues after a successful run; the default registered name is
-    ``app.tasks.<module>.<task>`` (none of them sets ``name=``, which ``_task_index``
-    would expose as an unresolved entry below).
+    Every ``send_task("<name>")`` inside the function is a task the fetch queues after
+    a successful run. Any other way of dispatching in there (``.delay``,
+    ``.apply_async``, a non-literal name) fails, so the read cannot quietly miss one.
     """
     tree = ast.parse((TASKS / "weather_tasks.py").read_text(encoding="utf-8"))
     (func,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_dispatch_followups"]
-    return {
-        f"{node.module}.{alias.name}"
-        for node in ast.walk(func)
-        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app.tasks.")
-        for alias in node.names
-    }
+    names: set[str] = set()
+    for node in ast.walk(func):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        assert node.func.attr not in {"delay", "apply_async", "s", "si", "signature"}, (
+            f"_dispatch_followups dispatches via .{node.func.attr}; this read only follows send_task literals"
+        )
+        if node.func.attr == "send_task":
+            assert node.args and isinstance(node.args[0], ast.Constant), "send_task without a literal task name"
+            names.add(str(node.args[0].value))
+    return names
 
 
 def test_the_tasks_the_weather_fetch_chains_are_classified_scheduled_and_gated() -> None:

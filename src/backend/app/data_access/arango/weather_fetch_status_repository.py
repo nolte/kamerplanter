@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 import structlog
 from arango.database import StandardDatabase
 from pydantic import ValidationError as PydanticValidationError
+from pydantic_core import to_jsonable_python
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.document_reads import get_document, invalid_fields
@@ -66,7 +67,8 @@ class ArangoWeatherFetchStatusRepository(IWeatherFetchStatusRepository):
             bind_vars={
                 "@collection": col.SYSTEM_SETTINGS,
                 "key": STATUS_KEY,
-                "run": run.model_dump(mode="json"),
+                # JSON mode (ISO datetimes, enum values), as a plain function call (#2934).
+                "run": to_jsonable_python(run),
                 "success": run.success,
                 "now": datetime.now(UTC).isoformat(),
             },

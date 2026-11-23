@@ -33,7 +33,11 @@ from app.domain.models.system_settings import SystemSettings, WeatherProviderSet
 from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
 from app.domain.services.weather_fetch_service import WeatherFetchService
 from app.domain.services.weather_settings_service import WeatherSettingsService
-from tests.support.weather_fetch_doubles import FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo
+from tests.support.weather_fetch_doubles import (
+    FakeWeatherFetchGate,
+    InMemoryWeatherFetchStatusRepo,
+    StaticWeatherFetchSettings,
+)
 
 
 def _set_env(env: MagicMock) -> None:
@@ -316,15 +320,28 @@ def _fetch_app(
     service, _ = _service(stored=None)
     app = _build_app(service)
     app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
-        status_repo, gate, interval_hours=lambda: 6, weather_enabled=lambda: enabled
+        status_repo, gate, StaticWeatherFetchSettings(enabled=enabled)
     )
     return TestClient(app), gate, status_repo
 
 
 def _patch_delay(**kwargs):
+    """Patch the router's dispatch (``celery_app.send_task``)."""
+    from app.tasks import celery_app
+
+    return patch.object(celery_app, "send_task", **kwargs)
+
+
+_FETCH_TASK = "app.tasks.weather_tasks.fetch_weather_forecasts"
+
+
+def test_the_dispatched_name_is_the_fetch_task():
+    """The router dispatches by literal name; it must be the registered fetch task."""
+    from app.tasks import celery_app
     from app.tasks.weather_tasks import fetch_weather_forecasts
 
-    return patch.object(fetch_weather_forecasts, "delay", **kwargs)
+    assert fetch_weather_forecasts.name == _FETCH_TASK
+    assert _FETCH_TASK in celery_app.tasks
 
 
 def test_manual_fetch_is_queued_with_202():
@@ -333,7 +350,7 @@ def test_manual_fetch_is_queued_with_202():
         resp = client.post("/api/v1/admin/weather-providers/fetch")
     assert resp.status_code == 202
     assert resp.json() == {"status": "queued", "task_id": "task-1"}
-    delay.assert_called_once_with(trigger="manual")
+    delay.assert_called_once_with(_FETCH_TASK, kwargs={"trigger": "manual"})
     assert gate.claimed == [600]
 
 
@@ -441,7 +458,7 @@ def _real_gating_fetch_app(tenant_service: MagicMock) -> TestClient:
     service, _ = _service(stored=None)
     app = _build_app_with_real_gating(service, tenant_service)
     app.dependency_overrides[get_weather_fetch_service] = lambda: WeatherFetchService(
-        InMemoryWeatherFetchStatusRepo(), FakeWeatherFetchGate(), interval_hours=lambda: 6, weather_enabled=lambda: True
+        InMemoryWeatherFetchStatusRepo(), FakeWeatherFetchGate(), StaticWeatherFetchSettings()
     )
     return TestClient(app)
 
@@ -457,7 +474,7 @@ def test_manual_fetch_is_queued_for_a_platform_lead_through_the_real_gating(monk
         resp = _real_gating_fetch_app(tenant_service).post("/api/v1/admin/weather-providers/fetch")
     assert resp.status_code == 202
     assert resp.json()["task_id"] == "task-7"
-    delay.assert_called_once_with(trigger="manual")
+    delay.assert_called_once_with(_FETCH_TASK, kwargs={"trigger": "manual"})
     tenant_service.get_membership.assert_any_call("user_admin", "platform")
 
 

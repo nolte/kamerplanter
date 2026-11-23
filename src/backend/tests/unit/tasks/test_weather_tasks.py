@@ -18,7 +18,11 @@ from app.domain.models.weather import WeatherForecast
 from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
 from app.domain.services.weather_fetch_service import WeatherFetchService
 from tests.support.ha_entity_grants import grant_service
-from tests.support.weather_fetch_doubles import FakeWeatherFetchGate, InMemoryWeatherFetchStatusRepo
+from tests.support.weather_fetch_doubles import (
+    FakeWeatherFetchGate,
+    InMemoryWeatherFetchStatusRepo,
+    StaticWeatherFetchSettings,
+)
 
 
 @pytest.fixture
@@ -36,7 +40,7 @@ def task_module(monkeypatch):
     mock_deps.status_repo = InMemoryWeatherFetchStatusRepo()  # type: ignore[attr-defined]
     mock_deps.gate = FakeWeatherFetchGate()  # type: ignore[attr-defined]
     mock_deps.get_weather_fetch_service = lambda: WeatherFetchService(  # type: ignore[attr-defined]
-        mock_deps.status_repo, mock_deps.gate, interval_hours=lambda: 6, weather_enabled=lambda: True
+        mock_deps.status_repo, mock_deps.gate, StaticWeatherFetchSettings()
     )
     monkeypatch.setitem(sys.modules, "app.common.dependencies", mock_deps)
 
@@ -357,20 +361,21 @@ class TestSuccessDefinition:
 def test_followups_queue_frost_and_irrigation(monkeypatch):
     """R4: the real dispatcher queues both tasks; irrigation respects its own kill-switch."""
     import app.tasks.weather_tasks as module
-    from app.tasks import frost_forecast_tasks, irrigation_tasks
+    from app.tasks import celery_app, frost_forecast_tasks, irrigation_tasks
 
-    frost = MagicMock()
-    irrigation = MagicMock()
-    monkeypatch.setattr(frost_forecast_tasks.evaluate_forecast_frost_warnings, "delay", frost)
-    monkeypatch.setattr(irrigation_tasks.compute_irrigation_demand, "delay", irrigation)
+    send_task = MagicMock()
+    monkeypatch.setattr(celery_app, "send_task", send_task)
 
     monkeypatch.setattr(module.settings, "irrigation_demand_enabled", True, raising=False)
     module._dispatch_followups()
     monkeypatch.setattr(module.settings, "irrigation_demand_enabled", False, raising=False)
     module._dispatch_followups()
 
-    assert frost.call_count == 2
-    assert irrigation.call_count == 1
+    frost = frost_forecast_tasks.evaluate_forecast_frost_warnings.name
+    irrigation = irrigation_tasks.compute_irrigation_demand.name
+    # The literal names resolve to the registered tasks — a typo would queue nothing.
+    assert [c.args[0] for c in send_task.call_args_list] == [frost, irrigation, frost]
+    assert {frost, irrigation} <= set(celery_app.tasks)
 
 
 class TestLockAndCooldown:

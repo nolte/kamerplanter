@@ -13,7 +13,7 @@ import pytest
 
 from app.data_access.arango.weather_fetch_status_repository import ArangoWeatherFetchStatusRepository
 from app.domain.services.weather_fetch_service import WeatherFetchService
-from tests.support.weather_fetch_doubles import FakeWeatherFetchGate
+from tests.support.weather_fetch_doubles import FakeWeatherFetchGate, StaticWeatherFetchSettings
 
 
 def _repo(doc: dict | None) -> ArangoWeatherFetchStatusRepository:
@@ -34,7 +34,7 @@ def test_a_corrupt_document_reads_as_no_status_and_the_fetch_is_due(doc) -> None
     repo = _repo(doc)
 
     status = repo.get_status()
-    service = WeatherFetchService(repo, FakeWeatherFetchGate(), interval_hours=lambda: 6, weather_enabled=lambda: True)
+    service = WeatherFetchService(repo, FakeWeatherFetchGate(), StaticWeatherFetchSettings())
 
     assert (status.last_run, status.last_success, status.consecutive_failures) == (None, None, 0)
     assert service.is_due()

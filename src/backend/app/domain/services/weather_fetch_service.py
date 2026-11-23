@@ -14,7 +14,6 @@ the previous manual fetch (429 + ``Retry-After``).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from datetime import datetime, timedelta
 
 import structlog
@@ -28,7 +27,9 @@ from app.common.exceptions import (
     WeatherFetchUnavailableError,
 )
 from app.domain.interfaces.weather_fetch import (
+    IWeatherFetchClock,
     IWeatherFetchGate,
+    IWeatherFetchSettings,
     IWeatherFetchStatusRepository,
     WeatherFetchGateUnavailableError,
 )
@@ -89,6 +90,13 @@ def _ceil_to_hour(moment: datetime) -> datetime:
     return floored if floored == moment else floored + timedelta(hours=1)
 
 
+class UtcWeatherFetchClock:
+    """The wall clock, in UTC."""
+
+    def now(self) -> datetime:
+        return now_utc()
+
+
 class WeatherFetchService:
     """Due-check, running lock, manual-fetch admission and status of the weather fetch."""
 
@@ -96,16 +104,13 @@ class WeatherFetchService:
         self,
         status_repo: IWeatherFetchStatusRepository,
         gate: IWeatherFetchGate,
-        interval_hours: Callable[[], int],
-        *,
-        weather_enabled: Callable[[], bool],
-        clock: Callable[[], datetime] = now_utc,
+        fetch_settings: IWeatherFetchSettings,
+        clock: IWeatherFetchClock | None = None,
     ) -> None:
-        self._status_repo = status_repo
-        self._gate = gate
-        self._interval_hours = interval_hours
-        self._weather_enabled = weather_enabled
-        self._clock = clock
+        self._status_repo: IWeatherFetchStatusRepository = status_repo
+        self._gate: IWeatherFetchGate = gate
+        self._settings: IWeatherFetchSettings = fetch_settings
+        self._clock: IWeatherFetchClock = clock if clock is not None else UtcWeatherFetchClock()
 
     # ── Schedule ──────────────────────────────────────────────────────
 
@@ -118,12 +123,12 @@ class WeatherFetchService:
     def is_due(self) -> bool:
         """True when the interval since the newest successful run has passed (or none ever ran)."""
         status = self._status_repo.get_status()
-        due_at = self._due_at(status, timedelta(hours=self._interval_hours()))
-        return due_at is None or self._clock() >= due_at
+        due_at = self._due_at(status, timedelta(hours=self._settings.fetch_interval_hours()))
+        return due_at is None or self._clock.now() >= due_at
 
     def next_scheduled_at(self, status: WeatherFetchStatus, interval_hours: int) -> datetime:
         """The hourly tick that will start the next scheduled run."""
-        now = self._clock()
+        now = self._clock.now()
         due_at = self._due_at(status, timedelta(hours=interval_hours))
         return _ceil_to_hour(now if due_at is None or due_at < now else due_at)
 
@@ -155,7 +160,7 @@ class WeatherFetchService:
             WeatherFetchCooldownError: the cooldown after the previous manual fetch runs (429).
             WeatherFetchUnavailableError: the lock store cannot be reached (503).
         """
-        if not self._weather_enabled():
+        if not self._settings.weather_enabled():
             raise WeatherFetchDisabledError
         try:
             if self._gate.is_running():
@@ -174,7 +179,7 @@ class WeatherFetchService:
 
     def get_overview(self) -> WeatherFetchOverview:
         status = self._status_repo.get_status()
-        interval_hours = self._interval_hours()
+        interval_hours = self._settings.fetch_interval_hours()
         running: bool | None
         available_in: int | None
         try:
@@ -186,7 +191,9 @@ class WeatherFetchService:
             interval_hours=interval_hours,
             last_run=status.last_run,
             last_success=status.last_success,
-            next_scheduled_at=self.next_scheduled_at(status, interval_hours) if self._weather_enabled() else None,
+            next_scheduled_at=self.next_scheduled_at(status, interval_hours)
+            if self._settings.weather_enabled()
+            else None,
             running=running,
             manual_fetch_available_in_s=available_in,
         )

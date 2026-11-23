@@ -139,11 +139,16 @@ def trigger_weather_fetch(
     service: WeatherFetchService = Depends(get_weather_fetch_service),
 ) -> WeatherFetchTriggerResponse:
     """Queue a manual weather fetch over all sites; the result appears in ``/fetch-status``."""
-    from app.tasks.weather_tasks import fetch_weather_forecasts
+    from app.tasks import celery_app
 
     service.reserve_manual_fetch()
     try:
-        task = fetch_weather_forecasts.delay(trigger=WeatherFetchTrigger.MANUAL.value)
+        # A literal name on the typed app, not ``fetch_weather_forecasts.delay``: see
+        # ``weather_tasks._dispatch_followups``; a test pins the name to the task.
+        task = celery_app.send_task(
+            "app.tasks.weather_tasks.fetch_weather_forecasts",
+            kwargs={"trigger": WeatherFetchTrigger.MANUAL.value},
+        )
     except Exception as exc:  # noqa: BLE001 — any broker failure means "not queued"
         # Not queued: the cooldown must not block the admin's next attempt, and an
         # unreachable broker is a 503, not the generic 500 (security review N1).
@@ -160,7 +165,14 @@ def get_weather_fetch_status(
 ) -> WeatherFetchStatusResponse:
     """Newest run, newest successful run and the next scheduled fetch."""
     overview = service.get_overview()
-    return WeatherFetchStatusResponse(**overview.model_dump())
+    return WeatherFetchStatusResponse(
+        interval_hours=overview.interval_hours,
+        last_run=overview.last_run,
+        last_success=overview.last_success,
+        next_scheduled_at=overview.next_scheduled_at,
+        running=overview.running,
+        manual_fetch_available_in_s=overview.manual_fetch_available_in_s,
+    )
 
 
 @router.post("/{source_name}/test", response_model=WeatherProviderTestResponse)

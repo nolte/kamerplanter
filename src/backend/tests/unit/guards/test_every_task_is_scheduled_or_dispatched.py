@@ -181,7 +181,9 @@ def test_the_sweep_sees_both_ways_in() -> None:
     # test_beats_skip_inactive_tenants.py (read from weather_tasks._dispatch_followups).
     assert how["app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings"] == "scheduled"
     assert how["app.tasks.irrigation_tasks.compute_irrigation_demand"] == "scheduled"
-    identifiers, _sent = _dispatched()
-    assert {"evaluate_forecast_frost_warnings", "compute_irrigation_demand"} <= identifiers, (
-        "the weather fetch no longer dispatches frost/irrigation"
-    )
+    _identifiers, sent = _dispatched()
+    assert {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
+        "app.tasks.weather_tasks.fetch_weather_forecasts",  # the manual fetch (admin router)
+    } <= sent, "the weather fetch / manual trigger no longer send_task these tasks"

@@ -32,6 +32,7 @@ from app.domain.services.weather_fetch_service import (
     WeatherFetchService,
 )
 from tests.support.weather_fetch_doubles import FakeWeatherFetchGate as _Gate
+from tests.support.weather_fetch_doubles import FixedClock, StaticWeatherFetchSettings
 from tests.support.weather_fetch_doubles import InMemoryWeatherFetchStatusRepo as _StatusRepo
 
 NOW = datetime(2026, 11, 22, 12, 0, 3, tzinfo=UTC)
@@ -52,16 +53,13 @@ def _run(started_at: datetime, *, success: bool = True) -> WeatherFetchRun:
 def _service(
     status: WeatherFetchStatus | None = None,
     gate: _Gate | None = None,
-    interval: list[int] | None = None,
+    fetch_settings: StaticWeatherFetchSettings | None = None,
     *,
     enabled: bool = True,
 ) -> tuple[WeatherFetchService, _StatusRepo, _Gate]:
     repo, gate = _StatusRepo(status), gate or _Gate()
-    hours = interval if interval is not None else [6]
-    service = WeatherFetchService(
-        repo, gate, interval_hours=lambda: hours[0], weather_enabled=lambda: enabled, clock=lambda: NOW
-    )
-    return service, repo, gate
+    fetch_settings = fetch_settings or StaticWeatherFetchSettings(enabled=enabled)
+    return WeatherFetchService(repo, gate, fetch_settings, FixedClock(NOW)), repo, gate
 
 
 # ── acceptance-2: due-check ──────────────────────────────────────────────
@@ -102,11 +100,13 @@ def test_a_failed_run_does_not_restart_the_interval() -> None:
 
 
 def test_a_changed_interval_applies_on_the_next_check() -> None:
-    hours = [6]
-    service, _, _ = _service(WeatherFetchStatus(last_success=_run(NOW - timedelta(hours=7))), interval=hours)
+    fetch_settings = StaticWeatherFetchSettings(6)
+    service, _, _ = _service(
+        WeatherFetchStatus(last_success=_run(NOW - timedelta(hours=7))), fetch_settings=fetch_settings
+    )
     assert service.is_due()
 
-    hours[0] = 12
+    fetch_settings.interval_hours = 12
 
     assert not service.is_due()
 

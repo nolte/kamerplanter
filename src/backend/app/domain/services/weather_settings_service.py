@@ -92,6 +92,19 @@ def _effective_interval(db_value: int | None) -> int:
     return max(MIN_FETCH_INTERVAL_HOURS, min(MAX_FETCH_INTERVAL_HOURS, int(value)))
 
 
+class EffectiveWeatherFetchSettings:
+    """``IWeatherFetchSettings`` over the effective settings — read on every call, never cached."""
+
+    def __init__(self, service: WeatherSettingsService) -> None:
+        self._service: WeatherSettingsService = service
+
+    def fetch_interval_hours(self) -> int:
+        return self._service.get_effective_weather_settings().fetch_interval_hours
+
+    def weather_enabled(self) -> bool:
+        return env_settings.weather_enabled
+
+
 class WeatherProviderTestResult(BaseModel):
     """Result of :meth:`WeatherSettingsService.test_provider`."""
 

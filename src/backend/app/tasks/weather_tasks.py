@@ -153,15 +153,17 @@ def _dispatch_followups() -> None:
     Both are idempotent per site and day, so up to four fetches a day plus their daily
     safety-net beat duplicate nothing. Each task keeps its own kill-switch and
     ``ActiveTenants`` gate. ``tests/unit/guards/test_beats_skip_inactive_tenants.py``
-    reads the tasks this function imports and holds them to
-    ``TENANT_WRITING_CHAINED_TASKS``.
-    """
-    from app.tasks.frost_forecast_tasks import evaluate_forecast_frost_warnings
-    from app.tasks.irrigation_tasks import compute_irrigation_demand
+    reads the task names this function passes to ``send_task`` and holds them to
+    ``TENANT_WRITING_CHAINED_TASKS`` (and to registered tasks); the MT-051 guard sees
+    the literal names as dispatches.
 
-    evaluate_forecast_frost_warnings.delay()
+    ``send_task`` with a literal name on the typed ``celery_app`` rather than
+    ``<task>.delay()``: the decorated task object carries no type the write-route call
+    graph can follow, so every ``.delay`` is an unresolved receiver there (#2934).
+    """
+    celery_app.send_task("app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings")
     if settings.irrigation_demand_enabled:
-        compute_irrigation_demand.delay()
+        celery_app.send_task("app.tasks.irrigation_tasks.compute_irrigation_demand")
 
 
 def _fetch_all_sites() -> _FetchOutcome:

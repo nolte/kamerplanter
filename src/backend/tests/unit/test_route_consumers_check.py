@@ -344,9 +344,15 @@ class TestTheRouteOperand:
         +1: the bed QR label (REQ-053 GP-UX-028 / GP-FR-052, #2899): ``GET /t/{slug}/print/location-label/
         {location_key}``. The bed view's label dialog (``api/endpoints/print.ts``, ``downloadLocationLabelPdf``)
         consumes it in the same change.
+
+        +2 (2026-11-23): the manual weather fetch and its status (REQ-046 §3.6a, #2934, F-13):
+        ``POST /admin/weather-providers/fetch`` and ``GET /admin/weather-providers/fetch-status``. No consumer
+        in this change: the platform-admin card that calls both is F-14 (sprint 0003), built on top of it. Not
+        entered in ``scripts/route_consumer_exemptions.yaml`` — the registry is deliberately empty and an
+        exemption is a triage decision; the two routes show up as candidates until F-14 lands.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 908
+        assert len(checker.collect_operations(app)) == 910
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

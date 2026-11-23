@@ -2187,13 +2187,12 @@ def get_weather_fetch_service() -> WeatherFetchService:
     from app.data_access.arango.weather_fetch_status_repository import ArangoWeatherFetchStatusRepository
     from app.data_access.external.weather_fetch_gate import RedisWeatherFetchGate
     from app.domain.services.weather_fetch_service import WeatherFetchService
+    from app.domain.services.weather_settings_service import EffectiveWeatherFetchSettings
 
-    settings_service = get_weather_settings_service()
     return WeatherFetchService(
         ArangoWeatherFetchStatusRepository(get_db()),
         RedisWeatherFetchGate(_get_redis_client()),
-        interval_hours=lambda: settings_service.get_effective_weather_settings().fetch_interval_hours,
-        weather_enabled=lambda: settings.weather_enabled,
+        EffectiveWeatherFetchSettings(get_weather_settings_service()),
     )
 
 

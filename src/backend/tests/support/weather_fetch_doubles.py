@@ -8,12 +8,38 @@ whatever lock there is".
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from app.domain.interfaces.weather_fetch import (
     IWeatherFetchGate,
     IWeatherFetchStatusRepository,
     WeatherFetchGateUnavailableError,
 )
 from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
+
+
+class StaticWeatherFetchSettings:
+    """``IWeatherFetchSettings`` with plain attributes a test can change between calls."""
+
+    def __init__(self, interval_hours: int = 6, *, enabled: bool = True) -> None:
+        self.interval_hours = interval_hours
+        self.enabled = enabled
+
+    def fetch_interval_hours(self) -> int:
+        return self.interval_hours
+
+    def weather_enabled(self) -> bool:
+        return self.enabled
+
+
+class FixedClock:
+    """``IWeatherFetchClock`` that always answers the same moment."""
+
+    def __init__(self, moment: datetime) -> None:
+        self.moment = moment
+
+    def now(self) -> datetime:
+        return self.moment
 
 
 class InMemoryWeatherFetchStatusRepo(IWeatherFetchStatusRepository):

@@ -11,12 +11,28 @@ Two concerns, two ports:
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Protocol
 
 from app.domain.models.weather_fetch import WeatherFetchRun, WeatherFetchStatus
 
 
 class WeatherFetchGateUnavailableError(Exception):
     """The lock/cooldown store cannot be reached — the state is unknown."""
+
+
+class IWeatherFetchSettings(Protocol):
+    """The two settings the schedule reads on every call (DB over env), so changes need no restart."""
+
+    def fetch_interval_hours(self) -> int: ...
+
+    def weather_enabled(self) -> bool: ...
+
+
+class IWeatherFetchClock(Protocol):
+    """Where the schedule reads the time — a seam for tests."""
+
+    def now(self) -> datetime: ...
 
 
 class IWeatherFetchStatusRepository(ABC):
