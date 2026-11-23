@@ -33,6 +33,7 @@ import {
   type StorageSettingsResponse,
   type StorageTestResponse,
 } from '@/api/endpoints/adminSettings';
+import { GRID_2COL } from './settings/settingsLayout';
 
 type Backend = 'local-fs' | 's3';
 
@@ -62,13 +63,6 @@ function toForm(s: StorageSettingsResponse): StorageForm {
     s3ForceTls: s.s3_force_tls,
   };
 }
-
-/** Responsive 2-column grid, collapses to 1 column on xs/sm. */
-const GRID_2COL = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-  gap: 2,
-} as const;
 
 /**
  * NFR-013 §4.1 — admin-only "Storage" settings section.

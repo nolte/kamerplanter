@@ -7,6 +7,7 @@ import {
   GRID_3COL,
   GRID_3COL_WIDE_ITEM,
   SETTINGS_PANEL_CONTAINER,
+  TOGGLE_GROUP_STACK_WHEN_NARROW,
 } from '@/pages/auth/settings/settingsLayout';
 
 /**
@@ -48,5 +49,29 @@ describe('settings layout grids', () => {
     for (const grid of [GRID_2COL, GRID_3COL, GRID_3COL_WIDE_ITEM]) {
       expect(JSON.stringify(grid)).not.toMatch(/"(xs|sm|md|lg|xl)"|@media/);
     }
+  });
+
+  it('size every track with a zero minimum, so content cannot push a card past the panel', () => {
+    // A bare `1fr` keeps its content's min-content width: at tablet width (panel
+    // ~250 px) the experience toggle ran out of its card and was clipped (#2935 follow-up).
+    for (const grid of [GRID_2COL, GRID_3COL]) {
+      const tracks = Object.values(JSON.parse(JSON.stringify(grid)))
+        .flatMap((v) => (typeof v === 'object' && v !== null ? Object.values(v) : [v]))
+        .filter((v): v is string => typeof v === 'string' && v.includes('fr'));
+      expect(tracks.length).toBeGreaterThan(0);
+      for (const track of tracks) expect(track.split('minmax(0, 1fr)').join('')).not.toContain('fr');
+    }
+  });
+
+  it('stack a toggle group below the one-column panel width', () => {
+    render(
+      <ThemeContextProvider>
+        <Box sx={SETTINGS_PANEL_CONTAINER}>
+          <Box sx={TOGGLE_GROUP_STACK_WHEN_NARROW} />
+        </Box>
+      </ThemeContextProvider>,
+    );
+    const css = emittedCss().replace(/\s+/g, ' ');
+    expect(css).toMatch(/@container settings-panel \(max-width: 559\.98px\) ?\{[^}]*flex-direction: ?column/);
   });
 });

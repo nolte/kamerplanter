@@ -33,8 +33,10 @@ DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 NOT_FOUND_PAGE = (By.CSS_SELECTOR, "[data-testid='not-found-page']")
-#: MUI's `md` breakpoint: below it the settings show the group list and detail views.
-MD_BREAKPOINT_PX = 900
+#: The app theme's `md` breakpoint (``src/frontend/src/theme/tokens.ts``: 768 px, not
+#: MUI's default 900): below it the settings show the group list and detail views. The
+#: tablet profile (820 px) is above it and gets the desktop side navigation.
+MD_BREAKPOINT_PX = 768
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -322,8 +324,8 @@ class TestAccountSettingsTabs:
             f"TC-REQ-023-031 FAIL: Expected the group 'Sicherheit & Zugang', got: {title!r}"
         )
         if device_profile["width"] < MD_BREAKPOINT_PX:
-            # Below the `md` breakpoint (phone and tablet profiles) the group is a
-            # detail view that leads back to the group list.
+            # Below the `md` breakpoint (the phone profile) the group is a detail
+            # view that leads back to the group list.
             assert account_page.is_back_button_visible(), (
                 "TC-REQ-023-031 FAIL: Expected a back arrow in the group's detail view"
             )
@@ -331,6 +333,12 @@ class TestAccountSettingsTabs:
             account_page.wait_for_element_visible(account_page.GROUP_LIST)
             assert "security" in account_page.get_group_keys(), (
                 "TC-REQ-023-031 FAIL: Expected the group list after the back arrow"
+            )
+        else:
+            # From `md` up (desktop and tablet profiles) the group sits next to the
+            # side navigation; there is no detail view to leave.
+            assert not account_page.is_back_button_visible(), (
+                "TC-REQ-023-031 FAIL: Expected no back arrow next to the side navigation"
             )
 
     def test_unknown_group_shows_not_found(

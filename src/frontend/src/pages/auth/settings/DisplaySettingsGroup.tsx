@@ -24,7 +24,7 @@ import KioskSettingsTab from '../KioskSettingsTab';
 import ModulesSettingsTab from '../ModulesSettingsTab';
 import DashboardSettingsTab from '../DashboardSettingsTab';
 import SettingsSection from './SettingsSection';
-import { GRID_3COL, GRID_3COL_WIDE_ITEM } from './settingsLayout';
+import { GRID_3COL, GRID_3COL_WIDE_ITEM, TOGGLE_GROUP_STACK_WHEN_NARROW } from './settingsLayout';
 import { findSettingsSection, type SettingsGroupProps } from '@/config/settingsGroups';
 
 const EXPERIENCE_LEVELS: { level: ExperienceLevel; icon: React.ReactNode }[] = [
@@ -87,6 +87,8 @@ export default function DisplaySettingsGroup({ sections }: SettingsGroupProps) {
                   onChange={handleExperienceLevelChange}
                   fullWidth
                   orientation={fullScreen ? 'vertical' : 'horizontal'}
+                  // A tablet's panel is "desktop" by viewport but ~250 px wide: stacked there too.
+                  sx={TOGGLE_GROUP_STACK_WHEN_NARROW}
                   aria-label={t('pages.auth.experienceLevelTitle')}
                 >
                   {EXPERIENCE_LEVELS.map(({ level, icon }) => (

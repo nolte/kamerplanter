@@ -35,6 +35,7 @@ import type {
   WeatherProvidersUpdate,
   WeatherProviderTestResponse,
 } from '@/api/types';
+import { GRID_2COL } from './settings/settingsLayout';
 
 /** The masked placeholder shown when a global key is stored (matches backend). */
 const MASKED_PLACEHOLDER = '••••';
@@ -405,13 +406,7 @@ export default function WeatherProvidersSettingsTab() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.weatherProviders.fetchDesc')}
           </Typography>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-              gap: 2,
-            }}
-          >
+          <Box sx={GRID_2COL}>
             <TextField
               type="number"
               required
