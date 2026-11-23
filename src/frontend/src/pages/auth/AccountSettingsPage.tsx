@@ -163,14 +163,18 @@ export default function AccountSettingsPage() {
     </Box>
   );
 
+  // One tree for both layouts: the open group keeps its position (same parent,
+  // same child slot) whether the side navigation is shown or not. Switching
+  // between two differently shaped trees remounted the group on every crossing
+  // of the `md` breakpoint — a rotated tablet, a resized window, a screenshot
+  // that briefly collapses the viewport — and threw away its state: an open
+  // pairing dialog with its one-time code, a half-typed password.
   return (
     <Box data-testid="account-settings-page" sx={{ mt: 2 }}>
       <PageTitle title={t('pages.settings.title')} />
 
-      {isMobile ? (
-        (groupDetail ?? <SettingsGroupList groups={groups} />)
-      ) : (
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+      <Box sx={isMobile ? undefined : { display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+        {!isMobile && (
           <Box
             sx={{
               width: 260,
@@ -186,9 +190,10 @@ export default function AccountSettingsPage() {
               activeSection={activeSection}
             />
           </Box>
-          {groupDetail}
-        </Box>
-      )}
+        )}
+        {isMobile && !groupDetail && <SettingsGroupList groups={groups} />}
+        {groupDetail}
+      </Box>
     </Box>
   );
 }

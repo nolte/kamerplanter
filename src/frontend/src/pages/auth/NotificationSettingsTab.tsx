@@ -47,12 +47,7 @@ import type {
   EscalationPreference,
   DailySummaryPreference,
 } from '@/api/types';
-
-const GRID_2COL = {
-  display: 'grid',
-  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-  gap: 2,
-} as const;
+import { GRID_2COL } from './settings/settingsLayout';
 
 // The user-facing notification channels offered in the UI. Every key here is
 // sent verbatim as `channel_key` to the backend (test, subscribe, …), so the

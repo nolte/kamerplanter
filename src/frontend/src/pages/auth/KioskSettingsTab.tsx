@@ -10,6 +10,7 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import TabletMacIcon from '@mui/icons-material/TabletMac';
 import { useKiosk } from '@/kiosk/KioskProvider';
+import { GRID_2COL } from './settings/settingsLayout';
 
 /**
  * UI-NFR-019 §2.1 — Settings entry point for the kiosk mode (R-001) and the
@@ -24,7 +25,7 @@ export default function KioskSettingsTab() {
 
   return (
     <Box
-      sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}
+      sx={GRID_2COL}
       data-testid="kiosk-settings-tab"
     >
       <Card variant="outlined">

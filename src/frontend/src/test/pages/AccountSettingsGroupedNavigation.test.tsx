@@ -40,7 +40,7 @@ vi.mock('@/config/mode', () => ({
   },
 }));
 
-/** Width-driven `matchMedia` (see `MainLayout.responsive.test.tsx`): md = 900px. */
+/** Width-driven `matchMedia` (see `MainLayout.responsive.test.tsx`): the app theme's md = 768px. */
 function stubViewportWidth(width: number): void {
   window.innerWidth = width;
   window.matchMedia = ((query: string) => {
