@@ -124,7 +124,7 @@ indexedDB.databases().then(function (list) {
 TRACED_DATABASES = (PLAN_CACHE_DB, WRITE_QUEUE_DB)
 #: How many trace entries a page keeps (the oldest go first) and how many a failure message quotes.
 TRACE_LIMIT = 200
-TRACE_QUOTED = 40
+TRACE_QUOTED = 80
 
 #: Diagnostic for #3082 (an open of ``kp-plan-cache`` stays queued behind a request another connection blocks):
 #: records every ``indexedDB.open`` / ``indexedDB.deleteDatabase`` of the traced databases with the version asked
@@ -133,15 +133,41 @@ TRACE_QUOTED = 40
 #: PASS-THROUGH: the original methods run with the original arguments, the app's own handlers still run (listeners
 #: only record and never throw), and the trace opens no connection of its own. The probe below uses the saved
 #: original ``open``, so its own polling never floods the window.
+#: The trace spans the tab's documents (``sessionStorage``): each entry names its document (``d<n>``), each document
+#: starts with its path, and ``pagehide``/``pageshow`` say whether it entered or left the back/forward cache,
+#: where it would keep its connections open (#3082: the failing document's own opens never completed).
 _IDB_TRACE = r"""
 (function () {
   if (window.__kpIdbTrace || typeof IDBFactory === 'undefined') return;
-  var NAMES = %(names)s, LIMIT = %(limit)d, entries = [], seq = 0;
+  var NAMES = %(names)s, LIMIT = %(limit)d, KEY = '__kpIdbTrace', entries = [], seq = 0, doc = 1;
+  // The tab's earlier documents (#3082: the request ahead of a pending open was issued before the failing
+  // document existed). sessionStorage outlives a navigation within the tab; a refused storage only loses history.
+  try {
+    var kept = JSON.parse(window.sessionStorage.getItem(KEY) || 'null');
+    if (kept && Array.isArray(kept.entries)) { entries = kept.entries; seq = kept.seq || 0; doc = (kept.doc || 0) + 1; }
+  } catch (ignored) { /* no history */ }
   var proto = IDBFactory.prototype, originalOpen = proto.open, originalDelete = proto.deleteDatabase;
   window.__kpIdbTrace = {entries: entries, open: originalOpen, deleteDatabase: originalDelete};
   function now() { return Math.round(performance.now()); }
-  function add(entry) { entries.push(entry); if (entries.length > LIMIT) entries.shift(); }
+  function save() {
+    try { window.sessionStorage.setItem(KEY, JSON.stringify({entries: entries, seq: seq, doc: doc})); }
+    catch (ignored) { /* the in-memory trace still answers */ }
+  }
+  function add(entry) {
+    entry.doc = doc;
+    entries.push(entry);
+    if (entries.length > LIMIT) entries.shift();
+    save();
+  }
   function event(id, name, what) { add({id: id, db: name, ev: what, t: now()}); }
+  add({id: 0, db: '-', ev: 'document ' + String(location.pathname).slice(0, 80), t: now()});
+  // Whether a document went into the back/forward cache (and kept its connections) or came back from it.
+  ['pagehide', 'pageshow'].forEach(function (type) {
+    window.addEventListener(type, function (e) { event(0, '-', type + (e.persisted ? ' persisted' : '')); });
+  });
+  ['freeze', 'resume'].forEach(function (type) {
+    document.addEventListener(type, function () { event(0, '-', type); });
+  });
   function frames() {
     var lines = String(new Error().stack || '').split('\n').slice(4, 9);
     return lines.map(function (line) { return line.trim().replace(/^at /, ''); }).join(' < ');
@@ -201,7 +227,8 @@ def install_indexeddb_trace(driver: WebDriver) -> None:
     """Record the app's IndexedDB requests in every document this session loads from now on (#3082 diagnostic).
 
     Registered with CDP ``Page.addScriptToEvaluateOnNewDocument``, so it runs before the app's own code in each
-    later navigation; the document already open (the login) is not traced. Raises when the browser takes no CDP.
+    later navigation; a document already open is not traced. The ``trace_indexeddb`` marker registers it before the
+    session's first navigation (``conftest.start_browser_session``). Raises when the browser takes no CDP.
     """
     cdp(driver, "Page.addScriptToEvaluateOnNewDocument", {"source": _IDB_TRACE})
 
@@ -211,13 +238,14 @@ def format_indexeddb_trace(entries: list[dict] | None, limit: int = TRACE_QUOTED
     if entries is None:
         return "IndexedDB trace: none in this document (install_indexeddb_trace was not registered before it loaded)"
     if not entries:
-        return "IndexedDB trace: no open or deletion of the traced databases in this document"
+        return "IndexedDB trace: no open or deletion of the traced databases in this tab"
     shown = entries[-limit:]
     lines = [
-        f"IndexedDB trace (last {len(shown)} of {len(entries)} entries, t = ms since the document started):"
+        f"IndexedDB trace (last {len(shown)} of {len(entries)} entries across the tab's documents; "
+        "d = document number, t = ms since that document started):"
     ]
     for entry in shown:
-        head = f"  #{entry.get('id')} {entry.get('db')} t={entry.get('t')}"
+        head = f"  d{entry.get('doc', 1)} #{entry.get('id')} {entry.get('db')} t={entry.get('t')}"
         if "op" in entry:
             version = entry.get("version")
             asked = "no version" if version is None else f"version {version}"

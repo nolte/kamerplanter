@@ -292,6 +292,11 @@ def pytest_configure(config: pytest.Config) -> None:
     )
     config.addinivalue_line(
         "markers",
+        "trace_indexeddb: record the app's opens and deletions of its IndexedDB databases in every document of "
+        "the test's browser, from its first navigation on (the login included), across navigations (#3082)",
+    )
+    config.addinivalue_line(
+        "markers",
         "secure_context: start this test's browser with the E2E origin treated as a secure context, "
         "so the service worker and Cache Storage exist on plain http://frontend:8080 "
         "(REQ-053 WP 9.15, UI-NFR-012 §5.1.5); Chrome only",
@@ -1246,6 +1251,15 @@ def start_browser_session(
     # order: localStorage → navigator).  We need to navigate to the origin
     # first so that localStorage is bound to the correct domain.
     url = resolve_base_url(request.config)
+    if request.node.get_closest_marker("trace_indexeddb") is not None:
+        # Before the first navigation, so the login document is traced too (#3082). A diagnostic never fails
+        # the test it diagnoses: without CDP the session runs untraced and the probe's message says so.
+        from ._offline_helpers import OfflineProbeError, install_indexeddb_trace
+
+        try:
+            install_indexeddb_trace(driver)
+        except (OfflineProbeError, WebDriverException) as exc:
+            del exc  # untraced session; the probe's message says so
     driver.get(url)
     driver.execute_script("window.localStorage.setItem('kamerplanter-lang', 'de');")
 
