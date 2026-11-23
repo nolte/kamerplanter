@@ -264,7 +264,7 @@ export default function InstallationSettingsGroup({ sections }: SettingsGroupPro
         </SettingsSection>
       )}
 
-      {/* REQ-046 — F-14 adds the weather fetch interval and "fetch now" to this group. */}
+      {/* REQ-046 — providers, fetch interval, fetch status and "fetch now" (F-14, #2934). */}
       {weatherSection && (
         <SettingsSection section={weatherSection}>
           <WeatherProvidersSettingsTab />

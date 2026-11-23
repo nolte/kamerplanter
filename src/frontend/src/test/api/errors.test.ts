@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ApiError, getFieldErrors, getFieldViolations, isApiError } from '@/api/errors';
+import { ApiError, getFieldErrors, getFieldViolations, isApiError, parseRetryAfter } from '@/api/errors';
 import type { ApiErrorResponse } from '@/api/types';
 
 function envelope(details: ApiErrorResponse['details']): ApiError {
@@ -121,5 +121,29 @@ describe('an error envelope without details', () => {
   it('lets the field readers run instead of throwing', () => {
     expect(getFieldViolations(bodyWithoutDetails())).toEqual([]);
     expect(getFieldErrors(bodyWithoutDetails())).toEqual({});
+  });
+});
+
+describe('parseRetryAfter (NFR-007, F-14)', () => {
+  const now = Date.parse('2026-11-23T10:00:00Z');
+
+  it('reads delay-seconds', () => {
+    expect(parseRetryAfter('420', now)).toBe(420);
+    expect(parseRetryAfter(' 0 ', now)).toBe(0);
+  });
+
+  it('reads an HTTP-date as the seconds until it', () => {
+    expect(parseRetryAfter('Mon, 23 Nov 2026 10:07:00 GMT', now)).toBe(420);
+  });
+
+  it('never returns a negative wait for a date in the past', () => {
+    expect(parseRetryAfter('Mon, 23 Nov 2026 09:00:00 GMT', now)).toBe(0);
+  });
+
+  it('is null for an absent or unreadable header', () => {
+    expect(parseRetryAfter(undefined, now)).toBeNull();
+    expect(parseRetryAfter('', now)).toBeNull();
+    expect(parseRetryAfter('soon', now)).toBeNull();
+    expect(parseRetryAfter('-5', now)).toBeNull();
   });
 });

@@ -46,4 +46,18 @@ describe('adminWeatherProviders endpoints', () => {
     expect(client.post).toHaveBeenCalledWith('/admin/weather-providers/open%20meteo/test');
     expect(result).toEqual({ ok: true });
   });
+
+  it('triggerWeatherFetch POSTs to the manual fetch path (F-14)', async () => {
+    client.post.mockResolvedValue({ data: { status: 'queued', task_id: 't-1' } });
+    const result = await api.triggerWeatherFetch();
+    expect(client.post).toHaveBeenCalledWith('/admin/weather-providers/fetch');
+    expect(result).toEqual({ status: 'queued', task_id: 't-1' });
+  });
+
+  it('getWeatherFetchStatus GETs the fetch status (F-14)', async () => {
+    client.get.mockResolvedValue({ data: { interval_hours: 6 } });
+    const result = await api.getWeatherFetchStatus();
+    expect(client.get).toHaveBeenCalledWith('/admin/weather-providers/fetch-status');
+    expect(result).toEqual({ interval_hours: 6 });
+  });
 });

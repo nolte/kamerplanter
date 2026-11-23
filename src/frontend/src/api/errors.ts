@@ -16,8 +16,14 @@ export class ApiError extends Error {
   readonly details: ApiErrorDetail[];
   readonly path: string;
   readonly method: string;
+  /**
+   * Seconds from the response's `Retry-After` header (429/503, NFR-007), or
+   * `null` when the header is absent or unreadable. Set by the client
+   * interceptor; the envelope itself carries no such field.
+   */
+  readonly retryAfterSeconds: number | null;
 
-  constructor(response: ApiErrorResponse, statusCode: number) {
+  constructor(response: ApiErrorResponse, statusCode: number, retryAfterSeconds: number | null = null) {
     super(response.message);
     this.name = 'ApiError';
     this.errorId = response.error_id;
@@ -31,7 +37,27 @@ export class ApiError extends Error {
     this.details = response.details ?? [];
     this.path = response.path;
     this.method = response.method;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+/**
+ * Parse a `Retry-After` header value into whole seconds from `nowMs`.
+ *
+ * RFC 9110 §10.2.3 allows delay-seconds or an HTTP-date. Anything else — absent,
+ * negative, unparsable — is `null`, so a caller falls back to its own source
+ * instead of rendering "available in NaN seconds".
+ */
+export function parseRetryAfter(value: unknown, nowMs: number = Date.now()): number | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  if (text === '') return null;
+  if (/^\d+$/.test(text)) return Number(text);
+  // An HTTP-date names its weekday and month; a bare "-5" would parse as the year -5.
+  if (!/[A-Za-z]/.test(text)) return null;
+  const date = Date.parse(text);
+  if (Number.isNaN(date)) return null;
+  return Math.max(0, Math.ceil((date - nowMs) / 1000));
 }
 
 export function isApiError(error: unknown): error is ApiError {

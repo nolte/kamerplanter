@@ -6516,6 +6516,8 @@ export interface WeatherProvidersResponse {
   providers: WeatherProviderInfo[];
   openweathermap_global_api_key_set: boolean;
   fetch_timeout_s: number;
+  /** Hours between two successful scheduled fetches (REQ-046 §3.6a, 6–168). */
+  fetch_interval_hours: number;
   default_public_source: string;
 }
 
@@ -6532,7 +6534,49 @@ export interface WeatherProvidersUpdate {
   openweathermap_base_url?: string | null;
   openweathermap_global_api_key?: string | null;
   fetch_timeout_s?: number | null;
+  /** Below 6 or above 168 the backend answers 422. */
+  fetch_interval_hours?: number | null;
   default_public_source?: 'open-meteo' | 'dwd' | 'openweathermap' | null;
+}
+
+/** What started a weather fetch run (backend `WeatherFetchTrigger`). */
+export type WeatherFetchTrigger = 'scheduled' | 'manual';
+
+/** One finished weather fetch run, scheduled or manual (REQ-046 §3.6a). */
+export interface WeatherFetchRun {
+  trigger: WeatherFetchTrigger;
+  started_at: string;
+  finished_at: string;
+  success: boolean;
+  /** Sites the run was meant to fetch (enabled config, GPS, active tenant). */
+  sites: number;
+  /** Sites that stored at least one forecast. */
+  sites_written: number;
+  /** Sites whose source chain raised. */
+  sites_failed: number;
+  sites_skipped: number;
+  forecasts_written: number;
+  /** Class name of a runtime error that aborted the whole run — never its message. */
+  error_type?: string | null;
+}
+
+/** `POST /admin/weather-providers/fetch` — 202, the fetch is queued. */
+export interface WeatherFetchTriggerResponse {
+  status: 'queued';
+  task_id?: string | null;
+}
+
+/** `GET /admin/weather-providers/fetch-status`. */
+export interface WeatherFetchStatusResponse {
+  interval_hours: number;
+  last_run?: WeatherFetchRun | null;
+  last_success?: WeatherFetchRun | null;
+  /** `null` while the weather fetch is switched off (`WEATHER_ENABLED=false`). */
+  next_scheduled_at?: string | null;
+  /** `null` while the lock store cannot be reached. */
+  running?: boolean | null;
+  /** `0` when a manual fetch may start now; `null` while the lock store cannot be reached. */
+  manual_fetch_available_in_s?: number | null;
 }
 
 /** `POST /admin/weather-providers/{source_name}/test` response. */

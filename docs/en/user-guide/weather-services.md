@@ -19,7 +19,7 @@ As a platform admin, this is where you set the **instance-wide default settings*
 1. Open the **Settings** (click your profile picture in the top right).
 2. Open the **Installation** group — it sits in the navigation under the **Operation** heading, set apart from your personal settings — and its **Weather services** section, right below **Storage**.
 
-The page shows three areas: one card per weather service, the global OpenWeatherMap key, and the general fetch settings.
+The page shows three areas: one card per weather service, the global OpenWeatherMap key, and the **Fetch settings** card with the fetch interval, the timeout, the default source, the fetch status and the **Fetch now** button.
 
 ---
 
@@ -66,7 +66,8 @@ OpenWeatherMap is the only one of the three services that requires a personal AP
 
 | Field | Description |
 |------|-------------|
-| **Timeout** | Maximum wait time **per request** to a weather service in seconds (1–120) — not how often Kamerplanter fetches weather data; that is the [fetch interval](#fetch-interval-and-manual-fetch). If a service does not respond within this time, the request is considered failed and Kamerplanter — if configured — tries the next source in that site's priority list. |
+| **Fetch interval** | How many hours lie between two fetches of the weather data of all sites: at least 6, at most 168 (one week). A value outside this range or a decimal number is marked red, and **Save** stays disabled. The interval is saved together with the other fields of the page. What the interval does is described under [Fetch interval and manual fetch](#fetch-interval-and-manual-fetch). |
+| **Timeout per request** | Maximum wait time **per request** to a weather service in seconds (1–120) — not how often Kamerplanter fetches weather data; that is the [fetch interval](#fetch-interval-and-manual-fetch). If a service does not respond within this time, the request is considered failed and Kamerplanter — if configured — tries the next source in that site's priority list. |
 | **Default Source** | The public weather service Kamerplanter suggests when a site has not defined its own priority list yet. |
 
 ---
@@ -82,8 +83,36 @@ Kamerplanter fetches the weather data of all sites at a fixed **fetch interval**
 - **Manual fetch:** You can also start a fetch for all sites right away. It runs in the background; its result (success or failure, time, number of sites and of sites with errors) then appears in the fetch status. A successful manual fetch restarts the interval. While a fetch is running, another one is refused; after a manual fetch you have to wait 10 minutes before you start the next one. While the weather feature is switched off, no manual fetch is possible either.
 - **Fetch status:** It shows the time and result of the last successful fetch and the next scheduled fetch.
 
-!!! warning "Not yet implemented"
-    An input field for the fetch interval, a "Fetch now" button and the status display will appear on this page in one of the next versions. Until then, you set the interval via the `WEATHER_FETCH_INTERVAL_HOURS` environment variable or, as platform admin, directly through the API (see below).
+### Reading the fetch status
+
+Below the fields of the **Fetch settings** card you find the **fetch status**:
+
+| Line | Meaning |
+|------|-------------|
+| **Last successful fetch** | Date and time, whether the fetch was scheduled or manual, and how many sites received new weather data (e.g. "2 of 3 sites updated"). If there was none yet, it says "No successful fetch yet". |
+| **Next scheduled fetch** | When Kamerplanter fetches on its own next time. If the weather fetch is switched off on your installation, it says "None". |
+| **Effective fetch interval** | The interval Kamerplanter currently works with. After you save, the card reads the status again and shows the new value along with the next fetch it moved. |
+
+If the newest fetch failed, a red line below names the time and the number of sites with an error. The arrow icon at the top right refreshes the status.
+
+### Fetch now
+
+1. In the **Fetch settings** card, click **Fetch now**. The button acts at once; you do not need to save anything for it.
+2. A progress bar shows that the fetch is running. Depending on the number of sites this takes a few seconds to a few minutes. You can leave the page meanwhile; the fetch keeps running in the background.
+3. When the fetch has finished, the result appears:
+    - **Fetch finished** — how many sites have new weather data and how many forecast days were stored. If individual sites returned an error, their number is shown below; Kamerplanter retries them with the next fetch.
+    - **Fetch failed** — no site received weather data. Kamerplanter retries at the next full hour. Use **Test** on the individual services to check whether they are reachable.
+
+If a fetch takes unusually long (more than 5 minutes), the card stops waiting and tells you that the result appears in the fetch status once it has finished.
+
+**When the button is disabled or the fetch is refused**, the reason is shown right below it:
+
+| Message | What you can do |
+|------|-------------|
+| A new fetch is possible from *time* | After a manual fetch you have to wait 10 minutes. From the time shown, the button becomes available again on its own. |
+| A fetch is running | A scheduled or another manual fetch has not finished yet. Wait until it has finished, then refresh the status. If someone else started a fetch just before your click, the card follows that fetch and shows its result. |
+| The weather fetch is switched off | Your installation sets `WEATHER_ENABLED=false`. Then there are neither scheduled nor manual fetches; switch the weather function back on in the configuration. |
+| A background service is unreachable | Kamerplanter cannot check right now whether a fetch is already running, or cannot queue the fetch. Try again in a few minutes. |
 
 ---
 

@@ -62,9 +62,12 @@ function storeFor(isPlatformAdmin: boolean) {
 
 /** Counts calls so the "not even requested" assertion has something to read. */
 let settingsReads = 0;
+/** Same for the weather fetch status (F-14, #2934). */
+let weatherFetchStatusReads = 0;
 
 beforeEach(() => {
   settingsReads = 0;
+  weatherFetchStatusReads = 0;
   vi.clearAllMocks();
   server.use(
     http.get('/api/v1/admin/settings', () => {
@@ -97,6 +100,28 @@ beforeEach(() => {
     http.get('/api/v1/users/me/providers', () => HttpResponse.json([])),
     http.get('/api/v1/users/me/sessions', () => HttpResponse.json([])),
     http.get('/api/v1/auth/api-keys', () => HttpResponse.json([])),
+    http.get('/api/v1/admin/weather-providers', () =>
+      HttpResponse.json({
+        providers: [
+          { source_name: 'open-meteo', enabled: true, base_url: 'https://api.open-meteo.com', attribution: '' },
+        ],
+        openweathermap_global_api_key_set: false,
+        fetch_timeout_s: 20,
+        fetch_interval_hours: 6,
+        default_public_source: 'open-meteo',
+      }),
+    ),
+    http.get('/api/v1/admin/weather-providers/fetch-status', () => {
+      weatherFetchStatusReads += 1;
+      return HttpResponse.json({
+        interval_hours: 6,
+        last_run: null,
+        last_success: null,
+        next_scheduled_at: '2026-11-23T12:00:00Z',
+        running: false,
+        manual_fetch_available_in_s: 0,
+      });
+    }),
   );
 });
 
@@ -167,5 +192,28 @@ describe('Integrations and Installation — installation-wide settings are platf
     expect(screen.getByTestId('settings-group-installation')).toBeInTheDocument();
     expect(screen.getByTestId('settings-nav-operator-heading')).toBeInTheDocument();
     await waitFor(() => expect(settingsReads).toBeGreaterThan(0));
+  });
+
+  // F-14 acceptance-5 (#2934): the fetch interval, the fetch status and "fetch now"
+  // belong to whoever may manage instance settings (platform admin, or light mode).
+  it('hides the weather fetch controls from a plain member in full mode, and never reads the fetch status', async () => {
+    renderGroup(false, 'installation');
+    // Landed on the member's own first group: the page rendered.
+    await screen.findByTestId('settings-section-profile');
+
+    expect(screen.queryByTestId('weather-fetch-interval')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('weather-fetch-now-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('weather-fetch-panel')).not.toBeInTheDocument();
+    await waitFor(() => expect(weatherFetchStatusReads).toBe(0));
+  });
+
+  it('shows a platform admin the weather fetch interval, status and "fetch now"', async () => {
+    // The control for the case above.
+    renderGroup(true, 'installation');
+
+    expect(await screen.findByTestId('weather-fetch-interval')).toBeInTheDocument();
+    expect(await screen.findByTestId('weather-fetch-now-button')).toBeInTheDocument();
+    expect(await screen.findByTestId('weather-fetch-last-success')).toBeInTheDocument();
+    await waitFor(() => expect(weatherFetchStatusReads).toBeGreaterThan(0));
   });
 });

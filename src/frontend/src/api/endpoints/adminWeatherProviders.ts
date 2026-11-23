@@ -1,5 +1,7 @@
 import apiClient from '@/api/client';
 import type {
+  WeatherFetchStatusResponse,
+  WeatherFetchTriggerResponse,
   WeatherProvidersResponse,
   WeatherProvidersUpdate,
   WeatherProviderTestResponse,
@@ -35,5 +37,23 @@ export async function testWeatherProvider(
   const { data } = await apiClient.post<WeatherProviderTestResponse>(
     `${BASE}/${encodeURIComponent(sourceName)}/test`,
   );
+  return data;
+}
+
+/**
+ * POST a manual weather fetch over all sites (REQ-046 §3.6a, #2934). Answers 202
+ * once queued; the run's result appears in {@link getWeatherFetchStatus}.
+ * Refusals arrive as an `ApiError`: 409 `WEATHER_FETCH_RUNNING` /
+ * `WEATHER_FETCH_DISABLED`, 429 `WEATHER_FETCH_COOLDOWN` (with
+ * `retryAfterSeconds` from `Retry-After`), 503 `WEATHER_FETCH_UNAVAILABLE`.
+ */
+export async function triggerWeatherFetch(): Promise<WeatherFetchTriggerResponse> {
+  const { data } = await apiClient.post<WeatherFetchTriggerResponse>(`${BASE}/fetch`);
+  return data;
+}
+
+/** GET the newest run, the newest successful run and the next scheduled fetch. */
+export async function getWeatherFetchStatus(): Promise<WeatherFetchStatusResponse> {
+  const { data } = await apiClient.get<WeatherFetchStatusResponse>(`${BASE}/fetch-status`);
   return data;
 }
