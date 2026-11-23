@@ -165,7 +165,9 @@ def test_the_trace_quotes_only_the_newest_entries() -> None:
     text = offline.format_indexeddb_trace(entries)
 
     assert f"last {offline.TRACE_QUOTED} of 100" in text
-    assert "#99 " in text and "#59 " not in text
+    first_quoted = 100 - offline.TRACE_QUOTED
+    assert "#99 " in text and f"#{first_quoted} " in text
+    assert f"#{first_quoted - 1} " not in text
 
 
 def test_the_trace_is_a_pass_through_for_the_two_app_databases() -> None:
@@ -177,3 +179,46 @@ def test_the_trace_is_a_pass_through_for_the_two_app_databases() -> None:
     assert f"LIMIT = {offline.TRACE_LIMIT}" in script
     # The probe opens through the saved original, so its polling is not traced.
     assert "trace ? trace.open : IDBFactory.prototype.open" in offline._STORE_KEYS
+
+
+def test_the_trace_names_the_document_of_every_entry() -> None:
+    entries = [
+        {"id": 0, "db": "-", "ev": "document /dashboard", "t": 3, "doc": 1},
+        {
+            "id": 2,
+            "db": "kp-plan-cache",
+            "op": "delete",
+            "version": None,
+            "t": 900,
+            "stack": "wipe",
+            "doc": 1,
+        },
+        {"id": 0, "db": "-", "ev": "pagehide persisted", "t": 1200, "doc": 1},
+        {
+            "id": 3,
+            "db": "kp-plan-cache",
+            "op": "open",
+            "version": 20,
+            "t": 98,
+            "stack": "app",
+            "doc": 2,
+        },
+    ]
+
+    text = offline.format_indexeddb_trace(entries)
+
+    assert "across the tab's documents" in text
+    assert "d1 #2 kp-plan-cache t=900 delete (no version)" in text
+    assert "d1 #0 - t=1200 -> pagehide persisted" in text
+    assert "d2 #3 kp-plan-cache t=98 open (version 20)" in text
+
+
+def test_the_trace_spans_the_tab_and_records_the_page_lifecycle() -> None:
+    script = offline._IDB_TRACE
+
+    # Earlier documents of the tab survive a navigation (#3082: the request ahead was issued before the failing
+    # document existed), and a refused storage only loses that history.
+    assert "window.sessionStorage.getItem(KEY)" in script
+    assert "window.sessionStorage.setItem(KEY" in script
+    assert "['pagehide', 'pageshow']" in script and "e.persisted" in script
+    assert "['freeze', 'resume']" in script
