@@ -207,7 +207,7 @@ services:
 
   # ── Selenium Hub ─────────────────────────────────────────
   selenium-hub:
-    image: selenium/hub:4.52@sha256:454867753dae49cdaeaccc398bc648e9817ba29178b459cf004bd84fb60d6e93
+    image: selenium/hub:4.53@sha256:b9514a54e2432be098f8f0381631334a0f5a0f32cf8b88fe6a0bdd9a37764da7
     environment:
       SE_SESSION_REQUEST_TIMEOUT: "300"
       SE_NODE_SESSION_TIMEOUT: "300"
@@ -215,7 +215,7 @@ services:
 
   # ── Chrome Node ──────────────────────────────────────────
   chrome:
-    image: selenium/node-chrome:157.0@sha256:faf10f796364a535fdb4e5aa5101c9300482788ccc0935258fc76f92f21b4196
+    image: selenium/node-chrome:158.0@sha256:af1f98f1be2f49c966fc95a6f07d9cb6f0fa5953d4d66e049738ff26f12a6dd7
     depends_on:
       - selenium-hub
     environment:
