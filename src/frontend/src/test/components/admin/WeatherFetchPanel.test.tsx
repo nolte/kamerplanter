@@ -53,6 +53,22 @@ const NEW_RUN: WeatherFetchRun = {
   error_type: null,
 };
 
+/** A scheduled run that started and ended while the page was open, before the click. */
+const SCHEDULED_MID: WeatherFetchRun = {
+  ...OLD_RUN,
+  started_at: '2026-11-23T08:00:02Z',
+  finished_at: '2026-11-23T08:00:39Z',
+};
+
+/** A scheduled run that took the lock right after the click was admitted. */
+const SCHEDULED_AFTER_CLICK: WeatherFetchRun = {
+  ...NEW_RUN,
+  trigger: 'scheduled',
+  sites_written: 3,
+  sites_failed: 0,
+  forecasts_written: 21,
+};
+
 function status(overrides: Partial<WeatherFetchStatusResponse> = {}): WeatherFetchStatusResponse {
   return {
     interval_hours: 6,
@@ -97,8 +113,12 @@ async function nextPoll() {
 
 describe('WeatherFetchPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // reset, not clear: an unconsumed mockResolvedValueOnce or a mockResolvedValue must not leak into the next test.
+    vi.resetAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    // Clicks happen at 09:17:00 UTC unless a test says otherwise: NEW_RUN (09:17:02) is
+    // this click's run, OLD_RUN (06:00) and SCHEDULED_MID (08:00) ran before it.
+    vi.setSystemTime(new Date('2026-11-23T09:17:00Z'));
   });
 
   afterEach(() => {
@@ -169,6 +189,7 @@ describe('WeatherFetchPanel', () => {
   it('acceptance-2: shows the progress of an accepted fetch, then its result', async () => {
     mockStatus
       .mockResolvedValueOnce(status()) // mount
+      .mockResolvedValueOnce(status()) // fresh baseline right before the POST
       .mockResolvedValueOnce(status({ running: true, manual_fetch_available_in_s: 590 })) // poll 1
       .mockResolvedValueOnce(
         status({ last_run: NEW_RUN, last_success: NEW_RUN, manual_fetch_available_in_s: 560 }),
@@ -196,12 +217,16 @@ describe('WeatherFetchPanel', () => {
     expect(screen.queryByTestId('weather-fetch-progress')).not.toBeInTheDocument();
     // The status line moved to the new run.
     expect(screen.getByTestId('weather-fetch-last-success')).toHaveTextContent(/manuell|manual/i);
-    expect(mockStatus).toHaveBeenCalledTimes(3);
+    expect(mockStatus).toHaveBeenCalledTimes(4);
+    // Its own run: no note that someone else's run is shown.
+    expect(result).toHaveAttribute('data-origin', 'own');
+    expect(screen.queryByTestId('weather-fetch-result-origin')).not.toBeInTheDocument();
   });
 
   it('acceptance-2: shows a failed run as a failure', async () => {
     const failed: WeatherFetchRun = { ...NEW_RUN, success: false, sites_written: 0, sites_failed: 3 };
     mockStatus
+      .mockResolvedValueOnce(status())
       .mockResolvedValueOnce(status())
       .mockResolvedValueOnce(status({ last_run: failed, manual_fetch_available_in_s: 580 }));
     mockTrigger.mockResolvedValue({ status: 'queued', task_id: 'task-1' });
@@ -217,6 +242,7 @@ describe('WeatherFetchPanel', () => {
 
   it('acceptance-2: follows a fetch that is already running (409 WEATHER_FETCH_RUNNING)', async () => {
     mockStatus
+      .mockResolvedValueOnce(status())
       .mockResolvedValueOnce(status())
       .mockResolvedValueOnce(status({ last_run: NEW_RUN, last_success: NEW_RUN }));
     mockTrigger.mockRejectedValue(apiError(409, 'WEATHER_FETCH_RUNNING'));
@@ -253,6 +279,7 @@ describe('WeatherFetchPanel', () => {
     vi.setSystemTime(new Date('2026-11-23T09:20:00Z'));
     mockStatus
       .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status())
       .mockResolvedValueOnce(status({ manual_fetch_available_in_s: 300 }));
     mockTrigger.mockRejectedValue(apiError(429, 'WEATHER_FETCH_COOLDOWN', null));
     const { user } = setup();
@@ -261,7 +288,7 @@ describe('WeatherFetchPanel', () => {
 
     const refusal = await screen.findByTestId('weather-fetch-refusal');
     expect(refusal).toHaveTextContent(/:25/);
-    expect(mockStatus).toHaveBeenCalledTimes(2);
+    expect(mockStatus).toHaveBeenCalledTimes(3);
   });
 
   it('acceptance-2: the button becomes available again when the cooldown ends', async () => {
@@ -360,6 +387,138 @@ describe('WeatherFetchPanel', () => {
     expect(await screen.findByTestId('weather-fetch-timed-out')).toBeInTheDocument();
     expect(screen.queryByTestId('weather-fetch-progress')).not.toBeInTheDocument();
     // One mount read plus exactly the budget.
-    expect(mockStatus).toHaveBeenCalledTimes(1 + WEATHER_FETCH_MAX_POLLS);
+    // The mount read, the fresh baseline read, then exactly the budget.
+    expect(mockStatus).toHaveBeenCalledTimes(2 + WEATHER_FETCH_MAX_POLLS);
+  });
+
+  // ── review follow-up: whose run is the result ────────────────────────
+
+  it('does not take a scheduled run that ran while the page was open for the click\'s result', async () => {
+    mockStatus
+      .mockResolvedValueOnce(status()) // mount: newest run is OLD_RUN
+      .mockResolvedValueOnce(status({ last_run: SCHEDULED_MID, last_success: SCHEDULED_MID })) // fresh, pre-POST
+      .mockResolvedValueOnce(status({ last_run: SCHEDULED_MID, last_success: SCHEDULED_MID })) // poll 1: own run not yet there
+      .mockResolvedValueOnce(status({ last_run: NEW_RUN, last_success: NEW_RUN })); // poll 2
+    mockTrigger.mockResolvedValue({ status: 'queued', task_id: 'task-1' });
+    const { user } = setup();
+
+    await clickFetchNow(user);
+    await screen.findByTestId('weather-fetch-progress');
+    await nextPoll();
+    // SCHEDULED_MID differs from the page's stale baseline but is no result of this click.
+    expect(screen.queryByTestId('weather-fetch-result')).not.toBeInTheDocument();
+    expect(screen.getByTestId('weather-fetch-progress')).toBeInTheDocument();
+
+    await nextPoll();
+    const result = await screen.findByTestId('weather-fetch-result');
+    expect(result).toHaveAttribute('data-origin', 'own');
+    expect(result).toHaveTextContent(/2 von 3|2 of 3/);
+  });
+
+  it('keeps an earlier run out by the click time when the fresh read fails', async () => {
+    mockStatus
+      .mockResolvedValueOnce(status()) // mount: OLD_RUN
+      .mockRejectedValueOnce(new Error('Network Error')) // fresh read fails: baseline stays OLD_RUN
+      .mockResolvedValueOnce(status({ last_run: SCHEDULED_MID, last_success: SCHEDULED_MID })) // poll 1
+      .mockResolvedValueOnce(status({ last_run: NEW_RUN, last_success: NEW_RUN })); // poll 2
+    mockTrigger.mockResolvedValue({ status: 'queued', task_id: 'task-1' });
+    const { user } = setup();
+
+    await clickFetchNow(user);
+    await screen.findByTestId('weather-fetch-progress');
+    await nextPoll();
+    expect(screen.queryByTestId('weather-fetch-result')).not.toBeInTheDocument();
+
+    await nextPoll();
+    expect(await screen.findByTestId('weather-fetch-result')).toHaveAttribute('data-origin', 'own');
+  });
+
+  it('says that a scheduled fetch ran instead when it took the lock before the manual task', async () => {
+    mockStatus
+      .mockResolvedValueOnce(status()) // mount
+      .mockResolvedValueOnce(status()) // fresh, pre-POST
+      .mockResolvedValueOnce(status({ running: true })) // poll 1: the scheduled run holds the lock
+      .mockResolvedValueOnce(
+        status({ last_run: SCHEDULED_AFTER_CLICK, last_success: SCHEDULED_AFTER_CLICK }),
+      ); // poll 2: the manual task skipped (already_running) and recorded nothing
+    mockTrigger.mockResolvedValue({ status: 'queued', task_id: 'task-1' });
+    const { user } = setup();
+
+    await clickFetchNow(user);
+    await screen.findByTestId('weather-fetch-progress');
+    await nextPoll();
+    await nextPoll();
+
+    const result = await screen.findByTestId('weather-fetch-result');
+    expect(result).toHaveAttribute('data-origin', 'scheduledInstead');
+    expect(screen.getByTestId('weather-fetch-result-origin')).toHaveTextContent(/geplanter abruf|scheduled fetch/i);
+    expect(result).toHaveTextContent(/3 von 3|3 of 3/);
+  });
+
+  it('names the followed run as already running after a 409 WEATHER_FETCH_RUNNING', async () => {
+    mockStatus
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status({ last_run: SCHEDULED_AFTER_CLICK, last_success: SCHEDULED_AFTER_CLICK }));
+    mockTrigger.mockRejectedValue(apiError(409, 'WEATHER_FETCH_RUNNING'));
+    const { user } = setup();
+
+    await clickFetchNow(user);
+    await nextPoll();
+
+    expect(await screen.findByTestId('weather-fetch-result')).toHaveAttribute('data-origin', 'alreadyRunning');
+  });
+
+  // ── review follow-up: live regions exist before their content ────────
+
+  it('renders both live regions before anything is announced, and swaps the result into them', async () => {
+    mockStatus
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status({ last_run: NEW_RUN, last_success: NEW_RUN }));
+    mockTrigger.mockResolvedValue({ status: 'queued', task_id: 'task-1' });
+    const { user } = setup();
+
+    const live = await screen.findByTestId('weather-fetch-live');
+    const alerts = screen.getByTestId('weather-fetch-alerts');
+    expect(live).toHaveAttribute('role', 'status');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(alerts).toHaveAttribute('role', 'alert');
+    expect(live).toBeEmptyDOMElement();
+    expect(alerts).toBeEmptyDOMElement();
+
+    await clickFetchNow(user);
+    await nextPoll();
+    const result = await screen.findByTestId('weather-fetch-result');
+    // The same, already present node now holds the result.
+    expect(screen.getByTestId('weather-fetch-live')).toBe(live);
+    expect(live).toContainElement(result);
+    // The inner alert does not announce itself a second time.
+    expect(result).toHaveAttribute('role', 'none');
+  });
+
+  it('puts a failed run and a refused fetch into the assertive region, "weather is off" into the polite one', async () => {
+    const failed: WeatherFetchRun = { ...NEW_RUN, success: false, sites_written: 0, sites_failed: 3 };
+    mockStatus
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status())
+      .mockResolvedValueOnce(status({ last_run: failed }));
+    mockTrigger
+      .mockResolvedValueOnce({ status: 'queued', task_id: 'task-1' })
+      .mockRejectedValueOnce(apiError(409, 'WEATHER_FETCH_DISABLED'));
+    const { user } = setup();
+
+    await clickFetchNow(user);
+    await nextPoll();
+    const result = await screen.findByTestId('weather-fetch-result');
+    expect(screen.getByTestId('weather-fetch-alerts')).toContainElement(result);
+    // Retried at the next *scheduled* fetch, not "at the next full hour".
+    expect(result).toHaveTextContent(/nächsten geplanten abruf|next scheduled fetch/i);
+
+    mockStatus.mockResolvedValue(status({ last_run: failed }));
+    await clickFetchNow(user);
+    const refusal = await screen.findByTestId('weather-fetch-refusal');
+    expect(screen.getByTestId('weather-fetch-live')).toContainElement(refusal);
+    expect(refusal).toHaveAttribute('role', 'none');
   });
 });

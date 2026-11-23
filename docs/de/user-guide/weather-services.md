@@ -77,7 +77,7 @@ OpenWeatherMap ist der einzige der drei Dienste, der einen persönlichen API-Sch
 Kamerplanter holt die Wetterdaten aller Standorte in einem festen **Abrufintervall**: standardmäßig alle **6 Stunden**, also bis zu viermal am Tag. Kürzer als 6 Stunden geht nicht — das schont das Kontingent bezahlter Schlüssel wie OpenWeatherMap. Längere Intervalle (bis zu einer Woche) sind möglich.
 
 - **Wann abgerufen wird:** Kamerplanter prüft zu jeder vollen Stunde, ob seit dem letzten erfolgreichen Abruf das Intervall vergangen ist, und ruft dann ab. Ein geändertes Intervall gilt ab der nächsten vollen Stunde, ohne Neustart.
-- **Wenn ein Abruf fehlschlägt:** Ein Abruf gilt als erfolgreich, wenn er mindestens einen Standort mit Wetterdaten versorgt hat. Liefert kein einziger Standort Daten, versucht Kamerplanter es zur nächsten vollen Stunde erneut.
+- **Wenn ein Abruf fehlschlägt:** Ein Abruf gilt als erfolgreich, wenn er mindestens einen Standort mit Wetterdaten versorgt hat. Liefert kein einziger Standort Daten, versucht Kamerplanter es beim nächsten geplanten Abruf erneut. Weil das Intervall ab dem letzten **erfolgreichen** Abruf zählt, ist das nach einem fehlgeschlagenen geplanten Abruf meist schon die nächste volle Stunde; schlägt dagegen ein manueller Abruf fehl, während der letzte Erfolg noch keine Intervalllänge zurückliegt, bleibt es beim bisher geplanten Termin. Welcher das ist, zeigt der Abrufstatus.
 - **Was danach passiert:** Nach jedem erfolgreichen Abruf berechnet Kamerplanter sofort die [Frost-Frühwarnung](notifications.md#frost-fruehwarnung) und den [Bewässerungsbedarf](watering-log.md#vorgeschlagene-giessmenge) neu. Zusätzlich laufen beide einmal täglich am Morgen mit den zuletzt geholten Daten — so bleibt eine nahende Frostnacht auch bei einem langen Intervall oder einem Ausfall der Wetterdienste nicht unbemerkt.
 - **Bei einem längeren Ausfall:** Schlagen drei Abrufe hintereinander fehl, schreibt das Backend eine Fehlermeldung (`weather_fetch_outage`) ins Protokoll.
 - **Manueller Abruf:** Du kannst einen Abruf über alle Standorte auch sofort anstoßen. Er läuft im Hintergrund; das Ergebnis (Erfolg oder Fehler, Zeitpunkt, Zahl der Standorte und der Standorte mit Fehler) steht danach im Abrufstatus. Ein erfolgreicher manueller Abruf startet das Intervall neu. Läuft gerade ein Abruf, wird ein weiterer abgelehnt; nach einem manuellen Abruf musst du 10 Minuten warten, bevor du den nächsten startest. Ist die Wetterfunktion abgeschaltet, ist auch kein manueller Abruf möglich.
@@ -101,7 +101,8 @@ Ist der neueste Abruf fehlgeschlagen, nennt eine rote Zeile darunter Zeitpunkt u
 2. Ein Fortschrittsbalken zeigt, dass der Abruf läuft. Je nach Zahl der Standorte dauert das ein paar Sekunden bis wenige Minuten. Du kannst die Seite währenddessen verlassen; der Abruf läuft im Hintergrund weiter.
 3. Ist der Abruf fertig, erscheint das Ergebnis:
     - **Abruf abgeschlossen** — wie viele Standorte neue Wetterdaten haben und wie viele Vorhersagetage gespeichert wurden. Lieferten einzelne Standorte einen Fehler, steht ihre Zahl darunter; Kamerplanter versucht sie beim nächsten Abruf erneut.
-    - **Abruf fehlgeschlagen** — kein Standort hat Wetterdaten erhalten. Kamerplanter versucht es zur nächsten vollen Stunde erneut. Prüfe dann mit **Testen** bei den einzelnen Diensten, ob sie erreichbar sind.
+    - Hat kurz vor deinem Klick ein geplanter Abruf begonnen, lief kein eigener Abruf; die Karte sagt das und zeigt das Ergebnis des geplanten. Dasselbe gilt, wenn beim Klick schon ein anderer Abruf lief: Die Karte verfolgt ihn und zeigt sein Ergebnis.
+    - **Abruf fehlgeschlagen** — kein Standort hat Wetterdaten erhalten. Kamerplanter versucht es beim nächsten geplanten Abruf erneut; wann der ist, steht im Abrufstatus. Prüfe dann mit **Testen** bei den einzelnen Diensten, ob sie erreichbar sind.
 
 Dauert ein Abruf ungewöhnlich lange (mehr als 5 Minuten), hört die Karte auf zu warten und sagt dir, dass das Ergebnis im Abrufstatus erscheint, sobald er fertig ist.
 
@@ -110,7 +111,7 @@ Dauert ein Abruf ungewöhnlich lange (mehr als 5 Minuten), hört die Karte auf z
 | Meldung | Was du tun kannst |
 |------|-------------|
 | Ein neuer Abruf ist ab *Uhrzeit* möglich | Nach einem manuellen Abruf musst du 10 Minuten warten. Ab der genannten Uhrzeit wird der Knopf von selbst wieder frei. |
-| Gerade läuft ein Abruf | Ein geplanter oder ein anderer manueller Abruf ist noch nicht fertig. Warte, bis er fertig ist; aktualisiere dann den Status. Hat jemand anderes kurz vor deinem Klick einen Abruf gestartet, verfolgt die Karte diesen Abruf und zeigt sein Ergebnis. |
+| Gerade läuft ein Abruf (Knopf gesperrt) | Ein geplanter oder ein anderer manueller Abruf ist noch nicht fertig. Warte, bis er fertig ist, und aktualisiere dann den Status. Das ist keine Ablehnung: Läuft beim Klick schon ein Abruf, verfolgt die Karte ihn (siehe oben). |
 | Der Wetterabruf ist ausgeschaltet | Auf deiner Installation ist `WEATHER_ENABLED=false` gesetzt. Dann gibt es weder geplante noch manuelle Abrufe; schalte die Wetterfunktion in der Konfiguration wieder ein. |
 | Ein Hintergrunddienst ist nicht erreichbar | Kamerplanter kann gerade nicht prüfen, ob schon ein Abruf läuft, oder den Abruf nicht einreihen. Versuche es in ein paar Minuten erneut. |
 

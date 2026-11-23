@@ -11,7 +11,11 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Skeleton from '@mui/material/Skeleton';
 import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { useWeatherFetch, type WeatherFetchRefusal } from '@/hooks/useWeatherFetch';
+import {
+  useWeatherFetch,
+  type WeatherFetchRefusal,
+  type WeatherFetchResultOrigin,
+} from '@/hooks/useWeatherFetch';
 import type { WeatherFetchRun } from '@/api/types';
 import { formatDateTime } from '@/utils/formatting';
 import type { Translate } from '@/i18n/translate';
@@ -24,13 +28,27 @@ function triggerLabel(run: WeatherFetchRun, t: Translate): string {
     : t('pages.weatherProviders.fetchStatus.triggerScheduled');
 }
 
-/** The result of the run that ended after this card's trigger. */
-function ResultAlert({ run }: { run: WeatherFetchRun }) {
+/**
+ * The result of the run that ended after this card's trigger.
+ *
+ * `role="none"`: the alert sits inside one of the panel's persistent live
+ * regions, which announce it; an own `role="alert"` would announce it twice.
+ */
+function ResultAlert({ run, origin }: { run: WeatherFetchRun; origin: WeatherFetchResultOrigin | null }) {
   const { t } = useTranslation();
+  let originNote: string | null = null;
+  if (origin === 'scheduledInstead') originNote = t('pages.weatherProviders.fetchNow.originScheduledInstead');
+  if (origin === 'alreadyRunning') originNote = t('pages.weatherProviders.fetchNow.originAlreadyRunning');
+  const note = originNote && (
+    <Typography variant="body2" sx={{ mb: 0.5 }} data-testid="weather-fetch-result-origin">
+      {originNote}
+    </Typography>
+  );
   if (run.success) {
     return (
-      <Alert severity="success" data-testid="weather-fetch-result" role="status">
+      <Alert severity="success" data-testid="weather-fetch-result" data-origin={origin ?? undefined} role="none">
         <AlertTitle>{t('pages.weatherProviders.fetchNow.successTitle')}</AlertTitle>
+        {note}
         {run.sites === 0
           ? t('pages.weatherProviders.fetchNow.successNoSites')
           : t('pages.weatherProviders.fetchNow.successDetail', {
@@ -47,8 +65,9 @@ function ResultAlert({ run }: { run: WeatherFetchRun }) {
     );
   }
   return (
-    <Alert severity="error" data-testid="weather-fetch-result" role="alert">
+    <Alert severity="error" data-testid="weather-fetch-result" data-origin={origin ?? undefined} role="none">
       <AlertTitle>{t('pages.weatherProviders.fetchNow.failedTitle')}</AlertTitle>
+      {note}
       {run.error_type
         ? t('pages.weatherProviders.fetchNow.failedAborted')
         : t('pages.weatherProviders.fetchNow.failedDetail', { failed: run.sites_failed, sites: run.sites })}
@@ -56,7 +75,12 @@ function ResultAlert({ run }: { run: WeatherFetchRun }) {
   );
 }
 
-/** Why "fetch now" was refused — always with the way forward. */
+/** Whether a refusal is informational (announced politely) rather than a problem. */
+function isInfoRefusal(refusal: WeatherFetchRefusal): boolean {
+  return refusal.kind === 'disabled';
+}
+
+/** Why "fetch now" was refused — always with the way forward. Announced by its live region (`role="none"`). */
 function RefusalAlert({ refusal }: { refusal: WeatherFetchRefusal }) {
   const { t } = useTranslation();
   let severity: 'warning' | 'info' | 'error' = 'warning';
@@ -80,7 +104,7 @@ function RefusalAlert({ refusal }: { refusal: WeatherFetchRefusal }) {
       text = t('pages.weatherProviders.fetchNow.error');
   }
   return (
-    <Alert severity={severity} data-testid="weather-fetch-refusal" data-refusal={refusal.kind} role="alert">
+    <Alert severity={severity} data-testid="weather-fetch-refusal" data-refusal={refusal.kind} role="none">
       <AlertTitle>{t('pages.weatherProviders.fetchNow.refusedTitle')}</AlertTitle>
       {text}
     </Alert>
@@ -123,6 +147,7 @@ export default function WeatherFetchPanel({ statusVersion = 0 }: WeatherFetchPan
     reloadStatus,
     phase,
     result,
+    resultOrigin,
     refusal,
     cooldownUntil,
     canTrigger,
@@ -184,7 +209,7 @@ export default function WeatherFetchPanel({ statusVersion = 0 }: WeatherFetchPan
           severity="error"
           data-testid="weather-fetch-status-error"
           action={
-            <Button color="inherit" size="small" onClick={() => void reloadStatus()}>
+            <Button color="inherit" onClick={() => void reloadStatus()} sx={{ minHeight: 48, minWidth: 48 }}>
               {t('common.retry')}
             </Button>
           }
@@ -250,25 +275,52 @@ export default function WeatherFetchPanel({ statusVersion = 0 }: WeatherFetchPan
         <Typography id={HELPER_ID} variant="caption" color="text.secondary" component="p" sx={{ mt: 0.75 }}>
           {helper}
         </Typography>
-      </Box>
 
-      {busy && (
-        <Box data-testid="weather-fetch-progress" role="status" aria-live="polite">
-          <LinearProgress aria-label={t('pages.weatherProviders.fetchNow.progressLabel')} />
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {phase === 'starting'
-              ? t('pages.weatherProviders.fetchNow.starting')
-              : t('pages.weatherProviders.fetchNow.running')}
-          </Typography>
+        {/* Two live regions that exist from the first render on, so a screen reader
+            announces what is swapped into them — a region inserted together with its
+            content is often not announced. Polite: progress, a successful result, the
+            time-out note and the "weather is off" note. Assertive (role="alert"): a
+            failed run and a refused fetch. */}
+        <Box role="status" aria-live="polite" data-testid="weather-fetch-live">
+          {busy && (
+            <Box data-testid="weather-fetch-progress" sx={{ mt: 2 }}>
+              <LinearProgress aria-label={t('pages.weatherProviders.fetchNow.progressLabel')} />
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {phase === 'starting'
+                  ? t('pages.weatherProviders.fetchNow.starting')
+                  : t('pages.weatherProviders.fetchNow.running')}
+              </Typography>
+            </Box>
+          )}
+          {phase === 'finished' && result?.success && (
+            <Box sx={{ mt: 2 }}>
+              <ResultAlert run={result} origin={resultOrigin} />
+            </Box>
+          )}
+          {phase === 'timedOut' && (
+            <Alert severity="info" data-testid="weather-fetch-timed-out" role="none" sx={{ mt: 2 }}>
+              {t('pages.weatherProviders.fetchNow.timedOut')}
+            </Alert>
+          )}
+          {refusal && isInfoRefusal(refusal) && (
+            <Box sx={{ mt: 2 }}>
+              <RefusalAlert refusal={refusal} />
+            </Box>
+          )}
         </Box>
-      )}
-      {phase === 'finished' && result && <ResultAlert run={result} />}
-      {phase === 'timedOut' && (
-        <Alert severity="info" data-testid="weather-fetch-timed-out" role="status">
-          {t('pages.weatherProviders.fetchNow.timedOut')}
-        </Alert>
-      )}
-      {refusal && <RefusalAlert refusal={refusal} />}
+        <Box role="alert" data-testid="weather-fetch-alerts">
+          {phase === 'finished' && result && !result.success && (
+            <Box sx={{ mt: 2 }}>
+              <ResultAlert run={result} origin={resultOrigin} />
+            </Box>
+          )}
+          {refusal && !isInfoRefusal(refusal) && (
+            <Box sx={{ mt: 2 }}>
+              <RefusalAlert refusal={refusal} />
+            </Box>
+          )}
+        </Box>
+      </Box>
     </Box>
   );
 }

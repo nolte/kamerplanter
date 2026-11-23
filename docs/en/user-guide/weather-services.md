@@ -77,7 +77,7 @@ OpenWeatherMap is the only one of the three services that requires a personal AP
 Kamerplanter fetches the weather data of all sites at a fixed **fetch interval**: every **6 hours** by default, so up to four times a day. Shorter than 6 hours is not possible — that protects the quota of paid keys such as OpenWeatherMap. Longer intervals (up to one week) are possible.
 
 - **When it fetches:** At every full hour, Kamerplanter checks whether the interval has passed since the last successful fetch, and fetches if so. A changed interval applies from the next full hour, without a restart.
-- **When a fetch fails:** A fetch counts as successful when it supplied at least one site with weather data. If not a single site gets data, Kamerplanter tries again at the next full hour.
+- **When a fetch fails:** A fetch counts as successful when it supplied at least one site with weather data. If not a single site gets data, Kamerplanter tries again with the next scheduled fetch. Because the interval counts from the last **successful** fetch, after a failed scheduled fetch that is usually the next full hour already; if a manual fetch fails while the last success is less than one interval ago, the previously scheduled time stays. The fetch status shows which one it is.
 - **What happens next:** After every successful fetch, Kamerplanter immediately recalculates the [frost early-warning](notifications.md#frost-early-warning) and the [irrigation demand](watering-log.md#suggested-watering-volume). In addition, both run once a day in the morning on the most recently fetched data — so an approaching frost night is not missed even with a long interval or a weather-service outage.
 - **During a longer outage:** When three fetches in a row fail, the backend writes an error entry (`weather_fetch_outage`) to its log.
 - **Manual fetch:** You can also start a fetch for all sites right away. It runs in the background; its result (success or failure, time, number of sites and of sites with errors) then appears in the fetch status. A successful manual fetch restarts the interval. While a fetch is running, another one is refused; after a manual fetch you have to wait 10 minutes before you start the next one. While the weather feature is switched off, no manual fetch is possible either.
@@ -101,7 +101,8 @@ If the newest fetch failed, a red line below names the time and the number of si
 2. A progress bar shows that the fetch is running. Depending on the number of sites this takes a few seconds to a few minutes. You can leave the page meanwhile; the fetch keeps running in the background.
 3. When the fetch has finished, the result appears:
     - **Fetch finished** — how many sites have new weather data and how many forecast days were stored. If individual sites returned an error, their number is shown below; Kamerplanter retries them with the next fetch.
-    - **Fetch failed** — no site received weather data. Kamerplanter retries at the next full hour. Use **Test** on the individual services to check whether they are reachable.
+    - If a scheduled fetch started just before your click, no fetch of your own ran; the card says so and shows the result of the scheduled one. The same applies if another fetch was already running when you clicked: the card follows it and shows its result.
+    - **Fetch failed** — no site received weather data. Kamerplanter retries with the next scheduled fetch; the fetch status shows when that is. Use **Test** on the individual services to check whether they are reachable.
 
 If a fetch takes unusually long (more than 5 minutes), the card stops waiting and tells you that the result appears in the fetch status once it has finished.
 
@@ -110,7 +111,7 @@ If a fetch takes unusually long (more than 5 minutes), the card stops waiting an
 | Message | What you can do |
 |------|-------------|
 | A new fetch is possible from *time* | After a manual fetch you have to wait 10 minutes. From the time shown, the button becomes available again on its own. |
-| A fetch is running | A scheduled or another manual fetch has not finished yet. Wait until it has finished, then refresh the status. If someone else started a fetch just before your click, the card follows that fetch and shows its result. |
+| A fetch is running (button disabled) | A scheduled or another manual fetch has not finished yet. Wait until it has finished, then refresh the status. This is not a refusal: if a fetch is already running when you click, the card follows it (see above). |
 | The weather fetch is switched off | Your installation sets `WEATHER_ENABLED=false`. Then there are neither scheduled nor manual fetches; switch the weather function back on in the configuration. |
 | A background service is unreachable | Kamerplanter cannot check right now whether a fetch is already running, or cannot queue the fetch. Try again in a few minutes. |
 

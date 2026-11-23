@@ -12,6 +12,13 @@ export const WEATHER_FETCH_POLL_INTERVAL_MS = 3000;
  * will appear in the status instead of polling forever.
  */
 export const WEATHER_FETCH_MAX_POLLS = 100;
+/**
+ * How much earlier than the click a run may have started and still count as the
+ * one this click caused: the server's and the browser's clock can differ. A
+ * fetch takes the lock only after the POST was admitted, so its run cannot start
+ * long before the click.
+ */
+export const WEATHER_FETCH_CLOCK_TOLERANCE_MS = 120_000;
 
 /**
  * Where a manual fetch stands.
@@ -35,6 +42,18 @@ export type WeatherFetchRefusal =
   /** Anything else (network, 403, 5xx). */
   | { kind: 'error' };
 
+/**
+ * Whose run `result` is.
+ *
+ * - `own` — the manual fetch this click queued.
+ * - `scheduledInstead` — the click was accepted, but a scheduled run took the lock
+ *   first; the manual task then skips (`already_running`) and records no run of
+ *   its own, so the scheduled run's result is all there is.
+ * - `alreadyRunning` — the click was refused with 409 `WEATHER_FETCH_RUNNING`; the
+ *   card followed the run that held the lock.
+ */
+export type WeatherFetchResultOrigin = 'own' | 'scheduledInstead' | 'alreadyRunning';
+
 export interface UseWeatherFetchResult {
   status: WeatherFetchStatusResponse | null;
   statusLoading: boolean;
@@ -43,6 +62,8 @@ export interface UseWeatherFetchResult {
   phase: WeatherFetchPhase;
   /** The run that ended after this card's trigger (phase `finished`). */
   result: WeatherFetchRun | null;
+  /** Whose run `result` is; `null` while there is none. */
+  resultOrigin: WeatherFetchResultOrigin | null;
   refusal: WeatherFetchRefusal | null;
   /** Epoch-ms when the cooldown after the previous manual fetch ends; `null` when none runs. */
   cooldownUntil: number | null;
@@ -72,6 +93,7 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
   const [statusError, setStatusError] = useState(false);
   const [phase, setPhase] = useState<WeatherFetchPhase>('idle');
   const [result, setResult] = useState<WeatherFetchRun | null>(null);
+  const [resultOrigin, setResultOrigin] = useState<WeatherFetchResultOrigin | null>(null);
   const [refusal, setRefusal] = useState<WeatherFetchRefusal | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
 
@@ -142,9 +164,16 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
     return () => clearTimeout(timer);
   }, [cooldownUntil]);
 
-  /** Follow the status until a run newer than `baseline` has ended, or the budget is spent. */
+  /**
+   * Follow the status until a run newer than `baseline` has ended, or the budget is spent.
+   *
+   * `notBefore` (epoch-ms) additionally drops runs that started before it — a run
+   * that ended between the page load and the click is not this click's result,
+   * even when the fresh pre-click read failed and `baseline` is stale. `null` for
+   * the 409 path, where the followed run may have started well before the click.
+   */
   const pollUntilFinished = useCallback(
-    (baseline: string | null) => {
+    (baseline: string | null, notBefore: number | null, accepted: boolean) => {
       stopPolling();
       let polls = 0;
       const tick = async () => {
@@ -156,8 +185,14 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
           applyStatus(next);
           setStatusError(false);
           const latest = next.last_run ?? null;
-          if (next.running !== true && latest && runId(latest) !== baseline) {
+          const isNewRun =
+            latest !== null &&
+            runId(latest) !== baseline &&
+            (notBefore === null || Date.parse(latest.started_at) >= notBefore);
+          if (next.running !== true && latest && isNewRun) {
             setResult(latest);
+            if (!accepted) setResultOrigin('alreadyRunning');
+            else setResultOrigin(latest.trigger === 'manual' ? 'own' : 'scheduledInstead');
             setPhase('finished');
             return;
           }
@@ -178,22 +213,36 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
   );
 
   const trigger = useCallback(async () => {
-    const baseline = runId(statusRef.current?.last_run);
+    const clickedAt = Date.now();
     stopPolling();
     setPhase('starting');
     setResult(null);
+    setResultOrigin(null);
     setRefusal(null);
+    // The baseline is the newest run *right now*, not the one the page loaded: a
+    // scheduled run that ran while the page was open must not pass for this click's.
+    let baseline = runId(statusRef.current?.last_run);
+    try {
+      const fresh = await getWeatherFetchStatus();
+      if (!mountedRef.current) return;
+      applyStatus(fresh);
+      baseline = runId(fresh.last_run);
+    } catch (err) {
+      if (!mountedRef.current) return;
+      // Not fatal: the click-time bound in the poll still keeps an older run out.
+      captureHandledError(err, { source: 'useWeatherFetch.baseline' });
+    }
     try {
       await triggerWeatherFetch();
       if (!mountedRef.current) return;
       setPhase('running');
-      pollUntilFinished(baseline);
+      pollUntilFinished(baseline, clickedAt - WEATHER_FETCH_CLOCK_TOLERANCE_MS, true);
     } catch (err) {
       if (!mountedRef.current) return;
       if (isApiError(err) && err.errorCode === 'WEATHER_FETCH_RUNNING') {
         // Another run (scheduled or someone else's) holds the lock: follow that one.
         setPhase('running');
-        pollUntilFinished(baseline);
+        pollUntilFinished(baseline, null, false);
         return;
       }
       setPhase('idle');
@@ -243,11 +292,24 @@ export function useWeatherFetch(statusVersion = 0): UseWeatherFetchResult {
       reloadStatus,
       phase,
       result,
+      resultOrigin,
       refusal,
       cooldownUntil,
       canTrigger,
       trigger,
     }),
-    [status, statusLoading, statusError, reloadStatus, phase, result, refusal, cooldownUntil, canTrigger, trigger],
+    [
+      status,
+      statusLoading,
+      statusError,
+      reloadStatus,
+      phase,
+      result,
+      resultOrigin,
+      refusal,
+      cooldownUntil,
+      canTrigger,
+      trigger,
+    ],
   );
 }
