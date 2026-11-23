@@ -196,7 +196,7 @@ export default function MainLayout() {
               color="inherit"
               onClick={() => navigate('/settings')}
               sx={{ ml: 1 }}
-              aria-label={t('pages.auth.accountSettings')}
+              aria-label={t('pages.settings.title')}
             >
               <SettingsIcon />
             </IconButton>
@@ -231,7 +231,7 @@ export default function MainLayout() {
                 <Divider />
                 <MenuItem onClick={handleSettings}>
                   <ListItemIcon><SettingsIcon fontSize="small" /></ListItemIcon>
-                  {t('pages.auth.accountSettings')}
+                  {t('pages.settings.title')}
                 </MenuItem>
                 <MenuItem onClick={handlePrivacy} data-testid="menu-privacy">
                   <ListItemIcon><PrivacyTipIcon fontSize="small" /></ListItemIcon>

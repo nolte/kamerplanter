@@ -190,7 +190,7 @@ If your operator has additionally activated **cloud detection** (Kindwise), this
 **Revoking consent:**
 
 1. Click your profile picture in the top right
-2. Select **Account Settings** > **Privacy**
+2. Select **Privacy**
 3. Under **Consents**, click **Revoke** next to **Pest Detection (Cloud)**
 
 After revoking, only the local adapter is used (if enabled), or the button is hidden.

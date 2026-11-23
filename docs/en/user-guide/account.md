@@ -142,7 +142,7 @@ You only see the **Installation** group as an operator (platform admin; always i
 - **On a phone** you first see the list of groups. A tap opens the group; the back arrow in the top left takes you back to the list.
 
 !!! tip "Linking directly"
-    Every group has its own address (`/settings/<group>`, e.g. `/settings/security`), and every section an anchor on top (`/settings/security#apikeys`). Bookmarks of the former tab addresses such as `/settings#ha` are not redirected — they open the first group. An unknown group shows the "Page not found" error page. <!-- Issue #2935 -->
+    Every group has its own address (`/settings/<group>`, e.g. `/settings/security`), and every section an anchor on top (`/settings/security#apikeys`). Bookmarks of the former tab addresses such as `/settings#ha` are not redirected — on a computer they open the first group, on a phone the list of groups. An unknown group shows the "Page not found" error page. <!-- Issue #2935 -->
 
 ---
 

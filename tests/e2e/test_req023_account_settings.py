@@ -7,7 +7,7 @@ Spec-TC Mapping (test TC -> spec/e2e-testcases/TC-REQ-023.md):
   TC-REQ-023-027  ->  TC-023-029  Passwort-aendern Button disabled wenn leer
   TC-REQ-023-028  ->  TC-023-032  Verknuepfte Auth-Provider anzeigen
   TC-REQ-023-029  ->  TC-023-033  Letzten Auth-Provider entfernen -- verhindert
-  TC-REQ-023-030  ->  TC-023-026  Gruppen-Navigation in den Einstellungen
+  TC-REQ-023-030  ->  TC-023-085  Gruppen-Navigation in den Einstellungen
   TC-REQ-023-031  ->  TC-023-082  Abschnitt per Deep Link oeffnen
   TC-REQ-023-032  ->  TC-023-083  Unbekannte Einstellungsgruppe zeigt 404
   TC-REQ-023-033  ->  TC-023-084  Betreiber-Gruppe fuer Mitglied nicht erreichbar
@@ -33,6 +33,8 @@ DEMO_EMAIL = "demo@kamerplanter.example"
 DEMO_PASSWORD = "demo-passwort-2024"
 
 NOT_FOUND_PAGE = (By.CSS_SELECTOR, "[data-testid='not-found-page']")
+#: MUI's `md` breakpoint: below it the settings show the group list and detail views.
+MD_BREAKPOINT_PX = 900
 
 
 # -- Fixtures -----------------------------------------------------------------
@@ -246,11 +248,11 @@ class TestAccountSettingsSecurity:
             )
 
 
-# -- TC-023-026c, TC-023-082..084: Group navigation -----------------------------------------------
+# -- TC-023-082..085: Group navigation -----------------------------------------------
 
 
 class TestAccountSettingsTabs:
-    """Group navigation in the settings (Spec: TC-023-026, TC-023-082 to TC-023-084)."""
+    """Group navigation in the settings (Spec: TC-023-082 to TC-023-085)."""
 
     @pytest.mark.core_crud
     @pytest.mark.requires_auth
@@ -260,9 +262,9 @@ class TestAccountSettingsTabs:
         account_page: AccountSettingsPage,
         screenshot: Callable[..., Path],
     ) -> None:
-        """TC-023-026: The settings groups are listed and open their content (F-11).
+        """TC-023-085: The settings groups are listed and open their content (F-11).
 
-        Spec: TC-023-026 -- Profil anzeigen -- Gruppen-Navigation. On a desktop
+        Spec: TC-023-085 -- Gruppen-Navigation in den Einstellungen. On a desktop
         the groups sit in a side navigation, on a phone in a group list whose
         detail view carries a back arrow; both use the same entry ids.
         """
@@ -294,6 +296,8 @@ class TestAccountSettingsTabs:
         )
         account_page.wait_for_url_contains("/settings/security")
 
+    @pytest.mark.core_crud
+    @pytest.mark.requires_auth
     def test_section_deep_link(
         self,
         login_page: LoginPage,
@@ -317,13 +321,14 @@ class TestAccountSettingsTabs:
         assert "sicherheit" in title.lower(), (
             f"TC-REQ-023-031 FAIL: Expected the group 'Sicherheit & Zugang', got: {title!r}"
         )
-        if device_profile["name"] != "desktop":
-            # Phone/tablet: the detail view leads back to the group list.
+        if device_profile["width"] < MD_BREAKPOINT_PX:
+            # Below the `md` breakpoint (phone and tablet profiles) the group is a
+            # detail view that leads back to the group list.
             assert account_page.is_back_button_visible(), (
                 "TC-REQ-023-031 FAIL: Expected a back arrow in the group's detail view"
             )
             account_page.click_back()
-            account_page.wait_for_url_contains("/settings")
+            account_page.wait_for_element_visible(account_page.GROUP_LIST)
             assert "security" in account_page.get_group_keys(), (
                 "TC-REQ-023-031 FAIL: Expected the group list after the back arrow"
             )

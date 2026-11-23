@@ -206,6 +206,11 @@ export function settingsSectionElementId(section: string): string {
   return `settings-section-${section}`;
 }
 
+/** The DOM id of a group's navigation entry — where the focus returns after leaving the group on a phone. */
+export function settingsNavGroupElementId(group: string): string {
+  return `settings-nav-group-${group}`;
+}
+
 /** The DOM id of a group's heading — the "top of the group" an unknown fragment lands on. */
 export function settingsGroupHeadingId(group: string): string {
   return `settings-group-heading-${group}`;

@@ -320,3 +320,15 @@ describe('Sidebar — platform administration entry (F-12, #2935)', () => {
     expect(screen.getByTestId('nav-admin-platform')).not.toHaveAttribute('aria-current');
   });
 });
+
+describe('Sidebar — settings links (F-11, #2935)', () => {
+  it('points the beginner hint at the experience level section', () => {
+    renderWithProviders(<Sidebar open />, { store: createStoreWithExpertise('beginner') });
+    expect(screen.getByTestId('nav-beginner-hint')).toHaveAttribute('href', '/settings/display#experience');
+  });
+
+  it('keeps the settings entry selected inside a settings group', () => {
+    renderWithProviders(<Sidebar open />, { store: createStoreWithExpertise('expert'), route: '/settings/security' });
+    expect(screen.getByTestId('nav-settings')).toHaveAttribute('aria-current', 'page');
+  });
+});

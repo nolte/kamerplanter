@@ -19,6 +19,7 @@ import DnsOutlinedIcon from '@mui/icons-material/DnsOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   settingsGroupPath,
+  settingsNavGroupElementId,
   type SettingsGroupKey,
   type SettingsSectionKey,
   type VisibleSettingsGroup,
@@ -81,6 +82,8 @@ export default function SettingsNavigation({ groups, variant, activeGroup, activ
                   to={settingsGroupPath(group.key)}
                   selected={isActive}
                   aria-current={isActive && !activeSection ? 'page' : undefined}
+                  // The list variant's id is the focus target after the phone's back arrow.
+                  id={isList ? settingsNavGroupElementId(group.key) : undefined}
                   data-testid={`settings-group-${group.key}`}
                   // UI-NFR-001 R-011 — 48px touch targets; the list rows are taller still.
                   sx={{ borderRadius: isList ? 0 : 1, minHeight: isList ? 64 : 48 }}
@@ -106,7 +109,7 @@ export default function SettingsNavigation({ groups, variant, activeGroup, activ
                             selected={isSectionActive}
                             aria-current={isSectionActive ? 'location' : undefined}
                             data-testid={`settings-nav-section-${section.key}`}
-                            sx={{ borderRadius: 1, minHeight: 44, pl: 7 }}
+                            sx={{ borderRadius: 1, minHeight: 48, pl: 7 }}
                           >
                             <ListItemText
                               primary={t(section.labelKey)}

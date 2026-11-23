@@ -60,7 +60,7 @@ describe('MainLayout (light mode)', () => {
     const user = userEvent.setup();
     renderWithProviders(<MainLayout />);
 
-    const settings = screen.getByRole('button', { name: 'Kontoeinstellungen' });
+    const settings = screen.getByRole('button', { name: 'Einstellungen' });
     expect(settings).toBeInTheDocument();
     // No avatar/account menu and no tenant switcher in light mode.
     expect(screen.queryByRole('button', { name: 'Konto-Menü' })).toBeNull();

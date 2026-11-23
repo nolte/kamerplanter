@@ -31,7 +31,7 @@ Kamerplanter kennt zwei unabhängige Sichtbarkeits-/Aktivierungs-Ebenen, die in 
 | Ebene | Wer stellt sie ein? | Wirkung | Beispiel |
 |---|---|---|---|
 | **Operator-Env-Gate** (diese Seite) | Betreiber der Instanz, per Umgebungsvariable/Helm-Wert, wirkt **instanzweit** | Schaltet einen Backend-Endpunkt komplett ab (HTTP 404) oder lässt einen Pod erst gar nicht starten. Kein Nutzer kann das umgehen. | `AI_FEATURES_ENABLED=false` lässt `/ai/*` instanzweit mit HTTP 404 antworten. |
-| **Persönliche Modul-Sichtbarkeit** (REQ-021/042) | Jeder Nutzer für sich selbst, in den Kontoeinstellungen unter „Module & Funktionen" | Reine **Anzeige-Präferenz** — blendet einen Navigationsbereich in der Oberfläche aus, ändert nichts an Daten oder API-Verfügbarkeit. | Ein Nutzer blendet „Tankmanagement" aus, obwohl die Funktion instanzweit aktiv ist. |
+| **Persönliche Modul-Sichtbarkeit** (REQ-021/042) | Jeder Nutzer für sich selbst, in den Einstellungen unter „Anzeige & Verhalten" → „Module & Funktionen" | Reine **Anzeige-Präferenz** — blendet einen Navigationsbereich in der Oberfläche aus, ändert nichts an Daten oder API-Verfügbarkeit. | Ein Nutzer blendet „Tankmanagement" aus, obwohl die Funktion instanzweit aktiv ist. |
 
 ```mermaid
 flowchart LR

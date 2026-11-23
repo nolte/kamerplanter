@@ -61,6 +61,7 @@ import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setSidebarOpen } from '@/store/slices/uiSlice';
 import type { ExperienceLevel } from '@/api/types';
+import { settingsSectionPath } from '@/config/settingsGroups';
 
 interface NavItem {
   label: string;
@@ -563,7 +564,9 @@ export default function Sidebar({ open }: SidebarProps) {
               variant="caption"
               color="text.secondary"
               component={Link}
-              to="/settings"
+              // Shown to beginners only: what unlocks more features is the experience level (F-11).
+              to={settingsSectionPath('experience')}
+              data-testid="nav-beginner-hint"
               sx={{
                 display: 'block',
                 textDecoration: 'none',

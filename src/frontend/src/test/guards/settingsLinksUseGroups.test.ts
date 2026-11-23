@@ -30,6 +30,8 @@ function findings(file: string, source: string): string[] {
   const out: string[] = [];
   // `/settings#…` (also `/settings/#…`), quoted or in a template literal.
   for (const m of code.matchAll(/['"`]\/settings\/?#[^'"`]*/g)) out.push(`${file}: old tab link ${m[0].slice(1)}`);
+  // The same old form built from the base-path constant: `${SETTINGS_BASE_PATH}#x`.
+  for (const m of code.matchAll(/`\$\{SETTINGS_BASE_PATH\}\/?#[^`]*`/g)) out.push(`${file}: old tab link ${m[0]}`);
   // `/settings/<x>` whose first segment is not a group. Template interpolation is left to the type system.
   for (const m of code.matchAll(/['"`]\/settings\/([a-z][a-z0-9-]*)/g)) {
     if (!GROUP_KEYS.has(m[1])) out.push(`${file}: unknown settings group /settings/${m[1]}`);
@@ -50,6 +52,8 @@ describe('settings links (F-11 acceptance-5)', () => {
     expect(findings('a.tsx', "navigate('/settings#dashboard')")).toHaveLength(1);
     expect(findings('a.tsx', 'to="/settings#ha"')).toHaveLength(1);
     expect(findings('a.tsx', "to={'/settings/platform'}")).toHaveLength(1);
+    expect(findings('a.tsx', 'navigate(`${SETTINGS_BASE_PATH}#dashboard`)')).toHaveLength(1);
+    expect(findings('a.tsx', 'to={`${SETTINGS_BASE_PATH}/display#dashboard`}')).toEqual([]);
     expect(findings('a.tsx', "to='/settings/display#dashboard'")).toEqual([]);
     expect(findings('a.tsx', "navigate('/settings')")).toEqual([]);
     expect(findings('a.tsx', '// the old `/settings#ha` link')).toEqual([]);

@@ -142,7 +142,7 @@ Die Gruppe **Installation** siehst du nur als Betreiber (Plattform-Admin, im Lig
 - **Auf dem Smartphone** siehst du zuerst die Liste der Gruppen. Ein Tipp öffnet die Gruppe; mit dem Zurück-Pfeil oben links kommst du zur Liste zurück.
 
 !!! tip "Direkt verlinken"
-    Jede Gruppe hat eine eigene Adresse (`/settings/<gruppe>`, z. B. `/settings/security`), jeder Abschnitt zusätzlich ein Sprungziel (`/settings/security#apikeys`). Lesezeichen auf die früheren Tab-Adressen wie `/settings#ha` werden nicht umgeleitet — sie öffnen die erste Gruppe. Eine unbekannte Gruppe zeigt die Fehlerseite „Seite nicht gefunden". <!-- Issue #2935 -->
+    Jede Gruppe hat eine eigene Adresse (`/settings/<gruppe>`, z. B. `/settings/security`), jeder Abschnitt zusätzlich ein Sprungziel (`/settings/security#apikeys`). Lesezeichen auf die früheren Tab-Adressen wie `/settings#ha` werden nicht umgeleitet — am Computer öffnen sie die erste Gruppe, auf dem Smartphone die Liste der Gruppen. Eine unbekannte Gruppe zeigt die Fehlerseite „Seite nicht gefunden". <!-- Issue #2935 -->
 
 ---
 

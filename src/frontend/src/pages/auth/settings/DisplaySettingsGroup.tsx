@@ -24,7 +24,7 @@ import KioskSettingsTab from '../KioskSettingsTab';
 import ModulesSettingsTab from '../ModulesSettingsTab';
 import DashboardSettingsTab from '../DashboardSettingsTab';
 import SettingsSection from './SettingsSection';
-import { GRID_3COL } from './settingsLayout';
+import { GRID_3COL, GRID_3COL_WIDE_ITEM } from './settingsLayout';
 import { findSettingsSection, type SettingsGroupProps } from '@/config/settingsGroups';
 
 const EXPERIENCE_LEVELS: { level: ExperienceLevel; icon: React.ReactNode }[] = [
@@ -72,7 +72,7 @@ export default function DisplaySettingsGroup({ sections }: SettingsGroupProps) {
         <SettingsSection section={experienceSection}>
           <Box sx={GRID_3COL}>
             {/* Experience Level Selector — spans full on small, 2 cols on large */}
-            <Card variant="outlined" sx={{ gridColumn: { xs: '1 / -1', lg: '1 / 3' } }}>
+            <Card variant="outlined" sx={GRID_3COL_WIDE_ITEM}>
               <CardContent component="fieldset" sx={{ border: 'none', p: 0, m: 0, '&:last-child': { pb: 2 }, px: 2, pt: 2 }}>
                 <Typography component="legend" variant="h6" sx={{ pt: 1.5, mb: 0.5 }}>
                   {t('pages.auth.experienceLevelTitle')}

@@ -273,7 +273,7 @@ export function useModuleVisibility() {
 
 ### 4.4 Einstellungen: Abschnitt „Module & Funktionen"
 
-Neuer Tab in `AccountSettingsPage` (neben dem bestehenden `ExperienceLevelSwitcher` aus REQ-021):
+Abschnitt der Einstellungsgruppe „Anzeige & Verhalten" (`/settings/display#modules`, F-11), neben dem bestehenden `ExperienceLevelSwitcher` aus REQ-021:
 
 - Liste aller nicht-Kern-Module, **gruppiert nach Kategorie** (Akkordeon je Kategorie).
 - Pro Modul: `Switch` mit Label, erklärender Beschreibung und einem dezenten Badge, das den aktuellen Effektiv-Zustand zeigt („folgt Erfahrungsstufe: sichtbar/ausgeblendet" vs. „manuell ein/aus").

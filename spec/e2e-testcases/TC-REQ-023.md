@@ -668,13 +668,11 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 - Nutzer ist als Demo-Nutzer eingeloggt
 
 **Testschritte**:
-1. Nutzer navigiert zu `/settings` (bzw. `/settings/account#profile`)
-2. Nutzer öffnet über die Gruppen-Navigation die Gruppe "Sicherheit & Zugang"
+1. Nutzer navigiert zu `/settings/account#profile`
 
 **Erwartete Ergebnisse**:
-- Die Einstellungen sind in Gruppen gegliedert, nicht in einer horizontal scrollenden Tab-Leiste: auf dem Desktop eine Seitennavigation, auf dem Smartphone eine Gruppenliste (im Full-Modus für ein Mitglied: Profil & Konto, Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang, Integrationen; die Gruppe "Installation" erscheint nur für Betreiber, abgesetzt durch Trennlinie und Überschrift "Betrieb"; die Plattform-Verwaltung ist keine Gruppe, sondern die Seite `/admin/platform`)
-- Nach Schritt 2 zeigt die Gruppe "Sicherheit & Zugang" das Passwort-Formular; die Adresse lautet `/settings/security`
-- In der Gruppe "Profil & Konto" ist im Abschnitt "Profil" ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
+- Die Gruppe "Profil & Konto" ist geöffnet (Gruppenüberschrift sichtbar)
+- Im Abschnitt "Profil" ist ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
 - Das "Anzeigename"-Feld ist mit dem aktuellen Namen des Nutzers vorausgefüllt
 - Ein "Speichern"-Button ist vorhanden
 
@@ -1500,7 +1498,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 1. Nutzer ruft die frühere Adresse des Plattform-Tabs `/settings#platform` auf
 
 **Erwartete Ergebnisse**:
-- Die Einstellungen öffnen sich auf der ersten sichtbaren Gruppe ("Profil & Konto"; auf dem Smartphone die Gruppenliste) — die alte Tab-Adresse wird nicht umgeleitet (F-11)
+- Die Einstellungen öffnen auf dem Desktop die erste sichtbare Gruppe ("Profil & Konto"), auf dem Smartphone die Gruppenliste — die alte Tab-Adresse wird nicht umgeleitet (F-11)
 - Eine Gruppe oder ein Abschnitt "Plattform" ist nicht vorhanden — auch nicht für einen Platform-Admin; die Inhalte liegen auf `/admin/platform`
 
 **Tags**: [REQ-023, platform-admin, konto-einstellungen]
@@ -1564,6 +1562,28 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 - Der Abschnitt "Speicher" und die Gruppe "Installation" werden nicht angezeigt
 
 **Tags**: [REQ-023, konto-einstellungen, berechtigung, navigation]
+
+---
+
+### TC-023-085: Gruppen-Navigation in den Einstellungen
+
+**Requirement**: REQ-023 §4.2 AccountSettingsPage; F-11 (#2935) acceptance-1, acceptance-3
+**Priority**: High
+**Category**: Navigation
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer (kein Platform-Admin) eingeloggt, Full-Modus
+
+**Testschritte**:
+1. Nutzer navigiert zu `/settings`
+2. Nutzer öffnet über die Gruppen-Navigation die Gruppe "Sicherheit & Zugang"
+
+**Erwartete Ergebnisse**:
+- Die Einstellungen sind in Gruppen gegliedert, nicht in einer horizontal scrollenden Tab-Leiste: auf dem Desktop eine Seitennavigation, auf dem Smartphone eine Gruppenliste (für ein Mitglied: Profil & Konto, Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang, Integrationen)
+- Die Gruppe "Installation" fehlt — sie erscheint nur für Betreiber, abgesetzt durch Trennlinie und Überschrift "Betrieb"; die Plattform-Verwaltung ist keine Gruppe, sondern die Seite `/admin/platform`
+- Nach Schritt 2 zeigt die Gruppe "Sicherheit & Zugang" das Passwort-Formular; die Adresse lautet `/settings/security`
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, mobile]
 
 ---
 
@@ -2061,7 +2081,7 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 | §4.2 E-Mail-Verifizierung | Verifizierungsseite | TC-023-007 bis TC-023-008 |
 | §4.2 Login-Seite | Login, SSO-Buttons, Checkbox | TC-023-009 bis TC-023-019 |
 | §4.2 AccountSettings Profil | Profil anzeigen, bearbeiten | TC-023-026 bis TC-023-028 |
-| §4.2 Einstellungsgruppen (F-11) | Gruppen-Navigation, Deep Link, 404, Betreiber-Gruppe | TC-023-026, TC-023-082 bis TC-023-084 |
+| §4.2 Einstellungsgruppen (F-11) | Gruppen-Navigation, Deep Link, 404, Betreiber-Gruppe | TC-023-082 bis TC-023-085 |
 | §4.2 AccountSettings Sicherheit | Passwort, Provider-Verwaltung | TC-023-029 bis TC-023-034 |
 | §4.2 AccountSettings Sitzungen | Session-Verwaltung | TC-023-035 bis TC-023-036 |
 | §3.8/§4.6 Gerätekopplung (QR) | QR-Dialog: öffnen, QR anzeigen, Countdown, neuer Code (#1118) | TC-023-073 bis TC-023-076 |

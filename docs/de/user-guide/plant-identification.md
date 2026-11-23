@@ -194,7 +194,7 @@ Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schal
 === "Full-Modus"
 
     1. Klicke oben rechts auf dein Profilbild
-    2. Wähle **Kontoeinstellungen** > **Datenschutz**
+    2. Wähle **Datenschutz**
     3. Klicke unter **Einwilligungen** neben **Foto-Identifikation** auf **Widerrufen**
 
     Der Widerruf wird mit Zeitstempel im Backend gespeichert und gilt sofort. Du kannst die Einwilligung jederzeit erneut erteilen.
@@ -203,7 +203,7 @@ Wenn du die Einwilligung zur Bildübertragung widerrufst, sind alle Kamera-Schal
 
     Im Light-Modus gibt es keine serverseitigen Datenschutzeinstellungen. Die Einwilligung ist im **lokalen Browserspeicher** hinterlegt.
 
-    1. Öffne die **Kontoeinstellungen** (oben rechts)
+    1. Öffne die **Einstellungen** (oben rechts)
     2. Klicke auf **Foto-Identifikation** > **Einwilligung zurücksetzen**
     3. Beim nächsten Foto-Upload wird der Einwilligungs-Dialog erneut angezeigt
 

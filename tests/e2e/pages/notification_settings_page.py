@@ -45,7 +45,7 @@ class NotificationSettingsPage(BasePage):
     # ── Container / structural ──────────────────────────────────────────
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
     SAVE_BUTTON = (By.CSS_SELECTOR, "[data-testid='notification-settings-save']")
-    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-group-title']")
+    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-panel-title']")
 
     # ── Channel toggles ─────────────────────────────────────────────────
     CHANNEL_KEYS: tuple[str, ...] = ("home_assistant", "email", "pwa", "apprise")

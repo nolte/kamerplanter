@@ -1,4 +1,4 @@
-"""Page object for the Account Settings page (REQ-023)."""
+"""Page object for the grouped settings page (REQ-023, F-11)."""
 
 from __future__ import annotations
 
@@ -44,12 +44,11 @@ class AccountSettingsPage(BasePage):
     # ── Page-level locators ─────────────────────────────────────────────
     PAGE = (By.CSS_SELECTOR, "[data-testid='account-settings-page']")
     #: Group entries: the desktop side navigation and the phone's group list
-    #: carry the same ``settings-group-<key>`` ids.
-    GROUP_ENTRIES = (
-        By.CSS_SELECTOR,
-        "[data-testid^='settings-group-']:not([data-testid^='settings-group-panel-']):not([data-testid='settings-group-title'])",
-    )
-    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-group-title']")
+    #: carry the same ``settings-group-<key>`` ids. The prefix belongs to the
+    #: entries alone -- the open group's panel and heading are ``settings-panel-*``.
+    GROUP_ENTRIES = (By.CSS_SELECTOR, "[data-testid^='settings-group-']")
+    GROUP_LIST = (By.CSS_SELECTOR, "[data-testid='settings-nav-list']")
+    GROUP_TITLE = (By.CSS_SELECTOR, "[data-testid='settings-panel-title']")
     BACK_BUTTON = (By.CSS_SELECTOR, "[data-testid='settings-back-button']")
     ERROR_ALERT = (By.CSS_SELECTOR, ".MuiAlert-colorError")
 
@@ -61,7 +60,7 @@ class AccountSettingsPage(BasePage):
     @staticmethod
     def group_panel(group: str) -> tuple[str, str]:
         """Locator of the open group's content panel."""
-        return (By.CSS_SELECTOR, f"[data-testid='settings-group-panel-{group}']")
+        return (By.CSS_SELECTOR, f"[data-testid='settings-panel-{group}']")
 
     @staticmethod
     def section(section: str) -> tuple[str, str]:

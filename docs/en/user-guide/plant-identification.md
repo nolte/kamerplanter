@@ -194,7 +194,7 @@ If you revoke your consent to image transfer, all camera buttons are immediately
 === "Full mode"
 
     1. Click your profile picture in the top right
-    2. Choose **Account Settings** > **Privacy**
+    2. Choose **Privacy**
     3. Under **Consents**, click **Revoke** next to **Photo Identification**
 
     The revocation is saved with a timestamp in the backend and takes effect immediately. You can grant consent again at any time.
@@ -203,7 +203,7 @@ If you revoke your consent to image transfer, all camera buttons are immediately
 
     Light mode has no server-side privacy settings. Your consent is stored in the **local browser storage**.
 
-    1. Open **Account Settings** (top right)
+    1. Open **Settings** (top right)
     2. Click **Photo Identification** > **Reset Consent**
     3. The consent dialog will appear again the next time you try to upload a photo
 

@@ -20,12 +20,14 @@ import IntegrationsSettingsGroup from './settings/IntegrationsSettingsGroup';
 import InstallationSettingsGroup from './settings/InstallationSettingsGroup';
 import SettingsNavigation, { SettingsGroupList } from './settings/SettingsNavigation';
 import { useSettingsGates } from './settings/useSettingsGates';
+import { SETTINGS_PANEL_CONTAINER } from './settings/settingsLayout';
 import {
   SETTINGS_BASE_PATH,
   isSettingsGroupKey,
   resolveVisibleSettingsGroups,
   settingsGroupHeadingId,
   settingsGroupPath,
+  settingsNavGroupElementId,
   settingsSectionElementId,
   type SettingsGroupKey,
   type SettingsGroupProps,
@@ -95,10 +97,17 @@ export default function AccountSettingsPage() {
   const activeGroupKey = activeGroup?.key ?? null;
   useEffect(() => {
     const wasFirstRender = isFirstRender.current;
-    const groupChanged = previousGroupKey.current !== activeGroupKey;
+    const leftGroupKey = previousGroupKey.current;
+    const groupChanged = leftGroupKey !== activeGroupKey;
     isFirstRender.current = false;
     previousGroupKey.current = activeGroupKey;
-    if (!activeGroupKey) return;
+    if (!activeGroupKey) {
+      // Phone, back from a group's detail view: the focus would otherwise fall to
+      // <body> with the unmounted back arrow. It goes to the entry of the group just
+      // left, so a keyboard or screen-reader user continues where they were.
+      if (leftGroupKey) document.getElementById(settingsNavGroupElementId(leftGroupKey))?.focus();
+      return;
+    }
     const heading = document.getElementById(settingsGroupHeadingId(activeGroupKey));
     // A group opened from the navigation moves the keyboard focus to its heading,
     // so a screen-reader user hears where they landed (UI-NFR-002).
@@ -121,7 +130,7 @@ export default function AccountSettingsPage() {
   const GroupComponent = activeGroup ? GROUP_COMPONENTS[activeGroup.key] : null;
 
   const groupDetail = activeGroup && GroupComponent && (
-    <Box sx={{ flex: 1, minWidth: 0 }} data-testid={`settings-group-panel-${activeGroup.key}`}>
+    <Box sx={{ flex: 1, minWidth: 0, ...SETTINGS_PANEL_CONTAINER }} data-testid={`settings-panel-${activeGroup.key}`}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 3 }}>
         {isMobile && (
           <IconButton
@@ -140,7 +149,7 @@ export default function AccountSettingsPage() {
             component="h2"
             variant="h5"
             tabIndex={-1}
-            data-testid="settings-group-title"
+            data-testid="settings-panel-title"
             sx={{ outline: 'none', scrollMarginTop: (th) => th.spacing(10) }}
           >
             {t(activeGroup.titleKey)}

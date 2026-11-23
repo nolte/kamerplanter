@@ -190,7 +190,7 @@ Wenn dein Betreiber zusätzlich die **Cloud-Erkennung** (Kindwise) aktiviert hat
 **Einwilligung widerrufen:**
 
 1. Klicke oben rechts auf dein Profilbild
-2. Wähle **Konto-Einstellungen** > **Datenschutz**
+2. Wähle **Datenschutz**
 3. Klicke unter **Einwilligungen** neben **Schädlingserkennung (Cloud)** auf **Widerrufen**
 
 Nach dem Widerruf wird ausschließlich der lokale Adapter verwendet (sofern aktiviert) oder der Button ist ausgeblendet.

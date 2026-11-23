@@ -166,7 +166,7 @@ describe('settings layout — desktop (acceptance-1)', () => {
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
     // `/settings` opens the first group next to the navigation.
-    expect(screen.getByTestId('settings-group-panel-account')).toBeInTheDocument();
+    expect(screen.getByTestId('settings-panel-account')).toBeInTheDocument();
     expect(within(nav).getByTestId('settings-group-account')).toHaveClass('Mui-selected');
     expect(screen.queryByTestId('settings-back-button')).not.toBeInTheDocument();
   });
@@ -178,14 +178,14 @@ describe('settings layout — desktop (acceptance-1)', () => {
     await user.click(await screen.findByTestId('settings-group-display'));
 
     expect(router.state.location.pathname).toBe('/settings/display');
-    expect(await screen.findByTestId('settings-group-panel-display')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-display')).toBeInTheDocument();
     const sections = screen.getByTestId('settings-nav-sections-display');
     expect(within(sections).getByTestId('settings-nav-section-dashboard')).toHaveAttribute(
       'href',
       '/settings/display#dashboard',
     );
     // Keyboard focus follows to the group heading (UI-NFR-002).
-    await waitFor(() => expect(screen.getByTestId('settings-group-title')).toHaveFocus());
+    await waitFor(() => expect(screen.getByTestId('settings-panel-title')).toHaveFocus());
   });
 
   it('sets the operator group apart below a divider and a heading', async () => {
@@ -208,12 +208,12 @@ describe('settings layout — phone (acceptance-1)', () => {
 
     const list = await screen.findByTestId('settings-nav-list');
     expect(screen.queryByTestId('settings-nav-sidebar')).not.toBeInTheDocument();
-    expect(screen.queryByTestId(/^settings-group-panel-/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(/^settings-panel-/)).not.toBeInTheDocument();
 
     await user.click(within(list).getByTestId('settings-group-security'));
 
     expect(router.state.location.pathname).toBe('/settings/security');
-    expect(await screen.findByTestId('settings-group-panel-security')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-security')).toBeInTheDocument();
     expect(screen.queryByTestId('settings-nav-list')).not.toBeInTheDocument();
 
     const back = screen.getByTestId('settings-back-button');
@@ -221,13 +221,16 @@ describe('settings layout — phone (acceptance-1)', () => {
     await user.click(back);
 
     expect(router.state.location.pathname).toBe('/settings');
-    expect(await screen.findByTestId('settings-nav-list')).toBeInTheDocument();
+    const listAgain = await screen.findByTestId('settings-nav-list');
+    // The focus does not fall to <body> with the unmounted back arrow: it returns
+    // to the entry of the group just left.
+    await waitFor(() => expect(within(listAgain).getByTestId('settings-group-security')).toHaveFocus());
   });
 
   it('opens a section link as the group detail scrolled to the section', async () => {
     renderAt('/settings/display#dashboard');
 
-    expect(await screen.findByTestId('settings-group-panel-display')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-display')).toBeInTheDocument();
     expect(screen.getByTestId('settings-back-button')).toBeInTheDocument();
     await waitFor(() => expect(scrolledTo).toContain('settings-section-dashboard'));
   });
@@ -242,7 +245,7 @@ describe('settings inventory — rendered (acceptance-2)', () => {
     const seen: string[] = [];
     for (const group of resolveVisibleSettingsGroups(gatesFor(options))) {
       renderAt(`/settings/${group.key}`, options);
-      const panel = await screen.findByTestId(`settings-group-panel-${group.key}`);
+      const panel = await screen.findByTestId(`settings-panel-${group.key}`);
       const rendered = renderedSections(panel);
       expect(rendered, group.key).toEqual(group.sections.map((s) => s.key));
       seen.push(...rendered);
@@ -277,7 +280,7 @@ describe('settings navigation — gate matrix (acceptance-3)', () => {
 
   it('renders the smart-home-gated sections only with smart home on', async () => {
     renderAt('/settings/integrations', { smartHome: false });
-    const panel = await screen.findByTestId('settings-group-panel-integrations');
+    const panel = await screen.findByTestId('settings-panel-integrations');
     expect(renderedSections(panel)).toEqual(['ha']);
   });
 });
@@ -286,7 +289,7 @@ describe('settings routing (acceptance-4)', () => {
   it('opens group and section from /settings/<group>#<section>', async () => {
     renderAt('/settings/security#apikeys');
 
-    expect(await screen.findByTestId('settings-group-panel-security')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-security')).toBeInTheDocument();
     await waitFor(() => expect(scrolledTo).toContain('settings-section-apikeys'));
     expect(screen.getByTestId('settings-nav-section-apikeys')).toHaveClass('Mui-selected');
   });
@@ -301,7 +304,7 @@ describe('settings routing (acceptance-4)', () => {
   it('shows the first visible group for a known group the user does not see', async () => {
     const { router } = renderAt('/settings/installation#storage', { platformAdmin: false });
 
-    expect(await screen.findByTestId('settings-group-panel-account')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-account')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/settings/account');
     expect(screen.queryByTestId('settings-section-storage')).not.toBeInTheDocument();
   });
@@ -314,13 +317,13 @@ describe('settings routing (acceptance-4)', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(router.state.location.pathname).toBe('/settings/installation');
-    expect(screen.queryByTestId(/^settings-group-panel-/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(/^settings-panel-/)).not.toBeInTheDocument();
   });
 
   it('shows the top of the group for an unknown section', async () => {
     renderAt('/settings/display#no-such-section');
 
-    expect(await screen.findByTestId('settings-group-panel-display')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-display')).toBeInTheDocument();
     await waitFor(() => expect(scrolledTo).toContain('settings-group-heading-display'));
     expect(scrolledTo.some((id) => id.startsWith('settings-section-'))).toBe(false);
   });
@@ -328,7 +331,7 @@ describe('settings routing (acceptance-4)', () => {
   it('lands an old /settings#<tab> bookmark on the first visible group (no mapping, Q5)', async () => {
     const { router } = renderAt('/settings#ha');
 
-    expect(await screen.findByTestId('settings-group-panel-account')).toBeInTheDocument();
+    expect(await screen.findByTestId('settings-panel-account')).toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/settings');
   });
 });

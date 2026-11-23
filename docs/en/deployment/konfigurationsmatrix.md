@@ -31,7 +31,7 @@ Kamerplanter has two independent visibility/activation layers that are frequentl
 | Layer | Who sets it? | Effect | Example |
 |---|---|---|---|
 | **Operator env gate** (this page) | The instance operator, via environment variable/Helm value, applies **instance-wide** | Fully disables a backend endpoint (HTTP 404) or prevents a pod from starting at all. No user can bypass it. | `AI_FEATURES_ENABLED=false` makes `/ai/*` answer with HTTP 404 instance-wide. |
-| **Personal module visibility** (REQ-021/042) | Every user for themselves, in Account Settings under "Modules & Features" | Pure **display preference** — hides a navigation area in the UI, changes nothing about data or API availability. | A user hides "Tank Management" even though the feature is active instance-wide. |
+| **Personal module visibility** (REQ-021/042) | Every user for themselves, in Settings under "Display & behaviour" → "Modules & features" | Pure **display preference** — hides a navigation area in the UI, changes nothing about data or API availability. | A user hides "Tank Management" even though the feature is active instance-wide. |
 
 ```mermaid
 flowchart LR

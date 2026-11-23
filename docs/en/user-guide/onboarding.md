@@ -15,7 +15,7 @@ Kamerplanter ships with 11 starter kits:
 --8<-- "docs/_generated/starter-kits.en.md"
 
 !!! tip "Tip"
-    You can launch the wizard again at any time — for example to add a second scenario or change your experience level. The link is in **Account Settings** under **Restart Onboarding Wizard**.
+    You can launch the wizard again at any time — for example to add a second scenario or change your experience level. The link is in **Settings** under **Restart Onboarding Wizard**.
 
 ---
 
@@ -51,7 +51,7 @@ You choose one of three levels that determines which fields and menu items are v
 | **Expert** | Everything: [IPM](pest-management.md), EC budgets, calibration, imports | Professional cultivation |
 
 !!! note "Note"
-    You can change your experience level at any time in **Account Settings** under **Experience Level**. You can also reveal individual fields without switching the entire level.
+    You can change your experience level at any time in **Settings** under **Display & behaviour** → **Experience level**. You can also reveal individual fields without switching the entire level.
 
 ---
 
