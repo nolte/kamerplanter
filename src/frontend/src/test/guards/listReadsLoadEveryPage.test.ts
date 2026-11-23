@@ -10,12 +10,17 @@ import { describe, it, expect } from 'vitest';
  * found in one audit, the last of them failing the nightly core journey (`FeedingEventCreateDialog`).
  *
  * **The rule.** Outside `src/api/` a paged reader is called only with a variable offset (a paging loop such as
- * `fetchAllPages` or a slice passing its caller's window through); the complete set comes from its `listAll*`
- * sibling. A literal `limit: <n>` in a call outside `src/api/` is a finding too. A read that is bounded on purpose
- * goes on {@link BOUNDED_READS} with the reason it may stop at one page.
+ * `fetchAllPages`); the complete set comes from its `listAll*` sibling. In `src/store/` even a variable offset is a
+ * finding unless it is the page callback of `fetchAllPages`: a slice passing its thunk's window through hands every
+ * `{}` dispatch the backend's default window. A literal `limit: <n>` in a call outside `src/api/` is a finding too.
+ * A read that is bounded on purpose goes on {@link BOUNDED_READS} with the reason it may stop at one page.
  *
  * The paged readers are derived from `src/api/endpoints/` — every exported function whose first parameter is
- * `offset` or a params object with an `offset` field — so a new paged endpoint is covered without editing this file.
+ * `offset` or an inline params object with an `offset` field — so such a new endpoint is covered without editing
+ * this file. Not covered: readers that take a key before the window (`getPlantFeedingHistory(plantKey, offset,
+ * limit)`, `getLocationWateringLogs`, `getStates`, `getFillEvents`) or a named params type (`getNotifications`);
+ * today these are per-object histories, bounded on purpose. An allowlist entry exempts its call prefix in its whole
+ * file, so a second bounded call of the same reader there needs review by hand.
  */
 
 const PRODUCTION_SOURCES = import.meta.glob(
@@ -76,9 +81,6 @@ const BOUNDED_READS: Record<string, Record<string, string>> = {
     'listSites(offset':
       'One-page branch kept for the offline cache, which keys a site list by its window (`siteListEntry`); every dispatcher passes `all: true`.',
   },
-  'store/slices/onboardingSlice.ts': {
-    'listSites(0': '`fetchExistingSites` has no production dispatcher; left as is until it gets one.',
-  },
   'store/createListSlice.ts': {
     'limit: 50': 'Initial pagination state of the list-slice factory, not a request.',
   },
@@ -103,6 +105,13 @@ function endpointBindings(code: string): { namespaces: Set<string>; named: Map<s
   const named = new Map<string, string>();
   for (const m of code.matchAll(/import\s+\*\s+as\s+(\w+)\s+from\s+['"][^'"]*api\/endpoints\/[^'"]*['"]/g)) {
     namespaces.add(m[1]);
+  }
+  // The barrel `@/api` re-exports every endpoint module as a namespace (`export * as sitesApi from …`).
+  for (const m of code.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"](?:@\/api|(?:\.\.?\/)+api)['"]/g)) {
+    for (const part of m[1].split(',')) {
+      const local = part.trim().replace(/^type\s+/, '').split(/\s+as\s+/).pop()?.trim();
+      if (local) namespaces.add(local);
+    }
   }
   for (const m of code.matchAll(/import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"][^'"]*api\/endpoints\/[^'"]*['"]/g)) {
     for (const part of m[1].split(',')) {
@@ -215,6 +224,8 @@ describe('list reads load every page (#3015 slice A)', () => {
     expect(findings('/src/x.tsx', 'dispatch(fetchSites({ limit: 200 }))', readers)).toEqual(['x.tsx: limit: 200']);
     expect(findings('/src/x.tsx', "get('/x', { params: { state: 'active', limit: 200 } })", readers)).toHaveLength(1);
     expect(findings('/src/x.tsx', `${ns}api.listPropagationEvents({ limit: 200 })`, readers)).toHaveLength(1);
+    // Through the barrel `@/api`, whose namespaces re-export the endpoint modules.
+    expect(findings('/src/x.tsx', "import { sitesApi } from '@/api';\nsitesApi.listSites(0, 200)", readers)).toHaveLength(1);
     // Not findings: the all-pages reader, a paging loop, an unpaged reader, a comment, a same-named store thunk.
     expect(findings('/src/x.tsx', `${ns}plantApi.listAllPlantInstances().then(setPlants)`, readers)).toEqual([]);
     expect(

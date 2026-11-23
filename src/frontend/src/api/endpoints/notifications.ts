@@ -132,7 +132,13 @@ export async function markAllRead(): Promise<void> {
   const items = await fetchAllPages(
     async (offset, limit) => (await getNotifications({ offset, limit, unread_only: true })).items,
   );
-  await Promise.all(
-    items.filter((n) => !n.read_at).map((n) => markRead(n.key)),
-  );
+  // A few at a time: with the 200-row cap gone, one Promise.all would open a request per unread notification at
+  // once and starve the browser's connection pool (the fan-out of #3032).
+  const unread = items.filter((n) => !n.read_at);
+  for (let i = 0; i < unread.length; i += MARK_ALL_READ_CONCURRENCY) {
+    await Promise.all(unread.slice(i, i + MARK_ALL_READ_CONCURRENCY).map((n) => markRead(n.key)));
+  }
 }
+
+/** How many `markRead` requests {@link markAllRead} keeps in flight. */
+const MARK_ALL_READ_CONCURRENCY = 6;

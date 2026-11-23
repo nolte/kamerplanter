@@ -203,11 +203,12 @@ describe('onboardingSlice thunks', () => {
     expect(starterKitsApi.listKitsForTenant).toHaveBeenCalledWith('hard');
   });
 
-  it('fetchExistingSites stores the sites', async () => {
-    vi.mocked(sitesApi.listSites).mockResolvedValue([{ key: 's1' }] as never);
+  it('fetchExistingSites loads every page and stores the sites', async () => {
+    vi.mocked(sitesApi.listAllSites).mockResolvedValue([{ key: 's1' }] as never);
     const store = makeOnboardingStore();
     await store.dispatch(fetchExistingSites());
-    expect(sitesApi.listSites).toHaveBeenCalledWith(0, 100);
+    expect(sitesApi.listAllSites).toHaveBeenCalledWith();
+    expect(sitesApi.listSites).not.toHaveBeenCalled();
     expect(store.getState().onboarding.existingSites).toEqual([{ key: 's1' }]);
   });
 

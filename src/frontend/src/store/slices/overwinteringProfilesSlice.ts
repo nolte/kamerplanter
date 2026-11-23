@@ -53,7 +53,7 @@ function overviewCases(
 const { slice, reducer, fetchList, fetchOne, actions } =
   createListSlice<OverwinteringProfile>({
     name: 'overwinteringProfiles',
-    // Every page (#3015): 175 seeded profiles, and the list view searches and sorts client-side.
+    // Every page (#3015): the list view searches and sorts client-side, one window would hide the rest.
     list: () => api.listAllOverwinteringProfiles(),
     getOne: (key) => api.getOverwinteringProfile(key),
     extraCases: overviewCases,

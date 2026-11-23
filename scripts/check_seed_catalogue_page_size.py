@@ -200,6 +200,12 @@ KNOWN_UNREGISTERED_LOADERS: dict[str, str] = {
         "exists for the same client-side-search reason (#995), which is why it looks "
         "like a catalogue loader from here. See the CATALOGUES docstring."
     ),
+    "endpoints/overwinteringProfiles": (
+        "Overwintering profiles are tenant-owned (`overwintering_profiles`, read by tenant window). The seeded "
+        "rows of seed_data/overwintering_profiles.yaml go to `overwintering_profile_templates`, which this "
+        "endpoint never serves, so a seed row count says nothing about it. The all-pages reader exists because "
+        "the list view searches and sorts client-side (#3015 slice A)."
+    ),
     "endpoints/sites": (
         'Sites are tenant-owned data, not seeded reference data: the collection starts empty, so a seed row count says nothing about it. The all-pages reader exists because the list view searches and sorts client-side (#3015 slice A), which is why it looks like a catalogue loader from here.'
     ),
@@ -377,15 +383,6 @@ CATALOGUES: tuple[Catalogue, ...] = (
         loader="listAllPhaseSequences",
         endpoint_module="endpoints/phaseSequences",
         capped_reader="listPhaseSequences",
-    ),
-    Catalogue(
-        name="overwintering_profiles",
-        seed_keys=("overwintering_profiles",),
-        identity=("_key", "species_scientific_name"),
-        owner="store/slices/overwinteringProfilesSlice.ts",
-        loader="listAllOverwinteringProfiles",
-        endpoint_module="endpoints/overwinteringProfiles",
-        capped_reader="listOverwinteringProfiles",
     ),
     Catalogue(
         name="ipm_pests",

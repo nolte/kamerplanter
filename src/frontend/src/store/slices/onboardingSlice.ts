@@ -60,7 +60,8 @@ export const fetchStarterKits = createAsyncThunk(
 export const fetchExistingSites = createAsyncThunk(
   'onboarding/fetchExistingSites',
   async () => {
-    return sitesApi.listSites(0, 100);
+    // Every page (#3015): the wizard offers these sites as a picker.
+    return sitesApi.listAllSites();
   },
 );
 
