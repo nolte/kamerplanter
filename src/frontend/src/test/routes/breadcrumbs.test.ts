@@ -57,11 +57,46 @@ describe('buildBreadcrumbs', () => {
     expect(buildBreadcrumbs('/stammdaten/species/sp-1/cultivars/cv-1')).toEqual([]);
   });
 
-  it('resolves a nested admin route to its /settings parent', () => {
-    expect(buildBreadcrumbs('/admin/tenants')).toEqual([
+  // F-12 (#2935): the admin pages hang under the platform admin's hub, not under
+  // the personal settings page that used to carry it as a tab.
+  it('resolves the platform admin hub under the dashboard', () => {
+    expect(buildBreadcrumbs('/admin/platform')).toEqual([
       { label: 'nav.dashboard', path: '/dashboard' },
-      { label: 'nav.settings', path: '/settings' },
-      { label: 'pages.auth.adminTenantsTitle' },
+      { label: 'nav.platformAdmin' },
     ]);
+  });
+
+  it.each([
+    ['/admin/oidc-providers', 'pages.admin.oidc.title'],
+    ['/admin/plans', 'pages.plans.title'],
+    ['/admin/tenant-imports', 'pages.tenantImports.title'],
+  ])('resolves %s to the platform admin hub as its parent', (path, label) => {
+    expect(buildBreadcrumbs(path)).toEqual([
+      { label: 'nav.dashboard', path: '/dashboard' },
+      { label: 'nav.platformAdmin', path: '/admin/platform' },
+      { label },
+    ]);
+  });
+
+  it.each(['/admin/tenants/t-1', '/admin/users/u-1'])(
+    'resolves %s to the hub as its list crumb, once',
+    (path) => {
+      // `/admin/tenants` and `/admin/users` are no routes of their own — the lists
+      // are the hub's tables — so the list crumb is the hub, and it appears once.
+      const crumbs = buildBreadcrumbs(path);
+      expect(crumbs).toEqual([
+        { label: 'nav.dashboard', path: '/dashboard' },
+        { label: 'nav.platformAdmin', path: '/admin/platform' },
+        { label: 'nav.detail' },
+      ]);
+      const targets = crumbs.map((c) => c.path).filter(Boolean);
+      expect(new Set(targets).size).toBe(targets.length);
+    },
+  );
+
+  it('no longer routes any admin page through the settings page', () => {
+    for (const path of ['/admin/platform', '/admin/tenants/t-1', '/admin/users/u-1', '/admin/plans']) {
+      expect(buildBreadcrumbs(path).map((c) => c.path)).not.toContain('/settings');
+    }
   });
 });

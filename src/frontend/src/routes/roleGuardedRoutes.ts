@@ -263,28 +263,28 @@ export interface PlatformAdminRoute {
  *
  * The survey is over the **axis**, not over the URL prefix: every frontend module
  * that calls an `/admin/...` path was traced to the pages that import it, and each
- * backend `/admin/**` operation read for its dependency. Six routes reach the
- * platform-admin gate, and only three of them are whole admin pages:
+ * backend `/admin/**` operation read for its dependency. Re-counted for F-12
+ * (#2935): nine routes reach the platform-admin gate, and six of them are whole
+ * admin pages:
  *
- * - `admin/tenants/:key`, `admin/users/:key`, `admin/oidc-providers` (#1906), `admin/plans` (#2142),
- *   `admin/tenant-imports` (#2138) —
+ * - `admin/platform` (F-12, #2935), `admin/tenants/:key`, `admin/users/:key`,
+ *   `admin/oidc-providers` (#1906), `admin/plans` (#2142), `admin/tenant-imports` (#2138) —
  *   **listed below.** Every request these pages make is `require_platform_admin`,
  *   including the `GET`s they load with. A refused member has nothing to read here at all.
- * - `settings` — the account page **every member owns**. Its *platform* tab is
- *   the admin surface, and since #1385 so is the instance-wide half of the *ha*
- *   tab: every `/admin/settings` operation now resolves through
+ * - `settings` — the account page **every member owns**. Since #1385 the
+ *   instance-wide half of its *ha* tab is an admin surface (its former *platform*
+ *   tab moved to `admin/platform` with F-12, #2935): every `/admin/settings` operation now resolves through
  *   `require_platform_admin`, and the HA-connection and Pl@ntNet cards are built
  *   only when `canManageInstanceSettings`. (This paragraph used to argue the
  *   opposite — that those routes were gated on `get_current_user` alone and so
  *   offered no platform-admin gate to mirror. That was the defect #1385 fixed,
  *   and the reason went with it.) The route still cannot be guarded on this axis
  *   without taking every member's own account settings away, so it keeps its
- *   domain-axis decision in {@link ACTION_GATED_ROUTES}. The `platform` tab is
- *   gated at the page, like the `storage`/`weather` tabs: since MT-045.9 (#2144)
- *   `AccountSettingsPage` builds it only when `usePlatformAdmin()` is true. It used
- *   to be offered to everyone and decided by *probing* the three `/admin/platform`
- *   endpoints into a 403 (on the platform and the integrations tab) — the defect
- *   the #1336 pull request recorded as a follow-up.
+ *   domain-axis decision in {@link ACTION_GATED_ROUTES}. The former `platform`
+ *   tab was gated at the page since MT-045.9 (#2144) — before that it was offered
+ *   to everyone and decided by *probing* the three `/admin/platform` endpoints into
+ *   a 403. With F-12 it became its own route, `admin/platform`, listed above; the
+ *   settings page no longer reads any `/admin/platform` endpoint.
  * - `stammdaten/species/:key` (reference-image curation) and
  *   `pflanzenschutz/pests/:key` (the pest gallery's curation controls) — read
  *   pages with an admin-only panel inside, already gated on `usePlatformAdmin()`
@@ -316,6 +316,13 @@ export interface PlatformAdminRoute {
  * they keep their current action-level gating and are the next pass.
  */
 export const PLATFORM_ADMIN_ROUTES: Readonly<Record<string, PlatformAdminRoute>> = {
+  // F-12 (#2935) — the platform admin's hub, formerly the settings page's platform tab: it loads
+  // `GET /admin/platform/stats|tenants|users` (all `require_platform_admin`) and holds the
+  // pest-contribution moderation card (`/admin/pests/contributions`, same gate). Mounted in both
+  // modes; in light mode the operator is the platform admin (REQ-027).
+  'admin/platform': {
+    gate: 'GET /api/v1/admin/platform/stats — require_platform_admin',
+  },
   // REQ-024 — the whole page is platform administration: it loads through
   // `GET /admin/platform/tenants`, then edits/deletes the tenant and adds,
   // removes and re-roles its members through the same gated router.

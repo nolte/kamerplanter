@@ -137,6 +137,7 @@ const CalendarPage = lazy(() => import('@/pages/kalender/CalendarPage'));
 const OnboardingWizard = lazy(() => import('@/pages/onboarding/OnboardingWizard'));
 
 // Admin
+const AdminPlatformPage = lazy(() => import('@/pages/admin/AdminPlatformPage'));
 const AdminEditTenantPage = lazy(() => import('@/pages/admin/AdminEditTenantPage'));
 const AdminEditUserPage = lazy(() => import('@/pages/admin/AdminEditUserPage'));
 const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvidersPage'));
@@ -325,6 +326,22 @@ export const router = createBrowserRouter(
                 }
               />
             )}
+
+            {/* F-12 (#2935): the platform admin's hub — the former platform tab of the
+                settings page and the way into every admin page. Mounted in both
+                modes: in light mode the sole operator is the platform admin
+                (REQ-027) and keeps the pest-contribution moderation card here; the
+                full-mode-only admin reads are skipped by the page itself. */}
+            <Route
+              path="admin/platform"
+              element={
+                <RequirePlatformAdmin>
+                  <Suspense fallback={<LoadingSkeleton variant="card" />}>
+                    <AdminPlatformPage />
+                  </Suspense>
+                </RequirePlatformAdmin>
+              }
+            />
 
             {/* Admin: Edit tenant/user, OIDC providers — full mode only.
                 REQ-049 §2.4 / #1336: the platform-admin axis, guarded by its own

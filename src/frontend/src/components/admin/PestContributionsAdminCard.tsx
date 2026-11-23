@@ -173,7 +173,7 @@ export function PestContributionsAdminCard({ gridColumn }: PestContributionsAdmi
       <CardContent sx={{ px: 2, pt: 2, '&:last-child': { pb: 2 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
           <PestControlIcon color="action" aria-hidden="true" />
-          <Typography variant="h6">{t('pages.admin.pestContributions.section')}</Typography>
+          <Typography variant="h6" component="h2">{t('pages.admin.pestContributions.section')}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {t('pages.admin.pestContributions.sectionHelper')}

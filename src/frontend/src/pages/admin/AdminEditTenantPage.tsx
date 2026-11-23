@@ -65,6 +65,7 @@ import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 
 const GRID_2COL = {
   display: 'grid',
@@ -267,7 +268,7 @@ export default function AdminEditTenantPage() {
           })
         : t('pages.auth.adminTenantDeletionAccepted');
     notification.success(message);
-    navigate('/settings#platform');
+    navigate(ADMIN_PLATFORM_PATH);
   };
 
   // #2123 — the admin's OWN step-up; a rejection is shown inside the dialog, which stays open.
@@ -357,7 +358,11 @@ export default function AdminEditTenantPage() {
   return (
     <Box sx={{ mt: 2 }} data-testid="admin-edit-tenant-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <IconButton onClick={() => navigate('/settings#platform')} data-testid="back-btn">
+        <IconButton
+          onClick={() => navigate(ADMIN_PLATFORM_PATH)}
+          aria-label={t('pages.adminPlatform.back')}
+          data-testid="back-btn"
+        >
           <ArrowBackIcon />
         </IconButton>
         <PageTitle title={`${t('pages.auth.editTenantTitle')}: ${tenant.name}`} />

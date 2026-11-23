@@ -7,10 +7,29 @@ Der Plattform-Admin-Bereich ist ausschließlich für Nutzer mit der Plattform-Ro
 ## Voraussetzungen
 
 - Plattform-Rolle **admin** (unterscheidet sich von der Tenant-Admin-Rolle)
-- Zugang über `/admin/platform` (im Full-Modus)
+- Zugang über den Eintrag **Plattform-Verwaltung** in der Seitennavigation (Adresse `/admin/platform`)
 
 !!! warning "Nicht mit Tenant-Admin verwechseln"
     Die Plattform-Admin-Rolle ist eine **plattformweite** Sonderrolle, die zum Zugriff auf Daten aller Mandanten berechtigt. Die Tenant-Admin-Rolle dagegen ist auf einen einzelnen Mandanten beschränkt und wird über **Einstellungen > Mandanten > Mitglieder** vergeben.
+
+---
+
+## Plattform-Verwaltung öffnen {#plattform-verwaltung-oeffnen}
+
+Als Plattform-Admin siehst du in der Seitennavigation unter **Einstellungen** den Eintrag **Plattform-Verwaltung**. Er öffnet die Seite `/admin/platform`, deinen Ausgangspunkt für alles, was die ganze Installation betrifft:
+
+- die Karten zum **Betriebsmodus** (Light, Full, Enterprise) mit dem gerade aktiven Modus
+- die **Kennzahlen** der Plattform
+- die Einstiege zu den Admin-Seiten: **OIDC-Provider verwalten**, **Pläne verwalten** und **Import öffnen** (Karte „Garten importieren“)
+- die Tabellen **Organisationen** (alle Mandanten) und **Benutzer**, aus denen du per Stift-Symbol einen Mandanten oder ein Nutzerkonto bearbeitest
+- die Karte **Beigesteuerte Bilder moderieren**, in der du Schädlingsfotos von Nutzern für alle freigibst
+
+Jede Admin-Seite führt über ihren Zurück-Pfeil und die Brotkrumen-Navigation wieder hierher. Wer kein Plattform-Admin ist, sieht den Eintrag nicht; ruft er die Adresse direkt auf, zeigt Kamerplanter einen Hinweis, dass ihm die Berechtigung fehlt.
+
+!!! info "Früher unter Einstellungen"
+    Die Plattform-Verwaltung war früher der Tab **Plattform-Modus** in deinen persönlichen **Einstellungen**, die Karte **Beigesteuerte Bilder moderieren** lag im Tab **Integrationen**. Die Einstellungen enthalten diese Inhalte nicht mehr. Hast du dir die alte Adresse gemerkt, landest du jetzt auf dem ersten Tab der Einstellungen — öffne die Plattform-Verwaltung über die Seitennavigation. <!-- Issue #2935 -->
+
+Im Light-Modus bist du als einziger Betreiber automatisch Plattform-Admin. Dort zeigt die Seite die Karten zum Betriebsmodus und die Karte **Beigesteuerte Bilder moderieren**; Kennzahlen, Mandanten, Nutzer und die übrigen Admin-Seiten gibt es nur im Full-Modus.
 
 ---
 
@@ -29,7 +48,7 @@ Der Plattform-Admin-Bereich ist ausschließlich für Nutzer mit der Plattform-Ro
 
 ## Mandantenverwaltung
 
-Im Bereich **Admin > Mandanten** kannst du:
+In der Tabelle **Organisationen** der **Plattform-Verwaltung** kannst du:
 
 - Alle Mandanten der Plattform einsehen (Name, Slug, Mitgliederzahl, Erstellungsdatum)
 - Einzelne Mandanten deaktivieren oder löschen
@@ -52,7 +71,7 @@ Wie viele Organisationen ein Konto selbst gründen darf, ist kein Plan-Kontingen
 
 #### Pläne in der Oberfläche pflegen
 
-Unter **Einstellungen > Plattform-Modus** öffnest du mit **Pläne verwalten** die Seite **Pläne**. <!-- REQ-056 AK-45 -->
+In der **Plattform-Verwaltung** öffnest du mit **Pläne verwalten** die Seite **Pläne**. <!-- REQ-056 AK-45 -->
 
 - Die Liste zeigt jeden Plan mit Schlüssel, ausgewählten Kontingenten und der Zahl der Mandanten, die ihn nutzen. Der Standard-Plan trägt die Markierung **Standard**. Ein leerer Wert steht dort als **wie Instanz-Einstellung**, ein `0` als **unbegrenzt** bzw. **Budget aus** — nie als „0“.
 - Mit **Plan anlegen** vergibst du Schlüssel (Kleinbuchstaben, Ziffern, `_` oder `-`, später nicht änderbar), Name, optional eine Beschreibung und die Kontingente. Lass ein Feld leer, damit die Server-Einstellung gilt. Unter jedem Feld steht, wie Kamerplanter den Wert anwenden wird.
@@ -94,7 +113,7 @@ Einen einzelnen Mandanten sicherst du als Archiv und spielst ihn als **neuen** M
 
 Kamerplanter ist mit genau **einer** Home-Assistant-Instanz verbunden — deiner, mit deinem Token — und nutzt sie für alle Mandanten. Damit ein Mandant nicht auf Türkontakte, Anwesenheitssensoren oder Schalter deines Haushalts zugreifen kann, gibst du jedem Mandanten nur die Entitäten frei, die er nutzen soll: als Sensor, Aktor, Wetterquelle oder Benachrichtigungsziel. <!-- Issue #2112 -->
 
-1. Öffne **Admin > Mandanten** und wähle den Mandanten.
+1. Öffne die **Plattform-Verwaltung** und wähle in der Tabelle **Organisationen** den Mandanten.
 2. Im Abschnitt **Home-Assistant-Entitäten** siehst du alle Entitäten deiner Instanz mit ihrem Freigabestand. Über die Suche und den Schalter **Nur freigegebene** grenzt du die Liste ein.
 3. Mit dem Schalter neben einer Entität gibst du sie frei oder ziehst die Freigabe zurück.
 4. Benachrichtigungsdienste (zum Beispiel `notify.mobile_app_handy`) stehen nicht in der Liste. Trag sie unten unter **Entität per ID freigeben** ein.
@@ -116,7 +135,7 @@ Was die Freigabe bewirkt:
 
 ## Nutzerverwaltung
 
-Im Bereich **Admin > Nutzer** kannst du:
+In der Tabelle **Benutzer** der **Plattform-Verwaltung** kannst du:
 
 - Alle Nutzerkonten der Plattform einsehen
 - Nutzerkonten sperren oder deaktivieren
@@ -158,12 +177,12 @@ Im Bereich **Admin > Nutzer** kannst du:
 
 ## Statistiken
 
-Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
+Oben in der **Plattform-Verwaltung** siehst du vier Kennzahlen der Installation:
 
-- Anzahl aktiver Mandanten und Nutzer
-- Aktive Pflanzdurchläufe plattformweit
-- Celery-Task-Queue-Status
-- Speicherverbrauch (ArangoDB, TimescaleDB, Redis)
+- **Aktive Nutzer**
+- **Nutzer gesamt**
+- **Aktive Organisationen** (aktive Mandanten)
+- **Mitgliedschaften**
 
 ---
 
@@ -171,7 +190,7 @@ Der Bereich **Admin > Statistiken** bietet eine Übersicht über:
 
 Hier konfigurierst du föderierte Authentifizierungs-Provider (z.B. Google, GitHub, firmeneigene OIDC-Instanzen). Diese Einstellungen gelten plattformweit für alle Mandanten.
 
-Du verwaltest sie auf einer eigenen Seite: Öffne **Einstellungen > Plattform-Modus** und klicke in der Karte „Anmelde-Provider (OIDC)“ auf **OIDC-Provider verwalten** (Adresse `/admin/oidc-providers`). Die Karte erscheint nur für Plattform-Admins. Auf der Seite kannst du:
+Du verwaltest sie auf einer eigenen Seite: Öffne die **Plattform-Verwaltung** und klicke in der Karte „Anmelde-Provider (OIDC)“ auf **OIDC-Provider verwalten** (Adresse `/admin/oidc-providers`). Auf der Seite kannst du:
 
 - jeden Provider mit Typ, Aussteller-URL, Client-ID, Scopes, Status (aktiv oder abgeschaltet) und dem Zeitpunkt des letzten Discovery-Abrufs sehen
 - einen Provider **hinzufügen** (**Provider hinzufügen**)
@@ -553,7 +572,7 @@ Als Platform-Admin kannst du einzelne Referenzbilder nach einem **Sichttest abw�
 
 Nutzer können in der [Schädlings-Detailseite](pest-detail.md) eigene Fotos zu einem Schädling beitragen. Diese Bilder sind zunächst **privat** (nur für den jeweiligen Garten/Mandanten sichtbar). Als Platform-Admin kannst du besonders gute Aufnahmen **global freigeben**.
 
-Die Moderation findest du im Admin-Bereich in der Karte **„Beigesteuerte Schädlingsbilder"**:
+Die Moderation findest du in der [Plattform-Verwaltung](#plattform-verwaltung-oeffnen) in der Karte **„Beigesteuerte Bilder moderieren"**:
 
 1. Wähle den betreffenden Schädling aus.
 2. Du siehst alle beigesteuerten Bilder **aller Mandanten** mit Vorschau, Herkunft (Nutzer/Mandant/Datum) und Status (privat/global).

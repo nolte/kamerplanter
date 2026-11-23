@@ -5,7 +5,7 @@ Mit dem Mandanten-Export sicherst du **einen** Garten (Mandanten) als Archiv, oh
 Diese Seite richtet sich an Betreiber und Plattform-Admins. Die Datenbank-Sicherung der ganzen Installation beschreibt [Backup & Wiederherstellung](backup-restore.md).
 
 !!! warning "Noch nicht implementiert"
-    Den Export startest du in den Garten-Einstellungen (Tab **Export**), den Import als Plattform-Admin unter **Einstellungen > Plattform-Modus > Importe** (interne Referenz: REQ-056 §15). Die Mitglieder-Zuordnung trägst du dort von Hand ein: Die Schlüssel stehen in `members.jsonl` im Archiv, die Seite liest das Archiv nicht aus. Eine Liste früherer Importe gibt es noch nicht, die Import-Kennung steht in der Adresse der Seite. Sensor-Messwerte aus TimescaleDB stehen im Archiv, der Import spielt sie aber noch nicht ein. <!-- REQ-056 / Issue #2138 -->
+    Den Export startest du in den Garten-Einstellungen (Tab **Export**), den Import als Plattform-Admin in der **Plattform-Verwaltung** über **Import öffnen** (Karte „Garten importieren“) (interne Referenz: REQ-056 §15). Die Mitglieder-Zuordnung trägst du dort von Hand ein: Die Schlüssel stehen in `members.jsonl` im Archiv, die Seite liest das Archiv nicht aus. Eine Liste früherer Importe gibt es noch nicht, die Import-Kennung steht in der Adresse der Seite. Sensor-Messwerte aus TimescaleDB stehen im Archiv, der Import spielt sie aber noch nicht ein. <!-- REQ-056 / Issue #2138 -->
 
 ---
 

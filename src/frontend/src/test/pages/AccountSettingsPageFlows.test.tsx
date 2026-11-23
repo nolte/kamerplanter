@@ -511,63 +511,6 @@ describe('AccountSettingsPage — Pl@ntNet reset cancel', () => {
   });
 });
 
-describe('AccountSettingsPage — platform tab', () => {
-  it('renders the mode cards and loads admin stats for a platform admin', async () => {
-    server.use(
-      http.get('/api/v1/admin/platform/stats', () =>
-        HttpResponse.json({
-          active_users: 3,
-          total_users: 5,
-          active_tenants: 2,
-          total_memberships: 7,
-        }),
-      ),
-      http.get('/api/v1/admin/platform/tenants', () => HttpResponse.json([])),
-      http.get('/api/v1/admin/platform/users', () => HttpResponse.json([])),
-    );
-    renderAt('/account#platform');
-
-    // The three mode cards (light/full/enterprise) always render.
-    expect(await screen.findByText('Light Mode')).toBeInTheDocument();
-    // Admin stats load lazily once the platform tab is shown.
-    await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
-    // #1906 — the way into the OIDC provider page sits with the other admin surfaces.
-    expect(screen.getByTestId('admin-oidc-card')).toBeInTheDocument();
-    expect(screen.getByTestId('admin-oidc-open')).toBeEnabled();
-    // REQ-056 AK-45 — and so does the way into the plan catalogue.
-    expect(screen.getByTestId('admin-plans-card')).toBeInTheDocument();
-    expect(screen.getByTestId('admin-plans-open')).toBeEnabled();
-  });
-
-  it('hides admin data when the stats request is forbidden', async () => {
-    server.use(
-      http.get('/api/v1/admin/platform/stats', () =>
-        HttpResponse.json(
-          {
-            error_id: 'e',
-            error_code: 'FORBIDDEN',
-            message: 'no',
-            details: [],
-            timestamp: '',
-            path: '',
-            method: 'GET',
-          },
-          { status: 403 },
-        ),
-      ),
-      http.get('/api/v1/admin/platform/tenants', () => HttpResponse.json([])),
-      http.get('/api/v1/admin/platform/users', () => HttpResponse.json([])),
-    );
-    renderAt('/account#platform');
-    // Mode cards still render; admin stat numbers do not.
-    expect(await screen.findByText('Light Mode')).toBeInTheDocument();
-    expect(screen.queryByText('Active Users')).not.toBeInTheDocument();
-    // …and neither does the way into the platform-admin-only provider page (#1906).
-    expect(screen.queryByTestId('admin-oidc-card')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('admin-plans-card')).not.toBeInTheDocument();
-  });
-});
-
 describe('AccountSettingsPage — Pl@ntNet field interaction', () => {
   it('clears the success/test state as soon as the key field changes', async () => {
     server.use(
