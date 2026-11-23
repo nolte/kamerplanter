@@ -9,9 +9,9 @@ job: openapi-export-lint
 gate:
   kind: on-paths
 status: measured
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 52
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 45
 job_spec_sha256: f1e131a7c1a3d703664ca95c9a95e050c3732097fcae30f507e17a48dc432095
 invocations:
 - command: python -m scripts.export_openapi --out /tmp/lane-inputs-scratch/openapi.json
@@ -19,7 +19,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 3268
+  untracked_reads_dropped: 3272
 - command: npx --yes @stoplight/spectral-cli@6.16.3 lint --ruleset ../../.spectral.yaml --fail-severity error /tmp/lane-inputs-scratch/openapi.json
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -316,6 +316,7 @@ reads:
 - src/backend/app/api/v1/plant_instances/environment_router.py
 - src/backend/app/api/v1/plant_instances/photo_router.py
 - src/backend/app/api/v1/plant_instances/photo_schemas.py
+- src/backend/app/api/v1/plant_instances/row_labels.py
 - src/backend/app/api/v1/plant_instances/schemas.py
 - src/backend/app/api/v1/plant_instances/tenant_router.py
 - src/backend/app/api/v1/planting_runs/
@@ -839,6 +840,7 @@ reads:
 - src/backend/app/domain/interfaces/watering_log_repository.py
 - src/backend/app/domain/interfaces/watering_repository.py
 - src/backend/app/domain/interfaces/weather_adapter.py
+- src/backend/app/domain/interfaces/weather_fetch.py
 - src/backend/app/domain/interfaces/weather_forecast_repository.py
 - src/backend/app/domain/models/
 - src/backend/app/domain/models/__init__.py
@@ -937,6 +939,7 @@ reads:
 - src/backend/app/domain/models/watering_event.py
 - src/backend/app/domain/models/watering_log.py
 - src/backend/app/domain/models/weather.py
+- src/backend/app/domain/models/weather_fetch.py
 - src/backend/app/domain/services/
 - src/backend/app/domain/services/__init__.py
 - src/backend/app/domain/services/activity_plan_service.py
@@ -1063,6 +1066,7 @@ reads:
 - src/backend/app/domain/services/watering_log_service.py
 - src/backend/app/domain/services/watering_service.py
 - src/backend/app/domain/services/weather_adapter_registry.py
+- src/backend/app/domain/services/weather_fetch_service.py
 - src/backend/app/domain/services/weather_settings_service.py
 - src/backend/app/domain/services/weather_source_service.py
 - src/backend/app/main.py

@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: vectordb
 status: derived
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 3
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 4
 job_spec_sha256: c12c13bf9275ae37fa4fa3c97e365dc70c5702dacf9cc78aaeb892f116e5cbb8
 invocations:
 - command: derive-docker --context docker/vectordb --dockerfile docker/vectordb/Dockerfile

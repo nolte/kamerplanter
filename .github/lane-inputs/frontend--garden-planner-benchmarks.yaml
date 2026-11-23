@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 9
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 8
 job_spec_sha256: 3652e4110049a9c58bad376d157de885a9fa45f3eac23fc4ba13cf570734b9cf
 invocations:
 - command: task test:frontend:bench
@@ -20,7 +20,7 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2865
+  untracked_reads_dropped: 2867
 subprocesses:
 - node
 - npx
@@ -167,6 +167,7 @@ reads:
 - src/frontend/src/pages/aquaponik/
 - src/frontend/src/pages/aufgaben/
 - src/frontend/src/pages/auth/
+- src/frontend/src/pages/auth/settings/
 - src/frontend/src/pages/duengung/
 - src/frontend/src/pages/duengung/nutrient-plan-detail/
 - src/frontend/src/pages/durchlaeufe/
@@ -248,6 +249,7 @@ reads:
 - src/frontend/src/theme/
 - src/frontend/src/types/
 - src/frontend/src/utils/
+- src/frontend/src/utils/calendarDay.ts
 - src/frontend/src/validation/
 - src/frontend/src/validation/zodErrorMap.ts
 - src/frontend/tsconfig.json
