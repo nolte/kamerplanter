@@ -107,7 +107,7 @@ detail: fine
 outcomes: [O-1, O-5]
 target_sprint: 3
 mvp: true
-status: active
+status: done
 ```
 
 **MVP-Flip (Operator-Entscheid 2026-11-17):** `mvp: false → true`, damit Sprint 0003 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14 (2026-08-09).
@@ -121,8 +121,8 @@ Alle bestehenden Einstellungen bleiben genau einmal erreichbar, die
 Sichtbarkeits-Gates bleiben unverändert; die Plattform-Einstellungen ziehen in
 den Admin-Bereich.
 
-- [ ] F-12 — Plattform-Einstellungen im Admin-Bereich (`platform-settings-in-admin`) — zuerst
-- [ ] F-11 — Gruppierte Einstellungsnavigation (`settings-grouped-navigation`)
+- [x] F-12 — Plattform-Einstellungen im Admin-Bereich (`platform-settings-in-admin`) — zuerst
+- [x] F-11 — Gruppierte Einstellungsnavigation (`settings-grouped-navigation`)
 
 <!-- Herkunft: Issue #2935 (issue-backlog-partition 2026-11-16 → requirements-elicit →
 roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
@@ -141,7 +141,7 @@ detail: fine
 outcomes: [O-5, O-2]
 target_sprint: 3
 mvp: true
-status: active
+status: done
 ```
 
 **MVP-Flip (Operator-Entscheid 2026-11-17):** `mvp: false → true`, damit Sprint 0003 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14 (2026-08-09).
@@ -153,8 +153,8 @@ Abruf von Hand und sieht, wann der letzte erfolgreiche Abruf war und wann der
 nächste ansteht. Nach jedem erfolgreichen Abruf werden Frost-Frühwarnung und
 Bewässerungsbedarf neu berechnet, statt nur einmal am Tag.
 
-- [ ] F-13 — Intervallgesteuerter Wetterabruf mit manuellem Start (`weather-fetch-scheduling`)
-- [ ] F-14 — Wetterabruf-Einstellungen in der Installations-Gruppe (`weather-fetch-settings-ui`) — nach F-11
+- [x] F-13 — Intervallgesteuerter Wetterabruf mit manuellem Start (`weather-fetch-scheduling`)
+- [x] F-14 — Wetterabruf-Einstellungen in der Installations-Gruppe (`weather-fetch-settings-ui`) — nach F-11
 
 <!-- Herkunft: Issue #2934 (issue-backlog-partition 2026-11-16 → requirements-elicit →
 roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:
