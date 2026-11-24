@@ -20,10 +20,10 @@ import type { CalculateDosagesResponse } from '@/api/endpoints/nutrient-plans';
  * dosage table sources, effective water, mixing instructions, warnings).
  */
 
-const listSites = vi.fn();
+const listAllSites = vi.fn();
 const calculateDosages = vi.fn();
 vi.mock('@/api/endpoints/sites', () => ({
-  listSites: (...args: unknown[]) => listSites(...args),
+  listAllSites: (...args: unknown[]) => listAllSites(...args),
 }));
 vi.mock('@/api/endpoints/nutrient-plans', () => ({
   calculateDosages: (...args: unknown[]) => calculateDosages(...args),
@@ -193,13 +193,13 @@ function leanResult(): CalculateDosagesResponse {
 
 beforeEach(() => {
   i18n.changeLanguage('de');
-  listSites.mockReset().mockResolvedValue([]);
+  listAllSites.mockReset().mockResolvedValue([]);
   calculateDosages.mockReset().mockResolvedValue(leanResult());
 });
 
 describe('DosageCalculatorTab — site loading', () => {
   it('auto-selects the only site and shows its water-profile chips', async () => {
-    listSites.mockResolvedValue([siteWithRo()]);
+    listAllSites.mockResolvedValue([siteWithRo()]);
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
     // Auto-selected → tap-water chips are shown.
     expect(await screen.findByText('Tap EC: 0.4 mS/cm')).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe('DosageCalculatorTab — site loading', () => {
   });
 
   it('shows the no-water-profile hint for a site without a water config', async () => {
-    listSites.mockResolvedValue([siteNoProfile()]);
+    listAllSites.mockResolvedValue([siteNoProfile()]);
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
     expect(
       await screen.findByText(t('pages.nutrientPlans.dosageCalc.noWaterProfile')),
@@ -217,11 +217,11 @@ describe('DosageCalculatorTab — site loading', () => {
 
   it('lets the user pick a site when several are available', async () => {
     const user = userEvent.setup();
-    listSites.mockResolvedValue([siteNoProfile('Alpha'), siteNoProfile('Beta')]);
+    listAllSites.mockResolvedValue([siteNoProfile('Alpha'), siteNoProfile('Beta')]);
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
 
     // Not auto-selected → expanding a phase shows the "select site first" hint.
-    await waitFor(() => expect(listSites).toHaveBeenCalled());
+    await waitFor(() => expect(listAllSites).toHaveBeenCalled());
     await user.click(screen.getByText(t('enums.phaseName.vegetative')));
     expect(
       screen.getByText(t('pages.nutrientPlans.dosageCalc.selectSiteFirst')),
@@ -240,13 +240,13 @@ describe('DosageCalculatorTab — site loading', () => {
   });
 
   it('does not crash when the site listing fails', async () => {
-    listSites.mockRejectedValue(new Error('network'));
+    listAllSites.mockRejectedValue(new Error('network'));
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
     expect(await screen.findByTestId('dosage-calculator-tab')).toBeInTheDocument();
   });
 
   it('renders the empty-state alert when the plan has no entries', async () => {
-    listSites.mockResolvedValue([]);
+    listAllSites.mockResolvedValue([]);
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[]} />);
     expect(
       await screen.findByText(t('pages.nutrientPlans.noEntries')),
@@ -257,7 +257,7 @@ describe('DosageCalculatorTab — site loading', () => {
 describe('DosageCalculatorTab — phase calculation & result', () => {
   it('auto-calculates on expand and renders the full result, then recalculates on interaction', async () => {
     const user = userEvent.setup();
-    listSites.mockResolvedValue([siteWithRo()]);
+    listAllSites.mockResolvedValue([siteWithRo()]);
     calculateDosages.mockResolvedValue(richResult());
 
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
@@ -319,7 +319,7 @@ describe('DosageCalculatorTab — phase calculation & result', () => {
 
   it('renders the lean result branch (no scaling, calmag satisfied, empty table)', async () => {
     const user = userEvent.setup();
-    listSites.mockResolvedValue([siteWithRo()]);
+    listAllSites.mockResolvedValue([siteWithRo()]);
     calculateDosages.mockResolvedValue(leanResult());
 
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);
@@ -337,7 +337,7 @@ describe('DosageCalculatorTab — phase calculation & result', () => {
 
   it('surfaces the site select without crashing when calculation rejects', async () => {
     const user = userEvent.setup();
-    listSites.mockResolvedValue([siteWithRo()]);
+    listAllSites.mockResolvedValue([siteWithRo()]);
     calculateDosages.mockRejectedValue(new Error('calc failed'));
 
     renderWithProviders(<DosageCalculatorTab plan={plan} entries={[entry()]} />);

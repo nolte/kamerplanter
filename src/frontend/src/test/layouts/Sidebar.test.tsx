@@ -281,3 +281,54 @@ describe('Sidebar — the navigation is a valid list (#1291)', () => {
     expect(current[0].classList.contains('Mui-selected')).toBe(true);
   });
 });
+
+describe('Sidebar — platform administration entry (F-12, #2935)', () => {
+  it('offers a platform admin the entry to /admin/platform', () => {
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
+    });
+    const entry = screen.getByTestId('nav-admin-platform');
+    expect(entry).toHaveAttribute('href', '/admin/platform');
+    expect(entry).toHaveTextContent(/Platform administration|Plattform-Verwaltung/);
+  });
+
+  it('shows no entry to a member who is not a platform admin', () => {
+    // The same `/users/me` flag the route guard reads: an entry shown here would
+    // only lead onto the refusal page.
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithExpertise('expert', false, { platformAdmin: false }),
+    });
+    expect(screen.queryByTestId('nav-admin-platform')).toBeNull();
+  });
+
+  it.each(['/admin/platform', '/admin/tenants/t-1', '/admin/plans'])(
+    'marks the entry as selected on %s — every admin page belongs to the hub',
+    (route) => {
+      renderWithProviders(<Sidebar open />, {
+        store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
+        route,
+      });
+      expect(screen.getByTestId('nav-admin-platform')).toHaveClass('Mui-selected');
+    },
+  );
+
+  it('marks the entry as the current page only on the hub itself', () => {
+    renderWithProviders(<Sidebar open />, {
+      store: createStoreWithExpertise('expert', false, { platformAdmin: true }),
+      route: '/admin/plans',
+    });
+    expect(screen.getByTestId('nav-admin-platform')).not.toHaveAttribute('aria-current');
+  });
+});
+
+describe('Sidebar — settings links (F-11, #2935)', () => {
+  it('points the beginner hint at the experience level section', () => {
+    renderWithProviders(<Sidebar open />, { store: createStoreWithExpertise('beginner') });
+    expect(screen.getByTestId('nav-beginner-hint')).toHaveAttribute('href', '/settings/display#experience');
+  });
+
+  it('keeps the settings entry selected inside a settings group', () => {
+    renderWithProviders(<Sidebar open />, { store: createStoreWithExpertise('expert'), route: '/settings/security' });
+    expect(screen.getByTestId('nav-settings')).toHaveAttribute('aria-current', 'page');
+  });
+});

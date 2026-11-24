@@ -1,11 +1,11 @@
 ---
 id: F-12
 title: Plattform-Einstellungen im Admin-Bereich
-status: in_progress
+status: done
 roadmap_item: R-17
 sprint: 3
 created: 2026-11-17
-ended: null
+ended: 2026-11-23
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-11-17
@@ -55,19 +55,19 @@ Plattform-Inhalte mehr.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Ein Plattform-Admin erreicht die Plattform-Verwaltung über einen Seitennavigations-Eintrag unter `/admin/platform`; Zurück-Links und Breadcrumbs aller Admin-Seiten führen dorthin.
-- [ ] **acceptance-2** Wer kein Plattform-Admin ist, sieht weder den Navigationseintrag noch erreicht er `/admin/platform` (gleiches Gate wie heute).
-- [ ] **acceptance-3** Die Einstellungsseite zeigt weder den Plattform-Tab noch die Schädlings-Beitrags-Karte; beide liegen auf `/admin/platform`.
-- [ ] **acceptance-4** `/admin/platform` zeigt dieselben Inhalte und lädt dieselben Daten wie der bisherige Tab; für Nicht-Admins werden keine Admin-Daten abgefragt.
-- [ ] **acceptance-5** Beschriftungen (DE + EN) und die Nutzerdoku (`admin.md` DE + EN) beschreiben den neuen Ort.
+- [x] **acceptance-1** Ein Plattform-Admin erreicht die Plattform-Verwaltung über einen Seitennavigations-Eintrag unter `/admin/platform`; Zurück-Links und Breadcrumbs aller Admin-Seiten führen dorthin.
+- [x] **acceptance-2** Wer kein Plattform-Admin ist, sieht weder den Navigationseintrag noch erreicht er `/admin/platform` (gleiches Gate wie heute).
+- [x] **acceptance-3** Die Einstellungsseite zeigt weder den Plattform-Tab noch die Schädlings-Beitrags-Karte; beide liegen auf `/admin/platform`.
+- [x] **acceptance-4** `/admin/platform` zeigt dieselben Inhalte und lädt dieselben Daten wie der bisherige Tab; für Nicht-Admins werden keine Admin-Daten abgefragt.
+- [x] **acceptance-5** Beschriftungen (DE + EN) und die Nutzerdoku (`admin.md` DE + EN) beschreiben den neuen Ort.
 
 ## Test hooks
 
-- **acceptance-1** — `src/frontend/src/test/` route test for `/admin/platform` + sidebar entry; E2E `tests/e2e/` admin navigation — pending
-- **acceptance-2** — `platformAdminRouteGuards.test.tsx` (route registered in `PLATFORM_ADMIN_ROUTES`) — pending
-- **acceptance-3** — vitest on the settings page: no platform section / pest-contribution card rendered — pending
-- **acceptance-4** — `AccountSettingsPlatformTabGating.test.tsx` migrated to the hub page (admin request count for non-admins = 0) — pending
-- **acceptance-5** — i18n completeness check + `mkdocs build --strict` — pending
+- **acceptance-1** — `src/frontend/src/test/` route test for `/admin/platform` + sidebar entry; E2E `tests/e2e/` admin navigation — passing — `AdminPlatformPage.test.tsx`, `layouts/Sidebar.test.tsx` (sidebar entry), `routes/breadcrumbs.test.ts`, `AdminBackLinksToHub.test.tsx`; E2E `test_req024_platform_admin_hub.py` — e2e-nightly run 45173235993 (profile=all, develop e074bde9a): green in tablet, mobile, full-tablet, light, full-mobile, full for this feature's tests (#3102)
+- **acceptance-2** — `platformAdminRouteGuards.test.tsx` (route registered in `PLATFORM_ADMIN_ROUTES`) — passing — `platformAdminRouteGuards.test.tsx` (`registers the platform admin hub /admin/platform behind the guard`) + `AdminPlatformPageGating.test.tsx` (`refuses a non-admin at the route guard and reads nothing`) (#3102)
+- **acceptance-3** — vitest on the settings page: no platform section / pest-contribution card rendered — passing — `AdminPlatformPageGating.test.tsx` (`shows a platform admin no pest-contribution card in the installation group`, no admin probe from the settings page) + `AdminPlatformPage.test.tsx` (pest card now on the hub) (#3102, #3107)
+- **acceptance-4** — `AccountSettingsPlatformTabGating.test.tsx` migrated to the hub page (admin request count for non-admins = 0) — passing — `AdminPlatformPageGating.test.tsx` (`loads the three admin reads once for a platform admin`, `reads no admin endpoint for a member who is not a platform admin`) — the former `AccountSettingsPlatformTabGating.test.tsx` migrated there (#3102)
+- **acceptance-5** — i18n completeness check + `mkdocs build --strict` — passing — `i18n/adminPlatform.test.ts` (DE/EN parity, removed tab label dropped); `admin.md` DE+EN updated in #3102; `mkdocs build --strict` on develop e074bde9a (2026-11-23): no link or nav warning — its only 45 warnings are the git-revision-date plugin on the locally generated, git-ignored catalog pages (docs/*/skills, agents, tags)
 
 ## Consistency notes
 

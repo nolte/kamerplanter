@@ -45,6 +45,7 @@ import {
   looksLikeZip,
 } from '@/utils/tenantImport';
 import type { ImportRefusal } from '@/utils/tenantImport';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 
 /** The surface id the step-up dialog saves before a fresh sign-in at the identity provider. */
 export const TENANT_IMPORT_STEP_UP_SURFACE = 'tenant-import';
@@ -362,7 +363,7 @@ export default function AdminTenantImportsPage() {
     <Box sx={{ mt: 2 }} data-testid="tenant-import-admin-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <IconButton
-          onClick={() => navigate('/settings#platform')}
+          onClick={() => navigate(ADMIN_PLATFORM_PATH)}
           sx={TOUCH_SX}
           aria-label={t('pages.tenantImports.back')}
           data-testid="tenant-imports-back"
@@ -634,7 +635,7 @@ export default function AdminTenantImportsPage() {
           {t('pages.tenantImports.startHint')}
         </Typography>
         <FormActions
-          onCancel={() => navigate('/settings#platform')}
+          onCancel={() => navigate(ADMIN_PLATFORM_PATH)}
           saveLabel={t('pages.tenantImports.start')}
           disabled={hashing}
         />

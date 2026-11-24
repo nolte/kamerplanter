@@ -504,8 +504,9 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     # The garden-plan exports report their scale and an A3 suggestion in headers (REQ-053 WP 5.2); a cross-origin
-    # SPA reads response headers only when they are exposed.
-    expose_headers=["Content-Disposition", "X-Plan-Scale", "X-Plan-Suggested-Paper"],
+    # SPA reads response headers only when they are exposed. ``Retry-After`` tells a refused manual weather fetch
+    # (429) when a new one is possible (REQ-046 §3.6a, #2934); it is not a CORS-safelisted response header.
+    expose_headers=["Content-Disposition", "X-Plan-Scale", "X-Plan-Suggested-Paper", "Retry-After"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

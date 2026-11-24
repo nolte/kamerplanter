@@ -207,7 +207,7 @@ Im [Light-Modus](light-mode.md) gibt es keine Benutzerkonten und damit auch kein
 
 ## Für technische Nutzer / Self-Hoster {#fuer-technische-nutzer-self-hoster}
 
-Damit dein eigener Agent Einträge abholen, beanspruchen und Ergebnisse zurückschreiben kann, braucht er einen persönlichen API-Schlüssel (**Kontoeinstellungen → API-Schlüssel → Anlegen**) und Zugriff auf fünf dafür vorgesehene MCP-Werkzeuge. Der vollständige Werkzeug-Vertrag mit Fehlercodes und der Konfigurationsvariable für die maximale Bild-Nutzlast steht unter [MCP-Server — Tagebuch-Analyse](../api/mcp-server.md#tagebuch-analyse-externe-agenten).
+Damit dein eigener Agent Einträge abholen, beanspruchen und Ergebnisse zurückschreiben kann, braucht er einen persönlichen API-Schlüssel (**Einstellungen → Sicherheit & Zugang → API-Schlüssel → API-Schlüssel erstellen**) und Zugriff auf fünf dafür vorgesehene MCP-Werkzeuge. Der vollständige Werkzeug-Vertrag mit Fehlercodes und der Konfigurationsvariable für die maximale Bild-Nutzlast steht unter [MCP-Server — Tagebuch-Analyse](../api/mcp-server.md#tagebuch-analyse-externe-agenten).
 
 ---
 

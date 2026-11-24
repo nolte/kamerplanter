@@ -20,7 +20,7 @@ const activityPlanApi = vi.hoisted(() => ({
 vi.mock('@/api/endpoints/activityPlans', () => activityPlanApi);
 
 const taskApi = vi.hoisted(() => ({
-  listTasks: vi.fn(),
+  listAllTasks: vi.fn(),
 }));
 vi.mock('@/api/endpoints/tasks', () => taskApi);
 
@@ -145,7 +145,7 @@ function task(overrides: Partial<TaskItem> = {}): TaskItem {
 beforeEach(() => {
   vi.clearAllMocks();
   i18n.changeLanguage('de');
-  taskApi.listTasks.mockResolvedValue([]);
+  taskApi.listAllTasks.mockResolvedValue([]);
 });
 
 // ── Plan-generation fallback ────────────────────────────────────────
@@ -263,7 +263,7 @@ describe('ActivityPlanTab — plan generation fallback', () => {
   });
 
   it('falls back to the generate prompt when task loading fails', async () => {
-    taskApi.listTasks.mockRejectedValue(new Error('boom'));
+    taskApi.listAllTasks.mockRejectedValue(new Error('boom'));
     renderWithProviders(<ActivityPlanTab speciesKey="sp-1" plantKey="plant-1" />);
     expect(
       await screen.findByTestId('generate-activity-plan-button'),
@@ -379,7 +379,7 @@ describe('ActivityPlanTab — a plan that is still the shared template', () => {
 
 describe('ActivityPlanTab — assigned tasks view', () => {
   it('renders grouped assigned tasks with a completion chip and workflow origin link', async () => {
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({ key: 't-done', status: 'completed', workflow_execution_key: 'wfx-1' }),
       task({
         key: 't-progress',
@@ -407,7 +407,7 @@ describe('ActivityPlanTab — assigned tasks view', () => {
   });
 
   it('groups tasks without a trigger phase under the "no phase" bucket', async () => {
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({ key: 't-nophase', trigger_phase: null, template_key: 'tt-x', name_de: 'Kontrolle' }),
     ]);
     renderWithProviders(<ActivityPlanTab speciesKey="sp-1" plantKey="plant-1" />);
@@ -416,7 +416,7 @@ describe('ActivityPlanTab — assigned tasks view', () => {
 
   it('renders English display names and instructions when the locale is en', async () => {
     i18n.changeLanguage('en');
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({
         key: 't-en',
         status: 'completed',
@@ -435,7 +435,7 @@ describe('ActivityPlanTab — assigned tasks view', () => {
   });
 
   it('marks overdue open tasks (error completion colour path)', async () => {
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({
         key: 't-overdue',
         status: 'pending',
@@ -452,7 +452,7 @@ describe('ActivityPlanTab — assigned tasks view', () => {
   // must read as "Geplant" (scheduled), never as an open "0 von 1 erledigt" task,
   // so the activity plan agrees with the task queue's due-date bucketing.
   it('shows a future-due recurring reminder as scheduled, not "0 von 1 erledigt"', async () => {
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({
         key: 't-water',
         template_key: null,
@@ -479,7 +479,7 @@ describe('ActivityPlanTab — assigned tasks view', () => {
   });
 
   it('counts a done cycle as 1/1 and flags the queued next cycle as scheduled', async () => {
-    taskApi.listTasks.mockResolvedValue([
+    taskApi.listAllTasks.mockResolvedValue([
       task({
         key: 't-water-done',
         template_key: null,

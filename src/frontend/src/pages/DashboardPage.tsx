@@ -48,6 +48,7 @@ import {
   dismissPersonalizationHint,
 } from '@/lib/dashboardLayoutStorage';
 import type { DashboardLayout, DashboardWidgetInstance, WidgetPlacement } from '@/api/types';
+import { settingsSectionPath } from '@/config/settingsGroups';
 
 const DashboardEditGrid = lazy(() => import('@/components/dashboard/DashboardEditGrid'));
 
@@ -255,7 +256,7 @@ export default function DashboardPage() {
           <Tooltip title={t('dashboard.manageWidgets')}>
             <IconButton
               aria-label={t('dashboard.manageWidgets')}
-              onClick={() => navigate('/settings#dashboard')}
+              onClick={() => navigate(settingsSectionPath('dashboard'))}
               sx={{ minWidth: 48, minHeight: 48 }}
               data-testid="dashboard-manage-link"
             >
@@ -341,7 +342,7 @@ export default function DashboardPage() {
           >
             <Button
               variant="contained"
-              onClick={() => navigate('/settings#dashboard')}
+              onClick={() => navigate(settingsSectionPath('dashboard'))}
               sx={{ minHeight: 48 }}
             >
               {t('dashboard.empty.chooseWidgets')}

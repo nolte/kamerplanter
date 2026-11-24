@@ -151,7 +151,7 @@ export default function ActuatorDialog({ open, onClose, onCreated, haEnabled }: 
     let cancelled = false;
     const load = async () => {
       try {
-        const data = await sitesApi.listSites();
+        const data = await sitesApi.listAllSites();
         if (!cancelled) setSites(data);
       } catch (error) {
         if (!cancelled) handleError(error);

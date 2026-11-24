@@ -384,12 +384,12 @@ export default function SiteListPage() {
   const { sites, loading, sitesCachedAt, sitesOfflineMiss } = useAppSelector((s) => s.sites);
   const [createOpen, setCreateOpen] = useState(false);
   const [locationTypes, setLocationTypes] = useState<Record<string, LocationType>>({});
-  const reloadSites = useCallback(() => void dispatch(fetchSites({})), [dispatch]);
+  const reloadSites = useCallback(() => void dispatch(fetchSites({ all: true })), [dispatch]);
   // A cached list or an offline miss is read again once the connection is back (REQ-053 WP 9.2).
   useReloadOnReconnect(sitesCachedAt !== null || sitesOfflineMiss, reloadSites);
 
   useEffect(() => {
-    dispatch(fetchSites({}));
+    dispatch(fetchSites({ all: true }));
     api
       .listLocationTypes()
       .then((types) => {
@@ -452,7 +452,7 @@ export default function SiteListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchSites({}));
+          dispatch(fetchSites({ all: true }));
         }}
       />
     </Box>

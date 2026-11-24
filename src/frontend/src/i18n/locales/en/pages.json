@@ -693,6 +693,11 @@
         "manualSubmit": "Release"
       }
     },
+    "adminPlatform": {
+      "title": "Platform administration",
+      "intro": "Manage everything here that applies to the whole installation, not just to your garden. Your personal settings stay under \"Settings\".",
+      "back": "Back to platform administration"
+    },
     "privacy": {
       "title": "Privacy & Data Subject Rights",
       "tabsAriaLabel": "Privacy sections",
@@ -865,23 +870,7 @@
       "newPassword": "Set New Password",
       "setNewPassword": "Save Password",
       "passwordResetSuccess": "Password successfully reset",
-      "accountSettings": "Account Settings",
       "privacySettings": "Privacy",
-      "tabProfile": "Profile",
-      "tabSecurity": "Security",
-      "tabSessions": "Sessions",
-      "tabExperience": "Experience",
-      "tabKiosk": "Kiosk mode",
-      "tabConnect": "Connect app",
-      "tabModules": "Modules & Features",
-      "tabPlatform": "Platform Mode",
-      "tabAdmin": "Administration",
-      "tabNotifications": "Notifications",
-      "tabIntegrations": "Integrations",
-      "tabHaPublish": "HA Publishing",
-      "tabStorage": "Storage",
-      "tabWeatherProviders": "Weather Services",
-      "tabAccount": "Account",
       "smartHome": {
         "title": "Smart Home & Sensors",
         "description": "Enable this option if you want to use smart home devices, sensors or actuators with Kamerplanter.",
@@ -1046,7 +1035,6 @@
       "rememberMeTooltip": "Only enable on private devices. Your session will stay active for up to 30 days.",
       "sessionPersistent": "Persistent",
       "sessionTemporary": "Session",
-      "tabApiKeys": "API Keys",
       "timezone": "Timezone",
       "setPassword": "Set Password",
       "setPasswordButton": "Set Password",
@@ -1088,7 +1076,6 @@
       "emailReadOnly": "Your email address cannot be changed here.",
       "unlinkProvider": "Unlink provider",
       "deleteAccountDescription": "Your account is closed immediately; your data is permanently deleted once the deletion period has passed. This action cannot be undone.",
-      "tabDashboard": "Dashboard",
       "stepUpLocked": "Too many failed confirmations. Try again in {{minutes}} minutes.",
       "stepUpCodeUndeliverable": "The confirmation code cannot be delivered by e-mail. Please contact the operator.",
       "stepUpLockedNoMinutes": "Too many failed confirmations. Try again later.",
@@ -4890,14 +4877,60 @@
       "globalKeyUnset": "No key",
       "toggleKeyVisibility": "Toggle key visibility",
       "fetchTitle": "Fetch settings",
-      "fetchDesc": "Timeout for weather requests and the preferred default public source.",
-      "fetchTimeout": "Timeout",
-      "fetchTimeoutHelper": "Maximum wait per weather request in seconds (1–120).",
+      "fetchDesc": "How often Kamerplanter fetches the weather data of all sites, how long it waits for a weather service at most, and which public source it suggests.",
+      "fetchInterval": "Fetch interval",
+      "fetchIntervalHelper": "Hours between two fetches of the weather data of all sites (6–168). Shorter than 6 hours is not possible; this spares the weather services’ quota.",
+      "fetchIntervalError": "Enter a whole number from {{min}} to {{max}} hours.",
+      "fetchIntervalUnit": "h",
+      "fetchTimeout": "Timeout per request",
+      "fetchTimeoutHelper": "How long Kamerplanter waits at most for one weather service to answer, in seconds (1–120). How often data is fetched is set by the fetch interval, not by this field.",
+      "fetchTimeoutError": "Enter a whole number from {{min}} to {{max}} seconds.",
       "defaultSource": "Default source",
       "defaultSourceHelper": "Preferred public weather source when a location does not define its own order.",
       "saveSuccess": "Weather services saved.",
       "saveError": "The weather services could not be saved.",
-      "loadError": "The weather services could not be loaded."
+      "loadError": "The weather services could not be loaded.",
+      "fetchStatus": {
+        "title": "Fetch status",
+        "refresh": "Refresh fetch status",
+        "loadError": "The fetch status could not be loaded.",
+        "lastSuccess": "Last successful fetch",
+        "lastSuccessNone": "No successful fetch yet",
+        "lastSuccessDetail": "{{time}} ({{trigger}}), {{written}} of {{sites}} sites updated",
+        "nextScheduled": "Next scheduled fetch",
+        "nextScheduledDisabled": "None, the weather fetch is switched off on this installation.",
+        "interval": "Effective fetch interval",
+        "intervalValue": "every {{hours}} hours",
+        "lastFailed": "The last attempt at {{time}} failed: {{failed}} of {{sites}} sites with an error.",
+        "triggerManual": "manual",
+        "triggerScheduled": "scheduled"
+      },
+      "fetchNow": {
+        "button": "Fetch now",
+        "helper": "Fetches the weather data of all sites right away. Afterwards Kamerplanter recalculates the frost early warning and the irrigation demand.",
+        "reasonLoading": "Loading the fetch status …",
+        "reasonRunning": "A fetch is running. Wait until it has finished.",
+        "reasonUnknown": "Whether a fetch is running cannot be checked right now. Refresh the fetch status in a few minutes.",
+        "progressLabel": "Weather fetch progress",
+        "starting": "Starting the fetch …",
+        "running": "Fetch running. Kamerplanter is fetching the weather data of all sites; this can take a few minutes.",
+        "successTitle": "Fetch finished",
+        "successDetail": "{{written}} of {{sites}} sites have new weather data, {{forecasts}} forecast days stored.",
+        "successNoSites": "There is no site with GPS coordinates and a weather source, so there was nothing to fetch.",
+        "successFailedSites": "Sites with an error: {{failed}}. They are retried with the next fetch.",
+        "failedTitle": "Fetch failed",
+        "failedDetail": "No site received weather data ({{failed}} of {{sites}} with an error). Kamerplanter retries with the next scheduled fetch; the fetch status shows when that is.",
+        "failedAborted": "The fetch was aborted by an internal error. Kamerplanter retries with the next scheduled fetch; the fetch status shows when that is.",
+        "originScheduledInstead": "A scheduled fetch started just before yours, so no fetch of your own ran; this is the result of the scheduled one.",
+        "originAlreadyRunning": "A fetch was already running, so no further one was started. This is its result.",
+        "timedOut": "The fetch takes longer than usual and keeps running in the background. The result appears in the fetch status once it has finished.",
+        "refusedTitle": "Fetch not started",
+        "cooldown": "After a manual fetch you have to wait 10 minutes. A new fetch is possible from {{time}}.",
+        "cooldownUnknown": "After a manual fetch you have to wait 10 minutes. Try again in a few minutes.",
+        "disabled": "The weather fetch is switched off on this installation (environment variable WEATHER_ENABLED). While it is off, there are neither scheduled nor manual fetches.",
+        "unavailable": "The fetch cannot be started right now because a background service is unreachable. Try again in a few minutes.",
+        "error": "The fetch could not be started. Check your connection and try again."
+      }
     },
     "plantDiary": {
       "tabTitle": "Diary",
@@ -5110,7 +5143,7 @@
       "intro": "A plan sets an organization's quotas: how many members and service accounts, how much storage, how many photos per plant and how many AI calls a day. Every organization has exactly one plan; new organizations get the default plan. Organizations cannot choose their plan themselves – you assign it on the organization's page.",
       "valueLegend": "How to read the values: an empty value (“same as instance setting”) follows the installation's environment variable. “Unlimited” and “budget off” stand for the value 0 – it lifts the limit and never means “nothing allowed”. A lower limit removes nothing; only the next creation is refused.",
       "add": "Create plan",
-      "back": "Back to the platform settings",
+      "back": "Back to platform administration",
       "emptyTitle": "No plans yet",
       "emptyDescription": "Create a plan to give organizations other quotas than the instance settings.",
       "navCardTitle": "Plans and quotas",
@@ -5243,7 +5276,7 @@
     },
     "tenantImports": {
       "title": "Import a garden",
-      "back": "Back to the platform settings",
+      "back": "Back to platform administration",
       "intro": "Bring the archive of a garden export back as a new garden — from this or another installation. An import never merges into an existing garden: every record gets a new id, and the new garden only becomes reachable once its last record is written.",
       "rules": "How members are taken over: only the people you map to an existing account below become members of the new garden — with the role and additional permissions you set, never those in the archive. Unmapped members are dropped; their entries (e.g. \"created by\") are anonymised.",
       "resumed": "You signed in again. Choose the archive and the mapping once more and start the import within five minutes — the confirmation only holds for exactly this file.",
@@ -8628,6 +8661,59 @@
     "runs": {
       "plantCount": "Plants",
       "standalonePlants": "Standalone plants (no run)"
+    },
+    "settings": {
+      "title": "Settings",
+      "navLabel": "Settings groups",
+      "backToGroups": "Back to the settings overview",
+      "operatorHeading": "Operation",
+      "integrationsInstallationHint": "The Home Assistant connection, the Pl@ntNet key and recognition for the whole installation are set in the group",
+      "groups": {
+        "account": {
+          "title": "Profile & account",
+          "description": "Your name, language and time zone, your email address and deleting your account."
+        },
+        "display": {
+          "title": "Display & behaviour",
+          "description": "Experience level, kiosk mode, visible modules and your dashboard."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "Which channels Kamerplanter uses to notify you, and when."
+        },
+        "security": {
+          "title": "Security & access",
+          "description": "Password and sign-in methods, active sessions, devices and API keys."
+        },
+        "integrations": {
+          "title": "Integrations",
+          "description": "Smart home features and what Kamerplanter reports to Home Assistant."
+        },
+        "installation": {
+          "title": "Installation",
+          "description": "Applies to the whole installation and every user: storage, weather services, the Home Assistant connection, Pl@ntNet and recognition."
+        }
+      },
+      "sections": {
+        "profile": "Profile",
+        "account": "Account",
+        "experience": "Experience level",
+        "kiosk": "Kiosk mode",
+        "modules": "Modules & features",
+        "dashboard": "Dashboard",
+        "notifications": "Notification channels",
+        "security": "Password & sign-in methods",
+        "sessions": "Sessions",
+        "apikeys": "API keys",
+        "connect": "Connect app",
+        "ha": "Smart home",
+        "haPublish": "HA publishing",
+        "storage": "Storage",
+        "weatherProviders": "Weather services",
+        "haConnection": "Home Assistant connection",
+        "plantIdentification": "Plant identification (Pl@ntNet)",
+        "recognition": "Plant and pest recognition"
+      }
     }
   }
 }

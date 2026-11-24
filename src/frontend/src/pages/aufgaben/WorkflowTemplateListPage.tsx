@@ -291,7 +291,7 @@ export default function WorkflowTemplateListPage() {
 
 
   useEffect(() => {
-    dispatch(fetchWorkflows({}));
+    dispatch(fetchWorkflows());
   }, [dispatch, requestLanguage]);
 
   const filteredWorkflows = useMemo(() => {
@@ -313,7 +313,7 @@ export default function WorkflowTemplateListPage() {
       await taskApi.deleteWorkflow(deleteKey);
       notification.success(t('pages.tasks.workflowDeleted'));
       setDeleteKey(null);
-      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflows());
     } catch (err) {
       handleError(err);
     } finally {
@@ -334,7 +334,7 @@ export default function WorkflowTemplateListPage() {
       await taskApi.duplicateWorkflow(duplicateKey, duplicateName.trim());
       notification.success(t('pages.tasks.workflowDuplicated'));
       setDuplicateKey(null);
-      dispatch(fetchWorkflows({}));
+      dispatch(fetchWorkflows());
     } catch (err) {
       handleError(err);
     } finally {
@@ -452,7 +452,7 @@ export default function WorkflowTemplateListPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={() => {
           setCreateOpen(false);
-          dispatch(fetchWorkflows({}));
+          dispatch(fetchWorkflows());
         }}
       />
       <ConfirmDialog

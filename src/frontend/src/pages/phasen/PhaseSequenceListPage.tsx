@@ -191,7 +191,7 @@ export default function PhaseSequenceListPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await phaseSequenceApi.listPhaseSequences(0, 200);
+      const data = await phaseSequenceApi.listAllPhaseSequences();
       setSequences(data);
     } catch (err) {
       setError(t('errors.server'));

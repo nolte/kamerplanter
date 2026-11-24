@@ -176,3 +176,14 @@ def test_the_sweep_sees_both_ways_in() -> None:
     assert how["glossary.invalidate_after_reingest"] == "dispatched"
     # Behind a feature flag: read from the source, not from the live beat_schedule.
     assert how["app.tasks.weather_tasks.fetch_weather_forecasts"] == "scheduled"
+    # #2934: queued after every successful weather fetch AND scheduled daily as a safety
+    # net; "scheduled" wins the classification. The chained path is held by
+    # test_beats_skip_inactive_tenants.py (read from weather_tasks._dispatch_followups).
+    assert how["app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings"] == "scheduled"
+    assert how["app.tasks.irrigation_tasks.compute_irrigation_demand"] == "scheduled"
+    _identifiers, sent = _dispatched()
+    assert {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
+        "app.tasks.weather_tasks.fetch_weather_forecasts",  # the manual fetch (admin router)
+    } <= sent, "the weather fetch / manual trigger no longer send_task these tasks"

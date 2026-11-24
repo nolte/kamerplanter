@@ -693,6 +693,11 @@
         "manualSubmit": "Freigeben"
       }
     },
+    "adminPlatform": {
+      "title": "Plattform-Verwaltung",
+      "intro": "Hier verwaltest du alles, was für die ganze Installation gilt – nicht nur für deinen Garten. Deine persönlichen Einstellungen findest du weiterhin unter „Einstellungen“.",
+      "back": "Zurück zur Plattform-Verwaltung"
+    },
     "privacy": {
       "title": "Datenschutz & Betroffenenrechte",
       "tabsAriaLabel": "Datenschutz-Bereiche",
@@ -865,24 +870,7 @@
       "newPassword": "Neues Passwort festlegen",
       "setNewPassword": "Passwort speichern",
       "passwordResetSuccess": "Passwort erfolgreich zurückgesetzt",
-      "accountSettings": "Kontoeinstellungen",
       "privacySettings": "Datenschutz",
-      "tabProfile": "Profil",
-      "tabSecurity": "Sicherheit",
-      "tabSessions": "Sitzungen",
-      "tabApiKeys": "API-Schlüssel",
-      "tabExperience": "Erfahrungsstufe",
-      "tabKiosk": "Kiosk-Modus",
-      "tabConnect": "App verbinden",
-      "tabModules": "Module & Funktionen",
-      "tabPlatform": "Plattform-Modus",
-      "tabAdmin": "Administration",
-      "tabNotifications": "Benachrichtigungen",
-      "tabIntegrations": "Integrationen",
-      "tabHaPublish": "HA-Veröffentlichung",
-      "tabStorage": "Speicher",
-      "tabWeatherProviders": "Wetterdienste",
-      "tabAccount": "Konto",
       "smartHome": {
         "title": "Smart Home & Sensorik",
         "description": "Aktiviere diese Option wenn du Smart-Home-Geräte, Sensoren oder Aktoren mit Kamerplanter verwenden möchtest.",
@@ -1088,7 +1076,6 @@
       "emailReadOnly": "Die E-Mail-Adresse kann nicht geändert werden.",
       "unlinkProvider": "Anbieter trennen",
       "deleteAccountDescription": "Dein Konto wird sofort geschlossen; deine Daten werden nach Ablauf der Löschfrist endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.",
-      "tabDashboard": "Dashboard",
       "stepUpLocked": "Zu viele fehlgeschlagene Bestätigungen. Versuche es in {{minutes}} Minuten erneut.",
       "stepUpCodeUndeliverable": "Der Bestätigungscode kann nicht per E-Mail zugestellt werden. Wende dich an den Betreiber.",
       "stepUpLockedNoMinutes": "Zu viele fehlgeschlagene Bestätigungen. Versuche es später erneut.",
@@ -4890,14 +4877,60 @@
       "globalKeyUnset": "Kein Schlüssel",
       "toggleKeyVisibility": "Schlüssel-Sichtbarkeit umschalten",
       "fetchTitle": "Abruf-Einstellungen",
-      "fetchDesc": "Zeitlimit für Wetterabfragen und die bevorzugte öffentliche Standardquelle.",
-      "fetchTimeout": "Zeitlimit",
-      "fetchTimeoutHelper": "Maximale Wartezeit pro Wetterabfrage in Sekunden (1–120).",
+      "fetchDesc": "Wie oft Kamerplanter die Wetterdaten aller Standorte holt, wie lange es dabei höchstens auf einen Wetterdienst wartet und welche öffentliche Quelle es vorschlägt.",
+      "fetchInterval": "Abrufintervall",
+      "fetchIntervalHelper": "Stunden zwischen zwei Abrufen der Wetterdaten aller Standorte (6–168). Kürzer als 6 Stunden geht nicht, das schont das Kontingent der Wetterdienste.",
+      "fetchIntervalError": "Gib eine ganze Zahl von {{min}} bis {{max}} Stunden ein.",
+      "fetchIntervalUnit": "h",
+      "fetchTimeout": "Zeitlimit pro Anfrage",
+      "fetchTimeoutHelper": "So lange wartet Kamerplanter höchstens auf die Antwort eines Wetterdiensts, in Sekunden (1–120). Wie oft abgerufen wird, legt das Abrufintervall fest, nicht dieses Feld.",
+      "fetchTimeoutError": "Gib eine ganze Zahl von {{min}} bis {{max}} Sekunden ein.",
       "defaultSource": "Standard-Quelle",
       "defaultSourceHelper": "Bevorzugte öffentliche Wetterquelle, wenn ein Standort keine eigene Reihenfolge festlegt.",
       "saveSuccess": "Wetterdienste gespeichert.",
       "saveError": "Die Wetterdienste konnten nicht gespeichert werden.",
-      "loadError": "Die Wetterdienste konnten nicht geladen werden."
+      "loadError": "Die Wetterdienste konnten nicht geladen werden.",
+      "fetchStatus": {
+        "title": "Abrufstatus",
+        "refresh": "Abrufstatus aktualisieren",
+        "loadError": "Der Abrufstatus konnte nicht geladen werden.",
+        "lastSuccess": "Letzter erfolgreicher Abruf",
+        "lastSuccessNone": "Noch kein erfolgreicher Abruf",
+        "lastSuccessDetail": "{{time}} ({{trigger}}), {{written}} von {{sites}} Standorten aktualisiert",
+        "nextScheduled": "Nächster geplanter Abruf",
+        "nextScheduledDisabled": "Keiner, der Wetterabruf ist auf dieser Installation ausgeschaltet.",
+        "interval": "Gültiges Abrufintervall",
+        "intervalValue": "alle {{hours}} Stunden",
+        "lastFailed": "Der letzte Versuch am {{time}} ist fehlgeschlagen: {{failed}} von {{sites}} Standorten mit Fehler.",
+        "triggerManual": "manuell",
+        "triggerScheduled": "geplant"
+      },
+      "fetchNow": {
+        "button": "Jetzt abrufen",
+        "helper": "Holt sofort die Wetterdaten aller Standorte. Danach berechnet Kamerplanter Frost-Frühwarnung und Bewässerungsbedarf neu.",
+        "reasonLoading": "Der Abrufstatus wird geladen …",
+        "reasonRunning": "Gerade läuft ein Abruf. Warte, bis er fertig ist.",
+        "reasonUnknown": "Ob gerade ein Abruf läuft, lässt sich im Moment nicht prüfen. Aktualisiere den Abrufstatus in ein paar Minuten.",
+        "progressLabel": "Fortschritt des Wetterabrufs",
+        "starting": "Abruf wird gestartet …",
+        "running": "Abruf läuft. Kamerplanter holt die Wetterdaten aller Standorte, das kann ein paar Minuten dauern.",
+        "successTitle": "Abruf abgeschlossen",
+        "successDetail": "{{written}} von {{sites}} Standorten haben neue Wetterdaten, {{forecasts}} Vorhersagetage gespeichert.",
+        "successNoSites": "Es gibt keinen Standort mit GPS-Koordinaten und Wetterquelle, es war also nichts abzurufen.",
+        "successFailedSites": "Standorte mit Fehler: {{failed}}. Kamerplanter versucht sie beim nächsten Abruf erneut.",
+        "failedTitle": "Abruf fehlgeschlagen",
+        "failedDetail": "Kein Standort hat Wetterdaten erhalten ({{failed}} von {{sites}} mit Fehler). Kamerplanter versucht es beim nächsten geplanten Abruf erneut; wann der ist, steht im Abrufstatus.",
+        "failedAborted": "Der Abruf wurde durch einen internen Fehler abgebrochen. Kamerplanter versucht es beim nächsten geplanten Abruf erneut; wann der ist, steht im Abrufstatus.",
+        "originScheduledInstead": "Kurz vor deinem Abruf hat ein geplanter Abruf begonnen. Deshalb lief kein eigener Abruf; das hier ist das Ergebnis des geplanten.",
+        "originAlreadyRunning": "Es lief bereits ein Abruf, deshalb wurde kein weiterer gestartet. Das hier ist sein Ergebnis.",
+        "timedOut": "Der Abruf dauert länger als üblich und läuft im Hintergrund weiter. Das Ergebnis erscheint im Abrufstatus, sobald er fertig ist.",
+        "refusedTitle": "Abruf nicht gestartet",
+        "cooldown": "Nach einem manuellen Abruf musst du 10 Minuten warten. Ein neuer Abruf ist ab {{time}} möglich.",
+        "cooldownUnknown": "Nach einem manuellen Abruf musst du 10 Minuten warten. Versuche es in ein paar Minuten erneut.",
+        "disabled": "Der Wetterabruf ist auf dieser Installation ausgeschaltet (Umgebungsvariable WEATHER_ENABLED). Solange er aus ist, gibt es weder geplante noch manuelle Abrufe.",
+        "unavailable": "Der Abruf kann gerade nicht gestartet werden, weil ein Hintergrunddienst nicht erreichbar ist. Versuche es in ein paar Minuten erneut.",
+        "error": "Der Abruf konnte nicht gestartet werden. Prüfe deine Verbindung und versuche es erneut."
+      }
     },
     "plantDiary": {
       "tabTitle": "Tagebuch",
@@ -5110,7 +5143,7 @@
       "intro": "Ein Plan legt die Kontingente einer Organisation fest: wie viele Mitglieder und Dienstkonten, wie viel Speicher, wie viele Fotos je Pflanze und wie viele KI-Aufrufe am Tag. Jede Organisation hat genau einen Plan; neue Organisationen bekommen den Standard-Plan. Organisationen selbst können ihren Plan nicht wählen – du ordnest ihn auf der Seite der Organisation zu.",
       "valueLegend": "So liest du die Werte: Ein leerer Wert („wie Instanz-Einstellung“) folgt der Umgebungsvariable der Installation. „Unbegrenzt“ und „Budget aus“ stehen für den Wert 0 – er hebt die Grenze auf und bedeutet nie „nichts erlaubt“. Ein niedrigeres Limit entfernt nichts; abgelehnt wird erst die nächste Anlage.",
       "add": "Plan anlegen",
-      "back": "Zurück zu den Plattform-Einstellungen",
+      "back": "Zurück zur Plattform-Verwaltung",
       "emptyTitle": "Noch keine Pläne",
       "emptyDescription": "Lege einen Plan an, um Organisationen andere Kontingente zu geben als die Instanz-Einstellungen.",
       "navCardTitle": "Pläne und Kontingente",
@@ -5243,7 +5276,7 @@
     },
     "tenantImports": {
       "title": "Garten importieren",
-      "back": "Zurück zu den Plattform-Einstellungen",
+      "back": "Zurück zur Plattform-Verwaltung",
       "intro": "Hier spielst du das Archiv eines Garten-Exports als neuen Garten ein — aus dieser oder einer anderen Installation. Der Import führt nie in einen bestehenden Garten zusammen: Jeder Datensatz bekommt eine neue Kennung, und der neue Garten ist erst erreichbar, wenn der letzte Datensatz geschrieben ist.",
       "rules": "So funktioniert die Übernahme der Mitglieder: Nur wen du unten einem bestehenden Konto zuordnest, wird Mitglied des neuen Gartens — mit der Rolle und den Zusatzberechtigungen, die du festlegst, nie mit denen aus dem Archiv. Nicht zugeordnete Mitglieder entfallen; ihre Einträge (z. B. „angelegt von“) werden anonymisiert.",
       "resumed": "Du hast dich erneut angemeldet. Wähle das Archiv und die Zuordnung noch einmal aus und starte den Import innerhalb von fünf Minuten — die Bestätigung gilt nur für genau diese Datei.",
@@ -8628,6 +8661,59 @@
     "runs": {
       "plantCount": "Pflanzen",
       "standalonePlants": "Einzelpflanzen (ohne Durchlauf)"
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "navLabel": "Einstellungsgruppen",
+      "backToGroups": "Zurück zur Übersicht der Einstellungen",
+      "operatorHeading": "Betrieb",
+      "integrationsInstallationHint": "Die Verbindung zu Home Assistant, den Pl@ntNet-Schlüssel und die Erkennung für die ganze Installation stellst du in der Gruppe",
+      "groups": {
+        "account": {
+          "title": "Profil & Konto",
+          "description": "Dein Name, Sprache und Zeitzone, deine E-Mail-Adresse und das Löschen deines Kontos."
+        },
+        "display": {
+          "title": "Anzeige & Verhalten",
+          "description": "Erfahrungsstufe, Kiosk-Modus, sichtbare Module und dein Dashboard."
+        },
+        "notifications": {
+          "title": "Benachrichtigungen",
+          "description": "Über welche Kanäle und wann Kamerplanter dich benachrichtigt."
+        },
+        "security": {
+          "title": "Sicherheit & Zugang",
+          "description": "Passwort und Anmeldemethoden, aktive Sitzungen, Geräte und API-Schlüssel."
+        },
+        "integrations": {
+          "title": "Integrationen",
+          "description": "Smart-Home-Funktionen und was Kamerplanter an Home Assistant meldet."
+        },
+        "installation": {
+          "title": "Installation",
+          "description": "Gilt für die ganze Installation und alle Nutzer: Speicher, Wetterdienste, Home-Assistant-Verbindung, Pl@ntNet und Erkennung."
+        }
+      },
+      "sections": {
+        "profile": "Profil",
+        "account": "Konto",
+        "experience": "Erfahrungsstufe",
+        "kiosk": "Kiosk-Modus",
+        "modules": "Module & Funktionen",
+        "dashboard": "Dashboard",
+        "notifications": "Benachrichtigungskanäle",
+        "security": "Passwort & Anmeldemethoden",
+        "sessions": "Sitzungen",
+        "apikeys": "API-Schlüssel",
+        "connect": "App verbinden",
+        "ha": "Smart Home",
+        "haPublish": "HA-Veröffentlichung",
+        "storage": "Speicher",
+        "weatherProviders": "Wetterdienste",
+        "haConnection": "Home-Assistant-Verbindung",
+        "plantIdentification": "Pflanzenbestimmung (Pl@ntNet)",
+        "recognition": "Pflanzen- und Schädlingserkennung"
+      }
     }
   }
 }

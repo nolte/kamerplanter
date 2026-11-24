@@ -64,7 +64,7 @@ beforeEach(() => {
 describe('StartDryingDialog', () => {
   it('submits the start-drying request for the selected harvest batch', async () => {
     const user = userEvent.setup();
-    vi.mocked(harvestApi.getBatches).mockResolvedValue([HARVEST_BATCH]);
+    vi.mocked(harvestApi.getAllBatches).mockResolvedValue([HARVEST_BATCH]);
     vi.mocked(postHarvestApi.startDrying).mockResolvedValue(DRYING_BATCH);
     const onCreated = vi.fn();
 
@@ -73,7 +73,7 @@ describe('StartDryingDialog', () => {
     );
 
     // Wait for harvest batches to load into the select.
-    await waitFor(() => expect(harvestApi.getBatches).toHaveBeenCalled());
+    await waitFor(() => expect(harvestApi.getAllBatches).toHaveBeenCalled());
 
     // Open the harvest-batch select and choose the option.
     const combos = await screen.findAllByRole('combobox');
@@ -91,11 +91,11 @@ describe('StartDryingDialog', () => {
   });
 
   it('disables the batch select when no harvest batches are available', async () => {
-    vi.mocked(harvestApi.getBatches).mockResolvedValue([]);
+    vi.mocked(harvestApi.getAllBatches).mockResolvedValue([]);
     renderWithProviders(
       <StartDryingDialog open onClose={vi.fn()} onCreated={vi.fn()} />,
     );
-    await waitFor(() => expect(harvestApi.getBatches).toHaveBeenCalled());
+    await waitFor(() => expect(harvestApi.getAllBatches).toHaveBeenCalled());
     expect(
       await screen.findByText(/Keine Erntechargen|No harvest batches/i),
     ).toBeInTheDocument();

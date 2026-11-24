@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: integration
 status: measured
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 3484
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 2343
 job_spec_sha256: d927c43675bbd773245a7712674e3b86ac7659d74f39bafbfb5dfa5d7662ef0a
 invocations:
 - command: task test:backend:integration
@@ -28,7 +28,7 @@ invocations:
   - TIMESCALEDB_PASSWORD=changeme
   - TIMESCALEDB_PORT=5432
   - TIMESCALEDB_USERNAME=postgres
-  untracked_reads_dropped: 5479
+  untracked_reads_dropped: 5485
 - command: task deps:sync
   cwd: src/backend
   recorder: strace -ff -y -z
@@ -343,6 +343,7 @@ reads:
 - src/backend/app/api/v1/plant_instances/environment_router.py
 - src/backend/app/api/v1/plant_instances/photo_router.py
 - src/backend/app/api/v1/plant_instances/photo_schemas.py
+- src/backend/app/api/v1/plant_instances/row_labels.py
 - src/backend/app/api/v1/plant_instances/schemas.py
 - src/backend/app/api/v1/plant_instances/tenant_router.py
 - src/backend/app/api/v1/planting_runs/
@@ -615,6 +616,7 @@ reads:
 - src/backend/app/data_access/arango/watering_log_repository.py
 - src/backend/app/data_access/arango/watering_queries.py
 - src/backend/app/data_access/arango/watering_repository.py
+- src/backend/app/data_access/arango/weather_fetch_status_repository.py
 - src/backend/app/data_access/arango/weather_forecast_repository.py
 - src/backend/app/data_access/arango/weather_source_config_repository.py
 - src/backend/app/data_access/external/
@@ -664,6 +666,7 @@ reads:
 - src/backend/app/data_access/external/templated_email_adapter.py
 - src/backend/app/data_access/external/unknown_account_store.py
 - src/backend/app/data_access/external/weather_attributions.py
+- src/backend/app/data_access/external/weather_fetch_gate.py
 - src/backend/app/data_access/external/wikimedia_media_client.py
 - src/backend/app/data_access/repositories/
 - src/backend/app/data_access/repositories/__init__.py
@@ -963,6 +966,7 @@ reads:
 - src/backend/app/domain/interfaces/watering_log_repository.py
 - src/backend/app/domain/interfaces/watering_repository.py
 - src/backend/app/domain/interfaces/weather_adapter.py
+- src/backend/app/domain/interfaces/weather_fetch.py
 - src/backend/app/domain/interfaces/weather_forecast_repository.py
 - src/backend/app/domain/interfaces/weather_source_config_repository.py
 - src/backend/app/domain/models/
@@ -1064,6 +1068,7 @@ reads:
 - src/backend/app/domain/models/watering_event.py
 - src/backend/app/domain/models/watering_log.py
 - src/backend/app/domain/models/weather.py
+- src/backend/app/domain/models/weather_fetch.py
 - src/backend/app/domain/services/
 - src/backend/app/domain/services/__init__.py
 - src/backend/app/domain/services/activity_plan_service.py
@@ -1203,6 +1208,7 @@ reads:
 - src/backend/app/domain/services/watering_log_service.py
 - src/backend/app/domain/services/watering_service.py
 - src/backend/app/domain/services/weather_adapter_registry.py
+- src/backend/app/domain/services/weather_fetch_service.py
 - src/backend/app/domain/services/weather_settings_service.py
 - src/backend/app/domain/services/weather_source_resolver.py
 - src/backend/app/domain/services/weather_source_service.py
@@ -1775,6 +1781,7 @@ reads:
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
+- src/backend/tests/integration/test_weather_fetch_status_repository.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 - src/backend/tests/support/
@@ -2025,6 +2032,7 @@ test_modules:
 - src/backend/tests/integration/test_v0112_placed_in_backfill.py
 - src/backend/tests/integration/test_v0113_photoperiod_unspecified.py
 - src/backend/tests/integration/test_v0114_rooting_protocol_author_key.py
+- src/backend/tests/integration/test_weather_fetch_status_repository.py
 - src/backend/tests/integration/test_window_instant_comparisons.py
 - src/backend/tests/integration/test_workflow_template_tenant_writes.py
 readers: {}

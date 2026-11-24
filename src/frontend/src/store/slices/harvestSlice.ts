@@ -66,15 +66,17 @@ const initialState: HarvestState = {
 
 export const fetchIndicators = createAsyncThunk(
   'harvest/fetchIndicators',
-  async ({ offset, limit }: { offset?: number; limit?: number } = {}) => {
-    return api.getIndicators(offset, limit);
+  // Every page (#3015): one window would hide every indicator past it.
+  async () => {
+    return api.getAllIndicators();
   },
 );
 
 export const fetchBatches = createAsyncThunk(
   'harvest/fetchBatches',
-  async ({ offset, limit }: { offset?: number; limit?: number } = {}) => {
-    return api.getBatches(offset, limit);
+  // Every page (#3015): the batch list searches and sorts client-side.
+  async () => {
+    return api.getAllBatches();
   },
 );
 

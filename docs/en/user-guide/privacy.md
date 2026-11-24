@@ -91,7 +91,7 @@ You have the right to have your data corrected.
 
 ### The Change Process
 
-1. In account settings, go to the **Profile** tab and enter the new address in the **Change Email Address** section
+1. In the settings, open the **Profile & account** group and enter the new address in the **Change Email Address** section
 2. Click **Request Change** and confirm yourself in the dialog — with your current password, if your account has one, otherwise via a fresh sign-in at your linked provider or, only for accounts linked exclusively to GitHub/Apple, via the code emailed to you
 3. The interface confirms that a confirmation link was sent to the new address
 4. Open the link in the email at the **new** address and click **Confirm New Address** there
@@ -130,7 +130,7 @@ Opening the link shows what will happen and requires an explicit click on **Rest
     If you didn't initiate the change, someone else may know your password. Reset it after restoring your address via **Forgot password?** (see [Forgot and Reset Your Password](account.md#forgot-and-reset-your-password)).
 
 !!! warning "Check your older API keys"
-    Only API keys created since the email change was requested are revoked automatically (see above). Older keys that already existed before that stay active. If your account was compromised, check them in the **API Keys** tab of your account settings and revoke unfamiliar ones manually (see [API documentation](../api/authentication.md)).
+    Only API keys created since the email change was requested are revoked automatically (see above). Older keys that already existed before that stay active. If your account was compromised, check them in the settings under **Security & access** in the **API keys** section and revoke unfamiliar ones manually (see [API documentation](../api/authentication.md)).
 
 !!! warning "Residual risk: whoever can read the previous address"
     The undo link only proves access to the previous address — not necessarily your identity. Anyone who can read that address within the 7-day window can use it to take the account back; the address that was current at that point (the new one) is notified about it.
@@ -316,7 +316,7 @@ You have the right to erasure of your data.
     If the email you type doesn't match your own, the dialog shows an error. For local-password accounts, entering the current password is also mandatory — if it's wrong, the dialog stays open and shows an error. In both cases, the account is **not** deleted.
 
 !!! warning "Locked out after too many attempts"
-    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** tab (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
+    After several wrong password attempts, the system locks the confirmation for 15 minutes — repeated failures double the wait time up to 4 hours; the dialog shows the remaining wait time. This lock applies account-wide to all confirmations of this kind (deleting your account, deleting a tenant, changing your password) together, but does **not** affect signing in: you can still sign in normally, end individual sessions in the **Sessions** section of the **Security & access** group (see [Account & Sign-In](account.md#viewing-and-ending-active-sessions)), or reset your password by email.
 
 The same action can also be triggered directly via the API: `POST /api/v1/privacy/erasure` expects the same request body as `DELETE /api/v1/users/me` (see [Deleting Your Account](account.md#deleting-your-account)) — `{"confirm_email": "...", "password": "..."}`, where `password` is only required for a local password. `GET /api/v1/privacy/erasure/{erasure_key}` returns the status (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
 

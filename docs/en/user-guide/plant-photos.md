@@ -231,7 +231,7 @@ If you give consent and the self-hosted recognition is active, gallery photos of
 The consent for data contribution (`reference_contribution`) is found in the privacy settings:
 
 1. Click your profile picture in the top right.
-2. Select **Account Settings** > **Privacy** > **Consents**.
+2. Select **Privacy** > **Consents**.
 3. Enable or disable **Photo contribution to plant recognition**.
 
 Revocation takes effect immediately for all future contributions — gallery photos as well as [promoted pest photos](pest-detail.md#contribute-your-own-photos). Revoking does not by itself remove feature vectors that were already created; they are deleted when you delete the photo they came from, and at the latest when your account is deleted.

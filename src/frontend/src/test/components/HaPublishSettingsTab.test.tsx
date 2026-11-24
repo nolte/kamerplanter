@@ -5,13 +5,13 @@ import { renderWithProviders } from '../helpers';
 import HaPublishSettingsTab from '@/pages/auth/HaPublishSettingsTab';
 
 vi.mock('@/api/endpoints/plantInstances', () => ({
-  listPlantInstances: vi.fn(),
+  listAllPlantInstances: vi.fn(),
 }));
 vi.mock('@/api/endpoints/tanks', () => ({
-  listTanks: vi.fn(),
+  listAllTanks: vi.fn(),
 }));
 vi.mock('@/api/endpoints/sites', () => ({
-  listSites: vi.fn(),
+  listAllSites: vi.fn(),
   listLocations: vi.fn(),
 }));
 vi.mock('@/api/endpoints/haPublish', () => ({
@@ -20,9 +20,9 @@ vi.mock('@/api/endpoints/haPublish', () => ({
   bulkSetHaPublishStatus: vi.fn(),
 }));
 
-import { listPlantInstances } from '@/api/endpoints/plantInstances';
-import { listTanks } from '@/api/endpoints/tanks';
-import { listSites, listLocations } from '@/api/endpoints/sites';
+import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
+import { listAllTanks } from '@/api/endpoints/tanks';
+import { listAllSites, listLocations } from '@/api/endpoints/sites';
 import {
   listHaPublishSettings,
   setHaPublishStatus,
@@ -30,9 +30,9 @@ import {
 } from '@/api/endpoints/haPublish';
 import type { PlantInstance, Tank, Site, Location } from '@/api/types';
 
-const mockListPlants = vi.mocked(listPlantInstances);
-const mockListTanks = vi.mocked(listTanks);
-const mockListSites = vi.mocked(listSites);
+const mockListPlants = vi.mocked(listAllPlantInstances);
+const mockListTanks = vi.mocked(listAllTanks);
+const mockListSites = vi.mocked(listAllSites);
 const mockListLocations = vi.mocked(listLocations);
 const mockListSettings = vi.mocked(listHaPublishSettings);
 const mockSetStatus = vi.mocked(setHaPublishStatus);

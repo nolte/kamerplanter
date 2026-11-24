@@ -57,7 +57,7 @@ flowchart LR
 
 | Richtung | Token | Wozu | Wo erstellen |
 |----------|-------|------|-------------|
-| **HA → Kamerplanter** | Kamerplanter API-Key (`kp_`-Prefix) | HA liest Pflanzendaten, Tankwerte, Aufgaben | Kamerplanter: **Einstellungen** > **API-Keys** |
+| **HA → Kamerplanter** | Kamerplanter API-Key (`kp_`-Prefix) | HA liest Pflanzendaten, Tankwerte, Aufgaben | Kamerplanter: **Einstellungen** > **Sicherheit & Zugang** > **API-Schlüssel** |
 | **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter liest Sensordaten, steuert Aktoren <!-- REQ-005, REQ-018 --> | Home Assistant: **Profil** > **Long-Lived Access Tokens** |
 
 !!! warning "Beide Tokens erforderlich"
@@ -67,7 +67,7 @@ flowchart LR
 
 **1. Kamerplanter API-Key erstellen** (für HA → Kamerplanter):
 
-1. In Kamerplanter: **Einstellungen** > **API-Keys** > **Neuer Key**
+1. In Kamerplanter: **Einstellungen** > **Sicherheit & Zugang** > **API-Schlüssel** > **API-Schlüssel erstellen**
 2. Den generierten Key (`kp_...`) kopieren
 3. In Home Assistant: Bei der Kamerplanter-Integration im Config Flow eingeben
 
@@ -75,7 +75,7 @@ flowchart LR
 
 1. In Home Assistant: **Profil** (unten links) > **Long-Lived Access Tokens** > **Token erstellen**
 2. Den Token kopieren
-3. In Kamerplanter: **Einstellungen** > **Home Assistant** > URL und Token eintragen
+3. In Kamerplanter (als Betreiber): **Einstellungen** > **Installation** > **Home-Assistant-Verbindung** > URL und Token eintragen (der Abschnitt erscheint, sobald Smart Home unter **Integrationen** eingeschaltet ist)
     - Oder via Umgebungsvariablen: `HA_URL` und `HA_ACCESS_TOKEN`
 
 ---
@@ -228,7 +228,7 @@ Die Integration erstellt automatisch Entities für alle ausgewählten Pflanzen, 
 Standardmäßig wird **kein** Element an Home Assistant übertragen. Erst wenn eine Pflanze, ein Tank oder ein Standort in Kamerplanter explizit aktiviert wird, erscheint sie als Entity in Home Assistant. Dieses **Opt-in-Prinzip** verhindert, dass alle Datensätze eines Gartens automatisch in Home Assistant landen.
 
 !!! note "Voraussetzung: Smart-Home-Funktion aktivieren"
-    Der Schalter „Als Home-Assistant-Sensor veröffentlichen" ist nur sichtbar, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Kontoeinstellungen** > **Smart Home** > HA-Integration einschalten.
+    Der Schalter „Als Home-Assistant-Sensor veröffentlichen" ist nur sichtbar, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Einstellungen** > **Integrationen** > **Smart Home** > HA-Integration einschalten.
 
 ### Schalter auf der Detailseite
 
@@ -246,14 +246,14 @@ Standardmäßig wird **kein** Element an Home Assistant übertragen. Erst wenn e
 !!! tip "Selektiv publizieren"
     Aktiviere nur die Pflanzen und Tanks, die du aktiv in Automationen oder Dashboards nutzen möchtest. Weniger Entities bedeuten weniger Polling-Last und ein übersichtlicheres HA-Interface.
 
-### Zentraler Verwaltungs-Tab
+### Zentraler Verwaltungs-Abschnitt
 
-Für die Verwaltung mehrerer Elemente auf einmal steht ein zentraler Tab bereit: **Einstellungen → „HA-Veröffentlichung"**.
+Für die Verwaltung mehrerer Elemente auf einmal steht ein zentraler Abschnitt bereit: **Einstellungen → Integrationen → „HA-Veröffentlichung"**.
 
 !!! note "Voraussetzung: Smart-Home-Funktion aktivieren"
-    Der Tab **„HA-Veröffentlichung"** erscheint nur, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Kontoeinstellungen** > **Smart Home** > HA-Integration einschalten.
+    Der Abschnitt **„HA-Veröffentlichung"** erscheint nur, wenn die Smart-Home-Integration für deinen Account aktiviert ist. Aktivierung: **Einstellungen** > **Integrationen** > **Smart Home** > HA-Integration einschalten.
 
-Der Tab gliedert sich in drei Bereiche — je einen für Pflanzen, Tanks und Standorte. Jeder Bereich zeigt alle vorhandenen Elemente in einer tabellarischen Ansicht. Einzelne Elemente lassen sich dort direkt per Schalter aktivieren oder deaktivieren, ohne die jeweilige Detailseite öffnen zu müssen.
+Der Abschnitt gliedert sich in drei Bereiche — je einen für Pflanzen, Tanks und Standorte. Jeder Bereich zeigt alle vorhandenen Elemente in einer tabellarischen Ansicht. Einzelne Elemente lassen sich dort direkt per Schalter aktivieren oder deaktivieren, ohne die jeweilige Detailseite öffnen zu müssen.
 
 | Bereich | Inhalt |
 |---------|--------|
@@ -262,7 +262,7 @@ Der Tab gliedert sich in drei Bereiche — je einen für Pflanzen, Tanks und Sta
 | **Standorte** | Alle Standorte des aktuellen Tenants mit Publikations-Schalter |
 
 !!! tip "Empfohlene Methode für Erst-Setup und Massenänderungen"
-    Nutze den Tab **Einstellungen → „HA-Veröffentlichung"** um beim ersten Einrichten oder nach dem Anlegen mehrerer neuer Elemente rasch die gewünschte Auswahl zu treffen. Der Schalter auf der jeweiligen Detailseite bleibt als schnelle Alternative für einzelne Elemente bestehen.
+    Nutze den Abschnitt **Einstellungen → Integrationen → „HA-Veröffentlichung"**, um beim ersten Einrichten oder nach dem Anlegen mehrerer neuer Elemente rasch die gewünschte Auswahl zu treffen. Der Schalter auf der jeweiligen Detailseite bleibt als schnelle Alternative für einzelne Elemente bestehen.
 
 ### Mandantenbezug
 
@@ -323,7 +323,7 @@ Body (ein `entity_type` pro Aufruf, beliebig viele Einträge):
 }
 ```
 
-Die Antwort ist eine Liste der aktualisierten Einzelstatus (gleiche Form wie beim Einzelstatus-Endpunkt). Das ist der Endpunkt, den der zentrale Verwaltungs-Tab **„HA-Veröffentlichung"** im Frontend für Massenänderungen nutzt.
+Die Antwort ist eine Liste der aktualisierten Einzelstatus (gleiche Form wie beim Einzelstatus-Endpunkt). Das ist der Endpunkt, den der zentrale Verwaltungs-Abschnitt **„HA-Veröffentlichung"** im Frontend für Massenänderungen nutzt.
 
 !!! warning "Abgewählte Elemente entfernen"
     Wenn ein Element abgewählt wird (PUT `enabled: false`), sollte die HA-Integration die zugehörigen Entities aktiv aus Home Assistant entfernen (Entity-Registry-Eintrag löschen). Andernfalls bleiben veraltete „unavailable"-Entities im System.

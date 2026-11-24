@@ -6,8 +6,8 @@ import { createListSlice } from '@/store/createListSlice';
 // (FR-002 §B1).
 const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'feedingEvents',
-  list: ({ offset, limit }: { offset?: number; limit?: number } = {}) =>
-    api.listFeedingEvents(offset, limit),
+  // Every page (#3015): the list view searches and sorts client-side, one page would hide the rest.
+  list: () => api.listAllFeedingEvents(),
   getOne: (key) => api.getFeedingEvent(key),
   itemsField: 'events',
   currentField: 'currentEvent',

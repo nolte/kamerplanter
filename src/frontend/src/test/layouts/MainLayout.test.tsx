@@ -85,7 +85,7 @@ describe('MainLayout (full mode)', () => {
 
     expect(screen.getByText('Demo Nutzer')).toBeInTheDocument();
     expect(screen.getByText('demo@kamerplanter.local')).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'Kontoeinstellungen' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Einstellungen' })).toBeInTheDocument();
     expect(screen.getByTestId('menu-privacy')).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Abmelden' })).toBeInTheDocument();
   });
@@ -106,7 +106,7 @@ describe('MainLayout (full mode)', () => {
     renderWithProviders(<MainLayout />, { store: storeWithUser() });
 
     await user.click(screen.getByRole('button', { name: 'Konto-Menü' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Kontoeinstellungen' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Einstellungen' }));
 
     await waitFor(() =>
       expect(screen.queryByRole('menuitem', { name: 'Abmelden' })).toBeNull(),

@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { fetchAllPages } from '../paginate';
 import type {
   NotificationListResponse,
   NotificationPreferencesRequest,
@@ -126,8 +127,18 @@ export async function unsubscribePwa(endpoint: string): Promise<void> {
 export async function markAllRead(): Promise<void> {
   // Mark all unread notifications as read by fetching and marking each one.
   // If a bulk endpoint exists in the future, replace this implementation.
-  const { items } = await getNotifications({ limit: 200, unread_only: true });
-  await Promise.all(
-    items.filter((n) => !n.read_at).map((n) => markRead(n.key)),
+  // Every unread page is read before the first one is marked: marking while
+  // paging would shift the `unread_only` offsets and skip rows (#3015).
+  const items = await fetchAllPages(
+    async (offset, limit) => (await getNotifications({ offset, limit, unread_only: true })).items,
   );
+  // A few at a time: with the 200-row cap gone, one Promise.all would open a request per unread notification at
+  // once and starve the browser's connection pool (the fan-out of #3032).
+  const unread = items.filter((n) => !n.read_at);
+  for (let i = 0; i < unread.length; i += MARK_ALL_READ_CONCURRENCY) {
+    await Promise.all(unread.slice(i, i + MARK_ALL_READ_CONCURRENCY).map((n) => markRead(n.key)));
+  }
 }
+
+/** How many `markRead` requests {@link markAllRead} keeps in flight. */
+const MARK_ALL_READ_CONCURRENCY = 6;

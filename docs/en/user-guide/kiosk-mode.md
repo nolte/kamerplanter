@@ -22,9 +22,9 @@ Greenhouses and grow rooms come with special conditions: soil, nutrient solution
 
 ## Enabling Kiosk Mode
 
-### Step 1: Open Account Settings
+### Step 1: Open Settings
 
-Click your **profile picture** or initials in the top right and choose **Account Settings**. Switch to the **Kiosk mode** tab.
+Click your **profile picture** or initials in the top right and choose **Settings**. Open the **Display & behaviour** group and its **Kiosk mode** section.
 
 ### Step 2: Turn Kiosk Mode On
 
@@ -60,7 +60,7 @@ Below the tiles, the start page shows your number of open tasks and any warnings
 
 The high-contrast display uses pure black and white with a particularly strong contrast (WCAG AAA — the highest accessibility level of the Web Content Accessibility Guidelines, at least a 7:1 contrast ratio for text) and drops subtle greys, shadows and gradients. This significantly improves readability, for example in direct sunlight in a greenhouse.
 
-It is enabled by default as soon as you turn on Kiosk Mode. You can also use it **independently** of Kiosk Mode — for example on the balcony in bright daylight: enable the separate **Use high-contrast design** switch in the **Kiosk mode** tab of Account Settings.
+It is enabled by default as soon as you turn on Kiosk Mode. You can also use it **independently** of Kiosk Mode — for example on the balcony in bright daylight: enable the separate **Use high-contrast design** switch in the **Kiosk mode** section of the settings (group **Display & behaviour**).
 
 ---
 

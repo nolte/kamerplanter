@@ -57,7 +57,7 @@ flowchart LR
 
 | Direction | Token | Purpose | Where to create |
 |-----------|-------|---------|----------------|
-| **HA → Kamerplanter** | Kamerplanter API key (`kp_` prefix) | HA reads plant data, tank values, tasks | Kamerplanter: **Settings** > **API Keys** |
+| **HA → Kamerplanter** | Kamerplanter API key (`kp_` prefix) | HA reads plant data, tank values, tasks | Kamerplanter: **Settings** > **Security & access** > **API keys** |
 | **Kamerplanter → HA** | HA Long-Lived Access Token | Kamerplanter reads sensor data, controls actuators <!-- REQ-005, REQ-018 --> | Home Assistant: **Profile** > **Long-Lived Access Tokens** |
 
 !!! warning "Both tokens required"
@@ -67,7 +67,7 @@ flowchart LR
 
 **1. Create Kamerplanter API key** (for HA → Kamerplanter):
 
-1. In Kamerplanter: **Settings** > **API Keys** > **New Key**
+1. In Kamerplanter: **Settings** > **Security & access** > **API keys** > **Create API key**
 2. Copy the generated key (`kp_...`)
 3. In Home Assistant: Enter during the Kamerplanter integration config flow
 
@@ -75,7 +75,7 @@ flowchart LR
 
 1. In Home Assistant: **Profile** (bottom left) > **Long-Lived Access Tokens** > **Create Token**
 2. Copy the token
-3. In Kamerplanter: **Settings** > **Home Assistant** > Enter URL and token
+3. In Kamerplanter (as operator): **Settings** > **Installation** > **Home Assistant connection** > enter URL and token (the section appears once smart home is switched on under **Integrations**)
     - Or via environment variables: `HA_URL` and `HA_ACCESS_TOKEN`
 
 ---
@@ -228,7 +228,7 @@ The integration automatically creates entities for all selected plants, location
 By default, **no** element is transmitted to Home Assistant. A plant, tank, or location only appears as a HA entity once it is explicitly enabled in Kamerplanter. This **opt-in principle** prevents every record in a garden from automatically appearing in Home Assistant.
 
 !!! note "Prerequisite: Enable Smart Home features"
-    The "Publish as Home Assistant sensor" toggle is only visible when the Smart Home integration is enabled for your account. Enable it under **Account Settings** > **Smart Home** > turn on HA Integration.
+    The "Publish as Home Assistant sensor" toggle is only visible when the Smart Home integration is enabled for your account. Enable it under **Settings** > **Integrations** > **Smart Home** > turn on HA Integration.
 
 ### Toggle on the Detail Page
 
@@ -248,10 +248,10 @@ Open the detail page of the desired plant, tank, or location. In the **Smart Hom
 
 ### Central Management Tab
 
-To manage multiple elements at once, use the dedicated central tab: **Settings → "HA Publishing"**.
+To manage multiple elements at once, use the dedicated central section: **Settings → Integrations → "HA publishing"**.
 
 !!! note "Prerequisite: Enable Smart Home features"
-    The **"HA Publishing"** tab only appears when the Smart Home integration is enabled for your account. Enable it under **Account Settings** > **Smart Home** > turn on HA Integration.
+    The **"HA publishing"** section only appears when the Smart Home integration is enabled for your account. Enable it under **Settings** > **Integrations** > **Smart Home** > turn on HA Integration.
 
 The tab is divided into three sections — one each for plants, tanks, and locations. Each section lists all existing elements of the current tenant in a tabular view. Individual elements can be enabled or disabled directly with a toggle, without having to open the respective detail page.
 
@@ -262,7 +262,7 @@ The tab is divided into three sections — one each for plants, tanks, and locat
 | **Locations** | All locations of the current tenant with publish toggle |
 
 !!! tip "Recommended method for initial setup and bulk changes"
-    Use the **Settings → "HA Publishing"** tab to quickly configure your selection during first-time setup or after adding multiple new elements. The toggle on the individual detail page remains available as a quick alternative for single elements.
+    Use the **Settings → Integrations → "HA publishing"** section to quickly configure your selection during first-time setup or after adding multiple new elements. The toggle on the individual detail page remains available as a quick alternative for single elements.
 
 ### Tenant Scope
 

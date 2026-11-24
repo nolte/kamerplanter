@@ -1,11 +1,11 @@
 ---
 id: F-11
 title: Gruppierte Einstellungsnavigation
-status: ready
+status: done
 roadmap_item: R-17
 sprint: 3
 created: 2026-11-17
-ended: null
+ended: 2026-11-23
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-11-17
@@ -76,23 +76,23 @@ umgeleitet; sie landen auf der ersten sichtbaren Gruppe.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Auf dem Desktop sind alle Gruppen ohne horizontales Scrollen in einer Seitennavigation sichtbar; mobil öffnet ein Tipp auf eine Gruppe deren Detailansicht mit Zurück-Pfeil.
-- [ ] **acceptance-2** Jede bisherige Einstellung ist genau einmal in ihrer zugeordneten Gruppe erreichbar; die Dashboard-Einstellungen sind in light- und full-Modus erreichbar.
-- [ ] **acceptance-3** Die Sichtbarkeits-Gates (light/full, Smart-Home aktiv, Instanzverwaltung) gelten unverändert pro Abschnitt; die Gruppe „Installation“ ist sichtbar abgesetzt und nur für Betreiber sichtbar; Gruppen ohne sichtbaren Abschnitt werden ausgeblendet.
-- [ ] **acceptance-4** `/settings/<gruppe>#<abschnitt>` öffnet Gruppe und Abschnitt; eine unbekannte Gruppe zeigt die 404-Seite, eine nicht sichtbare Gruppe die erste sichtbare Gruppe, ein unbekannter Abschnitt den Anfang der Gruppe.
-- [ ] **acceptance-5** Jeder Link innerhalb der App, der auf eine Einstellung zeigt, führt an deren neuen Ort.
-- [ ] **acceptance-6** Jede Gruppe ist eine eigene Komponente mit eigenem Zustand; keine einzelne Seitenkomponente hält den Zustand aller Gruppen.
-- [ ] **acceptance-7** Beschriftungen (DE + EN) und die Nutzerdoku beschreiben die neue Struktur.
+- [x] **acceptance-1** Auf dem Desktop sind alle Gruppen ohne horizontales Scrollen in einer Seitennavigation sichtbar; mobil öffnet ein Tipp auf eine Gruppe deren Detailansicht mit Zurück-Pfeil.
+- [x] **acceptance-2** Jede bisherige Einstellung ist genau einmal in ihrer zugeordneten Gruppe erreichbar; die Dashboard-Einstellungen sind in light- und full-Modus erreichbar.
+- [x] **acceptance-3** Die Sichtbarkeits-Gates (light/full, Smart-Home aktiv, Instanzverwaltung) gelten unverändert pro Abschnitt; die Gruppe „Installation“ ist sichtbar abgesetzt und nur für Betreiber sichtbar; Gruppen ohne sichtbaren Abschnitt werden ausgeblendet.
+- [x] **acceptance-4** `/settings/<gruppe>#<abschnitt>` öffnet Gruppe und Abschnitt; eine unbekannte Gruppe zeigt die 404-Seite, eine nicht sichtbare Gruppe die erste sichtbare Gruppe, ein unbekannter Abschnitt den Anfang der Gruppe.
+- [x] **acceptance-5** Jeder Link innerhalb der App, der auf eine Einstellung zeigt, führt an deren neuen Ort.
+- [x] **acceptance-6** Jede Gruppe ist eine eigene Komponente mit eigenem Zustand; keine einzelne Seitenkomponente hält den Zustand aller Gruppen.
+- [x] **acceptance-7** Beschriftungen (DE + EN) und die Nutzerdoku beschreiben die neue Struktur.
 
 ## Test hooks
 
-- **acceptance-1** — vitest on the settings layout at desktop/mobile breakpoints + E2E `tests/e2e/pages/account_settings_page.py` (migrated to `settings-group-*`) — pending
-- **acceptance-2** — vitest inventory test: every former tab's section rendered exactly once per mode — pending
-- **acceptance-3** — vitest gate matrix (light/full × smart-home × canManageInstanceSettings) — pending
-- **acceptance-4** — vitest routing tests for `/settings/<group>#<section>`, unknown group (404), invisible group, unknown section — pending
-- **acceptance-5** — vitest/grep guard: no `/settings#<old-key>` link left in `src/frontend/src` — pending
-- **acceptance-6** — code review of the split (`AccountSettingsPage.tsx` no longer holds per-group state) — pending
-- **acceptance-7** — i18n completeness check + `mkdocs build --strict` — pending
+- **acceptance-1** — vitest on the settings layout at desktop/mobile breakpoints + E2E `tests/e2e/pages/account_settings_page.py` (migrated to `settings-group-*`) — passing — `AccountSettingsGroupedNavigation.test.tsx` (`settings layout — desktop/phone (acceptance-1)`), `AccountSettingsLayoutSwitch.test.tsx` (md breakpoint, #3109); E2E `test_req023_account_settings.py` TC-023-082..085 + `test_req023_device_pairing.py`, `test_req021_experience_level.py` — e2e-nightly run 45173235993 (profile=all, develop e074bde9a): green in tablet, mobile, full-tablet, light, full-mobile, full for this feature's tests (#3107, #3109)
+- **acceptance-2** — vitest inventory test: every former tab's section rendered exactly once per mode — passing — `config/settingsGroups.test.ts` (`settings groups — inventory (acceptance-2)`: every section in exactly one group, dashboard in both modes) + `AccountSettingsGroupedNavigation.test.tsx` (`settings inventory — rendered (acceptance-2)`) (#3107)
+- **acceptance-3** — vitest gate matrix (light/full × smart-home × canManageInstanceSettings) — passing — `config/settingsGroups.test.ts` + `AccountSettingsGroupedNavigation.test.tsx` (`gate matrix (acceptance-3)`), `AccountSettingsInstanceGating.test.tsx` (#3107)
+- **acceptance-4** — vitest routing tests for `/settings/<group>#<section>`, unknown group (404), invisible group, unknown section — passing — `AccountSettingsGroupedNavigation.test.tsx` (`settings routing (acceptance-4)`: group+section, 404 for unknown group, first visible group, unknown section) (#3107)
+- **acceptance-5** — vitest/grep guard: no `/settings#<old-key>` link left in `src/frontend/src` — passing — `guards/settingsLinksUseGroups.test.ts` (scans production sources; no `/settings#<tab>` link left; fixtures prove both defects are caught) (#3107)
+- **acceptance-6** — code review of the split (`AccountSettingsPage.tsx` no longer holds per-group state) — passing — review of #3107/#3109: each group is its own component under `pages/auth/settings/`; `AccountSettingsPage.tsx` holds no `useState` on develop e074bde9a (`git grep -c useState` = 0)
+- **acceptance-7** — i18n completeness check + `mkdocs build --strict` — passing — i18n parity enforced by `lint-test-build (22)` on #3107; DE+EN user docs updated in #3107; `mkdocs build --strict` on develop e074bde9a (2026-11-23): no link or nav warning — its only 45 warnings are the git-revision-date plugin on the locally generated, git-ignored catalog pages (docs/*/skills, agents, tags)
 
 ## Consistency notes
 
@@ -160,6 +160,8 @@ tabs; further settings references in `dashboard.md`,
 `kiosk-mode.md`, `weather-services.md`, `guides/home-assistant-integration.md`,
 `guides/browser-push-setup.md` (DE + EN). Unestablished: whether every hit is
 a settings-tab reference; checked per file during implementation.
+
+**Status record (2026-11-23).** The `ready → in_progress` transition was not written when implementation started in #3107 (merged 2026-11-23) and its fix #3109; the feature was in progress from that point. This change records `in_progress → done` after the operation-3 gate: every acceptance box checked and every test hook `passing` with its evidence above. No scope changed.
 
 ## Risks
 

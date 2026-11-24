@@ -156,8 +156,9 @@ const initialState: TasksState = {
 
 export const fetchWorkflows = createAsyncThunk(
   'tasks/fetchWorkflows',
-  async ({ offset, limit }: { offset?: number; limit?: number } = {}) => {
-    return api.listWorkflows(offset, limit);
+  // Every page (#3015): the template list searches and sorts client-side.
+  async () => {
+    return api.listAllWorkflows();
   },
 );
 
@@ -189,22 +190,19 @@ export const fetchTaskTemplates = createAsyncThunk(
 
 export const fetchTasks = createAsyncThunk(
   'tasks/fetchAll',
+  // Every page (#3015): one window would hide every task past it.
   async ({
-    offset,
-    limit,
     status,
     category,
     entityType,
     entityKey,
   }: {
-    offset?: number;
-    limit?: number;
     status?: string;
     category?: string;
     entityType?: string;
     entityKey?: string;
   } = {}) => {
-    return api.listTasks(offset, limit, {
+    return api.listAllTasks({
       status,
       category,
       entity_type: entityType,

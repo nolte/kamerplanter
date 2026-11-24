@@ -10,8 +10,8 @@ gate:
   kind: paths-filter
   filter: knowledge-service
 status: derived
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
 replay_seconds: 1
 job_spec_sha256: 09d3213e35a19dc3bcd5e15bf5e7cb2047fbe69ca2fe2b0796414c5eb729ea52
 invocations:

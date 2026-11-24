@@ -7,7 +7,7 @@ Kamerplanter can keep you informed about due care tasks, sensor alarms, tank lev
 
 ## Prerequisites
 
-- A Kamerplanter account with access to **Settings → Notifications** (`/settings#notifications`)
+- A Kamerplanter account with access to **Settings → Notifications** (`/settings/notifications`)
 - For the **Home Assistant** channel: an already configured Home Assistant connection (see [Home Assistant Integration](../guides/home-assistant-integration.md))
 - For the **Browser Push** channel: a Kamerplanter instance with Web Push enabled (see [Setting Up Browser Push](../guides/browser-push-setup.md)) — your operator sets this up once
 - For the **Apprise** channel: at least one valid Apprise URL for the service you want (e.g. Telegram, ntfy, Gotify)
@@ -186,7 +186,7 @@ These escalation days are fixed and currently not individually configurable; you
 
 ## Frost Early-Warning {#frost-early-warning}
 
-For your outdoor and greenhouse sites, Kamerplanter checks the current weather forecast once a day and proactively lets you know when a frost night is coming up — before the temperature has actually dropped. The notification names the site, the expected date, and the predicted minimum temperature.
+For your outdoor and greenhouse sites, Kamerplanter checks the current forecast after every fetch of new weather data — every six hours by default, depending on the [fetch interval](weather-services.md#fetch-interval-and-manual-fetch) your operator has set — and additionally once every morning, and proactively lets you know when a frost night is coming up — before the temperature has actually dropped. The notification names the site, the expected date, and the predicted minimum temperature.
 
 - **Urgency:** High (orange) — it appears like any other notification in the [notification center](#the-notification-center) and is delivered through all your enabled delivery channels.
 - **No repeat spam:** For the same frost night at a site, you receive the warning exactly **once**. Only a new or earlier expected frost date triggers a new notification.

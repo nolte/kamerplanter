@@ -354,18 +354,18 @@ describe('tasksSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchWorkflows forwards paging and stores workflows', async () => {
-    mocked.listWorkflows.mockResolvedValue([{ key: 'w1' }] as never);
+  it('fetchWorkflows loads every page and stores workflows', async () => {
+    mocked.listAllWorkflows.mockResolvedValue([{ key: 'w1' }] as never);
     const store = makeTasksStore();
-    await store.dispatch(fetchWorkflows({ offset: 0, limit: 10 }));
-    expect(mocked.listWorkflows).toHaveBeenCalledWith(0, 10);
+    await store.dispatch(fetchWorkflows());
+    expect(mocked.listAllWorkflows).toHaveBeenCalledWith();
     expect(store.getState().tasks.workflows).toEqual([{ key: 'w1' }]);
   });
 
   it('fetchWorkflows surfaces a rejection as the slice error', async () => {
-    mocked.listWorkflows.mockRejectedValue(new Error('load failed'));
+    mocked.listAllWorkflows.mockRejectedValue(new Error('load failed'));
     const store = makeTasksStore();
-    await store.dispatch(fetchWorkflows({}));
+    await store.dispatch(fetchWorkflows());
     expect(store.getState().tasks.error).toBe('errors.loadFailed');
   });
 
@@ -396,12 +396,12 @@ describe('tasksSlice thunks', () => {
   });
 
   it('fetchTasks maps filter args into the API filter object', async () => {
-    mocked.listTasks.mockResolvedValue([{ key: 'task-1' }] as never);
+    mocked.listAllTasks.mockResolvedValue([{ key: 'task-1' }] as never);
     const store = makeTasksStore();
     await store.dispatch(
-      fetchTasks({ offset: 5, limit: 10, status: 'open', category: 'watering', entityType: 'plant', entityKey: 'pl1' }),
+      fetchTasks({ status: 'open', category: 'watering', entityType: 'plant', entityKey: 'pl1' }),
     );
-    expect(mocked.listTasks).toHaveBeenCalledWith(5, 10, {
+    expect(mocked.listAllTasks).toHaveBeenCalledWith({
       status: 'open',
       category: 'watering',
       entity_type: 'plant',

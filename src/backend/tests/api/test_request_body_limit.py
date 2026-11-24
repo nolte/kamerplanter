@@ -200,7 +200,6 @@ class TestMultipartClassification:
         ("content_type", "multipart"),
         [
             (b"multipart/form-data; boundary=x", True),
-            (b"\xa0multipart/form-data; boundary=x", True),
             (b" multipart/form-data; boundary=x", True),
             (b"application/json", False),
             (b"application/x-www-form-urlencoded", False),
@@ -225,11 +224,32 @@ class TestMultipartClassification:
         headers = Headers(raw=[(b"content-type", content_type)])
         assert is_multipart(headers) is (parse_options_header(content_type)[0] == b"multipart/form-data")
 
-    def test_a_nbsp_prefixed_multipart_upload_is_counted_and_bounded(self, tmp_path):
-        # Regression for SEC-001: ``startswith`` saw no multipart here, Starlette
-        # parsed one; the upload must take budget and meet the upload ceiling.
-        _inner, wrapped = _limited_app(tmp_path, budget_bytes=request_body_limit_bytes(1), wait=0.0)
+    def test_a_nbsp_prefixed_type_is_classified_as_the_installed_parser_does(self):
+        # python-multipart < 0.0.34 strips a leading NBSP, 0.0.34 keeps it. As for the mixed-case
+        # spelling, the invariant is agreement with the parser Starlette uses.
+        from python_multipart.multipart import parse_options_header
+
+        content_type = b"\xa0multipart/form-data; boundary=x"
+        headers = Headers(raw=[(b"content-type", content_type)])
+        assert is_multipart(headers) is (parse_options_header(content_type)[0] == b"multipart/form-data")
+
+    def test_a_nbsp_prefixed_upload_is_bounded_the_way_starlette_reads_it(self, tmp_path):
+        # Regression for SEC-001: ``startswith`` saw no multipart here while Starlette parsed one.
+        # Where the installed parser reads multipart, the upload takes budget and meets the upload
+        # ceiling; where it does not, the body meets the non-multipart ceiling and holds no budget.
+        from python_multipart.multipart import parse_options_header
+
         content_type = b"\xa0multipart/form-data; boundary=" + BOUNDARY
+        if parse_options_header(content_type)[0] != b"multipart/form-data":
+            _inner, wrapped = _limited_app(tmp_path, file_limit_mb=25, budget_bytes=request_body_limit_bytes(25))
+            declared = asyncio.run(
+                _Probe(_multipart_parts(2 * MIB), declare_length=True, content_type=content_type).run(wrapped)
+            )
+            assert (declared.status, declared.consumed) == (413, 0)
+            assert wrapped.budget.in_use_bytes == 0
+            return
+
+        _inner, wrapped = _limited_app(tmp_path, budget_bytes=request_body_limit_bytes(1), wait=0.0)
 
         async def scenario() -> tuple[_Probe, int]:
             gate = asyncio.Event()

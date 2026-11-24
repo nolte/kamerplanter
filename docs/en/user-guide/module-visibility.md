@@ -1,6 +1,6 @@
 # Modules & Features
 
-In your account settings, the **Modules & Features** tab lets you show or hide every sidebar navigation area — except the core modules — independently of, but building on, your chosen experience level. The result is a clean interface tailored exactly to the way you work.
+In the settings, the **Modules & features** section of the **Display & behaviour** group lets you show or hide every sidebar navigation area — except the core modules — independently of, but building on, your chosen experience level. The result is a clean interface tailored exactly to the way you work.
 
 !!! note "Display preference only"
     Showing and hiding modules is a **personal display preference**, not an access-control mechanism. The system continues to store all your data, and you can re-enable any hidden module at any time — without losing any data.
@@ -20,8 +20,8 @@ In your account settings, the **Modules & Features** tab lets you show or hide e
 ## Opening the Settings
 
 1. Click your **profile picture** or user icon in the top-right corner.
-2. Select **Account Settings**.
-3. Switch to the **Modules & Features** tab.
+2. Select **Settings**.
+3. Open the **Display & behaviour** group and its **Modules & features** section.
 
 You will see a list of all modules you can show or hide, grouped by category.
 
@@ -58,7 +58,7 @@ If you navigate directly to a page belonging to a hidden module — via a URL or
 
 > "This module is hidden. Would you like to re-enable it?"
 
-Clicking **Open in Settings** takes you directly to the Modules & Features tab. Shared or bookmarked links are never broken.
+Clicking **Open in Settings** takes you directly to the Modules & features section. Shared or bookmarked links are never broken.
 
 ---
 
@@ -93,7 +93,7 @@ Changes are saved immediately — no separate confirmation button is needed.
 
 ## Core Modules: Always Visible
 
-The following modules are essential functions of the application and cannot be hidden. They appear in the Modules & Features tab as fixed entries labelled "Core function — always visible":
+The following modules are essential functions of the application and cannot be hidden. They appear in the Modules & features section as fixed entries labelled "Core function — always visible":
 
 | Module | Description |
 |--------|-------------|

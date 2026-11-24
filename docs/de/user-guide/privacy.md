@@ -91,7 +91,7 @@ Du hast das Recht, deine Daten berichtigen zu lassen.
 
 ### Ablauf der Änderung
 
-1. In den Kontoeinstellungen zum Tab **Profil** navigieren und im Abschnitt **E-Mail-Adresse ändern** die neue Adresse eintragen
+1. In den Einstellungen die Gruppe **Profil & Konto** öffnen und im Abschnitt **E-Mail-Adresse ändern** die neue Adresse eintragen
 2. Auf **Änderung anfordern** klicken und dich im Dialog bestätigen — mit deinem aktuellen Passwort, sofern dein Konto eines hat, sonst über eine frische Anmeldung beim verknüpften Anbieter oder, nur bei ausschließlich GitHub/Apple, über den per E-Mail zugeschickten Code
 3. Die Oberfläche bestätigt, dass ein Bestätigungslink an die neue Adresse geschickt wurde
 4. Den Link in der Mail an der **neuen** Adresse öffnen und dort auf **Neue Adresse bestätigen** klicken
@@ -130,7 +130,7 @@ Beim Öffnen des Links zeigt die Seite, was passiert, und verlangt einen explizi
     Ist die Änderung nicht von dir ausgegangen, kennt womöglich jemand anderes dein Passwort. Setze es nach der Wiederherstellung über **Passwort vergessen?** zurück (siehe [Passwort vergessen und zurücksetzen](account.md#passwort-vergessen-und-zurucksetzen)).
 
 !!! warning "Ältere API-Schlüssel prüfen"
-    Nur API-Schlüssel, die seit der Anfrage der E-Mail-Änderung angelegt wurden, werden automatisch widerrufen (siehe oben). Ältere, bereits vorher bestehende Schlüssel bleiben aktiv. Wurde dein Konto kompromittiert, prüfe sie im Tab **API-Schlüssel** der Kontoeinstellungen und widerrufe unbekannte Schlüssel manuell (siehe [API-Dokumentation](../api/authentication.md)).
+    Nur API-Schlüssel, die seit der Anfrage der E-Mail-Änderung angelegt wurden, werden automatisch widerrufen (siehe oben). Ältere, bereits vorher bestehende Schlüssel bleiben aktiv. Wurde dein Konto kompromittiert, prüfe sie in den Einstellungen unter **Sicherheit & Zugang** im Abschnitt **API-Schlüssel** und widerrufe unbekannte Schlüssel manuell (siehe [API-Dokumentation](../api/authentication.md)).
 
 !!! warning "Restrisiko: Wer die vorherige Adresse mitlesen kann"
     Der Rückgängig-Link beweist nur den Zugriff auf die vorherige Adresse — nicht zwingend deine Identität. Wer diese Adresse innerhalb der 7 Tage mitlesen kann, kann das Konto damit zurückholen; die dann aktuelle (neue) Adresse wird darüber informiert.
@@ -316,7 +316,7 @@ Du hast das Recht auf Löschung deiner Daten.
     Stimmt die eingetippte E-Mail-Adresse nicht mit deiner eigenen überein, meldet der Dialog einen Fehler. Für Konten mit lokalem Passwort ist zusätzlich die Eingabe des aktuellen Passworts verpflichtend — ist es falsch, bleibt der Dialog offen und zeigt einen Fehlerhinweis. In beiden Fällen wird das Konto **nicht** gelöscht.
 
 !!! warning "Nach zu vielen Fehlversuchen gesperrt"
-    Nach mehreren falschen Passworteingaben sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt die verbleibende Wartezeit an. Diese Sperre gilt kontoweit für alle Bestätigungen dieser Art (Konto löschen, Mandant löschen, Passwort ändern) gemeinsam, betrifft aber **nicht** die Anmeldung: Du kannst dich weiterhin normal anmelden, im Tab **Sitzungen** (siehe [Konto & Anmeldung](account.md#aktive-sitzungen-einsehen-und-beenden)) einzelne Sitzungen beenden oder dein Passwort per E-Mail zurücksetzen.
+    Nach mehreren falschen Passworteingaben sperrt das System die Bestätigung für 15 Minuten — bei wiederholten Fehlversuchen verdoppelt sich die Wartezeit bis zu 4 Stunden; der Dialog zeigt die verbleibende Wartezeit an. Diese Sperre gilt kontoweit für alle Bestätigungen dieser Art (Konto löschen, Mandant löschen, Passwort ändern) gemeinsam, betrifft aber **nicht** die Anmeldung: Du kannst dich weiterhin normal anmelden, im Abschnitt **Sitzungen** der Gruppe **Sicherheit & Zugang** (siehe [Konto & Anmeldung](account.md#aktive-sitzungen-einsehen-und-beenden)) einzelne Sitzungen beenden oder dein Passwort per E-Mail zurücksetzen.
 
 Der gleiche Vorgang lässt sich auch direkt über die API auslösen: `POST /api/v1/privacy/erasure` erwartet denselben Anfragekörper wie `DELETE /api/v1/users/me` (siehe [Konto löschen](account.md#konto-loschen)) — `{"confirm_email": "...", "password": "..."}`, wobei `password` nur bei lokalem Passwort nötig ist. `GET /api/v1/privacy/erasure/{erasure_key}` liefert den Status (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
 

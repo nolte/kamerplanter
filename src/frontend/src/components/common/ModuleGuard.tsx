@@ -14,6 +14,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
 import type { ModuleKey } from '@/config/moduleCatalog';
+import { settingsSectionPath } from '@/config/settingsGroups';
 
 /**
  * REQ-042 — deep-link guard. Direct URL access to a route of a hidden module
@@ -52,14 +53,14 @@ export default function ModuleGuard({
         title: t('pages.auth.smartHome.guardTitle'),
         description: t('pages.auth.smartHome.guardDescription'),
         action: t('pages.auth.smartHome.guardAction'),
-        target: '/settings#ha',
+        target: settingsSectionPath('ha'),
         testid: 'smart-home-guard-hint',
       }
     : {
         title: t('modules.guard.title'),
         description: t('modules.guard.description'),
         action: t('modules.guard.action'),
-        target: '/settings#modules',
+        target: settingsSectionPath('modules'),
         testid: 'module-guard-hint',
       };
 

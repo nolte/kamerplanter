@@ -105,7 +105,7 @@ function renderSettings(systemSettings: SystemSettingsResponse, opts: RenderOpts
 
   const result = renderWithProviders(<AccountSettingsPage />, {
     store: storeWithUser(opts.smartHomeEnabled),
-    route: '/account#ha',
+    route: '/settings/installation',
   });
   return {
     ...result,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { listPlantInstances } from '@/api/endpoints/plantInstances';
+import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
 import type { PlantInstance } from '@/api/types';
 import { captureHandledError } from '@/observability/errorTracking';
 
@@ -15,9 +15,10 @@ export interface PlantInstanceOptionsState {
 /**
  * Loads the tenant's plant instances once for use as autocomplete options
  * (e.g. in {@link PlantInstanceAutocompleteField}). The backing list API
- * (`listPlantInstances`) has no name-search parameter, so a single capped page
- * is fetched and filtering happens client-side inside the picker — this mirrors
- * how `SpeciesAutocompleteField` consumes a pre-fetched `species` list.
+ * (`listPlantInstances`) has no name-search parameter, so every page is fetched
+ * (`listAllPlantInstances`) and filtering happens client-side inside the picker
+ * — this mirrors how `SpeciesAutocompleteField` consumes a pre-fetched `species`
+ * list. One capped page left every plant past it unpickable (#3015).
  *
  * The async loader is declared *inside* the effect body so `setState` is never
  * called synchronously at the top level of the effect callback, keeping
@@ -39,7 +40,7 @@ export function usePlantInstanceOptions(enabled = true): PlantInstanceOptionsSta
       setLoading(true);
       setError(false);
       try {
-        const result = await listPlantInstances(0, 200);
+        const result = await listAllPlantInstances();
         if (!cancelled) setInstances(result);
       } catch (err) {
         captureHandledError(err, { source: 'usePlantInstanceOptions' });

@@ -6,8 +6,8 @@ import { createListSlice } from '@/store/createListSlice';
 // (FR-002 §B1).
 const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'wateringLogs',
-  list: ({ offset, limit }: { offset?: number; limit?: number } = {}) =>
-    api.listWateringLogs(offset, limit),
+  // Every page (#3015): the list view searches and sorts client-side, one page would hide the rest.
+  list: () => api.listAllWateringLogs(),
   getOne: (key) => api.getWateringLog(key),
   itemsField: 'logs',
   currentField: 'currentLog',

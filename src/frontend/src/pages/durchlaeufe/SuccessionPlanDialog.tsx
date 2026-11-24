@@ -114,7 +114,7 @@ export default function SuccessionPlanDialog({ open, onClose, onSaved, plan }: P
   const speciesCatalogue = useCatalogue('species', { enabled: open });
   const speciesFieldId = useId();
   // Failed reads are shown with a retry, never as an empty picker (#3037).
-  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listAllSites(), []);
   const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
   const sitesList = sitesLoad.options;
 

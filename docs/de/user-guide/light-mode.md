@@ -164,7 +164,7 @@ Ein vollständiger Hin-und-her-Wechsel ist möglich. Alle Daten bleiben in der D
     Kamerplanter prüft diese Kombination **nicht**: Läuft der Knowledge Service mit `LLM_PROVIDER=anthropic`, gehen auch im Light-Modus alle KI-Fragen an Anthropic. Nutze im Light-Modus `LLM_PROVIDER=ollama` oder `LLM_PROVIDER=openai_compatible` mit einer `LLM_API_URL` in deinem eigenen Netz — oder schalte die KI-Funktionen mit `AI_FEATURES_ENABLED=false` ab. Details: [KI-Provider einrichten](ai-providers.md).
 
 ??? question "Kann ich im Light-Modus die Sprache und Erfahrungsstufe ändern?"
-    Ja. Die **Kontoeinstellungen** sind im Light-Modus eingeschränkt verfügbar: Du kannst Sprache, Zeitzone und Erfahrungsstufe anpassen. Passwort, Sessions und Datenschutz-Einstellungen sind ausgeblendet, weil sie im Light-Modus nicht relevant sind.
+    Ja. Die **Einstellungen** sind im Light-Modus eingeschränkt verfügbar: Du kannst Sprache, Zeitzone und Erfahrungsstufe anpassen. Passwort, Sessions und Datenschutz-Einstellungen sind ausgeblendet, weil sie im Light-Modus nicht relevant sind.
 
 ---
 

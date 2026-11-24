@@ -10,9 +10,12 @@ vi.mock('@/api/endpoints/adminWeatherProviders', () => ({
   getWeatherProviders: vi.fn(),
   putWeatherProviders: vi.fn(),
   testWeatherProvider: vi.fn(),
+  getWeatherFetchStatus: vi.fn(),
+  triggerWeatherFetch: vi.fn(),
 }));
 
 import {
+  getWeatherFetchStatus,
   getWeatherProviders,
   putWeatherProviders,
   testWeatherProvider,
@@ -21,6 +24,7 @@ import {
 const mockGet = vi.mocked(getWeatherProviders);
 const mockPut = vi.mocked(putWeatherProviders);
 const mockTest = vi.mocked(testWeatherProvider);
+const mockStatus = vi.mocked(getWeatherFetchStatus);
 
 function buildResponse(overrides: Partial<WeatherProvidersResponse> = {}): WeatherProvidersResponse {
   return {
@@ -31,6 +35,7 @@ function buildResponse(overrides: Partial<WeatherProvidersResponse> = {}): Weath
     ],
     openweathermap_global_api_key_set: false,
     fetch_timeout_s: 10,
+    fetch_interval_hours: 6,
     default_public_source: 'open-meteo',
     ...overrides,
   };
@@ -39,6 +44,15 @@ function buildResponse(overrides: Partial<WeatherProvidersResponse> = {}): Weath
 describe('WeatherProvidersSettingsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The fetch card's status panel (F-14) reads the status on mount.
+    mockStatus.mockResolvedValue({
+      interval_hours: 6,
+      last_run: null,
+      last_success: null,
+      next_scheduled_at: '2026-11-23T12:00:00Z',
+      running: false,
+      manual_fetch_available_in_s: 0,
+    });
   });
 
   it('renders a card per provider with an enable toggle', async () => {
@@ -102,5 +116,73 @@ describe('WeatherProvidersSettingsTab', () => {
 
     expect(await screen.findByTestId('weather-provider-test-result-open-meteo')).toBeInTheDocument();
     expect(mockTest).toHaveBeenCalledWith('open-meteo');
+  });
+
+  // ── F-14 (#2934) — fetch interval, per-request timeout wording ──
+
+  it('acceptance-1: shows the fetch interval in hours with a minimum of 6', async () => {
+    mockGet.mockResolvedValue(buildResponse({ fetch_interval_hours: 12 }));
+    renderWithProviders(<WeatherProvidersSettingsTab />);
+
+    const field = await screen.findByTestId('weather-fetch-interval');
+    const input = field.querySelector('input');
+    expect(input).toHaveValue(12);
+    expect(input).toHaveAttribute('min', '6');
+    expect(input).toHaveAttribute('max', '168');
+    expect(field).toHaveTextContent(/abrufintervall|fetch interval/i);
+  });
+
+  it('acceptance-1: saves the fetch interval with the other fields', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValue(buildResponse());
+    mockPut.mockResolvedValue(buildResponse({ fetch_interval_hours: 12 }));
+    renderWithProviders(<WeatherProvidersSettingsTab />);
+
+    const input = (await screen.findByTestId('weather-fetch-interval')).querySelector('input')!;
+    await user.clear(input);
+    await user.type(input, '12');
+    await user.click(screen.getByTestId('weather-providers-save-button'));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalledTimes(1));
+    const payload = mockPut.mock.calls[0][0];
+    expect(payload.fetch_interval_hours).toBe(12);
+    // The other fields still travel in the same payload.
+    expect(payload.fetch_timeout_s).toBe(10);
+    expect(payload.default_public_source).toBe('open-meteo');
+    // A new interval moves the next scheduled fetch: the status is read again after the save.
+    await waitFor(() => expect(mockStatus).toHaveBeenCalledTimes(2));
+  });
+
+  it('acceptance-1: refuses an interval below 6 hours before it reaches the server', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValue(buildResponse());
+    renderWithProviders(<WeatherProvidersSettingsTab />);
+
+    const field = await screen.findByTestId('weather-fetch-interval');
+    const input = field.querySelector('input')!;
+    await user.clear(input);
+    await user.type(input, '5');
+
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(field).toHaveTextContent(/6.*168/);
+    expect(screen.getByTestId('weather-providers-save-button')).toBeDisabled();
+    expect(mockPut).not.toHaveBeenCalled();
+  });
+
+  it('acceptance-4: labels the timeout as a limit per request, not as the fetch frequency', async () => {
+    mockGet.mockResolvedValue(buildResponse());
+    renderWithProviders(<WeatherProvidersSettingsTab />);
+
+    const field = await screen.findByTestId('weather-fetch-timeout');
+    expect(field).toHaveTextContent(/zeitlimit pro anfrage|timeout per request/i);
+    expect(field).toHaveTextContent(/abrufintervall|fetch interval/i);
+  });
+
+  it('renders the fetch status panel inside the fetch settings card', async () => {
+    mockGet.mockResolvedValue(buildResponse());
+    renderWithProviders(<WeatherProvidersSettingsTab />);
+
+    expect(await screen.findByTestId('weather-fetch-panel')).toBeInTheDocument();
+    expect(await screen.findByTestId('weather-fetch-now-button')).toBeInTheDocument();
   });
 });

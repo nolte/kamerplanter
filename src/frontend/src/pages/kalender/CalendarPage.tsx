@@ -243,7 +243,7 @@ export default function CalendarPage() {
   // Fetch sites for site selector
   useEffect(() => {
     if (sites.length === 0) {
-      dispatch(fetchSites({}));
+      dispatch(fetchSites({ all: true }));
     }
   }, [dispatch, sites.length]);
 

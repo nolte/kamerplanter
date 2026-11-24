@@ -404,7 +404,7 @@ export const migrateLocalDashboardLayout = /* analog migrateLocalModuleVisibilit
 
 ### 3.8 Frontend — Konfigurationsfläche (Einstellungen) + Bearbeiten-Modus
 
-**Primärfläche — `Einstellungen → Dashboard`** (`DashboardSettingsTab.tsx`, Deep-Link `/settings#dashboard`,
+**Primärfläche — `Einstellungen → Dashboard`** (`DashboardSettingsTab.tsx`, Deep-Link `/settings/display#dashboard`,
 analog `ModulesSettingsTab.tsx`):
 
 - Accordion je `category`; pro Widget ein Switch „auf Dashboard anzeigen".
@@ -421,7 +421,7 @@ analog `ModulesSettingsTab.tsx`):
 **Discoverability (U-004 / U-005, v1.2):**
 
 - **Deep-Link von `/dashboard` (U-004):** Im Seiten-Header sitzt neben dem „Bearbeiten"-Toggle ein
-  zweiter Icon-Button „⚙ Widgets verwalten" mit Deep-Link auf `/settings#dashboard`. Zusätzlich öffnet das
+  zweiter Icon-Button „⚙ Widgets verwalten" mit Deep-Link auf `/settings/display#dashboard`. Zusätzlich öffnet das
   Widget-Kebab-Menü (unten) „Konfigurieren" den Config-Dialog **inline** — ohne Zwangsnavigation zu Settings.
 - **First-Use-Coachmark (U-005):** Beim ersten Dashboard-Besuch erscheint ein einmaliger, schließbarer
   Hinweis („Du kannst dein Dashboard anpassen …"), gemerkt über das localStorage-Flag
@@ -468,7 +468,7 @@ Beide Flächen mutieren denselben `DashboardLayout` (`widgets` + `placements[bre
 - **Empty-/Loading-States:** je Widget verpflichtend (REQ-009 DoD).
 - **Leeres Dashboard (0 Widgets, U-003):** Deaktiviert der Nutzer alle Widgets (`widgets == []`), rendert
   `/dashboard` **keine** leere Seite, sondern einen Empty-State mit CTA („Widgets auswählen" →
-  `/settings#dashboard`) **und** „Standard wiederherstellen" (→ `saveDashboardLayout(null)`).
+  `/settings/display#dashboard`) **und** „Standard wiederherstellen" (→ `saveDashboardLayout(null)`).
 - **Initial-Load parallel, nicht sequenziell (UI-NFR-003 TTI, O-001):** `GET …/user-preferences` und
   `GET …/dashboard/widgets/catalog` werden parallel geladen; `…/dashboard/aggregated?widgets=…` startet
   sofort mit den rohen `widget_key`s aus `dashboard_layout` (nicht auf `catalog.available` warten) — die
@@ -542,7 +542,7 @@ Beide Flächen mutieren denselben `DashboardLayout` (`widgets` + `placements[bre
       `placements[lg|md|sm]` getrennt; ein fehlender Breakpoint wird aus `lg` abgeleitet; „für alle
       übernehmen" kopiert die aktuelle Anordnung. `widgets` (welche Widgets) bleibt breakpoint-übergreifend gleich.
 - [ ] **Discoverability (v1.2, U-004/U-005):** „⚙ Widgets verwalten"-Deep-Link im `/dashboard`-Header →
-      `/settings#dashboard`; einmaliger First-Use-Coachmark (localStorage `dashboard_personalization_hint_dismissed`).
+      `/settings/display#dashboard`; einmaliger First-Use-Coachmark (localStorage `dashboard_personalization_hint_dismissed`).
 - [ ] **Barrierefreie Alternative (UI-NFR-002):** Reihenfolge und Größe sind vollständig über
       Tastatur/Buttons im Settings-Tab steuerbar — ohne Drag-and-Drop.
 - [ ] **Per-Widget-Konfiguration:** Widgets mit `hasConfig` bieten einen Konfig-Dialog; Config wird in
@@ -649,7 +649,7 @@ THEN:  - "harvest_forecast" zeigt Inline-Fehler + Retry-Button
 GIVEN: Nutzer entfernt im Settings-Tab alle Widgets (dashboard_layout.widgets == [])
 WHEN:  /dashboard lädt
 THEN:  - Statt einer leeren Seite erscheint ein Empty-State mit Text + zwei CTAs
-       - "Widgets auswählen" verlinkt nach /settings#dashboard
+       - "Widgets auswählen" verlinkt nach /settings/display#dashboard
        - "Standard wiederherstellen" setzt dashboard_layout=null (Erfahrungsstufen-Default)
 ```
 

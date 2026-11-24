@@ -60,4 +60,30 @@ describe('api client response interceptor', () => {
     expect(rejection).not.toBeInstanceOf(ApiError);
     expect(rejection.response?.status).toBe(500);
   });
+
+  // F-14 (#2934): a refused manual weather fetch must say when a new one is possible;
+  // the 429 carries that only in `Retry-After`, which the envelope does not repeat.
+  it('carries the Retry-After seconds of a 429 envelope onto the ApiError', async () => {
+    server.use(
+      http.post('/api/v1/interceptor-cooldown', () =>
+        HttpResponse.json(
+          { ...envelope, error_code: 'WEATHER_FETCH_COOLDOWN' },
+          { status: 429, headers: { 'Retry-After': '420' } },
+        ),
+      ),
+    );
+
+    const rejection = await client.post('/interceptor-cooldown').catch((e) => e);
+    expect(rejection).toBeInstanceOf(ApiError);
+    expect(rejection).toMatchObject({ statusCode: 429, retryAfterSeconds: 420 });
+  });
+
+  it('leaves retryAfterSeconds null when the envelope comes without Retry-After', async () => {
+    server.use(
+      http.get('/api/v1/interceptor-envelope', () => HttpResponse.json(envelope, { status: 422 })),
+    );
+
+    const rejection = await client.get('/interceptor-envelope').catch((e) => e);
+    expect(rejection).toMatchObject({ retryAfterSeconds: null });
+  });
 });

@@ -12,7 +12,7 @@ This guide walks you step by step from opening Kamerplanter for the first time t
 When you open Kamerplanter for the first time, the **Onboarding Wizard** greets you. It guides you through setup in five short steps.
 
 !!! info "Already completed the wizard?"
-    You can restart the wizard at any time: Go to **Account Settings** and click **Restart Onboarding Wizard**.
+    You can restart the wizard at any time: Go to **Settings** and click **Restart Onboarding Wizard**.
 
 ---
 

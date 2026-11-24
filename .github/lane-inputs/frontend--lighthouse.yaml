@@ -10,9 +10,9 @@ gate:
   kind: paths-filter
   filter: frontend
 status: measured
-measured_on: '2026-11-18'
-measured_at_commit: 1c2970791d70121984f6c51ea01861686429d757
-replay_seconds: 163
+measured_on: '2026-11-23'
+measured_at_commit: e074bde9ad0bce8d39c946dcc647803e0a720702
+replay_seconds: 140
 job_spec_sha256: d52157d79234f3c10a4d0c1e313d581bfc36377ad6313dd3ca4bf0ee3353f1cd
 invocations:
 - command: npm run build
@@ -20,13 +20,13 @@ invocations:
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 7394
+  untracked_reads_dropped: 7525
 - command: npm run lhci
   cwd: src/frontend
   recorder: strace -ff -y -z
   exit_code: 0
   env: []
-  untracked_reads_dropped: 2011
+  untracked_reads_dropped: 2126
 subprocesses:
 - awk
 - cat
@@ -137,6 +137,7 @@ reads:
 - src/frontend/src/api/index.ts
 - src/frontend/src/api/offlineReadRequest.ts
 - src/frontend/src/api/paginate.ts
+- src/frontend/src/api/requestLimiter.ts
 - src/frontend/src/api/types.ts
 - src/frontend/src/assets/
 - src/frontend/src/assets/brand/
@@ -219,6 +220,7 @@ reads:
 - src/frontend/src/components/admin/RecognitionStatusCard.tsx
 - src/frontend/src/components/admin/TenantImportStatusCard.tsx
 - src/frontend/src/components/admin/TenantPlanCard.tsx
+- src/frontend/src/components/admin/WeatherFetchPanel.tsx
 - src/frontend/src/components/ai/
 - src/frontend/src/components/ai/AIResponse.tsx
 - src/frontend/src/components/ai/AiChatDrawer.tsx
@@ -234,9 +236,11 @@ reads:
 - src/frontend/src/components/common/ColumnFilterBar.tsx
 - src/frontend/src/components/common/ConfirmDialog.tsx
 - src/frontend/src/components/common/DataTable.tsx
+- src/frontend/src/components/common/DataTableRowLink.tsx
 - src/frontend/src/components/common/EmptyState.tsx
 - src/frontend/src/components/common/ErrorBoundary.tsx
 - src/frontend/src/components/common/ErrorDisplay.tsx
+- src/frontend/src/components/common/ErrorIllustration.tsx
 - src/frontend/src/components/common/ExpertiseFieldWrapper.tsx
 - src/frontend/src/components/common/FavoriteToggle.tsx
 - src/frontend/src/components/common/HelpTooltip.tsx
@@ -244,14 +248,17 @@ reads:
 - src/frontend/src/components/common/LoadingStatus.tsx
 - src/frontend/src/components/common/MobileCard.tsx
 - src/frontend/src/components/common/ModuleGuard.tsx
+- src/frontend/src/components/common/OptionsLoadError.tsx
 - src/frontend/src/components/common/OriginChip.tsx
 - src/frontend/src/components/common/PhotoUpload.tsx
 - src/frontend/src/components/common/PrintButton.tsx
 - src/frontend/src/components/common/ReferenceImageGrid.tsx
 - src/frontend/src/components/common/ShowAllFieldsToggle.tsx
+- src/frontend/src/components/common/SnackbarCloseButton.tsx
 - src/frontend/src/components/common/StepUpCodeField.tsx
 - src/frontend/src/components/common/StepUpConfirmDialog.tsx
 - src/frontend/src/components/common/StepUpReauthButton.tsx
+- src/frontend/src/components/common/StretchedLink.tsx
 - src/frontend/src/components/common/TabPanel.tsx
 - src/frontend/src/components/common/TaskOriginBadge.tsx
 - src/frontend/src/components/common/TaskTimer.tsx
@@ -283,11 +290,14 @@ reads:
 - src/frontend/src/components/diary/DiaryPhotoStrip.tsx
 - src/frontend/src/components/diary/confidence.ts
 - src/frontend/src/components/form/
+- src/frontend/src/components/form/FieldHelp.tsx
 - src/frontend/src/components/form/Form.tsx
 - src/frontend/src/components/form/FormActions.tsx
 - src/frontend/src/components/form/FormChipInput.tsx
 - src/frontend/src/components/form/FormClimateZoneField.tsx
 - src/frontend/src/components/form/FormDateField.tsx
+- src/frontend/src/components/form/FormDialog.tsx
+- src/frontend/src/components/form/FormDialogCancelButton.tsx
 - src/frontend/src/components/form/FormMonthField.tsx
 - src/frontend/src/components/form/FormMultiSelectField.tsx
 - src/frontend/src/components/form/FormNumberField.tsx
@@ -305,6 +315,7 @@ reads:
 - src/frontend/src/components/form/SpeciesMultiAutocompleteField.tsx
 - src/frontend/src/components/form/SubstrateSelectField.tsx
 - src/frontend/src/components/form/UnsavedChangesGuard.tsx
+- src/frontend/src/components/form/formDialogContext.ts
 - src/frontend/src/components/glossary/
 - src/frontend/src/components/glossary/TermTooltip.tsx
 - src/frontend/src/components/ha/
@@ -325,6 +336,7 @@ reads:
 - src/frontend/src/components/layout/NotificationDrawer.tsx
 - src/frontend/src/components/layout/PageHeaderActions.tsx
 - src/frontend/src/components/layout/PageTitle.tsx
+- src/frontend/src/components/layout/RouteAnnouncer.tsx
 - src/frontend/src/components/layout/TenantSwitcher.tsx
 - src/frontend/src/components/layout/ThemeToggle.tsx
 - src/frontend/src/components/pests/
@@ -365,6 +377,7 @@ reads:
 - src/frontend/src/config/mode.ts
 - src/frontend/src/config/moduleCatalog.ts
 - src/frontend/src/config/runtimeConfig.ts
+- src/frontend/src/config/settingsGroups.ts
 - src/frontend/src/contracts/
 - src/frontend/src/features/
 - src/frontend/src/features/gardenPlanner/
@@ -535,6 +548,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/editor/useAutoSave.ts
 - src/frontend/src/features/gardenPlanner/editor/useBedTypes.ts
 - src/frontend/src/features/gardenPlanner/editor/useCanvasArea.ts
+- src/frontend/src/features/gardenPlanner/editor/useCanvasRoom.ts
 - src/frontend/src/features/gardenPlanner/editor/useCompanionEdges.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorKeyboard.ts
 - src/frontend/src/features/gardenPlanner/editor/useEditorShortcuts.ts
@@ -773,6 +787,7 @@ reads:
 - src/frontend/src/features/gardenPlanner/zones/zonesApi.ts
 - src/frontend/src/features/gardenPlanner/zones/zonesTestKit.ts
 - src/frontend/src/hooks/
+- src/frontend/src/hooks/useAbortableLoad.ts
 - src/frontend/src/hooks/useActuators.ts
 - src/frontend/src/hooks/useApiError.ts
 - src/frontend/src/hooks/useAquaponicSystems.ts
@@ -788,6 +803,7 @@ reads:
 - src/frontend/src/hooks/useCountdownTimer.ts
 - src/frontend/src/hooks/useDashboardLayout.ts
 - src/frontend/src/hooks/useDebounce.ts
+- src/frontend/src/hooks/useDialogForm.ts
 - src/frontend/src/hooks/useDocumentTitle.ts
 - src/frontend/src/hooks/useEquipment.ts
 - src/frontend/src/hooks/useErasurePreview.ts
@@ -796,6 +812,7 @@ reads:
 - src/frontend/src/hooks/useFieldViolations.ts
 - src/frontend/src/hooks/useGeolocation.ts
 - src/frontend/src/hooks/useGlossaryTerm.ts
+- src/frontend/src/hooks/useInViewport.ts
 - src/frontend/src/hooks/useLocalizedField.ts
 - src/frontend/src/hooks/useModuleVisibility.ts
 - src/frontend/src/hooks/useMonthLabels.ts
@@ -832,6 +849,7 @@ reads:
 - src/frontend/src/hooks/useTenantPermissions.ts
 - src/frontend/src/hooks/useUnsyncedWritesGuard.tsx
 - src/frontend/src/hooks/useWateringVolumeSuggestion.ts
+- src/frontend/src/hooks/useWeatherFetch.ts
 - src/frontend/src/hooks/useWebcamCapture.ts
 - src/frontend/src/i18n/
 - src/frontend/src/i18n/apiLanguage.ts
@@ -880,6 +898,7 @@ reads:
 - src/frontend/src/pages/admin/AdminEditUserPage.tsx
 - src/frontend/src/pages/admin/AdminOidcProvidersPage.tsx
 - src/frontend/src/pages/admin/AdminPlansPage.tsx
+- src/frontend/src/pages/admin/AdminPlatformPage.tsx
 - src/frontend/src/pages/admin/AdminTenantImportsPage.tsx
 - src/frontend/src/pages/aquaponik/
 - src/frontend/src/pages/aquaponik/AquaponicSystemDialog.tsx
@@ -919,6 +938,17 @@ reads:
 - src/frontend/src/pages/auth/StepUpCallbackPage.tsx
 - src/frontend/src/pages/auth/StorageSettingsTab.tsx
 - src/frontend/src/pages/auth/WeatherProvidersSettingsTab.tsx
+- src/frontend/src/pages/auth/settings/
+- src/frontend/src/pages/auth/settings/AccountSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/DisplaySettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/InstallationSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/IntegrationsSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/NotificationsSettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/SecuritySettingsGroup.tsx
+- src/frontend/src/pages/auth/settings/SettingsNavigation.tsx
+- src/frontend/src/pages/auth/settings/SettingsSection.tsx
+- src/frontend/src/pages/auth/settings/settingsLayout.ts
+- src/frontend/src/pages/auth/settings/useSettingsGates.ts
 - src/frontend/src/pages/duengung/
 - src/frontend/src/pages/duengung/ChannelFertilizerDialog.tsx
 - src/frontend/src/pages/duengung/DeliveryChannelAccordion.tsx
@@ -1172,6 +1202,7 @@ reads:
 - src/frontend/src/pwa/writeQueueWipe.ts
 - src/frontend/src/routes/
 - src/frontend/src/routes/AppRoutes.tsx
+- src/frontend/src/routes/adminPaths.ts
 - src/frontend/src/routes/breadcrumbs.ts
 - src/frontend/src/routes/roleGuardedRoutes.ts
 - src/frontend/src/store/
@@ -1226,6 +1257,7 @@ reads:
 - src/frontend/src/test/mocks/server.ts
 - src/frontend/src/theme/
 - src/frontend/src/theme/ThemeContext.tsx
+- src/frontend/src/theme/domainColors.ts
 - src/frontend/src/theme/index.ts
 - src/frontend/src/theme/palette.ts
 - src/frontend/src/theme/theme.ts
@@ -1235,16 +1267,19 @@ reads:
 - src/frontend/src/types/web-nfc.d.ts
 - src/frontend/src/utils/
 - src/frontend/src/utils/browserNavigation.ts
+- src/frontend/src/utils/calendarDay.ts
 - src/frontend/src/utils/careConfirmActions.ts
 - src/frontend/src/utils/entitlements.ts
 - src/frontend/src/utils/formatting.ts
 - src/frontend/src/utils/idGenerator.ts
 - src/frontend/src/utils/imageNormalization.ts
+- src/frontend/src/utils/isPlainPrimaryClick.ts
 - src/frontend/src/utils/loginReturn.ts
 - src/frontend/src/utils/oidcProviders.ts
 - src/frontend/src/utils/pendingInvitation.ts
 - src/frontend/src/utils/phaseSequenceMapper.ts
 - src/frontend/src/utils/plantDisplay.ts
+- src/frontend/src/utils/sameOriginPath.ts
 - src/frontend/src/utils/saveBlob.ts
 - src/frontend/src/utils/stepUp.ts
 - src/frontend/src/utils/stepUpReauth.ts

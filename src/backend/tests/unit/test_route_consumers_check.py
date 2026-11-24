@@ -344,9 +344,15 @@ class TestTheRouteOperand:
         +1: the bed QR label (REQ-053 GP-UX-028 / GP-FR-052, #2899): ``GET /t/{slug}/print/location-label/
         {location_key}``. The bed view's label dialog (``api/endpoints/print.ts``, ``downloadLocationLabelPdf``)
         consumes it in the same change.
+
+        +2 (2026-11-23): the manual weather fetch and its status (REQ-046 §3.6a, #2934, F-13):
+        ``POST /admin/weather-providers/fetch`` and ``GET /admin/weather-providers/fetch-status``. Consumed
+        since F-14 (sprint 0003) by ``triggerWeatherFetch`` and ``getWeatherFetchStatus`` in
+        ``src/frontend/src/api/endpoints/adminWeatherProviders.ts`` — the installation's weather card
+        (``WeatherFetchPanel``); no longer candidates.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 908
+        assert len(checker.collect_operations(app)) == 910
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.

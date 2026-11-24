@@ -65,14 +65,14 @@ interface SliceCase {
 }
 
 const cases: SliceCase[] = [
-  { name: 'wateringLogs', reducer: erase(wateringLogsReducer), list: fetchWateringLogs, one: fetchWateringLog, listFn: wlApi.listWateringLogs, oneFn: wlApi.getWateringLog },
+  { name: 'wateringLogs', reducer: erase(wateringLogsReducer), list: fetchWateringLogs, one: fetchWateringLog, listFn: wlApi.listAllWateringLogs, oneFn: wlApi.getWateringLog },
   { name: 'nutrientPlans', reducer: erase(nutrientPlansReducer), list: fetchNutrientPlans, one: fetchNutrientPlan, listFn: npApi.fetchAllNutrientPlans, oneFn: npApi.fetchNutrientPlan },
-  { name: 'feedingEvents', reducer: erase(feedingEventsReducer), list: fetchFeedingEvents, one: fetchFeedingEvent, listFn: feApi.listFeedingEvents, oneFn: feApi.getFeedingEvent },
+  { name: 'feedingEvents', reducer: erase(feedingEventsReducer), list: fetchFeedingEvents, one: fetchFeedingEvent, listFn: feApi.listAllFeedingEvents, oneFn: feApi.getFeedingEvent },
   { name: 'substrates', reducer: erase(substratesReducer), list: fetchSubstrates, one: fetchSubstrate, listFn: subApi.listAllSubstrates, oneFn: subApi.getSubstrate },
-  { name: 'plantInstances', reducer: erase(plantInstancesReducer), list: fetchPlantInstances, one: fetchPlantInstance, listFn: piApi.listPlantInstances, oneFn: piApi.getPlantInstance },
-  { name: 'tanks', reducer: erase(tanksReducer), list: fetchTanks, one: fetchTank, listFn: tankApi.listTanks, oneFn: tankApi.getTank },
+  { name: 'plantInstances', reducer: erase(plantInstancesReducer), list: fetchPlantInstances, one: fetchPlantInstance, listFn: piApi.listAllPlantInstances, oneFn: piApi.getPlantInstance },
+  { name: 'tanks', reducer: erase(tanksReducer), list: fetchTanks, one: fetchTank, listFn: tankApi.listAllTanks, oneFn: tankApi.getTank },
   { name: 'fertilizers', reducer: erase(fertilizersReducer), list: fetchFertilizers, one: fetchFertilizer, listFn: fertApi.fetchAllFertilizers, oneFn: fertApi.fetchFertilizer },
-  { name: 'plantingRuns', reducer: erase(plantingRunsReducer), list: fetchPlantingRuns, one: fetchPlantingRun, listFn: prApi.listPlantingRuns, oneFn: prApi.getPlantingRun },
+  { name: 'plantingRuns', reducer: erase(plantingRunsReducer), list: fetchPlantingRuns, one: fetchPlantingRun, listFn: prApi.listAllPlantingRuns, oneFn: prApi.getPlantingRun },
   { name: 'activities', reducer: erase(activitiesReducer), list: fetchActivities, one: fetchActivity, listFn: actApi.listAllActivities, oneFn: actApi.getActivity },
 ];
 

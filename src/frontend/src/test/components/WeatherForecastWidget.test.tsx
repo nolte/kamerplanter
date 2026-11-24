@@ -10,17 +10,17 @@ import WeatherProvenanceBadge from '@/components/weather/WeatherProvenanceBadge'
  */
 
 vi.mock('@/api/endpoints/sites', () => ({
-  listSites: vi.fn(),
+  listAllSites: vi.fn(),
 }));
 vi.mock('@/api/endpoints/weatherSources', () => ({
   getSiteWeatherForecast: vi.fn(),
 }));
 
-import { listSites } from '@/api/endpoints/sites';
+import { listAllSites } from '@/api/endpoints/sites';
 import { getSiteWeatherForecast } from '@/api/endpoints/weatherSources';
 import type { Site, SiteWeatherForecastResponse } from '@/api/types';
 
-const mockListSites = vi.mocked(listSites);
+const mockListSites = vi.mocked(listAllSites);
 const mockGetForecast = vi.mocked(getSiteWeatherForecast);
 
 const site: Site = {

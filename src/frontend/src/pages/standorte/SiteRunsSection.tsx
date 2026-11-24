@@ -40,7 +40,7 @@ export default function SiteRunsSection({ siteKey }: Props) {
       try {
         const [locs, allRuns] = await Promise.all([
           siteApi.listLocations(siteKey),
-          runApi.listPlantingRuns(0, 200),
+          runApi.listAllPlantingRuns(),
         ]);
         if (cancelled) return;
         setLocations(locs);

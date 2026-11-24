@@ -367,7 +367,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         filters.entity_type = 'plant_instance';
         filters.entity_key = plantKey;
       }
-      const tasks = await taskApi.listTasks(0, 200, filters);
+      const tasks = await taskApi.listAllTasks(filters);
       setAssignedTasks(tasks);
     } catch (err) {
       handleError(err);

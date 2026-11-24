@@ -2,7 +2,7 @@
 req_id: REQ-023
 title: Benutzerverwaltung & Authentifizierung
 category: Plattform & Sicherheit
-test_count: 79
+test_count: 81
 coverage_areas:
   - Registrierungsseite (/register)
   - Login-Seite (/login)
@@ -15,14 +15,14 @@ coverage_areas:
   - Kontoeinstellungen — Gerätekopplung QR-Dialog (/settings/account?tab=sessions, #1118)
   - Kontoeinstellungen — Tab API-Schlüssel (/settings/account?tab=apikeys)
   - Kontoeinstellungen — Tab Integrationen (/settings/account?tab=ha)
-  - Kontoeinstellungen — Tab Plattform-Modus (/settings/account?tab=platform)
+  - Plattform-Verwaltung (/admin/platform, Seitennavigation "Plattform-Verwaltung", F-12/#2935)
   - Kontoeinstellungen — Tab Konto (/settings/account?tab=account)
   - Platform-Admin-Panel (Service Accounts, Tenant-Notfallverwaltung)
   - OIDC-Provider-Verwaltung (/admin/oidc-providers, #1906)
   - Tenant-Settings Service Accounts (/t/{slug}/settings/service-accounts)
   - Route Guards (ProtectedRoute, PublicOnlyRoute)
 generated: 2026-03-21
-version: "1.8"
+version: "1.9"
 spec_source: spec/req/REQ-023_Benutzerverwaltung-Authentifizierung.md
 ---
 
@@ -656,11 +656,11 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 ---
 
-## Abschnitt 5: Kontoeinstellungen — Tab Profil
+## Abschnitt 5: Einstellungen — Gruppe „Profil & Konto“
 
 ### TC-023-026: Profil anzeigen (Happy Path)
 
-**Requirement**: REQ-023 §4.2 AccountSettingsPage Tab "Profil", AK-15
+**Requirement**: REQ-023 §4.2 AccountSettingsPage Gruppe "Profil & Konto", AK-15; F-11 (#2935)
 **Priority**: High
 **Category**: Detailansicht
 
@@ -668,12 +668,11 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 - Nutzer ist als Demo-Nutzer eingeloggt
 
 **Testschritte**:
-1. Nutzer navigiert zu `/settings/account`
-2. Der Tab "Profil" ist standardmäßig aktiv (oder Nutzer klickt auf Tab "Profil")
+1. Nutzer navigiert zu `/settings/account#profile`
 
 **Erwartete Ergebnisse**:
-- Tab-Leiste mit den Tabs ist sichtbar (im Full-Modus: Profil, Sicherheit, Sitzungen, API-Schlüssel, Erfahrungsstufe, Integrationen, Plattform-Modus, Konto)
-- Im Profil-Tab ist ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
+- Die Gruppe "Profil & Konto" ist geöffnet (Gruppenüberschrift sichtbar)
+- Im Abschnitt "Profil" ist ein Formular mit den Feldern "Anzeigename", Sprache (Dropdown DE/EN), Zeitzone sichtbar
 - Das "Anzeigename"-Feld ist mit dem aktuellen Namen des Nutzers vorausgefüllt
 - Ein "Speichern"-Button ist vorhanden
 
@@ -1227,45 +1226,47 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 
 ## Abschnitt 12: Platform-Admin-Panel
 
-### TC-023-050: Platform-Admin-Tab sichtbar und ladbar
+### TC-023-050: Plattform-Verwaltung über die Seitennavigation erreichbar und ladbar
 
-**Requirement**: REQ-023 §5a.4, §4.2 AccountSettingsPage Tab "Plattform-Modus"
+**Requirement**: REQ-023 §5a.4, §4.2 Plattform-Verwaltung `/admin/platform` (F-12, #2935)
 **Priority**: High
 **Category**: Detailansicht
 
 **Vorbedingungen**:
-- Nutzer ist als Platform-Admin eingeloggt (Membership im Platform-Tenant mit Rolle `admin`)
-- Nutzer befindet sich auf `/settings/account`
+- Nutzer ist als Platform-Admin eingeloggt (Membership im Platform-Tenant mit Rolle `lead`), Full-Modus
+- Nutzer befindet sich auf `/dashboard`
 
 **Testschritte**:
-1. Nutzer klickt auf den Tab "Plattform-Modus"
-2. Seite lädt Admin-Statistiken und Listen
+1. Nutzer öffnet die Seitennavigation und klickt auf den Eintrag "Plattform-Verwaltung"
+2. Seite `/admin/platform` lädt Admin-Statistiken und Listen
 
 **Erwartete Ergebnisse**:
+- Die Adresse ist `/admin/platform`, die Seite trägt den Titel "Plattform-Verwaltung"
 - Statistik-Karten erscheinen: "Aktive Nutzer", "Nutzer gesamt", "Aktive Organisationen", "Mitgliedschaften"
-- Eine Tabelle "Organisationen" mit allen Tenants ist sichtbar (Spalten: Name, Slug, Typ, Mitglieder, Status)
-- Eine Tabelle "Benutzer" mit allen Usern ist sichtbar (Spalten: Name, E-Mail, Organisationen & Rollen, Status, Letzter Login)
+- Die Karte "Anmelde-Provider (OIDC)" mit "OIDC-Provider verwalten" ist sichtbar
+- Eine Tabelle "Organisationen" mit allen Tenants und eine Tabelle "Benutzer" mit allen Usern sind sichtbar, je Zeile mit Bearbeiten-Schaltfläche
 
 **Tags**: [REQ-023, platform-admin, admin-panel, detailansicht]
 
 ---
 
-### TC-023-051: Nicht-Platform-Admin hat keinen Plattform-Modus-Tab
+### TC-023-051: Nicht-Platform-Admin hat keinen Zugang zur Plattform-Verwaltung
 
 **Requirement**: REQ-023 §5a.3, AK-21
 **Priority**: High
 **Category**: Zustandswechsel / Sicherheit
 
 **Vorbedingungen**:
-- Nutzer ist als normaler Tenant-Nutzer (kein Platform-Admin) eingeloggt
-- Nutzer befindet sich auf `/settings/account`
+- Nutzer ist als normaler Tenant-Nutzer (kein Platform-Admin) eingeloggt, Full-Modus
 
 **Testschritte**:
-1. Nutzer betrachtet die Tab-Leiste auf `/settings/account`
+1. Nutzer öffnet die Seitennavigation auf `/dashboard`
+2. Nutzer ruft `/admin/platform` direkt über die Adresse auf
 
 **Erwartete Ergebnisse**:
-- Der Tab "Plattform-Modus" ist entweder nicht sichtbar ODER wenn Nutzer ihn aufruft, werden keine Admin-Daten geladen und kein Zugriff gewährt
-- Kein Datenleck von Admin-Informationen
+- Der Eintrag "Plattform-Verwaltung" fehlt in der Seitennavigation
+- Die Route zeigt statt der Seite den Hinweis, dass die Berechtigung fehlt, mit dem Weg zurück zum Dashboard
+- Es werden keine Admin-Daten geladen (keine Anfrage an `/api/v1/admin/platform/*`), kein Datenleck von Admin-Informationen
 
 **Tags**: [REQ-023, platform-admin, zugriffskontrolle, AK-21]
 
@@ -1280,7 +1281,7 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 **Vorbedingungen**:
 - Nutzer ist Platform-Admin
 - Mindestens ein Tenant hat keine aktiven Admins (ist verwaist, `orphaned_since` ist gesetzt)
-- Nutzer befindet sich im Tab "Plattform-Modus"
+- Nutzer befindet sich auf der Seite "Plattform-Verwaltung" (`/admin/platform`)
 
 **Testschritte**:
 1. Nutzer scrollt in der Tenant-Tabelle
@@ -1460,6 +1461,129 @@ Diese Datei enthält alle E2E-Testfälle für die Benutzerverwaltung und Authent
 - Wenn trotzdem versucht: Fehlermeldung "Sie können sich nicht selbst suspendieren"
 
 **Tags**: [REQ-023, platform-admin, selbst-suspendierung, schutz, AK-53]
+
+---
+
+### TC-023-080: Admin-Seiten führen zur Plattform-Verwaltung zurück
+
+**Requirement**: REQ-023 §4.2 Plattform-Verwaltung (F-12, #2935)
+**Priority**: Medium
+**Category**: Navigation
+
+**Vorbedingungen**:
+- Nutzer ist Platform-Admin, Full-Modus, auf der Seite "Plattform-Verwaltung" (`/admin/platform`)
+
+**Testschritte**:
+1. Nutzer klickt in der Karte "Pläne und Kontingente" auf "Pläne verwalten"
+2. Auf der Seite "Pläne" klickt Nutzer auf den Zurück-Pfeil
+
+**Erwartete Ergebnisse**:
+- Nach Schritt 1 ist die Seite "Pläne" (`/admin/plans`) geöffnet
+- Nach Schritt 2 ist wieder die Plattform-Verwaltung (`/admin/platform`) geöffnet — nicht die Kontoeinstellungen
+
+**Tags**: [REQ-023, platform-admin, navigation]
+
+---
+
+### TC-023-081: Kontoeinstellungen enthalten keine Plattform-Verwaltung mehr
+
+**Requirement**: REQ-023 §4.2 AccountSettingsPage (F-12, #2935)
+**Priority**: Medium
+**Category**: Detailansicht
+
+**Vorbedingungen**:
+- Nutzer ist Platform-Admin, Full-Modus
+
+**Testschritte**:
+1. Nutzer ruft die frühere Adresse des Plattform-Tabs `/settings#platform` auf
+
+**Erwartete Ergebnisse**:
+- Die Einstellungen öffnen auf dem Desktop die erste sichtbare Gruppe ("Profil & Konto"), auf dem Smartphone die Gruppenliste — die alte Tab-Adresse wird nicht umgeleitet (F-11)
+- Eine Gruppe oder ein Abschnitt "Plattform" ist nicht vorhanden — auch nicht für einen Platform-Admin; die Inhalte liegen auf `/admin/platform`
+
+**Tags**: [REQ-023, platform-admin, konto-einstellungen]
+
+---
+
+### TC-023-082: Einstellungsabschnitt per Deep Link öffnen
+
+**Requirement**: REQ-023 §4.2 AccountSettingsPage; F-11 (#2935) acceptance-1, acceptance-4
+**Priority**: Medium
+**Category**: Navigation
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer eingeloggt
+
+**Testschritte**:
+1. Nutzer ruft `/settings/security#apikeys` auf
+2. Nur Smartphone/Tablet: Nutzer tippt auf den Zurück-Pfeil
+
+**Erwartete Ergebnisse**:
+- Die Gruppe "Sicherheit & Zugang" ist geöffnet, der Abschnitt "API-Schlüssel" ist sichtbar
+- Smartphone/Tablet: Die Gruppe erscheint als Detailansicht mit Zurück-Pfeil; nach Schritt 2 ist die Gruppenliste zu sehen
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, deep-link, mobile]
+
+---
+
+### TC-023-083: Unbekannte Einstellungsgruppe zeigt die 404-Seite
+
+**Requirement**: UI-NFR-005 R-018; F-11 (#2935) acceptance-4
+**Priority**: Low
+**Category**: Fehlerbehandlung
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer eingeloggt
+
+**Testschritte**:
+1. Nutzer ruft `/settings/no-such-group` auf
+
+**Erwartete Ergebnisse**:
+- Die 404-Seite wird angezeigt
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, fehler]
+
+---
+
+### TC-023-084: Betreiber-Gruppe ist für ein Mitglied nicht erreichbar
+
+**Requirement**: REQ-023 §4.2; F-11 (#2935) acceptance-3, acceptance-4
+**Priority**: Medium
+**Category**: Berechtigung
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer (kein Platform-Admin) eingeloggt, Full-Modus
+
+**Testschritte**:
+1. Nutzer ruft `/settings/installation#storage` auf
+
+**Erwartete Ergebnisse**:
+- Die Einstellungen öffnen die erste sichtbare Gruppe (`/settings/account`)
+- Der Abschnitt "Speicher" und die Gruppe "Installation" werden nicht angezeigt
+
+**Tags**: [REQ-023, konto-einstellungen, berechtigung, navigation]
+
+---
+
+### TC-023-085: Gruppen-Navigation in den Einstellungen
+
+**Requirement**: REQ-023 §4.2 AccountSettingsPage; F-11 (#2935) acceptance-1, acceptance-3
+**Priority**: High
+**Category**: Navigation
+
+**Vorbedingungen**:
+- Nutzer ist als Demo-Nutzer (kein Platform-Admin) eingeloggt, Full-Modus
+
+**Testschritte**:
+1. Nutzer navigiert zu `/settings`
+2. Nutzer öffnet über die Gruppen-Navigation die Gruppe "Sicherheit & Zugang"
+
+**Erwartete Ergebnisse**:
+- Die Einstellungen sind in Gruppen gegliedert, nicht in einer horizontal scrollenden Tab-Leiste: auf dem Desktop eine Seitennavigation, auf dem Smartphone eine Gruppenliste (für ein Mitglied: Profil & Konto, Anzeige & Verhalten, Benachrichtigungen, Sicherheit & Zugang, Integrationen)
+- Die Gruppe "Installation" fehlt — sie erscheint nur für Betreiber, abgesetzt durch Trennlinie und Überschrift "Betrieb"; die Plattform-Verwaltung ist keine Gruppe, sondern die Seite `/admin/platform`
+- Nach Schritt 2 zeigt die Gruppe "Sicherheit & Zugang" das Passwort-Formular; die Adresse lautet `/settings/security`
+
+**Tags**: [REQ-023, konto-einstellungen, navigation, mobile]
 
 ---
 
@@ -1877,7 +2001,7 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 **Category**: Happy Path
 
 **Vorbedingungen**:
-- Nutzer ist Plattform-Admin, Full-Modus, Tab "Plattform-Modus" der Kontoeinstellungen
+- Nutzer ist Plattform-Admin, Full-Modus, auf der Seite "Plattform-Verwaltung" (`/admin/platform`)
 - Es ist noch kein Provider mit dem Kurznamen `keycloak-home` angelegt
 
 **Testschritte**:
@@ -1957,6 +2081,7 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 | §4.2 E-Mail-Verifizierung | Verifizierungsseite | TC-023-007 bis TC-023-008 |
 | §4.2 Login-Seite | Login, SSO-Buttons, Checkbox | TC-023-009 bis TC-023-019 |
 | §4.2 AccountSettings Profil | Profil anzeigen, bearbeiten | TC-023-026 bis TC-023-028 |
+| §4.2 Einstellungsgruppen (F-11) | Gruppen-Navigation, Deep Link, 404, Betreiber-Gruppe | TC-023-082 bis TC-023-085 |
 | §4.2 AccountSettings Sicherheit | Passwort, Provider-Verwaltung | TC-023-029 bis TC-023-034 |
 | §4.2 AccountSettings Sitzungen | Session-Verwaltung | TC-023-035 bis TC-023-036 |
 | §3.8/§4.6 Gerätekopplung (QR) | QR-Dialog: öffnen, QR anzeigen, Countdown, neuer Code (#1118) | TC-023-073 bis TC-023-076 |
@@ -1965,7 +2090,7 @@ Die folgenden Testfälle decken den QR-Kopplungsdialog ab (REQ-023 §3.8/§4.6, 
 | §4.2 AccountSettings Konto | Account-Löschung | TC-023-046 bis TC-023-048 |
 | §4.4 Axios-Interceptor | Automatischer Token-Refresh | TC-023-072 |
 | §4.5 Route Guards | ProtectedRoute, PublicOnlyRoute | TC-023-016 bis TC-023-017 |
-| §5a Platform-Admin | Admin-Panel, Plattform-Modus | TC-023-050 bis TC-023-059 |
+| §5a Platform-Admin | Plattform-Verwaltung `/admin/platform` | TC-023-050 bis TC-023-059, TC-023-080, TC-023-081 |
 | §5a.5 Tenant-Notfallverwaltung | Notfall-Admin, Suspendierung | TC-023-052 bis TC-023-059 |
 | §5b Service Accounts | Erstellen, Lifecycle, Key-Rotation | TC-023-060 bis TC-023-068 |
 | §3.2 OAuth-Callback | OAuthCallbackPage | TC-023-069 bis TC-023-070 |

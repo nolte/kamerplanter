@@ -247,7 +247,7 @@ export default function TankDetailPage() {
     try {
       const [tankData, allSites] = await Promise.all([
         tankApi.getTank(key),
-        sitesApi.listSites(0, 200),
+        sitesApi.listAllSites(),
       ]);
       if (stale()) return;
       setTank(tankData);

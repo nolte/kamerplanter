@@ -44,6 +44,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import BookIcon from '@mui/icons-material/Book';
 import SettingsIcon from '@mui/icons-material/Settings';
 import TuneIcon from '@mui/icons-material/Tune';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import ContentCutIcon from '@mui/icons-material/ContentCut';
@@ -54,10 +55,13 @@ import SetMealIcon from '@mui/icons-material/SetMeal';
 import { sidebarWidth } from '@/theme/tokens';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useModuleVisibility } from '@/hooks/useModuleVisibility';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 import { navItemConfig, navSectionConfig } from '@/config/fieldConfigs';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setSidebarOpen } from '@/store/slices/uiSlice';
 import type { ExperienceLevel } from '@/api/types';
+import { settingsSectionPath } from '@/config/settingsGroups';
 
 interface NavItem {
   label: string;
@@ -80,11 +84,19 @@ interface SidebarProps {
 export default function Sidebar({ open }: SidebarProps) {
   const { t } = useTranslation();
   const location = useLocation();
+  const isSettingsPath = location.pathname === '/settings' || location.pathname.startsWith('/settings/');
   const { isNavVisible, level } = useExpertiseLevel();
   const { findModuleByPath, overrides, isSmartHomeEnabled } = useModuleVisibility();
   // Issue #685 — cluster-wide AI feature flag. `null` = unknown (probe pending):
   // keep the entry visible until we positively learn AI is off.
   const aiAvailable = useAppSelector((s) => s.aiStatus.available);
+  // F-12 (#2935): the platform admin's hub gets its own entry, shown only to
+  // platform admins — the same `/users/me` flag `<RequirePlatformAdmin>` reads on
+  // the route, so the entry never leads anyone onto the refusal page.
+  const isPlatformAdminUser = usePlatformAdmin();
+  // Every admin page (`/admin/...`) belongs to the hub, so the entry stays
+  // highlighted while the admin works on a tenant, a user or a plan.
+  const isAdminAreaActive = location.pathname.startsWith('/admin/');
   const dispatch = useAppDispatch();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -552,7 +564,9 @@ export default function Sidebar({ open }: SidebarProps) {
               variant="caption"
               color="text.secondary"
               component={Link}
-              to="/settings"
+              // Shown to beginners only: what unlocks more features is the experience level (F-11).
+              to={settingsSectionPath('experience')}
+              data-testid="nav-beginner-hint"
               sx={{
                 display: 'block',
                 textDecoration: 'none',
@@ -591,8 +605,9 @@ export default function Sidebar({ open }: SidebarProps) {
           <ListItemButton
             component={Link}
             to="/settings"
-            selected={location.pathname === '/settings'}
-            aria-current={location.pathname === '/settings' ? 'page' : undefined}
+            // F-11 (#2935): a settings group is `/settings/<group>`, still the settings entry.
+            selected={isSettingsPath}
+            aria-current={isSettingsPath ? 'page' : undefined}
             data-testid="nav-settings"
             onClick={isMobile ? handleClose : undefined}
             sx={{ borderRadius: 1, mx: 0.5 }}
@@ -602,6 +617,23 @@ export default function Sidebar({ open }: SidebarProps) {
               primary={t('nav.settings')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
           </ListItemButton>
         </ListItem>
+        {isPlatformAdminUser && (
+          <ListItem disablePadding sx={{ my: 0.25 }}>
+            <ListItemButton
+              component={Link}
+              to={ADMIN_PLATFORM_PATH}
+              selected={isAdminAreaActive}
+              aria-current={location.pathname === ADMIN_PLATFORM_PATH ? 'page' : undefined}
+              data-testid="nav-admin-platform"
+              onClick={isMobile ? handleClose : undefined}
+              sx={{ borderRadius: 1, mx: 0.5 }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}><AdminPanelSettingsIcon /></ListItemIcon>
+              <ListItemText
+                primary={t('nav.platformAdmin')} slotProps={{ primary: { sx: { fontSize: '0.875rem' } } }} />
+            </ListItemButton>
+          </ListItem>
+        )}
       </List>
     </Drawer>
   );

@@ -1,4 +1,5 @@
 import client from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   CommonNamesI18n,
   PhaseDefinition,
@@ -35,6 +36,14 @@ export async function listPhaseDefinitions(
     params: { offset, limit, ...(name ? { name } : {}) },
   });
   return data;
+}
+
+/** Every phase definition, paged until a short page (#3015) — for the list page and the entry dialog's picker. */
+export async function listAllPhaseDefinitions(
+  name?: string,
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<PhaseDefinition[]> {
+  return fetchAllPages((offset, limit) => listPhaseDefinitions(offset, limit, name), pageSize);
 }
 
 export async function createPhaseDefinition(
@@ -92,6 +101,13 @@ export async function listPhaseSequences(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every phase sequence, paged until a short page (#3015). */
+export async function listAllPhaseSequences(
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<PhaseSequence[]> {
+  return fetchAllPages(listPhaseSequences, pageSize);
 }
 
 export async function createPhaseSequence(

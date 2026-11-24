@@ -87,16 +87,17 @@ describe('successionPlansSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchSuccessionPlans forwards paging args and stores the plans', async () => {
-    mocked.listSuccessionPlans.mockResolvedValue([{ key: 'sp1' }] as never);
+  it('fetchSuccessionPlans loads every page and stores the plans (#3015)', async () => {
+    mocked.listAllSuccessionPlans.mockResolvedValue([{ key: 'sp1' }] as never);
     const store = makeStore();
-    await store.dispatch(fetchSuccessionPlans({ offset: 5, limit: 10 }));
-    expect(mocked.listSuccessionPlans).toHaveBeenCalledWith(5, 10);
+    await store.dispatch(fetchSuccessionPlans({}));
+    expect(mocked.listAllSuccessionPlans).toHaveBeenCalledTimes(1);
+    expect(mocked.listSuccessionPlans).not.toHaveBeenCalled();
     expect(store.getState().successionPlans.plans).toEqual([{ key: 'sp1' }]);
   });
 
   it('fetchSuccessionPlans surfaces a rejection as the slice error', async () => {
-    mocked.listSuccessionPlans.mockRejectedValue(new Error('load failed'));
+    mocked.listAllSuccessionPlans.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchSuccessionPlans({}));
     expect(store.getState().successionPlans.error).toBe('errors.loadFailed');

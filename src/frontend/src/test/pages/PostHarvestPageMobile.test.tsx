@@ -41,8 +41,8 @@ const BATCH: PostHarvestBatch = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(postHarvestApi.getBatches).mockResolvedValue([BATCH]);
-  vi.mocked(harvestApi.getBatches).mockResolvedValue([]);
+  vi.mocked(postHarvestApi.getAllBatches).mockResolvedValue([BATCH]);
+  vi.mocked(harvestApi.getAllBatches).mockResolvedValue([]);
 });
 
 describe('PostHarvestPage (mobile layout)', () => {

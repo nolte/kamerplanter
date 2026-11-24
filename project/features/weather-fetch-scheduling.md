@@ -1,11 +1,11 @@
 ---
 id: F-13
 title: Intervallgesteuerter Wetterabruf mit manuellem Start
-status: in_progress
+status: done
 roadmap_item: R-18
 sprint: 3
 created: 2026-11-17
-ended: null
+ended: 2026-11-23
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-11-17
@@ -76,23 +76,23 @@ erfolgreichen und den nächsten geplanten Abruf.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Ein Plattform-Admin stellt das Abrufintervall in Stunden ein (mindestens und standardmäßig 6 h); kleinere Werte werden mit 422 abgelehnt, und ein geänderter Wert greift ohne Neustart.
-- [ ] **acceptance-2** Ein Abruf startet automatisch, sobald seit dem letzten erfolgreichen Abruf das Intervall vergangen ist; nach einem fehlgeschlagenen Abruf versucht es die nächste stündliche Prüfung erneut.
-- [ ] **acceptance-3** Ein Abruf gilt als erfolgreich, wenn er ohne Laufzeitfehler endet und mindestens einen Standort geschrieben hat (oder kein Standort konfiguriert ist); nur dann werden Frost-Frühwarnung und Bewässerungsbedarf neu berechnet.
-- [ ] **acceptance-4** Ein Plattform-Admin startet einen manuellen Abruf über alle Standorte; die Antwort kommt sofort (202), Ergebnis (Erfolg/Fehler, Zeitpunkt, Standorte, Standorte mit Fehler) steht danach im Status; ein erfolgreicher manueller Abruf startet das Intervall neu.
-- [ ] **acceptance-5** Ein manueller Abruf wird mit 409 abgelehnt, solange ein Abruf läuft, und mit 429 samt `Retry-After`, solange seit dem letzten manuellen Abruf keine 10 Minuten vergangen sind.
-- [ ] **acceptance-6** Der Status nennt Zeitpunkt und Ergebnis des letzten erfolgreichen Abrufs sowie den nächsten geplanten Abruf.
-- [ ] **acceptance-7** REQ-046, REQ-037, REQ-005, REQ-047 und REQ-056 sowie die Referenz der Umgebungsvariablen beschreiben Intervall, manuellen Abruf und die Kopplung von Frost und Bewässerung an jeden Abruf.
+- [x] **acceptance-1** Ein Plattform-Admin stellt das Abrufintervall in Stunden ein (mindestens und standardmäßig 6 h); kleinere Werte werden mit 422 abgelehnt, und ein geänderter Wert greift ohne Neustart.
+- [x] **acceptance-2** Ein Abruf startet automatisch, sobald seit dem letzten erfolgreichen Abruf das Intervall vergangen ist; nach einem fehlgeschlagenen Abruf versucht es die nächste stündliche Prüfung erneut.
+- [x] **acceptance-3** Ein Abruf gilt als erfolgreich, wenn er ohne Laufzeitfehler endet und mindestens einen Standort geschrieben hat (oder kein Standort konfiguriert ist); nur dann werden Frost-Frühwarnung und Bewässerungsbedarf neu berechnet.
+- [x] **acceptance-4** Ein Plattform-Admin startet einen manuellen Abruf über alle Standorte; die Antwort kommt sofort (202), Ergebnis (Erfolg/Fehler, Zeitpunkt, Standorte, Standorte mit Fehler) steht danach im Status; ein erfolgreicher manueller Abruf startet das Intervall neu.
+- [x] **acceptance-5** Ein manueller Abruf wird mit 409 abgelehnt, solange ein Abruf läuft, und mit 429 samt `Retry-After`, solange seit dem letzten manuellen Abruf keine 10 Minuten vergangen sind.
+- [x] **acceptance-6** Der Status nennt Zeitpunkt und Ergebnis des letzten erfolgreichen Abrufs sowie den nächsten geplanten Abruf.
+- [x] **acceptance-7** REQ-046, REQ-037, REQ-005, REQ-047 und REQ-056 sowie die Referenz der Umgebungsvariablen beschreiben Intervall, manuellen Abruf und die Kopplung von Frost und Bewässerung an jeden Abruf.
 
 ## Test hooks
 
-- **acceptance-1** — `src/backend/tests/unit/` service + router tests for `fetch_interval_hours` (ge=6, DB over env) — pending
-- **acceptance-2** — unit test of the due-check in `fetch_weather_forecasts` (not due → early return; failed last run → retried) — pending
-- **acceptance-3** — unit test of the success definition (all sites failed → failure, no chaining; ≥1 written → success + frost/irrigation dispatched) — pending
-- **acceptance-4** — router test: 202 for platform admin, 403 otherwise; status reflects the run — pending
-- **acceptance-5** — router test: 409 with held lock, 429 + `Retry-After` within cooldown — pending
-- **acceptance-6** — status endpoint test against the dedicated status document — pending
-- **acceptance-7** — `mkdocs build --strict` + review of the spec diffs — pending
+- **acceptance-1** — `src/backend/tests/unit/` service + router tests for `fetch_interval_hours` (ge=6, DB over env) — passing — `tests/unit/domain/services/test_weather_settings_service.py::TestFetchInterval`, `tests/api/test_admin_weather_providers.py::test_put_rejects_an_interval_below_six_hours_with_422` (merged in #3097)
+- **acceptance-2** — unit test of the due-check in `fetch_weather_forecasts` (not due → early return; failed last run → retried) — passing — `tests/unit/tasks/test_weather_tasks.py::TestDueCheck` (#3097)
+- **acceptance-3** — unit test of the success definition (all sites failed → failure, no chaining; ≥1 written → success + frost/irrigation dispatched) — passing — `tests/unit/tasks/test_weather_tasks.py::TestSuccessDefinition`, `test_followups_queue_frost_and_irrigation` (#3097)
+- **acceptance-4** — router test: 202 for platform admin, 403 otherwise; status reflects the run — passing — `tests/api/test_admin_weather_providers.py::test_manual_fetch_is_queued_with_202`, `test_manual_fetch_requires_platform_admin_full_mode`, `test_manual_fetch_is_queued_for_a_platform_lead_through_the_real_gating` (#3097)
+- **acceptance-5** — router test: 409 with held lock, 429 + `Retry-After` within cooldown — passing — `test_manual_fetch_is_refused_with_409_while_a_fetch_runs`, `test_manual_fetch_is_refused_with_429_and_retry_after_within_the_cooldown` (#3097)
+- **acceptance-6** — status endpoint test against the dedicated status document — passing — `test_fetch_status_reflects_the_recorded_runs`, `tests/integration/test_weather_fetch_status_repository.py` (#3097)
+- **acceptance-7** — `mkdocs build --strict` + review of the spec diffs — passing — spec diffs (REQ-046/005/037/047/056) reviewed in the two security-review rounds of #3097; `mkdocs build --strict` on develop a958541c6 (2026-11-23): no link or nav warning — its only 45 warnings are the git-revision-date plugin on the locally generated, git-ignored catalog pages (docs/*/skills, agents, tags)
 
 ## Consistency notes
 

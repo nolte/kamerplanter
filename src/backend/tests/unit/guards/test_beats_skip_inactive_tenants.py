@@ -31,7 +31,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-from app.tasks.tenant_gate import TENANT_AGNOSTIC_BEATS, TENANT_WRITING_BEATS
+from app.tasks.tenant_gate import TENANT_AGNOSTIC_BEATS, TENANT_WRITING_BEATS, TENANT_WRITING_CHAINED_TASKS
 
 TASKS = Path(__file__).resolve().parents[3] / "app" / "tasks"
 
@@ -137,6 +137,50 @@ def test_every_tenant_writing_beat_asks_the_tenant_state() -> None:
 
     assert unresolved == [], "a tenant-writing beat whose function the index cannot find"
     assert ungated == [], "a tenant-writing beat that never asks ActiveTenants (REQ-056 §5.2)"
+
+
+def _tasks_the_weather_fetch_chains() -> set[str]:
+    """The Celery names ``weather_tasks._dispatch_followups`` queues — read from the source.
+
+    Every ``send_task("<name>")`` inside the function is a task the fetch queues after
+    a successful run. Any other way of dispatching in there (``.delay``,
+    ``.apply_async``, a non-literal name) fails, so the read cannot quietly miss one.
+    """
+    tree = ast.parse((TASKS / "weather_tasks.py").read_text(encoding="utf-8"))
+    (func,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_dispatch_followups"]
+    names: set[str] = set()
+    for node in ast.walk(func):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+            continue
+        assert node.func.attr not in {"delay", "apply_async", "s", "si", "signature"}, (
+            f"_dispatch_followups dispatches via .{node.func.attr}; this read only follows send_task literals"
+        )
+        if node.func.attr == "send_task":
+            assert node.args and isinstance(node.args[0], ast.Constant), "send_task without a literal task name"
+            names.add(str(node.args[0].value))
+    return names
+
+
+def test_the_tasks_the_weather_fetch_chains_are_classified_scheduled_and_gated() -> None:
+    """#2934: frost and irrigation run after every successful fetch *and* on a daily beat.
+
+    The chained set is read from ``_dispatch_followups`` and must equal
+    ``TENANT_WRITING_CHAINED_TASKS``; each one also has its daily safety-net beat
+    (operator decision 2026-11-22), so it is a ``TENANT_WRITING_BEATS`` entry and the
+    sweep above holds it to ``ActiveTenants`` on both paths.
+    """
+    index = _task_index()
+    chained = _tasks_the_weather_fetch_chains()
+
+    assert chained == {
+        "app.tasks.frost_forecast_tasks.evaluate_forecast_frost_warnings",
+        "app.tasks.irrigation_tasks.compute_irrigation_demand",
+    }, "the source read found other follow-ups than the two this guard was written for"
+    assert chained == TENANT_WRITING_CHAINED_TASKS
+    assert TENANT_WRITING_CHAINED_TASKS <= TENANT_WRITING_BEATS
+    assert _scheduled_task_names() >= TENANT_WRITING_CHAINED_TASKS, "a chained task lost its daily safety-net beat"
+    assert sorted(TENANT_WRITING_CHAINED_TASKS - set(index)) == []
+    assert sorted(name for name in TENANT_WRITING_CHAINED_TASKS if not _asks_the_tenant_state(*index[name])) == []
 
 
 def test_the_predicate_tells_an_ungated_beat_from_a_gated_one() -> None:

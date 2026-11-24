@@ -1,4 +1,5 @@
 import client, { tenantClient } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   Site,
   SiteCreate,
@@ -21,6 +22,14 @@ const SITES = '/sites';
 export async function listSites(offset = 0, limit = 50): Promise<Site[]> {
   const { data } = await tenantClient.get<Site[]>(SITES, { params: { offset, limit } });
   return data;
+}
+
+/**
+ * Every site of the tenant, paged until a short page (#3015). `listSites` returns one bounded page; a picker or a
+ * name map built from it silently drops every site past it.
+ */
+export async function listAllSites(pageSize = CATALOGUE_PAGE_SIZE): Promise<Site[]> {
+  return fetchAllPages(listSites, pageSize);
 }
 
 export async function getSite(key: string): Promise<Site> {

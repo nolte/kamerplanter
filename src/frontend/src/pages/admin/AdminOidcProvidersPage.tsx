@@ -46,6 +46,7 @@ import ErrorPage from '@/pages/ErrorPage';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
 import { formatDateTime } from '@/utils/formatting';
+import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
 
 /** A write waiting for the admin's step-up; the form stays open underneath. */
 type PendingWrite =
@@ -55,7 +56,7 @@ type PendingWrite =
 /**
  * Platform-admin page for the installation's OIDC / OAuth provider configurations (#1906).
  *
- * Reached from the platform tab of the settings page and guarded by `<RequirePlatformAdmin>`:
+ * Reached from the platform admin's hub (`/admin/platform`, F-12) and guarded by `<RequirePlatformAdmin>`:
  * every request here is `require_platform_admin`, the list included, so a refused member has
  * nothing to read. Creating, deleting and every edit beyond `display_name` / `icon_url` go
  * through `StepUpConfirmDialog` for the act `oidc_provider_change` (#1883), bound to the
@@ -213,7 +214,7 @@ export default function AdminOidcProvidersPage() {
     <Box sx={{ mt: 2 }} data-testid="admin-oidc-providers-page">
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <IconButton
-          onClick={() => navigate('/settings#platform')}
+          onClick={() => navigate(ADMIN_PLATFORM_PATH)}
           aria-label={t('pages.admin.oidc.back')}
           data-testid="oidc-back"
         >

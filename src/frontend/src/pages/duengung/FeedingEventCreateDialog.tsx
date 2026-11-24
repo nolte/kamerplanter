@@ -106,7 +106,7 @@ export default function FeedingEventCreateDialog({
       setLoadingPlants(true);
       setPlantsError(false);
       plantApi
-        .listPlantInstances()
+        .listAllPlantInstances()
         .then(setPlants)
         .catch((err: unknown) => {
           captureHandledError(err, { source: 'FeedingEventCreateDialog.plants' });

@@ -7,7 +7,7 @@ Kamerplanter kann dich über fällige Pflegeaufgaben, Sensor-Alarme, Tankfüllst
 
 ## Voraussetzungen
 
-- Ein Kamerplanter-Konto mit Zugriff auf **Einstellungen → Benachrichtigungen** (`/settings#notifications`)
+- Ein Kamerplanter-Konto mit Zugriff auf **Einstellungen → Benachrichtigungen** (`/settings/notifications`)
 - Für den Kanal **Home Assistant**: eine bereits eingerichtete Home-Assistant-Verbindung (siehe [Home Assistant Integration](../guides/home-assistant-integration.md))
 - Für den Kanal **Browser-Push**: eine Kamerplanter-Instanz mit aktiviertem Web-Push (siehe [Browser-Push einrichten](../guides/browser-push-setup.md)) — das richtet dein Betreiber einmalig ein
 - Für den Kanal **Apprise**: mindestens eine gültige Apprise-URL des gewünschten Diensts (z. B. Telegram, ntfy, Gotify)
@@ -186,7 +186,7 @@ Diese Eskalationstage sind fest vorgegeben und aktuell nicht individuell einstel
 
 ## Frost-Frühwarnung {#frost-fruehwarnung}
 
-Für deine Freiland- und Gewächshaus-Standorte prüft Kamerplanter einmal täglich die aktuelle Wettervorhersage und informiert dich proaktiv, wenn eine Frostnacht bevorsteht — bevor die Temperatur tatsächlich fällt. Die Benachrichtigung nennt den Standort, das erwartete Datum und die voraussichtliche Minimaltemperatur.
+Für deine Freiland- und Gewächshaus-Standorte prüft Kamerplanter nach jedem Abruf neuer Wetterdaten — standardmäßig alle sechs Stunden, je nach dem vom Betreiber eingestellten [Abrufintervall](weather-services.md#abrufintervall-und-manueller-abruf) — und zusätzlich einmal täglich am Morgen die aktuelle Vorhersage und informiert dich proaktiv, wenn eine Frostnacht bevorsteht — bevor die Temperatur tatsächlich fällt. Die Benachrichtigung nennt den Standort, das erwartete Datum und die voraussichtliche Minimaltemperatur.
 
 - **Dringlichkeit:** Hoch (orange) — sie erscheint wie jede andere Benachrichtigung im [Benachrichtigungs-Center](#das-benachrichtigungs-center) und wird über alle deine aktivierten Zustellkanäle zugestellt.
 - **Keine Wiederholungs-Spam:** Für dieselbe Frostnacht an einem Standort erhältst du die Warnung genau **einmal**. Erst ein neuer oder ein noch früherer erwarteter Frosttermin löst eine neue Benachrichtigung aus.

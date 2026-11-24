@@ -5,21 +5,15 @@ import * as api from '@/api/endpoints/plantInstances';
 import { CATALOGUE_PAGE_SIZE } from '@/api/paginate';
 import { errorKey as resolveErrorKey } from '@/api/errors';
 import { createListSlice } from '@/store/createListSlice';
-import type { ListPageArg, ListState } from '@/store/createListSlice';
+import type { ListState } from '@/store/createListSlice';
 
-/**
- * Thunk argument of {@link fetchPlantInstances}. `all: true` loads every page
- * (keyset/offset paging until a short page) instead of a single window.
- *
- * The plant list searches and sorts client-side, so a single window silently
- * hides every plant past it — the backend orders by `_key` ascending, so a
- * newly created plant never appeared once a tenant held more than 50 (#3032).
- * The list page itself uses {@link fetchAllPlantInstances}, which loads the same
- * complete set but publishes it page by page.
+/*
+ * {@link fetchPlantInstances} always loads every page (keyset/offset paging until a short page), never one
+ * window: the plant pickers and lists search and sort client-side, so a single window silently hides every
+ * plant past it — the backend orders by `_key` ascending, so a newly created plant never appeared once a
+ * tenant held more than 50 (#3032, #3015). The list page itself uses {@link fetchAllPlantInstances}, which
+ * loads the same complete set but publishes it page by page.
  */
-export interface PlantInstanceListArg extends ListPageArg {
-  all?: boolean;
-}
 
 /** One page of a progressive load, tagged with the load it belongs to. */
 interface PageLoadedPayload {
@@ -63,10 +57,10 @@ type PlantInstancesState = ListState<PlantInstance> & PlantInstanceProgressField
 
 // `listPlantInstances` returns a plain array (no pagination envelope); the
 // factory normalises that into `items` and leaves the pagination fields unused.
-const { reducer, fetchList, fetchOne, actions } = createListSlice<PlantInstance, PlantInstanceListArg>({
+const { reducer, fetchList, fetchOne, actions } = createListSlice<PlantInstance, Record<string, never>>({
   name: 'plantInstances',
-  list: ({ offset = 0, limit = 50, all = false } = {}) =>
-    all ? api.listAllPlantInstances() : api.listPlantInstances(offset, limit),
+  // Every page (#3015); the paged progressive load is `fetchAllPlantInstances` below.
+  list: () => api.listAllPlantInstances(),
   getOne: (key) => api.getPlantInstance(key),
   extraCases: (builder) => {
     builder

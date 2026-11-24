@@ -24,8 +24,8 @@ import { fetchAllPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
 import { listCultivars } from '@/api/endpoints/species';
-import { listSites, listLocations, getSlot } from '@/api/endpoints/sites';
-import { listPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
+import { listAllSites, listLocations, getSlot } from '@/api/endpoints/sites';
+import { listAllPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
 import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import SurvivalStatsPanel from './SurvivalStatsPanel';
@@ -91,7 +91,7 @@ export default function PlantInstanceListPage() {
     const controller = new AbortController();
     const { signal } = controller;
     // Load sites + all locations
-    listSites(0, 200).then((sites) => {
+    listAllSites().then((sites) => {
       if (signal.aborted) return null;
       const sm = new Map<string, Site>();
       for (const s of sites) sm.set(s.key, s);
@@ -125,7 +125,7 @@ export default function PlantInstanceListPage() {
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
-    listPlantingRuns(0, 200).then(async (runs) => {
+    listAllPlantingRuns().then(async (runs) => {
       const map = new Map<string, { runKey: string; runName: string }>();
       const results = await Promise.all(
         runs.map((r) =>

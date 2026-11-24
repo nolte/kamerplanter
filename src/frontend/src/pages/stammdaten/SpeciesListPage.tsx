@@ -192,7 +192,8 @@ export default function SpeciesListPage() {
     // page filters, searches and sorts the result client-side, so anything less
     // than the whole set makes those three lie rather than paginate (#995).
     dispatch(fetchSpeciesList());
-    dispatch(fetchPlantInstances({ offset: 0, limit: 200 }));
+    // Every plant (#3015): the active count per species is wrong over one page.
+    dispatch(fetchPlantInstances({}));
     dispatch(fetchIdentificationStatus());
   }, [dispatch]);
 

@@ -1,3 +1,5 @@
+import { ADMIN_PLATFORM_PATH } from './adminPaths';
+
 interface BreadcrumbConfig {
   label: string;
   parent?: string;
@@ -80,18 +82,29 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   // REQ-015 Kalender
   '/kalender': { label: 'nav.calendar', parent: '/dashboard' },
 
-  // Settings
+  // Settings — F-11 (#2935): one crumb per group below the settings page.
   '/settings': { label: 'nav.settings', parent: '/dashboard' },
+  '/settings/account': { label: 'pages.settings.groups.account.title', parent: '/settings' },
+  '/settings/display': { label: 'pages.settings.groups.display.title', parent: '/settings' },
+  '/settings/notifications': { label: 'pages.settings.groups.notifications.title', parent: '/settings' },
+  '/settings/security': { label: 'pages.settings.groups.security.title', parent: '/settings' },
+  '/settings/integrations': { label: 'pages.settings.groups.integrations.title', parent: '/settings' },
+  '/settings/installation': { label: 'pages.settings.groups.installation.title', parent: '/settings' },
 
   // REQ-025 Datenschutz & Betroffenenrechte (DSGVO self-service)
   '/privacy': { label: 'pages.auth.privacySettings', parent: '/dashboard' },
 
-  // Admin
-  '/admin/tenants': { label: 'pages.auth.adminTenantsTitle', parent: '/settings' },
-  '/admin/users': { label: 'pages.auth.adminUsersTitle', parent: '/settings' },
-  '/admin/oidc-providers': { label: 'pages.admin.oidc.title', parent: '/settings' },
-  '/admin/plans': { label: 'pages.plans.title', parent: '/settings' },
-  '/admin/tenant-imports': { label: 'pages.tenantImports.title', parent: '/settings' },
+  // Admin — F-12 (#2935): every admin page hangs under the platform admin's hub.
+  // `/admin/tenants` and `/admin/users` exist only as the base of their detail
+  // routes — their lists are the hub's tables — so the detail pages' list crumb
+  // *is* the hub: Dashboard › Plattform-Verwaltung › Detail, without a second
+  // crumb pointing at the same page.
+  [ADMIN_PLATFORM_PATH]: { label: 'nav.platformAdmin', parent: '/dashboard' },
+  '/admin/tenants': { label: 'nav.platformAdmin', parent: '/dashboard', listPath: ADMIN_PLATFORM_PATH },
+  '/admin/users': { label: 'nav.platformAdmin', parent: '/dashboard', listPath: ADMIN_PLATFORM_PATH },
+  '/admin/oidc-providers': { label: 'pages.admin.oidc.title', parent: ADMIN_PLATFORM_PATH },
+  '/admin/plans': { label: 'pages.plans.title', parent: ADMIN_PLATFORM_PATH },
+  '/admin/tenant-imports': { label: 'pages.tenantImports.title', parent: ADMIN_PLATFORM_PATH },
 };
 
 export function buildBreadcrumbs(

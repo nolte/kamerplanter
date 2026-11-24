@@ -226,7 +226,7 @@ function renderSessionsTab() {
         error: null,
       },
     }),
-    route: '/account#sessions',
+    route: '/settings/security#sessions',
   });
 }
 
@@ -817,7 +817,7 @@ describe('AccountSettingsPage — light-mode connect entry (#1118 P12)', () => {
           error: null,
         },
       }),
-      route: '/account#connect',
+      route: '/settings/security#connect',
     });
   }
 

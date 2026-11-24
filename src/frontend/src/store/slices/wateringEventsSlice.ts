@@ -19,14 +19,9 @@ const initialState: WateringEventsState = {
 
 export const fetchWateringEvents = createAsyncThunk(
   'wateringEvents/fetchAll',
-  async ({
-    offset,
-    limit,
-  }: {
-    offset?: number;
-    limit?: number;
-  } = {}) => {
-    return api.listWateringEvents(offset, limit);
+  // Every page (#3015): the event list searches and sorts client-side.
+  async () => {
+    return api.listAllWateringEvents();
   },
 );
 

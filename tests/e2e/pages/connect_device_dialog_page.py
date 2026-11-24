@@ -69,14 +69,15 @@ class ConnectDeviceDialogPage(BasePage):
     # ── Navigation ──────────────────────────────────────────────────────────
 
     def open_sessions_tab(self) -> ConnectDeviceDialogPage:
-        """Load the account-settings Sessions tab and wait for it to settle.
+        """Load the Sessions section of the settings group "Security & access" and wait for it to settle.
 
-        `useTabUrl` keys the active tab off the URL hash, so ``#sessions`` deep-
-        links the tab. The durable settle signal is the pairing action button,
-        which the tab header always renders — not the async session table, which
-        may legitimately be empty.
+        Since F-11 (#2935) a section is addressed as ``/settings/<group>#<section>``,
+        so ``/settings/security#sessions`` opens the group at the section. The
+        durable settle signal is the pairing action button, which the section
+        header always renders — not the async session table, which may
+        legitimately be empty.
         """
-        self.navigate(f"{self.PATH}#sessions")
+        self.navigate(f"{self.PATH}/security#sessions")
         self.wait_for_element(self.PAGE)
         self.wait_for_loading_complete()
         self.wait_for_element_clickable(self.CONNECT_BUTTON)

@@ -15,7 +15,7 @@ Kamerplanter liefert 11 Starter-Kits mit:
 --8<-- "docs/_generated/starter-kits.de.md"
 
 !!! tip "Tipp"
-    Du kannst den Wizard jederzeit erneut aufrufen — zum Beispiel um ein zweites Szenario hinzuzufügen oder deine Erfahrungsstufe zu ändern. Den Link dazu findest du in den **Kontoeinstellungen** unter dem Punkt **Onboarding-Wizard erneut starten**.
+    Du kannst den Wizard jederzeit erneut aufrufen — zum Beispiel um ein zweites Szenario hinzuzufügen oder deine Erfahrungsstufe zu ändern. Den Link dazu findest du in den **Einstellungen** unter dem Punkt **Onboarding-Wizard erneut starten**.
 
 ---
 
@@ -51,7 +51,7 @@ Du wählst eine von drei Stufen, die bestimmt, welche Felder und Menüpunkte du 
 | **Experte** | Alle Funktionen: [IPM](pest-management.md), EC-Budgets, Kalibrierung, Importfunktionen | Professioneller Anbau |
 
 !!! note "Hinweis"
-    Die Erfahrungsstufe kannst du jederzeit in den **Kontoeinstellungen** unter **Erfahrungsstufe** anpassen. Du kannst auch einzelne Felder einblenden, ohne die gesamte Stufe zu wechseln.
+    Die Erfahrungsstufe kannst du jederzeit in den **Einstellungen** unter **Anzeige & Verhalten** → **Erfahrungsstufe** anpassen. Du kannst auch einzelne Felder einblenden, ohne die gesamte Stufe zu wechseln.
 
 ---
 

@@ -261,7 +261,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
   const speciesCatalogue = useCatalogue('species', { enabled: open });
   const firstSpeciesFieldId = useId();
   // A failed read is shown with a retry, never as "no sites" (#3037).
-  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listAllSites(), []);
   const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
   const sitesList = sitesLoad.options;
   const [adoptMode, setAdoptMode] = useState(false);
@@ -332,7 +332,7 @@ export default function PlantingRunCreateDialog({ open, onClose, onCreated }: Pr
       setPlantsLoading(true);
       setPlantsError(null);
       plantApi
-        .listPlantInstances(0, 200)
+        .listAllPlantInstances()
         .then((allPlants) => {
           setAvailablePlants(allPlants.filter((p) => !p.removed_on));
         })

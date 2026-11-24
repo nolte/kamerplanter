@@ -75,7 +75,6 @@ function pagesUnderAxe(): Set<string> {
  * recording a debt, not like justifying an exemption.
  */
 const PAGES_OWING_AN_AXE_PASS: ReadonlySet<string> = new Set([
-  'AccountSettingsPage',
   'ActivityDetailPage',
   'ActivityListPage',
   'AdminEditTenantPage',

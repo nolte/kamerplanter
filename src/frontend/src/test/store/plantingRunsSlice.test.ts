@@ -69,16 +69,17 @@ describe('plantingRunsSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchPlantingRuns forwards paging/filter args and stores the runs', async () => {
-    mocked.listPlantingRuns.mockResolvedValue([{ key: 'r1' }] as never);
+  it('fetchPlantingRuns loads every page with its filters and stores the runs (#3015)', async () => {
+    mocked.listAllPlantingRuns.mockResolvedValue([{ key: 'r1' }] as never);
     const store = makeStore();
-    await store.dispatch(fetchPlantingRuns({ offset: 5, limit: 10, status: 'active', runType: 'seed' }));
-    expect(mocked.listPlantingRuns).toHaveBeenCalledWith(5, 10, 'active', 'seed');
+    await store.dispatch(fetchPlantingRuns({ status: 'active', runType: 'seed' }));
+    expect(mocked.listAllPlantingRuns).toHaveBeenCalledWith('active', 'seed');
+    expect(mocked.listPlantingRuns).not.toHaveBeenCalled();
     expect(store.getState().plantingRuns.runs).toEqual([{ key: 'r1' }]);
   });
 
   it('fetchPlantingRuns surfaces a rejection as the slice error', async () => {
-    mocked.listPlantingRuns.mockRejectedValue(new Error('load failed'));
+    mocked.listAllPlantingRuns.mockRejectedValue(new Error('load failed'));
     const store = makeStore();
     await store.dispatch(fetchPlantingRuns({}));
     expect(store.getState().plantingRuns.error).toBe('errors.loadFailed');

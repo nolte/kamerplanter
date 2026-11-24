@@ -4,7 +4,8 @@ For each frost-exposed site (``OVERWINTERING_SITE_TYPES``: outdoor, greenhouse,
 balcony) the task resolves the best season signal
 (live → climatological → calendar), advances the season state machine and applies
 the per-transition side effects (overwintering materialisation, dormancy-care mode).
-Runs after the weather fetch. Guarded by the ``season_state_eval_enabled``
+Runs daily on its own slot and reads the newest stored forecast (the weather
+fetch runs on an interval, #2934). Guarded by the ``season_state_eval_enabled``
 kill-switch. Idempotent: a second run on the same day neither re-transitions nor
 duplicates side effects.
 """

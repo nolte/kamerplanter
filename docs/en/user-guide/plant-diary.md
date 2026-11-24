@@ -207,7 +207,7 @@ In [Light Mode](light-mode.md) there are no user accounts and therefore no conse
 
 ## For Technical Users / Self-Hosters {#for-technical-users-self-hosters}
 
-For your own agent to fetch, claim and write back results for entries, it needs a personal API key (**Account settings → API keys → create**) and access to five dedicated MCP tools. The complete tool contract with error codes and the configuration variable for the maximum image payload is documented under [MCP Server — Diary Analysis](../api/mcp-server.md#diary-analysis-external-agents).
+For your own agent to fetch, claim and write back results for entries, it needs a personal API key (**Settings → Security & access → API keys → Create API key**) and access to five dedicated MCP tools. The complete tool contract with error codes and the configuration variable for the maximum image payload is documented under [MCP Server — Diary Analysis](../api/mcp-server.md#diary-analysis-external-agents).
 
 ---
 

@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   DescendantsResponse,
   GraftCompatibilityResponse,
@@ -14,6 +15,14 @@ export async function listPropagationEvents(
 ): Promise<PropagationEvent[]> {
   const { data } = await client.get<PropagationEvent[]>(`${BASE}/events`, { params });
   return data;
+}
+
+/** Every propagation event matching the filters, paged until a short page (#3015). */
+export async function listAllPropagationEvents(
+  filters: { method?: string; status?: string } = {},
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<PropagationEvent[]> {
+  return fetchAllPages((offset, limit) => listPropagationEvents({ ...filters, offset, limit }), pageSize);
 }
 
 export async function getPropagationEvent(key: string): Promise<PropagationEvent> {

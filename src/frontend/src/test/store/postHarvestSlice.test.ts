@@ -209,10 +209,10 @@ describe('postHarvestSlice', () => {
   });
 
   it('fetchPostHarvestBatches thunk calls the api', async () => {
-    vi.mocked(api.getBatches).mockResolvedValue([]);
+    vi.mocked(api.getAllBatches).mockResolvedValue([]);
     const store = makeStore();
-    await store.dispatch(fetchPostHarvestBatches({}));
-    expect(api.getBatches).toHaveBeenCalled();
+    await store.dispatch(fetchPostHarvestBatches());
+    expect(api.getAllBatches).toHaveBeenCalled();
   });
 
   it('advancePostHarvestStage thunk calls the api', async () => {

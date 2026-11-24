@@ -271,9 +271,9 @@ class TestNotificationSettingsNavigation:
             "Notification settings tab after initial load",
         )
 
-        tab_labels = notif_page.get_tab_labels()
-        assert any("benachrichtigung" in label.lower() for label in tab_labels), (
-            f"TC-REQ-030-001 FAIL: Expected 'Benachrichtigungen' tab, got: {tab_labels}"
+        group_title = notif_page.get_group_title()
+        assert "benachrichtigung" in group_title.lower(), (
+            f"TC-REQ-030-001 FAIL: Expected the group 'Benachrichtigungen', got: {group_title!r}"
         )
 
         # Save button is the anchor element rendered by NotificationSettingsTab.

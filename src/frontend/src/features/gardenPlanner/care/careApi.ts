@@ -1,5 +1,6 @@
 import { tenantClient } from '@/api/client';
 import { listTasks } from '@/api/endpoints/tasks';
+import { fetchAllPages } from '@/api/paginate';
 import type { TaskItem } from '@/api/types';
 import type {
   BatchResult,
@@ -42,8 +43,12 @@ interface PlantingRow {
 
 /** GP-API-024: the plants standing in the bed, to name the plant tasks. Informational only. */
 export async function listActivePlants(bedKey: string): Promise<BedPlantRef[]> {
-  const { data } = await tenantClient.get<PlantingRow[]>(`/locations/${bedKey}/plantings`, {
-    params: { state: 'active', limit: 200 },
+  // Every page (#3015): a bed past one page would leave its later plants without a name.
+  const data = await fetchAllPages(async (offset, limit) => {
+    const response = await tenantClient.get<PlantingRow[]>(`/locations/${bedKey}/plantings`, {
+      params: { state: 'active', offset, limit },
+    });
+    return response.data;
   });
   return data.flatMap((row) =>
     row.plant_key ? [{ plantKey: row.plant_key, instanceId: row.instance_id ?? row.plant_key }] : [],

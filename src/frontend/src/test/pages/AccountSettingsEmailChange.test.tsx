@@ -80,7 +80,7 @@ function captureRequests() {
   return bodies;
 }
 
-function renderProfileTab(route = '/account') {
+function renderProfileTab(route = '/settings/account') {
   return renderWithProviders(<AccountSettingsPage />, { store: createTestStore(authState()), route });
 }
 
@@ -226,7 +226,7 @@ describe('AccountSettingsPage — e-mail change (#1848)', () => {
     const bodies = captureRequests();
     sessionStorage.setItem(EMAIL_CHANGE_ADDRESS_KEY, NEW_EMAIL);
     storePendingStepUpToken(TOKEN, 'email_change', null);
-    saveStepUpResume({ surface: 'email-change', action: 'email_change', returnPath: '/account' });
+    saveStepUpResume({ surface: 'email-change', action: 'email_change', returnPath: '/settings/account' });
     const user = userEvent.setup();
     renderProfileTab();
 
@@ -246,7 +246,7 @@ describe('AccountSettingsPage — e-mail change (#1848)', () => {
     providers([{ provider: 'google' }]);
     sessionStorage.setItem(EMAIL_CHANGE_ADDRESS_KEY, NEW_EMAIL);
     storePendingStepUpToken(TOKEN, 'account_erasure', null);
-    saveStepUpResume({ surface: 'delete-account', action: 'account_erasure', returnPath: '/account' });
+    saveStepUpResume({ surface: 'delete-account', action: 'account_erasure', returnPath: '/settings/account' });
     renderProfileTab();
 
     await screen.findByTestId('email-change-card');
