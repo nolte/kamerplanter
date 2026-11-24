@@ -81,11 +81,12 @@ describe('overwinteringProfilesSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchOverwinteringProfiles forwards paging and stores the rows', async () => {
-    mocked.listOverwinteringProfiles.mockResolvedValue([{ key: 'ow1' }] as never);
+  it('fetchOverwinteringProfiles loads every page and stores the rows (#3015)', async () => {
+    mocked.listAllOverwinteringProfiles.mockResolvedValue([{ key: 'ow1' }] as never);
     const store = makeStore();
-    await store.dispatch(fetchOverwinteringProfiles({ offset: 0, limit: 50 }));
-    expect(mocked.listOverwinteringProfiles).toHaveBeenCalledWith(0, 50);
+    await store.dispatch(fetchOverwinteringProfiles({}));
+    expect(mocked.listAllOverwinteringProfiles).toHaveBeenCalledTimes(1);
+    expect(mocked.listOverwinteringProfiles).not.toHaveBeenCalled();
     expect(store.getState().overwinteringProfiles.items).toEqual([{ key: 'ow1' }]);
   });
 

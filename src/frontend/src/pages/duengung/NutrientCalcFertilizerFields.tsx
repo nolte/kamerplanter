@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { fetchAllFertilizers } from '@/api/endpoints/fertilizers';
-import { listSites, listLocations } from '@/api/endpoints/sites';
+import { listAllSites, listLocations } from '@/api/endpoints/sites';
 import { listAllSpecies } from '@/api/endpoints/species';
 import { useApiError } from '@/hooks/useApiError';
 import type { Fertilizer, Location, Species } from '@/api/types';
@@ -88,7 +88,7 @@ export function useLocationOptions(): {
     let cancelled = false;
     (async () => {
       try {
-        const sites = await listSites(0, 200);
+        const sites = await listAllSites();
         const perSite = await Promise.all(
           sites.map((s) => listLocations(s.key)),
         );

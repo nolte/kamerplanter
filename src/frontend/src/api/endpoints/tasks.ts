@@ -1,5 +1,5 @@
 import { tenantClient as client } from '../client';
-import { fetchAllPages } from '../paginate';
+import { fetchAllPages, MAX_PAGE_SIZE } from '../paginate';
 import type {
   BatchResponse,
   HSTValidationResult,
@@ -46,6 +46,11 @@ export async function listWorkflows(
     { params },
   );
   return data;
+}
+
+/** Every workflow template, page by page (#3015): the template list searches and sorts client-side. */
+export async function listAllWorkflows(speciesKey?: string, pageSize = MAX_PAGE_SIZE): Promise<WorkflowTemplate[]> {
+  return fetchAllPages((offset, limit) => listWorkflows(offset, limit, speciesKey), pageSize);
 }
 
 export async function createWorkflow(
@@ -253,6 +258,17 @@ export async function listTasks(
     paramsSerializer: { indexes: null },
   });
   return data;
+}
+
+/**
+ * Every task matching the filters, paged until a short page (#3015). `listTasks` returns one bounded page; the tasks
+ * of a run or plant listed from it lose every task past it.
+ */
+export async function listAllTasks(
+  filters?: Parameters<typeof listTasks>[2],
+  pageSize = MAX_PAGE_SIZE,
+): Promise<TaskItem[]> {
+  return fetchAllPages((offset, limit) => listTasks(offset, limit, filters), pageSize);
 }
 
 export async function createTask(payload: TaskItemCreate): Promise<TaskItem> {

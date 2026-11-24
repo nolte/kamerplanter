@@ -5,8 +5,8 @@ import { createListSlice } from '@/store/createListSlice';
 // state fields (`plans`/`currentPlan`) so page selectors stay expressive.
 const { reducer, fetchList, fetchOne, actions } = createListSlice({
   name: 'successionPlans',
-  list: ({ offset, limit }: { offset?: number; limit?: number } = {}) =>
-    api.listSuccessionPlans(offset, limit),
+  // Every page (#3015): the list view searches and sorts client-side, one page would hide the rest.
+  list: () => api.listAllSuccessionPlans(),
   getOne: (key) => api.getSuccessionPlan(key),
   itemsField: 'plans',
   currentField: 'currentPlan',

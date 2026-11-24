@@ -49,16 +49,16 @@ const DETAIL: PostHarvestBatchDetail = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(postHarvestApi.getBatches).mockResolvedValue([BATCH]);
+  vi.mocked(postHarvestApi.getAllBatches).mockResolvedValue([BATCH]);
   vi.mocked(postHarvestApi.getBatch).mockResolvedValue(DETAIL);
-  vi.mocked(harvestApi.getBatches).mockResolvedValue([]);
+  vi.mocked(harvestApi.getAllBatches).mockResolvedValue([]);
 });
 
 describe('PostHarvestPage', () => {
   it('renders and loads post-harvest batches', async () => {
     renderWithProviders(<PostHarvestPage />);
     expect(await screen.findByTestId('post-harvest-page')).toBeInTheDocument();
-    expect(postHarvestApi.getBatches).toHaveBeenCalled();
+    expect(postHarvestApi.getAllBatches).toHaveBeenCalled();
     expect(await screen.findByText('hb-1')).toBeInTheDocument();
     expect(screen.getByTestId('start-drying-button')).toBeInTheDocument();
   });

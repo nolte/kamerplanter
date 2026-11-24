@@ -54,7 +54,7 @@ export default function PhaseDefinitionListPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await phaseSequenceApi.listPhaseDefinitions(0, 200);
+      const data = await phaseSequenceApi.listAllPhaseDefinitions();
       setDefinitions(data);
     } catch (err) {
       setError(t('errors.server'));

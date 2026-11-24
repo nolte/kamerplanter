@@ -73,7 +73,7 @@ export default function SpringReturnAssistant() {
     if (!isPreSpring) return;
     let ignore = false;
     overwinteringApi
-      .listOverwinteringProfiles(0, 200)
+      .listAllOverwinteringProfiles()
       .then((list) => {
         if (!ignore) setProfiles(list);
       })
@@ -87,12 +87,12 @@ export default function SpringReturnAssistant() {
 
   // Resolve plant_key/planting_run_key to a readable name for the action list below
   // — an opaque database key would be unreadable for the target "no expertise
-  // needed" audience (bounded fetch, mirrors the site-name lookup in
-  // SeasonOverviewPanel; falls back gracefully to the raw key past the limit).
+  // needed" audience. Every page is read (#3015); a key whose name did not load
+  // still falls back to the raw key.
   useEffect(() => {
     if (!isPreSpring) return;
-    dispatch(fetchPlantInstances({ limit: 200 }));
-    dispatch(fetchPlantingRuns({ limit: 200 }));
+    dispatch(fetchPlantInstances({}));
+    dispatch(fetchPlantingRuns({}));
   }, [dispatch, isPreSpring]);
 
   const plantNameByKey = useMemo(() => {

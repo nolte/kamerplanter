@@ -59,7 +59,7 @@ export default function AdoptPlantsDialog({
     setError(null);
     setLoading(true);
     plantApi
-      .listPlantInstances(0, 200)
+      .listAllPlantInstances()
       .then((allPlants) => {
         // Filter to plants that are not removed (no removed_on date)
         const available = allPlants.filter((p) => !p.removed_on);

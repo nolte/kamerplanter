@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   GenerateNextRunResponse,
   GenerateRunsResponse,
@@ -17,6 +18,11 @@ export async function listSuccessionPlans(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every successionPlan of the tenant, page by page (#3015): the list view searches and sorts client-side. */
+export async function listAllSuccessionPlans(pageSize = CATALOGUE_PAGE_SIZE): Promise<SuccessionPlan[]> {
+  return fetchAllPages(listSuccessionPlans, pageSize);
 }
 
 export async function getSuccessionPlan(key: string): Promise<SuccessionPlan> {

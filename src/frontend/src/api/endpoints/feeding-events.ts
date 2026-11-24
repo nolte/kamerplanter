@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   FeedingEvent,
   FeedingEventCreate,
@@ -17,6 +18,11 @@ export async function listFeedingEvents(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every feedingEvent of the tenant, page by page (#3015): the list view searches and sorts client-side. */
+export async function listAllFeedingEvents(pageSize = CATALOGUE_PAGE_SIZE): Promise<FeedingEvent[]> {
+  return fetchAllPages(listFeedingEvents, pageSize);
 }
 
 export async function getFeedingEvent(key: string): Promise<FeedingEvent> {

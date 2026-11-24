@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   ActiveChannel,
   AdoptPlantsResponse,
@@ -37,6 +38,22 @@ export async function listPlantingRuns(
   if (locationKey) params.location_key = locationKey;
   const { data } = await client.get<PlantingRun[]>(BASE, { params });
   return data;
+}
+
+/**
+ * Every planting run matching the filters, paged until a short page (#3015). `listPlantingRuns` returns one bounded
+ * page; a picker or a run map built from it silently drops every run past it.
+ */
+export async function listAllPlantingRuns(
+  status?: string,
+  runType?: string,
+  locationKey?: string,
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<PlantingRun[]> {
+  return fetchAllPages(
+    (offset, limit) => listPlantingRuns(offset, limit, status, runType, locationKey),
+    pageSize,
+  );
 }
 
 export async function getPlantingRun(key: string): Promise<PlantingRun> {

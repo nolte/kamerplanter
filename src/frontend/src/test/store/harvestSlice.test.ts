@@ -203,26 +203,26 @@ describe('harvestSlice thunks', () => {
     vi.clearAllMocks();
   });
 
-  it('fetchIndicators forwards paging and stores indicators', async () => {
-    mocked.getIndicators.mockResolvedValue([{ key: 'i1' }] as never);
+  it('fetchIndicators loads every page and stores indicators', async () => {
+    mocked.getAllIndicators.mockResolvedValue([{ key: 'i1' }] as never);
     const store = makeHarvestStore();
-    await store.dispatch(fetchIndicators({ offset: 0, limit: 10 }));
-    expect(mocked.getIndicators).toHaveBeenCalledWith(0, 10);
+    await store.dispatch(fetchIndicators());
+    expect(mocked.getAllIndicators).toHaveBeenCalledWith();
     expect(store.getState().harvest.indicators).toEqual([{ key: 'i1' }]);
   });
 
-  it('fetchBatches forwards paging and stores batches', async () => {
-    mocked.getBatches.mockResolvedValue([{ key: 'b1' }] as never);
+  it('fetchBatches loads every page and stores batches', async () => {
+    mocked.getAllBatches.mockResolvedValue([{ key: 'b1' }] as never);
     const store = makeHarvestStore();
-    await store.dispatch(fetchBatches({}));
-    expect(mocked.getBatches).toHaveBeenCalledWith(undefined, undefined);
+    await store.dispatch(fetchBatches());
+    expect(mocked.getAllBatches).toHaveBeenCalledWith();
     expect(store.getState().harvest.batches).toEqual([{ key: 'b1' }]);
   });
 
   it('fetchBatches surfaces a rejection as the slice error', async () => {
-    mocked.getBatches.mockRejectedValue(new Error('load failed'));
+    mocked.getAllBatches.mockRejectedValue(new Error('load failed'));
     const store = makeHarvestStore();
-    await store.dispatch(fetchBatches({}));
+    await store.dispatch(fetchBatches());
     expect(store.getState().harvest.error).toBe('errors.loadFailed');
   });
 

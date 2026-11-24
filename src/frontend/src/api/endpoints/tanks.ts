@@ -1,4 +1,5 @@
 import { tenantClient as client } from '../client';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   DueMaintenance,
   FillEventResult,
@@ -35,6 +36,14 @@ export async function listTanks(
   if (tankType) params.tank_type = tankType;
   const { data } = await client.get<Tank[]>(BASE, { params });
   return data;
+}
+
+/**
+ * Every tank of the tenant, paged until a short page (#3015). `listTanks` returns one bounded page; a picker, or a
+ * search for the tank of a location, over it misses every tank past it.
+ */
+export async function listAllTanks(tankType?: string, pageSize = CATALOGUE_PAGE_SIZE): Promise<Tank[]> {
+  return fetchAllPages((offset, limit) => listTanks(offset, limit, tankType), pageSize);
 }
 
 export async function getTank(key: string): Promise<Tank> {

@@ -87,7 +87,7 @@ export default function SeasonOverviewPanel() {
 
   useEffect(() => {
     dispatch(fetchSeasonOverview());
-    dispatch(fetchSites({ limit: 200 }));
+    dispatch(fetchSites({ all: true }));
   }, [dispatch]);
 
   const siteNameByKey = useMemo(() => {

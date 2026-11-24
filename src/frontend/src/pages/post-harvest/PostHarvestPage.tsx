@@ -37,7 +37,7 @@ export default function PostHarvestPage() {
   });
 
   useEffect(() => {
-    dispatch(fetchPostHarvestBatches({}));
+    dispatch(fetchPostHarvestBatches());
   }, [dispatch]);
 
   const columns: Column<PostHarvestBatch>[] = useMemo(
@@ -178,13 +178,13 @@ export default function PostHarvestPage() {
         onClose={() => setStartOpen(false)}
         onCreated={() => {
           setStartOpen(false);
-          dispatch(fetchPostHarvestBatches({}));
+          dispatch(fetchPostHarvestBatches());
         }}
       />
       <PostHarvestDetailDialog
         batchKey={detailKey}
         onClose={() => setDetailKey(null)}
-        onChanged={() => dispatch(fetchPostHarvestBatches({}))}
+        onChanged={() => dispatch(fetchPostHarvestBatches())}
       />
     </Box>
   );

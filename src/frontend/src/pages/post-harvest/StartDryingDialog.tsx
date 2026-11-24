@@ -51,7 +51,7 @@ export default function StartDryingDialog({ open, onClose, onCreated }: Props) {
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   // A failed read is shown with a retry, never as "no harvest batches" (#3037).
-  const loadBatches = useCallback((): Promise<HarvestBatch[]> => harvestApi.getBatches(), []);
+  const loadBatches = useCallback((): Promise<HarvestBatch[]> => harvestApi.getAllBatches(), []);
   const batchesLoad = useAsyncOptions(loadBatches, { enabled: open });
   const batches = batchesLoad.options;
   const loadingBatches = batchesLoad.loading;

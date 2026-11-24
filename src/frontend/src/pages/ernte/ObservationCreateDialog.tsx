@@ -59,7 +59,7 @@ export default function ObservationCreateDialog({
   const { handleError } = useApiError();
   const [saving, setSaving] = useState(false);
   // A failed read is shown with a retry, never as an empty picker (#3037).
-  const loadIndicators = useCallback((): Promise<HarvestIndicator[]> => harvestApi.getIndicators(), []);
+  const loadIndicators = useCallback((): Promise<HarvestIndicator[]> => harvestApi.getAllIndicators(), []);
   const indicatorsLoad = useAsyncOptions(loadIndicators, { enabled: open });
   const indicators = indicatorsLoad.options;
   const loadingIndicators = indicatorsLoad.loading;

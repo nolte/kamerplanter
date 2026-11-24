@@ -153,7 +153,7 @@ export default function PlantInstanceCreateDialog({
   // members of the backend's `_valid_phase_keys` set.
   const [phaseOptionSources, setPhaseOptionSources] = useState<PhaseOptionSource[]>([]);
   // Failed option reads are shown with a retry, never as empty pickers (#3037).
-  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listAllSites(), []);
   const sitesLoad = useAsyncOptions(loadSites, { enabled: open });
   const sitesList = sitesLoad.options;
   const [slotsList, setSlotsList] = useState<Slot[]>([]);

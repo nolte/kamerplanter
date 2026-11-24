@@ -163,13 +163,13 @@ export default function WorkflowInstantiateDialog({
 
     const loadPlantData = async () => {
       try {
-        const plantsData = await plantApi.listPlantInstances(0, 200);
+        const plantsData = await plantApi.listAllPlantInstances();
         if (cancelled) return;
         setPlants(plantsData);
 
         let activeRuns: PlantingRun[] = [];
         try {
-          const runsData = await plantingRunApi.listPlantingRuns(0, 200);
+          const runsData = await plantingRunApi.listAllPlantingRuns();
           if (cancelled) return;
           activeRuns = runsData.filter(
             (r) => r.status === 'active' || r.status === 'harvesting',
@@ -208,7 +208,7 @@ export default function WorkflowInstantiateDialog({
 
     const loadLocationData = async () => {
       try {
-        const sites = await siteApi.listSites(0, 200);
+        const sites = await siteApi.listAllSites();
         if (cancelled) return;
         const allLocations: Location[] = [];
         let siteFailure: unknown = null;
@@ -235,7 +235,7 @@ export default function WorkflowInstantiateDialog({
 
     const loadTankData = async () => {
       try {
-        const tanksData = await tankApi.listTanks(0, 200);
+        const tanksData = await tankApi.listAllTanks();
         if (!cancelled) setTanks(tanksData);
       } catch (err) {
         if (!cancelled) handleError(err);

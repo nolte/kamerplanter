@@ -1,6 +1,7 @@
 import { tenantClient } from '@/api/client';
 import { rethrowBlobError } from '@/api/blobError';
-import { listSites } from '@/api/endpoints/sites';
+import { listAllSites } from '@/api/endpoints/sites';
+import { fetchAllPages } from '@/api/paginate';
 import { listBeds } from '../bed/bedApi';
 import type { HistoryQuery } from './historyFilters';
 import type {
@@ -103,10 +104,16 @@ interface PlantingRow {
   instance_id?: string | null;
 }
 
-/** The plants the bed has had (every state), to filter the history by plant. Informational only. */
+/**
+ * The plants the bed has had (every state), to filter the history by plant. Informational only. Every page is read:
+ * with only the first 200 a bed's later plants were missing from the filter (#3015).
+ */
 export async function listBedPlantOptions(bedKey: string): Promise<FilterOption[]> {
-  const { data } = await tenantClient.get<PlantingRow[]>(`/locations/${bedKey}/plantings`, {
-    params: { limit: 200 },
+  const data = await fetchAllPages(async (offset, limit) => {
+    const response = await tenantClient.get<PlantingRow[]>(`/locations/${bedKey}/plantings`, {
+      params: { offset, limit },
+    });
+    return response.data;
   });
   const seen = new Set<string>();
   return data.flatMap((row) => {
@@ -116,22 +123,12 @@ export async function listBedPlantOptions(bedKey: string): Promise<FilterOption[
   });
 }
 
-/** Sites per request (the server's page limit). */
-const SITE_PAGE = 200;
-/** A ceiling for the paging loop: 50 pages are 10 000 sites. */
-const MAX_SITE_PAGES = 50;
-
 /**
  * Every bed of every site, to filter the tenant-wide history by bed and to name the bed of each entry. The sites are
  * read page by page: with only the first 200 the beds of every later site had no name in the list (#2764).
  */
 export async function listAllBedOptions(): Promise<FilterOption[]> {
-  const sites: Awaited<ReturnType<typeof listSites>> = [];
-  for (let page = 0; page < MAX_SITE_PAGES; page += 1) {
-    const batch = await listSites(page * SITE_PAGE, SITE_PAGE);
-    sites.push(...batch);
-    if (batch.length < SITE_PAGE) break;
-  }
+  const sites = await listAllSites();
   // #3013 (B-01): a site whose beds fail to load rejects the whole list — the caller shows an error with retry
   // instead of a bed filter in which that site's beds silently vanished.
   const perSite = await Promise.all(sites.map((site) => listBeds(site.key)));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { listSites } from '@/api/endpoints/sites';
+import { listAllSites } from '@/api/endpoints/sites';
 import { getSiteWeatherForecast } from '@/api/endpoints/weatherSources';
 import type { Site, SiteWeatherForecastResponse } from '@/api/types';
 
@@ -56,7 +56,7 @@ export function useSiteWeatherForecast(): State {
     const load = async () => {
       setState((prev) => ({ ...prev, loading: true, error: false }));
       try {
-        const sites = await listSites();
+        const sites = await listAllSites();
         if (cancelled) return;
         const chosen = sites.find((s) => s.gps_coordinates) ?? sites[0] ?? null;
         if (!chosen) {

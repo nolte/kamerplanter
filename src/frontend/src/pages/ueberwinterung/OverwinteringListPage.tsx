@@ -110,7 +110,7 @@ export default function OverwinteringListPage() {
   useEffect(() => {
     dispatch(fetchOverwinteringProfiles({}));
     plantApi
-      .listPlantInstances(0, 200)
+      .listAllPlantInstances()
       .then(setPlants)
       .catch((err: unknown) => {
         // Plant names only label profiles; without them the subject falls back to its key.

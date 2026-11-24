@@ -237,7 +237,7 @@ export default function PlantInstanceDetailPage() {
   const [recommendedRoMap, setRecommendedRoMap] = useState<Map<number, number>>(new Map());
 
   // Slot picker cascade state
-  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listSites(0, 200), []);
+  const loadSites = useCallback((): Promise<Site[]> => sitesApi.listAllSites(), []);
   const sitesLoad = useAsyncOptions(loadSites, { enabled: tab === 7 });
   const sitesList = sitesLoad.options;
   const [slotsList, setSlotsList] = useState<Slot[]>([]);

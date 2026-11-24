@@ -40,22 +40,24 @@ const initialState: SitesState = {
 };
 
 /**
- * The site list. Its first page is the offline-readable one (REQ-053 WP 9.2, UI-NFR-012 R-020): written to
- * the plan cache after every online read, read from it when there is no connection.
+ * The site list. A read from offset 0 — one page, or every page with `all: true` — is the offline-readable one
+ * (REQ-053 WP 9.2, UI-NFR-012 R-020): written to the plan cache after every online read, read from it when there
+ * is no connection.
  */
 /** `listSites`' default page size: the cached first page is kept per page size (#2789 review C7). */
 const SITE_LIST_DEFAULT_LIMIT = 50;
 
 export const fetchSites = createAsyncThunk<
   Site[],
-  { offset?: number; limit?: number } | undefined,
+  { offset?: number; limit?: number; all?: boolean } | undefined,
   { fulfilledMeta: { cachedAt: number | null }; rejectedMeta: { offlineMiss: boolean } }
 >('sites/fetchAll', async (args, { getState, fulfillWithValue, rejectWithValue }) => {
-  const { offset, limit } = args ?? {};
+  // `all: true` reads every page (#3015) and is cached under its own entry, apart from the single-page ones.
+  const { offset, limit, all = false } = args ?? {};
   const scope = scopeFromState(getState() as ScopeState);
-  const entry = scope && !offset ? siteListEntry(scope, limit ?? SITE_LIST_DEFAULT_LIMIT) : null;
+  const entry = scope && (all || !offset) ? siteListEntry(scope, all ? 'all' : (limit ?? SITE_LIST_DEFAULT_LIMIT)) : null;
   try {
-    const read = await readThrough(entry, () => api.listSites(offset, limit));
+    const read = await readThrough(entry, () => (all ? api.listAllSites() : api.listSites(offset, limit)));
     return fulfillWithValue(read.data, { cachedAt: read.cachedAt });
   } catch (error) {
     if (isOfflineCacheMiss(error)) return rejectWithValue(undefined, { offlineMiss: true });

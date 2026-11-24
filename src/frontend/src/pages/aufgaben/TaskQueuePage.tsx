@@ -332,12 +332,12 @@ export default function TaskQueuePage() {
   useEffect(() => () => { dispatch(resetQueue()); }, [dispatch]);
 
   // Only the async callbacks touch state here: the first call comes from an
-  // effect, and `plantsLoading` already starts true. 200 is the endpoint's
-  // maximum (`PaginationParams.limit`, `le=200`), so this list is the filter's
-  // hard ceiling — see the retry path below for what a failure must not do.
+  // effect, and `plantsLoading` already starts true. Every page is read — one
+  // page of 200 left every later plant out of the filter (#3015). See the retry
+  // path below for what a failure must not do.
   const loadPlants = useCallback(() => {
     plantApi
-      .listPlantInstances(0, 200)
+      .listAllPlantInstances()
       .then((loaded) => {
         setPlants(loaded);
         setPlantsError(null);

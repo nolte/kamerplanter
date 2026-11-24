@@ -338,7 +338,7 @@ export default function DosageCalculatorTab({ plan, entries }: Props) {
     (async () => {
       try {
         setSitesLoading(true);
-        const data = await siteApi.listSites(0, 200);
+        const data = await siteApi.listAllSites();
         if (!cancelled) {
           setSites(data);
           if (data.length === 1) {

@@ -28,11 +28,11 @@ import { visuallyHidden } from '@mui/utils';
 import EmptyState from '@/components/common/EmptyState';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { useNotification } from '@/hooks/useNotification';
-import { listPlantInstances } from '@/api/endpoints/plantInstances';
-import { listTanks } from '@/api/endpoints/tanks';
+import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
+import { listAllTanks } from '@/api/endpoints/tanks';
 import { getPlantLabel } from '@/utils/plantDisplay';
 import { formatDate } from '@/utils/formatting';
-import { listSites, listLocations } from '@/api/endpoints/sites';
+import { listAllSites, listLocations } from '@/api/endpoints/sites';
 import type { TerminationType } from '@/api/types';
 import {
   bulkSetHaPublishStatus,
@@ -57,11 +57,9 @@ interface EntityRow {
   terminationType?: TerminationType | null;
 }
 
-const PAGE_LIMIT = 200;
-
 /** `language` is the UI language the species part of the plant label is shown in (#2902). */
 async function loadPlants(language: string): Promise<EntityRow[]> {
-  const plants = await listPlantInstances(0, PAGE_LIMIT);
+  const plants = await listAllPlantInstances();
   return plants.map((p) => ({
     key: p.key,
     label: getPlantLabel(p, language),
@@ -73,12 +71,12 @@ async function loadPlants(language: string): Promise<EntityRow[]> {
 }
 
 async function loadTanks(): Promise<EntityRow[]> {
-  const tanks = await listTanks(0, PAGE_LIMIT);
+  const tanks = await listAllTanks();
   return tanks.map((t) => ({ key: t.key, label: t.name, isActive: true }));
 }
 
 async function loadLocations(): Promise<EntityRow[]> {
-  const sites = await listSites(0, PAGE_LIMIT);
+  const sites = await listAllSites();
   const perSite = await Promise.all(sites.map((s) => listLocations(s.key)));
   return perSite.flat().map((l) => ({ key: l.key, label: l.name, isActive: true }));
 }

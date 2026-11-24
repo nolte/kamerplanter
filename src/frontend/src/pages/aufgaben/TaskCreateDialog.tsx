@@ -133,7 +133,7 @@ export default function TaskCreateDialog({
     const loadPlants = async () => {
       setLoadingPlants(true);
       try {
-        const data = await plantApi.listPlantInstances(0, 200);
+        const data = await plantApi.listAllPlantInstances();
         setPlants(data);
       } catch (err) {
         handleError(err);

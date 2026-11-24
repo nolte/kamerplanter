@@ -1,5 +1,5 @@
 import { tenantClient as client } from '../client';
-import { fetchAllPages } from '../paginate';
+import { CATALOGUE_PAGE_SIZE, fetchAllPages } from '../paginate';
 import type {
   DryingProgress,
   DryingProgressCreate,
@@ -24,6 +24,11 @@ export async function getBatches(
     params: { offset, limit },
   });
   return data;
+}
+
+/** Every post-harvest batch of the tenant, page by page (#3015): the page searches and sorts client-side. */
+export async function getAllBatches(pageSize = CATALOGUE_PAGE_SIZE): Promise<PostHarvestBatch[]> {
+  return fetchAllPages(getBatches, pageSize);
 }
 
 export async function getBatchesForHarvest(
