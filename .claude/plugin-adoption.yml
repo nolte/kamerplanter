@@ -135,6 +135,7 @@ inventory:
     - project-structure-apply
     - pull-request-create
     - pull-request-merge
+    - pull-request-merge-order
     - pull-request-runner-sweep
     - readme-structure-apply
     - release-notes-curate
@@ -161,6 +162,7 @@ inventory:
     - portfolio-manifest-collector
     - project-structure-reviewer
     - prose-vale-curator
+    - renovate-config-author
     - security-requirements-reviewer
     - spec-readiness-reviewer
     - tech-stack-drift-reviewer
