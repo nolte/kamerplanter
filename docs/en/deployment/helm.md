@@ -190,7 +190,9 @@ controllers:
 
 The frontend is served behind nginx. The nginx configuration is automatically mounted as a ConfigMap and proxies `/api/` requests to the backend.
 
-The same nginx sends the container image's security headers on every path: Content-Security-Policy (including `worker-src` and `manifest-src`), `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`. Only HSTS is deliberately missing; the ingress sets it (see [Ingress](#ingress)). <!-- #2816 -->
+The same nginx sends the container image's security headers on every path: Content-Security-Policy (including `worker-src`, `manifest-src` and `object-src 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (camera and location for the app's own page only), `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy`. Only HSTS is deliberately missing; the ingress sets it (see [Ingress](#ingress)). <!-- #2816, #3025 -->
+
+`index.html` and every deep app route come with `Cache-Control: no-cache`: the browser asks again after every deployment and so never loads an old page that points at deleted bundles. Only the files under `/assets/` carry a content hash in their name and stay in the cache for a year as `immutable`. The browser also asks again for icons every time. <!-- #3025 -->
 
 #### ArangoDB
 

@@ -26,7 +26,7 @@ SENTRY_SAMPLE_RATE=1.0
 
 The DSN carries only a public ingest key, not a secret — it is meant to reach the frontend, because that is exactly where it is needed.
 
-On Kubernetes you set the same values in the Helm values. They sit on `backend`, `celery-worker`, `celery-beat`, `inference-service` and — twice — on `frontend`: once in the init container that writes `runtime-config.js`, and once on the nginx container that derives the Content-Security-Policy from it.
+On Kubernetes you set the same values in the Helm values. They sit on `backend`, `celery-worker`, `celery-beat`, `inference-service` and on `frontend` in the init container `init-runtime-config`. It writes `runtime-config.js` and also adds exactly the host of your DSN to the Content-Security-Policy's `connect-src`, so the browser may send its error reports there. You do not set the DSN on the nginx container. <!-- #3025 -->
 
 !!! danger "NetworkPolicy: a self-hosted tracker is unreachable at first"
     The backend's egress rule permits outbound traffic to the internet but **deliberately excludes the private address ranges** (RFC 1918, plus link-local). If your tracker runs in the same cluster or on the LAN, it needs an additional egress rule. Without it, events are dropped with no error surfacing anywhere — the SDK does not report a blocked connection. Enabling this is therefore two changes, not one.
