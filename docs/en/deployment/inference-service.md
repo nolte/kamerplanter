@@ -113,6 +113,9 @@ The response shows per species how many reference images were accepted and wheth
 
 All three endpoints require a valid admin token (`Authorization: Bearer <admin-token>`). They are accessible via the regular backend ingress — no separate port-forward is needed.
 
+!!! warning "After a PostgreSQL major version change of the vectordb"
+    When the `vectordb` changes its PostgreSQL major version (most recently to 19), the vector store is discarded. This step is then needed again, and contributed reference photos and the platform administration's curation are lost. Steps and consequences: [VectorDB when upgrading](helm.md#vectordb).
+
 ### Step 3: Enable the Local Path
 
 Set the environment variable **on both the backend AND the celery-worker**:
@@ -147,7 +150,7 @@ In the development workflow the inference service is started via the Skaffold pr
 In production the inference service and a **dedicated** pgvector instance (`vectordb`) run inside the **same** Helm release as the backend and frontend (release name `kamerplanter`). The chart `helm/kamerplanter/values.yaml` ships two additional controllers that are disabled by default: `vectordb` and `inference-service`. The operator enables them via `valuesObject` in the ArgoCD Application.
 
 !!! warning "One Secret key: `POSTGRES_PASSWORD`"
-    Before the first deployment the operator sets exactly **one** key in `kamerplanter-secrets`: `POSTGRES_PASSWORD`. The `vectordb` container (PostgreSQL 18) mandates that name; the `inference-service` derives its own `VECTORDB_PASSWORD` from the **same** key via `secretKeyRef` (the chart wires this up). No password is ever inlined in the chart or in Git, and both containers pull just that one key — not the whole Secret via `envFrom`.
+    Before the first deployment the operator sets exactly **one** key in `kamerplanter-secrets`: `POSTGRES_PASSWORD`. The `vectordb` container (PostgreSQL 19) mandates that name; the `inference-service` derives its own `VECTORDB_PASSWORD` from the **same** key via `secretKeyRef` (the chart wires this up). No password is ever inlined in the chart or in Git, and both containers pull just that one key — not the whole Secret via `envFrom`.
 
     Generate and set the key (existing Secret keys are preserved):
 

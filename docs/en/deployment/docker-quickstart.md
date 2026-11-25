@@ -229,6 +229,20 @@ docker compose --profile timescaledb up -d
 TIMESCALEDB_ENABLED=true
 ```
 
+### Upgrading the vectordb (PostgreSQL major version)
+
+!!! warning "When upgrading: delete the `vectordb_data` volume"
+    The `vectordb` image is now based on PostgreSQL 19 (previously 18). PostgreSQL does not start on a data directory that another major version created; the container exits with `database files are incompatible with server`. There is no data migration: you delete the volume and rebuild the vector store. The vectors are derived data, your plants and tasks live in ArangoDB and stay untouched. Contributed reference photos and the platform administration's curation are lost (details: [VectorDB when upgrading](helm.md#vectordb)).
+
+    ```bash
+    docker compose --profile vectordb down
+    docker volume ls | grep vectordb_data     # name = <project name>_vectordb_data
+    docker volume rm <project name>_vectordb_data
+    docker compose --profile vectordb up -d --build
+    ```
+
+    The services recreate the schema on start. Afterwards you rebuild whatever writes to the vectordb in your installation: the knowledge base through the reindex ([Reindexing the knowledge base](../guides/rag-knowledge-base.md#reindexing-the-knowledge-base-operatordeveloper)) and, if enabled, the recognition indexes ([Setting up image recognition](inference-service.md)).
+
 ### Resource requirements per profile
 
 !!! warning "Ollama requires significantly more resources"

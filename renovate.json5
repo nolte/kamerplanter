@@ -655,24 +655,6 @@
       ],
       enabled: false,
     },
-    // Hold PostgreSQL majors for the vectordb until an upgrade path exists
-    // (#3118). PostgreSQL refuses to start on a data directory of the previous
-    // major, and the vectordb is a StatefulSet with a volumeClaimTemplate, so a
-    // major image bump crash-loops every existing installation while CI, which
-    // starts from fresh volumes, stays green. #3116 (18 -> 19) merged that way
-    // and was reverted. Remove this rule together with #3118.
-    {
-      matchFileNames: [
-        'docker/vectordb/Dockerfile',
-      ],
-      matchPackageNames: [
-        'postgres',
-      ],
-      matchUpdateTypes: [
-        'major',
-      ],
-      enabled: false,
-    },
     // Hold TypeScript below 7.0 until typescript-eslint ships a release
     // supporting the native TS 7 compiler. Its peer range is currently
     // "typescript >=4.8.4 <6.1.0", so TS 7 fails `npm ci` (ERESOLVE) and

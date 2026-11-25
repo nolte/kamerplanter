@@ -113,6 +113,9 @@ Die Antwort zeigt pro Art, wie viele Referenzbilder akzeptiert wurden und ob die
 
 Alle drei Endpunkte erfordern einen gültigen Admin-Token (`Authorization: Bearer <admin-token>`). Die Endpunkte sind über den regulären Backend-Ingress erreichbar — es ist kein separater Port-Forward nötig.
 
+!!! warning "Nach einem PostgreSQL-Hauptversionswechsel der vectordb"
+    Wechselt die `vectordb` die PostgreSQL-Hauptversion (zuletzt auf 19), wird der Vektorspeicher verworfen. Dann ist dieser Schritt erneut nötig, und beigetragene Referenzfotos sowie die Kuratierung der Plattform-Administration sind verloren. Ablauf und Folgen: [VectorDB beim Upgrade](helm.md#vectordb).
+
 ### Schritt 3: Lokalen Pfad aktivieren
 
 Setze die Umgebungsvariable **auf dem Backend UND auf dem Celery-Worker**:
@@ -147,7 +150,7 @@ Im Entwicklungs-Workflow wird der Inferenz-Service über das Skaffold-Profil `re
 In Produktion laufen der Inferenz-Service und eine **dedizierte** pgvector-Instanz (`vectordb`) im **selben** Helm-Release wie Backend und Frontend (Release-Name `kamerplanter`). Das Chart `helm/kamerplanter/values.yaml` enthält dafür zwei zusätzliche Controller, die standardmäßig deaktiviert sind: `vectordb` und `inference-service`. Der Operator aktiviert sie über `valuesObject` in der ArgoCD-Application.
 
 !!! warning "Ein Secret-Schlüssel: `POSTGRES_PASSWORD`"
-    Der Operator setzt **vor** dem ersten Deploy genau **einen** Schlüssel in `kamerplanter-secrets`: `POSTGRES_PASSWORD`. Den verlangt der `vectordb`-Container (PostgreSQL 18) zwingend unter diesem Namen; der `inference-service` leitet sein eigenes `VECTORDB_PASSWORD` per `secretKeyRef` aus **demselben** Schlüssel ab (das Chart verdrahtet das). Kein Passwort landet im Chart oder in Git, und beide Container ziehen gezielt nur diesen einen Schlüssel — nicht das ganze Secret per `envFrom`.
+    Der Operator setzt **vor** dem ersten Deploy genau **einen** Schlüssel in `kamerplanter-secrets`: `POSTGRES_PASSWORD`. Den verlangt der `vectordb`-Container (PostgreSQL 19) zwingend unter diesem Namen; der `inference-service` leitet sein eigenes `VECTORDB_PASSWORD` per `secretKeyRef` aus **demselben** Schlüssel ab (das Chart verdrahtet das). Kein Passwort landet im Chart oder in Git, und beide Container ziehen gezielt nur diesen einen Schlüssel — nicht das ganze Secret per `envFrom`.
 
     Schlüssel generieren und setzen (bestehende Secret-Schlüssel bleiben erhalten):
 

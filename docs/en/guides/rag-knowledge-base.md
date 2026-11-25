@@ -188,7 +188,7 @@ chunks:
 
 ## Reindexing the Knowledge Base (Operator/Developer)
 
-After modifying knowledge YAML files under `spec/knowledge/rag/`, the vectors in the VectorDB (pgvector) must be recomputed. There is **no automatic schedule** for this — the reindex must be triggered manually against the Knowledge Service after every content change.
+After modifying knowledge YAML files under `spec/knowledge/rag/`, the vectors in the VectorDB (pgvector) must be recomputed. Celery Beat triggers the reindex once a week (Sundays at 03:00, task `ai.knowledge_service_ingest`, only when the Knowledge Service is enabled). To see a change right away, trigger the reindex manually against the Knowledge Service as described below.
 
 ### Prerequisites
 
@@ -222,6 +222,9 @@ python eval_rag.py
 2. Each chunk is vectorized using the embedding model (`multilingual-e5-large`, 1024 dimensions, see [ADR-006](../adr/006-embedding-modell-e5-base-hybrid-search.md))
 3. Vectors are upserted into `ai_vector_chunks` (existing chunks are updated by their `source_key`, new ones added)
 4. The endpoint returns a summary: number of files, number of chunks
+
+!!! info "After rebuilding the VectorDB"
+    The same procedure rebuilds the knowledge base after a PostgreSQL major version change of the VectorDB (most recently PostgreSQL 19, where the volume is deleted). The knowledge service recreates its schema on start; after that the reindex is enough. The full procedure including the recognition indexes is in [VectorDB when upgrading](../deployment/helm.md#vectordb).
 
 !!! tip "Fast feedback loop"
     For iterative knowledge base improvement, use this cycle:
