@@ -1,4 +1,4 @@
-FROM postgres:18-bookworm@sha256:194e55feb2597b1465dbee81cc9fd8d204566cd2eb42c8d22fd6c931a38781b1
+FROM postgres:19-bookworm@sha256:f8b826440669ad283328d2ac8326682539eddd91867904ad5abf4ec19269d241
 
 LABEL org.opencontainers.image.title="kamerplanter-vectordb" \
       org.opencontainers.image.description="PostgreSQL with the pgvector extension storing Kamerplanter's embedding vectors for RAG knowledge retrieval" \
@@ -14,7 +14,7 @@ RUN apt-get update && \
         postgresql-server-dev-${PG_MAJOR} \
         git \
         ca-certificates && \
-    git clone --branch v0.8.2 https://github.com/pgvector/pgvector.git /tmp/pgvector && \
+    git clone --branch v0.8.7 https://github.com/pgvector/pgvector.git /tmp/pgvector && \
     cd /tmp/pgvector && \
     make && \
     make install && \
