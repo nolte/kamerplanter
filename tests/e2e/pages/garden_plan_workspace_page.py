@@ -264,13 +264,20 @@ class WorkspacePlanPage(GardenPlanPage):
         """Whether the route shows a tab bar at all (``garden-plan-tabs``); an instantaneous read after a settle."""
         return self.is_present(self.TABS)
 
-    def selected_inline_tab(self) -> str:
-        """The tab whose header-bar tab carries ``aria-selected="true"``; loud when no tab is selected."""
+    def _selected_inline_tab_or_none(self) -> str | None:
+        """The tab whose header-bar tab carries ``aria-selected="true"``, or ``None`` while none does."""
         for name in self.PLAN_TABS:
             for element in self.driver.find_elements(*_tid(f"{self.TAB_PREFIX}{name}")):
                 if element.get_attribute("aria-selected") == "true":
                     return name
-        raise AssertionError("no plan tab carries aria-selected='true' in the header bar")
+        return None
+
+    def selected_inline_tab(self) -> str:
+        """The tab whose header-bar tab carries ``aria-selected="true"``; loud when no tab is selected."""
+        name = self._selected_inline_tab_or_none()
+        if name is None:
+            raise AssertionError("no plan tab carries aria-selected='true' in the header bar")
+        return name
 
     def wait_for_tab(self, name: str, what: str, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until *name* is the open tab: in the URL and, while the tabs are inline, by ``aria-selected``."""
@@ -279,7 +286,9 @@ class WorkspacePlanPage(GardenPlanPage):
             if self.current_tab() != name:
                 return False
             if self._inline(_tid(f"{self.TAB_PREFIX}{name}")):
-                return self.selected_inline_tab() == name
+                # Not the loud reader: a predicate that raises ends the wait on its first poll, so the moment
+                # between the URL switch and the tab's re-render (no tab selected yet) failed TC-053-098.
+                return self._selected_inline_tab_or_none() == name
             return True
 
         try:
