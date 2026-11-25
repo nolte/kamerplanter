@@ -439,6 +439,19 @@ class BatchStatusRequest(TaskCompletionDetails):
     )
 
 
+class BatchReopenRequest(BaseModel):
+    """The body of ``POST /tasks/batch/reopen`` (#3015): the undo of a batch completion in one request."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={"examples": [{"task_keys": ["task_watering_bed_3", "task_watering_bed_4"], "undo": True}]},
+    )
+
+    task_keys: list[TaskKey] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
+    #: As on ``POST /tasks/{key}/reopen`` (GP-FR-149): void each task's care-log line in the same transaction.
+    undo: bool = False
+
+
 class BatchDeleteRequest(BaseModel):
     task_keys: list[TaskKey] = Field(min_length=1, max_length=MAX_BATCH_TASK_KEYS)
 

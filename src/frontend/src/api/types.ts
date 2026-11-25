@@ -916,8 +916,29 @@ export interface PlantInstance {
   cultivar: PlantCultivarSummary | null;
   /** Key of the mother instance this pup descended from via clonal continuation (D10, REQ-017). */
   mother_key: string | null;
+  /**
+   * The planting runs the plant is attached to, newest first (#3015). Sent by the list route only; `null` or
+   * absent elsewhere means "not resolved here", not "no run".
+   */
+  planting_runs?: PlantRunSummary[] | null;
   created_at: string | null;
   updated_at: string | null;
+}
+
+/** One location of the tenant for a picker or a name map (`GET /locations/options`, #3015). */
+export interface LocationOption {
+  key: string;
+  name: string;
+  site_key: string;
+  parent_location_key: string | null;
+  area_m2: number | null;
+}
+
+/** A compact reference to a planting run a plant belongs to (`PlantRunSummaryResponse`). */
+export interface PlantRunSummary {
+  key: string;
+  name: string;
+  status: string;
 }
 
 /** How a plant instance's lifecycle ended (REQ-003 E5). */

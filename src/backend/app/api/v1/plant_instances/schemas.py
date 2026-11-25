@@ -118,6 +118,14 @@ class CultivarSummary(BaseModel):
     name: str
 
 
+class PlantRunSummaryResponse(BaseModel):
+    """A compact reference to a planting run a plant instance belongs to."""
+
+    key: str = Field(description="Document key of the planting run.")
+    name: str = Field(description="Human-readable name of the planting run.")
+    status: str = Field(description="Current lifecycle status of the planting run.")
+
+
 class PlantResponse(BaseModel):
     key: str
     instance_id: str
@@ -144,6 +152,14 @@ class PlantResponse(BaseModel):
     cultivation_cycle_type: CycleType | None = None
     species: SpeciesSummary | None = None
     cultivar: CultivarSummary | None = None
+    planting_runs: list[PlantRunSummaryResponse] | None = Field(
+        default=None,
+        description=(
+            "The planting runs the plant is attached to, newest first (#3015). Filled by the list route "
+            "`GET /plant-instances` only; `null` on every other route means *not resolved here*, not *no run* - "
+            "`GET /plant-instances/{key}/planting-runs` answers it for one plant."
+        ),
+    )
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -248,11 +264,3 @@ class AssignNutrientPlanStatusResponse(BaseModel):
     """Acknowledgement that a nutrient plan was assigned to a plant instance."""
 
     status: str = Field(description="Assignment status marker (always ``assigned``).")
-
-
-class PlantRunSummaryResponse(BaseModel):
-    """A compact reference to a planting run a plant instance belongs to."""
-
-    key: str = Field(description="Document key of the planting run.")
-    name: str = Field(description="Human-readable name of the planting run.")
-    status: str = Field(description="Current lifecycle status of the planting run.")

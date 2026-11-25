@@ -25,6 +25,7 @@ from app.api.v1.locations.schemas import (
     LimingHintResponse,
     LocationCoverRequest,
     LocationCreate,
+    LocationOptionResponse,
     LocationPatch,
     LocationPatchResponse,
     LocationPhotoRequest,
@@ -261,6 +262,37 @@ def list_locations(
     else:
         items = service.list_locations(site_key, tenant_key=ctx.tenant_key)
     return [to_response(loc, BedListItemResponse) for loc in items]
+
+
+@router.get("/options", response_model=list[LocationOptionResponse])
+def list_location_options(
+    pagination: PaginationParams = Depends(get_pagination),
+    is_bed: bool | None = Query(
+        None, description="Only locations whose type is (true) or is not (false) a bed; all locations without it."
+    ),
+    top_level_only: bool = Query(False, description="Only locations that sit directly on their site."),
+    ctx: TenantContext = Depends(get_current_tenant),
+    resources: GardenResourceService = Depends(get_garden_resource_service),
+) -> list[LocationOptionResponse]:
+    """The tenant's locations over every site: key, name, site and parent (paginated, sorted by name; #3015).
+
+    A picker or a name map that needs the locations of every site read ``GET /locations?site_key=…`` once per site;
+    this answers it in pages of the locations, whatever the number of sites (the care log's bed filter asks
+    ``is_bed=true``). Declared before ``/{key}`` so the literal path is not taken for a location key.
+    """
+    options = resources.list_location_options(
+        tenant_key=ctx.tenant_key,
+        offset=pagination.offset,
+        limit=pagination.limit,
+        is_bed=is_bed,
+        top_level_only=top_level_only,
+    )
+    return [
+        LocationOptionResponse(
+            key=o.key, name=o.name, site_key=o.site_key, parent_location_key=o.parent_location_key, area_m2=o.area_m2
+        )
+        for o in options
+    ]
 
 
 @router.get("/{key}", response_model=LocationResponse)

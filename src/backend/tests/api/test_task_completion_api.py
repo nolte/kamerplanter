@@ -330,6 +330,86 @@ class TestReopen:
         assert client().post(f"{_OWN}/t1/reopen", json={"void_reason": "x"}).status_code == 422
 
 
+class TestBatchReopen:
+    """#3015: the undo of a batch completion in one request, under the single reopen's rules.
+
+    The snackbar of the batch dialog sent one ``POST /tasks/{key}/reopen`` per task - up to 200 requests against a
+    limit of 120 per minute. ``POST /tasks/batch/reopen`` reopens them through the same service method, so the tenant
+    check, the status rule and the void predicate are the single route's.
+    """
+
+    @pytest.fixture
+    def done(self, world) -> None:
+        for key in ("t1", "t2"):
+            world.tasks.store[key] = world.tasks.store[key].model_copy(update={"status": TaskStatus.COMPLETED})
+        world.completion.open_event = CareEvent(
+            _key="ce_1",
+            tenant_key=TENANT,
+            site_key="site_1",
+            location_key="bed",
+            category="watering",
+            summary="x",
+            performed_at=datetime.now(UTC),
+            trigger="task",
+            task_key="t1",
+            created_by=USER,
+            created_at=datetime.now(UTC) - timedelta(seconds=20),
+        )
+
+    def test_undo_reopens_every_task_and_voids_its_line(self, client, world, done) -> None:
+        response = client().post(f"{_OWN}/batch/reopen", json={"task_keys": ["t1", "t2"], "undo": True})
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"succeeded": ["t1", "t2"], "failed": []}
+        assert [(w.task_key, w.event_key, w.void_reason) for w in world.completion.reopened] == [
+            ("t1", "ce_1", "undo"),
+            ("t2", None, "undo"),
+        ]
+        assert {world.tasks.store[k].status for k in ("t1", "t2")} == {TaskStatus.PENDING}
+
+    def test_a_foreign_and_an_open_task_are_reported_and_the_rest_is_reopened(self, client, world, done) -> None:
+        world.tasks.store["t_foreign"] = world.tasks.store["t_foreign"].model_copy(
+            update={"status": TaskStatus.COMPLETED}
+        )
+
+        response = client().post(
+            f"{_OWN}/batch/reopen", json={"task_keys": ["t_foreign", "t_feed", "t1"], "undo": True}
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["succeeded"] == ["t1"]
+        assert [(f["key"], f["code"]) for f in body["failed"]] == [
+            ("t_foreign", "ENTITY_NOT_FOUND"),
+            ("t_feed", "VALIDATION_ERROR"),
+        ]
+        assert world.tasks.store["t_foreign"].status == TaskStatus.COMPLETED
+
+    def test_a_late_undo_by_a_grower_is_refused_per_task(self, client, world, done) -> None:
+        world.completion.open_event = world.completion.open_event.model_copy(
+            update={"created_at": datetime.now(UTC) - timedelta(minutes=30)}
+        )
+
+        response = client().post(f"{_OWN}/batch/reopen", json={"task_keys": ["t1"], "undo": True})
+
+        assert response.status_code == 200, response.text
+        assert [(f["key"], f["code"]) for f in response.json()["failed"]] == [("t1", "FORBIDDEN")]
+        assert world.completion.reopened == []
+        assert world.tasks.store["t1"].status == TaskStatus.COMPLETED
+
+    def test_a_viewer_is_refused_like_on_the_single_reopen(self, client, world, done) -> None:
+        viewer = client(TenantRole.VIEWER)
+
+        assert viewer.post(f"{_OWN}/t1/reopen", json={"undo": True}).status_code == 403
+        assert viewer.post(f"{_OWN}/batch/reopen", json={"task_keys": ["t1"], "undo": True}).status_code == 403
+        assert world.completion.reopened == []
+
+    @pytest.mark.parametrize("body", [{"task_keys": []}, {"task_keys": ["t1"], "void_reason": "x"}])
+    def test_an_empty_or_overfull_body_is_422(self, client, world, done, body) -> None:
+        assert client().post(f"{_OWN}/batch/reopen", json=body).status_code == 422
+        assert world.completion.reopened == []
+
+
 class TestConflictCodesAndClientEventId:
     """REQ-053 WP 9.3: the stable conflict reasons of a completion and the replay of a buffered one.
 

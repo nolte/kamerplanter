@@ -114,6 +114,15 @@ class IPlantingRunRepository(ABC):
     def get_runs_for_plant(self, plant_key: PlantID) -> list[PlantingRun]: ...
 
     @abstractmethod
+    def get_run_refs_for_plants(self, plant_keys: list[PlantID], *, tenant_key: str) -> dict[str, list[dict[str, str]]]:
+        """``plant_key`` → the ``{key, name, status}`` of the runs that hold it, newest run first (#3015).
+
+        One query for a whole page of plants: only attached memberships (``detached_at == null``) and only runs of
+        ``tenant_key`` count. A plant without a run is absent from the mapping.
+        """
+        ...
+
+    @abstractmethod
     def get_runs_at_site(self, site_key: str, *, tenant_key: str) -> list[PlantingRun]: ...
 
     @abstractmethod

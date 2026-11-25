@@ -27,6 +27,8 @@ const richPlant = {
   current_phase_started_at: null,
   container_volume_liters: null,
   substrate_type_override: null,
+  // The run comes with the row (#3015); the page no longer reads the plants of every run.
+  planting_runs: [{ key: 'run-1', name: 'Spring Batch', status: 'active' }],
   created_at: '2024-04-01T00:00:00Z',
   updated_at: null,
 };
@@ -38,18 +40,6 @@ function seedRichPlants() {
     // species with the cultivar the plant references
     http.get('/api/v1/species/:key/cultivars', () =>
       HttpResponse.json([{ key: 'cv-1', species_key: 'sp-1', name: 'San Marzano', created_at: null, updated_at: null }]),
-    ),
-    // a run that contains the plant → run chip + mapping branch
-    http.get('/api/v1/t/:tenant/planting-runs', () =>
-      HttpResponse.json([{ key: 'run-1', name: 'Spring Batch', created_at: null, updated_at: null }]),
-    ),
-    http.get('/api/v1/planting-runs', () =>
-      HttpResponse.json([{ key: 'run-1', name: 'Spring Batch', created_at: null, updated_at: null }]),
-    ),
-    http.get('/api/v1/t/:tenant/planting-runs/:runKey/plants', () =>
-      HttpResponse.json([
-        { key: 'plant-2', instance_id: 'TOM-002', species_key: 'sp-1', cultivar_key: 'cv-1', plant_name: 'Removed One', planted_on: '2024-04-01', removed_on: '2024-05-01', current_phase: 'flowering', detached_at: null, detach_reason: null },
-      ]),
     ),
   );
 }
@@ -304,6 +294,52 @@ describe('PlantInstanceListPage', () => {
     it('lists a plant that only the second page returns', async () => {
       renderWithProviders(<PlantInstanceListPage />);
       expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+    });
+
+    it('labels every row with its run and location in a request count independent of runs and sites (#3015)', async () => {
+      // Every plant in a run of its own and 40 sites: the page used to read the plants of every run (201 requests)
+      // and the locations of every site (40 requests). The rows now carry their runs, the locations come in pages.
+      const runPlants = allPlants.map((plant, index) => ({
+        ...plant,
+        planting_runs: [{ key: `run-${index}`, name: index === 200 ? 'Newest Run' : `Run ${index}`, status: 'active' }],
+      }));
+      const sites = Array.from({ length: 40 }, (_v, i) => ({ key: `site-${i}`, name: `Site ${i}` }));
+      const counts = { plantPages: 0, runList: 0, runPlants: 0, perSiteLocations: 0, locationOptions: 0 };
+      const countPlantPage = ({ request }: { request: Request }) => {
+        counts.plantPages += 1;
+        const url = new URL(request.url);
+        const offset = Number(url.searchParams.get('offset') ?? 0);
+        const limit = Number(url.searchParams.get('limit') ?? 50);
+        return HttpResponse.json(runPlants.slice(offset, offset + limit));
+      };
+      server.use(
+        http.get('/api/v1/t/:tenant/plant-instances', countPlantPage),
+        http.get('/api/v1/t/:tenant/planting-runs', () => {
+          counts.runList += 1;
+          return HttpResponse.json([]);
+        }),
+        http.get('/api/v1/t/:tenant/planting-runs/:runKey/plants', () => {
+          counts.runPlants += 1;
+          return HttpResponse.json([]);
+        }),
+        http.get('/api/v1/t/:tenant/sites', () => HttpResponse.json(sites)),
+        http.get('/api/v1/t/:tenant/locations/options', () => {
+          counts.locationOptions += 1;
+          return HttpResponse.json([{ key: 'loc-1', name: 'Zone A', site_key: 'site-1', parent_location_key: null }]);
+        }),
+        http.get('/api/v1/t/:tenant/locations', () => {
+          counts.perSiteLocations += 1;
+          return HttpResponse.json([]);
+        }),
+      );
+
+      renderWithProviders(<PlantInstanceListPage />);
+
+      // Plant 201 (page 2, newest first in the table) carries its run chip.
+      expect(await screen.findByText('Newest Plant', {}, { timeout: 5000 })).toBeTruthy();
+      expect((await screen.findAllByText('Newest Run')).length).toBeGreaterThan(0);
+      await waitFor(() => expect(counts.locationOptions).toBe(1));
+      expect(counts).toEqual({ plantPages: 2, runList: 0, runPlants: 0, perSiteLocations: 0, locationOptions: 1 });
     });
 
     it('renders after the first page while later pages still load', async () => {

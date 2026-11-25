@@ -258,3 +258,74 @@ describe('PlantInstanceDetailPage — section load banner (#3037)', () => {
     expect(calls.plant).toBe(1);
   });
 });
+
+describe('PlantInstanceDetailPage — independent reads run as one stage (#3015, A-11)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('de');
+    setActiveTenantSlug('test-tenant');
+  });
+
+  afterEach(async () => {
+    cleanup();
+    await i18n.changeLanguage('en');
+  });
+
+  it('reads the slot once for both the location fallback and the slot label', async () => {
+    const calls = seed();
+    const slotReads: string[] = [];
+    const locationReads: string[] = [];
+    server.use(
+      http.get('*/plant-instances/:key', () => {
+        calls.plant += 1;
+        return HttpResponse.json({ ...makePlant(), slot_key: 'slot-1', location_key: null });
+      }),
+      http.get('*/slots/:key', ({ params }) => {
+        slotReads.push(params.key as string);
+        return HttpResponse.json({ key: 'slot-1', location_key: 'loc-1', slot_id: 'A1' });
+      }),
+      http.get('*/locations/:key', ({ params }) => {
+        locationReads.push(params.key as string);
+        return HttpResponse.json({ key: 'loc-1', site_key: 'site-1', name: 'Zone A', path: 'Zone A' });
+      }),
+      http.get('*/slots', () => HttpResponse.json([])),
+    );
+    renderWithProviders(<PlantInstanceDetailPage />, { route: '/pflanzen/plant-instances/pi-1' });
+
+    await screen.findByTestId('plant-instance-detail-page', {}, { timeout: WAIT_BUDGET });
+    await waitFor(() => expect(calls.defaultPlan).toBe(1), { timeout: WAIT_BUDGET });
+    // The location is derived from the slot read, not from a second one.
+    await waitFor(() => expect(locationReads).toEqual(['loc-1']), { timeout: WAIT_BUDGET });
+    expect(slotReads).toEqual(['slot-1']);
+  });
+
+  it('asks for the nutrient plan while the phase history is still unanswered', async () => {
+    // The serial chain asked for the plan only after the phase history, the watering reads and the lifecycle had
+    // answered. Held here until the plan request arrives (or a bound passes): in one stage it arrives at once.
+    let planAsked: () => void = () => {};
+    const planRequested = new Promise<void>((resolve) => {
+      planAsked = resolve;
+    });
+    let planSeenWhileHistoryPending = false;
+    let historyPending = false;
+    const calls = seed({
+      planResponder: () => {
+        planSeenWhileHistoryPending = historyPending;
+        planAsked();
+        return HttpResponse.json(null);
+      },
+    });
+    server.use(
+      http.get('*/plant-instances/:key/phases/history', async () => {
+        historyPending = true;
+        await Promise.race([planRequested, new Promise((resolve) => setTimeout(resolve, 1500))]);
+        historyPending = false;
+        return HttpResponse.json([]);
+      }),
+    );
+    renderWithProviders(<PlantInstanceDetailPage />, { route: '/pflanzen/plant-instances/pi-1' });
+
+    await screen.findByTestId('plant-instance-detail-page', {}, { timeout: WAIT_BUDGET });
+    await waitFor(() => expect(calls.plan).toBe(1), { timeout: WAIT_BUDGET });
+    expect(planSeenWhileHistoryPending).toBe(true);
+  });
+});

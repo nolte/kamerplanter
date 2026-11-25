@@ -11,12 +11,19 @@ import type {
 
 const BASE = '/plant-instances';
 
+/** Server-side narrowing of the plant list (#3015). */
+export interface PlantInstanceListFilter {
+  /** Only the plants placed at this location; the tenant's other plants are never sent. */
+  location_key?: string;
+}
+
 export async function listPlantInstances(
   offset = 0,
   limit = 50,
+  filter: PlantInstanceListFilter = {},
 ): Promise<PlantInstance[]> {
   const { data } = await client.get<PlantInstance[]>(BASE, {
-    params: { offset, limit },
+    params: { offset, limit, ...(filter.location_key ? { location_key: filter.location_key } : {}) },
   });
   return data;
 }
@@ -33,7 +40,21 @@ export async function listAllPlantInstances(
   pageSize = CATALOGUE_PAGE_SIZE,
   onPage?: OnPage<PlantInstance>,
 ): Promise<PlantInstance[]> {
-  return fetchAllPages(listPlantInstances, pageSize, onPage);
+  return fetchAllPages((offset, limit) => listPlantInstances(offset, limit), pageSize, onPage);
+}
+
+/**
+ * Every plant placed at one location, paged until a short page (#3015). The location view used to load the whole
+ * tenant's plants and filter them in the browser.
+ */
+export async function listAllPlantInstancesAtLocation(
+  locationKey: string,
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<PlantInstance[]> {
+  return fetchAllPages(
+    (offset, limit) => listPlantInstances(offset, limit, { location_key: locationKey }),
+    pageSize,
+  );
 }
 
 export async function getPlantInstance(key: string): Promise<PlantInstance> {

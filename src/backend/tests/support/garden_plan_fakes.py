@@ -18,6 +18,7 @@ from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BedCounters,
+    LocationOption,
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
@@ -299,6 +300,30 @@ class FakePlanRepo(IGardenPlanRepository):
 
     def bed_type_keys(self):
         return sorted(key for key, is_bed in self.bed_types.items() if is_bed)
+
+    def list_location_options(self, *, tenant_key, offset, limit, is_bed=None, top_level_only=False):
+        if not tenant_key:
+            raise ValueError("list_location_options needs a tenant_key")
+        options = []
+        for key, location in self.locations.items():
+            site = self._sites.get_site_by_key(location.site_key)
+            if site is None or site.tenant_key != tenant_key:
+                continue
+            if is_bed is not None and self.bed_types.get(location.location_type_key or "", False) is not is_bed:
+                continue
+            if top_level_only and location.parent_location_key:
+                continue
+            options.append(
+                LocationOption(
+                    key=key,
+                    name=location.name,
+                    site_key=location.site_key,
+                    parent_location_key=location.parent_location_key or None,
+                    area_m2=location.area_m2,
+                )
+            )
+        options.sort(key=lambda option: (option.name, option.key))
+        return options[offset : offset + limit]
 
     def load_location_photoperiods(self, location_key, *, tenant_key):
         self.photoperiod_reads.append(location_key)

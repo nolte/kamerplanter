@@ -224,9 +224,9 @@ export default function PlantingRunDetailPage() {
             if (stale()) return;
             setResolvedTank({ key: tk.key, name: tk.name, volumeLiters: tk.volume_liters });
           } else {
-            const allTanks = await tankApi.listAllTanks();
+            // Filtered by the server (#3015) instead of searching the tenant's whole tank list.
+            const [match] = await tankApi.listAllTanksAtLocation(r.location_key);
             if (stale()) return;
-            const match = allTanks.find((tk) => tk.location_key === r.location_key);
             if (match) {
               setResolvedTank({ key: match.key, name: match.name, volumeLiters: match.volume_liters });
             } else {

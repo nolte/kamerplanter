@@ -84,6 +84,7 @@ from app.domain.models.garden_plan import (
     BedSummaryView,
     CreateGardenObjectData,
     GardenObjectPatch,
+    LocationOption,
     LocationPatch,
     PlanBatchWrite,
     SlotBatchItem,
@@ -288,6 +289,24 @@ class GardenResourceService:
             )
             for loc in locations
         ]
+
+    def list_location_options(
+        self,
+        *,
+        tenant_key: str,
+        offset: int,
+        limit: int,
+        is_bed: bool | None = None,
+        top_level_only: bool = False,
+    ) -> list[LocationOption]:
+        """One page of the tenant's locations over all its sites, as a picker or a name map needs them (#3015).
+
+        Replaces one location list per site: the care log's bed filter, the plant list's location names and the
+        workflow target picker read every site's locations, so their request count grew with the number of sites.
+        """
+        return self._plan.list_location_options(
+            tenant_key=tenant_key, offset=offset, limit=limit, is_bed=is_bed, top_level_only=top_level_only
+        )
 
     @staticmethod
     def _type_keys(locations: list[Location]) -> list[str]:

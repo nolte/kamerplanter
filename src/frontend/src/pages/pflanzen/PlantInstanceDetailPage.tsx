@@ -364,94 +364,223 @@ export default function PlantInstanceDetailPage() {
         setMotherInstance(null);
         setMotherLoading(false);
       }
-      let loadedSpecies: Species | null = null;
-      if (p.species_key) {
-        try {
-          loadedSpecies = await speciesApi.getSpecies(p.species_key);
-          if (isCancelled()) return;
-          setSpecies(loadedSpecies);
-        } catch (err) {
-          reportSectionFailure('species', err);
-          if (isCancelled()) return;
-          setSpecies(null);
-        }
+      // The reads below depend on the plant only, not on one another, so they run as
+      // one stage (#3015, A-11): each section writes its own state and reports its own
+      // failure, exactly as the serial chain did. Only two real dependencies remain
+      // and stay chained inside their section: the location waits for the slot when
+      // it is derived from it, and the species' default plan waits for the species.
+      // ``getSlot`` is read once and serves both the location fallback and the slot
+      // label (it used to be read twice).
+      const slotRead: Promise<Slot | null> | null = p.slot_key ? sitesApi.getSlot(p.slot_key) : null;
+
+      const loadSpecies = async (): Promise<Species | null> => {
+        if (!p.species_key) return null;
         speciesApi.listCultivars(p.species_key)
           .then((c) => { if (!isCancelled()) setCultivarList(c); })
           .catch((err: unknown) => {
             reportSectionFailure('cultivars', err);
             if (!isCancelled()) setCultivarList([]);
           });
-      }
-      // Resolve site_key: prefer stored value, fall back to location → site derivation
-      let resolvedSiteKey: string | null = p.site_key ?? null;
-      let resolvedLocationKey: string | null = p.location_key;
-      // If no location_key but slot exists, reverse-resolve from slot
-      if (!resolvedLocationKey && p.slot_key) {
         try {
-          const slot = await sitesApi.getSlot(p.slot_key);
-          resolvedLocationKey = slot.location_key;
+          const loaded = await speciesApi.getSpecies(p.species_key);
+          if (!isCancelled()) setSpecies(loaded);
+          return loaded;
         } catch (err) {
-          // Without the slot the location stays unresolved; flagged, not passed off as "no location".
-          reportSectionFailure('slotLocation', err);
+          reportSectionFailure('species', err);
+          if (!isCancelled()) setSpecies(null);
+          return null;
         }
-        if (isCancelled()) return;
-      }
-      // Resolve location → site + display (also backfill site_key if not stored)
-      if (resolvedLocationKey) {
+      };
+      const speciesLoaded = loadSpecies();
+
+      const loadSlotLabel = async (): Promise<void> => {
+        if (!slotRead) {
+          setAssignedSlot(null);
+          return;
+        }
         try {
-          const loc = await sitesApi.getLocation(resolvedLocationKey);
-          if (isCancelled()) return;
-          setAssignedLocation(loc);
-          if (!resolvedSiteKey) resolvedSiteKey = loc.site_key;
+          const sl = await slotRead;
+          if (!isCancelled()) setAssignedSlot(sl);
         } catch (err) {
-          reportSectionFailure('location', err);
+          // One read, one report: the location fallback below does not report it a second time.
+          reportSectionFailure('slot', err);
+          if (!isCancelled()) setAssignedSlot(null);
+        }
+      };
+
+      const loadPlacement = async (): Promise<void> => {
+        // Resolve site_key: prefer stored value, fall back to location → site derivation
+        let resolvedSiteKey: string | null = p.site_key ?? null;
+        let resolvedLocationKey: string | null = p.location_key;
+        // If no location_key but slot exists, reverse-resolve from slot. A failed slot
+        // read leaves the location unresolved; `loadSlotLabel` flags it.
+        if (!resolvedLocationKey && slotRead) {
+          try {
+            resolvedLocationKey = (await slotRead)?.location_key ?? null;
+          } catch {
+            resolvedLocationKey = null;
+          }
           if (isCancelled()) return;
+        }
+        // Resolve location → site + display (also backfill site_key if not stored)
+        if (resolvedLocationKey) {
+          try {
+            const loc = await sitesApi.getLocation(resolvedLocationKey);
+            if (isCancelled()) return;
+            setAssignedLocation(loc);
+            if (!resolvedSiteKey) resolvedSiteKey = loc.site_key;
+          } catch (err) {
+            reportSectionFailure('location', err);
+            if (isCancelled()) return;
+            setAssignedLocation(null);
+          }
+        } else {
           setAssignedLocation(null);
         }
-      } else {
-        setAssignedLocation(null);
-      }
-      // A section retry must not swap the slot list under an edited location.
-      const slotsLocationKey = reuse ? (getValues('location_key') ?? null) : resolvedLocationKey;
-      if (slotsLocationKey) {
-        sitesApi.listSlots(slotsLocationKey)
-          .then((sl) => {
-            if (isCancelled()) return;
-            setSlotsList(sl);
-            setSlotsLoadError(false);
-          })
-          .catch((err: unknown) => {
-            reportSectionFailure('slots', err);
-            if (isCancelled()) return;
-            setSlotsList([]);
-            setSlotsLoadError(true);
+        // A section retry must not swap the slot list under an edited location.
+        const slotsLocationKey = reuse ? (getValues('location_key') ?? null) : resolvedLocationKey;
+        if (slotsLocationKey) {
+          sitesApi.listSlots(slotsLocationKey)
+            .then((sl) => {
+              if (isCancelled()) return;
+              setSlotsList(sl);
+              setSlotsLoadError(false);
+            })
+            .catch((err: unknown) => {
+              reportSectionFailure('slots', err);
+              if (isCancelled()) return;
+              setSlotsList([]);
+              setSlotsLoadError(true);
+            });
+        }
+        if (!reuse) {
+          skipLocationReset.current = true;
+          skipSlotReset.current = true;
+          reset({
+            plant_name: p.plant_name,
+            cultivar_key: p.cultivar_key,
+            site_key: resolvedSiteKey,
+            location_key: resolvedLocationKey,
+            slot_key: p.slot_key,
+            substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
+            planted_on: p.planted_on,
+            container_volume_liters: p.container_volume_liters,
           });
-      }
-      // Resolve slot display
-      if (p.slot_key) {
-        sitesApi.getSlot(p.slot_key)
-          .then((sl) => { if (!isCancelled()) setAssignedSlot(sl); })
-          .catch((err: unknown) => {
-            reportSectionFailure('slot', err);
-            if (!isCancelled()) setAssignedSlot(null);
-          });
-      } else {
-        setAssignedSlot(null);
-      }
-      if (!reuse) {
-        skipLocationReset.current = true;
-        skipSlotReset.current = true;
-        reset({
-          plant_name: p.plant_name,
-          cultivar_key: p.cultivar_key,
-          site_key: resolvedSiteKey,
-          location_key: resolvedLocationKey,
-          slot_key: p.slot_key,
-          substrate_key: p.substrate_key || (p.substrate_type_override ? `_type_${p.substrate_type_override}` : null),
-          planted_on: p.planted_on,
-          container_volume_liters: p.container_volume_liters,
-        });
-      }
+        }
+      };
+
+      const loadCurrentPhase = async (): Promise<void> => {
+        try {
+          const cp = await phasesApi.getCurrentPhase(key);
+          if (!isCancelled()) setCurrentPhase(cp);
+        } catch (err) {
+          // Phase control may not be configured (404); never keep the previous plant's phase.
+          reportSectionFailure('currentPhase', err, true);
+          if (!isCancelled()) setCurrentPhase(null);
+        }
+      };
+
+      const loadPhaseHistory = async (): Promise<void> => {
+        try {
+          const h = await phasesApi.getPhaseHistory(key);
+          if (!isCancelled()) setHistory(h);
+        } catch (err) {
+          // Never keep the previous plant's history.
+          reportSectionFailure('phaseHistory', err);
+          if (!isCancelled()) setHistory([]);
+        }
+      };
+
+      const loadLastWatering = async (): Promise<void> => {
+        try {
+          const hist = await careApi.getHistory(key, 'watering');
+          if (!isCancelled()) setLastWatering(hist.length > 0 ? hist[0] : null);
+        } catch (err) {
+          reportSectionFailure('lastWatering', err);
+          if (!isCancelled()) setLastWatering(null);
+        }
+      };
+
+      const loadNextWatering = async (): Promise<void> => {
+        try {
+          const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
+          if (isCancelled()) return;
+          const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
+          setNextWateringTask(wateringTask ?? null);
+        } catch (err) {
+          reportSectionFailure('nextWatering', err);
+          if (!isCancelled()) setNextWateringTask(null);
+        }
+      };
+
+      const loadWateringLogs = async (): Promise<void> => {
+        try {
+          const wl = await wateringLogApi.getPlantWateringHistory(key);
+          if (!isCancelled()) setWateringLogs(wl);
+        } catch (err) {
+          // Never keep the previous plant's log.
+          reportSectionFailure('wateringLogs', err);
+          if (!isCancelled()) setWateringLogs([]);
+        }
+      };
+
+      const loadGrowthPhases = async (): Promise<void> => {
+        // Load lifecycle growth phases for projected timeline
+        try {
+          const lc = await phasesApi.getLifecycleConfig(p.species_key);
+          if (isCancelled()) return;
+          setLifecycleKey(lc.key);
+          const gp = await phasesApi.listGrowthPhases(lc.key);
+          if (isCancelled()) return;
+          setGrowthPhases(gp.sort((a, b) => a.sequence_order - b.sequence_order));
+        } catch (err) {
+          // A species without a lifecycle config answers 404: no projected timeline, not a failure.
+          reportSectionFailure('growthPhases', err, true);
+          if (!isCancelled()) setGrowthPhases([]);
+        }
+      };
+
+      const loadPlan = async (): Promise<void> => {
+        // Load assigned nutrient plan + Gantt data
+        // Falls back to species' default nutrient plan if no plant-specific plan assigned
+        let ap: NutrientPlan | null = null;
+        let planFailed = false;
+        try {
+          ap = await planApi.getPlantPlan(key);
+        } catch (err) {
+          // Not "no plan assigned": flagged, and the species default is not offered in its place.
+          reportSectionFailure('plan', err);
+          planFailed = true;
+        }
+        const loadedSpecies = await speciesLoaded;
+        if (!ap && !planFailed && loadedSpecies?.default_nutrient_plan_key) {
+          try {
+            ap = await planApi.fetchNutrientPlan(loadedSpecies.default_nutrient_plan_key);
+          } catch (err) {
+            // The species' default plan may have been deleted (404): then there is no plan to show.
+            reportSectionFailure('defaultPlan', err, true);
+          }
+        }
+        if (isCancelled()) return;
+        setAssignedPlan(ap);
+        setPlanLoadFailed(planFailed);
+        if (ap) {
+          const [pe, f] = await Promise.all([
+            planApi.fetchPhaseEntries(ap.key),
+            // The complete catalogue (#1560). Left as a direct loader call rather
+            // than the shared reader because it is one leg of an imperative
+            // sequence that already owns the surrounding loading and error state.
+            fertApi.fetchAllFertilizers(),
+          ]);
+          if (isCancelled()) return;
+          setPlanEntries(pe);
+          setFertilizers(f);
+        } else {
+          setPlanEntries([]);
+          setFertilizers([]);
+        }
+      };
+
       // Load planting runs for this plant
       plantApi.getPlantRuns(key)
         .then((r) => { if (!isCancelled()) setPlantRuns(r); })
@@ -459,109 +588,25 @@ export default function PlantInstanceDetailPage() {
           reportSectionFailure('runs', err);
           if (!isCancelled()) setPlantRuns([]);
         });
-      try {
-        const cp = await phasesApi.getCurrentPhase(key);
-        if (isCancelled()) return;
-        setCurrentPhase(cp);
-      } catch (err) {
-        // Phase control may not be configured (404); never keep the previous plant's phase.
-        reportSectionFailure('currentPhase', err, true);
-        if (isCancelled()) return;
-        setCurrentPhase(null);
-      }
-      try {
-        const h = await phasesApi.getPhaseHistory(key);
-        if (isCancelled()) return;
-        setHistory(h);
-      } catch (err) {
-        // Never keep the previous plant's history.
-        reportSectionFailure('phaseHistory', err);
-        if (isCancelled()) return;
-        setHistory([]);
-      }
-      // Load last watering confirmation
-      try {
-        const hist = await careApi.getHistory(key, 'watering');
-        if (isCancelled()) return;
-        setLastWatering(hist.length > 0 ? hist[0] : null);
-      } catch (err) {
-        reportSectionFailure('lastWatering', err);
-        if (isCancelled()) return;
-        setLastWatering(null);
-      }
-      // Load next pending watering task
-      try {
-        const tasks = await taskApi.listTasks(0, 50, { entity_type: 'plant_instance', entity_key: key, category: 'care_reminder', status: 'pending' });
-        if (isCancelled()) return;
-        const wateringTask = tasks.find((t) => t.name.endsWith('— watering'));
-        setNextWateringTask(wateringTask ?? null);
-      } catch (err) {
-        reportSectionFailure('nextWatering', err);
-        if (isCancelled()) return;
-        setNextWateringTask(null);
-      }
-      // Load watering log history
-      try {
-        const wl = await wateringLogApi.getPlantWateringHistory(key);
-        if (isCancelled()) return;
-        setWateringLogs(wl);
-      } catch (err) {
-        // Never keep the previous plant's log.
-        reportSectionFailure('wateringLogs', err);
-        if (isCancelled()) return;
-        setWateringLogs([]);
-      }
-      // Load lifecycle growth phases for projected timeline
-      try {
-        const lc = await phasesApi.getLifecycleConfig(p.species_key);
-        if (isCancelled()) return;
-        setLifecycleKey(lc.key);
-        const gp = await phasesApi.listGrowthPhases(lc.key);
-        if (isCancelled()) return;
-        setGrowthPhases(gp.sort((a, b) => a.sequence_order - b.sequence_order));
-      } catch (err) {
-        // A species without a lifecycle config answers 404: no projected timeline, not a failure.
-        reportSectionFailure('growthPhases', err, true);
-        if (isCancelled()) return;
-        setGrowthPhases([]);
-      }
-      // Load assigned nutrient plan + Gantt data
-      // Falls back to species' default nutrient plan if no plant-specific plan assigned
-      let ap: NutrientPlan | null = null;
-      let planFailed = false;
-      try {
-        ap = await planApi.getPlantPlan(key);
-      } catch (err) {
-        // Not "no plan assigned": flagged, and the species default is not offered in its place.
-        reportSectionFailure('plan', err);
-        planFailed = true;
-      }
-      if (!ap && !planFailed && loadedSpecies?.default_nutrient_plan_key) {
-        try {
-          ap = await planApi.fetchNutrientPlan(loadedSpecies.default_nutrient_plan_key);
-        } catch (err) {
-          // The species' default plan may have been deleted (404): then there is no plan to show.
-          reportSectionFailure('defaultPlan', err, true);
-        }
-      }
-      if (isCancelled()) return;
-      setAssignedPlan(ap);
-      setPlanLoadFailed(planFailed);
-      if (ap) {
-        const [pe, f] = await Promise.all([
-          planApi.fetchPhaseEntries(ap.key),
-          // The complete catalogue (#1560). Left as a direct loader call rather
-          // than the shared reader because it is one leg of an imperative
-          // sequence that already owns the surrounding loading and error state.
-          fertApi.fetchAllFertilizers(),
-        ]);
-        if (isCancelled()) return;
-        setPlanEntries(pe);
-        setFertilizers(f);
-      } else {
-        setPlanEntries([]);
-        setFertilizers([]);
-      }
+
+      // Every section catches its own failure except the plan's entries/fertilizers
+      // read, which fails the page as before. `allSettled` lets every section land
+      // first, so that failure is reported only once the stage is complete — as it
+      // was when it came last in the serial chain.
+      const outcomes = await Promise.allSettled([
+        speciesLoaded,
+        loadSlotLabel(),
+        loadPlacement(),
+        loadCurrentPhase(),
+        loadPhaseHistory(),
+        loadLastWatering(),
+        loadNextWatering(),
+        loadWateringLogs(),
+        loadGrowthPhases(),
+        loadPlan(),
+      ]);
+      const rejected = outcomes.find((o): o is PromiseRejectedResult => o.status === 'rejected');
+      if (rejected) throw rejected.reason;
     } catch (err) {
       if (isCancelled()) return;
       // On a section retry the page is already on screen: flag the section, keep the page.

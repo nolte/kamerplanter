@@ -51,7 +51,7 @@ import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
 import * as wateringApi from '@/api/endpoints/watering-events';
 import * as runApi from '@/api/endpoints/plantingRuns';
-import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
+import { listAllPlantInstancesAtLocation } from '@/api/endpoints/plantInstances';
 import HaPublishToggle from '@/components/ha/HaPublishToggle';
 import type { ChipProps } from '@mui/material/Chip';
 import type { Location, PlantInstance, PlantingRun, PlantingRunStatus, Sensor, Slot, Tank, WateringEvent, WateringStats } from '@/api/types';
@@ -287,8 +287,8 @@ export default function LocationDetailPage() {
         }
       } else {
         try {
-          const allTanks = await tankApi.listAllTanks();
-          const match = allTanks.find((t) => t.location_key === key);
+          // Filtered by the server (#3015): the tenant's whole tank list used to be read and searched here.
+          const [match] = await tankApi.listAllTanksAtLocation(key);
           if (stale()) return;
           setAssignedTank(match ?? null);
         } catch (err) {
@@ -322,15 +322,15 @@ export default function LocationDetailPage() {
         const runs = await runApi.listAllPlantingRuns(undefined, undefined, key);
         if (stale()) return;
         setAssignedRuns(runs);
-        // Load plant counts per run
+        // Load plant counts per run. Bounded by the runs of this one location; a run's plants may stand
+        // elsewhere, so the count cannot be taken from the plants listed below.
         const counts = new Map<string, number>();
-        const runInstanceKeys = new Set<string>();
+        const runKeys = new Set(runs.map((r) => r.key));
         await Promise.all(
           runs.map(async (r) => {
             try {
               const plants = await runApi.listRunPlants(r.key);
               counts.set(r.key, plants.length);
-              for (const p of plants) runInstanceKeys.add(p.key);
             } catch (err) {
               // Display enrichment only: the run's own planned quantity stands in for the count.
               captureHandledError(err, { source: 'LocationDetailPage.runPlantCount' });
@@ -340,12 +340,14 @@ export default function LocationDetailPage() {
         );
         if (stale()) return;
         setRunPlantCounts(counts);
-        // Load all plant instances at this location and find standalone ones
+        // The plants at this location, filtered by the server (#3015) — the tenant's whole plant list used to be
+        // read and filtered here. A plant is standalone unless one of its runs is a run of this location.
         try {
-          const allInstances = await listAllPlantInstances();
+          const locationInstances = await listAllPlantInstancesAtLocation(key);
           if (stale()) return;
-          const locationInstances = allInstances.filter((i) => i.location_key === key);
-          setStandaloneInstances(locationInstances.filter((i) => !runInstanceKeys.has(i.key)));
+          setStandaloneInstances(
+            locationInstances.filter((i) => !(i.planting_runs ?? []).some((run) => runKeys.has(run.key))),
+          );
         } catch (err) {
           if (stale()) return;
           sectionFailed('plants', err);

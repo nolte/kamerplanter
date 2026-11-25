@@ -1286,6 +1286,8 @@ _OTHER_ROUTES: dict[tuple[str, str], str] = {
     "TestBedTemplatesAreScopedToTheTenant creates as A and reads as B",
     ("POST", "/bed-templates/import"): "addresses no key (keys of the file are ignored, the owner is the caller's "
     "tenant); TestBedTemplateExchange imports A's file as B and a file naming B's key as A",
+    ("GET", "/locations/options"): "addresses no key: it lists the caller's tenant across all its sites; "
+    "test_list_projections_tenant_scope reads it as both tenants (site anchor, unsited legacy roots)",
     **{
         (method, path): "sensor and frost-warning routes of a location are served by the sensor and weather "
         "services and predate REQ-053 (#1871 pinned them); WP 1.10 covers the garden-plan services"

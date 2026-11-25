@@ -250,6 +250,30 @@ class LocationPhotosResponse(BaseModel):
     max_photos: int = MAX_PHOTOS_PER_LOCATION
 
 
+class LocationOptionResponse(BaseModel):
+    """One location of the tenant for a picker or a name map (#3015): every site's locations in one paged read."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "key": "loc_raised_bed_3",
+                    "name": "Hochbeet 3",
+                    "site_key": "site_kleingarten",
+                    "parent_location_key": None,
+                    "area_m2": 2.4,
+                }
+            ]
+        }
+    )
+
+    key: str = Field(description="Document key of the location.")
+    name: str = Field(description="Display name of the location.")
+    site_key: str = Field(description="Document key of the site the location belongs to.")
+    parent_location_key: str | None = Field(description="Key of the location it sits in; `null` for a top level one.")
+    area_m2: float | None = Field(description="Area of the location in square metres, if recorded.")
+
+
 class BedListItemResponse(LocationResponse):
     """A location in the bed list (GP-API-011): the document plus its counters.
 

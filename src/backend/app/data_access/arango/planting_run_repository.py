@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.common.types import LocationKey, PlantID, PlantingRunEntryKey, PlantingRunKey
@@ -338,6 +339,34 @@ class ArangoPlantingRunRepository(BaseArangoRepository[PlantingRun], IPlantingRu
         bind_vars = {"plant_id": f"{col.PLANT_INSTANCES}/{plant_key}"}
         cursor = self._db.aql.execute(query, bind_vars=bind_vars)
         return [PlantingRun(**self._from_doc(doc)) for doc in cursor]
+
+    def get_run_refs_for_plants(self, plant_keys: list[PlantID], *, tenant_key: str) -> dict[str, list[dict[str, str]]]:
+        """The attached runs of a page of plants in one query (#3015).
+
+        The plant list showed each plant's run by reading the plants of every run of the tenant, one request per
+        run. Here the ``run_contains`` edges of the listed plants are read once; the tenant predicate sits on the
+        run (the edge carries none), so a foreign run holding one of the keys is not named.
+        """
+        self._require_tenant_key(tenant_key, "get_run_refs_for_plants")
+        if not plant_keys:
+            return {}
+        query = f"""
+        FOR e IN {col.RUN_CONTAINS}
+          FILTER e._to IN @plant_ids AND e.detached_at == null
+          LET run = DOCUMENT(e._from)
+          FILTER run != null AND run.tenant_key == @tenant_key
+          SORT DATE_TIMESTAMP(run.started_at) DESC, run._key ASC
+          RETURN {{plant_key: PARSE_IDENTIFIER(e._to).key, run: {{key: run._key, name: run.name, status: run.status}}}}
+        """
+        bind_vars: dict[str, Any] = {
+            "plant_ids": [f"{col.PLANT_INSTANCES}/{key}" for key in sorted(set(plant_keys))],
+            "tenant_key": tenant_key,
+        }
+        cursor = cast("Cursor", self._db.aql.execute(query, bind_vars=bind_vars))
+        refs: dict[str, list[dict[str, str]]] = {}
+        for row in cursor:
+            refs.setdefault(row["plant_key"], []).append(row["run"])
+        return refs
 
     def get_runs_at_site(self, site_key: str, *, tenant_key: str) -> list[PlantingRun]:
         """Runs at a site's locations, **of one tenant** (#1870).

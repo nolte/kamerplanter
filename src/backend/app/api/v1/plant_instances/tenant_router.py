@@ -47,12 +47,14 @@ def _to_response(
     service: PlantInstanceService,
     tenant_key: str,
     labels: PlantRowLabels | None = None,
+    planting_runs: list[PlantRunSummaryResponse] | None = None,
 ) -> PlantResponse:
     """Convert PlantInstance to PlantResponse, resolving phase name and
     denormalized species/cultivar labels from their keys.
 
     A list route passes one shared ``labels`` memo for all its rows (#3032); a
-    single-plant route gets a fresh one.
+    single-plant route gets a fresh one. ``planting_runs`` is resolved by the list
+    route only (#3015); every other route leaves it ``None``.
     """
     if labels is None:
         labels = _row_labels(service, tenant_key)
@@ -62,21 +64,46 @@ def _to_response(
         current_phase=labels.phase_name(p.current_phase_key),
         species=labels.species(p.species_key),
         cultivar=labels.cultivar(p.cultivar_key),
+        planting_runs=planting_runs,
     )
 
 
 @router.get("", response_model=list[PlantResponse])
 def list_plants(
     pagination: CursorPaginationParams = Depends(get_cursor_pagination),
+    location_key: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=254,
+        description="Only the plants placed at this location (#3015). A location of another tenant lists nothing.",
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: PlantInstanceService = Depends(get_plant_instance_service),
 ):
-    """List the tenant's plant instances (paginated; ``?after=<key>`` pages by keyset, MT-035)."""
+    """List the tenant's plant instances (paginated; ``?after=<key>`` pages by keyset, MT-035).
+
+    Every row carries ``planting_runs``, the runs it is attached to (#3015), resolved for the whole page in one read:
+    the list view used to read the plants of every run of the tenant to label its rows.
+    """
     items = service.list_plants_window(
-        tenant_key=ctx.tenant_key, offset=pagination.offset, limit=pagination.limit, after=pagination.after
+        tenant_key=ctx.tenant_key,
+        offset=pagination.offset,
+        limit=pagination.limit,
+        after=pagination.after,
+        location_key=location_key,
     )
     labels = _row_labels(service, ctx.tenant_key)
-    return [_to_response(p, service, ctx.tenant_key, labels) for p in items]
+    run_refs = service.run_refs_for_plants([p.key for p in items if p.key], tenant_key=ctx.tenant_key)
+    return [
+        _to_response(
+            p,
+            service,
+            ctx.tenant_key,
+            labels,
+            planting_runs=[PlantRunSummaryResponse(**ref) for ref in run_refs.get(p.key or "", [])],
+        )
+        for p in items
+    ]
 
 
 @router.get("/survival-stats", response_model=SurvivalStatsResponse)

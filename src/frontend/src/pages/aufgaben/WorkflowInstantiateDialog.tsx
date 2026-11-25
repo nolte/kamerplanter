@@ -27,8 +27,7 @@ import * as tankApi from '@/api/endpoints/tanks';
 import type {
   PlantInstance,
   PlantingRun,
-  PlantInRun,
-  Location,
+  LocationOption,
   Tank,
   TaskTemplate,
   WorkflowTargetType,
@@ -39,8 +38,8 @@ import { getPlantLabel } from '@/utils/plantDisplay';
 
 type SelectionTarget =
   | { type: 'plant'; plant: PlantInstance }
-  | { type: 'run'; run: PlantingRun; plants: PlantInRun[] }
-  | { type: 'location'; location: Location }
+  | { type: 'run'; run: PlantingRun; plants: PlantInstance[] }
+  | { type: 'location'; location: LocationOption }
   | { type: 'tank'; tank: Tank };
 
 // ── Props ────────────────────────────────────────────────────────────
@@ -86,9 +85,9 @@ export default function WorkflowInstantiateDialog({
   const [plants, setPlants] = useState<PlantInstance[]>([]);
   const [runs, setRuns] = useState<PlantingRun[]>([]);
   const [runPlantsMap, setRunPlantsMap] = useState<
-    Record<string, PlantInRun[]>
+    Record<string, PlantInstance[]>
   >({});
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [selectedTarget, setSelectedTarget] = useState<SelectionTarget | null>(
@@ -181,23 +180,14 @@ export default function WorkflowInstantiateDialog({
           return;
         }
 
-        const plantsMap: Record<string, PlantInRun[]> = {};
-        let runFailure: unknown = null;
-        await Promise.all(
-          activeRuns.map(async (run) => {
-            try {
-              const runPlants = await plantingRunApi.listRunPlants(run.key);
-              plantsMap[run.key] = runPlants;
-            } catch (err) {
-              runFailure ??= err;
-            }
-          }),
-        );
-
-        if (cancelled) return;
-        // A run whose plants did not load is left out of the picker, and that is said once (#3037).
-        if (runFailure !== null) handleError(runFailure);
-        setRuns(activeRuns.filter((r) => r.key in plantsMap));
+        // Each plant row names the runs it is attached to (#3015), so the run groups are built from the plants
+        // already loaded. The dialog used to read the plants of every active run, one request per run.
+        const plantsMap: Record<string, PlantInstance[]> = {};
+        for (const run of activeRuns) plantsMap[run.key] = [];
+        for (const plant of plantsData) {
+          for (const ref of plant.planting_runs ?? []) plantsMap[ref.key]?.push(plant);
+        }
+        setRuns(activeRuns);
         setRunPlantsMap(plantsMap);
       } catch (err) {
         if (!cancelled) handleError(err);
@@ -208,24 +198,10 @@ export default function WorkflowInstantiateDialog({
 
     const loadLocationData = async () => {
       try {
-        const sites = await siteApi.listAllSites();
-        if (cancelled) return;
-        const allLocations: Location[] = [];
-        let siteFailure: unknown = null;
-        await Promise.all(
-          sites.map(async (site) => {
-            try {
-              const locs = await siteApi.listLocations(site.key);
-              allLocations.push(...locs);
-            } catch (err) {
-              siteFailure ??= err;
-            }
-          }),
-        );
-        if (cancelled) return;
-        // A site whose locations did not load is left out of the picker, and that is said once (#3037).
-        if (siteFailure !== null) handleError(siteFailure);
-        setLocations(allLocations);
+        // The top-level locations of every site in one paged read (#3015) — the set `listLocations(site)` gave
+        // per site, without one request per site.
+        const allLocations = await siteApi.listAllLocationOptions({ topLevelOnly: true });
+        if (!cancelled) setLocations(allLocations);
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {
@@ -298,9 +274,8 @@ export default function WorkflowInstantiateDialog({
         const runOptions: SelectionTarget[] = runs.map((run) => ({
           type: 'run' as const,
           run,
-          plants: (runPlantsMap[run.key] ?? []).filter(
-            (p) => !p.detached_at && !p.removed_on,
-          ),
+          // A detached plant is not in `planting_runs`; a removed one stays out of the batch.
+          plants: (runPlantsMap[run.key] ?? []).filter((p) => !p.removed_on),
         }));
         result.push(...runOptions);
       }

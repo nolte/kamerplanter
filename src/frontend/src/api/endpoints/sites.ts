@@ -6,6 +6,7 @@ import type {
   SiteHardinessResponse,
   Location,
   LocationCreate,
+  LocationOption,
   LocationTreeNode,
   LocationType,
   LiveStateResponse,
@@ -77,6 +78,36 @@ export async function listLocations(siteKey: string): Promise<Location[]> {
     params: { site_key: siteKey },
   });
   return data;
+}
+
+/** Server-side narrowing of {@link listAllLocationOptions} (#3015). */
+export interface LocationOptionFilter {
+  /** Only locations whose type is (`true`) or is not (`false`) a bed. */
+  isBed?: boolean;
+  /** Only locations that sit directly on their site (what `listLocations(siteKey)` answers per site). */
+  topLevelOnly?: boolean;
+}
+
+/**
+ * Every location of the tenant over all sites — key, name, site and parent — paged until a short page (#3015).
+ * Pickers and name maps used to call {@link listLocations} once per site, so their request count grew with the
+ * number of sites; this one grows with the number of locations / 200.
+ */
+export async function listAllLocationOptions(
+  filter: LocationOptionFilter = {},
+  pageSize = CATALOGUE_PAGE_SIZE,
+): Promise<LocationOption[]> {
+  return fetchAllPages(async (offset, limit) => {
+    const { data } = await tenantClient.get<LocationOption[]>(`${LOCATIONS}/options`, {
+      params: {
+        offset,
+        limit,
+        ...(filter.isBed === undefined ? {} : { is_bed: filter.isBed }),
+        ...(filter.topLevelOnly ? { top_level_only: true } : {}),
+      },
+    });
+    return data;
+  }, pageSize);
 }
 
 export async function getLocation(key: string): Promise<Location> {

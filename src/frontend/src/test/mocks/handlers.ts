@@ -411,6 +411,26 @@ export const handlers = [
   http.get('/api/v1/t/:tenant/locations', () => {
     return HttpResponse.json(mockLocations);
   }),
+  // #3015: the tenant's locations over every site, one paged read (`GET /locations/options`). Declared before
+  // `/locations/:key` so the literal path is not taken for a key, as on the server.
+  http.get('/api/v1/t/:tenant/locations/options', ({ request }) => {
+    const url = new URL(request.url);
+    const isBed = url.searchParams.get('is_bed');
+    const topLevelOnly = url.searchParams.get('top_level_only') === 'true';
+    const offset = Number(url.searchParams.get('offset') ?? 0);
+    const limit = Number(url.searchParams.get('limit') ?? 50);
+    const rows = mockLocations
+      .filter((l) => isBed === null || (l.location_type_key === 'lt-bed') === (isBed === 'true'))
+      .filter((l) => !topLevelOnly || !l.parent_location_key)
+      .map((l) => ({
+        key: l.key,
+        name: l.name,
+        site_key: l.site_key,
+        parent_location_key: l.parent_location_key,
+        area_m2: null,
+      }));
+    return HttpResponse.json(rows.slice(offset, offset + limit));
+  }),
   // REQ-053 WP 3.7: the plant states of a bed (GP-API-054); none unless a test brings its own.
   http.get('/api/v1/t/:tenant/locations/:key/plant-states', () => HttpResponse.json([])),
   http.get('/api/v1/t/:tenant/locations/:key', ({ params }) => {

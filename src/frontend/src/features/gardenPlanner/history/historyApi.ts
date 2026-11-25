@@ -1,8 +1,7 @@
 import { tenantClient } from '@/api/client';
 import { rethrowBlobError } from '@/api/blobError';
-import { listAllSites } from '@/api/endpoints/sites';
+import { listAllLocationOptions } from '@/api/endpoints/sites';
 import { fetchAllPages } from '@/api/paginate';
-import { listBeds } from '../bed/bedApi';
 import type { HistoryQuery } from './historyFilters';
 import type {
   BackfillBody,
@@ -124,13 +123,12 @@ export async function listBedPlantOptions(bedKey: string): Promise<FilterOption[
 }
 
 /**
- * Every bed of every site, to filter the tenant-wide history by bed and to name the bed of each entry. The sites are
- * read page by page: with only the first 200 the beds of every later site had no name in the list (#2764).
+ * Every bed of every site, to filter the tenant-wide history by bed and to name the bed of each entry. One paged read
+ * of the tenant's beds (#3015): the beds used to be read site by site, one request per site, after the sites
+ * themselves had been paged through (#2764). A failed page rejects the whole list (#3013, B-01) — the caller shows an
+ * error with retry instead of a bed filter in which some beds silently vanished.
  */
 export async function listAllBedOptions(): Promise<FilterOption[]> {
-  const sites = await listAllSites();
-  // #3013 (B-01): a site whose beds fail to load rejects the whole list — the caller shows an error with retry
-  // instead of a bed filter in which that site's beds silently vanished.
-  const perSite = await Promise.all(sites.map((site) => listBeds(site.key)));
-  return perSite.flat().map((bed) => ({ key: bed.key, label: bed.name }));
+  const beds = await listAllLocationOptions({ isBed: true });
+  return beds.map((bed) => ({ key: bed.key, label: bed.name }));
 }

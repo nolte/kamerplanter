@@ -81,6 +81,8 @@ const run = {
 };
 
 const runPlant = { key: 'plant-in-run', instance_id: 'TOM-001' };
+/** The plant list names a plant's runs (#3015): a plant of this location's run is not standalone. */
+const runRef = { key: 'run-1', name: 'Run Alpha', status: 'active' };
 
 const standaloneInstance = {
   key: 'plant-solo',
@@ -157,7 +159,7 @@ function useFullLocation(locOverrides: Record<string, unknown> = {}) {
     http.get('/api/v1/t/:tenant/planting-runs', () => HttpResponse.json([run])),
     http.get('/api/v1/t/:tenant/planting-runs/:key/plants', () => HttpResponse.json([runPlant])),
     http.get('/api/v1/t/:tenant/plant-instances', () =>
-      HttpResponse.json([{ ...runPlant, location_key: 'loc-1' }, standaloneInstance]),
+      HttpResponse.json([{ ...runPlant, location_key: 'loc-1', planting_runs: [runRef] }, standaloneInstance]),
     ),
   );
 }
@@ -205,7 +207,7 @@ function useVariantLocation() {
     http.get('/api/v1/t/:tenant/planting-runs/:key/plants', () => HttpResponse.json([runPlant])),
     http.get('/api/v1/t/:tenant/plant-instances', () =>
       HttpResponse.json([
-        { ...runPlant, location_key: 'loc-1' },
+        { ...runPlant, location_key: 'loc-1', planting_runs: [runRef] },
         { ...standaloneInstance, plant_name: null, current_phase: null, planted_on: null },
       ]),
     ),
@@ -262,6 +264,32 @@ describe('LocationDetailPage', () => {
     expect(await screen.findByText('Soil Sensor')).toBeTruthy();
     // Watering stats card total.
     expect(await screen.findByText('15 L')).toBeTruthy();
+  });
+
+  it('asks the server for the plants and the tank of this location instead of filtering the tenant (#3015)', async () => {
+    useVariantLocation();
+    const asked: { plants: string[]; tanks: string[] } = { plants: [], tanks: [] };
+    server.use(
+      http.get('/api/v1/t/:tenant/plant-instances', ({ request }) => {
+        asked.plants.push(new URL(request.url).searchParams.get('location_key') ?? '');
+        return HttpResponse.json([
+          { ...runPlant, location_key: 'loc-1', planting_runs: [runRef] },
+          standaloneInstance,
+        ]);
+      }),
+      http.get('/api/v1/t/:tenant/tanks', ({ request }) => {
+        asked.tanks.push(new URL(request.url).searchParams.get('location_key') ?? '');
+        return HttpResponse.json([tank]);
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByText('TOM-002')).toBeTruthy();
+    expect(await screen.findByText(/Tank One/)).toBeTruthy();
+    expect(asked.plants).toEqual(['loc-1']);
+    expect(asked.tanks).toEqual(['loc-1']);
+    // The plant of the location's own run is listed under the run, not as a standalone plant.
+    expect(screen.queryByText('TOM-001')).toBeNull();
   });
 
   it('renders the empty states and triggers their create actions', async () => {

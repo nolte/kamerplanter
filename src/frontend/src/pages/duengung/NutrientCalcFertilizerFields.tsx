@@ -9,10 +9,10 @@ import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import { fetchAllFertilizers } from '@/api/endpoints/fertilizers';
-import { listAllSites, listLocations } from '@/api/endpoints/sites';
+import { listAllLocationOptions } from '@/api/endpoints/sites';
 import { listAllSpecies } from '@/api/endpoints/species';
 import { useApiError } from '@/hooks/useApiError';
-import type { Fertilizer, Location, Species } from '@/api/types';
+import type { Fertilizer, LocationOption, Species } from '@/api/types';
 import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
 
 /**
@@ -73,14 +73,14 @@ export function useFertilizerOptions(): {
 }
 
 /**
- * Loads every location across all sites once (locations are scoped per site,
- * so we fan out over the site list). Returns a memoised object.
+ * Loads every top-level location across all sites once, in one paged read (#3015) — the set the per-site
+ * location list gave, without one request per site. Returns a memoised object.
  */
 export function useLocationOptions(): {
-  locations: Location[];
+  locations: LocationOption[];
   loading: boolean;
 } {
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<LocationOption[]>([]);
   const [loading, setLoading] = useState(true);
   const { handleError } = useApiError();
 
@@ -88,11 +88,8 @@ export function useLocationOptions(): {
     let cancelled = false;
     (async () => {
       try {
-        const sites = await listAllSites();
-        const perSite = await Promise.all(
-          sites.map((s) => listLocations(s.key)),
-        );
-        if (!cancelled) setLocations(perSite.flat());
+        const all = await listAllLocationOptions({ topLevelOnly: true });
+        if (!cancelled) setLocations(all);
       } catch (err) {
         if (!cancelled) handleError(err);
       } finally {
@@ -230,7 +227,7 @@ export function FertilizerSingleSelect({
 }
 
 interface LocationSelectProps {
-  options: Location[];
+  options: LocationOption[];
   /** Selected location key, or empty string when none. */
   value: string;
   onChange: (key: string) => void;

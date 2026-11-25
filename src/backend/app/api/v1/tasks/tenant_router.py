@@ -8,6 +8,7 @@ from app.api.v1.auth.router import limiter, user_rate_limit_key
 from app.api.v1.tasks.schemas import (
     BatchAssignRequest,
     BatchDeleteRequest,
+    BatchReopenRequest,
     BatchResponse,
     BatchResultItem,
     BatchStatusRequest,
@@ -667,6 +668,33 @@ def batch_status_change(
         details=body.details(),
         actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
         client_event_id=body.client_event_id,
+    )
+    return BatchResponse(
+        succeeded=succeeded,
+        failed=[BatchResultItem(key=f["key"], error=f["error"], code=f["code"]) for f in failed],
+    )
+
+
+@router.post("/batch/reopen", response_model=BatchResponse)
+@limiter.limit(settings.rate_limit_task_completion, key_func=user_rate_limit_key)
+def batch_reopen(
+    request: Request,
+    body: BatchReopenRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.TASK, Action.UPDATE)),
+    service: TaskService = Depends(get_task_service),
+) -> BatchResponse:
+    """Reopen a batch of completed or skipped tasks (#3015), at most 200.
+
+    The batch form of `POST /tasks/{key}/reopen`, under the same permission and rate limit: each task is reopened as
+    the single route would, so `{"undo": true}` voids its care-log line under the same rule (the author within ten
+    minutes, a lead any time). A task that cannot be reopened - unknown or foreign key, still open, a void the caller
+    may not make - is listed in `failed` with its code; the others are reopened.
+    """
+    succeeded, failed = service.batch_reopen(
+        body.task_keys,
+        tenant_key=ctx.tenant_key,
+        undo=body.undo,
+        actor=CompletionActor(user_key=ctx.user_key, role=ctx.role),
     )
     return BatchResponse(
         succeeded=succeeded,

@@ -128,6 +128,36 @@ describe('TankDetailPage', () => {
     i18n.changeLanguage('en');
   });
 
+  it('reads the tank state while the location is still unanswered (#3015, A-11)', async () => {
+    // The location label and the eight state reads are independent; the serial load asked for the states only after
+    // the location had answered. Held here until the state read arrives (or a bound passes).
+    mount({ tank: { location_key: 'loc-1' } });
+    let stateAsked: () => void = () => {};
+    const stateRequested = new Promise<void>((resolve) => {
+      stateAsked = resolve;
+    });
+    let locationPending = false;
+    let stateSeenWhileLocationPending = false;
+    server.use(
+      http.get('/api/v1/t/:tenant/locations/:key', async () => {
+        locationPending = true;
+        await Promise.race([stateRequested, new Promise((resolve) => setTimeout(resolve, 1500))]);
+        locationPending = false;
+        return HttpResponse.json({ key: 'loc-1', site_key: 'site-1', name: 'Zone A', path: 'Zone A' });
+      }),
+      http.get('/api/v1/t/:tenant/tanks/:key/states/latest', () => {
+        stateSeenWhileLocationPending = locationPending;
+        stateAsked();
+        return HttpResponse.json(null);
+      }),
+    );
+    renderPage();
+
+    expect(await screen.findByTestId('tank-detail-page')).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText(/Zone A/).length).toBeGreaterThan(0));
+    expect(stateSeenWhileLocationPending).toBe(true);
+  });
+
   it('renders the tank detail page from the loaded tank', async () => {
     mount();
     renderPage();

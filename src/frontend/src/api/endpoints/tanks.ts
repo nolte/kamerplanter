@@ -31,9 +31,11 @@ export async function listTanks(
   offset = 0,
   limit = 50,
   tankType?: string,
+  locationKey?: string,
 ): Promise<Tank[]> {
   const params: Record<string, string | number> = { offset, limit };
   if (tankType) params.tank_type = tankType;
+  if (locationKey) params.location_key = locationKey;
   const { data } = await client.get<Tank[]>(BASE, { params });
   return data;
 }
@@ -44,6 +46,14 @@ export async function listTanks(
  */
 export async function listAllTanks(tankType?: string, pageSize = CATALOGUE_PAGE_SIZE): Promise<Tank[]> {
   return fetchAllPages((offset, limit) => listTanks(offset, limit, tankType), pageSize);
+}
+
+/**
+ * Every tank placed at one location, filtered by the server (#3015). The fallback for a location without a
+ * denormalised `tank_key` used to load every tank of the tenant and search it in the browser.
+ */
+export async function listAllTanksAtLocation(locationKey: string, pageSize = CATALOGUE_PAGE_SIZE): Promise<Tank[]> {
+  return fetchAllPages((offset, limit) => listTanks(offset, limit, undefined, locationKey), pageSize);
 }
 
 export async function getTank(key: string): Promise<Tank> {

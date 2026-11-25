@@ -389,6 +389,16 @@ class SlotBatchWrite:
     time_budget_seconds: float = BATCH_TIME_BUDGET_SECONDS
 
 
+class LocationOption(BaseModel):
+    """One location of the tenant as a picker or a name map needs it: key, name, site and parent (#3015)."""
+
+    key: str
+    name: str
+    site_key: str
+    parent_location_key: str | None
+    area_m2: float | None
+
+
 class BedCounters(BaseModel):
     """What a bed list row and the bed summary show beside the document (GP-API-011, GP-FR-047)."""
 
