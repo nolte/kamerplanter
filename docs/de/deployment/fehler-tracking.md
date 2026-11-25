@@ -26,7 +26,7 @@ SENTRY_SAMPLE_RATE=1.0
 
 Die DSN enthält nur einen öffentlichen Ingest-Schlüssel, kein Geheimnis — sie darf im Frontend landen, denn genau dort wird sie gebraucht.
 
-Unter Kubernetes setzt du dieselben Werte in den Helm-Values. Sie stehen bei `backend`, `celery-worker`, `celery-beat`, `inference-service` und beim `frontend` im Init-Container `init-runtime-config`. Dieser schreibt `runtime-config.js` und trägt zusätzlich genau den Host deiner DSN in `connect-src` der Content-Security-Policy ein, damit der Browser seine Fehlerberichte dorthin senden darf. Am nginx-Container setzt du die DSN nicht. <!-- #3025 -->
+Unter Kubernetes setzt du dieselben Werte in den Helm-Values. Sie stehen bei `backend`, `celery-worker`, `celery-beat`, `inference-service` und beim `frontend` im Init-Container `init-runtime-config`. Dieser schreibt `runtime-config.js` und trägt zusätzlich genau die Origin deiner DSN (Schema, Host und Port) in `connect-src` der Content-Security-Policy ein, damit der Browser seine Fehlerberichte dorthin senden darf. Am nginx-Container setzt du die DSN nicht. <!-- #3025 -->
 
 !!! danger "NetworkPolicy: ein selbst gehosteter Tracker ist zunächst nicht erreichbar"
     Die Egress-Regel des Backends erlaubt ausgehende Verbindungen ins Internet, **schließt die privaten Adressbereiche aber ausdrücklich aus** (RFC 1918, plus der Link-Local-Bereich). Läuft dein Tracker im selben Cluster oder im LAN, brauchst du eine zusätzliche Egress-Regel für ihn. Ohne sie werden die Ereignisse verworfen, ohne dass irgendwo eine Fehlermeldung erscheint — das SDK meldet eine blockierte Verbindung nicht. Das Einschalten sind also zwei Änderungen, nicht eine.

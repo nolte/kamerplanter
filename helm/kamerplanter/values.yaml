@@ -1067,8 +1067,12 @@ controllers:
             # skaffold dev image (Vite target) has no /docker-entrypoint.d and
             # serves no nginx, so the step is skipped there.
             csp_script=/docker-entrypoint.d/30-error-tracking-csp.sh
+            # Tracking is optional: a failing script (e.g. an older image's
+            # version on a node that cached `latest`) must never hold the pod
+            # in Init:CrashLoopBackOff - the CSP then stays at 'self'.
             if [ -f "$csp_script" ]; then
-              KP_NGINX_RUNTIME_DIR=/nginx-runtime sh "$csp_script"
+              KP_NGINX_RUNTIME_DIR=/nginx-runtime sh "$csp_script" \
+                || echo "WARN  $csp_script failed; CSP connect-src stays 'self'." >&2
             fi
         env:
           KAMERPLANTER_MODE:

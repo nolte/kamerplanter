@@ -109,6 +109,11 @@ class TestDefaultIsUntouched:
         _run(tmp_path, None)
         assert _connect_src(tmp_path) == "connect-src 'self'"
 
+    def test_an_origin_is_removed_when_the_dsn_turns_malformed(self, tmp_path: Path) -> None:
+        _run(tmp_path, "https://k@old-tracker.example/1")
+        _run(tmp_path, "https://evil.example; script-src *")
+        assert _connect_src(tmp_path) == "connect-src 'self'"
+
 
 class TestConfiguredOrigin:
     def test_the_ingest_origin_is_appended_without_the_key(self, tmp_path: Path) -> None:
@@ -144,6 +149,14 @@ class TestConfiguredOrigin:
         'https://evil.example" always; add_header X-Test "x',
         # A newline would add a second map entry.
         "https://evil.example\ndefault x",
+        # nginx variable syntax and non-ASCII hosts are no origin.
+        "https://${evil}.example/1",
+        "https://ex{a}mple.org/1",
+        "https://k@tr\u00e4cker.example/1",
+        # A port is digits only, and a bare colon is no host.
+        "https://k@:/1",
+        "https://k@tracker.example:9x/1",
+        "https://k@tracker.example:/1",
     ],
 )
 class TestMalformedDsnDegradesSafely:

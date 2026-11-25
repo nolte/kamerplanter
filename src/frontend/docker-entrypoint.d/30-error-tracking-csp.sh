@@ -52,8 +52,9 @@ esac
 
 # Host, optionally with a port. Deliberately no `;`, no space, no quote — the
 # characters a CSP directive and an nginx string are delimited by.
+# The port, when present, is digits only (`https://:` or `host:x` is no origin).
 case "$HOST" in
-    "" | *[!A-Za-z0-9.:-]*)
+    "" | *[!A-Za-z0-9.:-]* | :* | *: | *:*:* | *:*[!0-9]*)
         echo "WARN  SENTRY_DSN host '${HOST}' is not a bare host[:port]; CSP left unchanged." >&2
         echo "      Error events will be blocked by connect-src 'self'." >&2
         exit 0

@@ -211,9 +211,13 @@ def test_the_chart_init_container_feeds_the_runtime_dir() -> None:
         name
         for name, by_container in mounts.items()
         if any(m["path"] == found.group(1) for m in by_container.get("init-runtime-config", []))
-        and any(m["path"] == RUNTIME_DIR for m in by_container.get("main", []))
+        and any(m["path"] == RUNTIME_DIR and m.get("readOnly") is True for m in by_container.get("main", []))
     ]
-    assert feeding, f"no emptyDir mounts the init container's {found.group(1)} at {RUNTIME_DIR} in nginx"
+    assert feeding, f"no emptyDir mounts the init container's {found.group(1)} read-only at {RUNTIME_DIR} in nginx"
+    # Tracking is optional: a failing script must not hold the pod in Init:CrashLoopBackOff.
+    assert re.search(r"sh \"\$csp_script\"\s*\\?\s*\|\|", args), (
+        "the init container must not fail when the CSP script fails"
+    )
 
 
 # ── Red first, through the same detectors: a mutated copy of the real config is refused. ──
