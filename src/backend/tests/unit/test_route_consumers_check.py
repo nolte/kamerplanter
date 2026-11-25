@@ -350,9 +350,13 @@ class TestTheRouteOperand:
         since F-14 (sprint 0003) by ``triggerWeatherFetch`` and ``getWeatherFetchStatus`` in
         ``src/frontend/src/api/endpoints/adminWeatherProviders.ts`` — the installation's weather card
         (``WeatherFetchPanel``); no longer candidates.
+
+        +2 (2026-11-25): the list projections of #3015: ``GET /t/{slug}/locations/options`` and
+        ``POST /t/{slug}/tasks/batch/reopen``. Consumed in the same change by ``listAllLocationOptions``
+        (``api/endpoints/sites.ts``) and ``reopenTasksWithUndo`` (``features/gardenPlanner/care/careApi.ts``).
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 910
+        assert len(checker.collect_operations(app)) == 912
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
