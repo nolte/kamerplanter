@@ -8,6 +8,7 @@ from app.domain.models.bed_list_export import BedAssignee, LocationTypeName
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     BedCounters,
+    LocationOption,
     PlanAuditEntry,
     PlanBatchOutcome,
     PlanBatchWrite,
@@ -147,6 +148,23 @@ class IGardenPlanRepository(ABC):
         An area type is neither ``is_bed`` nor ``supports_layout``: garden, terrace, balcony, greenhouse, room and
         the like. Tent and shelf (``supports_layout``) are planting spots, not areas. Location types are global master
         data; at most :data:`MAX_AREA_TYPES` keys are read.
+        """
+
+    @abstractmethod
+    def list_location_options(
+        self,
+        *,
+        tenant_key: str,
+        offset: int,
+        limit: int,
+        is_bed: bool | None = None,
+        top_level_only: bool = False,
+    ) -> list[LocationOption]:
+        """One page of the tenant's locations over every site, sorted by name then key (#3015).
+
+        The tenant predicate sits on the site (a location carries none). ``is_bed`` keeps the locations whose type
+        is (``True``) or is not (``False``) a bed; ``top_level_only`` drops the locations below another one. The
+        pickers and name maps that need this read the locations site by site, one request per site.
         """
 
     @abstractmethod

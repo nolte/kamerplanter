@@ -77,13 +77,21 @@ def get_all_due_maintenances(
 def list_tanks(
     pagination: PaginationParams = Depends(get_pagination),
     tank_type: str | None = Query(default=None, description="Filter by tank type."),
+    location_key: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=254,
+        description="Only the tanks placed at this location (#3015). A location of another tenant lists nothing.",
+    ),
     ctx: TenantContext = Depends(get_current_tenant),
     service: TankService = Depends(get_tank_service),
 ):
-    """List the tenant's tanks (paginated), optionally filtered by type."""
+    """List the tenant's tanks (paginated), optionally filtered by type and by location."""
     filters: dict[str, str] = {}
     if tank_type:
         filters["tank_type"] = tank_type
+    if location_key:
+        filters["location_key"] = location_key
     items = service.list_tanks_window(pagination.offset, pagination.limit, filters or None, tenant_key=ctx.tenant_key)
     return [_tank_response(t) for t in items]
 

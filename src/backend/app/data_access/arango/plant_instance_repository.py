@@ -6,7 +6,7 @@ from app.common.datetimes import replace_year, today_utc
 from app.common.enums import TaskStatus, TerminationType
 from app.common.types import PlantID, SlotKey
 from app.data_access.arango import collections as col
-from app.data_access.arango.base_repository import BaseArangoRepository
+from app.data_access.arango.base_repository import BaseArangoRepository, FilterTriple
 from app.data_access.arango.document_reads import get_document
 from app.data_access.arango.graph_edges import edges_touching, remove_edges
 from app.data_access.arango.tenant_scope import readable_or_null
@@ -59,6 +59,26 @@ class ArangoPlantInstanceRepository(BaseArangoRepository[PlantInstance], IPlantI
         return doc
 
     # ── Basic CRUD ────────────────────────────────────────────────────
+
+    def list_window_at_location(
+        self,
+        *,
+        tenant_key: str,
+        location_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[PlantInstance]:
+        """One ``_key``-ordered page of the tenant's plants at ``location_key`` (#3015).
+
+        The tenant predicate sits on the plant itself (a location carries no ``tenant_key``), so a location key of
+        another tenant lists nothing rather than that tenant's plants.
+        """
+        self._require_tenant_key(tenant_key, "list_window_at_location")
+        filters: list[FilterTriple] = [("tenant_key", "==", tenant_key), ("location_key", "==", location_key)]
+        if after is not None:
+            filters.append(("_key", ">", after))
+        return self.get_page_window(offset=offset, limit=limit, filters=filters)
 
     def get_by_instance_id(self, instance_id: str, *, tenant_key: str) -> PlantInstance | None:
         """Look up a plant by its ``instance_id`` within ``tenant_key``.

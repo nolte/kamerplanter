@@ -2688,6 +2688,38 @@ class TaskService:
         except Exception as exc:  # noqa: BLE001 — see above; the failure is logged by type, never by text
             logger.error("task_completion.follow_up_failed", task_key=task.key, error_type=type(exc).__name__)
 
+    def batch_reopen(
+        self,
+        task_keys: list[str],
+        *,
+        tenant_key: str,
+        undo: bool = False,
+        actor: CompletionActor | None = None,
+    ) -> tuple[list[str], list[dict[str, str]]]:
+        """Reopen several tasks, each through :meth:`reopen_task` (#3015).
+
+        The undo of a batch completion (GP-FR-088 + GP-FR-149) used to send one ``POST /tasks/{key}/reopen`` per
+        task. Each key goes through the same method the single route calls, so the tenant check (a foreign or unknown
+        key is "not found"), the status rule and, with ``undo``, the void predicate (author within ten minutes, a
+        lead any time) are the ones the single reopen applies. A refused task lands in ``failed`` with its code and
+        does not stop the others - the per-task transaction of the single reopen is kept, not widened.
+        """
+        if undo and actor is None:
+            raise ValueError("batch_reopen(undo=True) needs the actor: the void is held to the caller's role.")
+        succeeded: list[str] = []
+        failed: list[dict[str, str]] = []
+        seen: set[str] = set()
+        for tk in task_keys:
+            if tk in seen:
+                continue
+            seen.add(tk)
+            try:
+                self.reopen_task(tk, tenant_key=tenant_key, undo=undo, actor=actor)
+                succeeded.append(tk)
+            except (NotFoundError, ValidationError, ForbiddenError, PlanError, WriteConflictError) as e:
+                failed.append({"key": tk, "error": e.message, "code": e.error_code})
+        return succeeded, failed
+
     def batch_delete(self, task_keys: list[str], *, tenant_key: str) -> tuple[list[str], list[dict]]:
         succeeded: list[str] = []
         failed: list[dict] = []

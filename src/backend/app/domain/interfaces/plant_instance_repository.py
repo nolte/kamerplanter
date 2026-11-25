@@ -20,6 +20,19 @@ class IPlantInstanceRepository(ABC):
         ...
 
     @abstractmethod
+    def list_window_at_location(
+        self,
+        *,
+        tenant_key: str,
+        location_key: str,
+        offset: int = 0,
+        limit: int = 50,
+        after: str | None = None,
+    ) -> list[PlantInstance]:
+        """:meth:`list_window` narrowed to the plants whose ``location_key`` is ``location_key`` (#3015)."""
+        ...
+
+    @abstractmethod
     def get_all(
         self, offset: int = 0, limit: int = 50, *, tenant_key: str | None = None
     ) -> tuple[list[PlantInstance], int]: ...

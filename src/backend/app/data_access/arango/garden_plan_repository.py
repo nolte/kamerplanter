@@ -73,6 +73,7 @@ from app.domain.models.garden_object import GardenObject
 from app.domain.models.garden_plan import (
     MAX_SLOTS_PER_SITE,
     BedCounters,
+    LocationOption,
     PlanAuditEntry,
     PlanAuditRecord,
     PlanBatchOutcome,
@@ -782,6 +783,53 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             ),
         )
         return [str(key) for key in cursor]
+
+    def list_location_options(
+        self,
+        *,
+        tenant_key: str,
+        offset: int,
+        limit: int,
+        is_bed: bool | None = None,
+        top_level_only: bool = False,
+    ) -> list[LocationOption]:
+        if not tenant_key:
+            raise ValueError("list_location_options needs a tenant_key (an empty tenant is no tenant, #2107).")
+        bind_vars: dict[str, Any] = {
+            "@types": col.LOCATION_TYPES,
+            "@sites": col.SITES,
+            "@locations": col.LOCATIONS,
+            "tenant_key": tenant_key,
+            "is_bed": is_bed,
+            "top_level_only": top_level_only,
+            "offset": offset,
+            "limit": limit,
+        }
+        cursor = cast(
+            "Cursor",
+            self._db.aql.execute(
+                """
+            LET bed_types = (FOR t IN @@types FILTER t.is_bed == true RETURN t._key)
+            FOR site IN @@sites
+                FILTER site.tenant_key == @tenant_key
+                FOR l IN @@locations
+                    FILTER l.site_key == site._key
+                    FILTER @is_bed == null OR (l.location_type_key IN bed_types) == @is_bed
+                    FILTER !@top_level_only OR l.parent_location_key == null OR l.parent_location_key == ""
+                    SORT l.name ASC, l._key ASC
+                    LIMIT @offset, @limit
+                    RETURN {
+                        key: l._key,
+                        name: l.name,
+                        site_key: l.site_key,
+                        parent_location_key: l.parent_location_key == "" ? null : l.parent_location_key,
+                        area_m2: l.area_m2
+                    }
+            """,
+                bind_vars=bind_vars,
+            ),
+        )
+        return [LocationOption(**row) for row in cursor]
 
     def bed_type_keys(self) -> list[str]:
         bind_vars: dict[str, Any] = {"@col": col.LOCATION_TYPES, "limit": MAX_AREA_TYPES}

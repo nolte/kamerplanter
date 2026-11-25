@@ -133,13 +133,30 @@ class PlantInstanceService:
         offset: int = 0,
         limit: int = 50,
         after: str | None = None,
+        location_key: str | None = None,
     ) -> list[PlantInstance]:
         """One ``_key``-ordered page of the tenant's plants without the count query (MT-035, #2131).
 
         The list route answers a bare array, so the ``total`` :meth:`list_plants` pays a
         second scan for is never read; ``after`` pages by keyset instead of offset.
+        ``location_key`` narrows the page to the plants at that location (#3015): the
+        location view filtered the whole tenant's list client-side.
         """
+        if location_key:
+            return self._repo.list_window_at_location(
+                tenant_key=tenant_key, location_key=location_key, offset=offset, limit=limit, after=after
+            )
         return self._repo.list_window(offset=offset, limit=limit, tenant_key=tenant_key, after=after)
+
+    def run_refs_for_plants(self, plant_keys: list[str], *, tenant_key: str) -> dict[str, list[dict[str, str]]]:
+        """``plant_key`` → the ``{key, name, status}`` of the tenant's runs it is attached to, newest first (#3015).
+
+        One read for a page of the plant list, which used to fetch the plants of every run to label its rows. Empty
+        without a wired run repository (a pure-domain service), so a row then carries no run rather than failing.
+        """
+        if self._run_repo is None or not plant_keys:
+            return {}
+        return self._run_repo.get_run_refs_for_plants(plant_keys, tenant_key=tenant_key)
 
     def list_all_plants(self, tenant_key: str) -> list[PlantInstance]:
         """Every plant of ``tenant_key``, page by page — for aggregates (#2025).

@@ -116,8 +116,8 @@ _LEFT_AT_PRODUCTION: dict[str, str] = {
         "Authenticated care-log CSV download (GET /t/{slug}/care-events?format=csv): 401 x 25 anonymously."
     ),
     "rate_limit_task_completion": (
-        "Authenticated task completion (POST /t/{slug}/tasks/{key}/complete, …/tasks/batch/status, …/{key}/reopen): "
-        "401 x 25 anonymously."
+        "Authenticated task completion (POST /t/{slug}/tasks/{key}/complete, …/tasks/batch/status, …/{key}/reopen, "
+        "…/tasks/batch/reopen): 401 x 25 anonymously."
     ),
     "rate_limit_bed_actions": (
         "Authenticated bed actions (POST /t/{slug}/locations/{key}/quick-planting and …/clear): 401 x 25 anonymously."
