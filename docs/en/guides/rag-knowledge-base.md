@@ -223,6 +223,9 @@ python eval_rag.py
 3. Vectors are upserted into `ai_vector_chunks` (existing chunks are updated by their `source_key`, new ones added)
 4. The endpoint returns a summary: number of files, number of chunks
 
+!!! info "After rebuilding the VectorDB"
+    The same procedure rebuilds the knowledge base after a PostgreSQL major version change of the VectorDB (most recently PostgreSQL 19, where the volume is deleted). The knowledge service recreates its schema on start; after that the reindex is enough. The full procedure including the recognition indexes is in [VectorDB when upgrading](../deployment/helm.md#vectordb).
+
 !!! tip "Fast feedback loop"
     For iterative knowledge base improvement, use this cycle:
 

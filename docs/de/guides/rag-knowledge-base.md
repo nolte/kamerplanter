@@ -223,6 +223,9 @@ python eval_rag.py
 3. Vektoren werden per Upsert in `ai_vector_chunks` geschrieben (bestehende Chunks werden anhand ihres `source_key` aktualisiert, neue hinzugefügt)
 4. Der Endpunkt gibt eine Zusammenfassung zurück: Anzahl Dateien, Anzahl Chunks
 
+!!! info "Nach einem Neuaufbau der VectorDB"
+    Dieselbe Anleitung baut die Wissensbasis auch nach einem PostgreSQL-Hauptversionswechsel der VectorDB wieder auf (zuletzt PostgreSQL 19, bei dem das Volume gelöscht wird). Der Knowledge-Service legt sein Schema beim Start selbst neu an; danach genügt der Reindex. Den vollständigen Ablauf samt der Erkennungs-Indizes findest du unter [VectorDB beim Upgrade](../deployment/helm.md#vectordb).
+
 !!! tip "Schneller Feedback-Loop"
     Für die iterative Verbesserung der Wissensbasis empfiehlt sich dieser Zyklus:
 

@@ -229,6 +229,45 @@ controllers:
               - path: /var/lib/arangodb3
 ```
 
+#### VectorDB (pgvector) {#vectordb}
+
+Die `vectordb` ist eine einzelne PostgreSQL-Instanz mit der Erweiterung pgvector. Sie hält den RAG-Wissensindex des Knowledge-Service und die Referenz-Indizes der Bilderkennung (Pflanzen und Schädlinge). Das Chart liefert sie als StatefulSet mit einem 5-Gi-Volume aus (`volumeClaimTemplates` mit dem Namen `data`, Annotation `helm.sh/resource-policy: keep`). Sie ist standardmäßig aus; die Aktivierung steht in [Bilderkennung in Betrieb nehmen](inference-service.md#helm-konfiguration).
+
+!!! info "Beim Upgrade: PostgreSQL 19 (Hauptversionswechsel)"
+    Das Image `kamerplanter-vectordb` basiert jetzt auf PostgreSQL 19 mit pgvector 0.8.7 (vorher PostgreSQL 18 mit pgvector 0.8.2). PostgreSQL liest ein Datenverzeichnis nur in der Hauptversion, die es angelegt hat: Ein Pod mit dem neuen Image beendet sich auf dem alten Volume mit `database files are incompatible with server` und geht in den `CrashLoopBackOff`. Eine Datenübernahme per `pg_upgrade` gibt es nicht. Der Vektorspeicher wird verworfen und neu aufgebaut. Das kostet keine Stammdaten, denn die Vektoren sind abgeleitete Daten; der Aufbau dauert aber (Referenz-Index: mehrere Stunden).
+
+    !!! warning "Das geht unwiederbringlich verloren"
+        - **Beigetragene Referenzfotos:** Alle Vektoren mit `source = 'user_contributed'` in `species_embeddings` und `pest_embeddings` — also Fotos, die Nutzer der Erkennung beigesteuert haben. Nur der Zahlenabdruck (Embedding) liegt im Index, nicht das Foto; er lässt sich aus dem Index nicht neu berechnen. Die Beitragsdokumente in der ArangoDB bleiben bestehen, ihr Vektor fehlt aber danach.
+        - **Kuratierung durch die Plattform-Administration:** Die Markierungen `is_active`, `exclusion_reason` und `marked_at` (Migration `002_reference_curation.sql`, bei Schädlingen `003_pest_embeddings.sql`). Ein zuvor ausgeschlossenes Bild ist nach der Neubeschaffung wieder aktiv und muss erneut bewertet werden.
+
+        Wer die Kuratierung braucht, sichert sie vorher selbst (zum Beispiel `pg_dump --table species_embeddings --table pest_embeddings` gegen die `vectordb`). Kamerplanter spielt so einen Dump nicht zurück.
+
+    **Ablauf:**
+
+    1. **Schreibzugriffe anhalten.** Skaliere `knowledge-service` und `inference-service` auf 0. Betreibst du die Anwendung mit ArgoCD, schalte vorher das automatische Sync der Application aus, sonst setzt `selfHeal` die Replikas zurück.
+
+        ```bash
+        kubectl scale deployment kamerplanter-knowledge-service kamerplanter-inference-service --replicas=0
+        kubectl scale statefulset kamerplanter-vectordb --replicas=0
+        ```
+
+    2. **Volume löschen.** Finde das Volume über das Label und lösche es, sobald der Pod weg ist. `helm.sh/resource-policy: keep` schützt es vor `helm uninstall`, nicht vor diesem Befehl.
+
+        ```bash
+        kubectl get pvc -l app.kubernetes.io/controller=vectordb
+        kubectl delete pvc data-kamerplanter-vectordb-0
+        ```
+
+        Der Name folgt dem Muster `data-<Release>-vectordb-0`. Für den Release-Namen `kamerplanter` (Produktion, Single-Release) ist das `data-kamerplanter-vectordb-0`. Im Skaffold-Stack mit dem Release `kamerplanter-ki` heißt es entsprechend `data-kamerplanter-ki-vectordb-0`.
+
+    3. **Upgraden oder synchronisieren.** Das StatefulSet legt ein neues, leeres Volume an. Beim Start legen Knowledge-Service und Inferenz-Service ihr Schema selbst neu an (SQL-Migrationen, je eigene Tracking-Tabelle); du musst nichts per Hand einspielen. Skaliere beide Services danach wieder hoch (oder schalte das Auto-Sync wieder ein).
+
+    4. **Wissensbasis neu aufbauen.** Stoße den Reindex an: [Wissensbasis reindexieren](../guides/rag-knowledge-base.md#wissensbasis-reindexieren-operatorentwickler). Bis er durch ist, findet der KI-Assistent keine Quellen.
+
+    5. **Erkennungs-Indizes neu aufbauen.** Starte die Referenzbild-Beschaffung für Pflanzen ([Schritt 2: Referenz-Index befüllen](inference-service.md#schritt-2-referenz-index-befullen)). Wenn du die Schädlingserkennung nutzt, baue auch deren Few-Shot-Index neu auf (`acquire_pest_dataset_task`, siehe [Administration](../user-guide/admin.md)). Solange der Pflanzen-Referenz-Index leer ist, fällt die Erkennung auf Pl@ntNet zurück, sofern ein Schlüssel konfiguriert und die Einwilligung erteilt ist; die Schädlingserkennung meldet „keine Befunde“.
+
+    Die DSGVO-Löschung bleibt unproblematisch: Sie löscht beigetragene Vektoren per `DELETE ... WHERE` und meldet auch dann Erfolg, wenn keine Zeile mehr passt. Anträge, die nach dem Wechsel anfallen, laufen also durch.
+
 ### Services
 
 ```yaml

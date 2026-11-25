@@ -228,6 +228,45 @@ controllers:
               - path: /var/lib/arangodb3
 ```
 
+#### VectorDB (pgvector) {#vectordb}
+
+The `vectordb` is a single PostgreSQL instance with the pgvector extension. It holds the knowledge service's RAG index and the recognition reference indexes (plants and pests). The chart ships it as a StatefulSet with a 5 Gi volume (`volumeClaimTemplates` named `data`, annotation `helm.sh/resource-policy: keep`). It is off by default; how to enable it is in [Setting up image recognition](inference-service.md#helm-configuration).
+
+!!! info "When upgrading: PostgreSQL 19 (major version change)"
+    The `kamerplanter-vectordb` image is now based on PostgreSQL 19 with pgvector 0.8.7 (previously PostgreSQL 18 with pgvector 0.8.2). PostgreSQL only reads a data directory in the major version that created it: a pod with the new image on the old volume exits with `database files are incompatible with server` and goes into `CrashLoopBackOff`. There is no `pg_upgrade` path. The vector store is discarded and rebuilt. That costs no master data, because the vectors are derived data; the rebuild does take time (reference index: several hours).
+
+    !!! warning "This is lost and cannot be recovered"
+        - **Contributed reference photos:** every vector with `source = 'user_contributed'` in `species_embeddings` and `pest_embeddings` — photos that users contributed to recognition. Only the embedding sits in the index, not the photo, and it cannot be recomputed from the index. The contribution documents in ArangoDB stay, but their vector is gone afterwards.
+        - **Curation by the platform administration:** the markers `is_active`, `exclusion_reason` and `marked_at` (migration `002_reference_curation.sql`, for pests `003_pest_embeddings.sql`). An image that was excluded before is active again after re-acquisition and has to be reviewed again.
+
+        If you need the curation, back it up yourself first (for example `pg_dump --table species_embeddings --table pest_embeddings` against the `vectordb`). Kamerplanter does not restore such a dump.
+
+    **Steps:**
+
+    1. **Stop writes.** Scale `knowledge-service` and `inference-service` to 0. If you run the application with ArgoCD, turn off automatic sync for the Application first, otherwise `selfHeal` resets the replicas.
+
+        ```bash
+        kubectl scale deployment kamerplanter-knowledge-service kamerplanter-inference-service --replicas=0
+        kubectl scale statefulset kamerplanter-vectordb --replicas=0
+        ```
+
+    2. **Delete the volume.** Find the volume by label and delete it once the pod is gone. `helm.sh/resource-policy: keep` protects it from `helm uninstall`, not from this command.
+
+        ```bash
+        kubectl get pvc -l app.kubernetes.io/controller=vectordb
+        kubectl delete pvc data-kamerplanter-vectordb-0
+        ```
+
+        The name follows the pattern `data-<release>-vectordb-0`. For the release name `kamerplanter` (production, single release) that is `data-kamerplanter-vectordb-0`. In the Skaffold stack with the release `kamerplanter-ki` it is `data-kamerplanter-ki-vectordb-0`.
+
+    3. **Upgrade or sync.** The StatefulSet creates a new, empty volume. On start, the knowledge service and the inference service recreate their schema themselves (SQL migrations, each with its own tracking table); you do not have to load anything by hand. Then scale both services back up (or turn auto-sync back on).
+
+    4. **Rebuild the knowledge base.** Trigger the reindex: [Reindexing the knowledge base](../guides/rag-knowledge-base.md#reindexing-the-knowledge-base-operatordeveloper). Until it finishes, the AI assistant finds no sources.
+
+    5. **Rebuild the recognition indexes.** Start the reference image acquisition for plants ([Step 2: Fill the reference index](inference-service.md#step-2-populate-the-reference-index)). If you use pest detection, rebuild its few-shot index too (`acquire_pest_dataset_task`, see [Administration](../user-guide/admin.md)). While the plant reference index is empty, recognition falls back to Pl@ntNet if a key is configured and consent is given; pest detection reports "no findings".
+
+    GDPR erasure stays unproblematic: it deletes contributed vectors with `DELETE ... WHERE` and reports success even when no row matches any more. Requests that arrive after the switch run through.
+
 ### Services
 
 ```yaml
