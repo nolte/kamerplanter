@@ -799,6 +799,8 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             "@types": col.LOCATION_TYPES,
             "@sites": col.SITES,
             "@locations": col.LOCATIONS,
+            "@contains": col.CONTAINS,
+            "locations_name": col.LOCATIONS,
             "tenant_key": tenant_key,
             "is_bed": is_bed,
             "top_level_only": top_level_only,
@@ -812,8 +814,15 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
             LET bed_types = (FOR t IN @@types FILTER t.is_bed == true RETURN t._key)
             FOR site IN @@sites
                 FILTER site.tenant_key == @tenant_key
-                FOR l IN @@locations
-                    FILTER l.site_key == site._key
+                LET sited = (FOR s IN @@locations FILTER s.site_key == site._key RETURN s)
+                LET unsited = (
+                    FOR e IN @@contains
+                        FILTER e._from == site._id AND IS_SAME_COLLECTION(@locations_name, e._to)
+                        LET d = DOCUMENT(e._to)
+                        FILTER d != null AND (d.site_key == null OR d.site_key == "")
+                        RETURN d
+                )
+                FOR l IN UNION_DISTINCT(sited, unsited)
                     FILTER @is_bed == null OR (l.location_type_key IN bed_types) == @is_bed
                     FILTER !@top_level_only OR l.parent_location_key == null OR l.parent_location_key == ""
                     SORT l.name ASC, l._key ASC
@@ -821,7 +830,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
                     RETURN {
                         key: l._key,
                         name: l.name,
-                        site_key: l.site_key,
+                        site_key: site._key,
                         parent_location_key: l.parent_location_key == "" ? null : l.parent_location_key,
                         area_m2: l.area_m2
                     }

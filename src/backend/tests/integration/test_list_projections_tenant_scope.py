@@ -61,6 +61,7 @@ def db():
     for name in (col.PLANT_INSTANCES, col.PLANTING_RUNS, col.SITES, col.LOCATIONS, col.LOCATION_TYPES):
         database.create_collection(name)
     database.create_collection(col.RUN_CONTAINS, edge=True)
+    database.create_collection(col.CONTAINS, edge=True)
 
     database.collection(col.PLANT_INSTANCES).insert_many(
         [
@@ -115,6 +116,16 @@ def db():
             },
             {"_key": "tent_1", "name": "Aaa tent", "site_key": "site_a1", "location_type_key": "tent"},
             {"_key": "bed_foreign", "name": "Aaa foreign", "site_key": "site_b", "location_type_key": "bed"},
+            # Unsited legacy roots (D1, #2561): the site's ``contains`` edge is their only link to a site.
+            {"_key": "legacy_a", "name": "Old shed", "location_type_key": "tent"},
+            {"_key": "legacy_b", "name": "Old foreign shed", "site_key": "", "location_type_key": "tent"},
+            {"_key": "legacy_orphan", "name": "Nobody's shed", "location_type_key": "tent"},
+        ]
+    )
+    database.collection(col.CONTAINS).insert_many(
+        [
+            {"_from": f"{col.SITES}/site_a1", "_to": f"{col.LOCATIONS}/legacy_a"},
+            {"_from": f"{col.SITES}/site_b", "_to": f"{col.LOCATIONS}/legacy_b"},
         ]
     )
     yield database
@@ -177,9 +188,22 @@ def test_location_options_filter_by_bed_flag_and_depth(db) -> None:
     def keys(**kwargs) -> list[str]:
         return [o.key for o in repo.list_location_options(tenant_key=A, offset=0, limit=50, **kwargs)]
 
-    assert keys() == ["tent_1", "bed_a", "bed_b", "bed_c"]
-    assert keys(is_bed=False) == ["tent_1"]
-    assert keys(top_level_only=True) == ["tent_1", "bed_a", "bed_c"]
+    assert keys() == ["tent_1", "bed_a", "bed_b", "bed_c", "legacy_a"]
+    assert keys(is_bed=False) == ["tent_1", "legacy_a"]
+    assert keys(top_level_only=True) == ["tent_1", "bed_a", "bed_c", "legacy_a"]
+
+
+def test_location_options_name_an_unsited_legacy_root_by_the_site_whose_edge_reaches_it(db) -> None:
+    repo = ArangoGardenPlanRepository(db)
+
+    def sited(tenant: str) -> list[tuple[str, str]]:
+        return [
+            (o.key, o.site_key) for o in repo.list_location_options(tenant_key=tenant, offset=0, limit=50, is_bed=False)
+        ]
+
+    # The reader this replaced (``get_locations_by_site``) counted such a root; an orphan without an edge is no one's.
+    assert sited(A) == [("tent_1", "site_a1"), ("legacy_a", "site_a1")]
+    assert sited(B) == [("legacy_b", "site_b")]
 
 
 def test_location_options_refuse_an_empty_tenant(db) -> None:

@@ -14,7 +14,8 @@ import { describe, it, expect } from 'vitest';
  * `.forEach(` or `.flatMap(`, or the body of a `for`/`while` loop — is a finding. A loop that is bounded on purpose
  * goes on {@link BOUNDED_FAN_OUTS} with the reason.
  *
- * **What it does not see.** A loop written as recursion or through a helper that receives the reader as an argument;
+ * **What it does not see.** A loop written as recursion or through a helper that receives the reader as an argument,
+ * including the point-free form `keys.map(listRunPlants)`;
  * a reader that is not named in {@link PER_PARENT_READERS}. A new per-parent endpoint belongs on that list.
  */
 
