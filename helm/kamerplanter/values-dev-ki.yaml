@@ -345,6 +345,8 @@ persistence:
     enabled: false
   nginx-runtime-config:
     enabled: false
+  nginx-runtime-csp:
+    enabled: false
   nginx-entrypoint:
     enabled: false
   backend-uploads:

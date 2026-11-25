@@ -65,7 +65,11 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx-security-headers.inc /etc/nginx/conf.d/nginx-security-headers.inc
 COPY docker-entrypoint.d/ /docker-entrypoint.d/
-RUN chown -R 101:101 /usr/share/nginx/html /etc/nginx/conf.d
+# /etc/nginx/runtime holds what an entrypoint script derives at start for the
+# nginx configuration (#3025: the error tracker's CSP origin, included by the
+# `map` in default.conf). The chart mounts an emptyDir there instead.
+RUN mkdir -p /etc/nginx/runtime \
+    && chown -R 101:101 /usr/share/nginx/html /etc/nginx/conf.d /etc/nginx/runtime
 USER 101
 
 EXPOSE 8080
