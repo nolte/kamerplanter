@@ -32,7 +32,7 @@ import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
 import { listAllTanks } from '@/api/endpoints/tanks';
 import { getPlantLabel } from '@/utils/plantDisplay';
 import { formatDate } from '@/utils/formatting';
-import { listAllSites, listLocations } from '@/api/endpoints/sites';
+import { listAllLocationOptions } from '@/api/endpoints/sites';
 import type { TerminationType } from '@/api/types';
 import {
   bulkSetHaPublishStatus,
@@ -76,9 +76,9 @@ async function loadTanks(): Promise<EntityRow[]> {
 }
 
 async function loadLocations(): Promise<EntityRow[]> {
-  const sites = await listAllSites();
-  const perSite = await Promise.all(sites.map((s) => listLocations(s.key)));
-  return perSite.flat().map((l) => ({ key: l.key, label: l.name, isActive: true }));
+  // The top-level locations of every site in one paged read (#3015), not one request per site.
+  const locations = await listAllLocationOptions({ topLevelOnly: true });
+  return locations.map((l) => ({ key: l.key, label: l.name, isActive: true }));
 }
 
 const LOADERS: Record<HaPublishEntityType, (language: string) => Promise<EntityRow[]>> = {

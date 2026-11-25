@@ -7982,6 +7982,7 @@
           "back": "Back",
           "submit": "Complete {{count}} tasks",
           "partial": "{{done}} completed, {{failed}} could not be completed.",
+          "undoPartial": "{{done}} reopened, {{failed}} could not be undone.",
           "findFailed": "Some beds could not be read; the tasks of the others are listed.",
           "findFailedAll": "The tasks could not be read. Try again in a moment.",
           "findFailedNone": "No open {{category}} tasks were found on the beds that could be read; other beds could not be read.",

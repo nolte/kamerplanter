@@ -268,8 +268,15 @@ export default function TankDetailPage() {
         notes: tankData.notes,
       });
 
-      // Resolve location/site names for display and pre-select edit cascade
-      if (tankData.location_key) {
+      // Resolve location/site names for display and pre-select edit cascade. Independent of the
+      // tank's state reads below, so both run in the same stage (#3015, A-11) instead of one after the other.
+      const resolveLocation = async (): Promise<void> => {
+        if (!tankData.location_key) {
+          setLocationName('');
+          setSiteName('');
+          setSelectedSiteKey('');
+          return;
+        }
         try {
           const loc = await sitesApi.getLocation(tankData.location_key);
           if (stale()) return;
@@ -285,21 +292,20 @@ export default function TankDetailPage() {
           setSiteName('');
           setSelectedSiteKey('');
         }
-      } else {
-        setLocationName('');
-        setSiteName('');
-        setSelectedSiteKey('');
-      }
+      };
 
-      const [ls, al, st, ml, dm, sc, fe, sn] = await Promise.all([
-        tankApi.getLatestState(key),
-        tankApi.getAlerts(key),
-        tankApi.getStates(key),
-        tankApi.getMaintenanceHistory(key),
-        tankApi.getDueMaintenances(key),
-        tankApi.getSchedules(key),
-        tankApi.getFillEvents(key),
-        tankApi.getSensors(key),
+      const [, [ls, al, st, ml, dm, sc, fe, sn]] = await Promise.all([
+        resolveLocation(),
+        Promise.all([
+          tankApi.getLatestState(key),
+          tankApi.getAlerts(key),
+          tankApi.getStates(key),
+          tankApi.getMaintenanceHistory(key),
+          tankApi.getDueMaintenances(key),
+          tankApi.getSchedules(key),
+          tankApi.getFillEvents(key),
+          tankApi.getSensors(key),
+        ]),
       ]);
       if (stale()) return;
       setLatestState(ls);

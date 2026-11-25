@@ -185,6 +185,18 @@ export function useHistoryBackend(options: BackendOptions = {}) {
       return HttpResponse.json(page(careEvents, seen[seen.length - 1].params));
     }),
     http.get(`${BASE}/sites`, () => HttpResponse.json([{ key: 'site_1', name: 'Garden' }])),
+    // #3015: the bed filter reads the tenant's beds over every site in one paged read.
+    http.get(`${BASE}/locations/options`, ({ request }) =>
+      HttpResponse.json(
+        page(
+          [
+            { key: 'loc_b03', name: 'Raised bed 3', site_key: 'site_1', parent_location_key: null },
+            { key: 'loc_b04', name: 'Herb spiral', site_key: 'site_1', parent_location_key: null },
+          ],
+          Object.fromEntries(new URL(request.url).searchParams),
+        ),
+      ),
+    ),
     http.get(`${BASE}/locations`, () =>
       HttpResponse.json([
         { key: 'loc_b03', name: 'Raised bed 3', site_key: 'site_1', location_type_key: 'raised_bed' },

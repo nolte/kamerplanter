@@ -8,6 +8,7 @@ import { server } from '../mocks/server';
 import type {
   PlantInstance,
   PlantInRun,
+  PlantRunSummary,
   PlantingRun,
   Location,
   Tank,
@@ -196,6 +197,10 @@ function makeTemplate(overrides: Partial<TaskTemplate> = {}): TaskTemplate {
 }
 
 // ── Handler seeding ─────────────────────────────────────────────────
+/** Requests for the plants of one run / the locations of one site — both replaced by list projections (#3015). */
+let runPlantReads = 0;
+let locationListReads = 0;
+
 interface Seed {
   plants?: PlantInstance[];
   runs?: PlantingRun[];
@@ -221,18 +226,59 @@ function seed(state: Seed = {}) {
     instantiate = () => HttpResponse.json({ key: 'ex-1' }) as unknown as Response,
   } = state;
 
+  // The plant list names each plant's attached runs (#3015): `runPlants` is served the way the backend does it —
+  // as `planting_runs` on the plant rows — and a run plant missing from `plants` is listed as a plant of its own.
+  const membership = new Map<string, PlantRunSummary[]>();
+  const runPlantRows = new Map<string, PlantInRun>();
+  for (const [runKey, members] of Object.entries(runPlants)) {
+    const run = runs.find((r) => r.key === runKey);
+    for (const member of members) {
+      if (member.detached_at) continue;
+      membership.set(member.key, [
+        ...(membership.get(member.key) ?? []),
+        { key: runKey, name: run?.name ?? runKey, status: run?.status ?? 'active' },
+      ]);
+      runPlantRows.set(member.key, member);
+    }
+  }
+  const plantRows = [...plants];
+  for (const [key, member] of runPlantRows) {
+    if (plantRows.some((p) => p.key === key)) continue;
+    plantRows.push(
+      makePlant({
+        key,
+        instance_id: member.instance_id,
+        plant_name: member.plant_name,
+        species_key: member.species_key,
+        removed_on: member.removed_on,
+      }),
+    );
+  }
+  const servedPlants = plantRows.map((p) => ({ ...p, planting_runs: membership.get(p.key) ?? [] }));
+  runPlantReads = 0;
+  locationListReads = 0;
+
   server.use(
     http.get(PLANTS_URL, () =>
       plantsError
         ? HttpResponse.json({ error_id: 'e', error_code: 'X', message: 'boom', details: [] }, { status: 500 })
-        : HttpResponse.json(plants),
+        : HttpResponse.json(servedPlants),
     ),
     http.get(RUNS_URL, () => HttpResponse.json(runs)),
-    http.get(RUN_PLANTS_URL, ({ params }) =>
-      HttpResponse.json(runPlants[params.key as string] ?? []),
-    ),
+    http.get(RUN_PLANTS_URL, ({ params }) => {
+      runPlantReads += 1;
+      return HttpResponse.json(runPlants[params.key as string] ?? []);
+    }),
     http.get(SITES_URL, () => HttpResponse.json([{ key: 'site-1', name: 'Site 1' }])),
-    http.get(LOCATIONS_URL, () => HttpResponse.json(locations)),
+    http.get(`${LOCATIONS_URL}/options`, () =>
+      HttpResponse.json(
+        locations.map((l) => ({ key: l.key, name: l.name, site_key: 'site-1', parent_location_key: null })),
+      ),
+    ),
+    http.get(LOCATIONS_URL, () => {
+      locationListReads += 1;
+      return HttpResponse.json(locations);
+    }),
     http.get(TANKS_URL, () => HttpResponse.json(tanks)),
     http.get(TEMPLATES_URL, () =>
       templatesError
@@ -386,6 +432,28 @@ describe('WorkflowInstantiateDialog', () => {
     await waitFor(() => expect(onInstantiated).toHaveBeenCalled());
     // Both active plants of run-1 were instantiated.
     expect(posted.sort()).toEqual(['rp-1', 'rp-2']);
+  });
+
+  it('builds the run groups without a request per run or per site (#3015)', async () => {
+    const runCount = 12;
+    seed({
+      plants: [makePlant()],
+      runs: Array.from({ length: runCount }, (_, i) => makeRun({ key: `run-${i}`, name: `Run ${i}` })),
+      runPlants: Object.fromEntries(
+        Array.from({ length: runCount }, (_, i) => [`run-${i}`, [makeRunPlant({ key: `rp-${i}`, instance_id: `RP-${i}` })]]),
+      ),
+      locations: [makeLocation()],
+      templates: [makeTemplate()],
+    });
+    const user = userEvent.setup();
+    renderDialog({ targetEntityTypes: ['plant_instance', 'location'] });
+
+    await screen.findByTestId('workflow-instantiate-dialog');
+    await user.click(screen.getByRole('combobox'));
+    expect(await screen.findByRole('option', { name: /Run 11/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Zone A/ })).toBeInTheDocument();
+    expect(runPlantReads).toBe(0);
+    expect(locationListReads).toBe(0);
   });
 
   it('reports a partial batch when one plant fails', async () => {

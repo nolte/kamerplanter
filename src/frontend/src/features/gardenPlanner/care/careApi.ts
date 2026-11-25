@@ -106,6 +106,15 @@ export async function reopenWithUndo(key: string): Promise<TaskItem> {
   return data;
 }
 
+/**
+ * GP-FR-149 for a whole batch (#3015): reopen every task and void its care line, one request. Each task is decided
+ * like `reopenWithUndo`; the refused ones come back in `failed`, the rest is reopened.
+ */
+export async function reopenTasksWithUndo(keys: readonly string[]): Promise<BatchResult> {
+  const { data } = await tenantClient.post<BatchResult>('/tasks/batch/reopen', { task_keys: keys, undo: true });
+  return data;
+}
+
 /** Reopen a skipped task - the undo of a dismissed suggestion, which has no care line to void. */
 export async function reopenBedTask(key: string): Promise<TaskItem> {
   const { data } = await tenantClient.post<TaskItem>(`${TASKS}/${key}/reopen`, {});

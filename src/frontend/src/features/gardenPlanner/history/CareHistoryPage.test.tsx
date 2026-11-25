@@ -49,27 +49,43 @@ describe('CareHistoryPage', () => {
     expect(within(list).getAllByText('Herb spiral').length).toBeGreaterThan(0);
   });
 
-  it('names the bed of an entry whose site lies beyond the first page of sites (#2764 item 8)', async () => {
-    useHistoryBackend({ careEvents: [careLine('late', { summary: 'Watered late', location_key: 'loc_late' })] });
-    const sites = Array.from({ length: 201 }, (_, index) => ({ key: `site_${index}`, name: `Site ${index}` }));
+  it('names bed 201 from one paged read of the beds, whatever the number of sites (#3015, #2764 item 8)', async () => {
+    useHistoryBackend({ careEvents: [careLine('late', { summary: 'Watered late', location_key: 'bed_200' })] });
+    // 201 beds on 201 sites: the 201st bed is past the first page of beds and on the last of the sites.
+    const beds = Array.from({ length: 201 }, (_, index) => ({
+      key: `bed_${index}`,
+      name: index === 200 ? 'Late bed' : `Bed ${String(index).padStart(3, '0')}`,
+      site_key: `site_${index}`,
+      parent_location_key: null,
+    }));
+    let optionReads = 0;
+    let perSiteReads = 0;
+    let siteReads = 0;
     server.use(
-      http.get(`${BASE}/sites`, ({ request }) => {
+      http.get(`${BASE}/locations/options`, ({ request }) => {
+        optionReads += 1;
         const params = new URL(request.url).searchParams;
+        expect(params.get('is_bed')).toBe('true');
         const offset = Number(params.get('offset') ?? 0);
-        return HttpResponse.json(sites.slice(offset, offset + Number(params.get('limit') ?? 50)));
+        return HttpResponse.json(beds.slice(offset, offset + Number(params.get('limit') ?? 50)));
       }),
-      http.get(`${BASE}/locations`, ({ request }) =>
-        HttpResponse.json(
-          new URL(request.url).searchParams.get('site_key') === 'site_200'
-            ? [{ key: 'loc_late', name: 'Late bed', site_key: 'site_200', location_type_key: 'raised_bed' }]
-            : [],
-        ),
-      ),
+      http.get(`${BASE}/locations`, () => {
+        perSiteReads += 1;
+        return HttpResponse.json([]);
+      }),
+      http.get(`${BASE}/sites`, () => {
+        siteReads += 1;
+        return HttpResponse.json([]);
+      }),
     );
     renderPage();
 
     const list = await screen.findByTestId('care-history-list');
     await waitFor(() => expect(within(list).getByText('Late bed')).toBeInTheDocument());
+    // ceil(201 / 200) pages of beds; no site list and no request per site.
+    expect(optionReads).toBe(2);
+    expect(perSiteReads).toBe(0);
+    expect(siteReads).toBe(0);
   });
 
   it('pages on with "Load more"', async () => {

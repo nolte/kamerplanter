@@ -106,12 +106,15 @@ describe('BatchCompleteDialog', () => {
     expect((first?.body as { task_keys: string[] }).task_keys).toHaveLength(200);
   });
 
-  it('tries every task on undo, reloads whatever the outcome, and still reports a refusal', async () => {
+  it('undoes the whole batch in one request, reloads whatever the outcome, and reports a refusal (#3015)', async () => {
     const backend = useCareBackend([careTask('t1'), careTask('t2')]);
     server.use(
-      http.post(`${BASE}/tasks/t2/reopen`, async ({ request }) => {
-        backend.seen.push({ url: '/tasks/t2/reopen', body: await request.json() });
-        return HttpResponse.json({ detail: 'too late' }, { status: 403 });
+      http.post(`${BASE}/tasks/batch/reopen`, async ({ request }) => {
+        backend.seen.push({ url: '/tasks/batch/reopen', body: await request.json() });
+        return HttpResponse.json({
+          succeeded: ['t1'],
+          failed: [{ key: 't2', error: 'too late', code: 'FORBIDDEN' }],
+        });
       }),
     );
     const onChanged = vi.fn();
@@ -122,8 +125,12 @@ describe('BatchCompleteDialog', () => {
     const undo = await screen.findByTestId('care-undo');
     const before = onChanged.mock.calls.length;
     await user.click(undo);
-    await waitFor(() => expect(backend.seen.filter((call) => call.url.endsWith('/reopen'))).toHaveLength(2));
+
+    expect(await screen.findByText('1 reopened, 1 could not be undone.')).toBeInTheDocument();
     await waitFor(() => expect(onChanged.mock.calls.length).toBeGreaterThan(before));
+    const reopenCalls = backend.seen.filter((call) => call.url.endsWith('/reopen'));
+    // One request for the batch, none per task: 200 single reopens ran into the limit of 120 per minute.
+    expect(reopenCalls).toEqual([{ url: '/tasks/batch/reopen', body: { task_keys: ['t1', 't2'], undo: true } }]);
   });
 
   it('needs at least one bed', async () => {

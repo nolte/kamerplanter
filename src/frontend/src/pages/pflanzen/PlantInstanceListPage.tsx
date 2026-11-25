@@ -22,10 +22,9 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchAllPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { useTableUrlState } from '@/hooks/useTableState';
-import type { PlantInstance, Species, Cultivar, Site, Location, Slot } from '@/api/types';
+import type { PlantInstance, Species, Cultivar, Site, LocationOption, Slot } from '@/api/types';
 import { listCultivars } from '@/api/endpoints/species';
-import { listAllSites, listLocations, getSlot } from '@/api/endpoints/sites';
-import { listAllPlantingRuns, listRunPlants } from '@/api/endpoints/plantingRuns';
+import { listAllSites, listAllLocationOptions, getSlot } from '@/api/endpoints/sites';
 import MobileCard from '@/components/common/MobileCard';
 import PlantInstanceCreateDialog, { type PlantInstanceDuplicateData } from './PlantInstanceCreateDialog';
 import SurvivalStatsPanel from './SurvivalStatsPanel';
@@ -68,9 +67,19 @@ export default function PlantInstanceListPage() {
   }, [speciesCatalogue.items]);
   const [cultivarMap, setCultivarMap] = useState<Map<string, Cultivar>>(new Map());
   const [siteMap, setSiteMap] = useState<Map<string, Site>>(new Map());
-  const [locationMap, setLocationMap] = useState<Map<string, Location>>(new Map());
+  const [locationMap, setLocationMap] = useState<Map<string, LocationOption>>(new Map());
   const [slotMap, setSlotMap] = useState<Map<string, Slot>>(new Map());
-  const [plantRunMap, setPlantRunMap] = useState<Map<string, { runKey: string; runName: string }>>(new Map());
+  // Each row's run comes with the row (#3015): the list route resolves `planting_runs` for a whole page in one
+  // read. The page used to read the plants of every run of the tenant — one request per run — to build this map.
+  // The newest attached run labels the row, as the run detail is where the full membership is shown.
+  const plantRunMap = useMemo(() => {
+    const map = new Map<string, { runKey: string; runName: string }>();
+    for (const p of items) {
+      const run = p.planting_runs?.[0];
+      if (run) map.set(p.key, { runKey: run.key, runName: run.name });
+    }
+    return map;
+  }, [items]);
   const tableState = useTableUrlState({ defaultSort: { column: 'plantedOn', direction: 'desc' } });
   // REQ-003 G1 — survival / failure-cause analytics. Re-fetched whenever a
   // complete load of the instance list landed (mount, create) so the panel stays
@@ -79,9 +88,9 @@ export default function PlantInstanceListPage() {
   const { stats: survivalStats, loading: survivalStatsLoading } = useSurvivalStats(loadedGeneration);
 
   // Every enrichment read below goes through one limiter per page (#3032): the
-  // per-key fan-out (a slot per plant, the plants of every run, the locations of
-  // every site) used to fire all at once — hundreds of requests on a large tenant —
-  // and the browser queued the route chunk of a row click behind them, so the
+  // per-key fan-out (a slot per plant, a cultivar list per species; until #3015 also
+  // the plants of every run and the locations of every site) used to fire all at
+  // once — hundreds of requests on a large tenant — and the browser queued the route chunk of a row click behind them, so the
   // detail page could not render for as long as the queue took. Each effect aborts
   // its queued reads when it re-runs or the page unmounts.
   const [enrichmentLimiter] = useState(() => createRequestLimiter(ENRICHMENT_CONCURRENCY));
@@ -90,68 +99,28 @@ export default function PlantInstanceListPage() {
     dispatch(fetchAllPlantInstances());
     const controller = new AbortController();
     const { signal } = controller;
-    // Load sites + all locations
+    // Sites and every location of the tenant: two paged reads, independent of the number of sites (#3015). The
+    // locations used to be read once per site. Both only label rows: a failure leaves the columns on their keys.
     listAllSites().then((sites) => {
-      if (signal.aborted) return null;
+      if (signal.aborted) return;
       const sm = new Map<string, Site>();
       for (const s of sites) sm.set(s.key, s);
       setSiteMap(sm);
-      return Promise.all(
-        sites.map((s) =>
-          enrichmentLimiter
-            .run(() => listLocations(s.key), signal)
-            .catch((err: unknown) => {
-              // Location names only label rows; a site whose locations fail shows its rows without them.
-              logEnrichmentFailure(err, 'PlantInstanceListPage.locations');
-              return [] as Location[];
-            }),
-        ),
-      );
-    }).then((results) => {
-      if (results === null || signal.aborted) return;
-      const lm = new Map<string, Location>();
-      for (const locs of results) {
-        for (const l of locs) lm.set(l.key, l);
-      }
+    }).catch((err: unknown) => {
+      // Display enrichment only: the site part of the location column stays empty; the plants come from the store.
+      captureHandledError(err, { source: 'PlantInstanceListPage.siteNames' });
+    });
+    enrichmentLimiter.run(() => listAllLocationOptions(), signal).then((locations) => {
+      if (signal.aborted) return;
+      const lm = new Map<string, LocationOption>();
+      for (const l of locations) lm.set(l.key, l);
       setLocationMap(lm);
     }).catch((err: unknown) => {
-      // Display enrichment only: site and location columns show keys; the plants come from the store.
-      captureHandledError(err, { source: 'PlantInstanceListPage.locationNames' });
+      // Display enrichment only: the location column shows no name; a read dropped on unmount is no failure.
+      logEnrichmentFailure(err, 'PlantInstanceListPage.locationNames');
     });
     return () => controller.abort();
   }, [dispatch, enrichmentLimiter]);
-
-  // Load plant→run mapping
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-    listAllPlantingRuns().then(async (runs) => {
-      const map = new Map<string, { runKey: string; runName: string }>();
-      const results = await Promise.all(
-        runs.map((r) =>
-          enrichmentLimiter
-            .run(() => listRunPlants(r.key), signal)
-            .then((plants) => ({ run: r, plants }))
-            .catch((err: unknown) => {
-              // A run whose plants fail to load leaves its rows without the run label.
-              logEnrichmentFailure(err, 'PlantInstanceListPage.runPlants');
-              return { run: r, plants: [] as { key: string }[] };
-            }),
-        ),
-      );
-      if (signal.aborted) return;
-      for (const { run, plants } of results) {
-        for (const p of plants) {
-          map.set(p.key, { runKey: run.key, runName: run.name });
-        }
-      }
-      setPlantRunMap(map);
-    }).catch((err: unknown) => {
-      // Display enrichment only: the run column stays empty; the plants themselves come from the store.
-      captureHandledError(err, { source: 'PlantInstanceListPage.runMap' });
-    });
-    return () => controller.abort();
-  }, [enrichmentLimiter]);
 
   // Load cultivars for species that have instances with cultivar_key. Both
   // enrichments wait for the complete list: while pages still arrive, `items`

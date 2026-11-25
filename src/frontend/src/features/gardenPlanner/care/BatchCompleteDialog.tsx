@@ -26,7 +26,7 @@ import { useTheme } from '@mui/material/styles';
 import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import type { BedListItem } from '../bed/types';
-import { completeTasksBatch, getBedQueue, reopenWithUndo } from './careApi';
+import { completeTasksBatch, getBedQueue, reopenTasksWithUndo } from './careApi';
 import { categoriesFor, formKindOf } from './careCategories';
 import { buildCompletionPayload, defaultUnit, emptyForm, validateForm, type CareFormState } from './careForm';
 import CareFormFields from './CareFormFields';
@@ -122,12 +122,13 @@ export default function BatchCompleteDialog({ beds, onClose, onChanged }: BatchC
         offerUndo({
           message: t('pages.bed.care.undo.batch', { count: result.succeeded.length }),
           undo: async () => {
-            // Every task is tried; the list reloads whatever the outcome, and a refusal is still reported.
-            const outcomes = await Promise.allSettled(result.succeeded.map((key) => reopenWithUndo(key)));
-            const refused = outcomes.find((outcome) => outcome.status === 'rejected');
-            if (refused) {
-              onChanged();
-              throw (refused as PromiseRejectedResult).reason;
+            // One request for the whole batch (#3015) — it used to be one reopen per task, up to 200 against a
+            // limit of 120 per minute. Every task is tried; a refusal is reported and the list reloads either way.
+            const undone = await reopenTasksWithUndo(result.succeeded);
+            if (undone.failed.length > 0) {
+              notification.warning(
+                t('pages.bed.care.batch.undoPartial', { done: undone.succeeded.length, failed: undone.failed.length }),
+              );
             }
           },
           onUndone: onChanged,
