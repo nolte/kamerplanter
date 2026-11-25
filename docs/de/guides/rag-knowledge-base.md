@@ -188,7 +188,7 @@ chunks:
 
 ## Wissensbasis reindexieren (Operator/Entwickler)
 
-Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müssen die Vektoren in der VectorDB (pgvector) neu berechnet werden. Es gibt **keinen automatischen Zeitplan** dafür — der Reindex muss nach jeder inhaltlichen Änderung manuell über den Knowledge-Service angestoßen werden.
+Nach Änderungen an den Knowledge-YAML-Dateien unter `spec/knowledge/rag/` müssen die Vektoren in der VectorDB (pgvector) neu berechnet werden. Celery Beat stößt den Reindex einmal pro Woche an (sonntags um 03:00, Task `ai.knowledge_service_ingest`, nur wenn der Knowledge-Service aktiviert ist). Willst du eine Änderung sofort sehen, löst du den Reindex wie unten beschrieben von Hand über den Knowledge-Service aus.
 
 ### Voraussetzungen
 

@@ -188,7 +188,7 @@ chunks:
 
 ## Reindexing the Knowledge Base (Operator/Developer)
 
-After modifying knowledge YAML files under `spec/knowledge/rag/`, the vectors in the VectorDB (pgvector) must be recomputed. There is **no automatic schedule** for this — the reindex must be triggered manually against the Knowledge Service after every content change.
+After modifying knowledge YAML files under `spec/knowledge/rag/`, the vectors in the VectorDB (pgvector) must be recomputed. Celery Beat triggers the reindex once a week (Sundays at 03:00, task `ai.knowledge_service_ingest`, only when the Knowledge Service is enabled). To see a change right away, trigger the reindex manually against the Knowledge Service as described below.
 
 ### Prerequisites
 
