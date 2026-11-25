@@ -1,9 +1,8 @@
 """Tests for the notification-write counter (``scripts/check_notification_write_boundary.py``).
 
 **What is under test.** The detection logic against **constructed** trees in
-``tmp_path``, plus one ratchet that reads the real tree through a named register
-rather than a number — the same split as
-``test_recurrence_boundary_check.py``, and for the same reason.
+``tmp_path``, plus a ratchet that holds the real tree at a ceiling of zero
+undeclared writes (F-8 drove the phase-0 register to empty and retired it).
 
 **The receiver-resolution test is the one that matters.** ``self._repo`` is a
 notification repository in ``notification_propagation_service.py`` and a *task*
@@ -322,35 +321,25 @@ class TestTheTreeContract:
 # ── The ratchet, against the real tree ───────────────────────────────────────
 
 
-#: Every notification write the backend still makes outside
-#: ``NotificationPropagationService`` **without** declaring its write class.
+#: The ceiling for ADR-008 phase-0 (b) — notification writes outside
+#: ``NotificationPropagationService`` that declare no write class — is **zero**.
 #:
-#: **This is the phase-0 (b) baseline of ADR-008**, and it is short — which is
-#: the finding, not an oversight. Six of the seven writes outside the owner are
-#: event materialisation (``NotificationEngine``) or a user acting on their own
-#: row (``NotificationService``), both named outside the boundary by the phase-0
-#: counting definition; they carry their declaration at the site.
+#: Phase 0 measured one such site: ``NotificationEngine.escalate_overdue`` stamping
+#: ``escalation_level`` back onto the existing care row. Feature F-8 moved that
+#: stamp behind ``NotificationPropagationService.on_notification_escalated``, and
+#: the per-site register that pinned it (``_KNOWN_OPEN``) retired with it. What
+#: is left is not a register that could be re-filled but a ceiling: one new
+#: undeclared write anywhere under ``src/backend/app`` turns this suite red.
 #:
-#: **What this register does NOT measure, and phase 2 must:** the propagation
-#: that never happens. This counts writes made in the wrong place; the #742/#769
-#: class is a source mutation with *no* notification call at all, which no
-#: scanner of this shape can see. See
-#: ``.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md`` §"Was der Scan
-#: nicht sieht" for the hand-found candidates.
+#: **What this ceiling does NOT measure:** the propagation that never happens. It
+#: counts writes made in the wrong place; the #742/#769 class is a source
+#: mutation with *no* notification call at all, which no scanner of this shape
+#: can see. Those edges are pinned by F-8's pairing tests, not by this counter
+#: (``.audits/adr-008-phase-0-inventory/2026-09-01-inventory.md`` §4.2).
 #:
-#: Same two ratchet properties as the recurrence register, and the same
-#: departure from NFR-018 §2.1 for the same reason (a per-site register has no
-#: shared line to collide on, and it cannot go quietly stale).
-_KNOWN_OPEN: dict[str, tuple[int, str]] = {
-    "src/backend/app/domain/engines/notification_engine.py::escalate_overdue::self._notification_repo.update": (
-        1,
-        "The overdue-watering escalation stamps `escalation_level` back onto the *existing* "
-        "care notification — a row NotificationPropagationService also owns and writes via the "
-        "same care `group_key`. Two writers on one row is the #548 shape, and the reason this "
-        "one is debt rather than an `event` declaration: the row is not being born here, it is "
-        "being followed. Phase 2 moves it behind the propagation service.",
-    ),
-}
+#: Wiring the same scanner as a pre-commit hook in the required ``static`` lane
+#: is ADR-008 phase 4 (feature F-10); until then the ceiling holds here.
+_CEILING = 0
 
 
 def _real_tree_sites() -> list:
@@ -361,56 +350,38 @@ def _real_tree_sites() -> list:
 
 
 class TestTheRatchet:
-    """The ADR-008 phase-0 (b) baseline, as a register that must shrink to nothing."""
+    """The ADR-008 phase-0 (b) count, held at zero after F-8."""
 
-    def test_no_notification_write_arrives_outside_the_register(self) -> None:
-        counted: dict[str, int] = {}
-        for site in _real_tree_sites():
-            counted[site.identity()] = counted.get(site.identity(), 0) + 1
+    def test_no_undeclared_notification_write_exists_outside_the_owner(self) -> None:
+        """Every write outside the owner declares ``event`` / ``user-action`` — or it is red.
 
-        arrived = {
-            identity: count for identity, count in counted.items() if count > _KNOWN_OPEN.get(identity, (0, ""))[0]
-        }
-        assert not arrived, (
-            "New notification write(s) outside NotificationPropagationService (ADR-008 "
-            "boundary 3): "
-            + "; ".join(f"{identity} (now {count})" for identity, count in sorted(arrived.items()))
+        The same set the scanner's gate mode reports, so a stale or unknown-class
+        declaration fails here too, not only a bare write.
+        """
+        open_sites = _real_tree_sites()
+        assert len(open_sites) <= _CEILING, (
+            f"{len(open_sites)} notification write(s) outside NotificationPropagationService "
+            f"(ADR-008 boundary 3, ceiling {_CEILING}): "
+            + "; ".join(f"{site.relative()}:{site.line} [{site.kind}] {site.identity()}" for site in open_sites)
             + ". Route the write through the propagation service, or declare its class at the "
             "site ('# notification-write-ok: event|user-action: <reason>'). Run "
             "`task check:notification-write-boundary -- --inventory` to see the full picture."
         )
 
-    def test_a_healed_entry_must_leave_the_register(self) -> None:
-        counted: dict[str, int] = {}
-        for site in _real_tree_sites():
-            counted[site.identity()] = counted.get(site.identity(), 0) + 1
+    def test_the_ceiling_is_zero(self) -> None:
+        """Raising the ceiling is not a way to land a new write; it reopens a closed boundary."""
+        assert _CEILING == 0
 
-        healed = {
-            identity: (registered, counted.get(identity, 0))
-            for identity, (registered, _) in _KNOWN_OPEN.items()
-            if counted.get(identity, 0) < registered
-        }
-        assert not healed, (
-            "These entries no longer describe the tree and must be removed from _KNOWN_OPEN "
-            "(or their count lowered): "
-            + "; ".join(
-                f"{identity} (registered {was}, found {now})" for identity, (was, now) in sorted(healed.items())
-            )
-            + ". A register that outlives its debt stops being evidence of anything."
-        )
+    def test_the_former_debt_site_is_routed_through_the_owner(self) -> None:
+        """The phase-0 site b1 left the engine for the owner — not by gaining a declaration.
 
-    def test_the_register_retires_itself_when_the_debt_is_gone(self) -> None:
-        """The obsolescence rule ADR-008 phase 2 exits on.
-
-        Reaching zero here is **not** the same as "every edge is wired" — see the
-        register's note. It means no caller reaches around the owner; the missing
-        edges are F-8's pairing tests to prove, not this counter's.
+        A declaration at ``escalate_overdue`` would also take the count to zero and
+        would be the wrong repair: the stamp follows an existing row, which the
+        inventory classified as a propagation write. Pinned so that shortcut fails.
         """
-        assert _KNOWN_OPEN, (
-            "The phase-0 (b) baseline is empty: no undeclared notification write outside "
-            "NotificationPropagationService remains. Delete this register and its two tests "
-            "above, and wire scripts/check_notification_write_boundary.py into "
-            ".pre-commit-config.yaml as a hook in the required `static` lane (ADR-008 phase 4 / "
-            "feature F-10). Leaving an empty register in place would be a gate that can no "
-            "longer fail — and remember it never covered the missing-edge half."
-        )
+        sites = [
+            site
+            for site in checker.collect(find_repo_root(Path(__file__).resolve()) / checker.DEFAULT_SCAN_ROOT)
+            if site.function == "escalate_overdue"
+        ]
+        assert sites == [], [f"{site.relative()}:{site.line} {site.detail}" for site in sites]

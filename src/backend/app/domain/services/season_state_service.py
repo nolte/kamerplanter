@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from app.common.enums import SeasonPhase
+from app.common.enums import ReminderType, SeasonPhase
 from app.common.exceptions import NotFoundError, SeasonStateUnavailableError
 from app.common.log_privacy import loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
@@ -200,14 +200,14 @@ class SeasonStateService:
                 self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.WINTER_DORMANCY:
             for plant in self._active_plants(site):
-                self._safe(self._enter_dormancy, plant.key, plant_key=plant.key)
+                self._safe(self._enter_dormancy, plant.key, site.tenant_key, plant_key=plant.key)
                 # ADR-006 E3 — also drive the biological growth phase to dormancy for
                 # effectively-perennial plants (not just the care mode above).
                 if self._phase_coupler is not None:
                     self._safe(self._phase_coupler.enter_dormancy, plant, plant_key=plant.key)
         elif to_phase == SeasonPhase.PRE_SPRING:
             for plant in self._active_plants(site):
-                self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
+                self._safe(self._leave_dormancy, plant.key, site.tenant_key, plant_key=plant.key)
                 # ADR-006 E3 — restart the perennial growth-phase cycle in lockstep
                 # with the season's spring reactivation (not two decoupled cycles).
                 if self._phase_coupler is not None:
@@ -215,27 +215,43 @@ class SeasonStateService:
                 self._safe(seasonal_tasks, plant.key or "", to_phase, plant_key=plant.key)
         elif to_phase == SeasonPhase.GROWING:
             for plant in self._active_plants(site):
-                self._safe(self._leave_dormancy, plant.key, plant_key=plant.key)
+                self._safe(self._leave_dormancy, plant.key, site.tenant_key, plant_key=plant.key)
 
-    def _enter_dormancy(self, plant_key: str) -> None:
+    def _enter_dormancy(self, plant_key: str, tenant_key: str) -> None:
         persisted = self._overwintering_repo.get_profile_by_plant_key(plant_key)
         # Reuse the persisted per-instance profile when present; only fall back to the
         # shared species-template adapter when there is none (no double read). The
         # public resolver keeps the N:1 template logic encapsulated (C3).
         profile = persisted if persisted is not None else self._care_service.resolve_overwintering_profile(plant_key)
-        self._dormancy.activate(plant_key, profile)
+        switched = self._dormancy.activate(plant_key, profile)
         if persisted is not None and persisted.key:
             self._overwintering_repo.update_profile(
                 persisted.key, persisted.model_copy(update={"dormancy_care_active": True})
             )
+        if switched is not None:
+            self._redetermine_watering(plant_key, tenant_key)
 
-    def _leave_dormancy(self, plant_key: str) -> None:
-        self._dormancy.deactivate(plant_key)
+    def _leave_dormancy(self, plant_key: str, tenant_key: str) -> None:
+        switched = self._dormancy.deactivate(plant_key)
         persisted = self._overwintering_repo.get_profile_by_plant_key(plant_key)
         if persisted is not None and persisted.key and persisted.dormancy_care_active:
             self._overwintering_repo.update_profile(
                 persisted.key, persisted.model_copy(update={"dormancy_care_active": False})
             )
+        if switched is not None:
+            self._redetermine_watering(plant_key, tenant_key)
+
+    def _redetermine_watering(self, plant_key: str, tenant_key: str) -> None:
+        """The dormancy-care switch changed the watering cadence: move the open task now (F-8 AC-4).
+
+        Entering or leaving the dormancy-care regime changes what
+        ``CareReminderEngine._get_interval_days`` answers for watering (REQ-047
+        §3.5). Without this call the open watering task kept the pre-switch date —
+        and its in-app note with it — until it was completed (ADR-008 F-8, R4). The
+        care service retimes the task and its notification in one step, and only
+        when the date actually moved.
+        """
+        self._care_service.redetermine_open_care_task(plant_key, ReminderType.WATERING, tenant_key=tenant_key)
 
     def _site_has_frost_exposure(self, site: Site) -> bool:
         """Whether the site qualifies for a season state (Issue #713).

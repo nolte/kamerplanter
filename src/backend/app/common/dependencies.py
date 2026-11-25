@@ -2483,6 +2483,7 @@ def get_notification_service() -> NotificationService:
         channel_registry=NotificationChannelRegistry,
         redis_client=_get_redis_client(),
         user_repo=get_user_repo(),
+        propagation=get_notification_propagation_service(),
     )
     return NotificationService(
         engine=engine,

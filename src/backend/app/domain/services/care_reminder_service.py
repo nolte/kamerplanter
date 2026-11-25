@@ -778,19 +778,7 @@ class CareReminderService:
         if task is not None:
             if task.status != TaskStatus.PENDING:
                 return
-            due_dt, instruction = self._compute_care_reschedule(profile, reminder_type, plant_key)
-            if due_dt is None:
-                return
-            task.due_date = due_dt
-            if instruction is not None:
-                task.instruction = instruction
-            self._task_repo.update_task(task.key or "", task)
-            # #742 — the in-app care notification follows the new cycle (single entry).
-            # The occurrence itself is unchanged (only its date moved), so the note is
-            # retimed in place and keeps whatever read state the user gave it (#769).
-            self._propagate_care_reschedule(
-                profile, reminder_type, tenant_key, user_key, due_dt, task.key, announces_new_task=False
-            )
+            self._retime_care_task(profile, reminder_type, task, tenant_key=tenant_key, user_key=user_key)
             return
 
         # No pending task to re-terminate. Only the opted-in watering path creates
@@ -812,6 +800,97 @@ class CareReminderService:
                     created.key,
                     announces_new_task=True,
                 )
+
+    def _retime_care_task(
+        self,
+        profile: CareProfile,
+        reminder_type: ReminderType,
+        task: Task,
+        *,
+        tenant_key: str,
+        user_key: str,
+        only_if_changed: bool = False,
+    ) -> bool:
+        """Move a pending care task to the cadence *profile* now yields — and its note with it.
+
+        The two halves are one step on purpose (#622 + #742, ADR-008 F-8): the task's
+        due date and its in-app care notification move in the same call, so no
+        caller can retime the one and forget the other.
+
+        Args:
+            only_if_changed: Skip both writes when the recomputed due date and
+                instruction equal the stored ones. An engine-driven redetermination
+                fires on every season transition, most of which leave the cadence
+                alone; an explicit interval edit always writes (its prior behaviour).
+
+        Returns:
+            Whether the task was retimed.
+        """
+        if self._task_repo is None:
+            return False
+        due_dt, instruction = self._compute_care_reschedule(profile, reminder_type, profile.plant_key)
+        if due_dt is None:
+            return False
+        new_instruction = instruction if instruction is not None else task.instruction
+        if only_if_changed and task.due_date == due_dt and task.instruction == new_instruction:
+            return False
+        task.due_date = due_dt
+        task.instruction = new_instruction
+        self._task_repo.update_task(task.key or "", task)
+        # #742 — the in-app care notification follows the new cycle (single entry).
+        # The occurrence itself is unchanged (only its date moved), so the note is
+        # retimed in place and keeps whatever read state the user gave it (#769).
+        self._propagate_care_reschedule(
+            profile, reminder_type, tenant_key, user_key, due_dt, task.key, announces_new_task=False
+        )
+        return True
+
+    def redetermine_open_care_task(
+        self,
+        plant_key: str,
+        reminder_type: ReminderType,
+        *,
+        tenant_key: str,
+    ) -> Task | None:
+        """Retime the plant's open care task after an ENGINE-driven interval change (F-8 AC-4).
+
+        The interval edit by a user (:meth:`update_profile`) has always retimed the
+        pending task and its notification. A cadence that changes *without* a user —
+        the REQ-047 season state machine switching the plant into or out of the
+        dormancy-care regime, which :meth:`CareReminderEngine._get_interval_days`
+        reads — left the open task on the old date until it was completed, and its
+        notification with it. This is that edge: the caller has just changed what
+        the engine answers, and the open task and its note follow in the same pass.
+
+        Only a ``PENDING`` task is moved (an ``IN_PROGRESS`` one is being worked
+        on); no task is created — materialising the next occurrence stays with the
+        daily producer. The notification is retimed in place and keeps its
+        recipient and read state; with no existing note there is nothing to follow
+        and none is created.
+
+        ``tenant_key`` is keyword-only without a default (#2107): a plant the tenant
+        does not own — or an empty tenant — retimes nothing.
+
+        Returns:
+            The retimed task, or ``None`` when nothing was written.
+        """
+        if self._task_repo is None or self._owned_plant(plant_key, tenant_key) is None:
+            return None
+        profile = self._repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+        task = self._task_repo.find_open_care_task(
+            plant_key,
+            reminder_type,
+            tenant_key,
+            include_completed_today=False,
+        )
+        if task is None or task.status != TaskStatus.PENDING:
+            return None
+        retimed = self._retime_care_task(
+            profile, reminder_type, task, tenant_key=tenant_key, user_key="", only_if_changed=True
+        )
+        return task if retimed else None
 
     def _propagate_care_reschedule(
         self,

@@ -23,6 +23,7 @@ from app.domain.models.notification import (
     NotificationUrgency,
     QuietHoursPreference,
 )
+from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 logger = structlog.get_logger()
 
@@ -58,12 +59,18 @@ class NotificationEngine:
         redis_client: object,
         *,
         user_repo: IUserRepository,
+        propagation: NotificationPropagationService | None = None,
     ) -> None:
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
         self._channel_registry = channel_registry
         self._user_repo = user_repo
         self._redis = redis_client
+        # ADR-008 boundary 3 (F-8): a write that follows an existing row — the
+        # escalation stamp — goes through the propagation owner. Defaulting to one
+        # over the same repository keeps every construction site on that path; no
+        # engine instance can be built that writes the row directly.
+        self._propagation = propagation or NotificationPropagationService(notification_repo)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -309,16 +316,27 @@ class NotificationEngine:
                     parent_notification_key=notif.key,
                 )
 
+                # Claim the level on the escalated row FIRST, through the owner of
+                # that row (ADR-008 boundary 3, F-8). The stamp is a propagation
+                # write — the row already exists and follows the escalation — so it
+                # is not this engine's to make. Claiming before sending makes the
+                # escalation idempotent (a second or concurrent run finds the level
+                # reached and sends nothing) and fail-closed per tenant: a row of
+                # another tenant than this run's is refused and escalated in its own
+                # tenant's run instead.
+                claimed = self._propagation.on_notification_escalated(
+                    notif,
+                    tenant_key=tenant_key,
+                    escalation_level=level + 1,
+                )
+                if not claimed:
+                    continue
+
                 await self.notify(
                     user_key=notif.user_key,
                     tenant_key=notif.tenant_key,
                     notification=escalation_notif,
                 )
-
-                # Update original notification escalation level
-                notif.escalation_level = level + 1
-                if notif.key:
-                    self._notification_repo.update(notif.key, notif)
 
                 escalated_count += 1
 

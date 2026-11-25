@@ -37,9 +37,10 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
     #:
     #: * ``NotificationPropagationService._update_single`` — ``_safe_lookup`` then
     #:   attribute assignment on the loaded row.
-    #: * ``NotificationEngine.escalate_overdue`` — iterates
-    #:   ``find_overdue_watering``'s rows and writes ``notif.escalation_level`` back
-    #:   onto the very model it read.
+    #: * ``NotificationPropagationService.on_notification_escalated`` — the
+    #:   overdue escalation's stamp; re-reads the row by key, raises
+    #:   ``escalation_level`` on the stored model and writes it back (moved out of
+    #:   ``NotificationEngine.escalate_overdue`` by ADR-008 F-8).
     #:
     #: ``mark_read``/``mark_acted`` are hand-written AQL ``UPDATE ... WITH``
     #: statements and set their field explicitly; every other engine path only

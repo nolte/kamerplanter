@@ -5,7 +5,8 @@ This service closes the *reverse* gap: when the **source** of a notification
 changes — a task is moved, reassigned, completed or deleted, or a care reminder's
 cycle is edited or confirmed — the associated in-app notification must follow
 synchronously (updated, marked done or removed), without creating duplicates or
-leaving orphans.
+leaving orphans. The overdue escalation's stamp on the escalated row is the same
+kind of write and lives here too (:meth:`on_notification_escalated`, ADR-008 F-8).
 
 Design (why here / why sync):
 
@@ -331,6 +332,12 @@ class NotificationPropagationService:
             )
             return
 
+        # Nobody to address: a background retiming (no acting user) follows an
+        # existing note but never invents one — the repository refuses a row
+        # without a recipient anyway (MT-045.8).
+        if not user_key:
+            return
+
         self._create(
             Notification(
                 tenant_key=tenant_key,
@@ -358,6 +365,68 @@ class NotificationPropagationService:
             return
         group_key = _care_group_key(reminder_type, plant_key)
         self._mark_group_done(self._safe_lookup(group_key, tenant_key))
+
+    # ── Escalation hook ───────────────────────────────────────────────
+
+    def on_notification_escalated(
+        self,
+        notification: Notification,
+        *,
+        tenant_key: str,
+        escalation_level: int,
+    ) -> bool:
+        """Follow an overdue escalation onto the escalated row (ADR-008 boundary 3, F-8).
+
+        The overdue-watering escalation (:meth:`NotificationEngine.escalate_overdue`)
+        sends a *new* escalation notification — an event, born in the engine — and
+        has to record on the **existing** care row that this level has been reached,
+        so the next run does not escalate the same level again. That second write
+        follows a change instead of creating one: it is a propagation write, and the
+        row it lands on is the same ``care.*`` row :meth:`sync_care_notification`
+        maintains. One owner per row is why it lives here (the #548 two-writers shape).
+
+        The stamp is the **claim** of the escalation: the engine only sends the
+        escalation notification when this method returns ``True``.
+
+        * **Idempotent.** The stored row is re-read and the level only ever rises; a
+          second run — or a concurrent one that read the same stale row — finds the
+          level already reached, writes nothing and returns ``False``, so the
+          escalation is sent once.
+        * **Fail-closed per tenant.** An empty ``tenant_key``, a row without a key,
+          or a row (as passed in or as stored) of another tenant writes nothing and
+          returns ``False`` — never a cross-tenant write.
+
+        Returns:
+            ``True`` when the level was stamped and the escalation may be sent,
+            ``False`` when nothing was written.
+        """
+        if not tenant_key or not notification.key or notification.tenant_key != tenant_key:
+            return False
+        try:
+            stored = self._repo.get(notification.key)
+        except Exception:
+            logger.warning("notification_propagation_lookup_failed", key=notification.key)
+            return False
+        if stored is None or stored.tenant_key != tenant_key or not stored.key:
+            return False
+        if stored.escalation_level >= escalation_level:
+            return False
+
+        # A full-model write that starts from the stored row (the repository's
+        # ``_update_is_full_replace`` contract): nothing it never read is lost.
+        stored.escalation_level = escalation_level
+        for attempt in (1, 2):
+            try:
+                self._repo.update(stored.key, stored)
+                return True
+            except WriteConflictError:
+                if attempt == 1:
+                    continue
+                logger.warning("notification_propagation_escalation_conflict", key=stored.key, attempts=attempt)
+            except NotFoundError:
+                logger.info("notification_propagation_update_vanished", key=stored.key)
+                return False
+        return False
 
     # ── Internal helpers ──────────────────────────────────────────────
 
