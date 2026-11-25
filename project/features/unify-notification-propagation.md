@@ -50,17 +50,17 @@ Bestandsverhalten zertifiziert.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Die F-6-Zählung (b) — Propagations-Writes außerhalb des `NotificationPropagationService` gemäß Schreibklassen-Definition — steht auf null.
-- [ ] **acceptance-2** Auf jeder neu gerouteten Kante gilt die `group_key`-Idempotenz: ein doppelter Propagationslauf erzeugt keine zweite Benachrichtigung (Test je Kante).
-- [ ] **acceptance-3** Auf jeder neu gerouteten Kante gilt fail-closed je Mandant: ohne auflösbaren Tenant wird nichts geschrieben (Test je Kante).
-- [ ] **acceptance-4** Eine ENGINE-getriebene Intervall-Neubestimmung (Saison, Phasenübergang, adaptiv) terminiert die offene Aufgabe sofort um UND zieht die Benachrichtigung im selben Zug nach; der Test schlägt fehl, wenn eine der beiden Hälften fehlt (R4, #622+#742-Regressionspaar auf den Engine-Kanten).
+- [x] **acceptance-1** Die F-6-Zählung (b) — Propagations-Writes außerhalb des `NotificationPropagationService` gemäß Schreibklassen-Definition — steht auf null.
+- [x] **acceptance-2** Auf jeder neu gerouteten Kante gilt die `group_key`-Idempotenz: ein doppelter Propagationslauf erzeugt keine zweite Benachrichtigung (Test je Kante).
+- [x] **acceptance-3** Auf jeder neu gerouteten Kante gilt fail-closed je Mandant: ohne auflösbaren Tenant wird nichts geschrieben (Test je Kante).
+- [x] **acceptance-4** Eine ENGINE-getriebene Intervall-Neubestimmung (Saison, Phasenübergang, adaptiv) terminiert die offene Aufgabe sofort um UND zieht die Benachrichtigung im selben Zug nach; der Test schlägt fehl, wenn eine der beiden Hälften fehlt (R4, #622+#742-Regressionspaar auf den Engine-Kanten).
 
 ## Test hooks
 
-- **acceptance-1** — F-6-Scanner im Count-Modus: (b) == 0 — pending
-- **acceptance-2** — Unit-Tests Idempotenz je neuer Kante (Doppellauf → 1 Notification) — pending
-- **acceptance-3** — Unit-Tests fail-closed je neuer Kante — pending
-- **acceptance-4** — Service-Test Engine-Neubestimmung → Task-Retiming + Notification-Nachzug, mit Beide-Hälften-Assertion — pending
+- **acceptance-1** — F-6-Scanner im Gate-Modus grün (`python3 scripts/check_notification_write_boundary.py`: 0 offen, 6 deklariert); Decke 0 in `src/backend/tests/unit/test_notification_write_boundary_check.py::TestTheRatchet` (`_CEILING = 0`, Register `_KNOWN_OPEN` aufgelöst) — proven 2026-11-25
+- **acceptance-2** — Eskalationskante: `tests/unit/domain/services/test_notification_escalation_propagation.py::TestEscalationRunIsIdempotent`; Saison-/Ruhephasenkante: `tests/unit/domain/services/test_season_dormancy_redetermines_open_care_task.py::test_a_repeated_transition_leaves_one_note_and_writes_the_task_once` — proven 2026-11-25
+- **acceptance-3** — Eskalationskante: `test_notification_escalation_propagation.py::TestEscalationRunFailsClosedPerTenant` + `TestOnNotificationEscalated`; Saison-/Ruhephasenkante: `test_season_dormancy_redetermines_open_care_task.py::test_no_resolvable_tenant_writes_nothing`, `::test_a_plant_of_another_tenant_writes_nothing` — proven 2026-11-25
+- **acceptance-4** — `test_season_dormancy_redetermines_open_care_task.py::test_entering_dormancy_retimes_the_open_task_and_its_note_in_the_same_pass` (+ `::test_leaving_dormancy_…_back`); Kante: REQ-047-Saisonübergang → Ruhephasen-Pflegemodus → `CareReminderService.redetermine_open_care_task`. Falsifiziert: Vor-Änderungs-`season_state_service.py` → rot; Task-Hälfte entfernt → rot; Notification-Hälfte entfernt → rot — proven 2026-11-25. Wachstumsphasenübergang und adaptive Anpassung sind NICHT verdrahtet
 
 ## Consistency notes
 
