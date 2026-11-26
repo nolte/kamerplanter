@@ -24,9 +24,14 @@ name: Capability Reach Audit
 # nolte/claude-shared, checked out here at ONE PINNED FULL COMMIT SHA and copied
 # out of the workspace before the audit starts, so that the checkout is neither
 # part of the audited tree nor of any Docker build context. The pin is the
-# commit that last changed the runner (#675, the section-anchor / re-confirmation
-# revision; `git diff 58c007f95 develop -- plugins/nolte-engineering/skills/
-# capability-reach-audit` was empty on 2026-10-04). Moving it is a deliberate edit
+# commit that last changed the runner (#726, 2026-11-13; `git log 7cedaf21..develop
+# -- plugins/nolte-engineering/skills/capability-reach-audit/scripts` was empty on
+# 2026-11-25). Moved from 58c007f95 (#675) for #3092: the runner since reports a
+# probe id that left the set as `removed` and accounts for it only through an
+# approved record in `project/reach-probes/_retired.yml` (#706, schema
+# reach-retired-v1.0), judges probes along the first-parent line (#725) and
+# hardens its git reads (#723). The old pin read `_retired.yml` as a probe.
+# Moving it is a deliberate edit
 # of one line, read like any other dependency bump; Renovate does not track a
 # `ref:` of a second repository, and this comment says so instead of implying it.
 #
@@ -144,10 +149,10 @@ jobs:
         with:
           repository: nolte/claude-shared
           # THE runner pin: the full commit that last changed reach_audit.py
-          # (feat(nolte-engineering): anchor reach probes on cited sections and
-          # add re-confirmation, #675). Public repository, read with the job's
-          # own token; nothing is written to it.
-          ref: 58c007f9591cab56479db6d6f9816087478a4188
+          # (fix(nolte-engineering): report an approved reach probe a merge
+          # dropped in every known shape, #726). Public repository, read with
+          # the job's own token; nothing is written to it.
+          ref: 7cedaf21a9177848de4a5e6aa27ab192fa9c2831
           path: .reach-runner-src
           sparse-checkout: plugins/nolte-engineering/skills/capability-reach-audit/scripts
           persist-credentials: false

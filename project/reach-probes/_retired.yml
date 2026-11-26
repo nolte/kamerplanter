@@ -1,0 +1,107 @@
+# Retirement manifest; written by capability-reach-audit retire, read by the runner.
+# A record takes effect only with an approval, once committed with or after the deletion.
+entries:
+  - id: endpoint-admin-user-delete-reaches-rows
+    reason: duplicate
+    detail: "Re-derived under a new id in #2094; endpoint-admin-user-delete-reaches-rows-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: 744af7d0bfbfcf2f6a75dfe60a8cdb2009cb10fe
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: endpoint-sites-plan-read-model-answers
+    reason: duplicate
+    detail: "Re-derived under a new id in #3093; endpoint-sites-plan-read-model-answers-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: cece6379fe7c7877e5a9f17d44d9061dd94251fe
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: endpoint-zap-postmerge-push-runs
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; endpoint-zap-postmerge-push-runs-completed measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: inventory-erasure-plan-reaches-rows
+    reason: duplicate
+    detail: "Re-derived under a new id in #2094; inventory-erasure-plan-reaches-rows-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: 744af7d0bfbfcf2f6a75dfe60a8cdb2009cb10fe
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: inventory-tenant-erasure-plan-reaches-rows
+    reason: duplicate
+    detail: "Re-derived under a new id in #2094; inventory-tenant-erasure-plan-reaches-rows-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: 744af7d0bfbfcf2f6a75dfe60a8cdb2009cb10fe
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art15-export-sources-populated
+    reason: duplicate
+    detail: "Re-derived under a new id in #1743 (REQ-025 v1.10); inventory-export-manifest-sources-populated measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: 9a5de171451caee736122c3acf06a080501b7943
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-erasure-plan-reaches-rows
+    reason: duplicate
+    detail: "Re-derived under a new id in #1743 (REQ-025 v1.10), then #2094; inventory-erasure-plan-reaches-rows-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: 9a5de171451caee736122c3acf06a080501b7943
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-pest-prototype-cleanup
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-pest-prototype-cleanup-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-pest-prototype-orphan-sweep
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-pest-prototype-orphan-sweep-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-reference-index-cleanup
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-reference-index-cleanup-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-storage-cleanup-reaches-files
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-storage-cleanup-reaches-files-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-storage-renditions-erased
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-storage-renditions-erased-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
+  - id: requirement-req025-art17-storage-shared-file-kept
+    reason: duplicate
+    detail: "Re-derived under a new id in #2086; requirement-req025-art17-storage-shared-file-kept-v2 measures the same declaration."
+    recorded_at: "2026-11-26T15:12:47Z"
+    last_revision: b28d629fa38035fc7ea5737a220a5272c6fb7c91
+    approval:
+      approved_at: "2026-11-26T15:12:47Z"
+      approved_by: "nolte"
