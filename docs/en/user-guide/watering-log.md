@@ -67,6 +67,9 @@ Each entry shows the following columns (some only appear when at least one entry
 !!! warning "Plants or slots are required"
     An entry must reference at least one plant or slot — otherwise it cannot be saved. Supplemental waterings (**supplemental** enabled) also cannot use the **Fertigation** application method at the same time.
 
+!!! tip "In Kiosk Mode"
+    If [Kiosk Mode](kiosk-mode.md#quick-select-in-the-watering-log) is active, you pick EC, pH and the runoff values with large quick-select tiles. **Manual** lets you enter any other value freely.
+
 ### Logging from a delivery channel
 
 If a nutrient plan phase entry is linked to a [delivery channel](fertilization.md#delivery-channels-multi-channel-delivery), you can log the watering directly from the channel — the form is then pre-filled with the channel's application method, target EC/pH, and fertilizer dosages.
