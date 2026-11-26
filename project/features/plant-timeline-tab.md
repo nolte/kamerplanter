@@ -109,3 +109,7 @@ end; the phase and diary tabs stay (§25.2).
 
 - REQ-055 v1.5 §10, §25; roadmap item R-23; after F-25 (parallel to F-26)
 - Requirement gate: operator override 2026-11-17 (REQ-055 v1.5 as basis)
+
+## Betreiberentscheidungen 2026-11-27
+
+- Der Verlauf zeigt die Herkunftsklasse eines Ereignisses und „du" für eigene Ereignisse. Den Namen einer anderen Person zeigt er nur, wenn die Sichtbarkeitsmatrix es erlaubt (`spec/privacy/05-access-and-visibility.md`). acceptance-4 („alle Mitglieder lesen") gilt für die Ereignisse, nicht für die Namen.

@@ -171,7 +171,7 @@ title: Mandanten-Export/-Import vollständig und in realistischer Größe
 detail: fine
 outcomes: [O-5, O-4]
 target_sprint: null
-mvp: false
+mvp: true
 status: proposed
 ```
 
@@ -202,7 +202,7 @@ detail: fine
 outcomes: [O-2, O-1]
 target_sprint: 4
 mvp: true
-status: proposed
+status: active
 ```
 
 **MVP-Flip (Operator-Entscheid 2026-11-22):** `mvp: false → true`, damit Sprint 0004 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14, R-17 und R-18.
@@ -237,7 +237,7 @@ title: Mehrere Dashboards mit Ansichten und handlungsfähige Pflege-Widgets
 detail: fine
 outcomes: [O-1, O-2]
 target_sprint: null
-mvp: false
+mvp: true
 status: proposed
 ```
 
@@ -338,7 +338,7 @@ title: Plant Social Welle 1 — Ereignisindex und Pflanzen-Timeline
 detail: fine
 outcomes: [O-1, O-2]
 target_sprint: null
-mvp: false
+mvp: true
 status: proposed
 ```
 
@@ -421,7 +421,7 @@ title: Gemessener Regen und Bodenwasser-Bilanz im Gießbedarf
 detail: fine
 outcomes: [O-1, O-6]
 target_sprint: null
-mvp: false
+mvp: true
 status: proposed
 ```
 

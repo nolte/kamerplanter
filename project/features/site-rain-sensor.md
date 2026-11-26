@@ -111,3 +111,8 @@ completed day's final value, so the interval does not starve the balance.
 
 - Issue #3002, roadmap item R-27, REQ-046 §3.5 / mode B
 - `project/requirements/measured-rain-soil-water-balance.md` (R1, R2)
+
+## Betreiberentscheidungen 2026-11-27
+
+- **Annahme A1 trifft nicht zu.** Der Regenmesser (Netatmo) liefert in Home Assistant **keine Tagessumme**. F-28 braucht deshalb eine Summierregel: Aus den gelieferten Stunden- oder Momentanwerten wird die Tagessumme bis zur lokalen Tagesgrenze selbst gebildet. Vor dem Entwurf ist zu messen, welche Entität und welche Auflösung tatsächlich ankommt.
+- A2 bestätigt: Die Frische von 6 Stunden ist fest und nicht einstellbar.

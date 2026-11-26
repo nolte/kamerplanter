@@ -1334,36 +1334,38 @@ Gate 4 — Public SaaS Ready: externer Pentest (ZAP/Nuclei von advisory → requ
 
 ## 24. Architecture Gates
 
+> **Nachführung 2026-11-27.** Die Häkchen in Gate 1 bis 3 geben den Stand der Maßnahmen-Issues wieder: Alle im Tracker #2098 verlinkten Maßnahmen sind geschlossen, mit Ausnahme von MT-047 (#2140) und MT-048 (#2141), die mit Plant Social (REQ-055, Welle 2 und 3) umgesetzt werden. Der Befund des Audits vom 2026-10-04 steht jeweils in der Statuszeile. Der Tracker #2098 ist per Betreiberentscheidung vom 2026-11-27 geschlossen; Gate 4 ist kein Teil davon und wird bei Bedarf ein eigenes Vorhaben.
+
 ### Gate 1 — Multi-User Ready
 - [x] Authentifizierung funktioniert (lokal + OIDC, Refresh-Rotation, Lockout) — erfüllt
 - [x] User/Identity definiert (`_key`, Unique-Indizes, `account_type`) — erfüllt
 - [x] Tenant-Context vorhanden (`TenantContext`, ein Resolver) — erfüllt
 - [x] Cross-Tenant-Tests vorhanden (`tests/api/test_cross_tenant_*`, 26 Guard-Dateien) — erfüllt
-- [ ] Token-Family + Access-Cutoff (MT-019), E-Mail-Einladung gebunden (MT-018), FE-Logout-Reset (MT-020) — **offen**
-→ **Status: erfüllt mit drei bekannten Lücken; Phase 1 Strang C schließt sie.**
+- [x] Token-Family + Access-Cutoff (MT-019), E-Mail-Einladung gebunden (MT-018), FE-Logout-Reset (MT-020) — Maßnahmen geschlossen
+→ **Status (Audit 2026-10-04): erfüllt mit drei bekannten Lücken. Stand 2026-11-27: die drei Maßnahmen sind geschlossen.**
 
 ### Gate 2 — Multi-Tenant Ready
 - [x] Alle Ressourcen klassifiziert (§7 Ownership-Matrix) — erfüllt durch dieses Audit
-- [ ] Repository-/Service-Isolation vollständig: keine Hybrid-Lesezulassung vor Write, keine Reverse-Lookups ohne Prädikat, Prädikat im Service (MT-001..004, MT-010, MT-023)
-- [ ] Autorisierung vollständig: Suspension wirksam, Admin-Self-Add gesichert, Hygiene (MT-007, MT-008, MT-045)
-- [ ] MCP tenant-aware inkl. globaler Schreib-Tools (MT-005, MT-006)
-- [ ] Background Jobs tenant-aware (Empfänger-Membership, Summary pro Tenant) (MT-017)
-- [ ] Integrationen tenant-safe (HA-Entscheidung + Allowlist, Secrets Fernet) (MT-015, MT-016)
-- [ ] Guards erkennen die Fehlerklassen dieses Audits (MT-024)
-- [ ] Specs/CLAUDE.md konsistent (MT-025)
-→ **Status: nicht erfüllt; Phase 0 + Phase 1.**
+- [x] Repository-/Service-Isolation vollständig: keine Hybrid-Lesezulassung vor Write, keine Reverse-Lookups ohne Prädikat, Prädikat im Service (MT-001..004, MT-010, MT-023)
+- [x] Autorisierung vollständig: Suspension wirksam, Admin-Self-Add gesichert, Hygiene (MT-007, MT-008, MT-045)
+- [x] MCP tenant-aware inkl. globaler Schreib-Tools (MT-005, MT-006)
+- [x] Background Jobs tenant-aware (Empfänger-Membership, Summary pro Tenant) (MT-017)
+- [x] Integrationen tenant-safe (HA-Entscheidung + Allowlist, Secrets Fernet) (MT-015, MT-016)
+- [x] Guards erkennen die Fehlerklassen dieses Audits (MT-024)
+- [x] Specs/CLAUDE.md konsistent (MT-025)
+→ **Status (Audit 2026-10-04): nicht erfüllt. Stand 2026-11-27: alle genannten Maßnahmen sind geschlossen.**
 
 ### Gate 3 — SaaS Ready
-- [ ] Tenant-Lifecycle mit Zuständen, Grace-Period, Cancel (MT-027)
-- [ ] Quotas/Entitlements (MT-037, MT-049) und LLM-/Request-Budgets (MT-012, MT-013)
-- [ ] Observability: Metriken, Korrelation, Security-Audit-Log (MT-014, MT-033, MT-034)
-- [ ] Backups + Restore-Drill + Tenant-Export (MT-026, MT-042)
-- [ ] Deletion: Account verwaiste Orgs (MT-038), Tenant Grace (MT-027)
-- [ ] Rate-Limiting per User/Tenant (MT-012/013)
-- [ ] Storage-Isolation: S3 Pflicht, HEIC (MT-028, MT-043)
-- [ ] Scaling-Strategie: Indizes, Queues, Chunking, HPA/PDB, startupProbe, externe DB (MT-021, MT-029..032, MT-035)
-- [ ] Registrierungsmodus (MT-036); Lifecycle-REQ (MT-050)
-→ **Status: nicht erfüllt; Phase 2 + Phase 4.**
+- [x] Tenant-Lifecycle mit Zuständen, Grace-Period, Cancel (MT-027)
+- [x] Quotas/Entitlements (MT-037, MT-049) und LLM-/Request-Budgets (MT-012, MT-013)
+- [x] Observability: Metriken, Korrelation, Security-Audit-Log (MT-014, MT-033, MT-034)
+- [x] Backups + Restore-Drill + Tenant-Export (MT-026, MT-042)
+- [x] Deletion: Account verwaiste Orgs (MT-038), Tenant Grace (MT-027)
+- [x] Rate-Limiting per User/Tenant (MT-012/013)
+- [x] Storage-Isolation: S3 Pflicht, HEIC (MT-028, MT-043)
+- [x] Scaling-Strategie: Indizes, Queues, Chunking, HPA/PDB, startupProbe, externe DB (MT-021, MT-029..032, MT-035)
+- [x] Registrierungsmodus (MT-036); Lifecycle-REQ (MT-050)
+→ **Status (Audit 2026-10-04): nicht erfüllt. Stand 2026-11-27: alle genannten Maßnahmen sind geschlossen; von MT-042 läuft der Ausbau (große Archive, Sensor-Historie, Vorprüfung) als #3140 weiter.**
 
 ### Gate 4 — Public SaaS Ready
 - [ ] Externer Security-Review auf dem Gate-3-Stand; DAST-Lanes required statt advisory
