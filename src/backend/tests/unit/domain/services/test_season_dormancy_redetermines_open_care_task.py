@@ -24,11 +24,18 @@ The edge also carries the owner's two invariants (F-8 acceptance-2/-3): a repeat
 transition converges on one note and one task write; no resolvable tenant writes
 nothing.
 
+The regime ``dormancy_watering="none"`` leaves no interval to retime to. By the
+operator decision of 2026-11-27 its open task is closed as ``SKIPPED`` — not
+retimed, not left standing — its note is marked done so the overdue escalation
+finds nothing, nothing is recorded as a watering, and leaving the regime creates
+the next task again (the tests at the end of this file).
+
 Traces to issue #1061, feature F-8 (no TC-ID: a service-level pairing test).
 """
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -43,9 +50,10 @@ from app.common.enums import (
     WinterWatering,
 )
 from app.domain.engines.care_reminder_engine import CareReminderEngine
+from app.domain.engines.notification_engine import NotificationEngine
 from app.domain.engines.season_state_engine import SeasonStateTransition
 from app.domain.models.care_reminder import CareConfirmation, CareProfile
-from app.domain.models.notification import Notification, NotificationStatus
+from app.domain.models.notification import Notification, NotificationPreferences, NotificationStatus
 from app.domain.models.overwintering_profile import OverwinteringProfile
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Site
@@ -55,7 +63,7 @@ from app.domain.services.dormancy_care_activator import DormancyCareActivator
 from app.domain.services.notification_propagation_service import NotificationPropagationService
 from app.domain.services.season_state_service import SeasonStateService
 from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
-from tests.unit.domain.services.notification_fakes import FakeNotificationRepo
+from tests.unit.domain.services.notification_fakes import EscalationNotificationRepo, FakeNotificationRepo
 
 TENANT = "tenant-1"
 OTHER_TENANT = "tenant-2"
@@ -79,6 +87,8 @@ class _CareRepo:
     def __init__(self, profile: CareProfile) -> None:
         self.profile = profile
         self.profile_writes = 0
+        #: Every confirmation write, whichever entry point — a closed task must add none (#1061).
+        self.confirmation_writes: list[CareConfirmation] = []
 
     def get_profile_by_plant_key(self, plant_key: str) -> CareProfile | None:
         return self.profile.model_copy(deep=True) if plant_key == self.profile.plant_key else None
@@ -87,6 +97,17 @@ class _CareRepo:
         self.profile = profile.model_copy(deep=True)
         self.profile_writes += 1
         return profile
+
+    def create_confirmation(self, confirmation: CareConfirmation) -> CareConfirmation:
+        self.confirmation_writes.append(confirmation)
+        return confirmation
+
+    def create_confirmation_logged(self, confirmation: CareConfirmation, **_kwargs: object) -> CareConfirmation:
+        self.confirmation_writes.append(confirmation)
+        return confirmation
+
+    def create_confirmation_edges(self, *_args: object) -> None:
+        return None
 
     def get_last_confirmation(self, plant_key: str, reminder_type: ReminderType) -> CareConfirmation | None:
         if plant_key != PLANT_KEY or reminder_type != ReminderType.WATERING:
@@ -115,7 +136,7 @@ def _profile(*, dormant: bool = False, regime: WinterWatering = WinterWatering.M
     )
 
 
-def _open_watering_task(due: datetime, *, tenant_key: str = TENANT) -> Task:
+def _open_watering_task(due: datetime, *, tenant_key: str = TENANT, status: TaskStatus = TaskStatus.PENDING) -> Task:
     # The instruction as the daily producer builds it (`ensure_next_watering_task`
     # passes no phase interval into the text), not as the retiming path would.
     return Task(
@@ -126,8 +147,9 @@ def _open_watering_task(due: datetime, *, tenant_key: str = TENANT) -> Task:
         entity_key=PLANT_KEY,
         entity_type="plant_instance",
         tenant_key=tenant_key,
-        status=TaskStatus.PENDING,
+        status=status,
         due_date=due,
+        completed_at=CONFIRMED_AT if status == TaskStatus.COMPLETED else None,
     )
 
 
@@ -176,11 +198,14 @@ class _World:
         phase_key: str | None = None,
         phase_intervals: dict[str, int] | None = None,
         dormancy_phase_key: str | None = None,
+        task_status: TaskStatus = TaskStatus.PENDING,
+        notification_repo: FakeNotificationRepo | None = None,
     ) -> None:
         self.care_repo = _CareRepo(_profile(dormant=dormant, regime=regime))
-        self.task_repo = FakeTaskRepo([_open_watering_task(task_due)])
-        self.notification_repo = FakeNotificationRepo()
+        self.task_repo = FakeTaskRepo([_open_watering_task(task_due, status=task_status)])
+        self.notification_repo = notification_repo if notification_repo is not None else FakeNotificationRepo()
         _seed_care_note(self.notification_repo, task_due)
+        self.watering_log_repo = MagicMock()
 
         care_plant = SimpleNamespace(
             key=PLANT_KEY,
@@ -190,6 +215,8 @@ class _World:
             current_phase_key=phase_key,
             slot_key=None,
             removed_on=None,
+            species_key=None,
+            cultivar_key=None,
         )
         self.care_plant = care_plant
         intervals = phase_intervals or {}
@@ -206,6 +233,7 @@ class _World:
             self.task_repo,
             plant_repo=care_plant_repo,
             lifecycle_repo=lifecycle_repo,
+            watering_log_repo=self.watering_log_repo,
             notification_propagation=NotificationPropagationService(self.notification_repo),
         )
 
@@ -396,3 +424,163 @@ def test_a_plant_of_another_tenant_writes_nothing() -> None:
 
     assert world.task_repo.updated == []
     assert world.note() == note_before
+
+
+# ── regime ``none``: the open task is closed, not left standing (#1061) ─────
+#
+# Operator decision 2026-11-27: with ``dormancy_watering="none"`` the engine
+# answers no watering interval, so there is no date to retime to. Before the
+# decision the open task kept its pre-dormancy date and its note kept escalating
+# as overdue all winter. The task is now closed as ``SKIPPED`` — the existing
+# "closed, not done" status — and its note is marked done through the propagation
+# owner. Nothing about it is a watering: no confirmation, no log, no learning.
+
+
+def _stored_task(world: _World, key: str = "task-water") -> Task:
+    matches = [task for task in world.task_repo.store if task.key == key]
+    assert len(matches) == 1, f"expected exactly one stored task {key!r}"
+    return matches[0]
+
+
+def _overdue_note_world(**kwargs: object) -> _World:
+    """A world whose care note is three days old and not acted on — overdue for level-0 escalation."""
+    repo = EscalationNotificationRepo()
+    world = _World(notification_repo=repo, **kwargs)  # type: ignore[arg-type]
+    world.note().created_at = datetime.now(UTC) - timedelta(days=3)
+    return world
+
+
+def _escalation_engine(repo: EscalationNotificationRepo) -> NotificationEngine:
+    preference_repo = MagicMock()
+    preference_repo.get_by_user.return_value = NotificationPreferences(user_key=USER)
+    redis = MagicMock()
+    redis.get.return_value = None  # no Redis dedup: only the stored row may keep the run quiet
+    engine = NotificationEngine(
+        notification_repo=repo,
+        preference_repo=preference_repo,
+        channel_registry=MagicMock(),
+        redis_client=redis,
+        user_repo=MagicMock(),
+        propagation=NotificationPropagationService(repo),
+    )
+    engine._is_quiet_hours = MagicMock(return_value=False)  # type: ignore[method-assign]
+    engine._resolve_channels = MagicMock(return_value=[])  # type: ignore[method-assign]
+    return engine
+
+
+def test_entering_dormancy_without_watering_closes_the_open_task_and_its_note() -> None:
+    world = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+
+    # The engine's answer did change to "no cadence" — the premise of the close.
+    assert world.care_repo.profile.dormancy_watering == WinterWatering.NONE.value
+    assert world.task_repo.open_care_tasks(ReminderType.WATERING) == []
+    closed = _stored_task(world)
+    assert closed.status == TaskStatus.SKIPPED.value
+    assert closed.completed_at is not None
+    assert closed.due_date == NORMAL_DUE, "closed, not retimed"
+    # The note follows: stamped read AND acted (out of the badge and out of the escalation).
+    note = world.note()
+    assert note.acted_at is not None
+    assert note.read_at is not None
+    assert world.notification_repo.unread_for(USER, TENANT) == []
+
+
+def test_closing_the_task_records_nothing_as_a_watering() -> None:
+    world = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+    world.care_repo.profile = world.care_repo.profile.model_copy(update={"adaptive_learning_enabled": True})
+    learned_before = world.care_repo.profile.watering_interval_learned
+
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+
+    assert _stored_task(world).status == TaskStatus.SKIPPED.value
+    assert world.care_repo.confirmation_writes == [], "a closed task is no confirmation (no anchor, no learning)"
+    world.watering_log_repo.create.assert_not_called()
+    assert world.care_repo.profile.watering_interval_learned == learned_before
+    assert world.task_repo.created == [], "no task replaces the closed one while there is no cadence"
+
+
+def test_after_the_close_the_escalation_finds_nothing_to_escalate() -> None:
+    world = _overdue_note_world(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+    repo = world.notification_repo
+    assert isinstance(repo, EscalationNotificationRepo)
+    # Not vacuous: before the transition the note is due for escalation.
+    assert repo.find_overdue_watering(datetime.now(UTC) - timedelta(days=2), 0, tenant_key=TENANT) != []
+
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+
+    for level in range(3):
+        assert repo.find_overdue_watering(datetime.now(UTC), level, tenant_key=TENANT) == []
+    assert asyncio.run(_escalation_engine(repo).escalate_overdue(TENANT)) == {"escalated": 0}
+    assert repo.escalations() == []
+
+
+def test_a_repeated_evaluation_writes_the_close_once() -> None:
+    world = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+    note_after_first = world.note().model_copy(deep=True)
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+    # Also when the care service is asked again directly, past the season service's regime gate.
+    again = world.care_service.redetermine_open_care_task(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT)
+
+    assert again is None
+    assert len(world.task_repo.updated) == 1
+    assert world.task_repo.created == []
+    assert world.note() == note_after_first
+
+
+def test_a_task_the_user_already_closed_or_started_is_not_touched() -> None:
+    for status in (TaskStatus.COMPLETED, TaskStatus.IN_PROGRESS):
+        world = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE, task_status=status)
+        note_before = world.note().model_copy(deep=True)
+
+        world.transition(SeasonPhase.WINTER_DORMANCY)
+
+        assert world.task_repo.updated == [], status
+        assert _stored_task(world).status == status.value
+        assert world.note() == note_before
+
+
+def test_no_tenant_or_a_foreign_tenant_closes_nothing() -> None:
+    world = _World(dormant=True, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+    note_before = world.note().model_copy(deep=True)
+    assert world.care_service.redetermine_open_care_task(PLANT_KEY, ReminderType.WATERING, tenant_key="") is None
+
+    foreign = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE, plant_tenant=OTHER_TENANT)
+    foreign_note_before = foreign.note().model_copy(deep=True)
+    foreign.transition(SeasonPhase.WINTER_DORMANCY)
+
+    for case, before in ((world, note_before), (foreign, foreign_note_before)):
+        assert case.task_repo.updated == []
+        assert _stored_task(case).status == TaskStatus.PENDING.value
+        assert case.note() == before
+
+
+def test_leaving_dormancy_without_watering_creates_the_next_task_and_its_note() -> None:
+    """The closed task is not revived; the next occurrence comes from the last real watering."""
+    world = _World(dormant=False, task_due=NORMAL_DUE, regime=WinterWatering.NONE)
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+    assert world.task_repo.open_care_tasks(ReminderType.WATERING) == []
+
+    world.transition(SeasonPhase.PRE_SPRING)
+
+    assert world.care_repo.profile.dormancy_care_mode is False
+    assert _stored_task(world).status == TaskStatus.SKIPPED.value, "the closed task stays closed"
+    task = world.task()
+    assert task.key != "task-water"
+    assert task.status == TaskStatus.PENDING.value
+    # Measured from the last real watering at the normal cadence — what the daily producer would create.
+    assert task.due_date == NORMAL_DUE
+    assert world.care_repo.confirmation_writes == []
+    # The note announces the new occurrence: back in the badge, pointing at the new task.
+    note = world.note()
+    assert note.data["task_key"] == task.key
+    assert note.data["due_date"] == NORMAL_DUE.isoformat()
+    assert note.read_at is None
+    assert note.acted_at is None
+
+    # A further spring/growing evaluation creates no second task.
+    world.transition(SeasonPhase.GROWING)
+    assert len(world.task_repo.created) == 1

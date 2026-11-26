@@ -273,6 +273,10 @@ class SeasonStateService:
         frost-exposed plant, also one that never was dormant; recomputing its task
         would reset a date the user moved by hand. An unreadable regime before or
         after writes nothing.
+
+        A switch into ``dormancy_watering="none"`` leaves no cadence to retime to:
+        the care service closes the open task instead, and on the way out of that
+        regime creates the next one (operator decision 2026-11-27, #1061).
         """
         if regime_before is _REGIME_UNKNOWN:
             return

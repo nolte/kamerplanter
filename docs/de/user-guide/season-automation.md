@@ -69,7 +69,7 @@ Bei **Live-Wetter** zeigt dir Kamerplanter zusätzlich einen Frost-Countdown (�
 
 Sobald ein Standort in die Winterruhe wechselt, schaltet Kamerplanter für alle betroffenen Pflanzen automatisch einen eigenen Pflegeplan ein:
 
-- **Gießen** folgt der Gießvorgabe aus dem [Überwinterungsplan](overwintering.md) der jeweiligen Pflanze — von „gar nicht" (trocken gelagerte Knollen) bis „normal" (Pflanzen im hellen, frostfreien Winterquartier).
+- **Gießen** folgt der Gießvorgabe aus dem [Überwinterungsplan](overwintering.md) der jeweiligen Pflanze — von „gar nicht" (trocken gelagerte Knollen) bis „normal" (Pflanzen im hellen, frostfreien Winterquartier). Lautet die Vorgabe „gar nicht", schließt Kamerplanter eine noch offene Gießaufgabe der Pflanze als **Übersprungen**, und ihre Benachrichtigung verschwindet aus deinen offenen Meldungen, statt den ganzen Winter als überfällig zu eskalieren. Als Gießen zählt das nicht.
 - **Düngen** pausiert vollständig.
 - Zwei neue Kontroll-Erinnerungen erscheinen bei Bedarf zusammen mit deinen übrigen [Aufgaben](tasks.md) (Quelle „Pflege"):
 
@@ -80,7 +80,7 @@ Sobald ein Standort in die Winterruhe wechselt, schaltet Kamerplanter für alle 
 
 <!-- REQ-047 -->
 
-Verlässt der Standort die Winterruhe wieder (Übergang in die Frühjahrs-Rückholung), schaltet Kamerplanter den Winterruhe-Pflegeplan automatisch ab und kehrt zum normalen saisonalen Gießrhythmus zurück.
+Verlässt der Standort die Winterruhe wieder (Übergang in die Frühjahrs-Rückholung), schaltet Kamerplanter den Winterruhe-Pflegeplan automatisch ab und kehrt zum normalen saisonalen Gießrhythmus zurück. Hat eine Pflanze ohne Gießen geruht, legt Kamerplanter dabei sofort wieder eine Gießaufgabe an, sofern im Pflegeprofil **Gießaufgaben automatisch erstellen** aktiv ist — fällig nach dem normalen Intervall ab deinem letzten echten Gießen. Lag das vor dem Winter, ist die neue Aufgabe gleich fällig.
 
 ---
 

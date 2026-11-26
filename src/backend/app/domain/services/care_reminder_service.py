@@ -784,22 +784,37 @@ class CareReminderService:
         # No pending task to re-terminate. Only the opted-in watering path creates
         # the next occurrence here; ensure_next_watering_task's own dedup prevents
         # a duplicate when a task was already completed today.
-        if reminder_type == ReminderType.WATERING and profile.auto_create_watering_task:
-            phase_interval = self._get_phase_watering_interval(plant_key)
-            created = self.ensure_next_watering_task(
-                profile, phase_watering_interval=phase_interval, tenant_key=tenant_key
+        if reminder_type == ReminderType.WATERING:
+            self._materialise_next_watering_task(profile, tenant_key=tenant_key, user_key=user_key)
+
+    def _materialise_next_watering_task(self, profile: CareProfile, *, tenant_key: str, user_key: str) -> Task | None:
+        """Create the plant's next watering task where none is open — and announce it on its note.
+
+        The opted-in path only (``auto_create_watering_task``);
+        :meth:`ensure_next_watering_task` keeps its own dedup, so a task completed
+        today or still open is never duplicated. The note is updated as a **new**
+        occurrence (#769): its read state is cleared so it reaches the badge. With
+        no existing note and no acting user nothing is invented.
+
+        Returns:
+            The created task, or ``None`` when nothing was created.
+        """
+        if not profile.auto_create_watering_task:
+            return None
+        phase_interval = self._get_phase_watering_interval(profile.plant_key)
+        created = self.ensure_next_watering_task(profile, phase_watering_interval=phase_interval, tenant_key=tenant_key)
+        if created is not None:
+            # A brand-new occurrence, not a retiming — it must reach the badge (#769).
+            self._propagate_care_reschedule(
+                profile,
+                ReminderType.WATERING,
+                tenant_key,
+                user_key,
+                created.due_date,
+                created.key,
+                announces_new_task=True,
             )
-            if created is not None:
-                # A brand-new occurrence, not a retiming — it must reach the badge (#769).
-                self._propagate_care_reschedule(
-                    profile,
-                    reminder_type,
-                    tenant_key,
-                    user_key,
-                    created.due_date,
-                    created.key,
-                    announces_new_task=True,
-                )
+        return created
 
     def _retime_care_task(
         self,
@@ -866,16 +881,26 @@ class CareReminderService:
         the engine answers, and the open task and its note follow in the same pass.
 
         Only a ``PENDING`` task is moved (an ``IN_PROGRESS`` one is being worked
-        on); no task is created — materialising the next occurrence stays with the
-        daily producer. The notification is retimed in place and keeps its
-        recipient and read state; with no existing note there is nothing to follow
-        and none is created.
+        on). The notification is retimed in place and keeps its recipient and read
+        state; with no existing note there is nothing to follow and none is created.
+
+        Two watering outcomes are not a retiming (operator decision 2026-11-27, #1061):
+
+        * **The cadence is gone** — the dormancy regime ``dormancy_watering="none"``
+          makes the engine answer no watering interval. The open ``PENDING`` task is
+          closed as ``SKIPPED`` and its notification is marked done
+          (:meth:`_close_care_task_without_care`). Left standing, it kept its
+          pre-dormancy date and its note kept escalating as overdue all winter.
+        * **The cadence is back and no task is open** — leaving that regime. The
+          task closed on the way in is not revived; the next occurrence is created
+          through the opted-in producer path (:meth:`_materialise_next_watering_task`)
+          instead of waiting for the next daily producer run.
 
         ``tenant_key`` is keyword-only without a default (#2107): a plant the tenant
-        does not own — or an empty tenant — retimes nothing.
+        does not own — or an empty tenant — writes nothing.
 
         Returns:
-            The retimed task, or ``None`` when nothing was written.
+            The retimed, closed or created task, or ``None`` when nothing was written.
         """
         if self._task_repo is None or self._owned_plant(plant_key, tenant_key) is None:
             return None
@@ -888,12 +913,60 @@ class CareReminderService:
             tenant_key,
             include_completed_today=False,
         )
-        if task is None or task.status != TaskStatus.PENDING:
+        if reminder_type == ReminderType.WATERING and self._watering_interval_now(profile) is None:
+            if task is None or task.status != TaskStatus.PENDING:
+                return None
+            return self._close_care_task_without_care(task)
+        if task is None:
+            if reminder_type == ReminderType.WATERING:
+                return self._materialise_next_watering_task(profile, tenant_key=tenant_key, user_key="")
+            return None
+        if task.status != TaskStatus.PENDING:
             return None
         retimed = self._retime_care_task(
             profile, reminder_type, task, tenant_key=tenant_key, user_key="", only_if_changed=True
         )
         return task if retimed else None
+
+    def _watering_interval_now(self, profile: CareProfile) -> int | None:
+        """The watering interval the engine answers for *profile* now; ``None`` means no watering cadence."""
+        return self._engine._get_interval_days(
+            profile,
+            ReminderType.WATERING,
+            "north",
+            phase_watering_interval=self._get_phase_watering_interval(profile.plant_key),
+        )
+
+    def _close_care_task_without_care(self, task: Task) -> Task | None:
+        """Close an open care task that will not be done — ``SKIPPED``, and its notes done (#1061).
+
+        ``SKIPPED`` is the existing "closed, not done" status: the task-queue skip
+        (:meth:`TaskService.skip_task`) and the dismissed suggestion
+        (:meth:`TaskService.dismiss_suggestion`) end a task with it and stamp
+        ``completed_at`` as the closing time. The task stays in the history; every
+        open-task reader (``find_open_care_task``, the due-care dispatch, the
+        dependency resolver) treats it as closed.
+
+        Deliberately **not** a care event: unlike ``skip_task`` no ``CareConfirmation``
+        is written (a ``SKIPPED`` confirmation would become the anchor
+        :meth:`get_last_confirmation` returns and enter the adaptive learner's
+        history) and no watering log — the plant was not watered, and the next
+        cadence after dormancy is measured from the last real watering.
+
+        The notifications follow through the propagation owner, the same hook the
+        task-queue skip uses (:meth:`NotificationPropagationService.on_task_completed`):
+        the task's ``task.due``/``task.assigned`` rows and the plant's
+        ``care.watering`` row (escalations share its group) are stamped read and
+        acted, which is what takes them out of the overdue escalation.
+        """
+        if self._task_repo is None:
+            return None
+        task.status = TaskStatus.SKIPPED
+        task.completed_at = datetime.now(UTC)
+        closed = self._task_repo.update_task(task.key or "", task)
+        self._propagate(lambda p: p.on_task_completed(closed))
+        logger.info("care_task_closed_no_cadence", plant_key=task.entity_key, task_key=task.key)
+        return closed
 
     def _propagate_care_reschedule(
         self,
