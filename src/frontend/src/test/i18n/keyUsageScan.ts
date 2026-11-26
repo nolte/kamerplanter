@@ -52,6 +52,12 @@ const PLURAL_SUFFIX = /_(?:ordinal_)?(?:zero|one|two|few|many|other)$/;
 export interface KeyIndex {
   /** The key resolves: a leaf, a plural family (`key_one`…), or a branch (`returnObjects`). */
   resolves(key: string): boolean;
+  /** A translation string itself. */
+  isLeaf(key: string): boolean;
+  /** The base of a plural family (`key_one`, `key_other` …) — needs `count`. */
+  isPluralBase(key: string): boolean;
+  /** An object node — `t()` returns it only with `returnObjects: true`. */
+  isBranch(key: string): boolean;
   /** Some key starts with `head` — the static head of a template key leads somewhere. */
   leadsSomewhere(head: string): boolean;
 }
@@ -68,6 +74,9 @@ export function createKeyIndex(catalog: FlatCatalog): KeyIndex {
   const sorted = [...leaves].sort();
   return {
     resolves: (key) => leaves.has(key) || pluralBases.has(key) || branches.has(key),
+    isLeaf: (key) => leaves.has(key),
+    isPluralBase: (key) => pluralBases.has(key),
+    isBranch: (key) => branches.has(key),
     leadsSomewhere: (head) => {
       // Binary search for the first key >= head, then check the prefix.
       let lo = 0;
@@ -154,6 +163,52 @@ function readTemplate(source: string, start: number): { parts: TemplatePart[]; e
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
 
+/**
+ * Split a top-level conditional `test ? a : b` (nested conditionals in `b` stay in `b`).
+ * `?.` and `??` are not the operator; strings, templates and brackets are skipped.
+ * `null` when the expression is not a conditional at its top level.
+ */
+export function splitConditional(expression: string): { test: string; consequent: string; alternate: string } | null {
+  let depth = 0;
+  let question = -1;
+  let pending = 0;
+  for (let i = 0; i < expression.length; i += 1) {
+    const c = expression[i];
+    if (c === "'" || c === '"') {
+      i += 1;
+      while (i < expression.length && expression[i] !== c) i += expression[i] === '\\' ? 2 : 1;
+      continue;
+    }
+    if (c === '`') {
+      const template = readTemplate(expression, i);
+      if (!template) return null;
+      i = template.end - 1;
+      continue;
+    }
+    if (c === '(' || c === '[' || c === '{') depth += 1;
+    else if (c === ')' || c === ']' || c === '}') depth -= 1;
+    else if (depth === 0 && c === '?') {
+      const next = expression[i + 1];
+      if (next === '.' || next === '?') {
+        i += 1;
+        continue;
+      }
+      if (question === -1) question = i;
+      pending += 1;
+    } else if (depth === 0 && c === ':' && question !== -1) {
+      pending -= 1;
+      if (pending === 0) {
+        return {
+          test: expression.slice(0, question).trim(),
+          consequent: expression.slice(question + 1, i).trim(),
+          alternate: expression.slice(i + 1).trim(),
+        };
+      }
+    }
+  }
+  return null;
+}
+
 /** String constants: `const NAME = 'x'` or `` const NAME = `${OTHER}.y` `` (resolved against `known`). */
 function declaredConstants(source: string, known: ReadonlyMap<string, string>, exportedOnly: boolean): Map<string, string> {
   const found = new Map<string, string>();
@@ -207,7 +262,17 @@ export function exportedConstants(sources: Record<string, string>): Map<string, 
 }
 
 export type KeyUsage =
-  | { kind: 'static'; line: number; key: string; defaultValue: boolean }
+  | {
+      kind: 'static';
+      line: number;
+      key: string;
+      /** The call's own options carry a `defaultValue` / `count` / `returnObjects: true`. */
+      defaultValue: boolean;
+      count: boolean;
+      returnObjects: boolean;
+      /** `<Trans i18nKey>` rather than a `t()` call (its options are props, not read). */
+      trans?: boolean;
+    }
   | { kind: 'template'; line: number; head: string; text: string }
   | { kind: 'unverifiable'; line: number; text: string };
 
@@ -241,22 +306,30 @@ function firstArgument(source: string, start: number): string {
 }
 
 /**
- * Whether the options object after a key (`t('k', { …, defaultValue: … })`, `after` is the
- * index behind the key) carries its OWN `defaultValue` — one of a nested `t()` inside the
- * options does not count.
+ * The OWN options object after a key (`t('k', { … })`, `after` is the index behind the key),
+ * with nested calls/groups dropped so `how: t(x, { defaultValue })` is not read as this
+ * call's own. '' when the call has no options.
  */
-function hasOwnDefaultValue(source: string, after: number): boolean {
+function ownOptions(source: string, after: number): string {
   let i = after;
   while (/\s/.test(source[i] ?? '')) i += 1;
-  if (source[i] !== ',') return false;
+  if (source[i] !== ',') return '';
   let options = firstArgument(source, i + 1);
-  // Drop nested calls/groups so `how: t(x, { defaultValue })` is not read as this call's own.
   let previous = '';
   while (previous !== options) {
     previous = options;
     options = options.replace(/\([^()]*\)/g, '#');
   }
-  return /\bdefaultValue\s*:/.test(options);
+  return options;
+}
+
+function optionFlags(source: string, after: number): { defaultValue: boolean; count: boolean; returnObjects: boolean } {
+  const options = ownOptions(source, after);
+  return {
+    defaultValue: /\bdefaultValue\s*:/.test(options),
+    count: /(?:^|[{,\s])count\s*[:,}]/.test(options),
+    returnObjects: /\breturnObjects\s*:\s*true\b/.test(options),
+  };
 }
 
 function lineAt(source: string, index: number): number {
@@ -281,7 +354,7 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
       const close = source.indexOf(quote, at + 1);
       if (close > at) {
         const key = source.slice(at + 1, close);
-        usages.push({ kind: 'static', line, key, defaultValue: hasOwnDefaultValue(source, close + 1) });
+        usages.push({ kind: 'static', line, key, ...optionFlags(source, close + 1) });
       }
       continue;
     }
@@ -291,7 +364,7 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
       const text = source.slice(at, template.end);
       const resolved = resolveParts(template.parts, lookup);
       if (resolved !== null) {
-        usages.push({ kind: 'static', line, key: resolved, defaultValue: hasOwnDefaultValue(source, template.end) });
+        usages.push({ kind: 'static', line, key: resolved, ...optionFlags(source, template.end) });
         continue;
       }
       // The static head: the parts up to the first expression that does not resolve.
@@ -316,6 +389,9 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
       line: lineAt(source, match.index ?? 0),
       key: match[1] ?? match[2] ?? match[3],
       defaultValue: false,
+      count: false,
+      returnObjects: false,
+      trans: true,
     });
   }
   return usages;

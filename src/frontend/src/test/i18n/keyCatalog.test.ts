@@ -9,8 +9,10 @@ import {
   keyUsages,
   parityGaps,
   placeholderMismatches,
+  splitConditional,
   type FlatCatalog,
   type KeyIndex,
+  type KeyUsage,
 } from './keyUsageScan';
 
 /**
@@ -73,69 +75,143 @@ const NOT_A_KEY: Record<string, string> = {
  * matching none of them fails: either make the key visible (a literal, a constant)
  * or declare the shape here with the reason its keys are (or are not) covered.
  */
-const INDIRECT_LOOKUP_SHAPES: { name: string; pattern: RegExp; coverage: string }[] = [
+/** A key variable: `labelKey`, `def.descriptionKey`, `field.helperI18nKey`, or a bare `key` parameter. */
+const KEY_VARIABLE = /^(?:(?:[\w$]+(?:\?\.|\.))*[\w$]+Key|key)$/;
+/** A function whose body returns key literals. */
+const KEY_FUNCTION = /^(?:errorKey|refusalKey)\([\s\S]*\)$/;
+
+function stripParens(expression: string): string {
+  let e = expression.trim();
+  while (e.startsWith('(') && e.endsWith(')') && splitConditional(e) === null) {
+    const inner = e.slice(1, -1).trim();
+    // Only strip a pair that wraps the whole expression.
+    let depth = 0;
+    let wraps = true;
+    for (let i = 0; i < inner.length; i += 1) {
+      if (inner[i] === '(') depth += 1;
+      else if (inner[i] === ')') depth -= 1;
+      if (depth < 0) {
+        wraps = false;
+        break;
+      }
+    }
+    if (!wraps) break;
+    e = inner;
+  }
+  return e;
+}
+
+/**
+ * A branch the literal scan can see: a string or template literal, a declared key variable,
+ * a key function, or another such conditional.
+ */
+function isKeyBranch(expression: string): boolean {
+  const e = stripParens(expression);
+  if (/^'[^']*'$|^"[^"]*"$/.test(e)) return true;
+  if (/^`[^`]*`$/.test(e) || (e.startsWith('`') && e.endsWith('`'))) return true;
+  if (KEY_VARIABLE.test(e) || KEY_FUNCTION.test(e)) return true;
+  return isKeyConditional(e);
+}
+
+/** `cond ? A : B` where BOTH branches are key branches (`t(compute(c ? a : b))` is not one). */
+function isKeyConditional(expression: string): boolean {
+  const parts = splitConditional(stripParens(expression));
+  return parts !== null && isKeyBranch(parts.consequent) && isKeyBranch(parts.alternate);
+}
+
+/**
+ * The declared shapes of a lookup whose key the call does not show. A call site
+ * matching none of them fails: either make the key visible (a literal, a constant)
+ * or declare the shape here with the reason its keys are (or are not) covered.
+ * Measured 2026-11-26, 170 call sites: conditional 60, key variable 57, key table 20,
+ * prefix handed in 12, error key in state 9, key function 5, passthrough 4, server 2,
+ * fallback array 1. Of the 57 key variables, 12 are a bare `key`: a local built from a
+ * template (`` const key = `enums.${name}.${option}` ``, checked by layer 4), an item of a
+ * key-literal array (`EFFECT_KEYS.map((key) => t(key))`, layer 3), or the `(key) => t(key)`
+ * adapter handed to `parseApiError`. The stale check below fails a shape no site uses.
+ */
+const INDIRECT_LOOKUP_SHAPES: { name: string; test: (expression: string) => boolean; coverage: string }[] = [
   {
     name: 'key sent by the server',
-    pattern: /^(?:state\.trigger_reason_i18n_key|entry\?\.unavailable_reason \?\? '[\w.]+')$/,
+    test: (e) => /^(?:state\.trigger_reason_i18n_key|entry\?\.unavailable_reason \?\? '[\w.]+')$/.test(e),
     coverage:
       'NOT covered: the backend names the key (REQ-018 trigger reason, REQ-045 widget gate); only the ' +
       'literal fallback after `??` is checked by layer 3',
   },
   {
     name: 'conditional between keys',
-    pattern: /^[^?]+\?(?![.?])[\s\S]+:[\s\S]+$/,
-    coverage: 'each branch is a key-shaped literal or template and is checked by layer 3',
+    test: isKeyConditional,
+    coverage: 'both branches are key-shaped literals/templates, key variables or key functions, checked by layer 3',
   },
   {
     name: 'key variable or property',
-    pattern: /^(?:[\w$]+(?:\?\.|\.))*[\w$]*(?:[kK]ey|I18nKey)$/,
-    coverage: 'carries a key written as a literal elsewhere (config arrays, props), checked by layer 3',
+    test: (e) => KEY_VARIABLE.test(e),
+    coverage:
+      'a camel-case `…Key` name (or a bare `key` parameter of a lookup helper) that carries a key written as a ' +
+      'literal elsewhere (config arrays, props), checked by layer 3. A data property such as `row.key` is NOT ' +
+      'accepted: it is an entity key, not a translation key',
   },
   {
     name: 'key table lookup',
-    pattern: /^(?:[A-Z][A-Z0-9_]*|[a-z][\w$]*Keys)\[[^\]]+\](?:\s*\?\?\s*[\s\S]+)?$/,
+    test: (e) => /^(?:[A-Z][A-Z0-9_]*|[a-z][\w$]*Keys)\[[^\]]+\](?:\s*\?\?\s*[\s\S]+)?$/.test(e),
     coverage: 'a `Record<…, key>` of key literals, checked by layer 3; the fallback after `??` too',
   },
   {
     name: 'key function',
-    pattern: /^(?:errorKey|refusalKey)\([\s\S]*\)$|^quotaKey \?\? errorKey\(/,
+    test: (e) => KEY_FUNCTION.test(e) || /^quotaKey \?\? errorKey\(/.test(e),
     coverage: 'returns keys written as literals in its body (api/errors.ts, the refusal map), checked by layer 3',
   },
   {
     name: 'error key in state',
-    pattern: /^(?:error|state\.message)(?:\s*\?\?\s*'errors\.generic')?$/,
+    test: (e) => /^(?:error|state\.message)(?:\s*\?\?\s*'errors\.generic')?$/.test(e),
     coverage: 'holds the result of `errorKey()` (api/errors.ts), whose keys are literals checked by layer 3',
   },
   {
     name: 'key-or-text passthrough',
-    pattern: /^(?:label|description|crumb\.label)$/,
+    test: (e) => /^(?:label|description|crumb\.label)$/.test(e),
     coverage:
       'a prop that is a key or already-translated text, rendered with `defaultValue: label` or from ' +
       'key-literal props at every call site; not resolvable here',
   },
   {
     name: 'prefix handed in',
-    pattern: /^`\$\{(?:base|listPrefix|empty|boundaryTexts)\}\.[\s\S]*`$/,
+    test: (e) => /^`\$\{(?:base|listPrefix|empty|boundaryTexts)\}\.[\s\S]*`$/.test(e),
     coverage:
       'the head is a prop/parameter; the prefixes the callers pass are key-shaped literals checked by ' +
       'layer 3, the suffix is not checked against them',
   },
   {
     name: 'fallback array',
-    pattern: /^\[`[\s\S]+`,[\s\S]+\]$/,
+    test: (e) => /^\[`[\s\S]+`,[\s\S]+\]$/.test(e),
     coverage: 'i18next key-fallback array; the template head is checked by layer 4',
   },
 ];
 
 function shapeOf(expression: string): string | null {
-  return INDIRECT_LOOKUP_SHAPES.find((shape) => shape.pattern.test(expression))?.name ?? null;
+  return INDIRECT_LOOKUP_SHAPES.find((shape) => shape.test(expression))?.name ?? null;
+}
+
+/**
+ * Layer 2 asks for the RIGHT kind of node, not just any: a leaf; a plural family only when
+ * the call passes `count` (else i18next looks up the bare key and shows it raw); a branch
+ * only with `returnObjects: true` (else the UI shows "key 'pages.tanks (de)' returned an
+ * object instead of string"). `''` when the lookup is fine.
+ */
+function staticKeyProblem(usage: Extract<KeyUsage, { kind: 'static' }>, index: KeyIndex): string {
+  if (index.isLeaf(usage.key)) return '';
+  if (index.isPluralBase(usage.key)) return usage.count || usage.trans ? '' : ' — plural family without count';
+  if (index.isBranch(usage.key)) return usage.returnObjects ? '' : ' — an object node without returnObjects';
+  return ' — undefined';
 }
 
 /** All findings of layers 2–4 for one source, as `line: problem` strings. */
 function undefinedKeys(source: string, index: KeyIndex, exported: ReadonlyMap<string, string>): string[] {
   const out: string[] = [];
   for (const usage of keyUsages(source, exported)) {
-    if (usage.kind === 'static' && !index.resolves(usage.key)) out.push(`${usage.line}: t('${usage.key}')`);
+    if (usage.kind === 'static') {
+      const problem = staticKeyProblem(usage, index);
+      if (problem) out.push(`${usage.line}: t('${usage.key}')${problem}`);
+    }
     if (usage.kind === 'template' && !index.leadsSomewhere(usage.head)) out.push(`${usage.line}: ${usage.head}…`);
   }
   for (const literal of keyLiterals(source, NAMESPACES)) {
@@ -203,12 +279,18 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('splits a conditional at its top level only', () => {
+    expect(splitConditional("a ? 'x' : b ? 'y' : 'z'")).toEqual({ test: 'a', consequent: "'x'", alternate: "b ? 'y' : 'z'" });
+    expect(splitConditional('a?.b ?? c')).toBeNull();
+    expect(splitConditional('f(a ? b : c)')).toBeNull();
+  });
+
   it('keeps every declared shape and non-key literal in use (no stale entries)', () => {
     const indirect = Object.values(SOURCES).flatMap((source) =>
       keyUsages(source, EXPORTED).flatMap((usage) => (usage.kind === 'unverifiable' ? [usage.text] : [])),
     );
     for (const shape of INDIRECT_LOOKUP_SHAPES) {
-      expect(indirect.some((text) => shape.pattern.test(text)), shape.name).toBe(true);
+      expect(indirect.some((text) => shape.test(text)), shape.name).toBe(true);
     }
     const literals = new Set(Object.values(SOURCES).flatMap((source) => keyLiterals(source, NAMESPACES).map((l) => l.key)));
     for (const key of Object.keys(NOT_A_KEY)) {
@@ -242,7 +324,7 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
     });
 
     it('reports a seeded undefined static key', () => {
-      expect(undefinedKeys("t('common.missing');", index, exported)).toContain("1: t('common.missing')");
+      expect(undefinedKeys("t('common.missing');", index, exported)).toContain("1: t('common.missing') — undefined");
     });
 
     it('reports an undefined key in a config literal, a constant template and a Trans', () => {
@@ -253,8 +335,32 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
         '<Trans i18nKey="pages.x.gone" />',
       ].join('\n');
       expect(undefinedKeys(source, index, exported)).toEqual(
-        expect.arrayContaining(["1: 'pages.x.nope'", "3: t('pages.x.nope')", "4: t('pages.x.gone')"]),
+        expect.arrayContaining([
+          "1: 'pages.x.nope'",
+          "3: t('pages.x.nope') — undefined",
+          "4: t('pages.x.gone') — undefined",
+        ]),
       );
+    });
+
+    it('requires a leaf, a plural family only with count, a branch only with returnObjects', () => {
+      expect(undefinedKeys("t('pages.x.list');", index, exported)).toEqual([
+        "1: t('pages.x.list') — an object node without returnObjects",
+      ]);
+      expect(undefinedKeys("t('common.item');", index, exported)).toEqual([
+        "1: t('common.item') — plural family without count",
+      ]);
+      expect(
+        undefinedKeys(
+          "t('common.item', { count: n }); t('common.item', { count }); t('pages.x.list', { returnObjects: true });",
+          index,
+          exported,
+        ),
+      ).toEqual([]);
+      // `count` of a nested call is not the outer call's own.
+      expect(undefinedKeys("t('common.item', { label: t('common.save', { count: 1 }) });", index, exported)).toEqual([
+        "1: t('common.item') — plural family without count",
+      ]);
     });
 
     it('reports a runtime key whose static head leads nowhere', () => {
@@ -268,6 +374,27 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
         '1: t(computeSomething(x))',
       ]);
       expect(undeclaredIndirectLookups('t(def.labelKey); t(isEdit ? \'common.save\' : \'common.create\');', new Map())).toEqual([]);
+    });
+
+    it('accepts a conditional only when both branches are keys', () => {
+      const accepted = [
+        "t(flag ? 'pages.a' : `${PREFIX}.b`)",
+        "t(a ? 'x.a' : b ? 'x.b' : 'x.c')",
+        "t(refusal === 'r' ? refusalKey(refusal) : `${PREFIX}.block`)",
+        "t(isEdit ? titleKey : 'common.create')",
+      ];
+      for (const code of accepted) expect(undeclaredIndirectLookups(code, new Map()), code).toEqual([]);
+      const refused = ['t(compute(flag ? a : b))', "t(flag ? 'pages.a' : row.name)", 't(flag ? a : b)'];
+      for (const code of refused) expect(undeclaredIndirectLookups(code, new Map()), code).not.toEqual([]);
+    });
+
+    it('accepts a camel-case key variable, not a data property named key', () => {
+      for (const code of ['t(labelKey)', 't(def.descriptionKey)', 't(field.helperI18nKey)', 't(key)']) {
+        expect(undeclaredIndirectLookups(code, new Map()), code).toEqual([]);
+      }
+      for (const code of ['t(row.key)', 't(item.key)', 't(monkey)']) {
+        expect(undeclaredIndirectLookups(code, new Map()), code).not.toEqual([]);
+      }
     });
 
     it('reports a defaultValue on a static key, not on a runtime key or a nested call', () => {
