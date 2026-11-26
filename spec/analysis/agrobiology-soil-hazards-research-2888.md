@@ -6,6 +6,7 @@
 | Bezug | GitHub #2888; REQ-054 §5.2 (`soil_hazards[]`), §5.5 (Bodenpathogene), §6 H-10/H-11 und Notiz „Übernommen aus REQ-053 §11.3“; REQ-053 §11.3 „ausgefallen“, GP-FR-131 |
 | Methode | E-10: je Wert drei voneinander unabhängige Quellen (Fachliteratur, Landesanstalten/Kammern/JKI, RHS, AHDB, UC IPM, US-Extension-Services, Reviews). Wo weniger als drei unabhängige Quellen gefunden wurden, steht der Wert als **„nicht belegt (n/3)“**. |
 | Nachtrag | 2026-11-17, GitHub #3005: Nachrecherche der in §6.3 offenen Werte, Ergebnisse in §7 |
+| Korrektur | 2026-11-26, F-18 (#2888): Betreiberentscheidungen vom 2026-11-22 zu §7.12 Punkt 1 (Spannen zählen als 3/3) und Punkt 5 (`soil_persistence_years` = Anbaupause) eingearbeitet; R-001.2, §6.1, §7.11 korrigiert. Die Werte stehen in der Wissenstabelle `src/backend/app/migrations/seed_data/soil_hazards.yaml` (REQ-054 §5.2a). |
 | Status | Recherche, keine Entscheidung. Planungswerte sind **Vorschläge** für den Betreiber und das REQ-001-Folge-Issue (`soil_persistence_years`, `pathogen_hosts`). |
 
 ## 0. Lesehinweise zur Methode
@@ -65,9 +66,9 @@ Zusatzbefund: Der Abbau ist nicht linear. Kher et al. (2019, bioRxiv-Preprint, n
 |-------|-------------|----------|----------|----------|-------------|
 | max. Überdauerung | „jahrelang“ bis > 12 J. | NDSU: „a small percentage of eggs within cysts can survive over 12 years under fallow conditions“ — [NDSU Sugarbeet cyst nematode](https://www.ndsu.edu/agriculture/ag-hub/publications/sugarbeet-cyst-nematode) (verifiziert) | AGES: Zysten „bleiben jahrelang lebensfähig“ — [AGES Rübenzystennematoden](https://www.ages.at/pflanze/pflanzengesundheit/schaderreger-von-a-bis-z/ruebenzystennematoden) (verifiziert, ohne Zahl) | KWS (Züchter): ca. 10 J. — [KWS dzz 05/2017](https://mediamaster.kws.com/01_Products/DE_Deutschland/Sugar_Beet/Downloads/R%C3%BCbenzystennematoden-Ein_verbreitetes_Problem_dzz_05-2017.pdf) (Suchauszug) | Zahl **1/3**; „mehrjährig“ 2/3 |
 | Abnahme ohne Wirt | 40–60 %/J. | UNL G1906: „decline about 40 to 60 percent per year“ — [UNL Extension G1906](https://extensionpubs.unl.edu/publication/g1906/na/html/view) (verifiziert) | NDSU: Nichtwirte senken die Ausgangspopulation um 40–60 % in einem Jahr (verifiziert) | — | **2/3** |
-| empfohlene Pause nach Befall | 3–4 J. (Tara-Böden 3–5) | LfL Merkblatt „Nematoden im Feldgemüsebau“: „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ — [LfL p_37956](https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_37956.pdf) (verifiziert) | NDSU: „Heavily infested fields need a three- to four-year rotation“ (verifiziert) | AGES: „Ein vierjähriger Fruchtwechsel ist wesentlich“ (verifiziert) | **3/3** |
+| empfohlene Pause nach Befall | 2–3 J. Pause (Rotation 3–4 J., Tara-Böden 3–5; Korrektur 2026-11-26) | LfL Merkblatt „Nematoden im Feldgemüsebau“: „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ — [LfL p_37956](https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_37956.pdf) (verifiziert) | NDSU: „Heavily infested fields need a three- to four-year rotation“ (verifiziert) | AGES: „Ein vierjähriger Fruchtwechsel ist wesentlich“ (verifiziert) | **3/3 Spanne** für 3 J. Pause (LfL ≥ 2, NDSU 2–3, AGES 3 J.) |
 
-**Vorschlag:** `soil_persistence_years = 4`, `max_survival_years = 12`. Begründung: oberer Rand der drei übereinstimmenden Beratungsempfehlungen (3, 3–4, 4); bei 50 % Abnahme pro Jahr bleiben nach 4 Jahren ≈ 6 % der Ausgangsdichte.
+**Vorschlag:** `soil_persistence_years = 3`, `max_survival_years` ohne belegte Zahl (§7.2). Begründung: **Korrektur 2026-11-26** nach Betreiberentscheid 2026-11-22 (§7.12 Punkt 5): `soil_persistence_years` meint die Anbaupause, nicht die Rotationslänge. Die Quellen nennen Rotationen: LfL „maximal alle drei Jahre“ (≥ 2 J. Pause), NDSU „three- to four-year rotation“ (2–3 J. Pause), AGES „vierjähriger Fruchtwechsel“ (3 J. Pause). 3 J. Pause liegt in allen drei Angaben und gilt nach Betreiberentscheid als 3/3 (Belegart Spanne). Die frühere Bewertung (4 J., 3/3) las „Rotation“ als Pause. Bei 50 % Abnahme pro Jahr (2/3) bleiben nach 3 Jahren ≈ 12 % der Ausgangsdichte.
 
 ### R-001.3 Wurzelgallenälchen (`root_knot_nematode`, *Meloidogyne* spp.)
 
@@ -304,9 +305,9 @@ Belegstatus nach der Nachrecherche vom 2026-11-17 (§7). Die Vorschlagswerte sin
 | hazard | soil_persistence_years (Vorschlag) | max_survival_years (Vorschlag, informativ) | affected_families (Ebene) | Belegstatus Sperrdauer / Überdauerung / Wirte |
 |--------|-----------------------------------|---------------------------------------------|---------------------------|-----------------------------------------------|
 | `clubroot` | 7 | 20 (3/3 nur für 15) | Brassicaceae (Familie) | 3/3 Spanne · 3/3 (≥ 15) · 3/3 |
-| `cyst_nematode` | 4 | 12 | Brassicaceae, Amaranthaceae (Familie; Ausnahme resistente Zwischenfruchtsorten) | 3/3 · widersprüchlich (5–> 12) · 3/3 |
+| `cyst_nematode` | 3 (Korrektur 2026-11-26, vorher 4) | — (vorher 12) | Brassicaceae, Amaranthaceae (Familie; Ausnahme resistente Zwischenfruchtsorten) | 3/3 Spanne · widersprüchlich (5–> 12) · 3/3 |
 | `root_knot_nematode` | 3 | — (unbekannt) | Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae; *Allium* bei *M. hapla* (Familie; Nichtwirt Poaceae) | nur „≥ 1 J.“ 3/3 · widersprüchlich · 3/3 |
-| `white_rot` | 15 | 20 | Amaryllidaceae, nur Gattung *Allium* | 1/3 · 3/3 (≥ 15) · 3/3 |
+| `white_rot` | — (FiBL 8–10 J., 1/3; die frühere 15 ist die Überdauerung, Korrektur 2026-11-26) | 20 (3/3 nur für 15) | Amaryllidaceae, nur Gattung *Allium* | 1/3 · 3/3 (≥ 15) · 3/3 |
 | `pea_root_rot` | 8 | 12 | Fabaceae: *Pisum*, *Lens*, *Vicia* (Gattung); *Glycine* und *Vicia faba* (für *Aphanomyces*) ausgenommen, *Phaseolus* ausgenommen | widersprüchlich (3–10) · 3/3 (≥ 10) · 3/3 |
 | `sclerotinia` | 5 | 10 | Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Solanaceae, Cucurbitaceae, Lamiaceae, Rosaceae (Familie; Nichtwirt Poaceae 3/3) | 3/3 Spanne · 3/3 (4–10) · 2/3 |
 | `verticillium` | 4 | 14 (3/3 nur für 10) | Solanaceae, Rosaceae, Cucurbitaceae, Asteraceae (2/3); Amaranthaceae (Spinat), Brassicaceae, Lamiaceae (*Mentha*) (3/3, §7.7) (Familie; Nichtwirt Poaceae widersprüchlich) | 3/3 Spanne · 3/3 (≥ 10) · 3/3 (nach §7.7) |
@@ -501,7 +502,7 @@ Folgen für §5 und R-004:
 
 ### 7.11 Ergebnis für die Wissenstabelle (F-18)
 
-Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte eingetragen werden können. „3/3 Zahl“ heißt: drei unabhängige Quellen nennen dieselbe Zahl oder eine Untergrenze, die sie erfüllt. „3/3 Spanne“ heißt: drei unabhängige Quellen nennen voneinander abweichende Spannen, und der Planungswert liegt in jeder davon.
+Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte eingetragen werden können. „3/3 Zahl“ heißt: drei unabhängige Quellen nennen dieselbe Zahl oder eine Untergrenze, die sie erfüllt. „3/3 Spanne“ heißt: drei unabhängige Quellen nennen voneinander abweichende Spannen, und der Planungswert liegt in jeder davon. Nach Betreiberentscheid 2026-11-22 zählt „3/3 Spanne“ als 3/3 für die Warndauer; die Wissenstabelle weist die Belegart `range` aus.
 
 **Werte mit 3/3, eintragbar mit F-18:**
 
@@ -511,7 +512,7 @@ Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte 
 | `clubroot` | `max_survival_years` | 15 | 3/3 Zahl als Untergrenze (AHDB bis 15, RHS 20, LW 2013 bis 20, Dixon ≥ 18); 20 J. nur 2/3 (RHS, LW) | R-001.1, §7.1 |
 | `clubroot` | Halbwertszeit (informativ) | 3,5–3,6 J. | 3/3 Zahl, mögliche gemeinsame Primärquelle | §7.1 |
 | `clubroot` | Wirte | Brassicaceae | 3/3 (R-002) | R-002 |
-| `cyst_nematode` | `soil_persistence_years` | 4 | 3/3 (R-001.2, siehe offener Punkt 5) | R-001.2 |
+| `cyst_nematode` | `soil_persistence_years` | 3 | 3/3 Spanne (LfL ≥ 2, NDSU 2–3, AGES 3 J. Pause; Korrektur 2026-11-26 nach Betreiberentscheid zu Punkt 5, vorher 4) | R-001.2 |
 | `cyst_nematode` | Wirte | Brassicaceae, Amaranthaceae | 3/3 (R-002) | R-002 |
 | `root_knot_nematode` | Wirte | Familienliste R-002 | 3/3 (R-002) | R-002 |
 | `root_knot_nematode` | Nichtwirt | Poaceae | 3/3 (neu) | §7.3 |
@@ -555,9 +556,9 @@ R-003/R-004: 3/3 erreicht haben R-003 a–e, R-004.1 a–b, R-004.3 a, b, d und 
 
 ### 7.12 Offene Punkte nach #3005
 
-1. **Pausenwerte als Spanne.** Für `clubroot` 7, `sclerotinia` 5 und `verticillium` 4 nennen die drei Quellen nicht dieselbe Zahl, der Wert liegt aber in jeder Angabe. Ob das als 3/3 für die Warndauer gilt, entscheidet der Betreiber. Diese Recherche nennt die Werte eintragbar und weist den Belegtyp aus.
+1. **Pausenwerte als Spanne.** Für `clubroot` 7, `sclerotinia` 5 und `verticillium` 4 nennen die drei Quellen nicht dieselbe Zahl, der Wert liegt aber in jeder Angabe. Ob das als 3/3 für die Warndauer gilt, entscheidet der Betreiber. Diese Recherche nennt die Werte eintragbar und weist den Belegtyp aus. **Entschieden 2026-11-22:** Ein Wert, der in allen drei Quellangaben liegt, gilt als 3/3, auch bei Spannen; die Wissenstabelle führt die Belegart „Spanne“ (`range`).
 2. **Nicht gefunden:** Überdauerung Wurzelgallenälchen als Zahl, Pausenzahl Weißfäule (außer FiBL), Überdauerung *F. solani* f. sp. *pisi* und *F. o.* f. sp. *conglutinans* als Zahl, Verticillium an Basilikum und Küchensalbei, Kreuzinfektion *F. solani* f. sp. *pisi*/*phaseoli*, „nach gesunden Pflanzen ist Wiederverwendung in Ordnung“ (1/3), Falscher Mehltau zu R-003, Definition „dieselbe Saison“ (0/3).
 3. **Deutsche Landesquellen:** LWK NRW/Niedersachsen und LTZ Augustenberg lieferten zu keinem Wert einen abrufbaren Volltext mit Zahl. Verwendet sind LfL, JKI, DLR RLP, LFA MV, Pflanzenschutzdienst M-V, TLLLR, LLH Hessen, AGES, Agroscope, FiBL, LK NÖ/BOKU.
 4. **Nicht mehr abrufbar:** KWS dzz 05/2017, NCDA Nema-Note 12 (HTTP 404); Oklahoma State (Bot-Schutz). Der Penn-State-Satz zur Juglon-Persistenz steht in der aktuellen Fassung nicht mehr.
-5. **Rübenzystennematode, Pause:** LfL schreibt „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ (2 J. Pause im Dreijahresrhythmus), NDSU „three- to four-year rotation“, AGES „vierjähriger Fruchtwechsel“. Die R-001.2-Bewertung (3/3 für 4 J.) liest „Rotation“ als Pause; eine strengere Lesart ergibt 2–3 J. Pause. Vor dem Eintrag in F-18 klären, ob `soil_persistence_years` die Pause oder die Rotationslänge meint.
+5. **Rübenzystennematode, Pause:** LfL schreibt „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ (2 J. Pause im Dreijahresrhythmus), NDSU „three- to four-year rotation“, AGES „vierjähriger Fruchtwechsel“. Die R-001.2-Bewertung (3/3 für 4 J.) liest „Rotation“ als Pause; eine strengere Lesart ergibt 2–3 J. Pause. Vor dem Eintrag in F-18 klären, ob `soil_persistence_years` die Pause oder die Rotationslänge meint. **Entschieden 2026-11-22:** `soil_persistence_years` meint die Anbaupause; es gilt die strengere Lesart (2–3 J. Pause). Eingetragen ist 3 J. (liegt in allen drei Angaben, 3/3 Spanne); R-001.2, §6.1 und §7.11 sind korrigiert.
 6. **Korrektur Quellenangabe R-004.3:** „University of Kentucky E706“ ist der e-GRO Edible Alert 7(6) der University of Georgia.
