@@ -11,6 +11,8 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import HomeIcon from '@mui/icons-material/Home';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
+import LongPressButton from '@/components/kiosk/LongPressButton';
+import { KIOSK_LONG_PRESS_MS } from '@/kiosk/longPress';
 import { useKiosk } from '@/kiosk/KioskProvider';
 import { KIOSK_START_PATH } from '@/kiosk/kioskStartPath';
 
@@ -23,7 +25,7 @@ interface KioskAppBarProps {
  * UI-NFR-019 — kiosk app bar. Carries the permanent "Kiosk" badge (R-003), a
  * large always-visible Home button (R-018), a large Back button in place of the
  * breadcrumbs on every page below the start page (R-017) and an exit control
- * that leaves the kiosk shell without a reload (R-004). There is no menu button:
+ * that leaves the kiosk shell without a reload (R-004) once it was held for 2 s. There is no menu button:
  * kiosk mode has no hamburger and no sidebar (R-021).
  */
 export default function KioskAppBar({ indicators }: KioskAppBarProps) {
@@ -84,15 +86,19 @@ export default function KioskAppBar({ indicators }: KioskAppBarProps) {
         >
           {t('pages.kiosk.home')}
         </Button>
-        <Button
-          variant="text"
+        {/* Operator decision 2026-11-27 — leaving the kiosk is held for 2 s, so a visitor's tap
+            (or a wet finger) does not drop the tablet into the full app. Keyboard and assistive
+            activation leave directly, as with every LongPressButton. */}
+        <LongPressButton
+          variant="outlined"
+          color="inherit"
           startIcon={<LogoutIcon />}
-          onClick={handleExit}
-          sx={{ minHeight: 64 }}
+          onConfirm={handleExit}
+          hint={t('pages.kiosk.exitHoldHint', { seconds: KIOSK_LONG_PRESS_MS / 1000 })}
           data-testid="kiosk-exit-button"
         >
           {t('pages.kiosk.exit')}
-        </Button>
+        </LongPressButton>
       </Toolbar>
     </AppBar>
   );

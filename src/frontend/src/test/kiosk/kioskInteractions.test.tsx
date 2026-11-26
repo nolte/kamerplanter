@@ -14,7 +14,7 @@ import KioskShell from '@/layouts/KioskShell';
 import { KioskContext, type KioskContextValue } from '@/kiosk/KioskProvider';
 import { EC_QUICK_SELECT } from '@/kiosk/quickSelectPresets';
 import { KIOSK_TAP_DEBOUNCE_MS } from '@/kiosk/useTapDebounce';
-import { KIOSK_LONG_PRESS_MS } from '@/components/kiosk/LongPressButton';
+import { KIOSK_LONG_PRESS_MS } from '@/kiosk/longPress';
 import { createTestStore } from '@/test/helpers';
 
 function kioskValue(isKiosk: boolean): KioskContextValue {

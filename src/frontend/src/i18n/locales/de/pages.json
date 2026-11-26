@@ -1267,6 +1267,7 @@
       "badge": "Kiosk",
       "home": "Start",
       "exit": "Kiosk verlassen",
+      "exitHoldHint": "Zum Verlassen {{seconds}} Sekunden gedrückt halten",
       "startTitle": "Was möchtest du tun?",
       "actions": {
         "identifyPlant": "Pflanze bestimmen",
@@ -1294,7 +1295,8 @@
         "highContrastTitle": "Kontrastreiche Darstellung",
         "highContrastDescription": "Reine Schwarz-Weiß-Darstellung mit besonders hohem Kontrast – auch unabhängig vom Kiosk-Modus nutzbar, etwa bei direkter Sonneneinstrahlung auf dem Balkon.",
         "highContrastToggle": "Kontrastreiches Design verwenden",
-        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv."
+        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv.",
+        "turnOff": "Kiosk-Modus beenden"
       },
       "longPress": {
         "hint": "Zum Bestätigen {{seconds}} Sekunden gedrückt halten",

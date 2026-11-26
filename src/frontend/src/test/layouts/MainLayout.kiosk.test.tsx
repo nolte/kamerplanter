@@ -162,7 +162,9 @@ describe('MainLayout in kiosk mode (#3025 N-37)', () => {
     const user = userEvent.setup();
     const router = renderTileDestination();
 
-    await user.click(await screen.findByTestId('kiosk-exit-button'));
+    // Leaving is held (operator decision 2026-11-27); the keyboard path leaves directly.
+    (await screen.findByTestId('kiosk-exit-button')).focus();
+    await user.keyboard('{Enter}');
     expect(router.state.location.pathname).toBe('/dashboard');
     expect(await screen.findByTestId('sidebar-toggle')).toBeInTheDocument();
     expect(screen.queryByTestId('kiosk-shell')).toBeNull();

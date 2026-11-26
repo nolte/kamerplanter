@@ -76,8 +76,10 @@ describe('KioskLayout (UI-NFR-019)', () => {
     await act(async () => {
       renderLayout();
     });
+    // Leaving is held (operator decision 2026-11-27); the keyboard path leaves directly.
+    screen.getByTestId('kiosk-exit-button').focus();
     await act(async () => {
-      await user.click(screen.getByTestId('kiosk-exit-button'));
+      await user.keyboard('{Enter}');
     });
     expect(screen.getByTestId('dashboard-route')).toBeInTheDocument();
   });

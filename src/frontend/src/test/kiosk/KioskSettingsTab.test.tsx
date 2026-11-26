@@ -54,7 +54,7 @@ describe('KioskSettingsTab (UI-NFR-019)', () => {
     expect(screen.getByTestId('high-contrast-toggle')).toBeInTheDocument();
   });
 
-  it('turning the kiosk toggle on also checks it (persisted state)', async () => {
+  it('turns kiosk mode on with one click; switching it off is then a held button', async () => {
     const user = userEvent.setup();
     renderTab();
     const toggle = screen.getByTestId('kiosk-mode-toggle').querySelector('input')!;
@@ -63,7 +63,9 @@ describe('KioskSettingsTab (UI-NFR-019)', () => {
     await act(async () => {
       await user.click(toggle);
     });
-    expect(toggle).toBeChecked();
+    // Operator decision 2026-11-27 — inside the kiosk the way out is held, not switched.
+    expect(await screen.findByTestId('kiosk-mode-exit')).toBeInTheDocument();
+    expect(screen.queryByTestId('kiosk-mode-toggle')).toBeNull();
   });
 
   it('opens the kiosk start page via the open button (R-001)', async () => {

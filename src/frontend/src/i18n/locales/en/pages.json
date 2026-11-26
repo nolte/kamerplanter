@@ -1267,6 +1267,7 @@
       "badge": "Kiosk",
       "home": "Home",
       "exit": "Exit kiosk",
+      "exitHoldHint": "Hold for {{seconds}} seconds to leave",
       "startTitle": "What would you like to do?",
       "actions": {
         "identifyPlant": "Identify plant",
@@ -1294,7 +1295,8 @@
         "highContrastTitle": "High-contrast display",
         "highContrastDescription": "Pure black-and-white display with very high contrast – usable independently of kiosk mode, for example in direct sunlight on the balcony.",
         "highContrastToggle": "Use high-contrast design",
-        "highContrastKioskHint": "In kiosk mode the high-contrast display is enabled by default."
+        "highContrastKioskHint": "In kiosk mode the high-contrast display is enabled by default.",
+        "turnOff": "Turn off kiosk mode"
       },
       "longPress": {
         "hint": "Hold for {{seconds}} seconds to confirm",

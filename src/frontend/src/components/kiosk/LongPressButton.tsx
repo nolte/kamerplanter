@@ -4,15 +4,18 @@ import { visuallyHidden } from '@mui/utils';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import { KIOSK_LONG_PRESS_MS } from '@/kiosk/longPress';
 
-/** UI-NFR-019 R-030 — how long a destructive kiosk action must be held. */
-export const KIOSK_LONG_PRESS_MS = 2000;
 
 interface LongPressButtonProps {
   onConfirm: () => void;
   children: ReactNode;
   holdMs?: number;
-  color?: 'error' | 'primary';
+  color?: 'error' | 'primary' | 'inherit';
+  variant?: 'contained' | 'outlined' | 'text';
+  startIcon?: ReactNode;
+  /** Visible hold instruction; defaults to "hold {{seconds}} s to confirm". */
+  hint?: string;
   disabled?: boolean;
   loading?: boolean;
   'data-testid'?: string;
@@ -21,6 +24,7 @@ interface LongPressButtonProps {
 /**
  * UI-NFR-019 R-030 — a destructive action that a touch must HOLD for {@link KIOSK_LONG_PRESS_MS}.
  * A wet finger or a phantom touch on a greenhouse tablet taps; it does not hold for two seconds.
+ * Used for destructive confirmations and for leaving kiosk mode (operator decision 2026-11-27).
  * A short tap does nothing but point at the hint below the button; the fill shows the progress
  * of the hold (R-053), and releasing or sliding off before the end cancels it.
  *
@@ -36,6 +40,9 @@ export default function LongPressButton({
   children,
   holdMs = KIOSK_LONG_PRESS_MS,
   color = 'error',
+  variant = 'contained',
+  startIcon,
+  hint,
   disabled = false,
   loading = false,
   'data-testid': testId,
@@ -81,8 +88,9 @@ export default function LongPressButton({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
       <Button
-        variant="contained"
+        variant={variant}
         color={color}
+        startIcon={startIcon}
         disabled={disabled}
         loading={loading}
         aria-busy={loading}
@@ -129,7 +137,7 @@ export default function LongPressButton({
         sx={{ fontWeight: nudged ? 700 : 500 }}
         data-testid={testId ? `${testId}-hint` : undefined}
       >
-        {t('pages.kiosk.longPress.hint', { seconds })}
+        {hint ?? t('pages.kiosk.longPress.hint', { seconds })}
         <Box component="span" sx={visuallyHidden}>
           {` ${t('pages.kiosk.longPress.keyboardHint')}`}
         </Box>
