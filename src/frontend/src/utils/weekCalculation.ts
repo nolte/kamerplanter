@@ -1,4 +1,5 @@
 import { utcCalendarDaysBetween } from '@/utils/calendarDay';
+import { formatMonthName } from '@/utils/formatting';
 
 export const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -63,7 +64,7 @@ export const MONTH_WEEK_SPANS: MonthWeekSpan[] = [
   { month: 11, weekStart: 49, weekEnd: 52, span: 4 },  // Dec
 ];
 
-/** Get short month name for a 0-based month index in the given locale. */
-export function getShortMonthName(monthIndex: number, locale: string): string {
-  return new Date(2026, monthIndex).toLocaleDateString(locale, { month: 'short' });
+/** Get the short month name for a 0-based month index in the active UI language. */
+export function getShortMonthName(monthIndex: number): string {
+  return formatMonthName(monthIndex + 1, 'short');
 }

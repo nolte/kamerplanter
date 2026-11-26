@@ -34,6 +34,7 @@ import { getLocalizedCommonName, getPlantDisplayName } from '@/utils/plantDispla
 import PlantCoverPreview from './photos/PlantCoverPreview';
 import { captureHandledError } from '@/observability/errorTracking';
 import { createRequestLimiter, ENRICHMENT_CONCURRENCY, RequestDroppedError } from '@/api/requestLimiter';
+import { formatDate } from '@/utils/formatting';
 
 /**
  * A read the limiter dropped because the page moved on is not a failure; every other
@@ -308,7 +309,7 @@ export default function PlantInstanceListPage() {
     {
       id: 'plantedOn',
       label: t('pages.plantInstances.plantedOn'),
-      render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '—',
+      render: (r) => r.planted_on ? formatDate(r.planted_on) : '—',
     },
     {
       id: 'currentPhase',
@@ -359,7 +360,7 @@ export default function PlantInstanceListPage() {
       id: 'removedOn',
       label: t('pages.plantInstances.removedOn'),
       render: (r) =>
-        r.removed_on ? new Date(r.removed_on).toLocaleDateString() : '—',
+        r.removed_on ? formatDate(r.removed_on) : '—',
     },
     {
       id: 'actions',
@@ -438,7 +439,7 @@ export default function PlantInstanceListPage() {
         ]}
         fields={[
           ...(location ? [{ id: 'location', label: t('entities.location'), value: location.name }] : []),
-          ...(r.planted_on ? [{ id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []),
+          ...(r.planted_on ? [{ id: 'plantedOn', label: t('pages.plantInstances.plantedOn'), value: formatDate(r.planted_on) }] : []),
         ]}
       />
     );

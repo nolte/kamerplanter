@@ -33,6 +33,7 @@ import type {
   WorkflowTargetType,
 } from '@/api/types';
 import { getPlantLabel } from '@/utils/plantDisplay';
+import { formatDateWith } from '@/utils/formatting';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -54,17 +55,9 @@ interface Props {
 
 // ── Helper: format date for display ──────────────────────────────────
 
-function formatDate(iso: string | null, locale: string): string {
+function formatDate(iso: string | null): string {
   if (!iso) return '';
-  try {
-    return new Date(iso).toLocaleDateString(locale, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+  return formatDateWith(iso, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 // ── Component ────────────────────────────────────────────────────────
@@ -431,7 +424,6 @@ export default function WorkflowInstantiateDialog({
   // ── Render ───────────────────────────────────────────────────────
 
   const isDisabled = !selectedTarget || saving;
-  const locale = i18n.language === 'de' ? 'de-DE' : 'en-US';
 
   const inputLabel = useMemo(() => {
     if (targetTypes.length === 1) {
@@ -517,7 +509,7 @@ export default function WorkflowInstantiateDialog({
                         sx={{ display: 'block', mt: 0.5 }}
                       >
                         {t('pages.tasks.plantedOn')}:{' '}
-                        {formatDate(run.started_at, locale)}
+                        {formatDate(run.started_at)}
                       </Typography>
                     )}
                   </Box>
@@ -537,7 +529,7 @@ export default function WorkflowInstantiateDialog({
                         {getPlantLabel(plant, i18n.language)}
                       </Typography>
                       <Chip
-                        label={t(`enums.phase.${plant.current_phase}`)}
+                        label={t(`enums.phaseName.${plant.current_phase}`)}
                         size="small"
                         variant="outlined"
                       />
@@ -549,7 +541,7 @@ export default function WorkflowInstantiateDialog({
                         sx={{ display: 'block', mt: 0.5 }}
                       >
                         {t('pages.tasks.plantedOn')}:{' '}
-                        {formatDate(plant.planted_on, locale)}
+                        {formatDate(plant.planted_on)}
                       </Typography>
                     )}
                   </Box>

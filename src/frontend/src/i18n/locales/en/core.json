@@ -549,7 +549,8 @@
     "VIRUS_SCAN_REJECTED": "The file was rejected by the virus scan.",
     "WINTER_PATH_VIOLATION": "This step doesn't fit the chosen overwintering path.",
     "phaseRunOwned": "This phase belongs to a run and is controlled there.",
-    "recurrenceRruleRequired": "A recurrence needs a rule."
+    "recurrenceRruleRequired": "A recurrence needs a rule.",
+    "dashboardCatalogLoadFailed": "Failed to load the dashboard widget catalogue."
   },
   "validation": {
     "required": "This field is required.",

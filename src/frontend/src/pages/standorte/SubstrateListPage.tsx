@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -20,6 +21,7 @@ import SubstrateMixDialog from './SubstrateMixDialog';
 import { kamiLocations } from '@/assets/brand/illustrations';
 import BlenderIcon from '@mui/icons-material/Blender';
 import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
+import { formatFixed } from '@/utils/formatting';
 
 export default function SubstrateListPage() {
   const { t, i18n } = useTranslation();
@@ -72,11 +74,11 @@ export default function SubstrateListPage() {
     {
       id: 'name',
       label: t('pages.substrates.name'),
-      render: (r) => (lang === 'en' ? r.name_en : r.name_de) || r.brand || '—',
+      render: (r) => localizedText(lang, { de: r.name_de, en: r.name_en }, r.brand) || '—',
       searchValue: (r) => `${r.name_de} ${r.name_en} ${r.brand ?? ''}`,
     },
-    { id: 'ph', label: t('pages.substrates.phBase'), helpTerm: 'ph', render: (r) => r.ph_base.toFixed(1), align: 'right', searchValue: (r) => r.ph_base.toFixed(1) },
-    { id: 'ec', label: t('pages.substrates.ecBase'), helpTerm: 'ec', render: (r) => r.ec_base_ms.toFixed(2), align: 'right', searchValue: (r) => r.ec_base_ms.toFixed(2) },
+    { id: 'ph', label: t('pages.substrates.phBase'), helpTerm: 'ph', render: (r) => formatFixed(r.ph_base, 1), align: 'right', searchValue: (r) => formatFixed(r.ph_base, 1) },
+    { id: 'ec', label: t('pages.substrates.ecBase'), helpTerm: 'ec', render: (r) => formatFixed(r.ec_base_ms, 2), align: 'right', searchValue: (r) => formatFixed(r.ec_base_ms, 2) },
     {
       id: 'reusable',
       label: t('pages.substrates.reusable'),
@@ -132,7 +134,7 @@ export default function SubstrateListPage() {
         ariaLabel={t('pages.substrates.title')}
         mobileCardRenderer={(r) => (
           <MobileCard
-            title={(lang === 'en' ? r.name_en : r.name_de) || r.brand || t(`enums.substrateType.${r.type}`)}
+            title={localizedText(lang, { de: r.name_de, en: r.name_en }, r.brand) || t(`enums.substrateType.${r.type}`)}
             titleId="name"
             subtitle={r.brand || undefined}
             chips={[
@@ -162,8 +164,8 @@ export default function SubstrateListPage() {
                 : []),
             ]}
             fields={[
-              { id: 'ph', label: t('pages.substrates.phBase'), value: r.ph_base.toFixed(1) },
-              { id: 'ec', label: t('pages.substrates.ecBase'), value: r.ec_base_ms.toFixed(2) },
+              { id: 'ph', label: t('pages.substrates.phBase'), value: formatFixed(r.ph_base, 1) },
+              { id: 'ec', label: t('pages.substrates.ecBase'), value: formatFixed(r.ec_base_ms, 2) },
             ]}
           />
         )}

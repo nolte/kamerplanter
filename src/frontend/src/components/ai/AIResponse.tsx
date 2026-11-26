@@ -16,6 +16,7 @@ import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import type { AiConfidence, AiSourceRef } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 export interface AIResponseProps {
   /** The KI answer body (rendered as children). */
@@ -178,7 +179,7 @@ export default function AIResponse({
                   {' · '}
                   {source.source_type}
                   {' · '}
-                  {t('ai.sources.score', { score: source.score.toFixed(2) })}
+                  {t('ai.sources.score', { score: formatFixed(source.score, 2) })}
                   {' · '}
                   {source.language.toUpperCase()}
                 </Typography>

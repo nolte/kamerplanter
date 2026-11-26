@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -55,7 +56,7 @@ export default function ActivityListPage() {
     {
       id: 'name',
       label: t('pages.activities.name'),
-      render: (r) => (lang === 'en' ? r.name : r.name_de || r.name),
+      render: (r) => localizedText(lang, { de: r.name_de, en: r.name }),
       searchValue: (r) => `${r.name} ${r.name_de}`,
     },
     {
@@ -183,7 +184,7 @@ export default function ActivityListPage() {
         ariaLabel={t('pages.activities.title')}
         mobileCardRenderer={(r) => (
           <MobileCard
-            title={lang === 'en' ? r.name : r.name_de || r.name}
+            title={localizedText(lang, { de: r.name_de, en: r.name })}
             titleId="name"
             subtitle={t(`enums.activityCategory.${r.category}`)}
             subtitleId="category"

@@ -84,6 +84,7 @@ import {
   type PngResolution,
   underlayOffered,
 } from './types';
+import { formatFixed } from '@/utils/formatting';
 
 const PREFIX = 'pages.gardenPlan.io.export';
 
@@ -127,7 +128,7 @@ function errorKey(code: string | null, status: number | null): string {
 function formatSize(bytes: number): string {
   return bytes < 1024 * 1024
     ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    : `${formatFixed(bytes / 1024 / 1024, 1)} MB`;
 }
 
 export default function ExportDialog({

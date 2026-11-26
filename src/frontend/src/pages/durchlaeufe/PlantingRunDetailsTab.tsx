@@ -32,6 +32,7 @@ import type {
 import type { RunNutrientData, ChannelGroup } from '@/hooks/useRunNutrientData';
 import type { Translate } from '@/i18n/translate';
 import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
+import { formatDate, formatDateWith } from '@/utils/formatting';
 
 interface PlantingRunDetailsTabProps {
   run: PlantingRun;
@@ -180,7 +181,7 @@ export default function PlantingRunDetailsTab({
     : null;
 
   const monthName = (m: number) =>
-    new Date(2024, m - 1).toLocaleString(i18n.language, { month: 'short' });
+    formatDateWith(new Date(2024, m - 1), { month: 'short' });
 
   // Determine volume for "total" mode per channel:
   // fertigation channels use tank volume, others use watering can
@@ -218,7 +219,7 @@ export default function PlantingRunDetailsTab({
               {run.started_at ? t('pages.plantingRuns.startedAt') : t('pages.plantingRuns.plannedStartDate')}
             </Typography>
             <Typography variant="body1">
-              {run.started_at ? new Date(run.started_at).toLocaleDateString() : run.planned_start_date}
+              {run.started_at ? formatDate(run.started_at) : run.planned_start_date}
             </Typography>
           </Grid>
         )}
@@ -285,7 +286,7 @@ export default function PlantingRunDetailsTab({
                     ? 'warning.main'
                     : 'text.primary'
               } sx={{ fontWeight: 500 }}>
-              {estimatedHarvestDate.toLocaleDateString(i18n.language)} ({daysRemaining > 0
+              {formatDate(estimatedHarvestDate)} ({daysRemaining > 0
                 ? t('pages.plantingRuns.daysRemaining', { count: daysRemaining })
                 : t('pages.plantingRuns.overdue', { count: Math.abs(daysRemaining) })})
             </Typography>

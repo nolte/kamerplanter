@@ -12,6 +12,7 @@ import LocalFloristIcon from '@mui/icons-material/LocalFlorist';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import EmptyState from '@/components/common/EmptyState';
 import type { MonthSummary } from '@/api/types';
+import { formatDateWith } from '@/utils/formatting';
 
 interface SeasonOverviewViewProps {
   months: MonthSummary[];
@@ -20,7 +21,7 @@ interface SeasonOverviewViewProps {
 }
 
 export default function SeasonOverviewView({ months, year, onMonthClick }: SeasonOverviewViewProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
 
   if (months.length === 0) {
@@ -34,10 +35,7 @@ export default function SeasonOverviewView({ months, year, onMonthClick }: Seaso
       </Typography>
       <Grid container spacing={1.5}>
         {months.map((ms) => {
-          const fullMonthName = new Date(year, ms.month - 1).toLocaleDateString(
-            i18n.language === 'de' ? 'de-DE' : 'en-US',
-            { month: 'long' },
-          );
+          const fullMonthName = formatDateWith(new Date(year, ms.month - 1), { month: 'long' });
 
           return (
             <Grid key={ms.month} size={{ xs: 6, sm: 4, md: 3 }}>

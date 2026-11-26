@@ -269,7 +269,7 @@ describe('DosageCalculatorTab — phase calculation & result', () => {
 
     // Scaling-factor alert (0.85 ≠ 1) + substrate correction alert.
     await waitFor(() =>
-      expect(screen.getByText('0.850')).toBeInTheDocument(),
+      expect(screen.getByText('0,850')).toBeInTheDocument(),
     );
     expect(
       screen.getByTestId('calmag-correction-alert'),
@@ -280,7 +280,7 @@ describe('DosageCalculatorTab — phase calculation & result', () => {
     // Effective water card, mixing instructions and warnings.
     expect(screen.getByText('Silikat zuerst')).toBeInTheDocument();
     expect(screen.getByText('EC etwas hoch')).toBeInTheDocument();
-    expect(screen.getByText('pH: 6.5')).toBeInTheDocument();
+    expect(screen.getByText('pH: 6,5')).toBeInTheDocument();
 
     const callsAfterExpand = calculateDosages.mock.calls.length;
 

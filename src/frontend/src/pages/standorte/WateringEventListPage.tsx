@@ -32,6 +32,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import WateringEventCreateDialog from './WateringEventCreateDialog';
 import { kamiTanks } from '@/assets/brand/illustrations';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDateTime } from '@/utils/formatting';
 
 // ── Plant resolution cache ─────────────────────────────────────────
 
@@ -144,7 +145,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
         {/* Basic info */}
         <InfoRow
           label={t('pages.wateringEvents.wateredAt')}
-          value={event.watered_at ? new Date(event.watered_at).toLocaleString() : '—'}
+          value={event.watered_at ? formatDateTime(event.watered_at) : '—'}
         />
         <InfoRow
           label={t('pages.wateringEvents.applicationMethod')}
@@ -270,7 +271,7 @@ function WateringEventDetailDialog({ event, open, onClose, getPlantsForEvent }: 
             <Divider sx={{ my: 1.5 }} />
             <InfoRow
               label={t('pages.wateringEvents.createdAt')}
-              value={new Date(event.created_at).toLocaleString()}
+              value={formatDateTime(event.created_at)}
             />
           </>
         )}
@@ -305,9 +306,9 @@ export default function WateringEventListPage() {
       id: 'wateredAt',
       label: t('pages.wateringEvents.wateredAt'),
       render: (r) =>
-        r.watered_at ? new Date(r.watered_at).toLocaleString() : '—',
+        r.watered_at ? formatDateTime(r.watered_at) : '—',
       searchValue: (r) =>
-        r.watered_at ? new Date(r.watered_at).toLocaleString() : '',
+        r.watered_at ? formatDateTime(r.watered_at) : '',
     },
     {
       id: 'plants',
@@ -418,7 +419,7 @@ export default function WateringEventListPage() {
           else if (r.target_ph != null) ecPhParts.push(`pH ${r.target_ph}*`);
           return (
             <MobileCard
-              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
+              title={r.watered_at ? formatDateTime(r.watered_at) : '—'}
               titleId="wateredAt"
               subtitle={plants.length > 0 ? plants.map((p) => getPlantLabel(p, i18n.language)).join(', ') : undefined}
               subtitleId="plants"

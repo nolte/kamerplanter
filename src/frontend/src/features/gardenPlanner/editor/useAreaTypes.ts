@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as sitesApi from '@/api/endpoints/sites';
 import type { LocationType } from '@/api/types';
 import { captureHandledError } from '@/observability/errorTracking';
+import { compareText } from '@/utils/formatting';
 
 /** The seeded area types a garden plan offers, in this order. */
 const GARDEN_AREA_TYPES: readonly string[] = ['garden', 'terrace', 'balcony', 'greenhouse'];
@@ -36,7 +37,7 @@ export function offeredAreaTypes(all: readonly LocationType[], indoor: boolean):
   };
   return all
     .filter((type) => isOfferedAreaType(type, indoor))
-    .sort((a, b) => rank(a) - rank(b) || a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+    .sort((a, b) => rank(a) - rank(b) || a.sort_order - b.sort_order || compareText(a.name, b.name));
 }
 
 export function useAreaTypes(enabled: boolean, indoor: boolean): LocationType[] {

@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { formatFixed } from '@/utils/formatting';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import CardActionArea from '@mui/material/CardActionArea';
@@ -248,7 +249,7 @@ export default function SuggestionList({
                           </Box>
                           <Typography variant="caption" color="text.secondary">
                             {confidencePct}%
-                            {showRawScore && ` (${s.confidence.toFixed(4)})`}
+                            {showRawScore && ` (${formatFixed(s.confidence, 4)})`}
                           </Typography>
                         </Box>
                         <LinearProgress

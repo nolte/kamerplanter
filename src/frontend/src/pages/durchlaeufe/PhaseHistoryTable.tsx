@@ -22,15 +22,11 @@ import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import * as phasesApi from '@/api/endpoints/phases';
 import type { PhaseHistoryEntry } from '@/api/types';
+import { formatDateTime } from '@/utils/formatting';
 
 interface Props {
   plantKey: string;
   onChanged?: () => void;
-}
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString();
 }
 
 export default function PhaseHistoryTable({ plantKey, onChanged }: Props) {

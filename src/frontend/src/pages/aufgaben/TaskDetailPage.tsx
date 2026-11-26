@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTabUrl } from '@/hooks/useTabUrl';
 import { useNavigate, useParams, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -71,6 +72,7 @@ import AuthImage from '@/components/common/AuthImage';
 import PhotoUpload from '@/components/common/PhotoUpload';
 import TaskTimer from '@/components/common/TaskTimer';
 import { errorKey } from '@/api/errors';
+import { formatDate, formatDateTime } from '@/utils/formatting';
 
 /**
  * Legacy care tasks stored instruction as "care:<type>:<id>" keys.
@@ -634,7 +636,7 @@ export default function TaskDetailPage() {
   if (error) return <ErrorDisplay error={error} onRetry={() => void load()} />;
   if (!task) return <ErrorDisplay error={t('errors.notFound')} />;
 
-  const rawInstruction = (i18n.language === 'de' && task.instruction_de) ? task.instruction_de : task.instruction;
+  const rawInstruction = localizedText(i18n.language, { de: task.instruction_de, en: task.instruction });
   const resolvedInstruction = rawInstruction
     ? resolveCareInstruction(rawInstruction, t) ?? rawInstruction
     : null;
@@ -662,7 +664,7 @@ export default function TaskDetailPage() {
             width; without it the chip row sets the column's automatic minimum
             size and the header cannot reflow at all. */}
         <Box sx={{ minWidth: 0 }}>
-          <PageTitle title={(i18n.language === 'de' && task.name_de) ? task.name_de : task.name} />
+          <PageTitle title={localizedText(i18n.language, { de: task.name_de, en: task.name })} />
           {/* Status / category / priority. The three German labels measure
               ~340px against a 393px viewport, so the row MUST be allowed to
               wrap (UI-NFR-001 R-005/R-006). `useFlexGap` is required with
@@ -885,7 +887,7 @@ export default function TaskDetailPage() {
                   <MetaItem label={t('pages.tasks.dueDate')}>
                     <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <CalendarTodayIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
-                      {new Date(task.due_date).toLocaleDateString()}
+                      {formatDate(task.due_date)}
                     </Typography>
                   </MetaItem>
                 )}
@@ -932,7 +934,7 @@ export default function TaskDetailPage() {
                 {task.started_at && (
                   <MetaItem label={t('pages.tasks.startedAt')}>
                     <Typography variant="body2">
-                      {new Date(task.started_at).toLocaleString()}
+                      {formatDateTime(task.started_at)}
                     </Typography>
                   </MetaItem>
                 )}
@@ -940,7 +942,7 @@ export default function TaskDetailPage() {
                 {task.completed_at && (
                   <MetaItem label={t('pages.tasks.completedAt')}>
                     <Typography variant="body2">
-                      {new Date(task.completed_at).toLocaleString()}
+                      {formatDateTime(task.completed_at)}
                     </Typography>
                   </MetaItem>
                 )}
@@ -1315,7 +1317,7 @@ export default function TaskDetailPage() {
                   <Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                       <Typography variant="caption" color="text.secondary">
-                        {c.created_by} &mdash; {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+                        {c.created_by} &mdash; {c.created_at ? formatDateTime(c.created_at) : ''}
                       </Typography>
                       <Box>
                         <IconButton
@@ -1410,7 +1412,7 @@ export default function TaskDetailPage() {
                     )}
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 2 }}>
-                    {entry.changed_by} &mdash; {entry.changed_at ? new Date(entry.changed_at).toLocaleString() : ''}
+                    {entry.changed_by} &mdash; {entry.changed_at ? formatDateTime(entry.changed_at) : ''}
                   </Typography>
                 </Box>
               </Paper>

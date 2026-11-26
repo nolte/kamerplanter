@@ -32,6 +32,7 @@ import { getPhaseColor, phaseColorKey } from '@/theme/domainColors';
 import type { SowingCalendarEntry, FrostConfig, SowingPhase } from '@/api/types';
 import { MONTH_WEEK_SPANS, getShortMonthName } from '@/utils/weekCalculation';
 import { toLocalIsoDate } from '@/utils/calendarDay';
+import { compareText, formatDateWith } from '@/utils/formatting';
 
 type PlantCategoryKey =
   | 'indoor_houseplant' | 'outdoor_ornamental' | 'outdoor_vegetable'
@@ -87,7 +88,7 @@ function dateToWeek(dateStr: string): number {
 }
 
 export default function SowingCalendarView({ entries, frostConfig, year, favorites, onToggleFavorite, showFavoritesOnly }: SowingCalendarViewProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [selectedCategories, setSelectedCategories] = useState<Set<PlantCategoryKey>>(() => new Set());
@@ -160,13 +161,13 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
       if (aFav !== bFav) return aFav ? -1 : 1;
       const aName = a.common_name || a.species_name;
       const bName = b.common_name || b.species_name;
-      return aName.localeCompare(bName);
+      return compareText(aName, bName);
     });
   }, [entries, favorites, showFavoritesOnly, selectedCategories]);
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', {
+    return formatDateWith(d, {
       day: 'numeric',
       month: 'short',
     });
@@ -263,7 +264,7 @@ export default function SowingCalendarView({ entries, frostConfig, year, favorit
                 }}
               >
                 <Typography variant="caption" color="text.secondary">
-                  {getShortMonthName(ms.month, i18n.language)}
+                  {getShortMonthName(ms.month)}
                 </Typography>
               </Box>
             ))}

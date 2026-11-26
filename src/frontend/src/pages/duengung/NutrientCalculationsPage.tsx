@@ -44,6 +44,7 @@ import type {
   SubstrateType,
   PhaseName,
 } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 /**
  * A calculation input field. Renders a full-width MUI TextField and, when a
@@ -304,13 +305,13 @@ export default function NutrientCalculationsPage() {
     {
       id: 'totalGrams',
       label: t('pages.nutrientCalc.areaTotalGrams'),
-      render: (r) => (r.total_grams != null ? r.total_grams.toFixed(1) : '—'),
+      render: (r) => (r.total_grams != null ? formatFixed(r.total_grams, 1) : '—'),
       align: 'right',
     },
     {
       id: 'totalLiters',
       label: t('pages.nutrientCalc.areaTotalLiters'),
-      render: (r) => (r.total_liters != null ? r.total_liters.toFixed(1) : '—'),
+      render: (r) => (r.total_liters != null ? formatFixed(r.total_liters, 1) : '—'),
       align: 'right',
     },
     {
@@ -330,14 +331,14 @@ export default function NutrientCalculationsPage() {
 
   const dosageColumns: Column<MixingDosage>[] = [
     { id: 'product', label: t('pages.nutrientCalc.product'), render: (r) => r.product_name },
-    { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r) => r.ml_per_liter.toFixed(2), align: 'right' },
-    { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), render: (r) => r.total_ml.toFixed(1), align: 'right' },
-    { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), render: (r) => r.ec_contribution.toFixed(3), align: 'right' },
+    { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r) => formatFixed(r.ml_per_liter, 2), align: 'right' },
+    { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), render: (r) => formatFixed(r.total_ml, 1), align: 'right' },
+    { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), render: (r) => formatFixed(r.ec_contribution, 3), align: 'right' },
   ];
 
   const flushColumns: Column<FlushingScheduleDay>[] = [
     { id: 'day', label: t('pages.nutrientCalc.day'), render: (r) => r.day, align: 'right' },
-    { id: 'targetEc', label: t('pages.nutrientCalc.targetEc'), render: (r) => r.target_ec_ms.toFixed(2), align: 'right' },
+    { id: 'targetEc', label: t('pages.nutrientCalc.targetEc'), render: (r) => formatFixed(r.target_ec_ms, 2), align: 'right' },
     { id: 'action', label: t('pages.nutrientCalc.action'), render: (r) => r.action },
     { id: 'dosage', label: t('pages.nutrientCalc.dosagePercent'), render: (r) => `${r.dosage_percent}%`, align: 'right' },
   ];
@@ -460,23 +461,23 @@ export default function NutrientCalculationsPage() {
                       color={mpResult.valid ? 'success' : 'error'}
                       sx={{ mr: 1 }}
                     />
-                    {t('pages.nutrientCalc.calculatedEc')}: {mpResult.calculated_ec.toFixed(2)} mS/cm
+                    {t('pages.nutrientCalc.calculatedEc')}: {formatFixed(mpResult.calculated_ec, 2)} mS/cm
                     {mpResult.ph_adjustment.needed && (
                       <>
-                        {' | '}pH {mpResult.ph_adjustment.direction}: {mpResult.ph_adjustment.delta.toFixed(2)}
+                        {' | '}pH {mpResult.ph_adjustment.direction}: {formatFixed(mpResult.ph_adjustment.delta, 2)}
                       </>
                     )}
                   </Alert>
                   <Alert severity="info" icon={false} sx={{ mb: 1 }}>
                     <Tooltip title={t('pages.nutrientCalc.ecNetHelper')} arrow enterTouchDelay={0}>
                       <span tabIndex={0} style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
-                        {t('pages.nutrientCalc.ecNetLabel')}: {mpResult.ec_net.toFixed(3)} mS/cm
+                        {t('pages.nutrientCalc.ecNetLabel')}: {formatFixed(mpResult.ec_net, 3)} mS/cm
                       </span>
                     </Tooltip>
                     {' | '}
                     <Tooltip title={t('pages.nutrientCalc.ecPhReserveHelper')} arrow enterTouchDelay={0}>
                       <span tabIndex={0} style={{ cursor: 'help', textDecoration: 'underline dotted' }}>
-                        {t('pages.nutrientCalc.ecPhReserveLabel')}: {mpResult.ec_ph_reserve.toFixed(3)} mS/cm
+                        {t('pages.nutrientCalc.ecPhReserveLabel')}: {formatFixed(mpResult.ec_ph_reserve, 3)} mS/cm
                       </span>
                     </Tooltip>
                   </Alert>
@@ -503,9 +504,9 @@ export default function NutrientCalculationsPage() {
                             title={r.product_name}
                             titleId="product"
                             fields={[
-                              { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: r.ml_per_liter.toFixed(2) },
-                              { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: r.total_ml.toFixed(1) },
-                              { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: r.ec_contribution.toFixed(3) },
+                              { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: formatFixed(r.ml_per_liter, 2) },
+                              { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: formatFixed(r.total_ml, 1) },
+                              { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: formatFixed(r.ec_contribution, 3) },
                             ]}
                           />
                         )}
@@ -572,7 +573,7 @@ export default function NutrientCalculationsPage() {
                           subtitle={r.action}
                           subtitleId="action"
                           fields={[
-                            { id: 'targetEc', label: t('pages.nutrientCalc.targetEc'), value: r.target_ec_ms.toFixed(2) },
+                            { id: 'targetEc', label: t('pages.nutrientCalc.targetEc'), value: formatFixed(r.target_ec_ms, 2) },
                             { id: 'dosage', label: t('pages.nutrientCalc.dosagePercent'), value: `${r.dosage_percent}%` },
                           ]}
                         />
@@ -669,13 +670,13 @@ export default function NutrientCalculationsPage() {
                     {t('pages.nutrientCalc.overallHealth')}: {roResult.overall_health}
                   </Alert>
                   <Alert severity={roResult.ec_status === 'ok' ? 'success' : 'warning'} sx={{ mb: 0.5 }}>
-                    EC: {roResult.ec_message} (delta: {roResult.ec_delta.toFixed(2)})
+                    EC: {roResult.ec_message} (delta: {formatFixed(roResult.ec_delta, 2)})
                   </Alert>
                   <Alert severity={roResult.ph_status === 'ok' ? 'success' : 'warning'} sx={{ mb: 0.5 }}>
-                    pH: {roResult.ph_message} (delta: {roResult.ph_delta.toFixed(2)})
+                    pH: {roResult.ph_message} (delta: {formatFixed(roResult.ph_delta, 2)})
                   </Alert>
                   <Alert severity={roResult.volume_status === 'ok' ? 'success' : 'warning'}>
-                    {t('pages.nutrientCalc.volume')}: {roResult.volume_message} ({roResult.runoff_percent.toFixed(1)}%)
+                    {t('pages.nutrientCalc.volume')}: {roResult.volume_message} ({formatFixed(roResult.runoff_percent, 1)}%)
                   </Alert>
                 </Box>
               )}
@@ -825,8 +826,8 @@ export default function NutrientCalculationsPage() {
                             subtitle={r.note ?? undefined}
                             subtitleId="note"
                             fields={[
-                              { id: 'totalGrams', label: t('pages.nutrientCalc.areaTotalGrams'), value: r.total_grams != null ? r.total_grams.toFixed(1) : '—' },
-                              { id: 'totalLiters', label: t('pages.nutrientCalc.areaTotalLiters'), value: r.total_liters != null ? r.total_liters.toFixed(1) : '—' },
+                              { id: 'totalGrams', label: t('pages.nutrientCalc.areaTotalGrams'), value: r.total_grams != null ? formatFixed(r.total_grams, 1) : '—' },
+                              { id: 'totalLiters', label: t('pages.nutrientCalc.areaTotalLiters'), value: r.total_liters != null ? formatFixed(r.total_liters, 1) : '—' },
                               {
                                 id: 'releaseSpeed',
                                 label: t('pages.nutrientCalc.areaReleaseSpeed'),
@@ -909,7 +910,7 @@ export default function NutrientCalculationsPage() {
                 {wmResult && (
                   <Alert severity="info" sx={{ mb: 2 }}>
                     {t('pages.nutrientCalc.suggestedRoPercent')}: {wmResult.ro_percent}% |{' '}
-                    {t('pages.nutrientCalc.ecMix')}: {wmResult.effective_profile.ec_ms.toFixed(3)} mS/cm
+                    {t('pages.nutrientCalc.ecMix')}: {formatFixed(wmResult.effective_profile.ec_ms, 3)} mS/cm
                   </Alert>
                 )}
               </ExpertiseFieldWrapper>
@@ -1064,16 +1065,16 @@ export default function NutrientCalculationsPage() {
                           color={ebResult.valid ? 'success' : 'error'}
                           sx={{ mr: 1 }}
                         />
-                        {t('pages.nutrientCalc.ecFinal')}: {ebResult.ec_final.toFixed(2)} mS |{' '}
-                        {t('pages.nutrientCalc.ecTarget')}: {ebResult.ec_target.toFixed(2)} mS |{' '}
-                        {t('pages.nutrientCalc.ecMax')}: {ebResult.ec_max.toFixed(1)} mS
+                        {t('pages.nutrientCalc.ecFinal')}: {formatFixed(ebResult.ec_final, 2)} mS |{' '}
+                        {t('pages.nutrientCalc.ecTarget')}: {formatFixed(ebResult.ec_target, 2)} mS |{' '}
+                        {t('pages.nutrientCalc.ecMax')}: {formatFixed(ebResult.ec_max, 1)} mS
                       </Alert>
                     )}
 
                     {/* Temperature correction */}
                     {ebResult.ec_at_25_corrected != null && (
                       <Alert severity="info" sx={{ mb: 2 }}>
-                        {t('pages.nutrientCalc.ecAt25')}: {ebResult.ec_at_25_corrected.toFixed(3)} mS/cm
+                        {t('pages.nutrientCalc.ecAt25')}: {formatFixed(ebResult.ec_at_25_corrected, 3)} mS/cm
                       </Alert>
                     )}
 
@@ -1081,7 +1082,7 @@ export default function NutrientCalculationsPage() {
                     {!ebResult.living_soil_bypass && ebResult.segments.length > 0 && (
                       <Box sx={{ mb: 2 }}>
                         <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                          {t('pages.nutrientCalc.ecBudget')} ({ebResult.ec_final.toFixed(2)} / {ebResult.ec_max.toFixed(1)} mS)
+                          {t('pages.nutrientCalc.ecBudget')} ({formatFixed(ebResult.ec_final, 2)} / {formatFixed(ebResult.ec_max, 1)} mS)
                         </Typography>
                         <Box sx={{
                           display: 'flex',
@@ -1098,7 +1099,7 @@ export default function NutrientCalculationsPage() {
                             return (
                               <Tooltip
                                 key={i}
-                                title={`${seg.label}: ${seg.ec_contribution.toFixed(3)} mS${seg.ml_per_liter ? ` (${seg.ml_per_liter} ml/L)` : ''}`}
+                                title={`${seg.label}: ${formatFixed(seg.ec_contribution, 3)} mS${seg.ml_per_liter ? ` (${seg.ml_per_liter} ml/L)` : ''}`}
                               >
                                 <Box sx={{
                                   width: `${widthPct}%`,
@@ -1136,9 +1137,9 @@ export default function NutrientCalculationsPage() {
                         <DataTable
                           columns={[
                             { id: 'product', label: t('pages.nutrientCalc.product'), render: (r: Record<string, unknown>) => String(r.product_name) },
-                            { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r: Record<string, unknown>) => Number(r.ml_per_liter).toFixed(2), align: 'right' as const },
-                            { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), render: (r: Record<string, unknown>) => Number(r.total_ml).toFixed(1), align: 'right' as const },
-                            { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), render: (r: Record<string, unknown>) => Number(r.ec_contribution).toFixed(3), align: 'right' as const },
+                            { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), render: (r: Record<string, unknown>) => formatFixed(Number(r.ml_per_liter), 2), align: 'right' as const },
+                            { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), render: (r: Record<string, unknown>) => formatFixed(Number(r.total_ml), 1), align: 'right' as const },
+                            { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), render: (r: Record<string, unknown>) => formatFixed(Number(r.ec_contribution), 3), align: 'right' as const },
                           ]}
                           rows={ebResult.dosage_table}
                           getRowKey={(r: Record<string, unknown>) => String(r.key)}
@@ -1149,9 +1150,9 @@ export default function NutrientCalculationsPage() {
                               title={String(r.product_name)}
                               titleId="product"
                               fields={[
-                                { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: Number(r.ml_per_liter).toFixed(2) },
-                                { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: Number(r.total_ml).toFixed(1) },
-                                { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: Number(r.ec_contribution).toFixed(3) },
+                                { id: 'mlPerLiter', label: t('pages.nutrientCalc.mlPerLiter'), value: formatFixed(Number(r.ml_per_liter), 2) },
+                                { id: 'totalMl', label: t('pages.nutrientCalc.totalMl'), value: formatFixed(Number(r.total_ml), 1) },
+                                { id: 'ecContrib', label: t('pages.nutrientCalc.ecContribution'), value: formatFixed(Number(r.ec_contribution), 3) },
                               ]}
                             />
                           )}

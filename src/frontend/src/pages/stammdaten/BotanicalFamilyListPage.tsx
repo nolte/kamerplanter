@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -113,9 +114,7 @@ export default function BotanicalFamilyListPage() {
       id: 'commonName',
       label: t('pages.botanicalFamilies.commonName'),
       render: (r) =>
-        i18n.language === 'en'
-          ? r.common_name_en || r.common_name_de || '—'
-          : r.common_name_de || r.common_name_en || '—',
+        localizedText(i18n.language, { de: r.common_name_de, en: r.common_name_en }) || '—',
       searchValue: (r) => `${r.common_name_de} ${r.common_name_en}`,
     },
     {
@@ -192,9 +191,7 @@ export default function BotanicalFamilyListPage() {
             title={r.name}
             titleId="name"
             subtitle={
-              i18n.language === 'en'
-                ? r.common_name_en || r.common_name_de
-                : r.common_name_de || r.common_name_en
+              localizedText(i18n.language, { de: r.common_name_de, en: r.common_name_en })
             }
             subtitleId="commonName"
             chips={[

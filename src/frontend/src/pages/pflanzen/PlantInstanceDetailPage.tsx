@@ -6,6 +6,7 @@ import TipCardsPanel from '@/components/ai/TipCardsPanel';
 import { isLightMode } from '@/config/mode';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
@@ -115,6 +116,7 @@ import PlantCoverPreview from './photos/PlantCoverPreview';
 import PlantDiaryTab from './diary/PlantDiaryTab';
 import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate, formatDateTime, formatDateWith } from '@/utils/formatting';
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -944,7 +946,7 @@ export default function PlantInstanceDetailPage() {
   }, [plant?.planted_on, actualPhase, planEntries]);
 
   const monthName = (m: number) =>
-    new Date(2024, m - 1).toLocaleString(i18n.language, { month: 'short' });
+    formatDateWith(new Date(2024, m - 1), { month: 'short' });
 
   const frostChipColor = (sensitivity: string | null): 'success' | 'warning' | 'error' | 'default' => {
     if (!sensitivity) return 'default';
@@ -1464,7 +1466,7 @@ export default function PlantInstanceDetailPage() {
                   {t('pages.plantInstances.plantedOn')}
                 </Typography>
                 <Typography variant="body1">
-                  {new Date(plant.planted_on).toLocaleDateString(i18n.language)}
+                  {formatDate(plant.planted_on)}
                 </Typography>
               </Box>
               {estimatedHarvest && (
@@ -1504,7 +1506,7 @@ export default function PlantInstanceDetailPage() {
                               ? 'warning.dark'
                               : undefined
                         } sx={{ fontWeight: 500 }}>
-                        {estimatedHarvest.date.toLocaleDateString(i18n.language)}
+                        {formatDate(estimatedHarvest.date)}
                         {' '}
                         ({estimatedHarvest.daysRemaining === 0
                           ? t('pages.plantInstances.harvestToday')
@@ -1606,7 +1608,7 @@ export default function PlantInstanceDetailPage() {
                     {t('pages.plantInstances.removedOn')}
                   </Typography>
                   <Typography variant="body1" color="error">
-                    {new Date(plant.removed_on).toLocaleDateString(i18n.language)}
+                    {formatDate(plant.removed_on)}
                   </Typography>
                 </Box>
               )}
@@ -1660,7 +1662,7 @@ export default function PlantInstanceDetailPage() {
                         </Typography>
                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
                           {lastWatering
-                            ? new Date(lastWatering.confirmed_at).toLocaleDateString(i18n.language)
+                            ? formatDate(lastWatering.confirmed_at)
                             : '—'}
                         </Typography>
                       </Box>
@@ -1694,10 +1696,10 @@ export default function PlantInstanceDetailPage() {
                                   to={`/aufgaben/tasks/${nextWateringTask.key}`}
                                   underline="hover"
                                 >
-                                  {nextDate.toLocaleDateString(i18n.language)} ({daysLabel})
+                                  {formatDate(nextDate)} ({daysLabel})
                                 </Link>
                               ) : (
-                                <>{nextDate.toLocaleDateString(i18n.language)} ({daysLabel})</>
+                                <>{formatDate(nextDate)} ({daysLabel})</>
                               )}
                             </Typography>
                           </Box>
@@ -2401,8 +2403,8 @@ export default function PlantInstanceDetailPage() {
               {
                 id: 'loggedAt',
                 label: t('pages.wateringLogs.loggedAt'),
-                render: (r) => r.logged_at ? new Date(r.logged_at).toLocaleString() : '—',
-                searchValue: (r) => r.logged_at ? new Date(r.logged_at).toLocaleString() : '',
+                render: (r) => r.logged_at ? formatDateTime(r.logged_at) : '—',
+                searchValue: (r) => r.logged_at ? formatDateTime(r.logged_at) : '',
               },
               {
                 id: 'applicationMethod',
@@ -2438,7 +2440,7 @@ export default function PlantInstanceDetailPage() {
             ariaLabel={t('entities.wateringLog')}
             mobileCardRenderer={(r) => (
               <MobileCard
-                title={r.logged_at ? new Date(r.logged_at).toLocaleString() : '—'}
+                title={r.logged_at ? formatDateTime(r.logged_at) : '—'}
                 titleId="loggedAt"
                 subtitle={t(`enums.applicationMethod.${r.application_method}`)}
                 subtitleId="applicationMethod"
@@ -2671,13 +2673,13 @@ export default function PlantInstanceDetailPage() {
                               variant="body2"
                               sx={{ fontWeight: 500, minWidth: 0 }}
                             >
-                              {(i18n.language === 'de' && task.name_de) ? task.name_de : task.name}
+                              {localizedText(i18n.language, { de: task.name_de, en: task.name })}
                             </Link>
                             <TaskOriginBadge origin={task.origin} testId={`freestyle-badge-${task.key}`} />
                           </Box>
                           {task.due_date && (
                             <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                              {new Date(task.due_date).toLocaleDateString()}
+                              {formatDate(task.due_date)}
                             </Typography>
                           )}
                         </Box>
@@ -2864,7 +2866,7 @@ export default function PlantInstanceDetailPage() {
                         id: 'completed_at',
                         label: t('pages.tasks.completedAt'),
                         render: (row) => row.completed_at
-                          ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
+                          ? formatDate(row.completed_at)
                           : '—',
                         searchValue: (row) => row.completed_at ?? '',
                         hideBelowBreakpoint: 'md',
@@ -2880,7 +2882,7 @@ export default function PlantInstanceDetailPage() {
                       <MobileCard
                         title={row.name}
                         subtitle={row.completed_at
-                          ? new Date(row.completed_at).toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US')
+                          ? formatDate(row.completed_at)
                           : undefined}
                         chips={[
                           {

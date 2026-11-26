@@ -33,6 +33,7 @@ import { BED_STATUS_COLOR, compareNullableLast, formatBedDate, isOverdue, waterS
 import type { BedListItem } from './types';
 import { useBedAssignments } from './useBedAssignments';
 import { useLocationTypeNames } from './useLocationTypeNames';
+import { compareCodes } from '@/utils/compareCodes';
 
 // The batch dialog (GP-FR-088) is rare; it loads when it is opened.
 const BatchCompleteDialog = lazy(() => import('../care/BatchCompleteDialog'));
@@ -188,7 +189,7 @@ export default function BedListSection({ siteKey, reloadToken, onSelectBed, indo
       id: 'nextDue',
       label: t('pages.bed.list.nextDue'),
       searchValue: due,
-      sortFn: (a, b) => (a.next_due_at ?? '').localeCompare(b.next_due_at ?? ''),
+      sortFn: (a, b) => compareCodes(a.next_due_at ?? '', b.next_due_at ?? ''),
       render: (bed) => (
         <Typography component="span" variant="body2" color={isOverdue(bed.next_due_at) ? 'error' : 'inherit'}>
           {due(bed) || '—'}

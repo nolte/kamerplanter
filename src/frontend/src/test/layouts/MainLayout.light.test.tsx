@@ -85,7 +85,8 @@ describe('MainLayout (light mode)', () => {
     const warning = await screen.findByText(/Light-Modus/);
     expect(warning).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Close' }));
+    // MUI's Alert close label follows the UI language (deDE, #3025 L-03).
+    await user.click(screen.getByRole('button', { name: 'Schließen' }));
 
     await waitFor(() => expect(screen.queryByText(/Light-Modus/)).toBeNull());
     expect(localStorage.getItem(WARNING_KEY)).toBe('true');

@@ -41,7 +41,7 @@ interface PhaseGanttChartProps {
 }
 
 export default function PhaseGanttChart({ entries, fertilizers, currentWeek, weekOffset = 0, title, weekLabel, totalWeeksOverride, showMonthHeaders, onPhaseClick, onEditEntry, selectedPhaseKey, autoExpandSingleChannel, compactMode }: PhaseGanttChartProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
@@ -171,7 +171,7 @@ export default function PhaseGanttChart({ entries, fertilizers, currentWeek, wee
                       color={isCurrent ? 'error' : 'text.secondary'}
                       sx={isCurrent ? { fontWeight: 700 } : undefined}
                     >
-                      {getShortMonthName(ms.month, i18n.language)}
+                      {getShortMonthName(ms.month)}
                     </Typography>
                   </Box>
                 );

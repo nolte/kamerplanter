@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -211,8 +212,7 @@ function CloneSequenceDialog({
 
   const defaultName = useMemo(() => {
     const base =
-      (i18n.language === 'de' ? sequence.display_name_de : sequence.display_name) ||
-      sequence.name;
+      localizedText(i18n.language, { de: sequence.display_name_de, en: sequence.display_name }, sequence.name);
     return `${base} (${t('pages.phaseSequences.copySuffix')})`;
   }, [sequence, i18n.language, t]);
 
@@ -351,7 +351,7 @@ export default function PhaseSequenceDetailPage() {
           label: 'pages.phaseSequences.phaseSequences',
           path: '/phasen/ablaeufe',
         },
-        { label: (lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name },
+        { label: localizedText(lang, { de: sequence.display_name_de, en: sequence.display_name }, sequence.name) },
       ]),
     );
   }, [sequence, dispatch, lang]);
@@ -494,7 +494,7 @@ export default function PhaseSequenceDetailPage() {
       </Button>
 
       <PageTitle
-        title={(lang === 'de' ? sequence.display_name_de : sequence.display_name) || sequence.name}
+        title={localizedText(lang, { de: sequence.display_name_de, en: sequence.display_name }, sequence.name)}
         meta={<OriginChip isSystem={sequence.is_system} />}
         action={
           // Both actions are conditional, so which one is primary depends on
@@ -534,7 +534,7 @@ export default function PhaseSequenceDetailPage() {
 
       {(sequence.description || sequence.description_de) && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {(lang === 'de' ? sequence.description_de : sequence.description) || sequence.description}
+          {localizedText(lang, { de: sequence.description_de, en: sequence.description }, sequence.description)}
         </Typography>
       )}
 
@@ -642,8 +642,7 @@ export default function PhaseSequenceDetailPage() {
                         underline="hover"
                         color="primary"
                       >
-                        {(lang === 'de' ? entry.phase_definition?.display_name_de : entry.phase_definition?.display_name) ||
-                          entry.phase_definition?.name ||
+                        {localizedText(lang, { de: entry.phase_definition?.display_name_de, en: entry.phase_definition?.display_name }, entry.phase_definition?.name) ||
                           entry.phase_definition_key}
                       </Link>
                       {entry.is_recurring && (
@@ -787,8 +786,7 @@ export default function PhaseSequenceDetailPage() {
         title={t('pages.phaseSequences.removeEntry')}
         message={t('pages.phaseSequences.removeEntryConfirm', {
           name:
-            (lang === 'de' ? deleteEntryTarget?.phase_definition?.display_name_de : deleteEntryTarget?.phase_definition?.display_name) ||
-            deleteEntryTarget?.phase_definition?.name ||
+            localizedText(lang, { de: deleteEntryTarget?.phase_definition?.display_name_de, en: deleteEntryTarget?.phase_definition?.display_name }, deleteEntryTarget?.phase_definition?.name) ||
             '',
         })}
         onConfirm={handleDeleteEntry}

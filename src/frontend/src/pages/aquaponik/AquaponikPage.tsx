@@ -32,6 +32,7 @@ import { useAquaponicSystems } from '@/hooks/useAquaponicSystems';
 import type { CyclingStatus, WaterQualitySeverity } from '@/api/types';
 import AquaponicSystemDialog from './AquaponicSystemDialog';
 import WaterTestDialog from './WaterTestDialog';
+import { localizedText } from '@/utils/localizedText';
 
 const cyclingColor: Record<CyclingStatus, ChipProps['color']> = {
   new: 'default',
@@ -100,7 +101,7 @@ export default function AquaponikPage() {
   // Backend messages/descriptions come bilingually (`_de`/`_en`); pick the
   // one matching the active UI language instead of hard-coding German
   // (UI-NFR-007 — same convention as SubstrateDetailPage, CalendarPage etc.).
-  const isEnglish = i18n.language?.startsWith('en') ?? false;
+  const language = i18n.language;
 
   const criticalAlerts = useMemo(
     () => detail?.waterQuality.filter((e) => e.severity === 'critical') ?? [],
@@ -209,12 +210,12 @@ export default function AquaponikPage() {
                       {criticalAlerts.length > 0 && (
                         <Alert severity="error" sx={{ mb: 2 }} data-testid="critical-alert">
                           {criticalAlerts.length === 1 ? (
-                            isEnglish ? criticalAlerts[0].message_en : criticalAlerts[0].message_de
+                            localizedText(language, { de: criticalAlerts[0].message_de, en: criticalAlerts[0].message_en })
                           ) : (
                             <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                               {criticalAlerts.map((a, idx) => (
                                 <li key={`${a.parameter}-${idx}`}>
-                                  {isEnglish ? a.message_en : a.message_de}
+                                  {localizedText(language, { de: a.message_de, en: a.message_en })}
                                 </li>
                               ))}
                             </Box>
@@ -236,9 +237,10 @@ export default function AquaponikPage() {
                           />
                           <Typography variant="body2" color="text.secondary">
                             {detail.cycling.progress_percent}% ·{' '}
-                            {isEnglish
-                              ? detail.cycling.phase_description_en
-                              : detail.cycling.phase_description_de}
+                            {localizedText(language, {
+                              de: detail.cycling.phase_description_de,
+                              en: detail.cycling.phase_description_en,
+                            })}
                           </Typography>
                         </Box>
                       )}

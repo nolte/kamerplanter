@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
-import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
+import { createTheme, ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
+import { useTranslation } from 'react-i18next';
 import { selectAppTheme } from './theme';
+import { muiLocaleFor } from './muiLocale';
 import { KioskContext } from '@/kiosk/KioskProvider';
 
 type ThemeMode = 'light' | 'dark';
@@ -82,9 +84,13 @@ export function ThemeContextProvider({ children }: { children: ReactNode }) {
     [mode],
   );
 
+  // MUI's built-in texts follow the UI language (L-03). `useTranslation` re-renders this
+  // provider on a language switch, so the merged theme changes with it at runtime.
+  const { i18n } = useTranslation();
+  const language = i18n.language;
   const theme = useMemo(
-    () => selectAppTheme(mode, isKiosk, highContrast),
-    [mode, isKiosk, highContrast],
+    () => createTheme(selectAppTheme(mode, isKiosk, highContrast), muiLocaleFor(language)),
+    [mode, isKiosk, highContrast, language],
   );
 
   return (

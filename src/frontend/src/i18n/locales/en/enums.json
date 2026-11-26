@@ -1349,6 +1349,12 @@
       "phase_requirement_profile": "phase profile",
       "species_watering_guide": "species watering guide",
       "container_substrate_calculation": "container and substrate"
+    },
+    "timeOfDay": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening",
+      "lights_off": "After lights-off"
     }
   }
 }

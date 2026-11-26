@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { listLocationTypes } from '@/api/endpoints/sites';
 import { captureHandledError } from '@/observability/errorTracking';
 import type { LocationType } from '@/api/types';
+import { localizedText } from '@/utils/localizedText';
 
 export function useLocationTypeNames(): ReadonlyMap<string, string> {
   const { i18n } = useTranslation();
@@ -26,9 +27,9 @@ export function useLocationTypeNames(): ReadonlyMap<string, string> {
       cancelled = true;
     };
   }, []);
-  const english = i18n.language.startsWith('en');
+  const language = i18n.language;
   return useMemo(
-    () => new Map(types.map((type) => [type.key, (english && type.name_en) || type.name])),
-    [types, english],
+    () => new Map(types.map((type) => [type.key, localizedText(language, { de: type.name, en: type.name_en })])),
+    [types, language],
   );
 }

@@ -25,6 +25,7 @@ import { useApiError } from '@/hooks/useApiError';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import type { SpeciesPhaseTimeline, PhaseTimelineEntry } from '@/api/types';
 import { toLocalIsoDate } from '@/utils/calendarDay';
+import { formatDate } from '@/utils/formatting';
 
 interface Props {
   runKey: string;
@@ -38,11 +39,6 @@ function toDateInputValue(iso: string | null): string {
   // showed the day before for every zone east of UTC.
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? '' : toLocalIsoDate(d);
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString();
 }
 
 function computeDurationDays(start: string | null, end: string | null): number | null {

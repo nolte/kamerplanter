@@ -12,6 +12,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import EmptyState from '@/components/common/EmptyState';
 import { getPhaseColor } from '@/theme/domainColors';
 import type { CalendarEvent } from '@/api/types';
+import { compareText, formatDateWith } from '@/utils/formatting';
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ interface PhaseTimelineViewProps {
 // ── Component ───────────────────────────────────────────────────────
 
 export default function PhaseTimelineView({ events, year, month }: PhaseTimelineViewProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -124,10 +125,10 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
           phases: pl.phases.sort((a, b) => a.startDay - b.startDay),
         });
       }
-      plants.sort((a, b) => a.plantLabel.localeCompare(b.plantLabel));
+      plants.sort((a, b) => compareText(a.plantLabel, b.plantLabel));
       result.push({ runKey: rk, runName: group.runName, plants });
     }
-    result.sort((a, b) => a.runName.localeCompare(b.runName));
+    result.sort((a, b) => compareText(a.runName, b.runName));
     return result;
   }, [phaseEvents, year, month, daysInMonth, t, theme]);
 
@@ -141,7 +142,7 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
         }
       }
     }
-    return [...phases.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...phases.entries()].sort((a, b) => compareText(a[0], b[0]));
   }, [runGroups]);
 
   const formatDayHeader = (day: number) => {
@@ -149,8 +150,7 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
     return String(day);
   };
 
-  const locale = i18n.language === 'de' ? 'de-DE' : 'en-US';
-  const monthName = new Date(year, month, 1).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+  const monthName = formatDateWith(new Date(year, month, 1), { month: 'long', year: 'numeric' });
 
   if (phaseEvents.length === 0) {
     return <EmptyState message={t('pages.calendar.phaseTimeline.noData')} />;
@@ -232,7 +232,6 @@ export default function PhaseTimelineView({ events, year, month }: PhaseTimeline
                 theme={theme}
                 isMobile={isMobile}
                 onNavigate={navigate}
-                locale={locale}
               />
             ))}
           </Box>
@@ -281,7 +280,6 @@ function RunGroupRows({
   theme,
   isMobile,
   onNavigate,
-  locale,
 }: {
   group: RunGroup;
   daysInMonth: number;
@@ -292,7 +290,6 @@ function RunGroupRows({
   theme: Theme;
   isMobile: boolean;
   onNavigate: (path: string) => void;
-  locale: string;
 }) {
   const isStandalone = group.runKey === '_standalone';
 
@@ -351,7 +348,6 @@ function RunGroupRows({
           isMobile={isMobile}
           indented={!isStandalone}
           onNavigate={onNavigate}
-          locale={locale}
         />
       ))}
     </>
@@ -371,7 +367,6 @@ function PlantPhaseRow({
   isMobile,
   indented,
   onNavigate,
-  locale,
 }: {
   plant: PlantRow;
   daysInMonth: number;
@@ -383,7 +378,6 @@ function PlantPhaseRow({
   isMobile: boolean;
   indented: boolean;
   onNavigate: (path: string) => void;
-  locale: string;
 }) {
   const { t } = useTranslation();
 
@@ -399,7 +393,7 @@ function PlantPhaseRow({
   }, [plant.phases]);
 
   const formatDate = (day: number) =>
-    new Date(year, month, day).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+    formatDateWith(new Date(year, month, day), { day: 'numeric', month: 'short' });
 
   return (
     <>

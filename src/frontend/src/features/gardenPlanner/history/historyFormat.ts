@@ -5,6 +5,7 @@
 import type { TFunction } from 'i18next';
 import { isProtocolCategory } from './historyFilters';
 import type { CareEventLine, HistoryItem } from './historyTypes';
+import { formatNumber } from '@/utils/formatting';
 
 /** The name of a care category: protocol entries have their own wording, tasks use the shared enum. */
 export function categoryLabel(t: TFunction, category: string): string {
@@ -16,7 +17,7 @@ export function categoryLabel(t: TFunction, category: string): string {
 /** `2 l`, `150 g/m²`, ...; empty when the line names no amount. */
 export function formatQuantity(t: TFunction, line: Pick<CareEventLine, 'quantity' | 'unit'>): string {
   if (line.quantity === null) return '';
-  const amount = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(line.quantity);
+  const amount = formatNumber(line.quantity, { maximumFractionDigits: 2 });
   return line.unit ? `${amount} ${t(`enums.careUnit.${line.unit}`, { defaultValue: line.unit })}` : amount;
 }
 

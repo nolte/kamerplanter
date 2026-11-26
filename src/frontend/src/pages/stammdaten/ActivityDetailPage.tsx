@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
@@ -207,7 +208,7 @@ export default function ActivityDetailPage() {
   if (!activity) return <ErrorDisplay error={t('errors.notFound')} />;
 
   const lang = i18n.language?.startsWith('en') ? 'en' : 'de';
-  const displayName = lang === 'en' ? activity.name : activity.name_de || activity.name;
+  const displayName = localizedText(lang, { de: activity.name_de, en: activity.name });
 
   const categoryOptions = [
     'training_hst', 'training_lst', 'pruning', 'ausgeizen',

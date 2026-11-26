@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import { Link as RouterLink } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -34,7 +35,7 @@ const CONFIDENCE_COLOR: Record<AiConfidence, 'success' | 'info' | 'warning' | 'd
  * detail page.
  */
 export default function DiagnosisResultsPanel({ result }: DiagnosisResultsPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const candidates = useMemo(() => result.candidates, [result.candidates]);
 
@@ -124,10 +125,10 @@ export default function DiagnosisResultsPanel({ result }: DiagnosisResultsPanelP
                           label={
                             treatment.has_karenz
                               ? t('diagnose.results.treatmentKarenz', {
-                                  name: treatment.name_de || treatment.name,
+                                  name: localizedText(i18n.language, { de: treatment.name_de, en: treatment.name }),
                                   days: treatment.safety_interval_days,
                                 })
-                              : treatment.name_de || treatment.name
+                              : localizedText(i18n.language, { de: treatment.name_de, en: treatment.name })
                           }
                           data-testid={`diagnosis-treatment-${treatment.key}`}
                         />

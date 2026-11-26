@@ -43,6 +43,7 @@ import type {
   NutrientPlanPhaseEntry,
   Site,
 } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 interface Props {
   plan: NutrientPlan;
@@ -80,7 +81,7 @@ function EcBudgetBar({ budget, targetEc }: { budget: EcBudgetSummary; targetEc: 
           {t('pages.nutrientPlans.dosageCalc.ecBudget')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {budget.ec_final.toFixed(2)} / {targetEc.toFixed(2)} mS/cm
+          {formatFixed(budget.ec_final, 2)} / {formatFixed(targetEc, 2)} mS/cm
         </Typography>
       </Box>
       <Box
@@ -97,7 +98,7 @@ function EcBudgetBar({ budget, targetEc }: { budget: EcBudgetSummary; targetEc: 
         {segments.map((seg) => (
           <Tooltip
             key={seg.key}
-            title={`${t(`pages.nutrientPlans.dosageCalc.${seg.key}`)}: ${seg.value.toFixed(2)} mS/cm`}
+            title={`${t(`pages.nutrientPlans.dosageCalc.${seg.key}`)}: ${formatFixed(seg.value, 2)} mS/cm`}
           >
             <Box
               sx={{
@@ -115,7 +116,7 @@ function EcBudgetBar({ budget, targetEc }: { budget: EcBudgetSummary; targetEc: 
           <Box key={seg.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: seg.color, flexShrink: 0 }} />
             <Typography variant="caption" color="text.secondary">
-              {t(`pages.nutrientPlans.dosageCalc.${seg.key}`)} ({seg.value.toFixed(2)})
+              {t(`pages.nutrientPlans.dosageCalc.${seg.key}`)} ({formatFixed(seg.value, 2)})
             </Typography>
           </Box>
         ))}
@@ -147,7 +148,7 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
       {result.scaling_factor !== 1.0 && (
         <Alert severity="info" variant="outlined" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            {t('pages.nutrientPlans.dosageCalc.scalingFactor')}: <strong>{result.scaling_factor.toFixed(3)}</strong>
+            {t('pages.nutrientPlans.dosageCalc.scalingFactor')}: <strong>{formatFixed(result.scaling_factor, 3)}</strong>
             {' '}(RO: {result.ro_percent_used}%)
           </Typography>
         </Alert>
@@ -158,8 +159,8 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
         <Alert severity="info" variant="outlined" sx={{ mb: 2 }} icon={<ScienceIcon />}>
           <Typography variant="body2">
             {t('pages.nutrientPlans.substrateCorrection')}:{' '}
-            {t('pages.nutrientPlans.referenceEc')} {result.reference_ec_ms.toFixed(2)} mS/cm
-            {' → '}{t('pages.nutrientPlans.dosageCalc.targetEc')} {result.target_ec_ms.toFixed(2)} mS/cm
+            {t('pages.nutrientPlans.referenceEc')} {formatFixed(result.reference_ec_ms, 2)} mS/cm
+            {' → '}{t('pages.nutrientPlans.dosageCalc.targetEc')} {formatFixed(result.target_ec_ms, 2)} mS/cm
           </Typography>
         </Alert>
       )}
@@ -177,9 +178,9 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
         >
           <AlertTitle>{t('pages.nutrientPlans.dosageCalc.calmagNeeded')}</AlertTitle>
           <Typography variant="body2">
-            {t('pages.nutrientPlans.dosageCalc.caDeficit')}: {result.calmag_correction.calcium_deficit_ppm.toFixed(1)} ppm
+            {t('pages.nutrientPlans.dosageCalc.caDeficit')}: {formatFixed(result.calmag_correction.calcium_deficit_ppm, 1)} ppm
             {' | '}
-            {t('pages.nutrientPlans.dosageCalc.mgDeficit')}: {result.calmag_correction.magnesium_deficit_ppm.toFixed(1)} ppm
+            {t('pages.nutrientPlans.dosageCalc.mgDeficit')}: {formatFixed(result.calmag_correction.magnesium_deficit_ppm, 1)} ppm
           </Typography>
           {result.calmag_correction.ca_mg_ratio_warning && (
             <Typography variant="caption" color="warning.dark" sx={{ mt: 0.5 }}>
@@ -188,7 +189,7 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
           )}
           {result.calmag_dosage && (
             <Typography variant="body2" sx={{ mt: 0.5 }}>
-              {result.calmag_dosage.product_name}: {result.calmag_dosage.ml_per_liter.toFixed(2)} ml/L ({result.calmag_dosage.total_ml.toFixed(1)} ml {t('pages.nutrientPlans.dosageCalc.total')})
+              {result.calmag_dosage.product_name}: {formatFixed(result.calmag_dosage.ml_per_liter, 2)} ml/L ({formatFixed(result.calmag_dosage.total_ml, 1)} ml {t('pages.nutrientPlans.dosageCalc.total')})
             </Typography>
           )}
         </Alert>
@@ -234,19 +235,19 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
                   </TableCell>
                   <TableCell align="right" sx={{ color: 'text.secondary' }}>
                     {d.source === 'reference'
-                      ? d.ml_per_liter.toFixed(2)
+                      ? formatFixed(d.ml_per_liter, 2)
                       : (result.scaling_factor !== 0
-                        ? (d.ml_per_liter / result.scaling_factor).toFixed(2)
+                        ? formatFixed(d.ml_per_liter / result.scaling_factor, 2)
                         : '-')}
                   </TableCell>
                   <TableCell
                     align="right"
                     sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}
                   >
-                    {d.ml_per_liter.toFixed(2)}
+                    {formatFixed(d.ml_per_liter, 2)}
                   </TableCell>
-                  <TableCell align="right">{d.total_ml.toFixed(1)}</TableCell>
-                  <TableCell align="right">{d.ec_contribution.toFixed(2)}</TableCell>
+                  <TableCell align="right">{formatFixed(d.total_ml, 1)}</TableCell>
+                  <TableCell align="right">{formatFixed(d.ec_contribution, 2)}</TableCell>
                   <TableCell>
                     <Chip
                       label={t(`pages.nutrientPlans.dosageCalc.dosageSource${capitalize(d.source)}`)}
@@ -271,10 +272,10 @@ function PhaseResult({ result }: { result: CalculateDosagesResponse }) {
               {t('pages.nutrientPlans.dosageCalc.effectiveWater')}
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-              <Chip label={`EC: ${result.effective_water.ec_ms.toFixed(2)} mS/cm`} size="small" variant="outlined" />
-              <Chip label={`pH: ${result.effective_water.ph.toFixed(1)}`} size="small" variant="outlined" />
-              <Chip label={`Ca: ${result.effective_water.calcium_ppm.toFixed(0)} ppm`} size="small" variant="outlined" />
-              <Chip label={`Mg: ${result.effective_water.magnesium_ppm.toFixed(0)} ppm`} size="small" variant="outlined" />
+              <Chip label={`EC: ${formatFixed(result.effective_water.ec_ms, 2)} mS/cm`} size="small" variant="outlined" />
+              <Chip label={`pH: ${formatFixed(result.effective_water.ph, 1)}`} size="small" variant="outlined" />
+              <Chip label={`Ca: ${formatFixed(result.effective_water.calcium_ppm, 0)} ppm`} size="small" variant="outlined" />
+              <Chip label={`Mg: ${formatFixed(result.effective_water.magnesium_ppm, 0)} ppm`} size="small" variant="outlined" />
             </Box>
           </CardContent>
         </Card>
@@ -551,7 +552,7 @@ export default function DosageCalculatorTab({ plan, entries }: Props) {
                     )}
                     {state?.result && (
                       <Chip
-                        label={`${t('pages.nutrientPlans.dosageCalc.scalingFactor')}: ${state.result.scaling_factor.toFixed(2)}`}
+                        label={`${t('pages.nutrientPlans.dosageCalc.scalingFactor')}: ${formatFixed(state.result.scaling_factor, 2)}`}
                         size="small"
                         color="primary"
                       />

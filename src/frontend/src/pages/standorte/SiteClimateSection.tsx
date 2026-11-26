@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatFixed } from '@/utils/formatting';
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -207,10 +208,10 @@ export default function SiteClimateSection({ siteKey }: Props) {
                   {rows.map((row) => (
                     <TableRow key={row.month}>
                       <TableCell>{row.month}</TableCell>
-                      <TableCell align="right">{row.tempAvg?.toFixed(1) ?? '–'}</TableCell>
-                      <TableCell align="right">{row.tempMin?.toFixed(1) ?? '–'}</TableCell>
-                      <TableCell align="right">{row.precip?.toFixed(0) ?? '–'}</TableCell>
-                      <TableCell align="right">{row.solar?.toFixed(1) ?? '–'}</TableCell>
+                      <TableCell align="right">{formatFixed(row.tempAvg, 1)}</TableCell>
+                      <TableCell align="right">{formatFixed(row.tempMin, 1)}</TableCell>
+                      <TableCell align="right">{formatFixed(row.precip, 0)}</TableCell>
+                      <TableCell align="right">{formatFixed(row.solar, 1)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -220,8 +221,8 @@ export default function SiteClimateSection({ siteKey }: Props) {
             {(normal.annual_temp_avg_c != null || normal.annual_precip_mm != null) && (
               <Typography variant="body2" color="text.secondary">
                 {t('pages.siteDetail.climate.annual', {
-                  temp: normal.annual_temp_avg_c?.toFixed(1) ?? '–',
-                  precip: normal.annual_precip_mm?.toFixed(0) ?? '–',
+                  temp: formatFixed(normal.annual_temp_avg_c, 1),
+                  precip: formatFixed(normal.annual_precip_mm, 0),
                 })}
               </Typography>
             )}

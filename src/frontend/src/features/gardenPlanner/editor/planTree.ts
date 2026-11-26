@@ -8,6 +8,7 @@
 import type { PlanModel } from '../model/planModel';
 import type { GardenObjectType } from '../model/types';
 import type { SelectionRef } from '../state/gardenPlanSlice';
+import { compareText } from '@/utils/formatting';
 
 export type TreeLevel = 'area' | 'bed' | 'object';
 
@@ -24,7 +25,7 @@ export interface TreeRow {
   placed: boolean;
 }
 
-const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+const byName = (a: { name: string }, b: { name: string }) => compareText(a.name, b.name);
 
 /** Rows in reading order: an area, then what is inside it, then the next area. */
 export function buildTree(

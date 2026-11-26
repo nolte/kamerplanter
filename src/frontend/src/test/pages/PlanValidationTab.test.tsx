@@ -128,7 +128,7 @@ describe('PlanValidationTab', () => {
 
     expect(screen.getByText(i18n.t('pages.nutrientPlans.planComplete'))).toBeInTheDocument();
     expect(screen.getByText(/EC too high/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.82 \/ 1\.5/)).toBeInTheDocument();
+    expect(screen.getByText(/1,82 \/ 1,5/)).toBeInTheDocument();
     // channel with no issues renders the "no issues" label
     expect(
       screen.getByText(i18n.t('pages.deliveryChannels.validation.noIssues'), { exact: false }),

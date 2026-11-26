@@ -32,6 +32,7 @@ import {
   type BackfillForm,
 } from './backfillForm';
 import type { BackfillResult, PlanRole, Season } from './historyTypes';
+import { compareText } from '@/utils/formatting';
 
 const SEASONS: readonly Season[] = ['spring', 'main', 'autumn'];
 const ROLES: readonly PlanRole[] = ['main_crop', 'green_manure', 'fallow'];
@@ -68,7 +69,7 @@ export default function BackfillDialog({ bedKey, initialYear, onClose, onSaved }
     Promise.all([listAllBotanicalFamilies(), listAllSpecies()])
       .then(([familyList, speciesList]) => {
         if (cancelled) return;
-        setFamilies([...familyList].sort((a, b) => a.name.localeCompare(b.name)));
+        setFamilies([...familyList].sort((a, b) => compareText(a.name, b.name)));
         setSpecies(speciesList.items);
       })
       .catch((error: unknown) => {

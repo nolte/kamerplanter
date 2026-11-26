@@ -19,6 +19,7 @@ import FeedingEventCreateDialog from './FeedingEventCreateDialog';
 import { formatFeedingAmount } from './feedingEventDose';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDateTime } from '@/utils/formatting';
 
 export default function FeedingEventListPage() {
   const { t, i18n } = useTranslation();
@@ -66,9 +67,9 @@ export default function FeedingEventListPage() {
       id: 'timestamp',
       label: t('pages.feedingEvents.timestamp'),
       render: (r) =>
-        r.timestamp ? new Date(r.timestamp).toLocaleString() : '—',
+        r.timestamp ? formatDateTime(r.timestamp) : '—',
       searchValue: (r) =>
-        r.timestamp ? new Date(r.timestamp).toLocaleString() : '',
+        r.timestamp ? formatDateTime(r.timestamp) : '',
     },
     {
       id: 'plantKey',
@@ -163,7 +164,7 @@ export default function FeedingEventListPage() {
             <MobileCard
               title={plantName}
               titleId="plantKey"
-              subtitle={r.timestamp ? new Date(r.timestamp).toLocaleString() : undefined}
+              subtitle={r.timestamp ? formatDateTime(r.timestamp) : undefined}
               subtitleId="timestamp"
               chips={[
                 {

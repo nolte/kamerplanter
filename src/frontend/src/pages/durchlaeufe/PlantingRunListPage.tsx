@@ -15,6 +15,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { PlantingRun, PlantingRunStatus } from '@/api/types';
 import PlantingRunCreateDialog from './PlantingRunCreateDialog';
 import { kamiPlantingRuns } from '@/assets/brand/illustrations';
+import { formatDate } from '@/utils/formatting';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -64,7 +65,7 @@ export default function PlantingRunListPage() {
         if (!dominant_phase) return '—';
         return (
           <Chip
-            label={`${t(`enums.phase.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
+            label={`${t(`enums.phaseName.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
             size="small"
             color="info"
           />
@@ -87,7 +88,7 @@ export default function PlantingRunListPage() {
     {
       id: 'startedAt',
       label: t('pages.plantingRuns.startedAt'),
-      render: (r) => (r.started_at ? new Date(r.started_at).toLocaleDateString() : '—'),
+      render: (r) => (r.started_at ? formatDate(r.started_at) : '—'),
     },
   ];
 
@@ -124,7 +125,7 @@ export default function PlantingRunListPage() {
           <MobileCard
             title={r.name}
             titleId="name"
-            subtitle={r.started_at ? new Date(r.started_at).toLocaleDateString() : undefined}
+            subtitle={r.started_at ? formatDate(r.started_at) : undefined}
             subtitleId="startedAt"
             chips={[
               {

@@ -11,6 +11,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import ButtonBase from '@mui/material/ButtonBase';
 import type { Species } from '@/api/types';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 interface FavoriteSpeciesStepProps {
   allSpecies: Species[];
@@ -52,7 +53,7 @@ export default function FavoriteSpeciesStep({
       if (aKit !== bKit) return aKit - bKit;
       const aName = getLocalizedCommonName(a, language) ?? a.scientific_name;
       const bName = getLocalizedCommonName(b, language) ?? b.scientific_name;
-      return aName.localeCompare(bName, language);
+      return compareText(aName, bName);
     });
   }, [allSpecies, search, kitSpeciesKeys, language]);
 

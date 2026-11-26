@@ -12,6 +12,7 @@ import type { LocationType } from '@/api/types';
 import type { GardenObjectType } from '../model/types';
 import type { RendererLabels } from '../renderer';
 import { OBJECT_TYPES } from './tools/objectTypes';
+import { localizedText } from '@/utils/localizedText';
 
 interface NewTypeSelectProps {
   target: 'area' | 'bed' | 'garden_object';
@@ -29,9 +30,9 @@ interface NewTypeSelectProps {
 
 const sx = { minWidth: 200, '& .MuiInputBase-root': { minHeight: 44 } } as const;
 
-/** A location type's name in the UI language: the English name where there is one (the seed carries both). */
+/** A location type's name in the UI language: `name` is German, `name_en` English (the seed carries both). */
 export function locationTypeName(type: Pick<LocationType, 'name' | 'name_en'>, language: string): string {
-  return language.startsWith('en') && type.name_en ? type.name_en : type.name;
+  return localizedText(language, { de: type.name, en: type.name_en });
 }
 
 export function NewTypeSelect(props: NewTypeSelectProps) {

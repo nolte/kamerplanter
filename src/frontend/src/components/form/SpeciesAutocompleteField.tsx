@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Species } from '@/api/types';
 import { getSpeciesOptionLabel, orderCommonNamesForLanguage } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 interface SpeciesAutocompleteFieldProps<T extends FieldValues> {
   name: Path<T>;
@@ -64,10 +65,7 @@ export default function SpeciesAutocompleteField<T extends FieldValues>({
 
     // Sorted by the label the user reads — the common name in the UI language (#2902).
     return mapped.sort((a, b) =>
-      getSpeciesOptionLabel(a.species, language).localeCompare(
-        getSpeciesOptionLabel(b.species, language),
-        language,
-      ),
+      compareText(getSpeciesOptionLabel(a.species, language), getSpeciesOptionLabel(b.species, language)),
     );
   }, [species, language]);
 

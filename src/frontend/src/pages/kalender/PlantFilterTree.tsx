@@ -11,6 +11,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import type { CalendarEvent } from '@/api/types';
+import { compareText } from '@/utils/formatting';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ export default function PlantFilterTree({
         plants.push({ plantKey: pk, plantName: pn });
         keys.add(pk);
       }
-      plants.sort((a, b) => a.plantName.localeCompare(b.plantName));
+      plants.sort((a, b) => compareText(a.plantName, b.plantName));
       nodes.push({ runKey, runName: data.runName, plants });
     }
 
@@ -104,7 +105,7 @@ export default function PlantFilterTree({
         plants.push({ plantKey: pk, plantName: pn });
         keys.add(pk);
       }
-      plants.sort((a, b) => a.plantName.localeCompare(b.plantName));
+      plants.sort((a, b) => compareText(a.plantName, b.plantName));
       nodes.push({
         runKey: '_standalone',
         runName: t('pages.calendar.phaseTimeline.noRun'),
@@ -115,7 +116,7 @@ export default function PlantFilterTree({
     nodes.sort((a, b) => {
       if (a.runKey === '_standalone') return 1;
       if (b.runKey === '_standalone') return -1;
-      return a.runName.localeCompare(b.runName);
+      return compareText(a.runName, b.runName);
     });
 
     return { tree: nodes, allPlantKeys: keys };

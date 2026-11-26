@@ -24,7 +24,7 @@ import {
   requestDiaryEntryAnalysis,
 } from '@/api/endpoints/diary';
 import { listAllPlantInstances } from '@/api/endpoints/plantInstances';
-import { formatDateTime } from '@/utils/formatting';
+import { compareText, formatDateTime } from '@/utils/formatting';
 import type { DiaryOverviewItem, PlantDiaryEntry, PlantInstance } from '@/api/types';
 import { kamiCare } from '@/assets/brand/illustrations';
 import DiaryEntryDetailDialog from './DiaryEntryDetailDialog';
@@ -202,7 +202,7 @@ export default function DiaryOverviewPage() {
           value: plant.key,
           label: plant.plant_name || plant.instance_id,
         }))
-        .sort((a, b) => a.label.localeCompare(b.label)),
+        .sort((a, b) => compareText(a.label, b.label)),
     [plants],
   );
 
@@ -219,7 +219,7 @@ export default function DiaryOverviewPage() {
       if (!byKey.has(plant.species_key)) byKey.set(plant.species_key, label);
     }
     return Array.from(byKey, ([value, label]) => ({ value, label })).sort((a, b) =>
-      a.label.localeCompare(b.label),
+      compareText(a.label, b.label),
     );
   }, [plants, i18n.language]);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -23,6 +24,8 @@ import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { PhaseDefinition } from '@/api/types';
 import { kamiPhaseGermination } from '@/assets/brand/illustrations';
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
+import { compareText } from '@/utils/formatting';
+import { compareCodes } from '@/utils/compareCodes';
 
 export default function PhaseDefinitionListPage() {
   const { t, i18n } = useTranslation();
@@ -102,7 +105,7 @@ export default function PhaseDefinitionListPage() {
   const deleteTarget = definitions.find((d) => d.key === deleteKey);
 
   const getDisplayName = (def: PhaseDefinition): string =>
-    (lang === 'de' ? def.display_name_de : def.display_name) || def.name;
+    localizedText(lang, { de: def.display_name_de, en: def.display_name }, def.name);
 
   const columns: Column<PhaseDefinition>[] = [
     {
@@ -119,7 +122,7 @@ export default function PhaseDefinitionListPage() {
         </Box>
       ),
       searchValue: (def) => `${getDisplayName(def)} ${def.name} ${def.tags.join(' ')}`,
-      sortFn: (a, b) => getDisplayName(a).localeCompare(getDisplayName(b)),
+      sortFn: (a, b) => compareText(getDisplayName(a), getDisplayName(b)),
     },
     {
       id: 'stressTolerance',
@@ -132,7 +135,7 @@ export default function PhaseDefinitionListPage() {
         />
       ),
       searchValue: (def) => t(`enums.stressLevel.${def.stress_tolerance}`),
-      sortFn: (a, b) => a.stress_tolerance.localeCompare(b.stress_tolerance),
+      sortFn: (a, b) => compareCodes(a.stress_tolerance, b.stress_tolerance),
     },
     {
       id: 'typicalDuration',

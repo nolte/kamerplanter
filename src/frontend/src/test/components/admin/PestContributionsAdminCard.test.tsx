@@ -175,7 +175,8 @@ describe('PestContributionsAdminCard', () => {
     await selectPest();
     expect(await screen.findByTestId('pest-contribution-row')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByLabelText('Clear'));
+    // MUI's own clear button follows the UI language (deDE, #3025 L-03).
+    await userEvent.click(screen.getByLabelText('Leeren'));
     await waitFor(() =>
       expect(screen.queryByTestId('pest-contribution-row')).not.toBeInTheDocument(),
     );

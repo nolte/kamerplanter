@@ -29,6 +29,7 @@ import { useFertilizerFavorites } from '@/hooks/useCatalogFavorites';
 import type { Fertilizer } from '@/api/types';
 import FertilizerCreateDialog from './FertilizerCreateDialog';
 import { kamiFertilizer } from '@/assets/brand/illustrations';
+import { formatFixed } from '@/utils/formatting';
 
 const FERTILIZER_TYPES = [
   'base',
@@ -172,7 +173,7 @@ export default function FertilizerListPage() {
       id: 'ec_contribution_per_ml',
       label: t('pages.fertilizers.ecContribution'),
       helpTerm: 'ec',
-      render: (r) => `${r.ec_contribution_per_ml.toFixed(3)} mS/ml`,
+      render: (r) => `${formatFixed(r.ec_contribution_per_ml, 3)} mS/ml`,
       align: 'right',
       searchValue: (r) => String(r.ec_contribution_per_ml),
     },
@@ -401,7 +402,7 @@ export default function FertilizerListPage() {
               {
                 id: 'ec_contribution_per_ml',
                 label: 'EC',
-                value: `${r.ec_contribution_per_ml.toFixed(3)} mS/ml`,
+                value: `${formatFixed(r.ec_contribution_per_ml, 3)} mS/ml`,
               },
             ]}
           />

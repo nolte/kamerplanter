@@ -7,6 +7,7 @@
  * running installation the section stays hidden until one exists.
  */
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -31,7 +32,7 @@ export default function SuggestionList({ tasks, plants, canEdit, busy, onAccept,
   const { t, i18n } = useTranslation();
   if (tasks.length === 0) return null;
   const language = i18n.language;
-  const taskName = (task: CareTask) => (language.startsWith('de') && task.name_de) || task.name;
+  const taskName = (task: CareTask) => localizedText(language, { de: task.name_de, en: task.name });
   const plantName = (task: CareTask): string | null =>
     plants.find((plant) => plant.plantKey === task.entity_key)?.instanceId ?? null;
 

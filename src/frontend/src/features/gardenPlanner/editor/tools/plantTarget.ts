@@ -9,6 +9,7 @@ import type { PlanModel } from '../../model/planModel';
 import type { PlanSlot, Point } from '../../model/types';
 import { MARKER_MIN_SPACING_PX, markersVisible } from '../../renderer/lod';
 import { isAreaLocation, markerIndex } from '../../renderer/planIndex';
+import { compareCodes } from '@/utils/compareCodes';
 
 /** The zoom a "zoom in to the spots" goes to: markers this far apart are easy to hit, also with a finger. */
 const COMFORT_SPACING_PX = MARKER_MIN_SPACING_PX * 3;
@@ -65,7 +66,7 @@ export function freePointSlots(plan: PlanModel, bedKey: string): PlanSlot[] {
       (a, b) =>
         (a.row_index ?? 0) - (b.row_index ?? 0) ||
         (a.sequence ?? 0) - (b.sequence ?? 0) ||
-        a.slot_id.localeCompare(b.slot_id),
+        compareCodes(a.slot_id, b.slot_id),
     );
 }
 

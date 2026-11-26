@@ -14,6 +14,7 @@ import { listAllSpecies } from '@/api/endpoints/species';
 import { useApiError } from '@/hooks/useApiError';
 import type { Fertilizer, LocationOption, Species } from '@/api/types';
 import { getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 /**
  * Shared master-data selectors for the Nutrient Calculations page (#610).
@@ -406,7 +407,7 @@ export function SpeciesSelect({
   const sorted = useMemo(
     () =>
       [...options].sort((a, b) =>
-        getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language)),
+        compareText(getSpeciesOptionLabel(a, language), getSpeciesOptionLabel(b, language)),
       ),
     [options, language],
   );

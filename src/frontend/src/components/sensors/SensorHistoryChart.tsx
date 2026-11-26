@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
@@ -26,6 +26,7 @@ import type {
   SensorReadingResponse,
   AggregatedReadingResponse,
 } from '@/api/types';
+import { formatDateTime, formatDateWith, formatFixed, formatTime } from '@/utils/formatting';
 
 type TimeRange = '24h' | '7d' | '30d' | '90d';
 
@@ -54,11 +55,11 @@ function isAggregated(item: SensorReadingResponse | AggregatedReadingResponse): 
   return 'bucket' in item;
 }
 
-function formatTime(ts: number, range: TimeRange): string {
-  const d = dayjs(ts);
-  if (range === '24h') return d.format('HH:mm');
-  if (range === '7d') return d.format('dd HH:mm');
-  return d.format('DD.MM.');
+/** Axis tick in the active UI language (the dayjs patterns were German-only, weekdays English). */
+function formatTick(ts: number, range: TimeRange): string {
+  if (range === '24h') return formatTime(ts);
+  if (range === '7d') return formatDateWith(ts, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  return formatDateWith(ts, { day: '2-digit', month: '2-digit' });
 }
 
 interface TooltipPayloadEntry {
@@ -70,15 +71,14 @@ interface TooltipPayloadEntry {
 
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: TooltipPayloadEntry[]; label?: number }) {
   if (!active || !payload?.length) return null;
-  const d = dayjs(label);
   return (
     <Box sx={{ bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1, p: 1, fontSize: '0.8rem' }}>
       <Typography variant="caption" sx={{ display: 'block', mb: 0.5 }}>
-        {d.format('DD.MM.YYYY HH:mm')}
+        {formatDateTime(label ?? null)}
       </Typography>
       {payload.map((p) => (
         <Box key={String(p.dataKey)} sx={{ color: p.color }}>
-          {p.name}: {typeof p.value === 'number' ? p.value.toFixed(2) : p.value}
+          {p.name}: {typeof p.value === 'number' ? formatFixed(p.value, 2) : p.value}
         </Box>
       ))}
     </Box>
@@ -139,7 +139,8 @@ export default function SensorHistoryChart({ sensorKey, sensorName, metricType, 
 
   const yLabel = unit ?? metricType;
 
-  const tickFormatter = useMemo(() => (ts: number) => formatTime(ts, range), [range]);
+  // Not memoized: `formatTime` reads the active language, and the chart re-renders on a switch.
+  const tickFormatter = (ts: number) => formatTick(ts, range);
 
   // Defense-in-depth: never render sensor telemetry while smart home is off,
   // even if a parent forgot to gate this chart (issue #587).

@@ -61,7 +61,7 @@ describe('SubstrateListPage', () => {
         expect(screen.getAllByText('Kokos Substrat').length).toBeGreaterThan(0);
       });
       // ph_base 6.0 rendered with one decimal
-      expect(screen.getAllByText('6.0').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('6,0').length).toBeGreaterThan(0);
     });
 
     it('renders a favorite-toggle star for each substrate row', async () => {

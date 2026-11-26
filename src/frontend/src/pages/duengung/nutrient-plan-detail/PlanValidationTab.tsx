@@ -13,6 +13,7 @@ import type {
   NutrientPlanPhaseEntry,
   DeliveryChannel,
 } from '@/api/types';
+import { formatFixed, formatNumber } from '@/utils/formatting';
 
 interface PlanValidationTabProps {
   validation: PlanValidationResult | null;
@@ -102,9 +103,9 @@ export default function PlanValidationTab({
                           : cr.issues.join('; ')}
                         {cr.ec_budget && (
                           <Box component="span" sx={{ display: 'block', mt: 0.5, fontSize: '0.85em' }}>
-                            EC: {cr.ec_budget.calculated.toFixed(2)} / {cr.ec_budget.target} mS
-                            {' '}({t('pages.nutrientPlans.delta')}: {cr.ec_budget.delta > 0 ? '+' : ''}{cr.ec_budget.delta.toFixed(2)},
-                            {' '}{t('pages.deliveryChannels.validation.tolerance')}: ±{cr.ec_budget.tolerance.toFixed(2)})
+                            EC: {formatFixed(cr.ec_budget.calculated, 2)} / {formatNumber(cr.ec_budget.target)} mS
+                            {' '}({t('pages.nutrientPlans.delta')}: {cr.ec_budget.delta > 0 ? '+' : ''}{formatFixed(cr.ec_budget.delta, 2)},
+                            {' '}{t('pages.deliveryChannels.validation.tolerance')}: ±{formatFixed(cr.ec_budget.tolerance, 2)})
                           </Box>
                         )}
                       </Alert>

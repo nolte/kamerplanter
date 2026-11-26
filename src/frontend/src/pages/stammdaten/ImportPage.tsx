@@ -31,6 +31,7 @@ import {
 } from '@/store/slices/importSlice';
 import { getImportTemplate } from '@/api/endpoints/import';
 import type { DuplicateStrategy, EntityType, RowStatus } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 const STATUS_COLORS: Record<RowStatus, 'success' | 'error' | 'warning'> = {
   valid: 'success',
@@ -184,7 +185,7 @@ export default function ImportPage() {
               {file && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                   {t('pages.import.fileInfo', {
-                    size: (file.size / 1024).toFixed(1),
+                    size: formatFixed(file.size / 1024, 1),
                   })}
                 </Typography>
               )}

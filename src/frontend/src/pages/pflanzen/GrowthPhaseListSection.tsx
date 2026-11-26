@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import { Link as RouterLink } from 'react-router-dom';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
@@ -65,7 +66,7 @@ function fromGrowthPhase(gp: GrowthPhase): PhaseRow {
 function fromSequenceEntry(entry: PhaseSequenceEntry, lang: string): PhaseRow {
   const def = entry.phase_definition;
   const displayName = def
-    ? ((lang === 'de' ? def.display_name_de : def.display_name) || def.name)
+    ? (localizedText(lang, { de: def.display_name_de, en: def.display_name }, def.name))
     : entry.phase_definition_key;
   return {
     key: entry.key,

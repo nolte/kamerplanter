@@ -24,6 +24,7 @@ import type { Pest } from '@/api/types';
 import PestCreateDialog from './PestCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
 import { getCatalogNames, getLocalizedCatalogName } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -180,11 +181,7 @@ export default function PestListPage() {
       // each stored name on its own, so a German query finds a pest in an English UI.
       render: (r) => getLocalizedCatalogName(r, i18n.language),
       sortFn: (a, b) =>
-        getLocalizedCatalogName(a, i18n.language).localeCompare(
-          getLocalizedCatalogName(b, i18n.language),
-          i18n.language,
-          { sensitivity: 'base' },
-        ),
+        compareText(getLocalizedCatalogName(a, i18n.language), getLocalizedCatalogName(b, i18n.language), { sensitivity: 'base' }),
       searchValues: (r) => getCatalogNames(r),
     },
     {

@@ -52,6 +52,7 @@ import {
   showsLiquidFields,
 } from './feedingEventDose';
 import { errorKey } from '@/api/errors';
+import { formatDateTime } from '@/utils/formatting';
 
 const applicationMethods = ['fertigation', 'drench', 'foliar', 'top_dress'] as const;
 
@@ -226,7 +227,7 @@ export default function FeedingEventDetailPage() {
     <Box data-testid="feeding-event-detail-page">
       <UnsavedChangesGuard dirty={isDirty} />
       <PageTitle
-        title={event.timestamp ? new Date(event.timestamp).toLocaleString() : t('entities.feedingEvent')}
+        title={event.timestamp ? formatDateTime(event.timestamp) : t('entities.feedingEvent')}
         action={
           canDelete ? (
             <Button
@@ -292,7 +293,7 @@ export default function FeedingEventDetailPage() {
                     </TableCell>
                     <TableCell>
                       {event.timestamp
-                        ? new Date(event.timestamp).toLocaleString()
+                        ? formatDateTime(event.timestamp)
                         : '—'}
                     </TableCell>
                   </TableRow>

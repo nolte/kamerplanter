@@ -44,6 +44,7 @@ import type {
 import SuccessionPlanDialog from './SuccessionPlanDialog';
 import { kamiPlantingRuns } from '@/assets/brand/illustrations';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { formatDate } from '@/utils/formatting';
 
 const statusColor: Record<SuccessionPlanStatus, ChipProps['color']> = {
   planned: 'default',
@@ -52,10 +53,11 @@ const statusColor: Record<SuccessionPlanStatus, ChipProps['color']> = {
   cancelled: 'error',
 };
 
-function formatDate(value: string | null): string {
+/** A plan date in the UI language; an unparseable value is shown as sent. */
+function planDate(value: string | null): string {
   if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString();
+  const shown = formatDate(value);
+  return shown === '—' ? value : shown;
 }
 
 export default function SuccessionPlanListPage() {
@@ -205,7 +207,7 @@ export default function SuccessionPlanListPage() {
     {
       id: 'window',
       label: t('pages.successionPlans.window'),
-      render: (p) => `${formatDate(p.start_date)} – ${formatDate(p.end_date)}`,
+      render: (p) => `${planDate(p.start_date)} – ${planDate(p.end_date)}`,
       hideBelowBreakpoint: 'lg',
     },
     {
@@ -326,7 +328,7 @@ export default function SuccessionPlanListPage() {
                 {
                   id: 'window',
                   label: t('pages.successionPlans.window'),
-                  value: `${formatDate(p.start_date)} – ${formatDate(p.end_date)}`,
+                  value: `${planDate(p.start_date)} – ${planDate(p.end_date)}`,
                 },
               ]}
             />
@@ -434,7 +436,7 @@ export default function SuccessionPlanListPage() {
                     secondary={
                       run.planned_start_date
                         ? t('pages.successionPlans.plannedStartLabel', {
-                            date: formatDate(run.planned_start_date),
+                            date: planDate(run.planned_start_date),
                           })
                         : undefined
                     }

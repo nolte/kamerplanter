@@ -6,6 +6,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { PlantInstance } from '@/api/types';
+import { compareText } from '@/utils/formatting';
 
 interface PlantInstanceAutocompleteFieldProps<T extends FieldValues> {
   name: Path<T>;
@@ -55,7 +56,7 @@ export function buildPlantInstanceOptions(instances: PlantInstance[]): PlantInst
   }));
 
   return mapped.sort((a, b) =>
-    getPlantInstanceLabel(a.instance).localeCompare(getPlantInstanceLabel(b.instance)),
+    compareText(getPlantInstanceLabel(a.instance), getPlantInstanceLabel(b.instance)),
   );
 }
 

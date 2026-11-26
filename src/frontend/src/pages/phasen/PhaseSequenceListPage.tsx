@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -37,6 +38,8 @@ import { useApiError } from '@/hooks/useApiError';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import type { PhaseSequence } from '@/api/types';
 import { kamiPhaseVegetative } from '@/assets/brand/illustrations';
+import { compareText } from '@/utils/formatting';
+import { compareCodes } from '@/utils/compareCodes';
 
 const cycleTypes = ['annual', 'biennial', 'perennial'] as const;
 
@@ -223,7 +226,7 @@ export default function PhaseSequenceListPage() {
   };
 
   const getDisplayName = (seq: PhaseSequence): string =>
-    (lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name;
+    localizedText(lang, { de: seq.display_name_de, en: seq.display_name }, seq.name);
 
   const handleClone = async (seq: PhaseSequence) => {
     try {
@@ -243,7 +246,7 @@ export default function PhaseSequenceListPage() {
       label: t('common.name'),
       render: (seq) => getDisplayName(seq),
       searchValue: (seq) => `${getDisplayName(seq)} ${seq.name} ${seq.tags.join(' ')}`,
-      sortFn: (a, b) => getDisplayName(a).localeCompare(getDisplayName(b)),
+      sortFn: (a, b) => compareText(getDisplayName(a), getDisplayName(b)),
     },
     {
       id: 'cycleType',
@@ -256,7 +259,7 @@ export default function PhaseSequenceListPage() {
         />
       ),
       searchValue: (seq) => t(`enums.cycleType.${seq.cycle_type}`),
-      sortFn: (a, b) => a.cycle_type.localeCompare(b.cycle_type),
+      sortFn: (a, b) => compareCodes(a.cycle_type, b.cycle_type),
     },
     {
       id: 'isRepeating',

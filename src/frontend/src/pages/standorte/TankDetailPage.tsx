@@ -74,6 +74,7 @@ import TankFillCreateDialog from './TankFillCreateDialog';
 import SensorCreateDialog from './SensorCreateDialog';
 import { errorKey } from '@/api/errors';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate, formatDateTime } from '@/utils/formatting';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -420,7 +421,7 @@ export default function TankDetailPage() {
 
   // Column definitions for data tables
   const stateColumns: Column<TankState>[] = [
-    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—' },
+    { id: 'recordedAt', label: t('pages.tanks.recordedAt'), render: (r) => r.recorded_at ? formatDateTime(r.recorded_at) : '—' },
     { id: 'ph', label: 'pH', helpTerm: 'ph', render: (r) => r.ph ?? '—', align: 'right' },
     { id: 'ec', label: 'EC (mS/cm)', helpTerm: 'ec', render: (r) => r.ec_ms ?? '—', align: 'right' },
     { id: 'temp', label: t('pages.tanks.waterTemp'), render: (r) => r.water_temp_celsius != null ? `${r.water_temp_celsius} °C` : '—', align: 'right' },
@@ -430,7 +431,7 @@ export default function TankDetailPage() {
 
   const dueColumns: Column<DueMaintenance>[] = [
     { id: 'type', label: t('pages.tanks.maintenanceType'), render: (r) => t(`enums.maintenanceType.${r.maintenance_type}`), searchValue: (r) => t(`enums.maintenanceType.${r.maintenance_type}`) },
-    { id: 'nextDue', label: t('pages.tanks.nextDue'), render: (r) => new Date(r.next_due).toLocaleDateString() },
+    { id: 'nextDue', label: t('pages.tanks.nextDue'), render: (r) => formatDate(r.next_due) },
     {
       id: 'status', label: t('pages.tanks.status'), render: (r) => (
         <Chip label={t(`enums.maintenanceStatus.${r.status}`)} size="small" color={r.status === 'overdue' ? 'error' : r.status === 'due_soon' ? 'warning' : 'success'} />
@@ -441,7 +442,7 @@ export default function TankDetailPage() {
 
   const logColumns: Column<MaintenanceLog>[] = [
     { id: 'type', label: t('pages.tanks.maintenanceType'), render: (r) => t(`enums.maintenanceType.${r.maintenance_type}`), searchValue: (r) => t(`enums.maintenanceType.${r.maintenance_type}`) },
-    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? new Date(r.performed_at).toLocaleString() : '—' },
+    { id: 'performedAt', label: t('pages.tanks.performedAt'), render: (r) => r.performed_at ? formatDateTime(r.performed_at) : '—' },
     { id: 'performedBy', label: t('pages.tanks.performedBy'), render: (r) => r.performed_by || '—' },
     { id: 'duration', label: t('pages.tanks.duration'), render: (r) => r.duration_minutes != null ? `${r.duration_minutes} min` : '—', align: 'right' },
     { id: 'notes', label: t('pages.tanks.notes'), render: (r) => r.notes || '—' },
@@ -745,7 +746,7 @@ export default function TankDetailPage() {
                   })()}
                   {latestState.recorded_at && (
                     <Typography variant="caption" color="text.secondary">
-                      {new Date(latestState.recorded_at).toLocaleString()}
+                      {formatDateTime(latestState.recorded_at)}
                     </Typography>
                   )}
                 </Box>
@@ -966,7 +967,7 @@ export default function TankDetailPage() {
               ariaLabel={t('pages.tanks.tabStates')}
               mobileCardRenderer={(r) => (
                 <MobileCard
-                  title={r.recorded_at ? new Date(r.recorded_at).toLocaleString() : '—'}
+                  title={r.recorded_at ? formatDateTime(r.recorded_at) : '—'}
                   titleId="recordedAt"
                   fields={[
                     ...(r.ph != null ? [{ id: 'ph', label: t('enums.sensorMetricType.ph'), value: String(r.ph) }] : []),
@@ -1004,7 +1005,7 @@ export default function TankDetailPage() {
                     <MobileCard
                       title={t(`enums.maintenanceType.${r.maintenance_type}`)}
                       titleId="type"
-                      subtitle={new Date(r.next_due).toLocaleDateString()}
+                      subtitle={formatDate(r.next_due)}
                       subtitleId="nextDue"
                       chips={[
                         {
@@ -1058,7 +1059,7 @@ export default function TankDetailPage() {
                 <MobileCard
                   title={t(`enums.maintenanceType.${r.maintenance_type}`)}
                   titleId="type"
-                  subtitle={r.performed_at ? new Date(r.performed_at).toLocaleString() : undefined}
+                  subtitle={r.performed_at ? formatDateTime(r.performed_at) : undefined}
                   subtitleId="performedAt"
                   fields={[
                     ...(r.performed_by ? [{ id: 'performedBy', label: t('pages.tanks.performedBy'), value: r.performed_by }] : []),
@@ -1153,7 +1154,7 @@ export default function TankDetailPage() {
           ) : (
             <DataTable
               columns={[
-                { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? new Date(r.filled_at).toLocaleString() : '—' },
+                { id: 'filledAt', label: t('pages.tanks.filledAt'), render: (r: TankFillEvent) => r.filled_at ? formatDateTime(r.filled_at) : '—' },
                 { id: 'fillType', label: t('pages.tanks.fillType'), render: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`), searchValue: (r: TankFillEvent) => t(`enums.fillType.${r.fill_type}`) },
                 { id: 'volume', label: t('pages.tanks.volumeLiters'), render: (r: TankFillEvent) => `${r.volume_liters} L`, align: 'right' as const },
                 { id: 'ec', label: 'EC (mS/cm)', helpTerm: 'ec', render: (r: TankFillEvent) => r.measured_ec_ms != null ? `${r.measured_ec_ms}` : '—', align: 'right' as const },
@@ -1167,7 +1168,7 @@ export default function TankDetailPage() {
               ariaLabel={t('pages.tanks.tabFills')}
               mobileCardRenderer={(r: TankFillEvent) => (
                 <MobileCard
-                  title={r.filled_at ? new Date(r.filled_at).toLocaleString() : '—'}
+                  title={r.filled_at ? formatDateTime(r.filled_at) : '—'}
                   titleId="filledAt"
                   chips={[
                     { id: 'fillType', content: <Chip label={t(`enums.fillType.${r.fill_type}`)} size="small" /> },

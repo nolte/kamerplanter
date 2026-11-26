@@ -3,6 +3,7 @@ import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -255,7 +256,7 @@ export default function SubstrateDetailPage() {
       <UnsavedChangesGuard dirty={isDirty} />
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PageTitle title={substrate ? ((i18n.language?.startsWith('en') ? substrate.name_en : substrate.name_de) || `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`) : t('entities.substrate')} />
+          <PageTitle title={substrate ? (localizedText(i18n.language, { de: substrate.name_de, en: substrate.name_en }, `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`)) : t('entities.substrate')} />
           {key && (
             <Tooltip title={t('pages.plantInstances.substrateFavToggle')}>
               <IconButton
@@ -283,7 +284,7 @@ export default function SubstrateDetailPage() {
             {substrate.mix_components.map((comp) => {
               const compSub = substrateCatalogue.items.find((s) => s.key === comp.substrate_key);
               const label = compSub
-                ? (i18n.language?.startsWith('en') ? compSub.name_en : compSub.name_de) || `${t(`enums.substrateType.${compSub.type}`)} ${compSub.brand ?? ''}`
+                ? localizedText(i18n.language, { de: compSub.name_de, en: compSub.name_en }, `${t(`enums.substrateType.${compSub.type}`)} ${compSub.brand ?? ''}`)
                 : comp.substrate_key;
               return (
                 <Chip
@@ -448,7 +449,7 @@ export default function SubstrateDetailPage() {
       <ConfirmDialog
         open={deleteOpen}
         title={t('common.delete')}
-        message={t('common.deleteConfirm', { name: substrate ? ((i18n.language?.startsWith('en') ? substrate.name_en : substrate.name_de) || `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`) : '' })}
+        message={t('common.deleteConfirm', { name: substrate ? (localizedText(i18n.language, { de: substrate.name_de, en: substrate.name_en }, `${t(`enums.substrateType.${substrate.type}`)} ${substrate.brand ?? ''}`)) : '' })}
         onConfirm={onDelete}
         onCancel={() => setDeleteOpen(false)}
         destructive

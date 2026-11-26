@@ -25,6 +25,7 @@ import { visuallyHidden } from '@mui/utils';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { changeLabelPosition, parameterHistory, timeDomain, type ParameterHistory } from './soilAnalysisChartData';
 import { CHART_PARAMETERS, type SoilAnalysesResponse } from './soilAnalysisTypes';
+import { formatDate, formatNumber } from '@/utils/formatting';
 
 const PREFIX = 'pages.bed.soil.history';
 /** Lines differ by dash as well as by colour, so a method stays recognisable without colour (WCAG 1.4.1). */
@@ -78,7 +79,7 @@ export default function SoilAnalysisChart({ data }: SoilAnalysisChartProps) {
 }
 
 function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTable: boolean }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const colors = [
     theme.palette.primary.main,
@@ -91,8 +92,8 @@ function ParameterPanel({ history, asTable }: { history: ParameterHistory; asTab
   const parameterName = t(`enums.soilParameter.${history.parameter}`);
   const methodLabel = (method: string) => methodName(t, history.parameter, method);
   const unitLabel = (unit: string) => t(`enums.soilUnit.${unit}`, { defaultValue: unit });
-  const date = (time: number) => new Date(time).toLocaleDateString(i18n.language);
-  const number = (value: number) => value.toLocaleString(i18n.language, { maximumFractionDigits: 3 });
+  const date = (time: number) => formatDate(time);
+  const number = (value: number) => formatNumber(value, { maximumFractionDigits: 3 });
   const domain = timeDomain(history);
 
   const table = (

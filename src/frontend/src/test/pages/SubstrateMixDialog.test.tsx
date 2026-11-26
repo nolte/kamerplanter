@@ -230,7 +230,7 @@ describe('SubstrateMixDialog — the shapes #1175 introduced', () => {
     // "not applicable" unconditionally.
     await previewWith({ air_porosity_percent: 40 });
 
-    expect(screen.getByTestId('mix-preview-air-porosity').textContent).toBe('40.0%');
+    expect(screen.getByTestId('mix-preview-air-porosity').textContent).toBe('40,0%');
   });
 
   it('shows the blend\'s additives by name, without a percentage', async () => {

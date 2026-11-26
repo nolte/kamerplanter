@@ -549,7 +549,8 @@
     "VIRUS_SCAN_REJECTED": "Die Datei wurde von der Virenprüfung abgelehnt.",
     "WINTER_PATH_VIOLATION": "Dieser Schritt passt nicht zum gewählten Überwinterungsweg.",
     "phaseRunOwned": "Diese Phase gehört zu einem Durchlauf und wird dort gesteuert.",
-    "recurrenceRruleRequired": "Für eine Wiederholung fehlt die Regel."
+    "recurrenceRruleRequired": "Für eine Wiederholung fehlt die Regel.",
+    "dashboardCatalogLoadFailed": "Die Widget-Auswahl für das Dashboard konnte nicht geladen werden."
   },
   "validation": {
     "required": "Pflichtfeld.",
