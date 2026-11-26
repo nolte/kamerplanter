@@ -13,18 +13,17 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
-import Chip from '@mui/material/Chip';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import HomeIcon from '@mui/icons-material/Home';
 import Sidebar from './Sidebar';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
+import SkipLink from '@/components/layout/SkipLink';
 import LanguageSelector from '@/components/layout/LanguageSelector';
 import NotificationBell from '@/components/layout/NotificationBell';
 import TenantSwitcher from '@/components/layout/TenantSwitcher';
@@ -42,6 +41,8 @@ const OfflineSyncHost = lazy(() => import('@/features/gardenPlanner/offline/Offl
 // #3023 (W-30) — the light-mode take-over and its step-up dialog (TextField, Select, Dialog) are their own
 // chunk: the dialog opens for at most one account once after a mode switch, never on the first paint.
 const LightModeTakeoverDialog = lazy(() => import('@/components/tenants/LightModeTakeoverDialog'));
+// UI-NFR-019 — the kiosk shell is its own chunk: only a kiosk session ever renders it.
+const KioskShell = lazy(() => import('@/layouts/KioskShell'));
 
 function isPrivateNetwork(): boolean {
   const { hostname } = window.location;
@@ -58,12 +59,12 @@ export default function MainLayout() {
   const navigate = useNavigate();
   const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
   const user = useAppSelector((s) => s.auth.user);
-  // UI-NFR-019 R-003/R-018 — a kiosk quick-action tile (e.g. "Bewässerung
-  // erfassen") navigates out of the /kiosk shell into a regular MainLayout
-  // page. isKiosk stays true (the touch/high-contrast theme keeps applying),
-  // so the permanent "Kiosk" badge and a Home button back to the kiosk start
-  // page must keep showing here too — optional read so tests/pages rendered
-  // without a KioskProvider still work (mirrors ThemeContext's pattern).
+  // UI-NFR-019 — a kiosk session stays a kiosk session (#3025 N-37). A quick-action tile (e.g.
+  // "Bewässerung erfassen") leads to a page of this layout; while `isKiosk` is set, that page is
+  // rendered into the kiosk shell instead of this one: no hamburger, sidebar or breadcrumbs
+  // (R-017, R-021), the inactivity timeout keeps running (R-033..R-036), badge and Home stay
+  // (R-003, R-018). Optional read so tests/pages rendered without a KioskProvider still work
+  // (mirrors ThemeContext's pattern).
   const kiosk = useContext(KioskContext);
   const isKiosk = kiosk?.isKiosk ?? false;
 
@@ -108,37 +109,52 @@ export default function MainLayout() {
     });
   };
 
+  const lightModeWarning = showLightModeWarning && (
+    <Alert
+      severity="warning"
+      onClose={() => {
+        setLightModeWarningDismissed(true);
+        localStorage.setItem('kp-light-mode-warning-dismissed', 'true');
+      }}
+      sx={{ mb: 2 }}
+    >
+      {t('common.lightModeWarning')}
+    </Alert>
+  );
+  const page = (
+    <ModuleGuard>
+      <Outlet />
+    </ModuleGuard>
+  );
+  const pageCompanions = (
+    <>
+      {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
+      {!isLightMode && (
+        <Suspense fallback={null}>
+          <LightModeTakeoverDialog />
+        </Suspense>
+      )}
+      {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
+      <UpdateBanner />
+      {unsyncedGuard.dialog}
+    </>
+  );
+
+  if (isKiosk) {
+    return (
+      <Suspense fallback={null}>
+        <KioskShell>
+          {lightModeWarning}
+          {page}
+          {pageCompanions}
+        </KioskShell>
+      </Suspense>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      <Box
-        component="a"
-        href="#main-content"
-        sx={{
-          position: 'absolute',
-          left: '-9999px',
-          top: 'auto',
-          width: '1px',
-          height: '1px',
-          overflow: 'hidden',
-          '&:focus': {
-            position: 'fixed',
-            top: 8,
-            left: 8,
-            width: 'auto',
-            height: 'auto',
-            overflow: 'visible',
-            zIndex: (theme) => theme.zIndex.tooltip + 1,
-            bgcolor: 'background.paper',
-            color: 'text.primary',
-            px: 2,
-            py: 1,
-            borderRadius: 1,
-            boxShadow: 3,
-          },
-        }}
-      >
-        {t('common.skipToContent')}
-      </Box>
+      <SkipLink targetId="main-content" />
 
       <AppBar
         position="fixed"
@@ -157,27 +173,6 @@ export default function MainLayout() {
           >
             <MenuIcon />
           </IconButton>
-          {/* UI-NFR-019 R-003, R-018 — kiosk badge + Home stay visible on every
-              page reached from a kiosk quick-action tile, not just on /kiosk. */}
-          {isKiosk && (
-            <>
-              <Chip
-                label={t('pages.kiosk.badge')}
-                color="primary"
-                sx={{ fontWeight: 700, fontSize: '1rem', height: 40, px: 1, ml: 1 }}
-                data-testid="kiosk-badge"
-              />
-              <IconButton
-                color="inherit"
-                onClick={() => navigate('/kiosk')}
-                sx={{ ml: 1 }}
-                aria-label={t('pages.kiosk.home')}
-                data-testid="kiosk-home-button"
-              >
-                <HomeIcon />
-              </IconButton>
-            </>
-          )}
           <Box sx={{ flexGrow: 1 }} />
           {/* REQ-053 WP 9.4 — entries of the offline write buffer not yet sent, their sync and conflicts. */}
           <Suspense fallback={null}>
@@ -280,31 +275,10 @@ export default function MainLayout() {
         }}
       >
         <Toolbar />
-        {showLightModeWarning && (
-          <Alert
-            severity="warning"
-            onClose={() => {
-              setLightModeWarningDismissed(true);
-              localStorage.setItem('kp-light-mode-warning-dismissed', 'true');
-            }}
-            sx={{ mb: 2 }}
-          >
-            {t('common.lightModeWarning')}
-          </Alert>
-        )}
+        {lightModeWarning}
         <Breadcrumbs />
-        <ModuleGuard>
-          <Outlet />
-        </ModuleGuard>
-        {/* REQ-027 §7a (#1855) — the take-over of a former light-mode garden; renders nothing otherwise. */}
-        {!isLightMode && (
-          <Suspense fallback={null}>
-            <LightModeTakeoverDialog />
-          </Suspense>
-        )}
-        {/* UI-NFR-012 R-014 — a new service worker waits for the user's go. */}
-        <UpdateBanner />
-        {unsyncedGuard.dialog}
+        {page}
+        {pageCompanions}
       </Box>
     </Box>
   );

@@ -1,18 +1,16 @@
 import { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import Box from '@mui/material/Box';
-import KioskAppBar from '@/components/kiosk/KioskAppBar';
-import KioskTimeoutOverlay from '@/components/kiosk/KioskTimeoutOverlay';
+import { Outlet } from 'react-router-dom';
+import KioskShell from '@/layouts/KioskShell';
 import { useKiosk } from '@/kiosk/KioskProvider';
-import { useKioskTimeout } from '@/kiosk/useKioskTimeout';
 
 /**
- * UI-NFR-019 — kiosk shell layout (R-001). No sidebar, no breadcrumbs — just the
- * kiosk app bar plus the routed content. Visiting ``/kiosk`` directly activates
- * kiosk mode (URL entry point) and arms the inactivity timeout (§2.6).
+ * UI-NFR-019 — the `/kiosk` route (R-001). Visiting it turns kiosk mode on (URL entry point, no
+ * reload) and renders the start page into the {@link KioskShell}. The pages a tile leads to are
+ * NOT children of this route: they stay at their own URLs under `MainLayout`, which renders them
+ * into the same shell while kiosk mode is on (#3025 N-37) — one shell, one timeout, one source of
+ * truth (`isKiosk` in the KioskProvider).
  */
 export default function KioskLayout() {
-  const navigate = useNavigate();
   const { isKiosk, enableKiosk } = useKiosk();
 
   // R-001 — reaching the kiosk route by URL turns the mode on (no reload).
@@ -20,29 +18,9 @@ export default function KioskLayout() {
     if (!isKiosk) enableKiosk();
   }, [isKiosk, enableKiosk]);
 
-  const { showWarning, remainingSeconds, dismissWarning } = useKioskTimeout({
-    enabled: isKiosk,
-    onReset: () => navigate('/kiosk'),
-  });
-
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'background.default',
-      }}
-    >
-      <KioskAppBar />
-      <Box component="main" sx={{ flexGrow: 1, p: { xs: 2, sm: 3 } }}>
-        <Outlet />
-      </Box>
-      <KioskTimeoutOverlay
-        open={showWarning}
-        remainingSeconds={remainingSeconds}
-        onContinue={dismissWarning}
-      />
-    </Box>
+    <KioskShell>
+      <Outlet />
+    </KioskShell>
   );
 }

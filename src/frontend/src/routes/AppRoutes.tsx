@@ -1,7 +1,6 @@
 import { Route, Navigate, createBrowserRouter, createRoutesFromElements } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import MainLayout from '@/layouts/MainLayout';
-import KioskLayout from '@/layouts/KioskLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import ProtectedRoute from '@/auth/ProtectedRoute';
@@ -144,7 +143,8 @@ const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvide
 const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
 const AdminTenantImportsPage = lazy(() => import('@/pages/admin/AdminTenantImportsPage'));
 
-// UI-NFR-019 Kiosk mode
+// UI-NFR-019 Kiosk mode — the shell as well as the start page: neither belongs in the first paint.
+const KioskLayout = lazy(() => import('@/layouts/KioskLayout'));
 const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
@@ -277,8 +277,17 @@ export const router = createBrowserRouter(
 
       {/* Protected routes (require authentication) */}
       <Route element={<ProtectedRoute />}>
-        {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb) */}
-        <Route path="kiosk" element={<KioskLayout />}>
+        {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb). The pages its tiles
+            lead to stay under MainLayout, which renders them into the same kiosk shell while
+            kiosk mode is on (#3025 N-37). */}
+        <Route
+          path="kiosk"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <KioskLayout />
+            </Suspense>
+          }
+        >
           <Route
             index
             element={

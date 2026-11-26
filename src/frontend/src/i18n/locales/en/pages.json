@@ -1269,7 +1269,7 @@
       "exit": "Exit kiosk",
       "startTitle": "What would you like to do?",
       "actions": {
-        "scanPlant": "Scan plant",
+        "identifyPlant": "Identify plant",
         "logWatering": "Log watering",
         "startRound": "Start round",
         "reportProblem": "Report problem"
@@ -1295,6 +1295,14 @@
         "highContrastDescription": "Pure black-and-white display with very high contrast – usable independently of kiosk mode, for example in direct sunlight on the balcony.",
         "highContrastToggle": "Use high-contrast design",
         "highContrastKioskHint": "In kiosk mode the high-contrast display is enabled by default."
+      },
+      "longPress": {
+        "hint": "Hold for {{seconds}} seconds to confirm",
+        "keyboardHint": "With the keyboard, confirm with Enter or Space."
+      },
+      "quickSelect": {
+        "groupLabel": "Quick select for {{field}}",
+        "manual": "Manual"
       }
     },
     "season": {

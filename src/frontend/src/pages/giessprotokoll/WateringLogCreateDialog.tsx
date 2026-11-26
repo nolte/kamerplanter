@@ -26,6 +26,7 @@ import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import { EC_QUICK_SELECT, PH_QUICK_SELECT } from '@/kiosk/quickSelectPresets';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
@@ -462,6 +463,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ec_before"
               control={control}
+              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.ecBefore')}
               helperText={t('pages.wateringLogs.ecHelper')}
               suffix="mS/cm"
@@ -471,6 +473,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ec_after"
               control={control}
+              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.ecAfter')}
               suffix="mS/cm"
               min={0}
@@ -481,6 +484,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ph_before"
               control={control}
+              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.phBefore')}
               helperText={t('pages.wateringLogs.phHelper')}
               min={0}
@@ -490,6 +494,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ph_after"
               control={control}
+              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.phAfter')}
               min={0}
               max={14}
@@ -506,6 +511,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="runoff_ec"
               control={control}
+              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.runoffEc')}
               helperText={t('pages.wateringLogs.runoffEcHelper')}
               suffix="mS/cm"
@@ -515,6 +521,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="runoff_ph"
               control={control}
+              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.runoffPh')}
               min={0}
               max={14}
