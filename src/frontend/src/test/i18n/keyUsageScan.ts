@@ -207,7 +207,7 @@ export function exportedConstants(sources: Record<string, string>): Map<string, 
 }
 
 export type KeyUsage =
-  | { kind: 'static'; line: number; key: string }
+  | { kind: 'static'; line: number; key: string; defaultValue: boolean }
   | { kind: 'template'; line: number; head: string; text: string }
   | { kind: 'unverifiable'; line: number; text: string };
 
@@ -240,6 +240,25 @@ function firstArgument(source: string, start: number): string {
   return source.slice(start, i).replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Whether the options object after a key (`t('k', { …, defaultValue: … })`, `after` is the
+ * index behind the key) carries its OWN `defaultValue` — one of a nested `t()` inside the
+ * options does not count.
+ */
+function hasOwnDefaultValue(source: string, after: number): boolean {
+  let i = after;
+  while (/\s/.test(source[i] ?? '')) i += 1;
+  if (source[i] !== ',') return false;
+  let options = firstArgument(source, i + 1);
+  // Drop nested calls/groups so `how: t(x, { defaultValue })` is not read as this call's own.
+  let previous = '';
+  while (previous !== options) {
+    previous = options;
+    options = options.replace(/\([^()]*\)/g, '#');
+  }
+  return /\bdefaultValue\s*:/.test(options);
+}
+
 function lineAt(source: string, index: number): number {
   return source.slice(0, index).split('\n').length;
 }
@@ -260,7 +279,10 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
     const quote = source[at];
     if (quote === "'" || quote === '"') {
       const close = source.indexOf(quote, at + 1);
-      if (close > at) usages.push({ kind: 'static', line, key: source.slice(at + 1, close) });
+      if (close > at) {
+        const key = source.slice(at + 1, close);
+        usages.push({ kind: 'static', line, key, defaultValue: hasOwnDefaultValue(source, close + 1) });
+      }
       continue;
     }
     if (quote === '`') {
@@ -269,7 +291,7 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
       const text = source.slice(at, template.end);
       const resolved = resolveParts(template.parts, lookup);
       if (resolved !== null) {
-        usages.push({ kind: 'static', line, key: resolved });
+        usages.push({ kind: 'static', line, key: resolved, defaultValue: hasOwnDefaultValue(source, template.end) });
         continue;
       }
       // The static head: the parts up to the first expression that does not resolve.
@@ -289,7 +311,12 @@ export function keyUsages(rawSource: string, exported: ReadonlyMap<string, strin
   }
 
   for (const match of source.matchAll(/\bi18nKey=(?:"([^"]+)"|\{\s*'([^']+)'\s*\}|\{\s*"([^"]+)"\s*\})/g)) {
-    usages.push({ kind: 'static', line: lineAt(source, match.index ?? 0), key: match[1] ?? match[2] ?? match[3] });
+    usages.push({
+      kind: 'static',
+      line: lineAt(source, match.index ?? 0),
+      key: match[1] ?? match[2] ?? match[3],
+      defaultValue: false,
+    });
   }
   return usages;
 }

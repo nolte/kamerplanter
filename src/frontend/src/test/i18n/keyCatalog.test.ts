@@ -148,6 +148,18 @@ function undefinedKeys(source: string, index: KeyIndex, exported: ReadonlyMap<st
   return [...new Set(out)];
 }
 
+/**
+ * I-05 — `t('pages.x', { defaultValue: '…' })` renders the fallback when the key is gone, so
+ * neither the reader nor layer 2 notices. A RUNTIME key keeps its `defaultValue`: there it
+ * is the deliberate fallback for a backend value the catalogue does not know yet (the raw
+ * enum value instead of a raw key), and its static head is still checked by layer 4.
+ */
+function staticKeysWithDefault(source: string, exported: ReadonlyMap<string, string>): string[] {
+  return keyUsages(source, exported).flatMap((usage) =>
+    usage.kind === 'static' && usage.defaultValue ? [`${usage.line}: t('${usage.key}', { defaultValue })`] : [],
+  );
+}
+
 function undeclaredIndirectLookups(source: string, exported: ReadonlyMap<string, string>): string[] {
   return keyUsages(source, exported)
     .filter((usage) => usage.kind === 'unverifiable' && shapeOf(usage.text) === null)
@@ -173,6 +185,13 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
   it('every key the code names exists (static lookups, key-shaped literals, template heads)', () => {
     const offenders = Object.entries(SOURCES).flatMap(([file, source]) =>
       undefinedKeys(source, INDEX, EXPORTED).map((hit) => `${file}:${hit}`),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('a static key never carries a defaultValue, so a missing key stays visible (I-05)', () => {
+    const offenders = Object.entries(SOURCES).flatMap(([file, source]) =>
+      staticKeysWithDefault(source, EXPORTED).map((hit) => `${file}:${hit}`),
     );
     expect(offenders).toEqual([]);
   });
@@ -249,6 +268,21 @@ describe('i18n key catalogue (#3025 M14, I-01/I-02)', () => {
         '1: t(computeSomething(x))',
       ]);
       expect(undeclaredIndirectLookups('t(def.labelKey); t(isEdit ? \'common.save\' : \'common.create\');', new Map())).toEqual([]);
+    });
+
+    it('reports a defaultValue on a static key, not on a runtime key or a nested call', () => {
+      expect(staticKeysWithDefault("t('pages.x.title', { defaultValue: 'Titel' });", exported)).toEqual([
+        "1: t('pages.x.title', { defaultValue })",
+      ]);
+      expect(
+        staticKeysWithDefault(
+          [
+            't(`enums.phaseName.${phase}`, { defaultValue: phase });',
+            "t('pages.x.title', { how: t(`enums.x.${v}`, { defaultValue: v }) });",
+          ].join('\n'),
+          exported,
+        ),
+      ).toEqual([]);
     });
 
     it('does not read comments', () => {
