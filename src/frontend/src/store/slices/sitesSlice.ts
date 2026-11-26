@@ -6,6 +6,7 @@ import {
   readThrough,
   scopeFromState,
   siteListEntry,
+  type ScopedEntry,
   type ScopeState,
 } from '@/features/gardenPlanner/offline/planCache';
 import { errorKey } from '@/api/errors';
@@ -54,8 +55,15 @@ export const fetchSites = createAsyncThunk<
 >('sites/fetchAll', async (args, { getState, fulfillWithValue, rejectWithValue }) => {
   // `all: true` reads every page (#3015) and is cached under its own entry, apart from the single-page ones.
   const { offset, limit, all = false } = args ?? {};
-  const scope = scopeFromState(getState() as ScopeState);
-  const entry = scope && (all || !offset) ? siteListEntry(scope, all ? 'all' : (limit ?? SITE_LIST_DEFAULT_LIMIT)) : null;
+  // Resolved when it is needed, not at dispatch (#3082): a list read before the profile and the tenant are known is
+  // still cached once they are.
+  const entry: ScopedEntry | null =
+    all || !offset
+      ? {
+          scope: () => scopeFromState(getState() as ScopeState),
+          entry: (scope) => siteListEntry(scope, all ? 'all' : (limit ?? SITE_LIST_DEFAULT_LIMIT)),
+        }
+      : null;
   try {
     const read = await readThrough(entry, () => (all ? api.listAllSites() : api.listSites(offset, limit)));
     return fulfillWithValue(read.data, { cachedAt: read.cachedAt });

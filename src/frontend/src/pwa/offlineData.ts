@@ -132,9 +132,26 @@ async function postToWorker(message: Record<string, unknown>): Promise<void> {
   }
 }
 
+/**
+ * Moves whenever the namespace leaves a user or tenant it had (a tenant re-picked after the server refused it, a
+ * user gone), not when a missing part becomes known (the bootstrap: nobody -> user -> user + tenant). A plan cache
+ * write whose read began in another epoch is dropped (#3082): its answer may belong to the tenant the tab had
+ * before, while a read that began before the scope was known still finds the scope it was made in.
+ */
+let namespaceEpoch = 0;
+
+/** The current namespace epoch (see {@link namespaceEpoch}). */
+export function offlineNamespaceEpoch(): number {
+  return namespaceEpoch;
+}
+
 /** Tell the worker which user and tenant this tab's API cache belongs to (`null` = cache nothing). */
 export function postNamespace(userKey: string | null, tenantKey: string | null): Promise<void> {
   const changed = lastNamespace.userKey !== userKey || lastNamespace.tenantKey !== tenantKey;
+  const left =
+    (lastNamespace.userKey !== null && lastNamespace.userKey !== userKey) ||
+    (lastNamespace.tenantKey !== null && lastNamespace.tenantKey !== tenantKey);
+  if (left) namespaceEpoch += 1;
   lastNamespace = { userKey, tenantKey };
   if (changed && userKey && tenantKey) emit('session');
   return postToWorker({ type: SW_MESSAGE_SET_NAMESPACE, userKey, tenantKey });
@@ -179,6 +196,7 @@ export function repostNamespace(): Promise<void> {
  */
 export async function clearOfflineData({ discardWriteQueueOf }: { discardWriteQueueOf?: string | null } = {}): Promise<void> {
   const { userKey } = lastNamespace;
+  namespaceEpoch += 1;
   announceClearing(userKey);
   lastNamespace = { userKey: null, tenantKey: null };
   try {
@@ -195,6 +213,7 @@ export async function clearOfflineData({ discardWriteQueueOf }: { discardWriteQu
 
 /** Kill switch (G-W9 e): everything goes, the app shell caches and the offline write buffer included. */
 export async function clearAllOfflineStorage(): Promise<void> {
+  namespaceEpoch += 1;
   announceClearing(lastNamespace.userKey, true);
   lastNamespace = { userKey: null, tenantKey: null };
   try {

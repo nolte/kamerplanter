@@ -39,12 +39,13 @@ import { applyUndoPatch, diffPlans, type UndoPatch } from '../model/undoPatch';
 import * as api from '../api/gardenPlan';
 import type { PlanSaveFailure } from '../api/gardenPlan';
 import {
-  cacheGeneration,
+  cacheBinding,
   isOfflineCacheMiss,
+  persistScoped,
   planEntry,
   readThrough,
   scopeFromState,
-  writeCached,
+  type ScopedEntry,
   type ScopeState,
 } from '../offline/planCache';
 
@@ -210,6 +211,17 @@ export const initialState: GardenPlanState = {
 // ── Thunks ───────────────────────────────────────────────────────────────────
 
 /**
+ * The plan's cache entry in the scope the store holds when it is asked — not the one at dispatch (#3082): a plan
+ * page loaded before the profile and the tenant still caches its plan once both are known.
+ */
+function planCacheEntry(getState: () => unknown, siteKey: string): ScopedEntry {
+  return {
+    scope: () => scopeFromState(getState() as ScopeState),
+    entry: (scope) => planEntry(scope, siteKey),
+  };
+}
+
+/**
  * Load (or reload) the plan of a site; replaces the model, `pending` and the history. Network first;
  * without a connection the plan cache answers (REQ-053 WP 9.2) and `meta.cachedAt` says from when.
  */
@@ -222,9 +234,8 @@ export const loadGardenPlan = createAsyncThunk<
     rejectedMeta: { offlineMiss: boolean };
   }
 >('gardenPlan/load', async (siteKey, { getState, fulfillWithValue, rejectWithValue }) => {
-  const scope = scopeFromState(getState() as ScopeState);
   try {
-    const read = await readThrough(scope ? planEntry(scope, siteKey) : null, () => api.getGardenPlan(siteKey));
+    const read = await readThrough(planCacheEntry(getState, siteKey), () => api.getGardenPlan(siteKey));
     return fulfillWithValue(normalizePlan(read.data), { cachedAt: read.cachedAt });
   } catch (error) {
     return rejectWithValue(error instanceof Error ? error.message : 'Unknown error', {
@@ -242,11 +253,12 @@ export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectVal
   'gardenPlan/refresh',
   async (siteKey, { getState, rejectWithValue }) => {
     try {
-      const scope = scopeFromState(getState() as ScopeState);
-      const generation = cacheGeneration();
+      const cached = planCacheEntry(getState, siteKey);
+      const binding = cacheBinding();
+      const begunAs = cached.scope();
       const response = await api.getGardenPlan(siteKey);
       // The re-read plan is the last loaded one now (WP 9.2): the cache follows it.
-      if (scope) void writeCached(planEntry(scope, siteKey), response, Date.now(), generation);
+      persistScoped(cached, response, binding, { begunAs: begunAs ? planEntry(begunAs, siteKey) : null });
       return normalizePlan(response);
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');

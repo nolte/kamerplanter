@@ -31,7 +31,7 @@
 import axios from 'axios';
 import { runtimeConfig } from '@/config/runtimeConfig';
 import { API_CACHE_TTL_SECONDS, isPwaCachingEnabled } from '@/pwa/cachePolicy';
-import { offlineDataGeneration, onOfflineDataEvent } from '@/pwa/offlineData';
+import { offlineDataGeneration, offlineNamespaceEpoch, onOfflineDataEvent } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
 import type { Transaction } from 'dexie';
 import type { CachedRecord, PlanCacheDatabase, PlanCacheTable } from './db';
@@ -122,6 +122,13 @@ const SAME_CLEARING_WINDOW_MS = 5000;
  * until the document is shown again; the next read or write then opens a new connection.
  */
 let suspended = false;
+/**
+ * Answers read online before the scope was known (#3082: a plan page loaded before the profile and the tenant), each
+ * a write attempt that removes itself once it wrote or found it must not. Tried again on every `session` event (the
+ * namespace became complete), emptied by every clearing; at most {@link AWAITING_SCOPE_LIMIT}, the oldest go first.
+ */
+const awaitingScope = new Set<() => void>();
+const AWAITING_SCOPE_LIMIT = 20;
 /** The loaded `db` module, so a clearing can close the connection synchronously. */
 let dbModule: typeof import('./db') | null = null;
 
@@ -142,6 +149,7 @@ onOfflineDataEvent((event) => {
       // Close before the deletion starts; nothing reopens until it is done.
       localClearing = true;
       closeConnection();
+      awaitingScope.clear();
       break;
     case 'local-done':
       localClearing = false;
@@ -150,6 +158,7 @@ onOfflineDataEvent((event) => {
       retired = true;
       retiredByDeletionAt = null;
       closeConnection();
+      awaitingScope.clear();
       break;
     case 'foreign':
       foreignDeletionUntil = Date.now() + SAME_CLEARING_WINDOW_MS;
@@ -162,6 +171,8 @@ onOfflineDataEvent((event) => {
       retired = false;
       retiredByDeletionAt = null;
       closeConnection();
+      // The scope is known now: the answers read before it was are written (or dropped, see `persistScoped`).
+      [...awaitingScope].forEach((attempt) => attempt());
       break;
   }
 });
@@ -435,10 +446,6 @@ export async function writeCached(
   return writeRecord(entry.table, entry.key, entry.scope, stored, now, generation);
 }
 
-/** The clearing generation a read begins in; pass it to {@link writeCached} when the answer is in. */
-export function cacheGeneration(): number | null {
-  return currentGeneration();
-}
 
 export function readCached<T>(entry: CacheEntry, now: number = Date.now()): Promise<CachedRead<T> | null> {
   return readRecord<T>(entry.table, entry.key, entry.scope, now);
@@ -450,32 +457,108 @@ export interface ReadThroughOptions {
 }
 
 /**
+ * A read whose cache entry depends on the scope at the moment it is asked (#3082) — a thunk passes the store's scope
+ * (`scopeFromState(getState())`) instead of the scope it found when it was dispatched. A plan page can load before the
+ * profile and the tenant are; the read then still lands in the cache once both are known.
+ */
+export interface ScopedEntry {
+  scope: () => CacheScope | null;
+  entry: (scope: CacheScope) => CacheEntry;
+}
+
+function isScopedEntry(entry: CacheEntry | ScopedEntry): entry is ScopedEntry {
+  return typeof (entry as ScopedEntry).scope === 'function';
+}
+
+function resolveEntry(read: ScopedEntry): CacheEntry | null {
+  const scope = read.scope();
+  return scope ? read.entry(scope) : null;
+}
+
+/** What a write must still find when the answer is in: no clearing and no namespace change since the read began. */
+export interface CacheBinding {
+  generation: number | null;
+  namespaceEpoch: number;
+}
+
+/** The binding a read begins in; pass it to {@link persistScoped} when the answer is in. */
+export function cacheBinding(): CacheBinding {
+  return { generation: currentGeneration(), namespaceEpoch: offlineNamespaceEpoch() };
+}
+
+function bindingHolds(binding: CacheBinding): boolean {
+  return binding.generation !== null && currentGeneration() === binding.generation &&
+    offlineNamespaceEpoch() === binding.namespaceEpoch;
+}
+
+/**
+ * Write an answer read online under the scope known NOW — at once, or as soon as the scope becomes known. Tenant
+ * isolation (G-W9 a): nothing is written once a clearing (logout, tenant switch, dead session, kill switch) began or
+ * the namespace left the user or tenant it had since the read began (`binding`), and a read that began with a
+ * scope is written under that scope only (`begunAs`). The scope comes from the store: the answer belongs to the user
+ * and tenant the request was sent for, which is the namespace the read began in or the first one that became known.
+ */
+export function persistScoped(
+  read: ScopedEntry,
+  data: unknown,
+  binding: CacheBinding,
+  { now = Date.now(), begunAs = resolveEntry(read) }: { now?: number; begunAs?: CacheEntry | null } = {},
+): void {
+  const answeredAt = Date.now();
+  const attempt = () => {
+    // Waiting longer than the TTL, the answer would never be served (R-012): nothing to wait for.
+    if (!bindingHolds(binding) || Date.now() - answeredAt > PLAN_CACHE_TTL_MS) {
+      awaitingScope.delete(attempt);
+      return;
+    }
+    const entry = resolveEntry(read);
+    if (entry === null) return;
+    awaitingScope.delete(attempt);
+    if (begunAs !== null && entry.key !== begunAs.key) return;
+    void writeCached(entry, data, now, binding.generation);
+  };
+  awaitingScope.add(attempt);
+  attempt();
+  if (awaitingScope.size > AWAITING_SCOPE_LIMIT) {
+    const [oldest] = awaitingScope;
+    awaitingScope.delete(oldest);
+  }
+}
+
+/**
  * Network first, cache when there is no connection. Online, the answer is returned at once and
  * written to the cache in the background. Offline (the browser says so, or the request got no
  * answer at all) the cached answer of the same scope is returned with its time; without one the
  * read fails with {@link OfflineCacheMissError} — or, when the browser believed it was online, with
  * the original error. A refusal of the server (4xx/5xx) is never answered from the cache. With the
  * kill switch off or the cache retired it is a plain network read.
+ *
+ * A {@link ScopedEntry} is resolved when it is needed: the offline answer in the scope known then, the write in the
+ * scope known when the answer is in — or later, once it is known ({@link persistScoped}).
  */
 export async function readThrough<T>(
-  entry: CacheEntry | null,
+  entry: CacheEntry | ScopedEntry | null,
   fetcher: () => Promise<T>,
   { now = Date.now }: ReadThroughOptions = {},
 ): Promise<CachedRead<T>> {
   if (entry === null || !cacheUsable()) return { data: await fetcher(), cachedAt: null };
+  const read: ScopedEntry = isScopedEntry(entry) ? entry : { scope: () => entry.scope, entry: () => entry };
+  const begunAs = resolveEntry(read);
   if (browserOffline()) {
-    const cached = await readCached<T>(entry, now());
+    if (begunAs === null) return { data: await fetcher(), cachedAt: null };
+    const cached = await readCached<T>(begunAs, now());
     if (cached) return cached;
     throw new OfflineCacheMissError();
   }
-  const generation = currentGeneration();
+  const binding = cacheBinding();
   try {
     const data = await fetcher();
-    void writeCached(entry, data, now(), generation);
+    persistScoped(read, data, binding, { now: now(), begunAs });
     return { data, cachedAt: null };
   } catch (error) {
     if (!isNetworkFailure(error)) throw error;
-    const cached = await readCached<T>(entry, now());
+    const fallback = begunAs ?? resolveEntry(read);
+    const cached = fallback ? await readCached<T>(fallback, now()) : null;
     if (cached) return cached;
     throw browserOffline() ? new OfflineCacheMissError() : error;
   }
@@ -488,5 +571,6 @@ export function resetPlanCacheForTests(): void {
   localClearing = false;
   foreignDeletionUntil = 0;
   suspended = false;
+  awaitingScope.clear();
   dbModule?.forgetPlanCacheConnection();
 }
