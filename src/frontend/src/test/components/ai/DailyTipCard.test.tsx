@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders, createStoreWithTenantRole } from '@/test/helpers';
+import {
+  renderWithProviders,
+  createStoreWithTenantRole as createRoleStore,
+  createTestStore,
+  type TestStore,
+} from '@/test/helpers';
+import { fetchAiStatus } from '@/store/slices/aiStatusSlice';
 import type { AiTipCard } from '@/api/types';
 
 const getDailyTip = vi.fn();
@@ -17,6 +23,21 @@ vi.mock('@/api', () => ({
 }));
 
 import DailyTipCard from '@/components/ai/DailyTipCard';
+
+/** The store after MainLayout's `GET /ai/status` probe answered with `available`. */
+function withAiStatus(store: TestStore, available: boolean): TestStore {
+  store.dispatch(fetchAiStatus.fulfilled({ available }, 'probe'));
+  return store;
+}
+
+/** Every pre-#3025 case runs with AI switched on, as it implicitly assumed. */
+function createStoreWithTenantRole(role: 'viewer' | 'grower' | 'lead'): TestStore {
+  return withAiStatus(createRoleStore(role), true);
+}
+
+function aiOnStore(): TestStore {
+  return withAiStatus(createTestStore(), true);
+}
 
 function makeTip(overrides: Partial<AiTipCard> = {}): AiTipCard {
   return {
@@ -51,7 +72,7 @@ describe('DailyTipCard', () => {
 
   it('renders the daily tip wrapped in an AIResponse', async () => {
     getDailyTip.mockResolvedValue(makeTip());
-    renderWithProviders(<DailyTipCard />);
+    renderWithProviders(<DailyTipCard />, { store: aiOnStore() });
 
     expect(await screen.findByTestId('daily-tip-card')).toBeTruthy();
     expect(screen.getByText('Water in the morning')).toBeTruthy();
@@ -157,7 +178,7 @@ describe('DailyTipCard', () => {
     getDailyTip.mockResolvedValue(makeTip());
     dismissDailyTip.mockResolvedValue(undefined);
     const user = userEvent.setup();
-    renderWithProviders(<DailyTipCard />);
+    renderWithProviders(<DailyTipCard />, { store: aiOnStore() });
 
     await screen.findByTestId('daily-tip-card');
     await user.click(screen.getByTestId('daily-tip-dismiss'));
@@ -168,9 +189,36 @@ describe('DailyTipCard', () => {
 
   it('renders nothing on a fetch error (online-only degradation)', async () => {
     getDailyTip.mockRejectedValue(new Error('offline'));
-    renderWithProviders(<DailyTipCard />);
+    renderWithProviders(<DailyTipCard />, { store: aiOnStore() });
 
     await waitFor(() => expect(getDailyTip).toHaveBeenCalled());
     expect(screen.queryByTestId('daily-tip-card')).toBeNull();
+  });
+  // #3025 L-16 — the tenant AI routes answer 404 while the operator flag is off (REQ-031 §1.3). The card used to
+  // ask anyway, so every dashboard load logged a failed request.
+  it('does not ask for the tip while AI is switched off', async () => {
+    getDailyTip.mockResolvedValue(makeTip());
+    renderWithProviders(<DailyTipCard />, { store: withAiStatus(createRoleStore('grower'), false) });
+
+    // Give a request the chance to go out before asserting that none did.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getDailyTip).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('daily-tip-card')).toBeNull();
+    expect(screen.queryByTestId('daily-tip-empty')).toBeNull();
+  });
+
+  it('waits for the AI status probe and asks once it reports AI as on', async () => {
+    getDailyTip.mockResolvedValue(makeTip());
+    const store = createRoleStore('grower');
+    renderWithProviders(<DailyTipCard />, { store });
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getDailyTip).not.toHaveBeenCalled();
+
+    act(() => {
+      withAiStatus(store, true);
+    });
+    expect(await screen.findByTestId('daily-tip-card')).toBeTruthy();
+    expect(getDailyTip).toHaveBeenCalledTimes(1);
   });
 });
