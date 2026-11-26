@@ -67,7 +67,7 @@ While Kiosk Mode is active, the pages you open from a tile stay in the kiosk int
 |--------|--------|
 | **Back** | Goes back one page. If there is no previous page, you land on the kiosk start page. |
 | **Home** | Jumps to the kiosk start page. |
-| **Exit kiosk** | Ends Kiosk Mode. |
+| **Exit kiosk** | Ends Kiosk Mode. Hold the button for 2 seconds to do so. |
 
 The automatic [inactivity warning](#automatic-inactivity-warning) keeps running on these pages too and takes you back to the kiosk start page when it expires.
 
@@ -87,14 +87,14 @@ An accidental double tap triggers only one action: touches that follow each othe
 
 ## Quick Select in the Watering Log
 
-In Kiosk Mode, the **Log watering** dialog offers large selection tiles instead of an input field for EC, pH and the runoff values, so you do not have to type numbers:
+In Kiosk Mode, the **Log watering** dialog offers large selection tiles below the input field for the EC and pH of the watering solution, so you do not have to type numbers:
 
 | Reading | Tiles |
 |---------|-------|
 | EC | 1.0 · 1.5 · 2.0 · 2.5 · 3.0 |
 | pH | 5.5 · 5.8 · 6.0 · 6.2 · 6.5 |
 
-If none of the values fits, choose **Manual** and enter the value freely. More about the form in the [Watering Log](watering-log.md#logging-a-watering-manually).
+If none of the values fits, choose **Manual** and enter the value freely. The values after watering and the runoff values are always entered freely. More about the form in the [Watering Log](watering-log.md#logging-a-watering-manually).
 
 ---
 
@@ -111,10 +111,10 @@ It is enabled by default as soon as you turn on Kiosk Mode. You can also use it 
 To prevent a fixed-installation kiosk station from leaving a previous user's inputs open, Kiosk Mode automatically detects inactivity:
 
 1. After **120 seconds** without a touch, a large warning overlay appears, asking "Still there?" with a countdown.
-2. If you don't respond, the app automatically returns to the kiosk start page after another **30 seconds**.
+2. If you don't respond, the app automatically returns to the kiosk start page after another **30 seconds**. If you have entered something and not saved it yet, the warning says that this input will then be discarded.
 3. Tapping **Keep working** dismisses the warning and restarts the inactivity timer.
 
-Any touch on the screen outside the warning also resets the inactivity timer.
+Any touch on the screen outside the warning also resets the inactivity timer, and so does scrolling. While a photo for plant or pest identification is uploading, the timer pauses.
 
 !!! warning "The warning cannot be dismissed by tapping away"
     The warning overlay cannot be closed by tapping elsewhere or pressing Escape — only via the **Keep working** button. This prevents the warning from being accidentally missed.
@@ -123,7 +123,7 @@ Any touch on the screen outside the warning also resets the inactivity timer.
 
 ## Leaving Kiosk Mode
 
-Tap **Exit kiosk** in the kiosk header bar. You return to the dashboard, and Kiosk Mode is disabled (the high-contrast display stays on if you had enabled it separately before). Alternatively, turn Kiosk Mode off any time via the **Kiosk mode** tab in Account Settings.
+Hold **Exit kiosk** in the kiosk header bar for 2 seconds; a short tap does not end Kiosk Mode, so nobody leaves it by accident. With a keyboard, Enter or Space is enough. You return to the dashboard, and Kiosk Mode is disabled (the high-contrast display stays on if you had enabled it separately before). Alternatively, end it via the **Kiosk mode** tab in Account Settings; while Kiosk Mode is active, that tab shows a hold button instead of the switch as well.
 
 While Kiosk Mode is active, the kiosk badge and the **Back**, **Home** and **Exit kiosk** buttons stay permanently visible — even when a tile navigates you into another part of the app.
 

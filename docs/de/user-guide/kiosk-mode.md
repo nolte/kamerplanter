@@ -67,7 +67,7 @@ Solange der Kiosk-Modus aktiv ist, bleiben auch die Seiten, die du über eine Ka
 |--------------|---------|
 | **Zurück** | Geht eine Seite zurück. Gibt es keine vorherige Seite, landest du auf der Kiosk-Startseite. |
 | **Start** | Springt zur Kiosk-Startseite. |
-| **Kiosk verlassen** | Beendet den Kiosk-Modus. |
+| **Kiosk verlassen** | Beendet den Kiosk-Modus. Halte die Schaltfläche dafür 2 Sekunden gedrückt. |
 
 Auch die automatische [Inaktivitäts-Warnung](#automatische-inaktivitats-warnung) läuft auf diesen Seiten weiter und bringt dich nach Ablauf zur Kiosk-Startseite zurück.
 
@@ -87,14 +87,14 @@ Ein versehentlicher Doppel-Tipp löst nur eine Aktion aus: Berührungen, die kur
 
 ## Schnellauswahl im Gießprotokoll
 
-Im Kiosk-Modus bietet das Dialogfenster **Gießvorgang erfassen** für EC, pH und die Ablaufwerte große Auswahlkacheln statt eines Eingabefelds, sodass du keine Zahlen tippen musst:
+Im Kiosk-Modus bietet das Dialogfenster **Gießvorgang erfassen** für EC und pH der Gießlösung große Auswahlkacheln unter dem Eingabefeld, sodass du keine Zahlen tippen musst:
 
 | Messwert | Kacheln |
 |----------|---------|
 | EC | 1,0 · 1,5 · 2,0 · 2,5 · 3,0 |
 | pH | 5,5 · 5,8 · 6,0 · 6,2 · 6,5 |
 
-Passt keiner der Werte, wähle **Manuell** und gib den Wert frei ein. Mehr zum Formular findest du im [Gießprotokoll](watering-log.md#gievorgang-manuell-erfassen).
+Passt keiner der Werte, wähle **Manuell** und gib den Wert frei ein. Die Werte nach dem Gießen und die Ablaufwerte gibst du immer frei ein. Mehr zum Formular findest du im [Gießprotokoll](watering-log.md#gievorgang-manuell-erfassen).
 
 ---
 
@@ -111,10 +111,10 @@ Sie ist standardmäßig aktiv, sobald du den Kiosk-Modus einschaltest. Du kannst
 Damit an einer fest installierten Kiosk-Station keine Eingaben eines vorherigen Nutzers offen stehen bleiben, erkennt der Kiosk-Modus Inaktivität automatisch:
 
 1. Nach **120 Sekunden** ohne Berührung erscheint ein großflächiges Warn-Overlay mit der Frage „Noch aktiv?" und einem Countdown.
-2. Reagierst du nicht, kehrt die App nach weiteren **30 Sekunden** automatisch zur Kiosk-Startseite zurück.
+2. Reagierst du nicht, kehrt die App nach weiteren **30 Sekunden** automatisch zur Kiosk-Startseite zurück. Hast du gerade etwas eingegeben und noch nicht gespeichert, steht in der Warnung, dass diese Eingaben dann verworfen werden.
 3. Tippst du auf **Weiter arbeiten**, wird die Warnung geschlossen und der Inaktivitäts-Timer beginnt von vorn.
 
-Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-Timer ebenfalls zurück.
+Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-Timer ebenfalls zurück, ebenso das Scrollen. Solange ein Foto für die Pflanzen- oder Schädlingserkennung hochgeladen wird, pausiert der Timer.
 
 !!! warning "Warnung lässt sich nicht wegtippen"
     Das Warn-Overlay lässt sich nicht durch Tippen daneben oder mit der Escape-Taste schließen — nur über die Schaltfläche **Weiter arbeiten**. Das verhindert, dass die Warnung versehentlich übersehen wird.
@@ -123,7 +123,7 @@ Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-T
 
 ## Kiosk-Modus verlassen
 
-Tippe in der Kiosk-Kopfleiste auf **Kiosk verlassen**. Du kehrst zum Dashboard zurück, und der Kiosk-Modus wird deaktiviert (die kontrastreiche Darstellung bleibt erhalten, wenn du sie zuvor separat aktiviert hattest). Alternativ schaltest du den Kiosk-Modus jederzeit über den Tab **Kiosk-Modus** in den Kontoeinstellungen aus.
+Halte in der Kiosk-Kopfleiste **Kiosk verlassen** 2 Sekunden gedrückt; ein kurzes Antippen beendet den Kiosk-Modus nicht, damit ihn niemand versehentlich verlässt. Mit der Tastatur genügt die Eingabe- oder Leertaste. Du kehrst zum Dashboard zurück, und der Kiosk-Modus wird deaktiviert (die kontrastreiche Darstellung bleibt erhalten, wenn du sie zuvor separat aktiviert hattest). Alternativ beendest du ihn über den Tab **Kiosk-Modus** in den Kontoeinstellungen; solange der Kiosk-Modus aktiv ist, steht dort statt des Schalters ebenfalls eine Schaltfläche zum Gedrückthalten.
 
 Solange der Kiosk-Modus aktiv ist, bleiben der Kiosk-Badge und die Schaltflächen **Zurück**, **Start** und **Kiosk verlassen** permanent sichtbar — auch wenn du über eine Kachel in einen anderen Bereich der App navigierst.
 
