@@ -29,6 +29,7 @@ import {
   fetchIdentificationHistory,
   fetchIdentificationStatus,
 } from '@/store/slices/identificationSlice';
+import { formatDateTime } from '@/utils/formatting';
 
 /** REQ-029 / REQ-029-A — AI plant identification page (Phase 1, Pl@ntNet-first).
  *
@@ -202,7 +203,7 @@ export default function PlantIdentificationPage() {
                           secondary={
                             <>
                               {entry.created_at
-                                ? new Date(entry.created_at).toLocaleString()
+                                ? formatDateTime(entry.created_at)
                                 : null}
                               {instanceKey && (
                                 <Typography

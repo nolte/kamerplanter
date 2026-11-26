@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatNumber } from '@/utils/formatting';
 import { useWatch } from 'react-hook-form';
 import { useDialogForm } from '@/hooks/useDialogForm';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -119,7 +120,7 @@ export default function PlanFormDialog({ open, plan, onClose, onSaved }: PlanFor
           .number({ message: t('pages.plans.form.wholeNumber') })
           .int(t('pages.plans.form.wholeNumber'))
           .min(minimumLimit(d), t('pages.plans.form.min', { min: minimumLimit(d) }))
-          .max(LIMIT_MAXIMA[d], t('pages.plans.form.max', { max: LIMIT_MAXIMA[d].toLocaleString() }))
+          .max(LIMIT_MAXIMA[d], t('pages.plans.form.max', { max: formatNumber(LIMIT_MAXIMA[d]) }))
           .nullable(),
       ]),
     ) as Record<EntitlementDimension, z.ZodNullable<z.ZodNumber>>;

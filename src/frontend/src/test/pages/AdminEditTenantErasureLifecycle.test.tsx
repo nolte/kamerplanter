@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, waitFor, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createTestStore, renderWithProviders } from '@/test/helpers';
+import { formatDate } from '@/utils/formatting';
 
 /**
  * #2123 (MT-027, REQ-024 AK-52) — a tenant deletion is scheduled, visible and cancellable.
@@ -75,7 +76,7 @@ describe('AdminEditTenantPage — scheduled deletion (#2123)', () => {
     await renderPage();
 
     const alert = await screen.findByTestId('edit-tenant-deletion-scheduled');
-    expect(alert).toHaveTextContent(new Date(PENDING.deletion_scheduled_at).toLocaleDateString());
+    expect(alert).toHaveTextContent(formatDate(PENDING.deletion_scheduled_at));
     expect(screen.getByTestId('edit-tenant-status-chip')).toHaveTextContent(/geplant|scheduled/i);
     expect(screen.getByTestId('delete-tenant-btn')).toBeDisabled();
     expect(screen.getByTestId('edit-tenant-active-switch').querySelector('input')).toBeDisabled();

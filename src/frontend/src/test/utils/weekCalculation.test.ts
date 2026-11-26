@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import i18n from '@/i18n/i18n';
 import {
   MS_PER_WEEK,
   computeCurrentWeek,
@@ -54,9 +55,17 @@ describe('weekCalculation', () => {
   });
 
   describe('getShortMonthName', () => {
-    it('formats a 0-based month index in the given locale', () => {
-      expect(getShortMonthName(0, 'en-US')).toMatch(/jan/i);
-      expect(getShortMonthName(11, 'en-US')).toMatch(/dec/i);
+    it('formats a 0-based month index in the active UI language', async () => {
+      const before = i18n.language;
+      try {
+        await i18n.changeLanguage('en');
+        expect(getShortMonthName(0)).toMatch(/jan/i);
+        expect(getShortMonthName(11)).toMatch(/dec/i);
+        await i18n.changeLanguage('de');
+        expect(getShortMonthName(11)).toMatch(/dez/i);
+      } finally {
+        await i18n.changeLanguage(before);
+      }
     });
   });
 

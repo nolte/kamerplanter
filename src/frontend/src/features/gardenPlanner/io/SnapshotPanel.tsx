@@ -7,6 +7,7 @@
  */
 import { useCallback, useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatDateTime } from '@/utils/formatting';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -48,13 +49,13 @@ function failureKey(error: unknown): string {
   return ['import_not_empty', 'import_site_name_mismatch', 'plan_revision_conflict'].includes(code) ? code : 'failed';
 }
 
-function when(value: string, language: string): string {
+function when(value: string): string {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(language);
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date);
 }
 
 export default function SnapshotPanel({ siteKey, siteName, onBack, onRestored }: SnapshotPanelProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const nameId = useId();
   const [listing, setListing] = useState<Listing>({ status: 'loading' });
   const [chosen, setChosen] = useState<PlanSnapshot | null>(null);
@@ -177,7 +178,7 @@ export default function SnapshotPanel({ siteKey, siteName, onBack, onRestored }:
               data-testid={`plan-snapshot-${snapshot.audit_key}`}
             >
               <ListItemText
-                primary={when(snapshot.at, i18n.language)}
+                primary={when(snapshot.at)}
                 secondary={[
                   t(`${PREFIX}.counts`, {
                     locations: snapshot.locations,

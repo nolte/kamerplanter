@@ -44,6 +44,7 @@ import type {
 } from '@/api/types';
 import { errorKey } from '@/api/errors';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate, formatDateTime } from '@/utils/formatting';
 
 const harvestTypes = ['partial', 'final', 'continuous'] as const;
 const qualityGrades = ['a_plus', 'a', 'b', 'c', 'd'] as const;
@@ -339,7 +340,7 @@ export default function HarvestBatchDetailPage() {
                   </TableCell>
                   <TableCell>
                     {batch.harvest_date
-                      ? new Date(batch.harvest_date).toLocaleDateString()
+                      ? formatDate(batch.harvest_date)
                       : '—'}
                   </TableCell>
                 </TableRow>
@@ -470,7 +471,7 @@ export default function HarvestBatchDetailPage() {
                       </TableCell>
                       <TableCell>
                         {quality.assessed_at
-                          ? new Date(quality.assessed_at).toLocaleString()
+                          ? formatDateTime(quality.assessed_at)
                           : '—'}
                       </TableCell>
                     </TableRow>

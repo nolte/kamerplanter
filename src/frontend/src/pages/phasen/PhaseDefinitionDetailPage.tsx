@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -40,6 +41,7 @@ import type {
 import PhaseDefinitionDialog from './PhaseDefinitionDialog';
 import { orderCommonNamesForLanguage } from '@/utils/plantDisplay';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate } from '@/utils/formatting';
 
 /** Elapsed whole days since a phase-start timestamp (FIX-01 R2). Null when unknown. */
 function daysInPhase(startedAt: string | null): number | null {
@@ -145,7 +147,7 @@ export default function PhaseDefinitionDetailPage() {
           label: 'pages.phaseSequences.phaseDefinitions',
           path: '/phasen/definitionen',
         },
-        { label: (lang === 'de' ? definition.display_name_de : definition.display_name) || definition.name },
+        { label: localizedText(lang, { de: definition.display_name_de, en: definition.display_name }, definition.name) },
       ]),
     );
   }, [definition, dispatch, lang]);
@@ -209,7 +211,7 @@ export default function PhaseDefinitionDetailPage() {
     );
   }
 
-  const displayName = (lang === 'de' ? definition.display_name_de : definition.display_name) || definition.name;
+  const displayName = localizedText(lang, { de: definition.display_name_de, en: definition.display_name }, definition.name);
   const illustrationUrl = definition.illustration ? getIllustrationUrl(definition.illustration) : null;
 
   // Column definitions (FIX-01 R10: all lists use the shared DataTable, UI-NFR-010 R-037).
@@ -228,10 +230,10 @@ export default function PhaseDefinitionDetailPage() {
             '&:hover': { textDecoration: 'underline' },
           }}
         >
-          {(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
+          {localizedText(lang, { de: seq.display_name_de, en: seq.display_name }, seq.name)}
         </Typography>
       ),
-      searchValue: (seq) => (lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name,
+      searchValue: (seq) => localizedText(lang, { de: seq.display_name_de, en: seq.display_name }, seq.name),
     },
     {
       id: 'cycleType',
@@ -296,10 +298,10 @@ export default function PhaseDefinitionDetailPage() {
       label: t('pages.phaseSequences.phaseSince'),
       render: (plant) =>
         plant.current_phase_started_at
-          ? new Date(plant.current_phase_started_at).toLocaleDateString(lang)
+          ? formatDate(plant.current_phase_started_at)
           : '—',
       searchValue: (plant) =>
-        plant.current_phase_started_at ? new Date(plant.current_phase_started_at).toLocaleDateString(lang) : '',
+        plant.current_phase_started_at ? formatDate(plant.current_phase_started_at) : '',
     },
     {
       id: 'daysInPhase',
@@ -525,7 +527,7 @@ export default function PhaseDefinitionDetailPage() {
               {t('pages.phaseSequences.descriptionLabel')}
             </Typography>
             <Typography variant="body2">
-              {(lang === 'de' ? definition.description_de : definition.description) || '—'}
+              {localizedText(lang, { de: definition.description_de, en: definition.description }) || '—'}
             </Typography>
           </Box>
         </CardContent>
@@ -577,7 +579,7 @@ export default function PhaseDefinitionDetailPage() {
                       id: 'phaseSince',
                       label: t('pages.phaseSequences.phaseSince'),
                       value: plant.current_phase_started_at
-                        ? new Date(plant.current_phase_started_at).toLocaleDateString(lang)
+                        ? formatDate(plant.current_phase_started_at)
                         : '—',
                     },
                     {
@@ -625,7 +627,7 @@ export default function PhaseDefinitionDetailPage() {
                 emptyDescription={t('pages.phaseSequences.noSequencesUsingDefinitionDesc')}
                 mobileCardRenderer={(seq) => (
                   <MobileCard
-                    title={(lang === 'de' ? seq.display_name_de : seq.display_name) || seq.name}
+                    title={localizedText(lang, { de: seq.display_name_de, en: seq.display_name }, seq.name)}
                     titleId="name"
                     chips={[
                       {

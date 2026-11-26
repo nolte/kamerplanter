@@ -6,6 +6,7 @@
  */
 import { colorAt } from './familyColor';
 import type { RotationMatrix, RotationMatrixBed } from './historyTypes';
+import { compareCodes } from '@/utils/compareCodes';
 
 /** Fill patterns, light-on-dark independent: each is a CSS `background-image` over the family colour. */
 export const FAMILY_PATTERNS: readonly string[] = [
@@ -76,7 +77,7 @@ export function familyMarks(beds: readonly RotationMatrixBed[], known: readonly 
     }
   }
   const shown = known.filter((key) => names.has(key));
-  const fresh = [...names.keys()].filter((key) => !shown.includes(key)).sort((a, b) => a.localeCompare(b));
+  const fresh = [...names.keys()].filter((key) => !shown.includes(key)).sort((a, b) => compareCodes(a, b));
   const keys = [...shown, ...fresh];
   const codes = uniqueCodes(keys.map((key) => names.get(key) ?? key));
   return new Map(

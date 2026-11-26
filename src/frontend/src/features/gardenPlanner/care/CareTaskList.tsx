@@ -4,6 +4,7 @@
  * short completion dialog. The suggestions have their own section (`SuggestionList`, GP-FR-086).
  */
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -30,7 +31,7 @@ export default function CareTaskList({ kind, tasks, plants, canEdit, busy, onCom
   const headingId = `care-section-${kind}`;
   const plantName = (task: CareTask): string | null =>
     plants.find((plant) => plant.plantKey === task.entity_key)?.instanceId ?? null;
-  const taskName = (task: CareTask) => (language.startsWith('de') && task.name_de) || task.name;
+  const taskName = (task: CareTask) => localizedText(language, { de: task.name_de, en: task.name });
 
   return (
     <Box component="section" aria-labelledby={headingId} data-testid={`care-section-${kind}`}>

@@ -77,6 +77,7 @@ import type { CalendarEvent, CalendarEventCategory, CalendarFeed } from '@/api/t
 import { getEventCategoryColor, readableTextOn } from '@/theme/domainColors';
 import { kamiCalendar } from '@/assets/brand/illustrations';
 import PlantFilterTree from './PlantFilterTree';
+import { formatDateWith, formatTime, formatWeekdayNames } from '@/utils/formatting';
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -169,10 +170,22 @@ function getRunLink(runKey: string): string {
   return `/durchlaeufe/planting-runs/${runKey}`;
 }
 
+/** Date of a calendar event in the UI language; '' when absent. */
+function formatEventDate(dateStr: string | null): string {
+  if (!dateStr) return '';
+  return formatDateWith(dateStr, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/** Time of a calendar event in the UI language; '' when absent. */
+function formatEventTime(dateStr: string | null): string {
+  if (!dateStr) return '';
+  return formatTime(dateStr);
+}
+
 export default function CalendarPage() {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   // Sowing-calendar labels are worded by the server in the UI language: reload on a switch (#2902).
   const requestLanguage = useRequestLanguage();
@@ -573,53 +586,16 @@ export default function CalendarPage() {
 
   // ── Format date for display ──────────────────────────────────────
 
-  const formatMonthYear = useMemo(() => {
-    const date = new Date(currentYear, currentMonth, 1);
-    return date.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-  }, [currentYear, currentMonth, i18n.language]);
-
-  const formatEventDate = useCallback(
-    (dateStr: string | null) => {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-    },
-    [i18n.language],
-  );
-
-  const formatEventTime = useCallback(
-    (dateStr: string | null) => {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      return date.toLocaleTimeString(i18n.language === 'de' ? 'de-DE' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    },
-    [i18n.language],
-  );
+  // Formatted on every render, not memoized: the helpers read the active language, and a
+  // memo keyed on it would list a dependency its body does not reference.
+  const formatMonthYear = formatDateWith(new Date(currentYear, currentMonth, 1), {
+    month: 'long',
+    year: 'numeric',
+  });
 
   // ── Weekday headers ──────────────────────────────────────────────
 
-  const weekdayHeaders = useMemo(() => {
-    const baseDate = new Date(2024, 0, 1); // Monday
-    const headers: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(baseDate);
-      d.setDate(d.getDate() + i);
-      headers.push(
-        d.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', { weekday: 'short' }),
-      );
-    }
-    return headers;
-  }, [i18n.language]);
+  const weekdayHeaders = formatWeekdayNames('short');
 
   // ── Render month grid ────────────────────────────────────────────
 
@@ -882,7 +858,7 @@ export default function CalendarPage() {
         />
       ),
     },
-  ], [t, formatEventDate, formatEventTime, theme]);
+  ], [t, theme]);
 
   const renderListView = () => (
     <DataTable<CalendarEvent>
@@ -1307,10 +1283,7 @@ export default function CalendarPage() {
         {dayPopoverDate && (
           <Box sx={{ p: 2, minWidth: '18rem', maxWidth: '24rem' }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-              {new Date(dayPopoverDate.year, dayPopoverDate.month, dayPopoverDate.day).toLocaleDateString(
-                i18n.language === 'de' ? 'de-DE' : 'en-US',
-                { day: 'numeric', month: 'long', year: 'numeric' },
-              )}
+              {formatDateWith(new Date(dayPopoverDate.year, dayPopoverDate.month, dayPopoverDate.day), { day: 'numeric', month: 'long', year: 'numeric' })}
             </Typography>
             <Divider sx={{ mb: 1 }} />
             {/* Phase transition events grouped by planting run */}

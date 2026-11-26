@@ -56,6 +56,7 @@ import { toCredentialStepUpBody, toStepUpBody } from '@/utils/stepUp';
 import type { AdminUser, AdminUserMembership, AdminTenant, AdminUserUpdate, TenantRole } from '@/api/types';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
+import { formatDateTime } from '@/utils/formatting';
 
 const GRID_2COL = {
   display: 'grid',
@@ -361,7 +362,7 @@ export default function AdminEditUserPage() {
                 <TextField label={t('pages.auth.adminUserKey')} value={user.key} disabled sx={{ flex: 1 }} />
                 <TextField
                   label={t('pages.auth.adminUserLastLogin')}
-                  value={user.last_login_at ? new Date(user.last_login_at).toLocaleString() : '—'}
+                  value={user.last_login_at ? formatDateTime(user.last_login_at) : '—'}
                   disabled
                   sx={{ flex: 1 }}
                 />

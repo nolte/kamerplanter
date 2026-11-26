@@ -40,6 +40,7 @@ import * as familiesApi from '@/api/endpoints/botanicalFamilies';
 import type { BotanicalFamily, RotationCountsMap, RotationSuccessor } from '@/api/types';
 import { kamiMasterdata } from '@/assets/brand/illustrations';
 import { captureHandledError } from '@/observability/errorTracking';
+import { compareText } from '@/utils/formatting';
 
 type NutrientDemandFilter = '' | 'heavy_feeder' | 'medium_feeder' | 'light_feeder';
 
@@ -210,7 +211,7 @@ export default function CropRotationPage() {
       if (favDiff !== 0) return favDiff;
       const rotDiff = Number(successorCountOf(b.key) > 0) - Number(successorCountOf(a.key) > 0);
       if (rotDiff !== 0) return rotDiff;
-      return a.name.localeCompare(b.name);
+      return compareText(a.name, b.name);
     });
   }, [
     families,

@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Species } from '@/api/types';
 import { getAlternativeCommonNames, getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 interface SpeciesMultiAutocompleteFieldProps<T extends FieldValues> {
   /** Form field holding a `string[]` of species keys. */
@@ -72,7 +73,7 @@ export default function SpeciesMultiAutocompleteField<T extends FieldValues>({
   const language = i18n.language;
 
   const options = useMemo<SpeciesOption[]>(
-    () => species.map((s) => toOption(s, language)).sort((a, b) => a.label.localeCompare(b.label, language)),
+    () => species.map((s) => toOption(s, language)).sort((a, b) => compareText(a.label, b.label)),
     [species, language],
   );
   const byKey = useMemo(() => new Map(options.map((o) => [o.key, o])), [options]);

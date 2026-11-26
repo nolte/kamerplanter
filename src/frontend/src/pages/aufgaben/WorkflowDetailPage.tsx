@@ -5,6 +5,7 @@ import { useRetryFocus } from '@/hooks/useRetryFocus';
 import LoadingStatus from '@/components/common/LoadingStatus';
 import { useParams, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
@@ -91,6 +92,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import * as favApi from '@/api/endpoints/favorites';
 import { getAlternativeCommonNames, getLocalizedCommonName, getSpeciesOptionLabel } from '@/utils/plantDisplay';
 import { errorKey } from '@/api/errors';
+import { compareText } from '@/utils/formatting';
 
 const entityTypes = ['plant_instance', 'planting_run', 'location', 'tank'] as const;
 
@@ -433,10 +435,7 @@ export default function WorkflowDetailPage() {
       const aFav = favoriteKeys.has(a.key) ? 0 : 1;
       const bFav = favoriteKeys.has(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return getSpeciesOptionLabel(a, i18n.language).localeCompare(
-        getSpeciesOptionLabel(b, i18n.language),
-        i18n.language,
-      );
+      return compareText(getSpeciesOptionLabel(a, i18n.language), getSpeciesOptionLabel(b, i18n.language));
     });
   }, [allSpecies, speciesFilter, favoriteKeys, i18n.language]);
 
@@ -599,8 +598,8 @@ export default function WorkflowDetailPage() {
     if (activityFilter) {
       const lower = activityFilter.toLowerCase();
       filtered = filtered.filter((a) => {
-        const name = i18n.language === 'de' && a.name_de ? a.name_de : a.name;
-        const desc = i18n.language === 'de' && a.description_de ? a.description_de : a.description;
+        const name = localizedText(i18n.language, { de: a.name_de, en: a.name });
+        const desc = localizedText(i18n.language, { de: a.description_de, en: a.description });
         const cat = t(`enums.activityCategory.${a.category}`, a.category);
         return name.toLowerCase().includes(lower)
           || desc.toLowerCase().includes(lower)
@@ -986,8 +985,8 @@ export default function WorkflowDetailPage() {
                       </TableHead>
                       <TableBody>
                         {group.templates.map((tt) => {
-                          const displayName = i18n.language === 'de' && tt.name_de ? tt.name_de : tt.name;
-                          const desc = i18n.language === 'de' && tt.description_de ? tt.description_de : tt.description;
+                          const displayName = localizedText(i18n.language, { de: tt.name_de, en: tt.name });
+                          const desc = localizedText(i18n.language, { de: tt.description_de, en: tt.description });
                           return (
                             <TableRow
                               key={tt.key}
@@ -1304,8 +1303,8 @@ export default function WorkflowDetailPage() {
             ) : (
               <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
                 {filteredActivities.map((act) => {
-                  const actName = i18n.language === 'de' && act.name_de ? act.name_de : act.name;
-                  const actDesc = i18n.language === 'de' && act.description_de ? act.description_de : act.description;
+                  const actName = localizedText(i18n.language, { de: act.name_de, en: act.name });
+                  const actDesc = localizedText(i18n.language, { de: act.description_de, en: act.description });
                   const isSelected = selectedActivity?.key === act.key;
                   const isExpanded = expandedDesc === act.key;
                   return (

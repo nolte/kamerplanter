@@ -8,6 +8,7 @@
  */
 import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -51,7 +52,6 @@ export default function ObjectTasksSection({ objectKey, objectType, objectName }
   if (!takesTasks) return null;
 
   const locked = !online || unsaved;
-  const taskName = (name: string, nameDe?: string | null) => (i18n.language.startsWith('de') && nameDe) || name;
 
   let body: ReactNode;
   if (unsaved) {
@@ -119,7 +119,7 @@ export default function ObjectTasksSection({ objectKey, objectType, objectName }
               }}
             >
               <Typography variant="body2" sx={{ overflowWrap: 'anywhere', fontWeight: 500 }}>
-                {taskName(task.name, task.name_de)}
+                {localizedText(i18n.language, { de: task.name_de, en: task.name })}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
                 <Chip size="small" label={t(`enums.taskCategory.${task.category}`, { defaultValue: task.category })} />

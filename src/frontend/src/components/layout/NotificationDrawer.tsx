@@ -33,6 +33,8 @@ import { isCareConfirmAction } from '@/utils/careConfirmActions';
 import { isLinkActivation, isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
 import { toSameOriginAppPath } from '@/utils/sameOriginPath';
 import type { NotificationResponse, NotificationUrgency } from '@/api/types';
+import { formatDate } from '@/utils/formatting';
+import type { Translate } from '@/i18n/translate';
 
 /**
  * A notification exposes a one-tap "Done" affordance when it carries an
@@ -76,7 +78,8 @@ function urgencyColor(urgency: NotificationUrgency): string {
   }
 }
 
-function formatRelativeTime(dateStr: string | null, t: (key: string) => string): string {
+/** "vor 5 Min.", "vor 1 Tag" — i18next picks the plural form from `count` (B-10). */
+function formatRelativeTime(dateStr: string | null, t: Translate): string {
   if (!dateStr) return '';
   const date = new Date(dateStr);
   const now = new Date();
@@ -84,15 +87,12 @@ function formatRelativeTime(dateStr: string | null, t: (key: string) => string):
   const diffMinutes = Math.floor(diffMs / 60_000);
 
   if (diffMinutes < 1) return t('pages.notifications.justNow');
-  if (diffMinutes < 60)
-    return t('pages.notifications.minutesAgo').replace('{{count}}', String(diffMinutes));
+  if (diffMinutes < 60) return t('pages.notifications.minutesAgo', { count: diffMinutes });
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24)
-    return t('pages.notifications.hoursAgo').replace('{{count}}', String(diffHours));
+  if (diffHours < 24) return t('pages.notifications.hoursAgo', { count: diffHours });
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7)
-    return t('pages.notifications.daysAgo').replace('{{count}}', String(diffDays));
-  return date.toLocaleDateString();
+  if (diffDays < 7) return t('pages.notifications.daysAgo', { count: diffDays });
+  return formatDate(date);
 }
 
 interface NotificationDrawerProps {

@@ -33,6 +33,7 @@ import { captureHandledError } from '@/observability/errorTracking';
 import { useNutrientPlanFavorites } from '@/hooks/useCatalogFavorites';
 import type { NutrientPlan } from '@/api/types';
 import * as planApi from '@/api/endpoints/nutrient-plans';
+import { compareText } from '@/utils/formatting';
 
 interface NutrientPlanAssignDialogProps {
   open: boolean;
@@ -90,7 +91,7 @@ export default function NutrientPlanAssignDialog({
       const aFav = isFavorite(a.key) ? 0 : 1;
       const bFav = isFavorite(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return a.name.localeCompare(b.name);
+      return compareText(a.name, b.name);
     });
   }, [plans, favorites, isFavorite, filter, search]);
 

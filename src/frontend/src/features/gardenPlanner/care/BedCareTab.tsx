@@ -7,6 +7,7 @@
  */
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import AddTaskIcon from '@mui/icons-material/AddTask';
@@ -95,7 +96,7 @@ export default function BedCareTab({ bed, onChanged }: BedCareTabProps) {
       suggested: tasks.filter((task) => task.suggested),
     };
   }, [ready]);
-  const taskName = (task: CareTask) => (i18n.language.startsWith('de') && task.name_de) || task.name;
+  const taskName = (task: CareTask) => localizedText(i18n.language, { de: task.name_de, en: task.name });
 
   const complete = async (task: CareTask, payload: CompletionPayload) => {
     const now = Date.now();

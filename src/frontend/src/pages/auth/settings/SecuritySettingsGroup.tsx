@@ -61,6 +61,7 @@ import ConnectDeviceDialog, { CONNECT_DEVICE_STEP_UP_SURFACE } from '../ConnectD
 import SettingsSection from './SettingsSection';
 import { GRID_2COL } from './settingsLayout';
 import { findSettingsSection, type SettingsGroupProps } from '@/config/settingsGroups';
+import { formatDate } from '@/utils/formatting';
 
 /**
  * Minimum length of a new password — the backend schema's `min_length`
@@ -510,7 +511,7 @@ export default function SecuritySettingsGroup({ sections }: SettingsGroupProps) 
                                 <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{s.ip_address || '—'}</Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2">{new Date(s.expires_at).toLocaleDateString()}</Typography>
+                                <Typography variant="body2">{formatDate(s.expires_at)}</Typography>
                               </TableCell>
                               <TableCell align="right">
                                 {!s.is_current && (
@@ -645,7 +646,7 @@ export default function SecuritySettingsGroup({ sections }: SettingsGroupProps) 
                             </TableCell>
                             <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                               <Typography variant="body2" color="text.secondary">
-                                {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : t('pages.auth.neverUsed')}
+                                {k.last_used_at ? formatDate(k.last_used_at) : t('pages.auth.neverUsed')}
                               </Typography>
                             </TableCell>
                             <TableCell align="right">

@@ -83,9 +83,9 @@ describe('NutrientCalculationsPage — AP-10/11 additions', () => {
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
     await waitFor(() => {
-      expect(within(card).getByText(/Netto-EC-Budget: 1\.200/)).toBeTruthy();
+      expect(within(card).getByText(/Netto-EC-Budget: 1,200/)).toBeTruthy();
     });
-    expect(within(card).getByText(/pH-Reserve: 0\.300/)).toBeTruthy();
+    expect(within(card).getByText(/pH-Reserve: 0,300/)).toBeTruthy();
     expect(within(card).getByText(/Rezept gültig/)).toBeTruthy();
   });
 
@@ -130,7 +130,7 @@ describe('NutrientCalculationsPage — AP-10/11 additions', () => {
     await user.click(within(card).getByRole('button', { name: /Berechnen/ }));
 
     await waitFor(() => {
-      expect(within(card).getByText('1800.0')).toBeTruthy();
+      expect(within(card).getByText('1.800,0')).toBeTruthy();
     });
   });
 });
@@ -196,8 +196,8 @@ describe('NutrientCalculationsPage — mixing protocol details', () => {
     expect(within(card).getByText(/2\. Dann Basis A\./)).toBeTruthy();
     // dosage table (desktop column renderers)
     expect(within(card).getByText('Grow A')).toBeTruthy();
-    expect(within(card).getByText('2.50')).toBeTruthy();
-    expect(within(card).getByText('0.800')).toBeTruthy();
+    expect(within(card).getByText('2,50')).toBeTruthy();
+    expect(within(card).getByText('0,800')).toBeTruthy();
 
     // request payload reflects the driven inputs
     expect(captured).toMatchObject({
@@ -265,7 +265,7 @@ describe('NutrientCalculationsPage — flushing', () => {
     // flushColumns render functions (action + target EC + dosage percent)
     expect(within(card).getByText('Reduzieren')).toBeTruthy();
     expect(within(card).getByText('Spülen')).toBeTruthy();
-    expect(within(card).getByText('1.20')).toBeTruthy();
+    expect(within(card).getByText('1,20')).toBeTruthy();
     expect(within(card).getByText('75%')).toBeTruthy();
 
     expect(captured).toMatchObject({ current_ec_ms: 1.6, days_until_harvest: 10 });
@@ -311,7 +311,7 @@ describe('NutrientCalculationsPage — runoff analysis', () => {
       expect(within(card).getByText(/EC-Meldung/)).toBeTruthy();
       expect(within(card).getByText(/pH-Meldung/)).toBeTruthy();
       expect(within(card).getByText(/Volumen-Meldung/)).toBeTruthy();
-      expect(within(card).getByText(/20\.0%/)).toBeTruthy();
+      expect(within(card).getByText(/20,0%/)).toBeTruthy();
     },
   );
 
@@ -473,7 +473,7 @@ describe('NutrientCalculationsPage — area dosing edge cases', () => {
     });
     // release speed enum render + liters column + note
     expect(within(card).getByText('Sofort verfügbar')).toBeTruthy();
-    expect(within(card).getByText('16.0')).toBeTruthy();
+    expect(within(card).getByText('16,0')).toBeTruthy();
     // null total_grams renders the em-dash fallback and null-key row uses product name
     expect(within(card).getAllByText('—').length).toBeGreaterThan(0);
     expect(within(card).getByText('Unbenannt')).toBeTruthy();
@@ -585,7 +585,7 @@ describe('NutrientCalculationsPage — water mixer + EC budget (expert)', () => 
     await waitFor(() => {
       expect(within(card).getByText(/Empfohlener RO-Anteil: 40%/)).toBeTruthy();
     });
-    expect(within(card).getByText(/0\.180 mS\/cm/)).toBeTruthy();
+    expect(within(card).getByText(/0,180 mS\/cm/)).toBeTruthy();
     expect(captured).toMatchObject({ target_base_ec_ms: 0.2 });
   });
 
@@ -653,9 +653,9 @@ describe('NutrientCalculationsPage — water mixer + EC budget (expert)', () => 
       expect(within(card).getByText(/EC-Budget gültig/)).toBeTruthy();
     });
     // validation summary
-    expect(within(card).getByText(/End-EC: 1\.75 mS/)).toBeTruthy();
+    expect(within(card).getByText(/End-EC: 1,75 mS/)).toBeTruthy();
     // temperature correction alert
-    expect(within(card).getByText(/EC @25°C \(korrigiert\): 1\.720/)).toBeTruthy();
+    expect(within(card).getByText(/EC @25°C \(korrigiert\): 1,720/)).toBeTruthy();
     // warnings + instructions + dosage table
     expect(within(card).getByText(/EC nahe der Obergrenze\./)).toBeTruthy();
     expect(within(card).getByText('Grow A')).toBeTruthy();

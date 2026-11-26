@@ -87,6 +87,7 @@ import List from '@mui/material/List';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import { errorKey } from '@/api/errors';
+import { compareText } from '@/utils/formatting';
 
 const statusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -808,7 +809,7 @@ export default function PlantingRunDetailPage() {
             const sortedPhases = Object.keys(grouped).sort((a, b) => {
               const ia = phaseOrder.indexOf(a);
               const ib = phaseOrder.indexOf(b);
-              if (ia === -1 && ib === -1) return a.localeCompare(b);
+              if (ia === -1 && ib === -1) return compareText(a, b);
               if (ia === -1) return 1;
               if (ib === -1) return -1;
               return ia - ib;

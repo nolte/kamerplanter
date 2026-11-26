@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -606,12 +607,11 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
               <AccordionDetails>
                 <List disablePadding>
                   {phaseGroup.groups.map((group, idx) => {
-                    const instructionText = i18n.language === 'de'
-                      ? (group.tasks[0]?.instruction_de || group.instruction)
-                      : group.instruction;
-                    const displayName = i18n.language === 'de'
-                      ? (group.tasks[0]?.name_de || group.name)
-                      : group.name;
+                    const instructionText = localizedText(i18n.language, {
+                      de: group.tasks[0]?.instruction_de,
+                      en: group.instruction,
+                    });
+                    const displayName = localizedText(i18n.language, { de: group.tasks[0]?.name_de, en: group.name });
 
                     return (
                       <Box key={group.templateKey ?? group.name}>
@@ -858,13 +858,9 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                         <WarningAmberIcon color="warning" sx={{ fontSize: 16 }} />
                                       </Tooltip>
                                     )}
-                                    {i18n.language === 'de' && tt.name_de
-                                      ? tt.name_de
-                                      : tt.name}
+                                    {localizedText(i18n.language, { de: tt.name_de, en: tt.name })}
                                     {(() => {
-                                      const desc = i18n.language === 'de' && tt.description_de
-                                        ? tt.description_de
-                                        : tt.description;
+                                      const desc = localizedText(i18n.language, { de: tt.description_de, en: tt.description });
                                       return desc ? (
                                         <Tooltip
                                           title={<Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{desc}</Typography>}
@@ -928,9 +924,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
                                 </TableCell>
                                 <TableCell>
                                   <Typography variant="caption" color="text.secondary">
-                                    {i18n.language === 'de' && tt.rationale_de
-                                      ? tt.rationale_de
-                                      : tt.rationale}
+                                    {localizedText(i18n.language, { de: tt.rationale_de, en: tt.rationale })}
                                   </Typography>
                                 </TableCell>
                                 <TableCell padding="checkbox">
@@ -965,9 +959,7 @@ export default function ActivityPlanTab({ speciesKey, runKey, plantKey, currentP
         title={t('pages.activityPlan.removeActivityTitle')}
         message={t('pages.activityPlan.removeActivityConfirm', {
           name: templatePendingRemoval
-            ? i18n.language === 'de' && templatePendingRemoval.name_de
-              ? templatePendingRemoval.name_de
-              : templatePendingRemoval.name
+            ? localizedText(i18n.language, { de: templatePendingRemoval.name_de, en: templatePendingRemoval.name })
             : '',
         })}
         confirmLabel={t('pages.activityPlan.removeActivity')}

@@ -1,4 +1,17 @@
 import i18n from '@/i18n/i18n';
+import { normalizeNameLanguage } from '@/utils/plantDisplay';
+
+/**
+ * #3025 M14 (audit A-13, A-21, B-10) — every date, time, number and text comparison the UI
+ * shows goes through this module, which reads the ACTIVE UI language itself. A bare
+ * `toLocaleDateString()`, `toFixed()` or `localeCompare()` follows the browser's locale
+ * instead (a German UI on an English browser showed "4/4/2026" and "0.2 L"); a call site
+ * that passes `i18n.language` by hand is the same rule written N times.
+ * Guarded by `src/test/guards/localeFormattingHasOneHome.test.ts`.
+ *
+ * Components still read `useTranslation()` so they re-render on a language switch; the
+ * helpers then format in the new language.
+ */
 
 /**
  * Strip HTML markup from a string and return its plain text.
@@ -18,10 +31,12 @@ export function stripHtml(value: string | null | undefined): string {
   return (doc.body.textContent ?? '').replace(/\s+/g, ' ').trim();
 }
 
-/** Return the active BCP-47 locale (e.g. "de-DE", "en-US"). */
-function activeLocale(): string {
-  const lang = i18n.language ?? 'de';
-  return lang === 'de' ? 'de-DE' : 'en-US';
+/** BCP-47 locale per UI language; German is the default and the fallback. */
+const LOCALES: Readonly<Record<string, string>> = { de: 'de-DE', en: 'en-US' };
+
+/** Return the active BCP-47 locale (e.g. "de-DE", "en-US"). `de-AT` or `de_DE` count as German. */
+export function activeLocale(): string {
+  return LOCALES[normalizeNameLanguage(i18n.language)] ?? LOCALES.de;
 }
 
 /** Matches a bare calendar date `YYYY-MM-DD` with no time component. */
@@ -36,7 +51,8 @@ const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
  * (the Americas). Strings that carry a time component are left to the native
  * parser unchanged, so existing callers are unaffected.
  */
-function toDate(value: string | Date): Date {
+function toDate(value: string | Date | number): Date {
+  if (typeof value === 'number') return new Date(value);
   if (typeof value !== 'string') return value;
   const match = DATE_ONLY_RE.exec(value);
   if (match) {
@@ -50,8 +66,8 @@ function toDate(value: string | Date): Date {
  * Example DE: "04.04.2026, 12:04"
  * Example EN: "4/4/2026, 12:04 PM"
  */
-export function formatDateTime(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+export function formatDateTime(value: string | Date | number | null | undefined): string {
+  if (value == null || value === '') return '—';
   const date = toDate(value);
   if (isNaN(date.getTime())) return '—';
   return date.toLocaleString(activeLocale(), {
@@ -68,8 +84,8 @@ export function formatDateTime(value: string | Date | null | undefined): string 
  * Example DE: "04.04.2026"
  * Example EN: "4/4/2026"
  */
-export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+export function formatDate(value: string | Date | number | null | undefined): string {
+  if (value == null || value === '') return '—';
   const date = toDate(value);
   if (isNaN(date.getTime())) return '—';
   return date.toLocaleDateString(activeLocale(), {
@@ -77,6 +93,43 @@ export function formatDate(value: string | Date | null | undefined): string {
     month: '2-digit',
     day: '2-digit',
   });
+}
+
+/**
+ * Format a date/time with explicit `Intl` options in the active locale — a weekday, a month
+ * name, "5. März". Only the fields in `options` are shown; with none (e.g. only a
+ * `timeZone`) the numeric date. A bare `YYYY-MM-DD` is a local calendar day (see `toDate`) unless the
+ * options fix a `timeZone`: then the instant is kept as parsed, so `{ timeZone: 'UTC' }` on
+ * a server date shows that date. Returns '—' for a missing or invalid value.
+ */
+export function formatDateWith(
+  value: string | Date | number | null | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  if (value == null || value === '') return '—';
+  const date = options.timeZone && typeof value === 'string' ? new Date(value) : toDate(value);
+  if (isNaN(date.getTime())) return '—';
+  // `Intl.DateTimeFormat` shows exactly the fields asked for and the numeric date when none is.
+  return new Intl.DateTimeFormat(activeLocale(), options).format(date);
+}
+
+/**
+ * Format the time of day, hours and minutes. Example DE: "14:05" — EN: "02:05 PM".
+ */
+export function formatTime(value: string | Date | null | undefined): string {
+  return formatDateWith(value, { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Name of a month, `month` 1–12. Example DE `long`: "März" — EN `short`: "Mar". */
+export function formatMonthName(month: number, style: 'long' | 'short' | 'narrow' = 'long'): string {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return '—';
+  return new Date(2000, month - 1, 1).toLocaleString(activeLocale(), { month: style });
+}
+
+/** The seven weekday names, Monday first. Example DE `short`: "Mo.", "Di.", … */
+export function formatWeekdayNames(style: 'long' | 'short' | 'narrow' = 'short'): string[] {
+  // 2024-01-01 was a Monday.
+  return Array.from({ length: 7 }, (_, offset) => formatDateWith(new Date(2024, 0, 1 + offset), { weekday: style }));
 }
 
 /**
@@ -92,6 +145,35 @@ export function formatNumber(
     minimumFractionDigits: options?.minimumFractionDigits ?? 0,
     maximumFractionDigits: options?.maximumFractionDigits ?? 3,
   });
+}
+
+/**
+ * A number with exactly `digits` decimals in the active locale — the display form of
+ * `value.toFixed(digits)`. Example DE `formatFixed(0.2, 2)`: "0,20" — EN: "0.20".
+ * Returns '—' for a missing or non-finite value.
+ */
+export function formatFixed(value: number | null | undefined, digits: number): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  return formatNumber(value, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+const collators = new Map<string, Intl.Collator>();
+
+/**
+ * Compare two texts for sorting in the active UI language — the replacement for
+ * `a.localeCompare(b)`, which sorts by the browser's locale. Collators are cached per
+ * locale and options. Options as for `Intl.Collator` (e.g. `{ sensitivity: 'base' }`,
+ * `{ numeric: true }`).
+ */
+export function compareText(a: string, b: string, options?: Intl.CollatorOptions): number {
+  const locale = activeLocale();
+  const cacheKey = `${locale}|${options ? JSON.stringify(options) : ''}`;
+  let collator = collators.get(cacheKey);
+  if (!collator) {
+    collator = new Intl.Collator(locale, options);
+    collators.set(cacheKey, collator);
+  }
+  return collator.compare(a, b);
 }
 
 /**

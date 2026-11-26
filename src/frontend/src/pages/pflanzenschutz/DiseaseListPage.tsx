@@ -18,6 +18,7 @@ import type { Disease } from '@/api/types';
 import DiseaseCreateDialog from './DiseaseCreateDialog';
 import { kamiIpm } from '@/assets/brand/illustrations';
 import { getCatalogNames, getLocalizedCatalogName } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -59,11 +60,7 @@ export default function DiseaseListPage() {
       // language's collation; the search matches each stored name on its own.
       render: (r) => getLocalizedCatalogName(r, i18n.language),
       sortFn: (a, b) =>
-        getLocalizedCatalogName(a, i18n.language).localeCompare(
-          getLocalizedCatalogName(b, i18n.language),
-          i18n.language,
-          { sensitivity: 'base' },
-        ),
+        compareText(getLocalizedCatalogName(a, i18n.language), getLocalizedCatalogName(b, i18n.language), { sensitivity: 'base' }),
       searchValues: (r) => getCatalogNames(r),
     },
     {

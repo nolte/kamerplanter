@@ -66,6 +66,7 @@ import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog
 import { toCredentialStepUpBody } from '@/utils/stepUp';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
+import { formatDate } from '@/utils/formatting';
 
 const GRID_2COL = {
   display: 'grid',
@@ -130,7 +131,7 @@ export default function AdminEditTenantPage() {
   const deletionScheduled = lifecycle === 'pending_deletion' || lifecycle === 'orphaned';
   const lifecycleLocked = deletionScheduled || lifecycle === 'deleted';
   const scheduledDate = tenant?.deletion_scheduled_at
-    ? new Date(tenant.deletion_scheduled_at).toLocaleDateString()
+    ? formatDate(tenant.deletion_scheduled_at)
     : '';
 
   // Load tenant
@@ -264,7 +265,7 @@ export default function AdminEditTenantPage() {
     const message =
       accepted.status === 'scheduled' && accepted.scheduled_for
         ? t('pages.auth.adminTenantDeletionScheduled', {
-            date: new Date(accepted.scheduled_for).toLocaleDateString(),
+            date: formatDate(accepted.scheduled_for),
           })
         : t('pages.auth.adminTenantDeletionAccepted');
     notification.success(message);

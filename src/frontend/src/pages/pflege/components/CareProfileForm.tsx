@@ -33,6 +33,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
+import { formatDate } from '@/utils/formatting';
 
 // Every CareStyleType the backend can generate, in the enum's own order. It held
 // only the nine houseplant styles until #1505: a plant the backend had given an
@@ -728,7 +729,7 @@ export default function CareProfileForm({
                   {t(`enums.reminderType.${h.reminder_type}`)}
                 </Typography>
                 <Typography variant="body2">
-                  {new Date(h.confirmed_at).toLocaleDateString()}
+                  {formatDate(h.confirmed_at)}
                 </Typography>
                 <Chip label={h.action} size="small" />
                 {h.snooze_days && (

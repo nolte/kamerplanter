@@ -10,6 +10,7 @@ import { daysSince } from './lastWatered';
 import { useWateringNow } from './useWateringNow';
 import { getZoneStatus } from './zonesApi';
 import type { IrrigationZone, PlanZone, ZoneHint, ZoneStatus } from './zoneTypes';
+import { formatDateWith } from '@/utils/formatting';
 
 const PREFIX = 'pages.gardenPlan.editor.zones';
 
@@ -56,7 +57,7 @@ type Loaded = { zoneKey: string; token: number; status: ZoneStatus } | { zoneKey
 
 /** GP-API-052: what the zone's beds were given and what is planned. Technical fields appear for the technical scope only. */
 export function ZoneStatusView({ zone, plan, refreshToken, technical }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const liters = useLiters();
   const hintText = useHintText(plan);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
@@ -75,7 +76,7 @@ export function ZoneStatusView({ zone, plan, refreshToken, technical }: Props) {
 
   const current = loaded?.zoneKey === zone.key && loaded.token === refreshToken ? loaded : null;
   const bedName = (key: string | null | undefined) => (key ? (plan.locations[key]?.name ?? key) : '');
-  const date = (iso: string) => new Date(iso).toLocaleDateString(i18n.language, { timeZone: 'UTC' });
+  const date = (iso: string) => formatDateWith(iso, { timeZone: 'UTC' });
 
   return (
     <Box component="section" aria-labelledby={`zone-status-${zone.key}`} data-testid="garden-plan-zone-status" sx={{ display: 'grid', gap: 1 }}>

@@ -25,6 +25,7 @@ import HelpTooltip from './HelpTooltip';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { TableState } from '@/hooks/useTableState';
 import { LinkedCard, LinkedTableRow, RowCellLink } from './DataTableRowLink';
+import { compareText } from '@/utils/formatting';
 
 export interface Column<T> {
   id: string;
@@ -138,7 +139,7 @@ function defaultComparator<T>(a: T, b: T, col: Column<T>): number {
   const aNum = Number(aVal);
   const bNum = Number(bVal);
   if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
-  return aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
+  return compareText(aVal, bVal, { sensitivity: 'base' });
 }
 
 /**

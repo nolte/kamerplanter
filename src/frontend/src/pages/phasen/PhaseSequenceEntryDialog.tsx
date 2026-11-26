@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import FormDialog from '@/components/form/FormDialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -159,8 +160,8 @@ export default function PhaseSequenceEntryDialog({
                   }
                   onChange={(_e, value) => field.onChange(value?.key ?? '')}
                   getOptionLabel={(option) =>
-                    (lang === 'de' ? option.display_name_de : option.display_name)
-                      ? `${option.name} (${(lang === 'de' ? option.display_name_de : option.display_name)})`
+                    localizedText(lang, { de: option.display_name_de, en: option.display_name })
+                      ? `${option.name} (${localizedText(lang, { de: option.display_name_de, en: option.display_name })})`
                       : option.name
                   }
                   isOptionEqualToValue={(option, value) =>

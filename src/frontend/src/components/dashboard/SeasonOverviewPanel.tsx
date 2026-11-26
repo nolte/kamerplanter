@@ -17,6 +17,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { fetchSeasonOverview } from '@/store/slices/seasonSlice';
 import { fetchSites } from '@/store/slices/sitesSlice';
 import type { SeasonPhase, SeasonTriggerTier } from '@/api/types';
+import { formatDateWith } from '@/utils/formatting';
 
 /**
  * REQ-047 §4.1 — icon per season phase so the state is never colour-only
@@ -78,7 +79,7 @@ export function daysUntil(isoDate: string): number | null {
  * Self-fetches the season overview and the site list (to resolve site names).
  */
 export default function SeasonOverviewPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const { overview, overviewLoading, overviewError } = useAppSelector(
     (s) => s.season,
@@ -96,20 +97,16 @@ export default function SeasonOverviewPanel() {
     return map;
   }, [sites]);
 
-  const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
-
-  const formatMonthDay = useMemo(
-    () => (md: string): string => {
-      const [month, day] = md.split('-').map((n) => Number.parseInt(n, 10));
-      if (!month || !day) return md;
-      // Reference year is irrelevant — only day + month are shown.
-      return new Date(2024, month - 1, day).toLocaleDateString(locale, {
-        day: '2-digit',
-        month: 'long',
-      });
-    },
-    [locale],
-  );
+  // Not memoized: it reads the active language, and the panel re-renders on a switch (useTranslation).
+  const formatMonthDay = (md: string): string => {
+    const [month, day] = md.split('-').map((n) => Number.parseInt(n, 10));
+    if (!month || !day) return md;
+    // Reference year is irrelevant — only day + month are shown.
+    return formatDateWith(new Date(2024, month - 1, day), {
+      day: '2-digit',
+      month: 'long',
+    });
+  };
 
   // Nothing to show at all: hide the whole panel (the traffic light below still
   // renders) rather than showing an empty header. Errors degrade silently — the

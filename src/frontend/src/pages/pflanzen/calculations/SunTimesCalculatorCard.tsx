@@ -16,6 +16,7 @@ import * as calcApi from '@/api/endpoints/calculations';
 import type { Site, SunTimesResponse } from '@/api/types';
 import { DEFAULT_TIMEZONE, getTimezoneOptions } from './timezones';
 import { toLocalIsoDate } from '@/utils/calendarDay';
+import { formatFixed } from '@/utils/formatting';
 
 const SITE_NONE = '';
 
@@ -176,7 +177,7 @@ export default function SunTimesCalculatorCard() {
                 {t('pages.calculations.dusk')}: {result.dusk}
               </Box>
               <Box sx={{ mt: 0.5, fontWeight: 600 }}>
-                {t('pages.calculations.dayLength')}: {result.day_length_hours.toFixed(2)} h
+                {t('pages.calculations.dayLength')}: {formatFixed(result.day_length_hours, 2)} h
               </Box>
             </Alert>
           </Box>

@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type { Species } from '@/api/types';
 import { getAlternativeCommonNames, getSpeciesOptionLabel } from '@/utils/plantDisplay';
+import { compareText } from '@/utils/formatting';
 
 const filter = createFilterOptions<Species>({
   stringify: (species) =>
@@ -44,7 +45,7 @@ export default function SpeciesPicker({
         const fa = favorites.has(a.key) ? 0 : 1;
         const fb = favorites.has(b.key) ? 0 : 1;
         return (
-          fa - fb || getSpeciesOptionLabel(a, language).localeCompare(getSpeciesOptionLabel(b, language), language)
+          fa - fb || compareText(getSpeciesOptionLabel(a, language), getSpeciesOptionLabel(b, language))
         );
       }),
     [species, favorites, language],

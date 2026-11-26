@@ -16,6 +16,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import { useApiError } from '@/hooks/useApiError';
 import * as planApi from '@/api/endpoints/nutrient-plans';
 import type { WaterMixRecommendation } from '@/api/endpoints/nutrient-plans';
+import { formatFixed } from '@/utils/formatting';
 
 interface Props {
   planKey: string;
@@ -97,20 +98,20 @@ export default function WaterMixRecommendationBox({
 
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', mb: 1 }} useFlexGap>
               <Chip
-                label={`EC ${rec.effective_ec_ms.toFixed(2)} mS/cm`}
+                label={`EC ${formatFixed(rec.effective_ec_ms, 2)} mS/cm`}
                 size="small"
                 variant="outlined"
               />
               <Chip
                 label={t('pages.nutrientPlans.waterMix.headroom', {
-                  percent: (rec.ec_headroom * 100).toFixed(0),
+                  percent: formatFixed(rec.ec_headroom * 100, 0),
                 })}
                 size="small"
                 variant="outlined"
               />
               <Chip
                 label={t('pages.nutrientPlans.waterMix.available', {
-                  ec: rec.available_ec_for_nutrients.toFixed(2),
+                  ec: formatFixed(rec.available_ec_for_nutrients, 2),
                 })}
                 size="small"
                 variant="outlined"
@@ -124,8 +125,8 @@ export default function WaterMixRecommendationBox({
                     <InfoOutlinedIcon sx={{ fontSize: '1rem', verticalAlign: 'text-bottom', mr: 0.5 }} />
                   </Tooltip>
                   {t('pages.nutrientPlans.waterMix.calmagNeeded', {
-                    ca: rec.calmag_correction.calcium_deficit_ppm.toFixed(1),
-                    mg: rec.calmag_correction.magnesium_deficit_ppm.toFixed(1),
+                    ca: formatFixed(rec.calmag_correction.calcium_deficit_ppm, 1),
+                    mg: formatFixed(rec.calmag_correction.magnesium_deficit_ppm, 1),
                   })}
                 </Typography>
                 {rec.calmag_correction.ca_mg_ratio_warning && (

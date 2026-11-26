@@ -233,8 +233,8 @@ describe('FertilizerDetailPage', () => {
     renderWithProviders(<FertilizerDetailPage />, { route: '/#stock' });
     await screen.findByTestId('fertilizer-detail-page');
 
-    // summary bar: total volume (2000 ml -> 2.0 L)
-    expect(screen.getByText('2.0 L')).toBeInTheDocument();
+    // summary bar: total volume (2000 ml -> 2,0 L, German decimal comma #3025)
+    expect(screen.getByText('2,0 L')).toBeInTheDocument();
     // expiry warning present (one stock expires within 30 days)
     expect(
       screen.getByText(

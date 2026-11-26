@@ -575,6 +575,7 @@ describe('NotificationDrawer', () => {
       makeNotif({ key: 'h', title: 'Hoch', urgency: 'high', created_at: new Date(now - 5 * 60_000).toISOString() }),
       makeNotif({ key: 'l', title: 'Niedrig', urgency: 'low', created_at: new Date(now - 3 * 3_600_000).toISOString() }),
       makeNotif({ key: 'd', title: 'Tage', urgency: 'normal', created_at: new Date(now - 2 * 86_400_000).toISOString() }),
+      makeNotif({ key: 'd1', title: 'Gestern', urgency: 'normal', created_at: new Date(now - 30 * 3_600_000).toISOString() }),
       makeNotif({ key: 'o', title: 'Alt', urgency: 'normal', created_at: new Date(now - 10 * 86_400_000).toISOString() }),
       makeNotif({ key: 'n', title: 'Ohne Datum', urgency: 'normal', created_at: null }),
     ]);
@@ -588,6 +589,9 @@ describe('NotificationDrawer', () => {
     expect(screen.queryByText('low')).toBeNull();
     // "5 minutes ago" range renders the minutes-ago label.
     expect(screen.getByText(/vor 5 Min\./)).toBeInTheDocument();
+    // Counts go through i18next plurals (#3025 B-10): "vor 1 Tag", not "vor 1 Tagen".
+    expect(screen.getByText('vor 2 Tagen')).toBeInTheDocument();
+    expect(screen.getByText('vor 1 Tag')).toBeInTheDocument();
     // Older-than-a-week falls back to a locale date; the card still renders.
     expect(screen.getByText('Alt')).toBeInTheDocument();
     expect(screen.getByText('Ohne Datum')).toBeInTheDocument();

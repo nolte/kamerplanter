@@ -28,6 +28,7 @@ import { usePlanCatalogue } from '@/hooks/usePlanCatalogue';
 import ErrorPage from '@/pages/ErrorPage';
 import { formatPlanLimit } from '@/utils/entitlements';
 import { ADMIN_PLATFORM_PATH } from '@/routes/adminPaths';
+import { compareText } from '@/utils/formatting';
 
 /** The columns shown in the table; the AI budgets are summarised to keep it readable on a laptop. */
 /** 48 px touch target on phones (UI-NFR-001 R-011), compact on desktop (R-013). */
@@ -123,7 +124,7 @@ export default function AdminPlansPage() {
           </Box>
         ),
         searchValue: (p) => `${p.name} ${p.key}`,
-        sortFn: (a, b) => a.name.localeCompare(b.name),
+        sortFn: (a, b) => compareText(a.name, b.name),
       },
       ...TABLE_DIMENSIONS.map<Column<Plan>>((d) => ({
         id: d,

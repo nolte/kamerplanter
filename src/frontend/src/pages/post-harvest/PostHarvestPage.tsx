@@ -16,6 +16,7 @@ import { useTableUrlState } from '@/hooks/useTableState';
 import type { PostHarvestBatch, PostHarvestStage } from '@/api/types';
 import StartDryingDialog from './StartDryingDialog';
 import PostHarvestDetailDialog from './PostHarvestDetailDialog';
+import { formatFixed } from '@/utils/formatting';
 
 type ChipColor = 'default' | 'info' | 'success' | 'warning';
 
@@ -65,7 +66,7 @@ export default function PostHarvestPage() {
         render: (r) => (
           <Box sx={{ minWidth: 120 }}>
             <Typography variant="caption" color="text.secondary">
-              {r.dryness_progress_percent.toFixed(0)}%
+              {formatFixed(r.dryness_progress_percent, 0)}%
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -165,7 +166,7 @@ export default function PostHarvestPage() {
                       aria-label={t('pages.postHarvest.drynessProgress')}
                       sx={{ flex: 1 }}
                     />
-                    <span>{r.dryness_progress_percent.toFixed(0)}%</span>
+                    <span>{formatFixed(r.dryness_progress_percent, 0)}%</span>
                   </Box>
                 ),
               },

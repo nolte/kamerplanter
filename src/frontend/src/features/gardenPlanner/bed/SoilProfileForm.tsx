@@ -10,6 +10,7 @@ import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Accordion from '@mui/material/Accordion';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -98,7 +99,7 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
       { value: '', label: t('pages.bed.soil.notSet') },
       ...substrates.map((substrate) => ({
         value: substrate.key,
-        label: (i18n.language.startsWith('de') ? substrate.name_de : substrate.name_en) || substrate.name_de,
+        label: localizedText(i18n.language, { de: substrate.name_de, en: substrate.name_en }),
       })),
     ],
     [substrates, t, i18n.language],

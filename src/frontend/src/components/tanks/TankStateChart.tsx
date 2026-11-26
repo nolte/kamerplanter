@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import dayjs from 'dayjs';
 import type { TankState } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 /** Metric keys that can be toggled on/off in the chart. */
 type MetricKey = 'ph' | 'ec_ms' | 'water_temp_celsius' | 'fill_level_percent';
@@ -68,7 +69,7 @@ function CustomTooltip({
       </Typography>
       {payload.map((p) => (
         <Box key={String(p.dataKey)} sx={{ color: p.color, lineHeight: 1.6 }}>
-          {p.name}: <strong>{typeof p.value === 'number' ? p.value.toFixed(2) : p.value}</strong>
+          {p.name}: <strong>{typeof p.value === 'number' ? formatFixed(p.value, 2) : p.value}</strong>
         </Box>
       ))}
     </Box>

@@ -1,3 +1,4 @@
+import { compareCodes } from '@/utils/compareCodes';
 /**
  * A colour per botanical family for the planting timeline (REQ-053 GP-FR-103). The colour is an aid,
  * never the only carrier: every chip also names the family.
@@ -17,7 +18,7 @@ export function colorAt(index: number): string {
 
 /** Family key -> CSS colour for every distinct key; the input order does not matter. */
 export function familyColors(familyKeys: readonly string[]): Map<string, string> {
-  const distinct = [...new Set(familyKeys)].sort((a, b) => a.localeCompare(b));
+  const distinct = [...new Set(familyKeys)].sort((a, b) => compareCodes(a, b));
   return new Map(distinct.map((key, index) => [key, colorAt(index)]));
 }
 

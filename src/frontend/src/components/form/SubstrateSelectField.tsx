@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
@@ -16,6 +17,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import type { Substrate, SubstrateType } from '@/api/types';
 import { useSubstrateFavorites } from '@/hooks/useCatalogFavorites';
+import { compareText } from '@/utils/formatting';
 
 const SUBSTRATE_TYPES: SubstrateType[] = [
   'soil', 'coco', 'clay_pebbles', 'perlite', 'living_soil', 'peat',
@@ -69,7 +71,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
   const { t, i18n } = useTranslation();
   const { isFavorite, toggleFavorite, hasFavorites } = useSubstrateFavorites();
   const [favFilterActive, setFavFilterActive] = useState(false);
-  const isDE = i18n.language?.startsWith('de');
+  const language = i18n.language;
 
   // If no substrate entities exist, generate fallback options from enum types
   const typeOnlyFallbacks = useMemo<TypeOnlyOption[]>(() =>
@@ -102,8 +104,8 @@ export default function SubstrateSelectField<T extends FieldValues>({
 
   const displayName = useCallback((s: SubstrateOption) => {
     if (isTypeOnly(s)) return t(`enums.substrateType.${s.type}`);
-    return (isDE ? s.name_de : s.name_en) || s.brand || t(`enums.substrateType.${s.type}`);
-  }, [isDE, t]);
+    return localizedText(language, { de: s.name_de, en: s.name_en }, s.brand) || t(`enums.substrateType.${s.type}`);
+  }, [language, t]);
 
   const sortedOptions = useMemo(() => {
     const filtered = favFilterActive && hasFavorites
@@ -113,7 +115,7 @@ export default function SubstrateSelectField<T extends FieldValues>({
       const aFav = isFavorite(a.key) ? 0 : 1;
       const bFav = isFavorite(b.key) ? 0 : 1;
       if (aFav !== bFav) return aFav - bFav;
-      return displayName(a).localeCompare(displayName(b));
+      return compareText(displayName(a), displayName(b));
     });
   }, [allOptions, favFilterActive, hasFavorites, isFavorite, displayName]);
 

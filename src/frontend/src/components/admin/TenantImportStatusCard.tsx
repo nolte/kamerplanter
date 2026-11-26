@@ -18,6 +18,7 @@ import { getTenantImport } from '@/api/endpoints/adminTenantImports';
 import { isApiError } from '@/api/errors';
 import type { TenantImport, TenantImportStatus } from '@/api/types';
 import { formatDateTime, formatNumber } from '@/utils/formatting';
+import { compareCodes } from '@/utils/compareCodes';
 import { failureCodeKey, isActiveImport } from '@/utils/tenantImport';
 
 /** How often the card asks again while the import is on its way. */
@@ -100,7 +101,7 @@ export default function TenantImportStatusCard({
 
   const reportRows = useMemo(() => {
     if (state.status !== 'data') return [];
-    return Object.entries(state.record.report).sort(([a], [b]) => a.localeCompare(b));
+    return Object.entries(state.record.report).sort(([a], [b]) => compareCodes(a, b));
   }, [state]);
 
   const total = useMemo(() => reportRows.reduce((sum, [, count]) => sum + count, 0), [reportRows]);

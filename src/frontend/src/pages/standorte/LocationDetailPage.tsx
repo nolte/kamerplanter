@@ -65,6 +65,7 @@ import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
 import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
 import { errorKey } from '@/api/errors';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate, formatDateTime } from '@/utils/formatting';
 
 // The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
 const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
@@ -691,7 +692,7 @@ export default function LocationDetailPage() {
                     { id: 'current_phase', label: t('pages.plantInstances.currentPhase'), render: (r) => (
                       <Chip label={t(`enums.phaseName.${r.current_phase}`)} size="small" variant="outlined" />
                     ), searchValue: (r) => t(`enums.phaseName.${r.current_phase}`) },
-                    { id: 'planted_on', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on ? new Date(r.planted_on).toLocaleDateString() : '—' },
+                    { id: 'planted_on', label: t('pages.plantInstances.plantedOn'), render: (r) => r.planted_on ? formatDate(r.planted_on) : '—' },
                   ]}
                   rows={standaloneInstances}
                   getRowKey={(r) => r.key}
@@ -718,7 +719,7 @@ export default function LocationDetailPage() {
                               ]
                             : []
                         }
-                        fields={r.planted_on ? [{ id: 'planted_on', label: t('pages.plantInstances.plantedOn'), value: new Date(r.planted_on).toLocaleDateString() }] : []}
+                        fields={r.planted_on ? [{ id: 'planted_on', label: t('pages.plantInstances.plantedOn'), value: formatDate(r.planted_on) }] : []}
                       />
                     );
                   }}
@@ -872,8 +873,8 @@ export default function LocationDetailPage() {
             {
               id: 'wateredAt',
               label: t('pages.wateringEvents.wateredAt'),
-              render: (r) => r.watered_at ? new Date(r.watered_at).toLocaleString() : '—',
-              searchValue: (r) => r.watered_at ? new Date(r.watered_at).toLocaleString() : '',
+              render: (r) => r.watered_at ? formatDateTime(r.watered_at) : '—',
+              searchValue: (r) => r.watered_at ? formatDateTime(r.watered_at) : '',
             },
             {
               id: 'applicationMethod',
@@ -905,7 +906,7 @@ export default function LocationDetailPage() {
           ariaLabel={t('pages.wateringEvents.title')}
           mobileCardRenderer={(r) => (
             <MobileCard
-              title={r.watered_at ? new Date(r.watered_at).toLocaleString() : '—'}
+              title={r.watered_at ? formatDateTime(r.watered_at) : '—'}
               titleId="wateredAt"
               chips={[
                 {

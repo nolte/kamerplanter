@@ -64,6 +64,7 @@ import FertilizerUsageGantt from './FertilizerUsageGantt';
 import type { Fertilizer, FertilizerStock, FertilizerStockCreate, Incompatibility, NutrientPlanUsage } from '@/api/types';
 import { errorKey } from '@/api/errors';
 import { toLocalIsoDate } from '@/utils/calendarDay';
+import { formatDate, formatFixed, formatNumberWithUnit } from '@/utils/formatting';
 
 /** Form container max width on md+ (UI-NFR-008 R-053). */
 const FORM_MAX_WIDTH = 1280;
@@ -441,14 +442,14 @@ export default function FertilizerDetailPage() {
     {
       id: 'volume',
       label: t('pages.fertilizers.currentVolume'),
-      render: (r) => `${r.current_volume_ml.toLocaleString()} ml`,
+      render: (r) => formatNumberWithUnit(r.current_volume_ml, 'ml'),
       align: 'right',
       searchValue: (r) => String(r.current_volume_ml),
     },
     {
       id: 'purchase_date',
       label: t('pages.fertilizers.purchaseDate'),
-      render: (r) => (r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : '—'),
+      render: (r) => (r.purchase_date ? formatDate(r.purchase_date) : '—'),
     },
     {
       id: 'expiry_date',
@@ -456,7 +457,7 @@ export default function FertilizerDetailPage() {
       render: (r) => {
         if (!r.expiry_date) return '—';
         const days = daysUntil(r.expiry_date);
-        const label = new Date(r.expiry_date).toLocaleDateString();
+        const label = formatDate(r.expiry_date);
         if (days <= 30 && days >= 0) {
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
@@ -489,7 +490,7 @@ export default function FertilizerDetailPage() {
       id: 'cost',
       label: t('pages.fertilizers.costPerLiter'),
       render: (r) =>
-        r.cost_per_liter != null ? `${r.cost_per_liter.toFixed(2)} €/L` : '—',
+        r.cost_per_liter != null ? `${formatFixed(r.cost_per_liter, 2)} €/L` : '—',
       align: 'right',
       searchValue: (r) => (r.cost_per_liter != null ? String(r.cost_per_liter) : ''),
     },
@@ -679,7 +680,7 @@ export default function FertilizerDetailPage() {
                   </Typography>
                   <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                     <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {fertilizer.ec_contribution_per_ml.toFixed(3)} mS/ml
+                      {formatFixed(fertilizer.ec_contribution_per_ml, 3)} mS/ml
                     </Typography>
                     {fertilizer.ec_contribution_uncertain && (
                       <Tooltip title={t('pages.fertilizers.ecUncertainHint')}>
@@ -829,9 +830,9 @@ export default function FertilizerDetailPage() {
           {/* Metadata */}
           {(fertilizer.created_at || fertilizer.updated_at) && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              {fertilizer.created_at && `${t('common.createdAt')}: ${new Date(fertilizer.created_at).toLocaleDateString()}`}
+              {fertilizer.created_at && `${t('common.createdAt')}: ${formatDate(fertilizer.created_at)}`}
               {fertilizer.created_at && fertilizer.updated_at && ' · '}
-              {fertilizer.updated_at && `${t('common.updatedAt')}: ${new Date(fertilizer.updated_at).toLocaleDateString()}`}
+              {fertilizer.updated_at && `${t('common.updatedAt')}: ${formatDate(fertilizer.updated_at)}`}
             </Typography>
           )}
         </Box>
@@ -865,8 +866,8 @@ export default function FertilizerDetailPage() {
                   </Typography>
                   <Typography variant="h6">
                     {totalVolumeMl >= 1000
-                      ? `${(totalVolumeMl / 1000).toFixed(1)} L`
-                      : `${totalVolumeMl.toLocaleString()} ml`}
+                      ? `${formatFixed(totalVolumeMl / 1000, 1)} L`
+                      : formatNumberWithUnit(totalVolumeMl, 'ml')}
                   </Typography>
                 </Paper>
               </Grid>
@@ -877,7 +878,7 @@ export default function FertilizerDetailPage() {
                       {t('pages.fertilizers.stockAvgCost')}
                     </Typography>
                     <Typography variant="h6">
-                      {avgCostPerLiter.toFixed(2)} &euro;/L
+                      {formatFixed(avgCostPerLiter, 2)} &euro;/L
                     </Typography>
                   </Paper>
                 </Grid>
@@ -917,19 +918,19 @@ export default function FertilizerDetailPage() {
               ariaLabel={t('pages.fertilizers.tabStock')}
               mobileCardRenderer={(r) => (
                 <MobileCard
-                  title={`${r.current_volume_ml.toLocaleString()} ml`}
+                  title={formatNumberWithUnit(r.current_volume_ml, 'ml')}
                   titleId="volume"
-                  subtitle={r.purchase_date ? new Date(r.purchase_date).toLocaleDateString() : undefined}
+                  subtitle={r.purchase_date ? formatDate(r.purchase_date) : undefined}
                   subtitleId="purchase_date"
                   fields={[
                     ...(r.expiry_date
-                      ? [{ id: 'expiry_date', label: t('pages.fertilizers.expiryDate'), value: new Date(r.expiry_date).toLocaleDateString() }]
+                      ? [{ id: 'expiry_date', label: t('pages.fertilizers.expiryDate'), value: formatDate(r.expiry_date) }]
                       : []),
                     ...(r.batch_number
                       ? [{ id: 'batch_number', label: t('pages.fertilizers.batchNumber'), value: r.batch_number }]
                       : []),
                     ...(r.cost_per_liter != null
-                      ? [{ id: 'cost', label: t('pages.fertilizers.costPerLiter'), value: `${r.cost_per_liter.toFixed(2)} €/L` }]
+                      ? [{ id: 'cost', label: t('pages.fertilizers.costPerLiter'), value: `${formatFixed(r.cost_per_liter, 2)} €/L` }]
                       : []),
                   ]}
                 />

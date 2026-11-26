@@ -27,7 +27,7 @@ import { useColumnFilters } from '@/hooks/useColumnFilters';
 import { ColumnFilterBar, type ColumnFilterDef } from '@/components/common/ColumnFilterBar';
 import { useWidgetPayload } from '@/components/dashboard/DashboardDataContext';
 import { dashboardWidgetCatalog } from '@/config/dashboardWidgetCatalog';
-import { formatDate, humanizeSlug } from '@/utils/formatting';
+import { compareText, formatDate, humanizeSlug } from '@/utils/formatting';
 import type { WidgetComponentProps } from '@/components/dashboard/widgetRegistry';
 
 /**
@@ -175,7 +175,7 @@ export default function PlantGridWidget({ widgetKey, editMode = false }: WidgetC
         .sort((a, b) => {
           if (a.value === NONE_TOKEN) return 1;
           if (b.value === NONE_TOKEN) return -1;
-          return a.label.localeCompare(b.label);
+          return compareText(a.label, b.label);
         });
     return [
       { id: FILTER_PHASE, label: t('dashboard.plantGrid.filters.phase'), options: toOptions(phaseByToken) },

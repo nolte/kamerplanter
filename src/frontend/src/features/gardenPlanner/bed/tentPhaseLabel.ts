@@ -13,6 +13,7 @@ import type { TFunction } from 'i18next';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import { phaseKeyOf, phaseLabel } from '../planting/phaseLabel';
 import type { PhaseLabel, PhotoperiodGroup } from './types';
+import { compareText } from '@/utils/formatting';
 
 /** The part of the i18next instance the label needs: the active language and whether a key is translated. */
 export interface PhaseLabelI18n {
@@ -40,5 +41,5 @@ export function groupPhaseLabels(t: TFunction, i18n: PhaseLabelI18n, group: Phot
     group.phases && group.phases.length > 0
       ? group.phases.map((phase) => tentPhaseLabel(t, i18n, phase))
       : group.phase_names.map((name) => phaseLabel(t, name));
-  return [...new Set(labels)].sort((a, b) => a.localeCompare(b, i18n.language));
+  return [...new Set(labels)].sort((a, b) => compareText(a, b));
 }

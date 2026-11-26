@@ -37,6 +37,7 @@ import type {
 } from '@/api/types';
 import OverwinteringProfileDialog from './OverwinteringProfileDialog';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatMonthName } from '@/utils/formatting';
 
 /** REQ-022 hardiness rating → traffic-light palette token for the list chip. */
 const hardinessColor: Record<HardinessRating, ChipProps['color']> = {
@@ -80,8 +81,13 @@ const FILTER_IDS = [
   FILTER_SUBJECT,
 ] as const;
 
+/** Renders a 1–12 month number as a localised month name (e.g. "Oktober"). */
+function monthLabel(month: number): string {
+  return formatMonthName(month, 'long');
+}
+
 export default function OverwinteringListPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const notification = useNotification();
@@ -162,22 +168,14 @@ export default function OverwinteringListPage() {
     [t],
   );
 
-  /** Renders a 1–12 month number as a localised month name (e.g. "Oktober"). */
-  const monthLabel = useCallback(
-    (month: number) =>
-      new Date(2000, month - 1, 1).toLocaleDateString(i18n.language, { month: 'long' }),
-    [i18n.language],
-  );
+
 
   // Month facet options are derived from the months actually present in the
   // data (sorted 1→12) rather than a fixed 1–12 list, so the user never sees
   // month options that would yield zero matches.
-  const monthOptions = useMemo(
-    () =>
-      Array.from(new Set(items.map((p) => p.winter_action_month)))
-        .sort((a, b) => a - b)
-        .map((m) => ({ value: String(m), label: monthLabel(m) })),
-    [items, monthLabel],
+  const monthsPresent = useMemo(
+    () => Array.from(new Set(items.map((p) => p.winter_action_month))).sort((a, b) => a - b),
+    [items],
   );
 
   // Faceted filter definitions for the toolbar (UI-NFR-010). Hardiness and
@@ -204,7 +202,8 @@ export default function OverwinteringListPage() {
       {
         id: FILTER_MONTH,
         label: t('pages.overwintering.winterActionMonth'),
-        options: monthOptions,
+        // Labelled here, in a memo keyed on `t`, so the names follow a language switch.
+        options: monthsPresent.map((m) => ({ value: String(m), label: monthLabel(m) })),
       },
       {
         id: FILTER_ORIGIN,
@@ -229,7 +228,7 @@ export default function OverwinteringListPage() {
         ],
       },
     ],
-    [t, monthOptions],
+    [t, monthsPresent],
   );
 
   // Client-side facet filtering: the page loads the full profile list up front,
@@ -498,7 +497,7 @@ export default function OverwinteringListPage() {
         }
       />
     ),
-    [subjectLabel, subjectTarget, subjectActionLabel, hardinessTooltip, monthLabel, navigate, t, canDelete],
+    [subjectLabel, subjectTarget, subjectActionLabel, hardinessTooltip, navigate, t, canDelete],
   );
 
   return (

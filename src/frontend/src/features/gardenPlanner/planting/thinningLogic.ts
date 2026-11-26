@@ -12,6 +12,7 @@
  * spacing comes from the run or the species profile (the server's plan) or the grower.
  */
 import type { FailedPlanting, PlantingItem } from './plantingTypes';
+import { compareCodes } from '@/utils/compareCodes';
 
 /** Decimals a quotient is rounded to before the floor (1.0 m / 10 cm is 10 plants, not 9). */
 const FLOOR_DECIMALS = 6;
@@ -130,5 +131,5 @@ export function failedSlots(items: readonly PlantingItem[]): FailedPlanting[] {
       cultivarKey: item.cultivar_key ?? null,
       removedOn: item.removed_on ?? null,
     }))
-    .sort((a, b) => a.slotId.localeCompare(b.slotId));
+    .sort((a, b) => compareCodes(a.slotId, b.slotId));
 }

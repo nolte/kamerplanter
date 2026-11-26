@@ -17,6 +17,7 @@ import LocalDrinkIcon from '@mui/icons-material/LocalDrink';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { ChannelCalendarEntry, PhaseTimelineEntry } from '@/api/types';
 import { getPhaseColor } from '@/theme/domainColors';
+import { formatDateWith, formatWeekdayNames } from '@/utils/formatting';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ export default function WateringCalendarView({
   onConfirm,
   phases,
 }: WateringCalendarViewProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const todayDate = useMemo(() => new Date(), []);
   const [currentYear, setCurrentYear] = useState(todayDate.getFullYear());
@@ -209,26 +210,13 @@ export default function WateringCalendarView({
   }, [allEntries, currentYear, currentMonth]);
 
   // Weekday headers (locale-aware, Monday first)
-  const weekdayHeaders = useMemo(() => {
-    const baseDate = new Date(2024, 0, 1); // Monday
-    const headers: string[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(baseDate);
-      d.setDate(d.getDate() + i);
-      headers.push(
-        d.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', { weekday: 'short' }),
-      );
-    }
-    return headers;
-  }, [i18n.language]);
+  // Not memoized: the helpers read the active language (see utils/formatting.ts).
+  const weekdayHeaders = formatWeekdayNames('short');
 
-  const formatMonthYear = useMemo(() => {
-    const d = new Date(currentYear, currentMonth, 1);
-    return d.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-US', {
-      month: 'long',
-      year: 'numeric',
-    });
-  }, [currentYear, currentMonth, i18n.language]);
+  const formatMonthYear = formatDateWith(new Date(currentYear, currentMonth, 1), {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const goToday = useCallback(() => {
     setCurrentYear(todayDate.getFullYear());
@@ -503,10 +491,7 @@ export default function WateringCalendarView({
           <Box sx={{ p: 2, minWidth: 280, maxWidth: 400 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
               <Typography variant="subtitle2">
-                {new Date(currentYear, currentMonth, popoverDay).toLocaleDateString(
-                  i18n.language === 'de' ? 'de-DE' : 'en-US',
-                  { weekday: 'long', day: 'numeric', month: 'long' },
-                )}
+                {formatDateWith(new Date(currentYear, currentMonth, popoverDay), { weekday: 'long', day: 'numeric', month: 'long' })}
               </Typography>
               {phaseByDay.get(popoverDay) && (
                 <Chip

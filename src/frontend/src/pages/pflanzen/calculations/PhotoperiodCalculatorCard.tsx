@@ -17,6 +17,7 @@ import * as calcApi from '@/api/endpoints/calculations';
 import type { PhotoperiodScheduleEntry } from '@/api/types';
 import { PPFD_PRESETS } from './phasePresets';
 import SliderNumberField from './SliderNumberField';
+import { formatFixed } from '@/utils/formatting';
 
 /**
  * Photoperiod-transition calculator (incl. DLI). Current/target photoperiods use
@@ -62,7 +63,7 @@ export default function PhotoperiodCalculatorCard() {
       {
         id: 'hours',
         label: t('pages.calculations.ppHours'),
-        render: (s) => s.photoperiod_hours.toFixed(1),
+        render: (s) => formatFixed(s.photoperiod_hours, 1),
         align: 'right',
       },
       { id: 'on', label: t('pages.calculations.ppOn'), render: (s) => s.lights_on },
@@ -70,7 +71,7 @@ export default function PhotoperiodCalculatorCard() {
       {
         id: 'dli',
         label: t('pages.calculations.ppDli'),
-        render: (s) => s.dli.toFixed(2),
+        render: (s) => formatFixed(s.dli, 2),
         align: 'right',
       },
     ],
@@ -189,12 +190,12 @@ export default function PhotoperiodCalculatorCard() {
                 <MobileCard
                   title={t('pages.calculations.gddDay', { day: s.day })}
                   titleId="day"
-                  subtitle={`${s.photoperiod_hours.toFixed(1)} h`}
+                  subtitle={`${formatFixed(s.photoperiod_hours, 1)} h`}
                   subtitleId="hours"
                   fields={[
                     { id: 'on', label: t('pages.calculations.ppOn'), value: s.lights_on },
                     { id: 'off', label: t('pages.calculations.ppOff'), value: s.lights_off },
-                    { id: 'dli', label: t('pages.calculations.ppDli'), value: s.dli.toFixed(2) },
+                    { id: 'dli', label: t('pages.calculations.ppDli'), value: formatFixed(s.dli, 2) },
                   ]}
                 />
               )}

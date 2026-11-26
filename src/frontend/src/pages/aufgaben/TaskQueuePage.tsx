@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Box from '@mui/material/Box';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
@@ -97,6 +98,7 @@ import TaskCreateDialog from './TaskCreateDialog';
 import { useRequestLanguage } from '@/hooks/useRequestLanguage';
 import CareProfileEditDialog from '@/pages/pflege/components/CareProfileEditDialog';
 import CareConfirmDialog from '@/pages/pflege/components/CareConfirmDialog';
+import { formatDate } from '@/utils/formatting';
 
 // ── Constants ──────────────────────────────────────────────────────────
 
@@ -204,7 +206,7 @@ function formatRelativeDate(dateStr: string, t: (key: string) => string): string
   if (diffDays === 0) return t('pages.tasks.today');
   if (diffDays === 1) return t('common.tomorrow');
   if (diffDays <= 7) return `${diffDays}d`;
-  return due.toLocaleDateString();
+  return formatDate(due);
 }
 
 // ── Component ──────────────────────────────────────────────────────────
@@ -799,7 +801,7 @@ export default function TaskQueuePage() {
       const isPending = task.status === 'pending';
       const isInProgress = task.status === 'in_progress';
       const isActionable = isPending || isInProgress;
-      const displayName = (i18n.language === 'de' && task.name_de) ? task.name_de : task.name;
+      const displayName = localizedText(i18n.language, { de: task.name_de, en: task.name });
 
       // One action row, rendered in one of two places: beside the content from
       // `sm` up, below it (full card width, top border instead of left border)

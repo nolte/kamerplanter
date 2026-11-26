@@ -26,6 +26,7 @@ import type {
   SensorReadingResponse,
   AggregatedReadingResponse,
 } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 type TimeRange = '24h' | '7d' | '30d' | '90d';
 
@@ -78,7 +79,7 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
       </Typography>
       {payload.map((p) => (
         <Box key={String(p.dataKey)} sx={{ color: p.color }}>
-          {p.name}: {typeof p.value === 'number' ? p.value.toFixed(2) : p.value}
+          {p.name}: {typeof p.value === 'number' ? formatFixed(p.value, 2) : p.value}
         </Box>
       ))}
     </Box>

@@ -37,6 +37,7 @@ import { useStepUpResume } from '@/hooks/useStepUpReauth';
 import { toCredentialStepUpBody } from '@/utils/stepUp';
 import { INVITATION_MAX_USES_LIMIT } from '@/api/types';
 import type { Membership, Invitation, InvitationCreated } from '@/api/types';
+import { formatDate } from '@/utils/formatting';
 
 /**
  * The accept link the inviter has to pass on (#2162): a link invitation always, an e-mail invitation
@@ -59,7 +60,7 @@ function parseMaxUses(raw: string): number | null {
 }
 
 export default function TenantSettingsPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const notification = useNotification();
   const activeTenant = useAppSelector((s) => s.tenants.activeTenant);
   // REQ-049: member and invitation management hangs off the `management`
@@ -491,7 +492,7 @@ export default function TenantSettingsPage() {
                       ? 'pages.tenants.invitationNotDeliveredHint'
                       : 'pages.tenants.invitationLinkHint',
                     {
-                      date: new Date(shareable.expiresAt).toLocaleDateString(i18n.language),
+                      date: formatDate(shareable.expiresAt),
                       count: shareable.maxUses,
                     },
                   )}

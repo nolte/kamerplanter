@@ -27,6 +27,7 @@ import {
 import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import type { PostHarvestStage } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 const STAGE_ORDER: PostHarvestStage[] = ['drying', 'curing', 'stored', 'released'];
 
@@ -184,7 +185,7 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
                 gutterBottom
               >
                 {t('pages.postHarvest.drynessProgress')}:{' '}
-                {batch.dryness_progress_percent.toFixed(1)}%
+                {formatFixed(batch.dryness_progress_percent, 1)}%
               </Typography>
               <LinearProgress
                 variant="determinate"
@@ -220,7 +221,7 @@ export default function PostHarvestDetailDialog({ batchKey, onClose, onChanged }
                     sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                   >
                     {t('pages.postHarvest.waterActivityLabel')}:{' '}
-                    {detail.latest_drying_progress.water_activity.toFixed(2)}
+                    {formatFixed(detail.latest_drying_progress.water_activity, 2)}
                     <HelpTooltip term="water_activity" iconOnly />
                   </Typography>
                 )}

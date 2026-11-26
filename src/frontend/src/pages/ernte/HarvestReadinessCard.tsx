@@ -10,6 +10,7 @@ import DataTable, { type Column } from '@/components/common/DataTable';
 import MobileCard from '@/components/common/MobileCard';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import type { ReadinessAssessment, ReadinessIndicatorBreakdown } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 interface HarvestReadinessCardProps {
   readiness: ReadinessAssessment;
@@ -93,13 +94,13 @@ export default function HarvestReadinessCard({
       id: 'reliability',
       label: t('pages.harvest.reliability'),
       align: 'right',
-      render: (ind) => `${(ind.reliability * 100).toFixed(0)}%`,
+      render: (ind) => `${formatFixed(ind.reliability * 100, 0)}%`,
     },
     {
       id: 'contribution',
       label: t('pages.harvest.contribution'),
       align: 'right',
-      render: (ind) => ind.weighted_contribution.toFixed(1),
+      render: (ind) => formatFixed(ind.weighted_contribution, 1),
     },
   ];
 
@@ -210,12 +211,12 @@ export default function HarvestReadinessCard({
                     {
                       id: 'reliability',
                       label: t('pages.harvest.reliability'),
-                      value: `${(ind.reliability * 100).toFixed(0)}%`,
+                      value: `${formatFixed(ind.reliability * 100, 0)}%`,
                     },
                     {
                       id: 'contribution',
                       label: t('pages.harvest.contribution'),
-                      value: ind.weighted_contribution.toFixed(1),
+                      value: formatFixed(ind.weighted_contribution, 1),
                     },
                   ]}
                 />

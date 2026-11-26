@@ -22,6 +22,7 @@ import {
   type ZoneCreate,
   type ZoneUpdate,
 } from './zoneTypes';
+import { compareText } from '@/utils/formatting';
 
 const PREFIX = 'pages.gardenPlan.editor.zones';
 const DEFAULT_COLOR = '#2E7D32';
@@ -110,7 +111,7 @@ export function ZoneEditor({
     () =>
       Object.values(plan.locations)
         .filter((location) => location.geometry != null && !isTempKey(location.key))
-        .sort((a, b) => a.name.localeCompare(b.name)),
+        .sort((a, b) => compareText(a.name, b.name)),
     [plan.locations],
   );
   const waterSources = useMemo(

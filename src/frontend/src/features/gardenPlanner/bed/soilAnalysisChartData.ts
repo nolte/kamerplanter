@@ -4,6 +4,7 @@
  * reshapes, it never merges two methods or converts a value (U-002/U-003).
  */
 import type { ChartParameter, SoilAnalysesResponse, SoilAnalysisPoint } from './soilAnalysisTypes';
+import { compareCodes } from '@/utils/compareCodes';
 
 export interface ChartPoint {
   time: number;
@@ -70,7 +71,7 @@ export function parameterHistory(response: SoilAnalysesResponse, parameter: Char
         methodChanged: changeSet.has(toTime(point.performed_at)),
       })),
     )
-    .sort((a, b) => a.time - b.time || a.method.localeCompare(b.method));
+    .sort((a, b) => a.time - b.time || compareCodes(a.method, b.method));
   return { parameter, lines, changes, rows };
 }
 

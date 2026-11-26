@@ -17,6 +17,7 @@ import * as plantApi from '@/api/endpoints/plantInstances';
 import HarvestCreateDialog from './HarvestCreateDialog';
 import { kamiHarvest } from '@/assets/brand/illustrations';
 import { captureHandledError } from '@/observability/errorTracking';
+import { formatDate } from '@/utils/formatting';
 
 type ChipColor = 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning';
 
@@ -85,7 +86,7 @@ export default function HarvestBatchListPage() {
       id: 'harvestDate',
       label: t('pages.harvest.harvestDate'),
       render: (r) =>
-        r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '—',
+        r.harvest_date ? formatDate(r.harvest_date) : '—',
       sortFn: (a, b) => {
         const aDate = a.harvest_date ? new Date(a.harvest_date).getTime() : 0;
         const bDate = b.harvest_date ? new Date(b.harvest_date).getTime() : 0;
@@ -168,7 +169,7 @@ export default function HarvestBatchListPage() {
           <MobileCard
             title={r.batch_id || r.key}
             titleId="batchId"
-            subtitle={r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : undefined}
+            subtitle={r.harvest_date ? formatDate(r.harvest_date) : undefined}
             subtitleId="harvestDate"
             // Keyed chips (#778 A1): harvest type and quality grade used to share
             // one unkeyed slot, so a colour assertion could only be written

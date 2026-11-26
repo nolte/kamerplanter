@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { localizedText } from '@/utils/localizedText';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -26,6 +27,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import * as api from '@/api/endpoints/substrates';
 import type { Substrate, MixComponent } from '@/api/types';
+import { formatFixed } from '@/utils/formatting';
 
 interface MixRow {
   substrate_key: string;
@@ -212,7 +214,7 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
                   value={s.key}
                   disabled={rows.some((r, i) => i !== index && r.substrate_key === s.key)}
                 >
-                  {(lang === 'en' ? s.name_en : s.name_de) || `${t(`enums.substrateType.${s.type}`)} ${s.brand ?? ''}`}
+                  {localizedText(lang, { de: s.name_de, en: s.name_en }, `${t(`enums.substrateType.${s.type}`)} ${s.brand ?? ''}`)}
                 </MenuItem>
               ))}
             </TextField>
@@ -287,11 +289,11 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.phBase')}</Typography>
-                <Typography variant="body2">{preview.ph_base.toFixed(1)}</Typography>
+                <Typography variant="body2">{formatFixed(preview.ph_base, 1)}</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.ecBase')}</Typography>
-                <Typography variant="body2">{preview.ec_base_ms.toFixed(2)} mS/cm</Typography>
+                <Typography variant="body2">{formatFixed(preview.ec_base_ms, 2)} mS/cm</Typography>
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary">{t('pages.substrates.waterRetention')}</Typography>
@@ -306,7 +308,7 @@ export default function SubstrateMixDialog({ open, onClose, onCreated }: Props) 
                 <Typography variant="body2" data-testid="mix-preview-air-porosity">
                   {preview.air_porosity_percent === null
                     ? t('pages.substrates.notApplicable')
-                    : `${preview.air_porosity_percent.toFixed(1)}%`}
+                    : `${formatFixed(preview.air_porosity_percent, 1)}%`}
                 </Typography>
               </Box>
               <Box>

@@ -83,7 +83,7 @@ describe('HarvestReadinessCard (REQ-007 §3)', () => {
     expect(screen.getByText(i18n.t('enums.ripenessStage.overripe'))).toBeInTheDocument();
     // Reliability is rendered as a whole-percent value, contribution to 1 decimal.
     expect(screen.getByText('90%')).toBeInTheDocument();
-    expect(screen.getByText('52.5')).toBeInTheDocument();
+    expect(screen.getByText('52,5')).toBeInTheDocument();
   });
 
   it('hides the estimated-days block when no estimate is available (TC-007-034)', () => {

@@ -21,6 +21,7 @@ import { fetchPlantInstances } from '@/store/slices/plantInstancesSlice';
 import { fetchPlantingRuns } from '@/store/slices/plantingRunsSlice';
 import * as overwinteringApi from '@/api/endpoints/overwinteringProfiles';
 import type { OverwinteringProfile, SpringAction } from '@/api/types';
+import { formatDateWith } from '@/utils/formatting';
 
 /** The staggered hardening-off checklist steps (REQ-047 §4.2). */
 const HARDEN_OFF_STEPS = ['step1', 'step2', 'step3'] as const;
@@ -50,7 +51,7 @@ function earliestUpcomingFrost(isoDates: (string | null)[]): Date | null {
  * and warns — with live weather data — before putting plants out too early.
  */
 export default function SpringReturnAssistant() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const overview = useAppSelector((s) => s.season.overview);
   const plantInstances = useAppSelector((s) => s.plantInstances.items);
@@ -162,8 +163,6 @@ export default function SpringReturnAssistant() {
     [siteKeyByPlantKey, siteKeyByLocationKey, runLocationByKey],
   );
 
-  const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
-
   // Earliest upcoming forecast frost across the pre-spring sites (live tier).
   const lateFrostDate = useMemo(
     () =>
@@ -211,7 +210,7 @@ export default function SpringReturnAssistant() {
             data-testid="spring-late-frost-warning"
           >
             {t('pages.season.spring.lateFrostWarning', {
-              date: lateFrostDate.toLocaleDateString(locale, {
+              date: formatDateWith(lateFrostDate, {
                 day: '2-digit',
                 month: 'long',
               }),

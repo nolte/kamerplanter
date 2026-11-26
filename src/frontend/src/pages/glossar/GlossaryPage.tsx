@@ -30,6 +30,7 @@ import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
 import { useGlossaryTerm } from '@/hooks/useGlossaryTerm';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useAppSelector } from '@/store/hooks';
+import { compareCodes } from '@/utils/compareCodes';
 
 /**
  * REQ-035 §5.2 — `<GlossaryPage>` term browser.
@@ -85,7 +86,7 @@ export default function GlossaryPage() {
       bucket.push(term);
       byCategory.set(term.category, bucket);
     }
-    return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
+    return [...byCategory.entries()].sort(([a], [b]) => compareCodes(a, b));
   }, [terms]);
 
   const detail = useGlossaryTerm(selectedSlug, language, expertise);

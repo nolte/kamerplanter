@@ -18,6 +18,7 @@ import {
   type WindowFacing,
 } from '../model/windowOrientation';
 import type { GardenObject } from '../model/types';
+import { compareCodes } from '@/utils/compareCodes';
 
 export interface NearbyWindow {
   key: string;
@@ -72,7 +73,7 @@ export function previewWindowSuggestion(
       contribution: tropical ? null : contribution(facing.azimuthDeg, latitude),
     });
   }
-  windows.sort((a, b) => a.distanceM - b.distanceM || a.key.localeCompare(b.key));
+  windows.sort((a, b) => a.distanceM - b.distanceM || compareCodes(a.key, b.key));
   return {
     placed: true,
     windows,

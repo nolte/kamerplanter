@@ -28,6 +28,7 @@ import {
   type HaEntityInventory,
   type HaEntityInventoryItem,
 } from '@/api/endpoints/adminHaEntityGrants';
+import { compareCodes } from '@/utils/compareCodes';
 
 /** How many entities the list renders at once — the inventory of a real instance runs into the thousands. */
 const MAX_VISIBLE = 100;
@@ -120,7 +121,7 @@ export default function HaEntityGrantsCard({ tenantKey, tenantName }: Props) {
                       granted,
                       present: false,
                     },
-                  ].sort((a, b) => a.entity_id.localeCompare(b.entity_id)),
+                  ].sort((a, b) => compareCodes(a.entity_id, b.entity_id)),
             }
           : prev,
       );

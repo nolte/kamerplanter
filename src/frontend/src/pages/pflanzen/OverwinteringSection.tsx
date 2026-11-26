@@ -27,6 +27,7 @@ import { useNotification } from '@/hooks/useNotification';
 import { useApiError } from '@/hooks/useApiError';
 import OverwinteringOverrideDialog from './OverwinteringOverrideDialog';
 import LoadingStatus from '@/components/common/LoadingStatus';
+import { formatDate, formatDateWith } from '@/utils/formatting';
 
 interface Props {
   plantKey: string;
@@ -54,7 +55,7 @@ function Field({ label, value }: { label: string; value: string }) {
  * profile — the section then explains why nothing needs to be done.
  */
 export default function OverwinteringSection({ plantKey }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const dispatch = useAppDispatch();
   const notification = useNotification();
   const { handleError } = useApiError();
@@ -102,9 +103,8 @@ export default function OverwinteringSection({ plantKey }: Props) {
     }
   }, [dispatch, plantKey, profileLoading, profileError, currentProfile, requestedPlantKey]);
 
-  const locale = i18n.language === 'de' ? 'de-DE' : 'en-GB';
   const monthName = (m: number | null) =>
-    m ? new Date(2024, m - 1).toLocaleString(i18n.language, { month: 'long' }) : '—';
+    m ? formatDateWith(new Date(2024, m - 1), { month: 'long' }) : '—';
 
   const originChip = useMemo(() => {
     if (!currentProfile) return null;
@@ -291,7 +291,7 @@ export default function OverwinteringSection({ plantKey }: Props) {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {t('pages.season.override.autoHint')}
             {p.materialized_at &&
-              ` (${new Date(p.materialized_at).toLocaleDateString(locale)})`}
+              ` (${formatDate(p.materialized_at)})`}
           </Typography>
         )}
 
