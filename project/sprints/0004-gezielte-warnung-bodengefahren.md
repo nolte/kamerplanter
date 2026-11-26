@@ -1,7 +1,7 @@
 ---
 number: 4
-status: planned
-started: null
+status: active
+started: 2026-11-27
 ended: null
 value_statement: Gärtner werden beim Nachpflanzen gezielt gewarnt, wenn ein Beet einen bestätigten bodenbürtigen Erreger trägt – für die betroffenen Wirtspflanzen und nur so lange, wie die belegte Anbaupause reicht.
 artifact_ref: null
@@ -51,7 +51,7 @@ Freigabe des Zuschnitts durch den Betreiber am 2026-11-22.
 
 ## Features
 
-- [F-18](../features/soil-hazard-knowledge.md) — status: ready
+- [F-18](../features/soil-hazard-knowledge.md) — status: in_progress
 - [F-19](../features/failure-cause-class.md) — status: ready
 - [F-20](../features/bed-soil-hazards.md) — status: ready
 - [F-21](../features/soil-aware-replant-hint.md) — status: ready

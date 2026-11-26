@@ -1,7 +1,7 @@
 ---
 id: F-18
 title: Wissenstabelle Bodengefahren mit Belegstatus
-status: ready
+status: in_progress
 roadmap_item: R-20
 sprint: 4
 created: 2026-11-17

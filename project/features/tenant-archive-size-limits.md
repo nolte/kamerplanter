@@ -98,3 +98,10 @@ storage (criterion 4).
 
 - Issue #2138 (MT-042), roadmap item R-19
 - `project/requirements/tenant-export-import-remainder.md` (R1, R2, R10–R12)
+
+## Betreiberentscheidungen 2026-11-27
+
+- Das Speicherlimit des Workers darf für Archive bis etwa 500 MiB dauerhaft auf rund 2 GiB steigen.
+- Der Test mit einem Archiv von etwa 500 MiB läuft **nur manuell** (`workflow_dispatch`), weder je Pull Request noch nachts.
+- Es gibt nur eine Installation; Mandanten werden nicht zwischen Installationen verschoben. Die Datenschutz-Befunde zum Archiv (Abgleich mit abgeschlossenen Löschungen, `anon_`-Pseudonyme, GPS-Genauigkeit) laufen in einer eigenen Lane und sind kein Teil von R-19.
+- #2138 ist geschlossen; der Rest läuft als #3140.

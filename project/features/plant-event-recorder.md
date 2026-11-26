@@ -145,3 +145,7 @@ v1.3 (`:876`), not implemented; `DiaryEntryType.MILESTONE` exists
 
 - REQ-055 v1.5 §10, §11, §22, §24, §37; #2140/#2141 (later waves)
 - Roadmap item R-23; requirement gate: operator override 2026-11-17 (REQ-055 v1.5 as basis)
+
+## Betreiberentscheidungen 2026-11-27
+
+- Wer ein Ereignis ausgeführt hat, wird nur nach der bestehenden Sichtbarkeitsmatrix gezeigt (`spec/privacy/05-access-and-visibility.md`), nicht jedem Mitglied. Das Ereignis speichert die ausführende Person weiterhin; die Projektion für den Verlauf (F-27) entscheidet über die Anzeige.

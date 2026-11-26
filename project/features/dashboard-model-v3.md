@@ -161,3 +161,8 @@ viewers manages own dashboards; API keys stay excluded.
 
 - Epic #2502, roadmap item R-21
 - `project/requirements/multi-dashboard.md` (R1, R2, R8, R9, R16–R23)
+
+## Betreiberentscheidungen 2026-11-27
+
+- Der Vergleichs-PoC „React Grid Layout v2 gegen GridStack" aus dem Epic #2502 entfällt. React Grid Layout v2 ist im Einsatz und die gewählte Engine. Die Layout-Mechanik bleibt hinter einem schmalen Adapter; die Wahl und ihre Abwägung werden mit diesem Feature dokumentiert.
+- Das Epic #2502 schließt mit R-21 (F-22, F-23, F-24). Die Vorlagen (R-22) laufen als eigenes Issue #3141.
