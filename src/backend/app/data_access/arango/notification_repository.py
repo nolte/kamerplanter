@@ -8,9 +8,8 @@ from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
-from app.data_access.arango.query_builder import instant_prefilter_bound
 from app.domain.interfaces.notification_repository import INotificationRepository
-from app.domain.models.notification import Notification, NotificationStatus
+from app.domain.models.notification import WATERING_REMINDER_TYPE, Notification, NotificationStatus
 
 # Collection constants
 NOTIFICATIONS = "notifications"
@@ -208,25 +207,33 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         *,
         tenant_key: str,
     ) -> list[Notification]:
-        """Find the tenant's overdue watering notifications that have not been acted upon.
+        """Find the tenant's watering reminders overdue since ``overdue_since`` at ``escalation_level``.
 
-        Matches:
-        - tenant_key == the given tenant (an empty tenant matches nothing)
-        - notification_type starts with 'care.watering'
-        - acted_at IS NULL
-        - created_at < cutoff
-        - escalation_level == given level (to avoid re-escalating)
+        Matches (#3135 — the predicate :func:`~app.domain.models.notification.announced_due_date`
+        describes, and ``tests/support/overdue_watering_cases.py`` pins for both this
+        statement and the unit fake):
+
+        - ``tenant_key`` == the given tenant (an empty tenant matches nothing)
+        - ``notification_type`` == ``care.watering`` exactly — the escalation rows
+          (``care.watering.escalation``) it sends are never candidates themselves
+        - ``acted_at`` IS NULL
+        - the **announced due date** ``data.due_date`` lies before the cutoff,
+          compared as instants. Not ``created_at``: the care row is reused across
+          occurrences and keeps its creation time, so its age said nothing about
+          whether the occurrence it now announces is due. A row without a readable
+          due date is not proven overdue and is not selected.
+        - ``escalation_level`` == the given level (to avoid re-escalating)
         """
         if not tenant_key:
             return []
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.tenant_key == @tenant_key "
-            f"AND STARTS_WITH(doc.notification_type, 'care.watering') "
+            f"AND doc.notification_type == @notification_type "
             f"AND doc.acted_at == null "
-            f"AND doc.created_at < @cutoff_slack "
-            f"AND DATE_TIMESTAMP(doc.created_at) != null "
-            f"AND DATE_TIMESTAMP(doc.created_at) < DATE_TIMESTAMP(@cutoff) "
+            f"AND IS_STRING(doc.data.due_date) "
+            f"AND DATE_TIMESTAMP(doc.data.due_date) != null "
+            f"AND DATE_TIMESTAMP(doc.data.due_date) < DATE_TIMESTAMP(@cutoff) "
             f"AND doc.escalation_level == @level "
             f"RETURN doc"
         )
@@ -234,8 +241,8 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             query,
             bind_vars={
                 "cutoff": overdue_since.isoformat(),
-                "cutoff_slack": instant_prefilter_bound(overdue_since),
                 "level": escalation_level,
+                "notification_type": WATERING_REMINDER_TYPE,
                 "tenant_key": tenant_key,
             },
         )

@@ -6,7 +6,7 @@ target the public interface (returned ``Notification`` models, counts) and the
 AQL query/bind_vars and edges the repository emits to its collaborator.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -228,12 +228,18 @@ class TestFindOverdueWatering:
 
         assert len(result) == 1
         call = mock_db.aql.execute.call_args
-        assert "STARTS_WITH(doc.notification_type, 'care.watering')" in call.args[0]
+        # #3135: the exact type (no prefix — escalation rows are not candidates) and the
+        # announced due date, as instants; the selection itself is measured against
+        # ArangoDB in tests/integration/test_overdue_watering_candidates.py.
+        assert "STARTS_WITH" not in call.args[0]
+        assert "doc.notification_type == @notification_type" in call.args[0]
+        assert "DATE_TIMESTAMP(doc.data.due_date) < DATE_TIMESTAMP(@cutoff)" in call.args[0]
+        assert "created_at" not in call.args[0]
         assert "doc.tenant_key == @tenant_key" in call.args[0]
         assert call.kwargs["bind_vars"] == {
             "cutoff": cutoff.isoformat(),
-            "cutoff_slack": (cutoff + timedelta(days=1)).isoformat(),
             "level": 1,
+            "notification_type": "care.watering",
             "tenant_key": "t1",
         }
 

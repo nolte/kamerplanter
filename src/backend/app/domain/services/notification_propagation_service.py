@@ -95,6 +95,17 @@ def _group_kind(group_key: str | None) -> str | None:
     return group_key.split(":", 1)[0] if group_key else None
 
 
+def _is_escalation_row(notification: Notification) -> bool:
+    """Whether *notification* is an overdue escalation sent for another row of its group (#3135).
+
+    An escalation carries the reminder's ``group_key`` — so closing the reminder
+    closes its escalations too — but it is an event row: it follows no source,
+    and a reminder update must neither keep it in place of the reminder nor
+    prune the reminder as its "duplicate".
+    """
+    return notification.parent_notification_key is not None or notification.notification_type.endswith(".escalation")
+
+
 class NotificationPropagationService:
     """Keep in-app notifications in sync with their source task/care reminder."""
 
@@ -303,6 +314,13 @@ class NotificationPropagationService:
                 filter strictly on ``read_at == null``. Left ``False`` when the call
                 merely *retimes* the occurrence the user already has, so an edit
                 never resurfaces a note that was deliberately dealt with.
+
+                A new occurrence also starts a new **escalation cycle** (#3135): the
+                row's ``escalation_level`` goes back to 0 and the previous cycle's
+                escalation rows are marked done. A retiming keeps the level — the
+                levels already sent for this occurrence are not sent again; the
+                remaining ones follow the moved due date (REQ-030 §1.2 counts from
+                "fällig").
         """
         if not tenant_key or not plant_key:
             return
@@ -319,7 +337,17 @@ class NotificationPropagationService:
         body = self._care_body(plant_label or plant_key, reminder_type, due_date)
         actions = [self._confirm_action()]
 
-        existing = self._safe_lookup(group_key, tenant_key)
+        # An escalation row shares the group but follows no source: it is never the
+        # row kept, and never pruned as a duplicate of the one kept (#3135 — the
+        # newest row of a retimed group used to be the escalation, and the reminder
+        # itself was deleted). Only this group can hold one; the task groups cannot.
+        group = self._safe_lookup(group_key, tenant_key)
+        escalations = [row for row in group if _is_escalation_row(row)]
+        existing = [row for row in group if not _is_escalation_row(row)]
+        if reset_read:
+            # A new occurrence ends the previous one's escalation cycle (#3135): its
+            # "Overdue" rows no longer describe anything open.
+            self._mark_group_done(escalations)
         if existing:
             self._update_single(
                 existing,
@@ -334,7 +362,10 @@ class NotificationPropagationService:
 
         # Nobody to address: a background retiming (no acting user) follows an
         # existing note but never invents one — the repository refuses a row
-        # without a recipient anyway (MT-045.8).
+        # without a recipient anyway (MT-045.8). A group that holds only escalation
+        # rows lost its reminder to the pre-#3135 prune; their recipient is the
+        # reminder's, so the reminder is re-created for them.
+        user_key = user_key or next((row.user_key for row in escalations if row.user_key), "")
         if not user_key:
             return
 
@@ -524,6 +555,10 @@ class NotificationPropagationService:
         if reset_read:
             keep.read_at = None
             keep.acted_at = None
+            # A new occurrence, a new escalation cycle (#3135). The level of the
+            # previous occurrence would otherwise hold back (level 3: never again) or
+            # skip the first steps of this one.
+            keep.escalation_level = 0
 
         for attempt in (1, 2):
             try:

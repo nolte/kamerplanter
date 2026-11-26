@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
@@ -49,6 +49,41 @@ class Notification(BaseModel):
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+
+#: The one notification type the overdue escalation reads (REQ-030 §1.2: watering only).
+#: Matched exactly: a prefix would also take :data:`WATERING_ESCALATION_TYPE` (#3135).
+WATERING_REMINDER_TYPE = "care.watering"
+
+#: The type of the notification the escalation sends. It shares the reminder's
+#: ``group_key`` (closing the reminder closes its escalations) but is an event row,
+#: never an escalation candidate and never the row a reminder update keeps (#3135).
+WATERING_ESCALATION_TYPE = "care.watering.escalation"
+
+
+def announced_due_date(notification: Notification) -> datetime | None:
+    """The due date of the occurrence a care reminder row announces, as an aware instant.
+
+    Both producers of ``care.watering`` rows write it into ``data["due_date"]`` as an
+    ISO string: the propagation owner on every create, new occurrence and retiming
+    (``NotificationPropagationService.sync_care_notification``, in the same call
+    that moves the task), and the due-care dispatch from the task it announces.
+    The overdue escalation measures "overdue for N days" from it (REQ-030 §1.2,
+    "Tag 0 = fällig"), never from ``created_at``: the propagation row is reused
+    across occurrences and keeps its creation time (#3135).
+
+    The reading matches ``DATE_TIMESTAMP`` in ``find_overdue_watering``: a string
+    without an offset is UTC, anything that is not a readable ISO string is
+    ``None`` — and a row without a readable due date is not proven overdue.
+    """
+    raw = notification.data.get("due_date") if isinstance(notification.data, dict) else None
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        moment = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
 
 
 class ChannelResult(BaseModel):

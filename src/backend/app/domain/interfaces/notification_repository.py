@@ -80,7 +80,13 @@ class INotificationRepository(ABC):
         escalation_level: int,
         *,
         tenant_key: str,
-    ) -> list[Notification]: ...
+    ) -> list[Notification]:
+        """The tenant's unacted ``care.watering`` rows at ``escalation_level`` whose announced
+        due date (:func:`~app.domain.models.notification.announced_due_date`) is before
+        ``overdue_since`` (#3135). Escalation rows are never returned; an empty tenant
+        returns nothing.
+        """
+        ...
 
     @abstractmethod
     def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:

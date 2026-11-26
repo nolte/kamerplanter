@@ -219,7 +219,7 @@ In der Aufgaben-Übersicht stehen folgende Filter zur Verfügung:
     Wenn du eine Pflanze entfernst, werden ihre noch offenen Aufgaben (ausstehend, in Bearbeitung, ruhend) automatisch aus der Warteschlange entfernt. Bereits erledigte, übersprungene oder fehlgeschlagene Aufgaben bleiben als Verlauf erhalten. Für entfernte Pflanzen werden außerdem keine neuen automatischen Pflegeerinnerungen mehr erzeugt.
 
 ??? question "Eskaliert Kamerplanter überfällige Aufgaben automatisch?"
-    Nur für **Gieß-Erinnerungen**: Bleibt eine Gieß-Erinnerung unbestätigt, erhöht das System die Dringlichkeit der Benachrichtigung nach 2 Tagen auf „Hoch" und nach 4 Tagen auf „Kritisch"; nach 7 Tagen folgt eine letzte Warnung. Für andere Aufgabentypen gibt es keine automatische Eskalation — die rote Überfällig-Markierung ist hier nur ein visueller Hinweis.
+    Nur für **Gieß-Erinnerungen**: Bleibt eine Gieß-Erinnerung unbestätigt, erhöht das System die Dringlichkeit der Benachrichtigung 2 Tage nach dem Fälligkeitstag auf „Hoch" und nach 4 Tagen auf „Kritisch"; nach 7 Tagen folgt eine letzte Warnung. Für andere Aufgabentypen gibt es keine automatische Eskalation — die rote Überfällig-Markierung ist hier nur ein visueller Hinweis.
 
 ??? question "Kann ich wiederkehrende Aufgaben anlegen?"
     Ja, direkt beim Erstellen einer Aufgabe über das Feld **Wiederholung** (täglich/wöchentlich/zweiwöchentlich/monatlich) — sichtbar ab der Erfahrungsstufe „Fortgeschritten". Sobald du eine wiederkehrende Aufgabe abschließt, legt Kamerplanter automatisch die nächste Instanz an.

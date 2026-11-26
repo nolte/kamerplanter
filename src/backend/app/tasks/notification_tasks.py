@@ -238,17 +238,21 @@ def escalate_overdue_notifications() -> dict:
     """Escalate overdue watering reminders.
 
     Runs daily at 12:00 UTC. Checks for unacted watering notifications
-    and sends escalation notifications with increasing urgency.
+    and sends escalation notifications with increasing urgency — only to a
+    recipient who is still an active member of the tenant (#2114, #3135).
 
-    Escalation levels:
+    Escalation levels, counted from the announced due date (#3135):
     - Day +2: urgency -> HIGH
     - Day +4: urgency -> CRITICAL
     - Day +7: final warning
     """
-    from app.common.dependencies import get_notification_service, get_tenant_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_tenant_repo
 
     service = get_notification_service()
     tenant_repo = get_tenant_repo()
+    # #2114 — the recipient of an overdue reminder must still be an active member, the
+    # rule the due-care dispatch applies to the same reminders (#3135).
+    is_active_member = _ActiveMembers(get_membership_repo(), tenant_repo)
 
     # Get all tenants
     tenants = [_as_doc(t) for t in get_all_pages(tenant_repo)]
@@ -265,7 +269,7 @@ def escalate_overdue_notifications() -> dict:
             continue
 
         try:
-            result = asyncio.run(service._engine.escalate_overdue(tenant_key))
+            result = asyncio.run(service._engine.escalate_overdue(tenant_key, is_active_member=is_active_member))
             escalated = result.get("escalated", 0)
             total_escalated += escalated
             tenants_processed += 1

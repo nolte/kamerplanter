@@ -1,5 +1,6 @@
 """Notification engine — orchestrates delivery across channels."""
 
+from collections.abc import Callable
 from datetime import UTC, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -14,6 +15,7 @@ from app.domain.interfaces.notification_repository import INotificationRepositor
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.notification import (
     EMAIL_RECIPIENT_KEYS,
+    WATERING_ESCALATION_TYPE,
     ChannelPreference,
     ChannelResult,
     EscalationPreference,
@@ -264,10 +266,11 @@ class NotificationEngine:
 
         return {"status": "batch_complete", "sent": total_sent, "failed": total_failed}
 
-    async def escalate_overdue(self, tenant_key: str) -> dict:
+    async def escalate_overdue(self, tenant_key: str, *, is_active_member: Callable[[str, str], bool]) -> dict:
         """Escalate the tenant's overdue watering reminders.
 
-        Escalation levels:
+        Escalation levels, counted from the due date the reminder announces
+        (REQ-030 §1.2, "Tag 0 = fällig"; never from the row's ``created_at``, #3135):
         - Day +2: urgency -> HIGH
         - Day +4: urgency -> CRITICAL
         - Day +7: final warning
@@ -275,6 +278,25 @@ class NotificationEngine:
         Only the run's own tenant is read (the overdue query is tenant-scoped; an
         empty tenant escalates nothing). One row that fails is logged and skipped —
         it does not abort the tenant's remaining rows.
+
+        A row moves **one level per run**: a reminder first seen long overdue (after
+        an outage, or a due date set in the past) is not walked through every level
+        in one go — the later levels would hit the 24 h dedup and be recorded as
+        reached without ever being sent, the final warning included.
+
+        Args:
+            is_active_member: ``(user_key, tenant_key) -> bool`` — whether the row's
+                recipient is still an active member of the tenant (#2114). A row of a
+                former or deactivated member is neither claimed nor sent. Required on
+                purpose: the beat passes the same membership check the due-care
+                dispatch uses, and no caller can forget it.
+
+        Returns:
+            ``{"escalated": n}`` — the escalation notifications actually written
+            (delivered, failed on every channel, queued for quiet hours or kept in-app
+            without a channel — each is a row in the user's centre). A claimed level
+            whose send the dedup suppressed is not counted, nor one whose send raised;
+            either stays claimed (at most once per level, decision 2026-11-27).
         """
         if not tenant_key:
             return {"escalated": 0}
@@ -283,6 +305,7 @@ class NotificationEngine:
         escalation_days = escalation_config.escalation_days  # [2, 4, 7]
 
         escalated_count = 0
+        moved_this_run: set[str] = set()
         now = datetime.now(UTC)
 
         for level, days in enumerate(escalation_days):
@@ -294,8 +317,10 @@ class NotificationEngine:
             )
 
             for notif in overdue:
+                if notif.key in moved_this_run:
+                    continue
                 try:
-                    if await self._escalate_one(notif, level, tenant_key):
+                    if await self._escalate_one(notif, level, tenant_key, is_active_member):
                         escalated_count += 1
                 except Exception as exc:  # noqa: BLE001 — one row must not abort the tenant's run
                     logger.warning(
@@ -305,6 +330,9 @@ class NotificationEngine:
                         escalation_level=level + 1,
                         error=loggable_error(exc),
                     )
+                finally:
+                    if notif.key:
+                        moved_this_run.add(notif.key)
 
         logger.info(
             "escalation_complete",
@@ -314,8 +342,18 @@ class NotificationEngine:
 
         return {"escalated": escalated_count}
 
-    async def _escalate_one(self, notif: Notification, level: int, tenant_key: str) -> bool:
-        """Escalate one overdue row by one level; ``True`` when the escalation was sent."""
+    async def _escalate_one(
+        self,
+        notif: Notification,
+        level: int,
+        tenant_key: str,
+        is_active_member: Callable[[str, str], bool],
+    ) -> bool:
+        """Escalate one overdue row by one level; ``True`` when an escalation notification was written."""
+        # #2114 — only an active member of the row's tenant is told about its plants.
+        if not is_active_member(notif.user_key, tenant_key):
+            return False
+
         # Check user preferences for watering escalation
         prefs = self._load_preferences(notif.user_key)
         if not prefs.escalation.watering_enabled:
@@ -326,7 +364,7 @@ class NotificationEngine:
         escalation_notif = Notification(
             tenant_key=notif.tenant_key,
             user_key=notif.user_key,
-            notification_type="care.watering.escalation",
+            notification_type=WATERING_ESCALATION_TYPE,
             title=notif.title,
             body=f"Overdue: {notif.body}",
             urgency=new_urgency,
@@ -355,12 +393,13 @@ class NotificationEngine:
         if not claimed:
             return False
 
-        await self.notify(
+        result = await self.notify(
             user_key=notif.user_key,
             tenant_key=notif.tenant_key,
             notification=escalation_notif,
         )
-        return True
+        # A deduplicated send wrote and sent nothing (#3135: it was counted as escalated).
+        return bool(result.get("notification_key"))
 
     # ── Channel resolution ────────────────────────────────────────────
 

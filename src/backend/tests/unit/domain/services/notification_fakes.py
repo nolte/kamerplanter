@@ -25,7 +25,13 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.domain.models.notification import Notification, NotificationStatus
+from app.domain.models.notification import (
+    WATERING_ESCALATION_TYPE,
+    WATERING_REMINDER_TYPE,
+    Notification,
+    NotificationStatus,
+    announced_due_date,
+)
 
 
 class FakeNotificationRepo:
@@ -94,14 +100,39 @@ class FakeNotificationRepo:
         ]
 
 
+def is_overdue_watering_candidate(
+    row: Notification, overdue_since: datetime, escalation_level: int, *, tenant_key: str
+) -> bool:
+    """The filter of ``ArangoNotificationRepository.find_overdue_watering``, clause by clause (#3135).
+
+    ``tenant_key`` (empty: nothing) · ``notification_type == care.watering`` exactly ·
+    ``acted_at == null`` · ``data.due_date`` a readable ISO string before the cutoff,
+    as instants (:func:`announced_due_date` reads it like ``DATE_TIMESTAMP``) ·
+    ``escalation_level == level``. Held to the same case table as the AQL.
+    """
+    due = announced_due_date(row)
+    return (
+        bool(tenant_key)
+        and row.tenant_key == tenant_key
+        and row.notification_type == WATERING_REMINDER_TYPE
+        and row.acted_at is None
+        and due is not None
+        and due < overdue_since
+        and row.escalation_level == escalation_level
+    )
+
+
 class EscalationNotificationRepo(FakeNotificationRepo):
     """The fake plus the escalation surface, modelled on the real AQL (ADR-008 F-8).
 
     * Every read returns a fresh copy, as ArangoDB materialises a new model per
       document — so a caller holding a stale row is representable.
-    * :meth:`find_overdue_watering` is tenant-scoped (an empty tenant reads
-      nothing), type prefix ``care.watering``, not acted upon, older than the
-      cutoff, at exactly the queried level.
+    * :meth:`find_overdue_watering` applies :func:`is_overdue_watering_candidate`,
+      the Python reading of the AQL filter. Both are held to one case table
+      (``tests/support/overdue_watering_cases.py``): the unit test
+      ``test_overdue_watering_fake_matches_the_case_table`` runs it against this
+      fake, the integration test ``test_overdue_watering_candidates`` against
+      ArangoDB — so the fake cannot select a row the real statement would not.
     * :meth:`claim_escalation_level` is the single conditional write: key, tenant
       and "level still below" are checked and the level is raised in one step,
       touching no other field. A sequential fake cannot interleave inside it, and
@@ -134,21 +165,14 @@ class EscalationNotificationRepo(FakeNotificationRepo):
     def find_overdue_watering(
         self, overdue_since: datetime, escalation_level: int, *, tenant_key: str
     ) -> list[Notification]:
-        if not tenant_key:
-            return []
         return [
             row.model_copy(deep=True)
             for row in self._store.values()
-            if row.tenant_key == tenant_key
-            and row.notification_type.startswith("care.watering")
-            and row.acted_at is None
-            and row.created_at is not None
-            and row.created_at < overdue_since
-            and row.escalation_level == escalation_level
+            if is_overdue_watering_candidate(row, overdue_since, escalation_level, tenant_key=tenant_key)
         ]
 
     def escalations(self) -> list[Notification]:
-        return [row for row in self._store.values() if row.notification_type == "care.watering.escalation"]
+        return [row for row in self._store.values() if row.notification_type == WATERING_ESCALATION_TYPE]
 
     def seed_overdue_care_row(
         self,
@@ -158,7 +182,13 @@ class EscalationNotificationRepo(FakeNotificationRepo):
         days_old: int = 3,
         group_key: str = "care.watering:plant-1",
     ) -> str:
-        """A care note its user has not acted on for *days_old* days (level-0 overdue only)."""
+        """A care note announcing a watering due *days_old* days ago, not acted on (level-0 overdue only).
+
+        The age is the announced due date (``data.due_date``), the field the overdue
+        query reads (#3135); ``created_at`` is set to the same instant only so a
+        test that sorts by it still sees this row as the older one.
+        """
+        due = datetime.now(UTC) - timedelta(days=days_old)
         row = self.create(
             Notification(
                 tenant_key=tenant_key,
@@ -166,9 +196,10 @@ class EscalationNotificationRepo(FakeNotificationRepo):
                 notification_type="care.watering",
                 title="Monstera",
                 body="watering due: Monstera",
+                data={"due_date": due.isoformat()},
                 group_key=group_key,
                 status=NotificationStatus.DELIVERED,
             )
         )
-        row.created_at = datetime.now(UTC) - timedelta(days=days_old)
+        row.created_at = due
         return row.key or ""

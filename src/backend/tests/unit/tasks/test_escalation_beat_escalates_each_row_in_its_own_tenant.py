@@ -49,6 +49,20 @@ class _Tenants:
     def get_all(self, offset: int = 0, limit: int = 1000, **_kwargs):  # noqa: ANN201 - the paging contract
         return self._rows[offset : offset + limit], len(self._rows)
 
+    def get_by_key(self, key: str) -> Tenant | None:
+        """The read the beat's membership check makes (``ActiveTenants``)."""
+        return next((row for row in self._rows if row.key == key), None)
+
+
+class _Memberships:
+    """``get_by_user_and_tenant`` over a set of active ``(user, tenant)`` pairs."""
+
+    def __init__(self, active: set[tuple[str, str]]) -> None:
+        self.active = active
+
+    def get_by_user_and_tenant(self, user_key: str, tenant_key: str):  # noqa: ANN201 - the membership contract
+        return SimpleNamespace(is_active=True) if (user_key, tenant_key) in self.active else None
+
 
 class _RunAwareRepo(EscalationNotificationRepo):
     """Records in which tenant's run each claim happened."""
@@ -86,29 +100,30 @@ def world(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     real_escalate = engine.escalate_overdue
     runs: list[str] = []
 
-    async def escalate(tenant_key: str) -> dict:
+    async def escalate(tenant_key: str, **kwargs: object) -> dict:
         runs.append(tenant_key)
         repo.current_run = tenant_key
-        return await real_escalate(tenant_key)
+        return await real_escalate(tenant_key, **kwargs)  # type: ignore[arg-type]
 
     engine.escalate_overdue = escalate  # type: ignore[method-assign]
 
     deps = ModuleType("app.common.dependencies")
     deps.get_notification_service = MagicMock(return_value=SimpleNamespace(_engine=engine))  # type: ignore[attr-defined]
-    deps.get_tenant_repo = MagicMock(  # type: ignore[attr-defined]
-        return_value=_Tenants(
-            _tenant("tenant-a"),
-            _tenant("tenant-b"),
-            _tenant("tenant-c", TenantStatus.SUSPENDED),
-        )
+    tenants = _Tenants(
+        _tenant("tenant-a"),
+        _tenant("tenant-b"),
+        _tenant("tenant-c", TenantStatus.SUSPENDED),
     )
+    deps.get_tenant_repo = MagicMock(return_value=tenants)  # type: ignore[attr-defined]
+    memberships = _Memberships({("member", "tenant-a"), ("member", "tenant-b"), ("member", "tenant-c")})
+    deps.get_membership_repo = MagicMock(return_value=memberships)  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.common.dependencies", deps)
 
     rows = {
         tenant: repo.seed_overdue_care_row(tenant_key=tenant, user_key=USER, group_key=f"care.watering:p-{tenant}")
         for tenant in ("tenant-b", "tenant-c")
     }
-    return SimpleNamespace(repo=repo, runs=runs, rows=rows)
+    return SimpleNamespace(repo=repo, runs=runs, rows=rows, memberships=memberships)
 
 
 def _beat() -> dict:
@@ -144,3 +159,14 @@ def test_a_second_beat_escalates_nothing_more(world: SimpleNamespace) -> None:
     assert second["total_escalated"] == 0
     assert len(world.repo.escalations()) == 1
     assert world.repo.claimed_in == [(world.rows["tenant-b"], "tenant-b")]
+
+
+def test_a_recipient_who_left_the_tenant_is_not_escalated_to(world: SimpleNamespace) -> None:
+    """#2114 / #3135: the beat asks the stored membership, like the due-care dispatch."""
+    world.memberships.active.discard((USER, "tenant-b"))
+
+    result = _beat()
+
+    assert result["total_escalated"] == 0
+    assert world.repo.escalations() == []
+    assert world.repo.get(world.rows["tenant-b"]).escalation_level == 0, "not claimed: a rejoin escalates again"

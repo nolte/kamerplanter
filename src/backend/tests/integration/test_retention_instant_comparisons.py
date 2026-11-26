@@ -688,12 +688,13 @@ SELECTORS: tuple[Selector, ...] = (
         base={
             "tenant_key": TENANT,
             "user_key": USER,
-            "notification_type": "care.watering.due",
+            "notification_type": "care.watering",
             "title": "t",
             "body": "b",
             "escalation_level": 1,
         },
-        field="created_at",
+        # #3135: overdue is measured from the announced due date, not the row's age.
+        field="data.due_date",
         selects="before",
         run=_returned_keys(
             lambda db, cut: ArangoNotificationRepository(db).find_overdue_watering(
@@ -701,7 +702,7 @@ SELECTORS: tuple[Selector, ...] = (
             )
         ),
         undated_selected=False,
-        why_undated="age-based: a notification whose age cannot be read is not proven overdue",
+        why_undated="a reminder whose due date cannot be read is not proven overdue",
     ),
     Selector(
         name="plant_diary.list_pending_analyses[lease]",
@@ -726,7 +727,12 @@ SELECTORS: tuple[Selector, ...] = (
 def _seed(db: StandardDatabase, selector: Selector, stamp: str | None) -> str:
     doc = {**selector.base}
     if stamp is not None:
-        doc[selector.field] = stamp
+        # A dotted field is a nested attribute (``data.due_date``, #3135).
+        *parents, leaf = selector.field.split(".")
+        target = doc
+        for name in parents:
+            target = target.setdefault(name, {})
+        target[leaf] = stamp
     return db.collection(selector.collection).insert(doc)["_key"]
 
 

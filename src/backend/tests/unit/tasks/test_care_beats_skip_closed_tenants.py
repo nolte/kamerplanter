@@ -196,7 +196,8 @@ class _Notifier:
     async def send_notification(self, **kwargs) -> None:  # noqa: ANN003
         self.summaries.append(kwargs["tenant_key"])
 
-    async def _escalate(self, tenant_key: str) -> dict:
+    async def _escalate(self, tenant_key: str, *, is_active_member) -> dict:  # noqa: ANN001 - the engine's contract
+        assert callable(is_active_member), "the beat hands the engine its membership check (#3135)"
         self.escalated.append(tenant_key)
         return {"escalated": 1}
 
