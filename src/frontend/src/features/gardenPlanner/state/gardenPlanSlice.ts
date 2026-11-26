@@ -45,6 +45,7 @@ import {
   planEntry,
   readThrough,
   scopeFromState,
+  sessionFromState,
   type ScopedEntry,
   type ScopeState,
 } from '../offline/planCache';
@@ -218,6 +219,7 @@ function planCacheEntry(getState: () => unknown, siteKey: string): ScopedEntry {
   return {
     scope: () => scopeFromState(getState() as ScopeState),
     entry: (scope) => planEntry(scope, siteKey),
+    session: () => sessionFromState(getState() as ScopeState),
   };
 }
 
@@ -254,7 +256,7 @@ export const refreshGardenPlan = createAsyncThunk<PlanModel, string, { rejectVal
   async (siteKey, { getState, rejectWithValue }) => {
     try {
       const cached = planCacheEntry(getState, siteKey);
-      const binding = cacheBinding();
+      const binding = cacheBinding(cached);
       const begunAs = cached.scope();
       const response = await api.getGardenPlan(siteKey);
       // The re-read plan is the last loaded one now (WP 9.2): the cache follows it.

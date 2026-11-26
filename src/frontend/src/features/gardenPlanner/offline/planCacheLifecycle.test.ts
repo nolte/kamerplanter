@@ -220,3 +220,63 @@ describe('hiding the page leaves nothing of the plan cache behind (#3082)', () =
     expect(await readCached(planEntry(ALICE, 'site_0'))).toMatchObject({ data: PLAN });
   });
 });
+
+describe('a page shown again (#3082 review S3, nits)', () => {
+  it('freeze closes and opens nothing; resume opens again', async () => {
+    await writeCached(planEntry(ALICE, 'site_1'), PLAN, Date.now());
+    const first = opens[0];
+    document.dispatchEvent(new Event('freeze'));
+    expect(isOpen(first.result)).toBe(false);
+    expect(await readCached(planEntry(ALICE, 'site_1'))).toBeNull();
+    expect(opens).toHaveLength(1);
+
+    document.dispatchEvent(new Event('resume'));
+    expect(await readCached(planEntry(ALICE, 'site_1'))).toMatchObject({ data: PLAN });
+  });
+
+  it('a frozen page that becomes visible without a resume uses the cache again', async () => {
+    await writeCached(planEntry(ALICE, 'site_1'), PLAN, Date.now());
+    document.dispatchEvent(new Event('freeze'));
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(await readCached(planEntry(ALICE, 'site_1'))).toMatchObject({ data: PLAN });
+  });
+
+  it('a database deleted while the page was in the bfcache retires the cache (no refill under the old scope)', async () => {
+    await writeCached(planEntry(ALICE, 'site_1'), PLAN, Date.now());
+    hidePage();
+    // Another tab clears; this frozen page has no connection, so no versionchange reaches it.
+    expect(await deleteDatabase()).toBe('success');
+    showPage();
+    await writeCached(planEntry(ALICE, 'site_2'), PLAN, Date.now());
+    await settle();
+
+    expect(await databaseNames()).not.toContain(PLAN_CACHE_DB_NAME);
+  });
+
+  it('without indexedDB.databases() a page shown again after holding the database retires as well', async () => {
+    await writeCached(planEntry(ALICE, 'site_1'), PLAN, Date.now());
+    hidePage();
+    const databases = indexedDB.databases;
+    Object.defineProperty(indexedDB, 'databases', { configurable: true, value: undefined });
+    try {
+      showPage();
+      await writeCached(planEntry(ALICE, 'site_2'), PLAN, Date.now());
+      await settle();
+    } finally {
+      Object.defineProperty(indexedDB, 'databases', { configurable: true, value: databases });
+    }
+    // Read back in a fresh page state: the write did not land, it is not just hidden by the retirement.
+    resetPlanCacheForTests();
+    expect(await readCached(planEntry(ALICE, 'site_1'))).toMatchObject({ data: PLAN });
+    expect(await readCached(planEntry(ALICE, 'site_2'))).toBeNull();
+  });
+
+  it('a database still there keeps the cache in use after the page is shown', async () => {
+    await writeCached(planEntry(ALICE, 'site_1'), PLAN, Date.now());
+    hidePage();
+    showPage();
+    await writeCached(planEntry(ALICE, 'site_2'), PLAN, Date.now());
+    expect(await readCached(planEntry(ALICE, 'site_2'))).toMatchObject({ data: PLAN });
+  });
+});

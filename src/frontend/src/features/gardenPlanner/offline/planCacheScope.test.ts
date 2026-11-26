@@ -1,19 +1,19 @@
 import 'fake-indexeddb/auto';
 import { configureStore } from '@reduxjs/toolkit';
 import { http, HttpResponse } from 'msw';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setActiveTenantSlug } from '@/api/client';
 import { loadGardenPlan } from '@/features/gardenPlanner/state/gardenPlanSlice';
 import { planResponse } from '@/test/gardenPlanFixtures';
 import { server } from '@/test/mocks/server';
-import { postNamespace } from '@/pwa/offlineData';
+import { clearOfflineData, postNamespace } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
 import { rootReducer } from '@/store/rootReducer';
 import { createSessionEpochMiddleware } from '@/store/sessionEpochMiddleware';
 import { sessionListener } from '@/store/sessionListener';
-import { fetchProfile, logoutUser } from '@/store/slices/authSlice';
+import { fetchProfile, loginLocal, logoutUser } from '@/store/slices/authSlice';
 import { clearActiveTenant, loadMyTenants } from '@/store/slices/tenantSlice';
-import { planEntry, readCached, resetPlanCacheForTests, type CacheScope } from './planCache';
+import { PLAN_CACHE_TTL_MS, planEntry, readCached, resetPlanCacheForTests, type CacheScope } from './planCache';
 
 /**
  * #3082 shape 2 (full mode) — the plan read takes its cache scope when the answer is in, not at dispatch.
@@ -159,5 +159,96 @@ describe('the plan read caches in the scope known when the answer is in (#3082)'
     await settle(100);
     expect(await readCached(planEntry({ userKey: NEXT_USER.key, tenantKey: TENANT_A.key }, SITE))).toBeNull();
     expect(await readCached(planEntry(IN_A, SITE))).toBeNull();
+  });
+});
+
+/** An interactive login: the token is in, the tenant list may arrive before the profile (`AuthProvider` ~201). */
+function signedInWithoutProfile(store: Store, token: string, tenants = [TENANT_A]): void {
+  store.dispatch(loginLocal.fulfilled({ access_token: token } as never, `login-${token}`, { email: '', password: '' }));
+  store.dispatch(loadMyTenants.fulfilled(tenants as never, `tenants-${token}`));
+}
+
+/** The plan endpoint answering at once. */
+function plainPlan(): void {
+  server.use(http.get('/api/v1/t/:slug/sites/:site/plan', () => HttpResponse.json(planResponse({ site_key: SITE }))));
+}
+
+describe('a held answer is written only for the session it was requested in (#3082 review)', () => {
+  it('S1: a refused profile and the next sign-in in the same tab never receive the held answer', async () => {
+    const store = productionStore();
+    plainPlan();
+    signedInWithoutProfile(store, 'token-b');
+    const action = await store.dispatch(loadGardenPlan(SITE));
+    expect(loadGardenPlan.fulfilled.match(action)).toBe(true);
+    // B's profile is refused: no session end, the namespace keeps tenant A without a user.
+    store.dispatch(fetchProfile.rejected(new Error('refused'), 'profile-b'));
+    // C signs in in the same tab and is a member of A as well.
+    signedInWithoutProfile(store, 'token-c');
+    store.dispatch(fetchProfile.fulfilled(NEXT_USER as never, 'profile-c'));
+    await settle(100);
+
+    expect(await readCached(planEntry({ userKey: NEXT_USER.key, tenantKey: TENANT_A.key }, SITE))).toBeNull();
+  });
+
+  it("S2: another tab's logout of a user this tab did not know yet drops the held answer", async () => {
+    const store = productionStore();
+    plainPlan();
+    signedInWithoutProfile(store, 'token-u');
+    await store.dispatch(loadGardenPlan(SITE));
+    // Another tab of the origin (its own module scope) holds U's session and logs out: this tab, still without a
+    // user, hears a clearing for a session it does not hold (`foreign`).
+    vi.resetModules();
+    const otherTab = await import('@/pwa/offlineData');
+    await otherTab.postNamespace(USER.key, TENANT_A.key);
+    await otherTab.clearOfflineData();
+    await settle();
+    // This tab's access token still lives: the profile arrives and the namespace becomes (U, A).
+    store.dispatch(fetchProfile.fulfilled(USER as never, 'profile-u'));
+    await settle(100);
+
+    expect(await readCached(planEntry(IN_A, SITE))).toBeNull();
+  });
+
+  it('a tenant switch while the answer is held writes nothing in either tenant', async () => {
+    const store = productionStore();
+    plainPlan();
+    signedInWithoutProfile(store, 'token-u');
+    await store.dispatch(loadGardenPlan(SITE));
+    // `TenantSwitcher`: the clearing first, then the other tenant; then the profile comes in.
+    await clearOfflineData();
+    store.dispatch(clearActiveTenant());
+    store.dispatch(loadMyTenants.fulfilled([TENANT_B] as never, 'tenants-b'));
+    store.dispatch(fetchProfile.fulfilled(USER as never, 'profile-u'));
+    await settle(100);
+
+    expect(await readCached(planEntry(IN_B, SITE))).toBeNull();
+    expect(await readCached(planEntry(IN_A, SITE))).toBeNull();
+  });
+
+  it('a held answer expires after the TTL even when no session event comes', async () => {
+    const store = productionStore();
+    plainPlan();
+    const timers = vi.spyOn(globalThis, 'setTimeout');
+    signedInWithoutProfile(store, 'token-u');
+    await store.dispatch(loadGardenPlan(SITE));
+    const expiry = timers.mock.calls.find(([, delay]) => delay === PLAN_CACHE_TTL_MS);
+    timers.mockRestore();
+    expect(expiry).toBeDefined();
+    // The TTL passes: the timer the hold set fires.
+    (expiry![0] as () => void)();
+    store.dispatch(fetchProfile.fulfilled(USER as never, 'profile-u'));
+    await settle(100);
+
+    expect(await readCached(planEntry(IN_A, SITE))).toBeNull();
+  });
+
+  it('the same sign-in still gets the held answer once its profile is in (no over-blocking)', async () => {
+    const store = productionStore();
+    plainPlan();
+    signedInWithoutProfile(store, 'token-u');
+    await store.dispatch(loadGardenPlan(SITE));
+    store.dispatch(fetchProfile.fulfilled(USER as never, 'profile-u'));
+
+    await expect.poll(() => readCached(planEntry(IN_A, SITE)), { timeout: 2000 }).not.toBeNull();
   });
 });

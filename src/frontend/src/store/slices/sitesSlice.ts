@@ -5,6 +5,7 @@ import {
   isOfflineCacheMiss,
   readThrough,
   scopeFromState,
+  sessionFromState,
   siteListEntry,
   type ScopedEntry,
   type ScopeState,
@@ -62,6 +63,7 @@ export const fetchSites = createAsyncThunk<
       ? {
           scope: () => scopeFromState(getState() as ScopeState),
           entry: (scope) => siteListEntry(scope, all ? 'all' : (limit ?? SITE_LIST_DEFAULT_LIMIT)),
+          session: () => sessionFromState(getState() as ScopeState),
         }
       : null;
   try {

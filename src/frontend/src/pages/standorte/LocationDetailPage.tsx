@@ -45,7 +45,7 @@ import { useApiError } from '@/hooks/useApiError';
 import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { useSmartHomeEnabled } from '@/hooks/useSmartHomeEnabled';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
-import { useAppDispatch } from '@/store/hooks';
+import { useAppDispatch, useAppStore } from '@/store/hooks';
 import { setBreadcrumbs } from '@/store/slices/uiSlice';
 import * as api from '@/api/endpoints/sites';
 import * as tankApi from '@/api/endpoints/tanks';
@@ -60,8 +60,13 @@ import { getBedSummary } from '@/features/gardenPlanner/bed/bedApi';
 import TentRulesSection from '@/features/gardenPlanner/bed/TentRulesSection';
 import type { BedSummary } from '@/features/gardenPlanner/bed/types';
 import OfflineCacheMiss from '@/features/gardenPlanner/offline/OfflineCacheMiss';
-import { bedSummaryEntry, isOfflineCacheMiss, readThrough } from '@/features/gardenPlanner/offline/planCache';
-import { useCacheScope } from '@/features/gardenPlanner/offline/useCacheScope';
+import {
+  bedSummaryEntry,
+  isOfflineCacheMiss,
+  readThrough,
+  scopeFromState,
+  sessionFromState,
+} from '@/features/gardenPlanner/offline/planCache';
 import { useReloadOnReconnect } from '@/features/gardenPlanner/offline/useReloadOnReconnect';
 import { errorKey } from '@/api/errors';
 import { captureHandledError } from '@/observability/errorTracking';
@@ -147,7 +152,9 @@ export default function LocationDetailPage() {
   const [loadedSummary, setLoadedSummary] = useState<BedSummary | null>(null);
   const bedSummary = loadedSummary !== null && loadedSummary.key === key ? loadedSummary : null;
   // REQ-053 WP 9.2: offline the summary comes from the plan cache; `cachedAt` is the online read it was stored by.
-  const cacheScope = useCacheScope();
+  // The scope is read from the store when the read needs it, not from the render that started the load (#3082): the
+  // page load runs once per key, possibly before the profile and the tenant are known.
+  const store = useAppStore();
   const [summaryRead, setSummaryRead] = useState<{ key: string; cachedAt: number | null; offlineMiss: boolean } | null>(
     null,
   );
@@ -193,7 +200,14 @@ export default function LocationDetailPage() {
   const readBedSummary = useCallback(async (isCurrent: () => boolean) => {
     if (!key) return;
     try {
-      const read = await readThrough(cacheScope ? bedSummaryEntry(cacheScope, key) : null, () => getBedSummary(key));
+      const read = await readThrough(
+        {
+          scope: () => scopeFromState(store.getState()),
+          entry: (scope) => bedSummaryEntry(scope, key),
+          session: () => sessionFromState(store.getState()),
+        },
+        () => getBedSummary(key),
+      );
       if (!isCurrent()) return;
       setLoadedSummary(read.data);
       setSummaryRead({ key, cachedAt: read.cachedAt, offlineMiss: false });
@@ -202,7 +216,7 @@ export default function LocationDetailPage() {
       setLoadedSummary(null);
       setSummaryRead({ key, cachedAt: null, offlineMiss: isOfflineCacheMiss(err) });
     }
-  }, [key, cacheScope]);
+  }, [key, store]);
   const loadBedSummary = useCallback(() => readBedSummary(() => true), [readBedSummary]);
 
   // A child-location link reuses this page instance: a late answer for the previous key must not land (#3014).
