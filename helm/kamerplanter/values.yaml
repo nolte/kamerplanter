@@ -1063,12 +1063,29 @@ controllers:
               PWA_CACHING_ENABLED: "${PWA_CACHING_ENABLED:-true}"
             };
             EOF
+            # #3025 W-21 — CSP origin of the DSN (see SENTRY_DSN below). The
+            # skaffold dev image (Vite target) has no /docker-entrypoint.d and
+            # serves no nginx, so the step is skipped there.
+            csp_script=/docker-entrypoint.d/30-error-tracking-csp.sh
+            # Tracking is optional: a failing script (e.g. an older image's
+            # version on a node that cached `latest`) must never hold the pod
+            # in Init:CrashLoopBackOff - the CSP then stays at 'self'.
+            if [ -f "$csp_script" ]; then
+              KP_NGINX_RUNTIME_DIR=/nginx-runtime sh "$csp_script" \
+                || echo "WARN  $csp_script failed; CSP connect-src stays 'self'." >&2
+            fi
         env:
           KAMERPLANTER_MODE:
             value: "full"
           # #777 — mirrors the container's own docker-entrypoint.d script. Empty
           # DSN => the browser never fetches the SDK chunk, so the initial
           # payload budget (UI-NFR-003) is untouched when tracking is off.
+          # #3025 W-21 — the same value also opens the CSP's connect-src for
+          # exactly the DSN's origin: this init container runs the image's
+          # 30-error-tracking-csp.sh (the nginx container's own entrypoint
+          # scripts are suppressed, its conf.d is a read-only ConfigMap) and
+          # writes the origin into the nginx-runtime-csp emptyDir. This is the
+          # one place to set the frontend DSN.
           SENTRY_DSN:
             value: ""
           SENTRY_ENVIRONMENT:
@@ -1104,12 +1121,9 @@ controllers:
             drop: ["ALL"]
         env:
           VITE_BACKEND_URL: "http://kamerplanter-backend:8000"
-          # #777 — the nginx container needs the DSN too, not just the
-          # init container: docker-entrypoint.d/30-error-tracking-csp.sh runs
-          # here and widens connect-src by exactly the configured ingest origin.
-          # Keep this in step with the init container's value, or the browser
-          # loads the SDK and then has its events blocked by the CSP.
-          SENTRY_DSN: ""
+          # #3025 W-21 — no SENTRY_DSN here: /docker-entrypoint.d is suppressed
+          # in this container (persistence.nginx-entrypoint), so nothing in it
+          # would read one. The init container derives the CSP origin.
         probes:
           liveness:
             enabled: true
@@ -2114,6 +2128,15 @@ configMaps:
             default                                                                    "/<spa-route>";
         }
 
+        # #777, #3025 W-21 — the error tracker's ingest origin for the CSP's
+        # connect-src (nginx-security-headers.inc below). Empty unless the init
+        # container wrote exactly one validated origin into the emptyDir mounted
+        # at /etc/nginx/runtime (persistence.nginx-runtime-csp). The glob makes a
+        # missing file (no DSN configured) a no-op; an empty map yields "".
+        map $host $kp_csp_connect_extra {
+            include /etc/nginx/runtime/*.conf;
+        }
+
         log_format kp_redacted '$kp_log_client - [$time_local] "$request_method $kp_log_path" '
                                '$status $body_bytes_sent $request_time';
 
@@ -2147,8 +2170,12 @@ configMaps:
             # there is no server-level add_header here; EVERY location includes
             # nginx-security-headers.inc (the second key of this ConfigMap), as the
             # image's nginx.conf does.
+            # #3025 W-25 — index.html is revalidated on every load (a 304 via
+            # ETag), never kept heuristically fresh while it names the previous
+            # build's hashed bundles. Same blocks as src/frontend/nginx.conf.
             location / {
                 try_files $uri $uri/ /index.html;
+                add_header Cache-Control "no-cache";
                 include /etc/nginx/conf.d/nginx-security-headers.inc;
             }
 
@@ -2189,8 +2216,9 @@ configMaps:
 
             # REQ-053 WP 9.1 (#2741, G-W9 d) — the service worker and the manifest are
             # never cached; without these exact matches /sw.js falls into the
-            # static-asset regex below (1y immutable) and no worker update reaches a
-            # browser. Same blocks as src/frontend/nginx.conf.
+            # static-file regex below, which a later edit could make cacheable
+            # again, and no worker update reaches a browser. Same blocks as
+            # src/frontend/nginx.conf.
             #
             # Like every location here, both include the security-header snippet
             # below (#2816): the worker's own CSP comes from the /sw.js response.
@@ -2205,9 +2233,19 @@ configMaps:
                 include /etc/nginx/conf.d/nginx-security-headers.inc;
             }
 
+            # #3025 W-24/W-25 — only Vite's content-hashed /assets/ are cached
+            # for a year, with one Cache-Control (no `expires` beside it); a
+            # missing asset is a 404, never index.html.
+            location ^~ /assets/ {
+                try_files $uri =404;
+                add_header Cache-Control "public, max-age=31536000, immutable";
+                include /etc/nginx/conf.d/nginx-security-headers.inc;
+            }
+
+            # Static files with a stable name (/icons/*.png) can change under it:
+            # revalidated, not frozen for a year.
             location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-                expires 1y;
-                add_header Cache-Control "public, immutable";
+                add_header Cache-Control "no-cache";
                 include /etc/nginx/conf.d/nginx-security-headers.inc;
             }
         }
@@ -2228,13 +2266,17 @@ configMaps:
       # Headers middleware. A browser ignores HSTS received over plain HTTP anyway
       # (RFC 6797 §8.1), so `kubectl port-forward` to http://localhost is unaffected.
       # The CSP holds only 'self'-style sources and no upgrade-insecure-requests,
-      # so it works over HTTP (port-forward) and HTTPS (Ingress) alike.
+      # so it works over HTTP (port-forward) and HTTPS (Ingress) alike. The
+      # reasons per header (style-src 'unsafe-inline', no X-XSS-Protection, the
+      # connect-src variable) are documented in the image's copy.
       nginx-security-headers.inc: |
-        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
-        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'${kp_csp_connect_extra}; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" always;
+        add_header X-Frame-Options "DENY" always;
         add_header X-Content-Type-Options "nosniff" always;
-        add_header X-XSS-Protection "1; mode=block" always;
         add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(self), geolocation=(self), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=()" always;
+        add_header Cross-Origin-Opener-Policy "same-origin" always;
+        add_header Cross-Origin-Resource-Policy "same-origin" always;
 
 service:
   backend:
@@ -2310,6 +2352,22 @@ persistence:
           - path: /runtime-config
         main:
           - path: /usr/share/nginx/html/runtime-config
+
+  # -- #3025 W-21 — the error tracker's CSP origin. The init container runs the
+  # image's 30-error-tracking-csp.sh into it; the `map` in default.conf
+  # includes /etc/nginx/runtime/*.conf. Empty (no file) without a DSN.
+  nginx-runtime-csp:
+    enabled: true
+    type: emptyDir
+    medium: Memory
+    sizeLimit: 1Mi
+    advancedMounts:
+      frontend:
+        init-runtime-config:
+          - path: /nginx-runtime
+        main:
+          - path: /etc/nginx/runtime
+            readOnly: true
 
   # -- Suppress built-in nginx entrypoint scripts that require writable fs
   nginx-entrypoint:

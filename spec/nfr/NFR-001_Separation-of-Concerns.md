@@ -627,7 +627,7 @@ Alle HTTP-Responses MÜSSEN die folgenden Sicherheits-Header (Security Headers) 
 | `X-Content-Type-Options` | `nosniff` | Verhindert MIME-Sniffing |
 | `X-Frame-Options` | `DENY` | Clickjacking-Schutz |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Referrer-Leakage minimieren |
-| `Permissions-Policy` | `camera=(), microphone=(), geolocation=(), payment=()` | Ungenutzte Browser-APIs deaktivieren |
+| `Permissions-Policy` | `camera=(self), microphone=(), geolocation=(self), payment=()` (Frontend; Kamera für die Fotoaufnahme, Standort für Klimazone/GPS, #3025) | Ungenutzte Browser-APIs deaktivieren |
 
 **Content-Security-Policy (CSP):**
 

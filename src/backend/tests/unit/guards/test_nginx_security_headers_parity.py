@@ -218,13 +218,13 @@ _PARITY_MUTATIONS = [
     ),
     (
         "extra-header",
-        'add_header X-Frame-Options "SAMEORIGIN" always;',
-        'add_header X-Frame-Options "SAMEORIGIN" always;\nadd_header X-Extra "1" always;',
+        'add_header X-Frame-Options "DENY" always;',
+        'add_header X-Frame-Options "DENY" always;\nadd_header X-Extra "1" always;',
     ),
     (
         "hsts-in-pod",
-        'add_header X-Frame-Options "SAMEORIGIN" always;',
-        'add_header X-Frame-Options "SAMEORIGIN" always;\nadd_header Strict-Transport-Security "max-age=1" always;',
+        'add_header X-Frame-Options "DENY" always;',
+        'add_header X-Frame-Options "DENY" always;\nadd_header Strict-Transport-Security "max-age=1" always;',
     ),
 ]
 
@@ -240,7 +240,7 @@ def test_the_detector_sees_chart_drift(mutation: str, old: str, new: str) -> Non
 _HTTP_MUTATIONS = [
     ("upgrade-insecure", "; manifest-src 'self'", "; manifest-src 'self'; upgrade-insecure-requests"),
     ("mixed-content-block", "; manifest-src 'self'", "; manifest-src 'self'; block-all-mixed-content"),
-    ("https-scheme-source", "connect-src 'self'", "connect-src 'self' https:"),
+    ("https-scheme-source", "; object-src 'none'", " https:; object-src 'none'"),
     ("https-host-source", "img-src 'self' data: blob:", "img-src 'self' data: blob: https://cdn.example.com"),
 ]
 

@@ -191,7 +191,9 @@ controllers:
 
 Das Frontend wird hinter nginx ausgeliefert. Die nginx-Konfiguration wird automatisch als ConfigMap gemountet und leitet `/api/`-Anfragen an das Backend weiter.
 
-Dasselbe nginx sendet auf jedem Pfad die Sicherheits-Header des Container-Images: Content-Security-Policy (inklusive `worker-src` und `manifest-src`), `X-Frame-Options`, `X-Content-Type-Options` und `Referrer-Policy`. Nur HSTS fehlt bewusst, das setzt der Ingress (siehe [Ingress](#ingress)). <!-- #2816 -->
+Dasselbe nginx sendet auf jedem Pfad die Sicherheits-Header des Container-Images: Content-Security-Policy (inklusive `worker-src`, `manifest-src` und `object-src 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` (Kamera und Standort nur für die eigene Seite), `Cross-Origin-Opener-Policy` und `Cross-Origin-Resource-Policy`. Nur HSTS fehlt bewusst, das setzt der Ingress (siehe [Ingress](#ingress)). <!-- #2816, #3025 -->
+
+`index.html` und jede tiefe App-Route kommen mit `Cache-Control: no-cache`: Der Browser fragt nach jedem Deployment neu nach und lädt so nie eine alte Seite, die auf gelöschte Bündel zeigt. Nur die Dateien unter `/assets/` tragen einen Inhalts-Hash im Namen und bleiben ein Jahr lang `immutable` im Cache. Icons fragt der Browser ebenfalls jedes Mal nach. <!-- #3025 -->
 
 #### ArangoDB
 
