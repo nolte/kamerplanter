@@ -313,7 +313,10 @@
       "offlineHint": "Keine Verbindung – Änderungen sind erst wieder online möglich.",
       "updateAvailable": "Neue Version verfügbar",
       "updateNow": "Jetzt aktualisieren",
-      "updateLater": "Später"
+      "updateLater": "Später",
+      "wentOffline": "Du bist offline. Aktionen, die der Server prüfen muss (z. B. Phasenwechsel, Ernte, Aktoren), sind gesperrt, bis die Verbindung zurück ist. Erledigt, Notiz und Foto im Gartenplan werden auf dem Gerät gespeichert.",
+      "backOnline": "Wieder online. Gespeicherte Eingaben werden jetzt gesendet.",
+      "requiresConnectivity": "Netzwerkverbindung erforderlich"
     },
     "sliderLabel": "{{label}} (Regler)",
     "days": "Tage",

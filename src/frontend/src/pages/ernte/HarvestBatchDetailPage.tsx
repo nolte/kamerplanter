@@ -33,6 +33,8 @@ import FormActions from '@/components/form/FormActions';
 import FormRow from '@/components/form/FormRow';
 import FormChipInput from '@/components/form/FormChipInput';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useApiError } from '@/hooks/useApiError';
 import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import * as harvestApi from '@/api/endpoints/harvest';
@@ -99,6 +101,7 @@ export default function HarvestBatchDetailPage() {
   const [savingYield, setSavingYield] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const online = useOnlineStatus();
   const [harvestCompleted, setHarvestCompleted] = useState(false);
 
   const {
@@ -429,17 +432,20 @@ export default function HarvestBatchDetailPage() {
                 {t('pages.harvest.completeHarvestAlreadyDone')}
               </Alert>
             ) : (
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={<AgricultureIcon />}
-                onClick={() => setCompleteOpen(true)}
-                disabled={completing}
-                data-testid="complete-harvest-button"
-                sx={{ minHeight: 48 }}
-              >
-                {t('pages.harvest.completeHarvest')}
-              </Button>
+              // UI-NFR-012 R-020a/R-020b: completing the harvest is a phase change the server validates.
+              <RequiresConnectivity offline={!online}>
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<AgricultureIcon />}
+                  onClick={() => setCompleteOpen(true)}
+                  disabled={completing || !online}
+                  data-testid="complete-harvest-button"
+                  sx={{ minHeight: 48 }}
+                >
+                  {t('pages.harvest.completeHarvest')}
+                </Button>
+              </RequiresConnectivity>
             )}
           </CardContent>
         </Card>

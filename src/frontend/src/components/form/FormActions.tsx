@@ -5,6 +5,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import { useStickyBarScrollPadding } from '@/hooks/useStickyBarScrollPadding';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useFormDialogClose } from './formDialogContext';
 
 interface FormActionsProps {
@@ -12,6 +14,11 @@ interface FormActionsProps {
   loading?: boolean;
   saveLabel?: string;
   disabled?: boolean;
+  /**
+   * UI-NFR-012 R-020a–R-020e (#3025 N-39): the save is an action the server must validate (harvest, treatment
+   * application, …). Offline the save button is disabled and names the reason in a tooltip.
+   */
+  requiresConnectivity?: boolean;
 }
 
 export default function FormActions({
@@ -19,8 +26,11 @@ export default function FormActions({
   loading = false,
   saveLabel,
   disabled = false,
+  requiresConnectivity = false,
 }: FormActionsProps) {
   const { t } = useTranslation();
+  const online = useOnlineStatus();
+  const lockedOffline = requiresConnectivity && !online;
   const theme = useTheme();
   // Inside a FormDialog the cancel button goes through its dirty guard (#3019):
   // a dirty form asks before the input is discarded, a clean one closes at once.
@@ -65,15 +75,17 @@ export default function FormActions({
       <Button variant="outlined" onClick={handleCancel} disabled={loading} data-testid="form-cancel-button">
         {t('common.cancel')}
       </Button>
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={loading || disabled}
-        startIcon={loading ? <CircularProgress size={16} /> : undefined}
-        data-testid="form-submit-button"
-      >
-        {saveLabel ?? t('common.save')}
-      </Button>
+      <RequiresConnectivity offline={lockedOffline}>
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={loading || disabled || lockedOffline}
+          startIcon={loading ? <CircularProgress size={16} /> : undefined}
+          data-testid="form-submit-button"
+        >
+          {saveLabel ?? t('common.save')}
+        </Button>
+      </RequiresConnectivity>
     </Box>
   );
 }

@@ -15,6 +15,8 @@ import Switch from '@mui/material/Switch';
 import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useApiError } from '@/hooks/useApiError';
 import { useAsyncOptions } from '@/hooks/useAsyncOptions';
 import OptionsLoadError from '@/components/common/OptionsLoadError';
@@ -48,6 +50,8 @@ export default function PhaseTransitionDialog({
   const [reason, setReason] = useState('manual');
   const [force, setForce] = useState(false);
   const [saving, setSaving] = useState(false);
+  // UI-NFR-012 R-020a/R-020e: the server validates every transition (order, allowed edges, cycle restarts).
+  const online = useOnlineStatus();
 
   useEffect(() => {
     if (!open) return;
@@ -161,15 +165,17 @@ export default function PhaseTransitionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} data-testid="transition-cancel">{t('common.cancel')}</Button>
-        <Button
-          variant="contained"
-          onClick={handleTransition}
-          disabled={!targetPhaseKey || saving}
-          color={force ? 'warning' : 'primary'}
-          data-testid="transition-confirm"
-        >
-          {force ? t('pages.phases.forceTransition') : t('common.confirm')}
-        </Button>
+        <RequiresConnectivity offline={!online}>
+          <Button
+            variant="contained"
+            onClick={handleTransition}
+            disabled={!targetPhaseKey || saving || !online}
+            color={force ? 'warning' : 'primary'}
+            data-testid="transition-confirm"
+          >
+            {force ? t('pages.phases.forceTransition') : t('common.confirm')}
+          </Button>
+        </RequiresConnectivity>
       </DialogActions>
     </Dialog>
   );

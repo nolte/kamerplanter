@@ -26,6 +26,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog';
 import { kamiEnvironment } from '@/assets/brand/illustrations';
 import HelpTooltip from '@/components/common/HelpTooltip';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useActuators } from '@/hooks/useActuators';
 import * as api from '@/api/endpoints/environment';
 import type { Actuator } from '@/api/types';
@@ -65,6 +67,8 @@ export default function EnvironmentControlPage() {
   const { t } = useTranslation();
   const notification = useNotification();
   const { actuators, loading, reload } = useActuators();
+  // UI-NFR-012 R-020c/R-020e: an actuator command must reach Home Assistant/MQTT in real time; offline it is locked.
+  const online = useOnlineStatus();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [emergencyOpen, setEmergencyOpen] = useState(false);
@@ -169,7 +173,8 @@ export default function EnvironmentControlPage() {
               icon: <ReportProblemIcon />,
               variant: 'outlined',
               color: 'error',
-              disabled: actuators.length === 0 || emergencyLoading,
+              disabled: actuators.length === 0 || emergencyLoading || !online,
+              tooltip: online ? undefined : t('common.pwa.requiresConnectivity'),
               testId: 'emergency-stop-button',
               onClick: () => setEmergencyOpen(true),
             }}
@@ -268,42 +273,46 @@ export default function EnvironmentControlPage() {
                     )}
 
                     <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', rowGap: 1 }}>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        startIcon={
-                          cardBusy && busy?.command === 'turn_on' ? (
-                            <CircularProgress size={16} color="inherit" />
-                          ) : (
-                            <PowerSettingsNewIcon />
-                          )
-                        }
-                        disabled={cardBusy}
-                        aria-busy={cardBusy && busy?.command === 'turn_on'}
-                        onClick={() => handleCommand(actuator, 'turn_on')}
-                        sx={{ minHeight: 48 }}
-                        data-testid={`turn-on-${actuator.key}`}
-                      >
-                        {t('pages.environmentControl.turnOn')}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        startIcon={
-                          cardBusy && busy?.command === 'turn_off' ? (
-                            <CircularProgress size={16} color="inherit" />
-                          ) : (
-                            <PowerOffIcon />
-                          )
-                        }
-                        disabled={cardBusy}
-                        aria-busy={cardBusy && busy?.command === 'turn_off'}
-                        onClick={() => handleCommand(actuator, 'turn_off')}
-                        sx={{ minHeight: 48 }}
-                        data-testid={`turn-off-${actuator.key}`}
-                      >
-                        {t('pages.environmentControl.turnOff')}
-                      </Button>
+                      <RequiresConnectivity offline={!online}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={
+                            cardBusy && busy?.command === 'turn_on' ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              <PowerSettingsNewIcon />
+                            )
+                          }
+                          disabled={cardBusy || !online}
+                          aria-busy={cardBusy && busy?.command === 'turn_on'}
+                          onClick={() => handleCommand(actuator, 'turn_on')}
+                          sx={{ minHeight: 48 }}
+                          data-testid={`turn-on-${actuator.key}`}
+                        >
+                          {t('pages.environmentControl.turnOn')}
+                        </Button>
+                      </RequiresConnectivity>
+                      <RequiresConnectivity offline={!online}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={
+                            cardBusy && busy?.command === 'turn_off' ? (
+                              <CircularProgress size={16} color="inherit" />
+                            ) : (
+                              <PowerOffIcon />
+                            )
+                          }
+                          disabled={cardBusy || !online}
+                          aria-busy={cardBusy && busy?.command === 'turn_off'}
+                          onClick={() => handleCommand(actuator, 'turn_off')}
+                          sx={{ minHeight: 48 }}
+                          data-testid={`turn-off-${actuator.key}`}
+                        >
+                          {t('pages.environmentControl.turnOff')}
+                        </Button>
+                      </RequiresConnectivity>
                     </Stack>
                   </CardContent>
                 </Card>

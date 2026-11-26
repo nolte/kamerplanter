@@ -49,6 +49,8 @@ import PlantingRunEditDialog from './PlantingRunEditDialog';
 import AdoptPlantsDialog from './AdoptPlantsDialog';
 import { useRunNutrientData } from '@/hooks/useRunNutrientData';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useApiError } from '@/hooks/useApiError';
 import { useAbortableLoad } from '@/hooks/useAbortableLoad';
@@ -129,6 +131,7 @@ export default function PlantingRunDetailPage() {
   const [endRunStatus, setEndRunStatus] = useState<'completed' | 'cancelled'>('cancelled');
   const [completeHarvestOpen, setCompleteHarvestOpen] = useState(false);
   const [completingHarvest, setCompletingHarvest] = useState(false);
+  const online = useOnlineStatus();
   const [batchTransitionOpen, setBatchTransitionOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [adoptDialogOpen, setAdoptDialogOpen] = useState(false);
@@ -679,17 +682,20 @@ export default function PlantingRunDetailPage() {
               >
                 {t('pages.plantingRuns.runTransition')}
               </Button>
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={<AgricultureIcon />}
-                onClick={() => setCompleteHarvestOpen(true)}
-                disabled={completingHarvest}
-                data-testid="complete-harvest-button"
-                sx={{ minHeight: 48 }}
-              >
-                {t('pages.plantingRuns.completeHarvest')}
-              </Button>
+              {/* UI-NFR-012 R-020a/R-020b: moving the run's plants into harvest is validated on the server. */}
+              <RequiresConnectivity offline={!online}>
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<AgricultureIcon />}
+                  onClick={() => setCompleteHarvestOpen(true)}
+                  disabled={completingHarvest || !online}
+                  data-testid="complete-harvest-button"
+                  sx={{ minHeight: 48 }}
+                >
+                  {t('pages.plantingRuns.completeHarvest')}
+                </Button>
+              </RequiresConnectivity>
               <Button
                 variant="contained"
                 color="error"

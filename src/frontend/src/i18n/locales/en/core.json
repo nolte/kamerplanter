@@ -313,7 +313,10 @@
       "offlineHint": "No connection – changes are possible again once you are online.",
       "updateAvailable": "New version available",
       "updateNow": "Update now",
-      "updateLater": "Later"
+      "updateLater": "Later",
+      "wentOffline": "You are offline. Actions the server has to check (such as phase changes, harvests and actuators) are locked until the connection is back. Done, note and photo in the garden plan are stored on this device.",
+      "backOnline": "Back online. Stored entries are being sent now.",
+      "requiresConnectivity": "Network connection required"
     },
     "sliderLabel": "{{label}} (slider)",
     "days": "days",

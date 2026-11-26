@@ -15,6 +15,8 @@ import * as phasesApi from '@/api/endpoints/phases';
 import * as phaseSequenceApi from '@/api/endpoints/phaseSequences';
 import * as runApi from '@/api/endpoints/plantingRuns';
 import { useNotification } from '@/hooks/useNotification';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useApiError } from '@/hooks/useApiError';
 import { growthPhaseFromEntry } from '@/utils/phaseSequenceMapper';
 import type {
@@ -50,6 +52,8 @@ export default function BatchPhaseTransitionDialog({
   const [phases, setPhases] = useState<GrowthPhase[]>([]);
   const [targetPhaseKey, setTargetPhaseKey] = useState('');
   const [saving, setSaving] = useState(false);
+  // UI-NFR-012 R-020a/R-020e: the server validates every transition of the run's plants.
+  const online = useOnlineStatus();
   const [loadingPhases, setLoadingPhases] = useState(false);
 
   const speciesKeys = useMemo(
@@ -185,14 +189,16 @@ export default function BatchPhaseTransitionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <Button
-          variant="contained"
-          onClick={handleTransition}
-          disabled={!targetPhaseKey || saving}
-          data-testid="batch-transition-confirm"
-        >
-          {saving ? <CircularProgress size={20} /> : t('common.confirm')}
-        </Button>
+        <RequiresConnectivity offline={!online}>
+          <Button
+            variant="contained"
+            onClick={handleTransition}
+            disabled={!targetPhaseKey || saving || !online}
+            data-testid="batch-transition-confirm"
+          >
+            {saving ? <CircularProgress size={20} /> : t('common.confirm')}
+          </Button>
+        </RequiresConnectivity>
       </DialogActions>
     </Dialog>
   );
