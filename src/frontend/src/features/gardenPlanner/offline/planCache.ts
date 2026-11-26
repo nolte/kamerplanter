@@ -31,8 +31,9 @@
 import axios from 'axios';
 import { runtimeConfig } from '@/config/runtimeConfig';
 import { API_CACHE_TTL_SECONDS, isPwaCachingEnabled } from '@/pwa/cachePolicy';
-import { offlineDataGeneration, onOfflineDataEvent } from '@/pwa/offlineData';
+import { offlineDataGeneration, offlineNamespaceEpoch, onOfflineDataEvent } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
+import type { Transaction } from 'dexie';
 import type { CachedRecord, PlanCacheDatabase, PlanCacheTable } from './db';
 
 /** R-012: a cached answer older than this is never served. */
@@ -65,7 +66,7 @@ export function isOfflineCacheMiss(error: unknown): error is OfflineCacheMissErr
 
 /** The part of the root state the scope is read from (the slices are typed structurally to avoid a cycle). */
 export interface ScopeState {
-  auth?: { user?: { key?: string | null } | null };
+  auth?: { user?: { key?: string | null } | null; accessToken?: string | null };
   tenants?: { activeTenant?: { key?: string | null } | null };
 }
 
@@ -74,6 +75,14 @@ export function scopeFromState(state: ScopeState): CacheScope | null {
   const userKey = state.auth?.user?.key ?? null;
   const tenantKey = state.tenants?.activeTenant?.key ?? null;
   return userKey && tenantKey ? { userKey, tenantKey } : null;
+}
+
+/**
+ * What identifies the sign-in a request is made with (#3082 review S1): the access token of the store (light mode has
+ * none, and one fixed account). A login, a refused profile, a refresh and a logout all change it.
+ */
+export function sessionFromState(state: ScopeState): string | null {
+  return state.auth?.accessToken ?? null;
 }
 
 function scopePrefix(scope: CacheScope): string {
@@ -113,10 +122,55 @@ let localClearing = false;
 let foreignDeletionUntil = 0;
 /** How far apart the broadcast and the `versionchange` of the same clearing may arrive. */
 const SAME_CLEARING_WINDOW_MS = 5000;
+/**
+ * The document is hidden — `pagehide` (it may enter the back/forward cache) or `freeze` — until `pageshow` /
+ * `resume` (#3082). A frozen document runs no script: a connection it holds, or an open or upgrade it left in
+ * flight, stays until the browser evicts it, and an upgrade it never finishes holds every later open of the
+ * database in every other document. So hiding closes the connection, ends an open in flight, and nothing opens
+ * until the document is shown again; the next read or write then opens a new connection.
+ */
+let suspended = false;
+/**
+ * Answers read online before the scope was known (#3082: a plan page loaded before the profile and the tenant), each
+ * a write attempt that removes itself once it wrote or found it must not. Tried again on every `session` event (the
+ * namespace became complete). Dropped by every clearing, by a clearing of another tab (`foreign`: this tab cannot
+ * tell whose session it held), when the page is hidden, and after the TTL (a timer); at most
+ * {@link AWAITING_SCOPE_LIMIT}, the oldest go first.
+ */
+const awaitingScope = new Map<() => void, ReturnType<typeof setTimeout>>();
+const AWAITING_SCOPE_LIMIT = 20;
+
+function hold(attempt: () => void): void {
+  awaitingScope.set(attempt, setTimeout(() => release(attempt), PLAN_CACHE_TTL_MS));
+  if (awaitingScope.size > AWAITING_SCOPE_LIMIT) {
+    const [oldest] = awaitingScope.keys();
+    release(oldest);
+  }
+}
+
+function release(attempt: () => void): void {
+  clearTimeout(awaitingScope.get(attempt));
+  awaitingScope.delete(attempt);
+}
+
+function releaseAll(): void {
+  [...awaitingScope.keys()].forEach(release);
+}
+/**
+ * Whether this document had the database open (a transaction completed) since its connection was last closed: only
+ * such a document would have seen a deletion by another connection (`versionchange`) — and a hidden one no longer
+ * can, its connection is closed (#3082 review S3).
+ */
+let connectionUsed = false;
+/** The document was hidden with the database open: showing it again checks that the database still exists. */
+let checkOnShow = false;
+/** That check, while it runs: nothing opens before it is done. */
+let restoring: Promise<void> | null = null;
 /** The loaded `db` module, so a clearing can close the connection synchronously. */
 let dbModule: typeof import('./db') | null = null;
 
 function closeConnection(): void {
+  connectionUsed = false;
   dbModule?.forgetPlanCacheConnection();
 }
 
@@ -133,6 +187,7 @@ onOfflineDataEvent((event) => {
       // Close before the deletion starts; nothing reopens until it is done.
       localClearing = true;
       closeConnection();
+      releaseAll();
       break;
     case 'local-done':
       localClearing = false;
@@ -141,8 +196,11 @@ onOfflineDataEvent((event) => {
       retired = true;
       retiredByDeletionAt = null;
       closeConnection();
+      releaseAll();
       break;
     case 'foreign':
+      // A held answer belongs to a session this tab did not know yet — possibly the one that just ended (review S2).
+      releaseAll();
       foreignDeletionUntil = Date.now() + SAME_CLEARING_WINDOW_MS;
       if (retiredByDeletionAt !== null && Date.now() - retiredByDeletionAt < SAME_CLEARING_WINDOW_MS) {
         retired = false;
@@ -153,9 +211,71 @@ onOfflineDataEvent((event) => {
       retired = false;
       retiredByDeletionAt = null;
       closeConnection();
+      // The scope is known now: the answers read before it was are written (or dropped, see `persistScoped`).
+      [...awaitingScope.keys()].forEach((attempt) => attempt());
       break;
   }
 });
+
+/** The transactions of this tab still running: hiding aborts them, a closing connection waits for them. */
+const activeTransactions = new Set<Transaction>();
+
+function suspend(): void {
+  suspended = true;
+  checkOnShow ||= connectionUsed;
+  releaseAll();
+  // Dexie's `abort()` acts only on a transaction still active, so a finished one is no error.
+  activeTransactions.forEach((transaction) => transaction.abort());
+  activeTransactions.clear();
+  closeConnection();
+}
+
+/** Whether the database still exists; `false` where the browser cannot say (`indexedDB.databases()` missing). */
+async function databaseStillExists(): Promise<boolean> {
+  if (typeof indexedDB === 'undefined' || typeof indexedDB.databases !== 'function') return false;
+  try {
+    return (await indexedDB.databases()).some((database) => database.name === PLAN_CACHE_DB_NAME);
+  } catch (error) {
+    // Enumeration refused: treated like a deletion — the tab stops caching until its next session.
+    console.debug('plan cache: databases could not be listed after the page was shown', error);
+    return false;
+  }
+}
+
+/**
+ * The document is shown again (`pageshow`, `resume`, visible). Hidden with the database open, it would have retired on
+ * a deletion by another connection — which it could not see with its connection closed (review S3). So it checks:
+ * gone (or unknowable without `indexedDB.databases()`), the cache retires until the next session, like
+ * `deletedElsewhere`. Hidden without a connection, it would not have seen one either: nothing to check.
+ */
+function show(): void {
+  if (!suspended) return;
+  suspended = false;
+  if (!checkOnShow) return;
+  checkOnShow = false;
+  const check = databaseStillExists().then((exists) => {
+    if (!exists) {
+      retired = true;
+      retiredByDeletionAt = null;
+    }
+  });
+  restoring = check;
+  void check.finally(() => {
+    if (restoring === check) restoring = null;
+  });
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', suspend);
+  window.addEventListener('pageshow', show);
+  // Page Lifecycle: a hidden tab the browser freezes without leaving it (a bfcache entry fires both).
+  document.addEventListener('freeze', suspend);
+  document.addEventListener('resume', show);
+  // A frozen page that becomes visible without a `resume` must not stay switched off.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') show();
+  });
+}
 
 /** Whether the plan cache may be used in this tab: kill switch on, not retired, IndexedDB present. */
 function cacheUsable(): boolean {
@@ -168,10 +288,11 @@ function cacheUsable(): boolean {
 }
 
 async function database(): Promise<PlanCacheDatabase | null> {
-  if (!cacheUsable() || localClearing) return null;
+  if (restoring) await restoring;
+  if (!cacheUsable() || localClearing || suspended) return null;
   try {
     dbModule ??= await import('./db');
-    return retired || localClearing ? null : dbModule.planCacheDatabase(deletedElsewhere);
+    return retired || localClearing || suspended ? null : dbModule.planCacheDatabase(deletedElsewhere);
   } catch {
     return null;
   }
@@ -181,6 +302,23 @@ async function database(): Promise<PlanCacheDatabase | null> {
 async function purgeExpired(db: PlanCacheDatabase, now: number): Promise<void> {
   const limit = now - PLAN_CACHE_TTL_MS;
   await Promise.all(TABLES.map((table) => db[table].where('cachedAt').below(limit).delete()));
+}
+
+/**
+ * Every access runs in one transaction over all tables, recorded so that hiding the document can abort it (#3082):
+ * a connection closes only once its transactions are done, and a frozen document never finishes one.
+ */
+function inTransaction<T>(db: PlanCacheDatabase, work: () => Promise<T>): Promise<T> {
+  return db.transaction('rw', TABLES.map((name) => db[name]), async (transaction) => {
+    activeTransactions.add(transaction);
+    try {
+      const result = await work();
+      connectionUsed = true;
+      return result;
+    } finally {
+      activeTransactions.delete(transaction);
+    }
+  });
 }
 
 /**
@@ -195,7 +333,7 @@ export async function purgeExpiredPlanCache(now: number = Date.now()): Promise<v
       if (!names.includes(PLAN_CACHE_DB_NAME)) return;
     }
     const db = await database();
-    if (db) await purgeExpired(db, now);
+    if (db) await inTransaction(db, () => purgeExpired(db, now));
   } catch {
     // Best effort: the next read or write purges as well.
   }
@@ -223,7 +361,7 @@ async function writeRecord(
   if (!db) return;
   try {
     const record: CachedRecord = { key, userKey: scope.userKey, tenantKey: scope.tenantKey, cachedAt: now, data };
-    await db.transaction('rw', TABLES.map((name) => db[name]), async () => {
+    await inTransaction(db, async () => {
       await purgeExpired(db, now);
       // Checked again inside the transaction: a clearing that began meanwhile wins.
       if (retired || currentGeneration() !== generation) return;
@@ -243,8 +381,10 @@ async function readRecord<T>(
   const db = await database();
   if (!db) return null;
   try {
-    await purgeExpired(db, now);
-    const record = await db[table].get(key);
+    const record = await inTransaction(db, async () => {
+      await purgeExpired(db, now);
+      return db[table].get(key);
+    });
     if (!record || record.userKey !== scope.userKey || record.tenantKey !== scope.tenantKey) return null;
     const age = now - record.cachedAt;
     if (!Number.isFinite(age) || age < 0 || age > PLAN_CACHE_TTL_MS) return null;
@@ -386,10 +526,6 @@ export async function writeCached(
   return writeRecord(entry.table, entry.key, entry.scope, stored, now, generation);
 }
 
-/** The clearing generation a read begins in; pass it to {@link writeCached} when the answer is in. */
-export function cacheGeneration(): number | null {
-  return currentGeneration();
-}
 
 export function readCached<T>(entry: CacheEntry, now: number = Date.now()): Promise<CachedRead<T> | null> {
   return readRecord<T>(entry.table, entry.key, entry.scope, now);
@@ -401,32 +537,117 @@ export interface ReadThroughOptions {
 }
 
 /**
+ * A read whose cache entry depends on the scope at the moment it is asked (#3082) — a thunk passes the store's scope
+ * (`scopeFromState(getState())`) instead of the scope it found when it was dispatched. A plan page can load before the
+ * profile and the tenant are; the read then still lands in the cache once both are known.
+ */
+export interface ScopedEntry {
+  scope: () => CacheScope | null;
+  entry: (scope: CacheScope) => CacheEntry;
+  /**
+   * The sign-in the read is made with ({@link sessionFromState}); the write needs the same one (review S1): a scope
+   * that becomes known only after another sign-in is never the scope this answer was requested for.
+   */
+  session?: () => unknown;
+}
+
+function isScopedEntry(entry: CacheEntry | ScopedEntry): entry is ScopedEntry {
+  return typeof (entry as ScopedEntry).scope === 'function';
+}
+
+function resolveEntry(read: ScopedEntry): CacheEntry | null {
+  const scope = read.scope();
+  return scope ? read.entry(scope) : null;
+}
+
+/**
+ * What a write must still find when the answer is in: no clearing, no namespace change and the same sign-in since
+ * the read began.
+ */
+export interface CacheBinding {
+  generation: number | null;
+  namespaceEpoch: number;
+  /** `undefined` = the read names no sign-in (a hook's read with the scope it rendered with). */
+  session: unknown;
+}
+
+/** The binding `read` begins in; pass it to {@link persistScoped} when the answer is in. */
+export function cacheBinding(read?: ScopedEntry): CacheBinding {
+  return { generation: currentGeneration(), namespaceEpoch: offlineNamespaceEpoch(), session: read?.session?.() };
+}
+
+function bindingHolds(binding: CacheBinding, read: ScopedEntry): boolean {
+  return binding.generation !== null && currentGeneration() === binding.generation &&
+    offlineNamespaceEpoch() === binding.namespaceEpoch &&
+    (read.session === undefined || read.session() === binding.session);
+}
+
+/**
+ * Write an answer read online under the scope known NOW — at once, or as soon as the scope becomes known. Tenant
+ * isolation (G-W9 a): nothing is written once a clearing (logout, tenant switch, dead session, kill switch) began or
+ * the namespace left the user or tenant it had since the read began (`binding`), and a read that began with a
+ * scope is written under that scope only (`begunAs`). The scope comes from the store: the answer belongs to the user
+ * and tenant the request was sent for, which is the namespace the read began in or the first one that became known.
+ */
+export function persistScoped(
+  read: ScopedEntry,
+  data: unknown,
+  binding: CacheBinding,
+  { now = Date.now(), begunAs = resolveEntry(read) }: { now?: number; begunAs?: CacheEntry | null } = {},
+): void {
+  const attempt = () => {
+    if (!bindingHolds(binding, read)) {
+      release(attempt);
+      return;
+    }
+    const entry = resolveEntry(read);
+    if (entry === null) return;
+    release(attempt);
+    if (begunAs !== null && entry.key !== begunAs.key) return;
+    void writeCached(entry, data, now, binding.generation);
+  };
+  // The scope is known (or the binding broke): settled at once; otherwise held until the scope is known.
+  if (bindingHolds(binding, read) && resolveEntry(read) === null) {
+    hold(attempt);
+    return;
+  }
+  attempt();
+}
+
+/**
  * Network first, cache when there is no connection. Online, the answer is returned at once and
  * written to the cache in the background. Offline (the browser says so, or the request got no
  * answer at all) the cached answer of the same scope is returned with its time; without one the
  * read fails with {@link OfflineCacheMissError} — or, when the browser believed it was online, with
  * the original error. A refusal of the server (4xx/5xx) is never answered from the cache. With the
  * kill switch off or the cache retired it is a plain network read.
+ *
+ * A {@link ScopedEntry} is resolved when it is needed: the offline answer in the scope known then, the write in the
+ * scope known when the answer is in — or later, once it is known ({@link persistScoped}).
  */
 export async function readThrough<T>(
-  entry: CacheEntry | null,
+  entry: CacheEntry | ScopedEntry | null,
   fetcher: () => Promise<T>,
   { now = Date.now }: ReadThroughOptions = {},
 ): Promise<CachedRead<T>> {
   if (entry === null || !cacheUsable()) return { data: await fetcher(), cachedAt: null };
+  const read: ScopedEntry = isScopedEntry(entry) ? entry : { scope: () => entry.scope, entry: () => entry };
+  const begunAs = resolveEntry(read);
   if (browserOffline()) {
-    const cached = await readCached<T>(entry, now());
+    if (begunAs === null) return { data: await fetcher(), cachedAt: null };
+    const cached = await readCached<T>(begunAs, now());
     if (cached) return cached;
     throw new OfflineCacheMissError();
   }
-  const generation = currentGeneration();
+  const binding = cacheBinding(read);
   try {
     const data = await fetcher();
-    void writeCached(entry, data, now(), generation);
+    persistScoped(read, data, binding, { now: now(), begunAs });
     return { data, cachedAt: null };
   } catch (error) {
     if (!isNetworkFailure(error)) throw error;
-    const cached = await readCached<T>(entry, now());
+    const fallback = begunAs ?? resolveEntry(read);
+    const cached = fallback ? await readCached<T>(fallback, now()) : null;
     if (cached) return cached;
     throw browserOffline() ? new OfflineCacheMissError() : error;
   }
@@ -438,5 +659,10 @@ export function resetPlanCacheForTests(): void {
   retiredByDeletionAt = null;
   localClearing = false;
   foreignDeletionUntil = 0;
+  suspended = false;
+  connectionUsed = false;
+  checkOnShow = false;
+  restoring = null;
+  releaseAll();
   dbModule?.forgetPlanCacheConnection();
 }

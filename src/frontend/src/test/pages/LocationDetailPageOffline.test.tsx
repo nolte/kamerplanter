@@ -13,6 +13,7 @@ import { bedSummaryEntry, readCached, writeCached, type CacheScope } from '@/fea
 import LocationDetailPage from '@/pages/standorte/LocationDetailPage';
 import { authState, createTestStore, renderWithProviders, tenantState } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { loadMyTenants } from '@/store/slices/tenantSlice';
 import { emptyPlanCache } from '@/test/planCacheTestKit';
 
 vi.mock('react-router-dom', async (orig) => {
@@ -88,6 +89,28 @@ describe('bed view offline (WP 9.2)', () => {
     expect(await screen.findByTestId('location-offline-miss')).toHaveTextContent('This bed is not available offline');
     expect(screen.queryByTestId('bed-view')).toBeNull();
     expect(screen.queryByTestId('error-display')).toBeNull();
+  });
+
+  it('caches the summary when the tenant becomes known only after the page started loading (#3082)', async () => {
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    server.use(
+      http.get(`${BASE}/locations/:key/summary`, async () => {
+        await gate;
+        return HttpResponse.json(bedSummary());
+      }),
+    );
+    // The page loads once per key: here before the tenant list is in.
+    const store = createTestStore({ ...authState() });
+    renderWithProviders(<LocationDetailPage />, { store, route: '/standorte/locations/loc_b03' });
+    const tenant = (tenantState('lead').tenants as { activeTenant: unknown }).activeTenant;
+    act(() => {
+      store.dispatch(loadMyTenants.fulfilled([tenant] as never, 'tenants'));
+    });
+    release();
+
+    await waitFor(async () => expect(await readCached(bedSummaryEntry(SCOPE, 'loc_b03'))).not.toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('loading-skeleton')).toBeNull());
   });
 
   it('writes the summary into the cache after an online read', async () => {
