@@ -25,7 +25,7 @@ import HelpTooltip from './HelpTooltip';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { TableState } from '@/hooks/useTableState';
 import { LinkedCard, LinkedTableRow, RowCellLink } from './DataTableRowLink';
-import { compareText } from '@/utils/formatting';
+import { compareText, foldDecimalSeparators, parseLocaleNumber } from '@/utils/formatting';
 
 export interface Column<T> {
   id: string;
@@ -136,10 +136,23 @@ function defaultSearchExtractor<T>(row: T, col: Column<T>): string {
 function defaultComparator<T>(a: T, b: T, col: Column<T>): number {
   const aVal = defaultSearchExtractor(a, col);
   const bVal = defaultSearchExtractor(b, col);
-  const aNum = Number(aVal);
-  const bNum = Number(bVal);
-  if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+  // Cells show numbers in the UI language ("6,5", "1.234,5"); `Number()` alone reads those as NaN
+  // and the column would sort as text ("10,2" before "6,5"). #3025
+  const aNum = parseLocaleNumber(aVal);
+  const bNum = parseLocaleNumber(bVal);
+  if (aNum !== null && bNum !== null) return aNum - bNum;
   return compareText(aVal, bVal, { sensitivity: 'base' });
+}
+
+/**
+ * Does a cell text contain the search query? The plain substring test first; then, so "6.5"
+ * finds "6,5" and the other way round, the same test with the separator between digits
+ * folded on both sides. The fold only ADDS matches, so plain-text search is unchanged.
+ */
+function matchesSearch(haystack: string, lowerQuery: string, foldedQuery: string): boolean {
+  const lower = haystack.toLowerCase();
+  if (lower.includes(lowerQuery)) return true;
+  return foldDecimalSeparators(lower).includes(foldedQuery);
 }
 
 /**
@@ -256,11 +269,12 @@ export default function DataTable<T>({
     // 1. Search filter
     if (tableState.search) {
       const lower = tableState.search.toLowerCase();
+      const folded = foldDecimalSeparators(lower);
       filtered = filtered.filter((row) =>
         columns.some((col) => {
           if (col.searchable === false) return false;
-          if (col.searchValues) return col.searchValues(row).some((value) => value.toLowerCase().includes(lower));
-          return defaultSearchExtractor(row, col).toLowerCase().includes(lower);
+          if (col.searchValues) return col.searchValues(row).some((value) => matchesSearch(value, lower, folded));
+          return matchesSearch(defaultSearchExtractor(row, col), lower, folded);
         }),
       );
     }

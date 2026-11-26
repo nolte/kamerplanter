@@ -10,6 +10,8 @@ import {
   formatNumberWithUnit,
   formatTime,
   formatWeekdayNames,
+  foldDecimalSeparators,
+  parseLocaleNumber,
 } from '@/utils/formatting';
 import { compareCodes } from '@/utils/compareCodes';
 import { localizedText } from '@/utils/localizedText';
@@ -102,5 +104,35 @@ describe('localizedText (A-16)', () => {
   it('reads any language that is not English as German, the app default', () => {
     expect(localizedText('fr', { de: 'Gießen', en: 'Watering' })).toBe('Gießen');
     expect(localizedText(undefined, { de: 'Gießen', en: 'Watering' })).toBe('Gießen');
+  });
+});
+
+describe('parseLocaleNumber and foldDecimalSeparators (#3025 review)', () => {
+  const initial = i18n.language;
+  afterEach(async () => {
+    await i18n.changeLanguage(initial);
+  });
+
+  it('reads back numbers as the active locale writes them', async () => {
+    await inLanguage('de');
+    expect(parseLocaleNumber('6,5')).toBe(6.5);
+    expect(parseLocaleNumber('1.234,5')).toBe(1234.5);
+    expect(parseLocaleNumber('1.234')).toBe(1234);
+    expect(parseLocaleNumber('6.5')).toBe(6.5); // a raw String(6.5) cell
+    expect(parseLocaleNumber('—')).toBeNull();
+    expect(parseLocaleNumber('6,5 mS')).toBeNull();
+    expect(parseLocaleNumber('')).toBeNull();
+    await inLanguage('en');
+    expect(parseLocaleNumber('1,234.5')).toBe(1234.5);
+    expect(parseLocaleNumber('6.5')).toBe(6.5);
+    expect(parseLocaleNumber('1,23')).toBeNull(); // malformed grouping is not a number
+  });
+
+  it('folds only the separator between digits (or after a trailing digit)', () => {
+    expect(foldDecimalSeparators('6,5')).toBe('6.5');
+    expect(foldDecimalSeparators('1.234,5')).toBe('1.234.5');
+    expect(foldDecimalSeparators('6,')).toBe('6.');
+    expect(foldDecimalSeparators('Tomate, Gurke')).toBe('Tomate, Gurke');
+    expect(foldDecimalSeparators('6, 7')).toBe('6, 7');
   });
 });

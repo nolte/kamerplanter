@@ -157,6 +157,52 @@ export function formatFixed(value: number | null | undefined, digits: number): s
   return formatNumber(value, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
+/** Group and decimal separator of the active locale (de-DE: "." and ","; en-US: "," and "."). */
+function localeSeparators(): { group: string; decimal: string } {
+  const parts = new Intl.NumberFormat(activeLocale()).formatToParts(12345.6);
+  return {
+    group: parts.find((part) => part.type === 'group')?.value ?? ',',
+    decimal: parts.find((part) => part.type === 'decimal')?.value ?? '.',
+  };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Read back a number as the helpers above display it, in the active locale: DE "6,5",
+ * "1.234,5", EN "6.5", "1,234.5". Grouping must be well-formed (groups of three); a
+ * string that is not such a number falls back to `Number()` (a raw `String(6.5)` in a
+ * table cell), and anything else is `null`. Ambiguous on purpose only where the display
+ * is: in German "1.234" is one thousand two hundred thirty-four, as `formatNumber` writes it.
+ */
+export function parseLocaleNumber(text: string | null | undefined): number | null {
+  const value = text?.trim() ?? '';
+  if (!value) return null;
+  const { group, decimal } = localeSeparators();
+  const g = escapeRegExp(group);
+  const d = escapeRegExp(decimal);
+  const localized = new RegExp(`^[+-]?(?:\\d{1,3}(?:${g}\\d{3})+|\\d+)(?:${d}\\d+)?$`);
+  if (localized.test(value)) {
+    const canonical = value.split(group).join('').replace(decimal, '.');
+    const parsed = Number(canonical);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  const raw = Number(value);
+  return Number.isFinite(raw) ? raw : null;
+}
+
+/**
+ * Fold the separator between two digits to one character, so a search for "6.5" finds
+ * "6,5" and the other way round. A separator after a digit at the very end counts too
+ * ("6," while the user is still typing). Text without digits is unchanged. Used to add
+ * matches, never to replace the plain comparison (see DataTable's search).
+ */
+export function foldDecimalSeparators(text: string): string {
+  return text.replace(/(\d)[.,](?=\d|$)/g, '$1.');
+}
+
 const collators = new Map<string, Intl.Collator>();
 
 /**
