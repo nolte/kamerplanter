@@ -1354,7 +1354,7 @@
       "morning": "Morning",
       "afternoon": "Afternoon",
       "evening": "Evening",
-      "night": "Night"
+      "lights_off": "After lights-off"
     }
   }
 }

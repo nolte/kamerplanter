@@ -33,8 +33,8 @@ const lifecyclePhases = [
   'germination', 'seedling', 'vegetative', 'flowering',
   'flushing', 'dormancy', 'harvest',
 ] as const;
-const skillLevels = ['beginner', 'intermediate', 'expert'] as const;
-const timesOfDay = ['morning', 'afternoon', 'evening', 'night'] as const;
+const skillLevels = ['beginner', 'intermediate', 'advanced'] as const;
+const timesOfDay = ['morning', 'afternoon', 'evening', 'lights_off'] as const;
 
 const schema = z.object({
   name: z.string().min(1).max(200),

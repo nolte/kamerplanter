@@ -1354,7 +1354,7 @@
       "morning": "Morgens",
       "afternoon": "Nachmittags",
       "evening": "Abends",
-      "night": "Nachts"
+      "lights_off": "Nach Licht-aus"
     }
   }
 }

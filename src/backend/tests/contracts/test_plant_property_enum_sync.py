@@ -45,12 +45,15 @@ from app.common.enums import (
     PhotoperiodType,
     RootType,
     SeedType,
+    SkillLevel,
+    TimeOfDay,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _DEFS_SCHEMA = _REPO_ROOT / "src" / "backend" / "app" / "migrations" / "seed_data" / "schemas" / "_defs.schema.yaml"
 _TYPES_TS = _REPO_ROOT / "src" / "frontend" / "src" / "api" / "types.ts"
 _CARE_PROFILE_FORM = _REPO_ROOT / "src" / "frontend" / "src" / "pages" / "pflege" / "components" / "CareProfileForm.tsx"
+_TASK_TEMPLATE_DIALOG = _REPO_ROOT / "src" / "frontend" / "src" / "pages" / "aufgaben" / "TaskTemplateDialog.tsx"
 _LOCALES = _REPO_ROOT / "src" / "frontend" / "src" / "i18n" / "locales"
 
 # (python enum, _defs.schema.yaml def key, types.ts type name) — every entry is
@@ -96,6 +99,17 @@ _I18N_ENUMS: list[tuple[type[StrEnum], str]] = [
     (Orientation, "orientation"),
     (PhotoperiodSource, "photoperiodSource"),
     (PhotoperiodType, "photoperiodType"),
+    # #3025: the task-template dialog labels both; it offered ``night``/``expert``, which the backend refuses.
+    (TimeOfDay, "timeOfDay"),
+    (SkillLevel, "skillLevel"),
+]
+
+# (python enum, ``const <name> = [...] as const`` in TaskTemplateDialog.tsx) — the dialog's
+# Select offers exactly the backend values (#3025: it offered ``night`` instead of
+# ``lights_off`` and ``expert`` instead of ``advanced``; a stored backend value rendered empty).
+_TASK_TEMPLATE_OPTIONS: list[tuple[type[StrEnum], str]] = [
+    (TimeOfDay, "timesOfDay"),
+    (SkillLevel, "skillLevels"),
 ]
 
 
@@ -200,6 +214,29 @@ class TestTypeScriptOnlyEnumSync:
             "CareProfileForm CARE_STYLES drift: "
             f"not-offered={sorted(py - offered)} offered-but-unknown={sorted(offered - py)}"
         )
+
+
+def _const_array_values(path: Path, name: str) -> set[str]:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(rf"const {re.escape(name)}\s*=\s*\[(.*?)\]\s*as const;", text, re.DOTALL)
+    assert match is not None, f"{path.name} has no 'const {name} = [...] as const'"
+    return set(re.findall(r"'([^']+)'", _TS_COMMENT.sub("", match.group(1))))
+
+
+class TestTaskTemplateDialogOptions:
+    @pytest.mark.parametrize("enum,const_name", _TASK_TEMPLATE_OPTIONS, ids=lambda v: getattr(v, "__name__", v))
+    def test_dialog_offers_exactly_the_backend_values(self, enum: type[StrEnum], const_name: str) -> None:
+        py = _enum_values(enum)
+        offered = _const_array_values(_TASK_TEMPLATE_DIALOG, const_name)
+        assert py == offered, (
+            f"TaskTemplateDialog {const_name} drift: "
+            f"not-offered={sorted(py - offered)} offered-but-unknown={sorted(offered - py)}"
+        )
+
+    def test_gate_detects_an_unknown_option(self) -> None:
+        offered = _enum_values(TimeOfDay) - {"lights_off"} | {"night"}
+        with pytest.raises(AssertionError):
+            assert _enum_values(TimeOfDay) == offered, "an option the backend refuses must fail the gate"
 
 
 class TestPlantPropertyEnumI18n:
