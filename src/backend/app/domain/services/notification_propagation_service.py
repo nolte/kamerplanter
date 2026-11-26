@@ -388,45 +388,34 @@ class NotificationPropagationService:
         The stamp is the **claim** of the escalation: the engine only sends the
         escalation notification when this method returns ``True``.
 
-        * **Idempotent.** The stored row is re-read and the level only ever rises; a
-          second run — or a concurrent one that read the same stale row — finds the
-          level already reached, writes nothing and returns ``False``, so the
-          escalation is sent once.
+        * **One conditional write.** :meth:`INotificationRepository.claim_escalation_level`
+          filters on key, tenant and "level still below" and updates in the same
+          statement, so of two overlapping runs that both read the row at the old
+          level exactly one gets ``True``. The update is partial: ``read_at``,
+          ``acted_at`` and every other field stay as stored.
         * **Fail-closed per tenant.** An empty ``tenant_key``, a row without a key,
-          or a row (as passed in or as stored) of another tenant writes nothing and
-          returns ``False`` — never a cross-tenant write.
+          or a row of another tenant — as passed in, or as stored — writes nothing
+          and returns ``False``.
+        * **No retry.** A failing write is logged and answered ``False``: the level
+          stays unclaimed and the next run tries again, rather than an escalation
+          being sent that was never recorded.
 
         Returns:
-            ``True`` when the level was stamped and the escalation may be sent,
+            ``True`` when this call raised the level and the escalation may be sent,
             ``False`` when nothing was written.
         """
         if not tenant_key or not notification.key or notification.tenant_key != tenant_key:
             return False
         try:
-            stored = self._repo.get(notification.key)
+            claimed = self._repo.claim_escalation_level(
+                notification.key,
+                tenant_key=tenant_key,
+                escalation_level=escalation_level,
+            )
         except Exception:
-            logger.warning("notification_propagation_lookup_failed", key=notification.key)
+            logger.warning("notification_propagation_escalation_claim_failed", key=notification.key)
             return False
-        if stored is None or stored.tenant_key != tenant_key or not stored.key:
-            return False
-        if stored.escalation_level >= escalation_level:
-            return False
-
-        # A full-model write that starts from the stored row (the repository's
-        # ``_update_is_full_replace`` contract): nothing it never read is lost.
-        stored.escalation_level = escalation_level
-        for attempt in (1, 2):
-            try:
-                self._repo.update(stored.key, stored)
-                return True
-            except WriteConflictError:
-                if attempt == 1:
-                    continue
-                logger.warning("notification_propagation_escalation_conflict", key=stored.key, attempts=attempt)
-            except NotFoundError:
-                logger.info("notification_propagation_update_vanished", key=stored.key)
-                return False
-        return False
+        return claimed is not None
 
     # ── Internal helpers ──────────────────────────────────────────────
 

@@ -101,7 +101,7 @@ class _CareRepo:
         )
 
 
-def _profile(*, dormant: bool = False) -> CareProfile:
+def _profile(*, dormant: bool = False, regime: WinterWatering = WinterWatering.MINIMAL) -> CareProfile:
     return CareProfile(
         _key="cp-1",
         plant_key=PLANT_KEY,
@@ -110,12 +110,14 @@ def _profile(*, dormant: bool = False) -> CareProfile:
         auto_create_watering_task=True,
         adaptive_learning_enabled=False,
         dormancy_care_mode=dormant,
-        dormancy_watering=WinterWatering.MINIMAL.value if dormant else None,
+        dormancy_watering=regime.value if dormant else None,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
 
 def _open_watering_task(due: datetime, *, tenant_key: str = TENANT) -> Task:
+    # The instruction as the daily producer builds it (`ensure_next_watering_task`
+    # passes no phase interval into the text), not as the retiming path would.
     return Task(
         _key="task-water",
         name=f"{PLANT_LABEL} — {ReminderType.WATERING.value}",
@@ -146,11 +148,36 @@ def _seed_care_note(repo: FakeNotificationRepo, due: datetime) -> Notification:
     return note
 
 
+class _PhaseCoupler:
+    """ADR-006 E3 stand-in: moves the plant into its dormancy growth phase, as the real coupler's transition does."""
+
+    def __init__(self, care_plant: SimpleNamespace, dormancy_phase_key: str) -> None:
+        self._care_plant = care_plant
+        self._dormancy_phase_key = dormancy_phase_key
+
+    def enter_dormancy(self, _plant: PlantInstance) -> bool:
+        self._care_plant.current_phase_key = self._dormancy_phase_key
+        return True
+
+    def restart_cycle(self, _plant: PlantInstance) -> bool:
+        return False
+
+
 class _World:
     """The season service wired to real collaborators over stateful fakes."""
 
-    def __init__(self, *, dormant: bool, task_due: datetime, plant_tenant: str = TENANT) -> None:
-        self.care_repo = _CareRepo(_profile(dormant=dormant))
+    def __init__(
+        self,
+        *,
+        dormant: bool,
+        task_due: datetime,
+        plant_tenant: str = TENANT,
+        regime: WinterWatering = WinterWatering.MINIMAL,
+        phase_key: str | None = None,
+        phase_intervals: dict[str, int] | None = None,
+        dormancy_phase_key: str | None = None,
+    ) -> None:
+        self.care_repo = _CareRepo(_profile(dormant=dormant, regime=regime))
         self.task_repo = FakeTaskRepo([_open_watering_task(task_due)])
         self.notification_repo = FakeNotificationRepo()
         _seed_care_note(self.notification_repo, task_due)
@@ -160,8 +187,15 @@ class _World:
             plant_name=PLANT_LABEL,
             instance_id="FU-1",
             tenant_key=plant_tenant,
-            current_phase_key=None,
+            current_phase_key=phase_key,
             slot_key=None,
+            removed_on=None,
+        )
+        self.care_plant = care_plant
+        intervals = phase_intervals or {}
+        lifecycle_repo = MagicMock()
+        lifecycle_repo.get_phase_by_key.side_effect = lambda key: (
+            SimpleNamespace(watering_interval_days=intervals[key]) if key in intervals else None
         )
         care_plant_repo = MagicMock()
         care_plant_repo.get_by_key.return_value = care_plant
@@ -171,6 +205,7 @@ class _World:
             CareReminderEngine(),
             self.task_repo,
             plant_repo=care_plant_repo,
+            lifecycle_repo=lifecycle_repo,
             notification_propagation=NotificationPropagationService(self.notification_repo),
         )
 
@@ -178,7 +213,7 @@ class _World:
         overwintering_repo.get_profile_by_plant_key.return_value = OverwinteringProfile.model_construct(
             key="ow-1",
             plant_key=PLANT_KEY,
-            winter_watering=WinterWatering.MINIMAL,
+            winter_watering=regime,
             storage_check_interval_days=None,
             dormancy_care_active=dormant,
         )
@@ -205,6 +240,7 @@ class _World:
             overwintering_repo,
             season_plant_repo,
             site_repo,
+            phase_coupler=_PhaseCoupler(care_plant, dormancy_phase_key) if dormancy_phase_key else None,
         )
 
     def transition(self, to_phase: SeasonPhase) -> None:
@@ -281,15 +317,60 @@ def test_a_repeated_transition_leaves_one_note_and_writes_the_task_once() -> Non
     assert len(world.task_repo.updated) == 1, "the second pass found nothing to move and must write nothing"
 
 
-def test_a_switch_that_leaves_the_cadence_alone_writes_nothing() -> None:
-    """``growing`` on a plant that never was dormant: the activator writes, the cadence does not move."""
-    world = _World(dormant=False, task_due=NORMAL_DUE)
+# ── no real switch, no write ────────────────────────────────────────────────
+
+
+def test_a_hand_moved_task_of_a_never_dormant_plant_survives_spring_and_growing() -> None:
+    """``deactivate`` runs for every frost-exposed plant; only a real regime switch may retime.
+
+    The user moved the task three days out. ``pre_spring`` and ``growing`` leave a
+    plant that never was dormant in the same regime, so recomputing its task from
+    the last confirmation would silently undo the user's date.
+    """
+    moved = NORMAL_DUE + timedelta(days=3)
+    world = _World(dormant=False, task_due=moved)
+    note_before = world.note().model_copy(deep=True)
+
+    world.transition(SeasonPhase.PRE_SPRING)
+    world.transition(SeasonPhase.GROWING)
+
+    assert world.task_repo.updated == []
+    assert world.task().due_date == moved
+    assert world.note() == note_before
+
+
+def test_a_phase_interval_task_is_not_rewritten_when_the_regime_did_not_switch() -> None:
+    """The stored instruction ignores the phase interval; that difference is not a cadence change."""
+    phase_due = ANCHOR + timedelta(days=10)
+    world = _World(dormant=False, task_due=phase_due, phase_key="phase-veg", phase_intervals={"phase-veg": 10})
     note_before = world.note().model_copy(deep=True)
 
     world.transition(SeasonPhase.GROWING)
 
     assert world.task_repo.updated == []
     assert world.note() == note_before
+
+
+def test_the_new_growth_phase_feeds_the_retimed_interval() -> None:
+    """The redetermination runs AFTER the ADR-006 phase coupling: ``reduced`` scales the dormancy phase's base.
+
+    Vegetative base 7 → ``reduced`` would give 10; the dormancy growth phase's
+    base 10 gives 15. Retiming before the coupler moved the phase lands on 10.
+    """
+    world = _World(
+        dormant=False,
+        task_due=NORMAL_DUE,
+        regime=WinterWatering.REDUCED,
+        phase_key="phase-veg",
+        phase_intervals={"phase-veg": BASE_INTERVAL, "phase-dormant": 10},
+        dormancy_phase_key="phase-dormant",
+    )
+
+    world.transition(SeasonPhase.WINTER_DORMANCY)
+
+    expected = ANCHOR + timedelta(days=15)
+    assert world.task().due_date == expected
+    assert world.note().data["due_date"] == expected.isoformat()
 
 
 # ── acceptance-3: fail-closed per tenant on this edge ───────────────────────

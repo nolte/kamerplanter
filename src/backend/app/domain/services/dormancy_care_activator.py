@@ -60,6 +60,20 @@ class DormancyCareActivator:
         logger.info("dormancy_care_activated", plant_key=plant_key, dormancy_watering=watering)
         return result
 
+    def regime(self, plant_key: str) -> tuple[bool, str | None] | None:
+        """The plant's current dormancy-care regime: ``(dormancy_care_mode, dormancy_watering)``.
+
+        Read before and after :meth:`activate` / :meth:`deactivate` by the season
+        service to tell a real switch from a no-op. Both methods return the profile
+        whenever one exists — :meth:`deactivate` also for a plant that never was
+        dormant — so their return value cannot say whether the cadence moved
+        (ADR-008 F-8). ``None`` when the plant has no care profile.
+        """
+        profile = self._care_repo.get_profile_by_plant_key(plant_key)
+        if profile is None:
+            return None
+        return profile.dormancy_care_mode, profile.dormancy_watering
+
     def deactivate(self, plant_key: str) -> CareProfile | None:
         """Leave dormancy-care mode, returning to seasonal normal operation."""
         profile = self._care_repo.get_profile_by_plant_key(plant_key)

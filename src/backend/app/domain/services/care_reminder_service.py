@@ -818,10 +818,13 @@ class CareReminderService:
         caller can retime the one and forget the other.
 
         Args:
-            only_if_changed: Skip both writes when the recomputed due date and
-                instruction equal the stored ones. An engine-driven redetermination
-                fires on every season transition, most of which leave the cadence
-                alone; an explicit interval edit always writes (its prior behaviour).
+            only_if_changed: Skip both writes when the recomputed due date equals
+                the stored one. The comparison is on the date only: the
+                instruction text is built differently by the producer
+                (:meth:`ensure_next_watering_task` ignores the phase interval) and
+                by this path, so comparing it would report a change that is not a
+                cadence change. An explicit interval edit always writes (its prior
+                behaviour).
 
         Returns:
             Whether the task was retimed.
@@ -832,7 +835,7 @@ class CareReminderService:
         if due_dt is None:
             return False
         new_instruction = instruction if instruction is not None else task.instruction
-        if only_if_changed and task.due_date == due_dt and task.instruction == new_instruction:
+        if only_if_changed and task.due_date == due_dt:
             return False
         task.due_date = due_dt
         task.instruction = new_instruction

@@ -104,6 +104,7 @@ class TestItCanFail:
                     self._notification_repo.delete(n.key)
                     self._notification_repo.mark_read(n.key, now)
                     self._notification_repo.mark_acted(n.key, now)
+                    self._notification_repo.claim_escalation_level(n.key, tenant_key="t", escalation_level=1)
             """
         )
         assert {site.method for site in sites} == set(checker.MUTATING_METHODS)

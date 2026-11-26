@@ -1,7 +1,9 @@
 """ArangoDB repository for notifications."""
 
-from datetime import datetime
+from datetime import UTC, datetime
+from typing import Any, cast
 
+from arango.cursor import Cursor
 from arango.database import StandardDatabase
 
 from app.data_access.arango import collections as col
@@ -29,22 +31,18 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
     #: changed re-surfaces in the badge (#769). In the inherited merge mode both
     #: were dropped and the row stayed read — the re-surfacing never happened.
     #:
-    #: **Both full-model writers start from the stored notification**, so neither can
-    #: lose a field it never mentioned (re-measured 2026-09-18 over every ``update``
-    #: on this repository — the first draft of this table said "the only full-model
-    #: writer is ``_update_single``" and missed the second, which is the shape a
-    #: writer table rots into):
+    #: **The one full-model writer starts from the stored notification**, so it
+    #: cannot lose a field it never mentioned (re-measured 2026-11-26 over every
+    #: ``update`` on this repository; a second writer, the overdue escalation's
+    #: stamp in ``NotificationEngine.escalate_overdue``, became the partial
+    #: ``claim_escalation_level`` in ADR-008 F-8):
     #:
     #: * ``NotificationPropagationService._update_single`` — ``_safe_lookup`` then
     #:   attribute assignment on the loaded row.
-    #: * ``NotificationPropagationService.on_notification_escalated`` — the
-    #:   overdue escalation's stamp; re-reads the row by key, raises
-    #:   ``escalation_level`` on the stored model and writes it back (moved out of
-    #:   ``NotificationEngine.escalate_overdue`` by ADR-008 F-8).
     #:
-    #: ``mark_read``/``mark_acted`` are hand-written AQL ``UPDATE ... WITH``
-    #: statements and set their field explicitly; every other engine path only
-    #: ``create``s.
+    #: ``mark_read``/``mark_acted``/``claim_escalation_level`` are hand-written AQL
+    #: ``UPDATE ... WITH`` statements and set their field explicitly; every other
+    #: engine path only ``create``s.
     _update_is_full_replace = True
 
     def __init__(self, db: StandardDatabase) -> None:
@@ -173,22 +171,58 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             return None
         return self._to_notification(doc)
 
+    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+        """Raise ``escalation_level`` atomically, only for the tenant's row and only upwards (ADR-008 F-8).
+
+        One AQL statement — filter and update are evaluated in the same write, so
+        two overlapping escalation runs cannot both claim the same level (a
+        read-then-update could, because :meth:`update` compares no ``_rev``). The
+        ``UPDATE … WITH`` is partial: ``read_at``/``acted_at`` and every other field
+        stay as stored. An empty ``tenant_key`` claims nothing.
+        """
+        if not tenant_key or not key:
+            return None
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc._key == @key AND doc.tenant_key == @tenant_key "
+            f"AND (doc.escalation_level == null OR doc.escalation_level < @level) "
+            f"UPDATE doc WITH {{ escalation_level: @level, updated_at: @now }} IN {NOTIFICATIONS} "
+            f"RETURN NEW"
+        )
+        bind_vars: dict[str, Any] = {
+            "key": key,
+            "tenant_key": tenant_key,
+            "level": escalation_level,
+            "now": datetime.now(UTC).isoformat(),
+        }
+        cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
+        doc = next(cursor, None)
+        if doc is None:
+            return None
+        return self._to_notification(doc)
+
     def find_overdue_watering(
         self,
         overdue_since: datetime,
         escalation_level: int,
+        *,
+        tenant_key: str,
     ) -> list[Notification]:
-        """Find overdue watering notifications that have not been acted upon.
+        """Find the tenant's overdue watering notifications that have not been acted upon.
 
         Matches:
+        - tenant_key == the given tenant (an empty tenant matches nothing)
         - notification_type starts with 'care.watering'
         - acted_at IS NULL
         - created_at < cutoff
         - escalation_level == given level (to avoid re-escalating)
         """
+        if not tenant_key:
+            return []
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
-            f"FILTER STARTS_WITH(doc.notification_type, 'care.watering') "
+            f"FILTER doc.tenant_key == @tenant_key "
+            f"AND STARTS_WITH(doc.notification_type, 'care.watering') "
             f"AND doc.acted_at == null "
             f"AND doc.created_at < @cutoff_slack "
             f"AND DATE_TIMESTAMP(doc.created_at) != null "
@@ -202,6 +236,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
                 "cutoff": overdue_since.isoformat(),
                 "cutoff_slack": instant_prefilter_bound(overdue_since),
                 "level": escalation_level,
+                "tenant_key": tenant_key,
             },
         )
         return [self._to_notification(doc) for doc in cursor]

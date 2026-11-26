@@ -686,6 +686,7 @@ SELECTORS: tuple[Selector, ...] = (
         name="notification.find_overdue_watering",
         collection=col.NOTIFICATIONS,
         base={
+            "tenant_key": TENANT,
             "user_key": USER,
             "notification_type": "care.watering.due",
             "title": "t",
@@ -695,7 +696,9 @@ SELECTORS: tuple[Selector, ...] = (
         field="created_at",
         selects="before",
         run=_returned_keys(
-            lambda db, cut: ArangoNotificationRepository(db).find_overdue_watering(_dt(cut), escalation_level=1)
+            lambda db, cut: ArangoNotificationRepository(db).find_overdue_watering(
+                _dt(cut), escalation_level=1, tenant_key=TENANT
+            )
         ),
         undated_selected=False,
         why_undated="age-based: a notification whose age cannot be read is not proven overdue",
