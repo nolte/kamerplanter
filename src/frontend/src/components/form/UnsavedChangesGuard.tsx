@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useBlocker, type BlockerFunction, type Location } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { isKioskResetting, useReportUnsavedInput } from '@/kiosk/kioskSession';
 
 interface UnsavedChangesGuardProps {
   dirty: boolean;
@@ -16,12 +17,17 @@ interface UnsavedChangesGuardProps {
 export default function UnsavedChangesGuard({ dirty, allowNavigation }: UnsavedChangesGuardProps) {
   const { t } = useTranslation();
 
+  // UI-NFR-019 R-035/R-038 — the kiosk timeout returns to the start page after warning that unsaved
+  // input will be discarded; that one navigation is not the user's and must not be stopped here.
+  useReportUnsavedInput(dirty);
   const shouldBlock = useCallback<BlockerFunction>(
     ({ currentLocation, nextLocation }) =>
-      dirty && !(allowNavigation?.(currentLocation, nextLocation) ?? false),
+      dirty &&
+      !isKioskResetting() &&
+      !(allowNavigation?.(currentLocation, nextLocation) ?? false),
     [dirty, allowNavigation],
   );
-  const blocker = useBlocker(allowNavigation ? shouldBlock : dirty);
+  const blocker = useBlocker(shouldBlock);
 
   // Every blocked navigation gets its own dialog instance, keyed by the
   // attempted location. Re-opening the previous instance while its closing

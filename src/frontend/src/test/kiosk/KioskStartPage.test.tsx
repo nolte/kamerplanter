@@ -11,7 +11,7 @@ function renderStartPage(store: TestStore) {
   const router = createMemoryRouter(
     [
       { path: '/kiosk', element: <KioskStartPage /> },
-      { path: '/pflanzen/identifikation', element: <div data-testid="target-scan" /> },
+      { path: '/pflanzen/identifikation', element: <div data-testid="target-identify" /> },
       { path: '/giessprotokoll', element: <div data-testid="target-watering" /> },
       { path: '/aufgaben/queue', element: <div data-testid="target-round" /> },
       { path: '/pflanzenschutz/erkennung', element: <div data-testid="target-problem" /> },
@@ -30,7 +30,7 @@ function renderStartPage(store: TestStore) {
 describe('KioskStartPage (UI-NFR-019)', () => {
   it('renders the four required quick-action tiles (R-014, R-015)', () => {
     renderStartPage(createTestStore());
-    expect(screen.getByTestId('kiosk-tile-scan')).toBeInTheDocument();
+    expect(screen.getByTestId('kiosk-tile-identify')).toBeInTheDocument();
     expect(screen.getByTestId('kiosk-tile-watering')).toBeInTheDocument();
     expect(screen.getByTestId('kiosk-tile-round')).toBeInTheDocument();
     expect(screen.getByTestId('kiosk-tile-problem')).toBeInTheDocument();
@@ -38,10 +38,16 @@ describe('KioskStartPage (UI-NFR-019)', () => {
 
   it('renders each tile as a real link to its target (#3047)', () => {
     renderStartPage(createTestStore());
-    expect(screen.getByTestId('kiosk-tile-scan')).toHaveAttribute('href', '/pflanzen/identifikation');
+    expect(screen.getByTestId('kiosk-tile-identify')).toHaveAttribute('href', '/pflanzen/identifikation');
     expect(screen.getByTestId('kiosk-tile-watering')).toHaveAttribute('href', '/giessprotokoll');
     expect(screen.getByTestId('kiosk-tile-round')).toHaveAttribute('href', '/aufgaben/queue');
     expect(screen.getByTestId('kiosk-tile-problem')).toHaveAttribute('href', '/pflanzenschutz/erkennung');
+  });
+
+  it('names the photo tile for what it does — there is no QR scanner to promise (#3025 N-38)', () => {
+    renderStartPage(createTestStore());
+    expect(screen.getByTestId('kiosk-tile-identify')).toHaveAccessibleName('Identify plant');
+    expect(screen.queryByText(/scan/i)).toBeNull();
   });
 
   it('renders the current-status panel with the open-task count (R-016)', () => {
@@ -63,13 +69,13 @@ describe('KioskStartPage (UI-NFR-019)', () => {
     expect(panel).toHaveTextContent('1');
   });
 
-  it('navigates to the scan target when the scan tile is activated', async () => {
+  it('navigates to the identification target when the identify tile is activated', async () => {
     const user = userEvent.setup();
     renderStartPage(createTestStore());
     await act(async () => {
-      await user.click(screen.getByTestId('kiosk-tile-scan'));
+      await user.click(screen.getByTestId('kiosk-tile-identify'));
     });
-    expect(screen.getByTestId('target-scan')).toBeInTheDocument();
+    expect(screen.getByTestId('target-identify')).toBeInTheDocument();
   });
 
   it('navigates to the watering target when the watering tile is activated', async () => {

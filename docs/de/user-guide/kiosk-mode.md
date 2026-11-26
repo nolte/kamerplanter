@@ -16,7 +16,7 @@ Der Kiosk-Modus optimiert die Oberfläche für die Bedienung direkt am Standort 
 In Gewächshaus und Growraum gelten besondere Bedingungen: Erde, Nährlösung und Wasser an den Händen, Handschuhe, die die Touch-Präzision verringern, sowie wechselnde Lichtverhältnisse — von greller Sonne bis dunklen Ecken. Der Kiosk-Modus stellt dafür eine eigene, reduzierte Bedienoberfläche bereit, damit du zentrale Aufgaben direkt vor Ort erledigen kannst, ohne zuerst Hände zu waschen oder Handschuhe auszuziehen.
 
 !!! note "Teilweise verfügbar: Kiosk-Modus"
-    Der Kiosk-Modus befindet sich im Ausbau. Diese Seite beschreibt den aktuell verfügbaren Funktionsumfang (Startseite, Aktivierung, kontrastreiche Darstellung, Inaktivitäts-Warnung). Weitere Ausbaustufen sind im Abschnitt [Was noch folgt](#was-noch-folgt) beschrieben.
+    Der Kiosk-Modus befindet sich im Ausbau. Diese Seite beschreibt den aktuell verfügbaren Funktionsumfang (Startseite, durchgängige Kiosk-Oberfläche, Aktivierung, kontrastreiche Darstellung, Inaktivitäts-Warnung, Bestätigen durch Gedrückthalten, Schnellauswahl im Gießprotokoll). Weitere Ausbaustufen sind im Abschnitt [Was noch folgt](#was-noch-folgt) beschrieben.
 
 ---
 
@@ -39,20 +39,62 @@ Aktiviere den Schalter **Kiosk-Modus aktivieren**. Die App wechselt sofort in de
 
 ## Die Kiosk-Startseite
 
-Sobald der Kiosk-Modus aktiv ist, führt dich der permanente **Home**-Button jederzeit zur Kiosk-Startseite (`/kiosk`) zurück. Sie zeigt vier große Kacheln für die wichtigsten Aufgaben sowie eine Status-Übersicht.
+Sobald der Kiosk-Modus aktiv ist, führt dich der permanente **Start**-Button jederzeit zur Kiosk-Startseite (`/kiosk`) zurück. Sie zeigt vier große Kacheln für die wichtigsten Aufgaben sowie eine Status-Übersicht.
 
 ### Schnellzugriff-Kacheln
 
 | Kachel | Aktion |
 |--------|--------|
-| **Pflanze scannen** | Öffnet die Foto-basierte Pflanzenerkennung |
+| **Pflanze bestimmen** | Öffnet die Foto-basierte Pflanzenerkennung |
 | **Bewässerung erfassen** | Öffnet das Gießprotokoll |
 | **Rundgang starten** | Öffnet die Aufgaben-Warteschlange für den nächsten Rundgang |
 | **Problem melden** | Öffnet die Schädlings-/Problemerkennung per Foto |
 
+!!! note "Kein QR-Scanner"
+    Die Kachel **Pflanze bestimmen** erkennt eine Pflanze per Foto — sie liest keine QR-Codes. QR-Etiketten öffnest du mit der Kamera-App deines Geräts.
+
 ### Aktueller Status
 
 Unterhalb der Kacheln zeigt die Startseite die Anzahl deiner offenen Aufgaben sowie eventuelle Warnungen (z. B. überfällige Aufgaben) auf einen Blick.
+
+---
+
+## Der ganze Kiosk bleibt ein Kiosk
+
+Solange der Kiosk-Modus aktiv ist, bleiben auch die Seiten, die du über eine Kachel öffnest, in der Kiosk-Oberfläche. Statt Menü und Brotkrumen-Navigation siehst du oben eine Leiste mit drei Schaltflächen:
+
+| Schaltfläche | Wirkung |
+|--------------|---------|
+| **Zurück** | Geht eine Seite zurück. Gibt es keine vorherige Seite, landest du auf der Kiosk-Startseite. |
+| **Start** | Springt zur Kiosk-Startseite. |
+| **Kiosk verlassen** | Beendet den Kiosk-Modus. Halte die Schaltfläche dafür 2 Sekunden gedrückt. |
+
+Auch die automatische [Inaktivitäts-Warnung](#automatische-inaktivitats-warnung) läuft auf diesen Seiten weiter und bringt dich nach Ablauf zur Kiosk-Startseite zurück.
+
+---
+
+## Kritische Aktionen durch Gedrückthalten bestätigen
+
+Bei Aktionen, die sich nicht rückgängig machen lassen (zum Beispiel Löschen), reicht im Kiosk-Modus kein einzelner Tipp. Halte die Bestätigungsschaltfläche **2 Sekunden** gedrückt. Eine Füllung zeigt den Fortschritt; lässt du vorher los, wird nichts ausgeführt. Der Hinweis „Zum Bestätigen 2 Sekunden gedrückt halten" steht direkt am Dialog. **Abbrechen** und die Bestätigung liegen bewusst weit auseinander, damit du nicht versehentlich die falsche Schaltfläche triffst.
+
+Mit der Tastatur bestätigst du direkt mit der Eingabe- oder Leertaste — ein Gedrückthalten ist dort nicht nötig.
+
+### Doppel-Tipps werden abgefangen
+
+Ein versehentlicher Doppel-Tipp löst nur eine Aktion aus: Berührungen, die kurz nacheinander (innerhalb von etwa 0,3 Sekunden) erfolgen, zählen als eine.
+
+---
+
+## Schnellauswahl im Gießprotokoll
+
+Im Kiosk-Modus bietet das Dialogfenster **Gießvorgang erfassen** für EC und pH der Gießlösung große Auswahlkacheln unter dem Eingabefeld, sodass du keine Zahlen tippen musst:
+
+| Messwert | Kacheln |
+|----------|---------|
+| EC | 1,0 · 1,5 · 2,0 · 2,5 · 3,0 |
+| pH | 5,5 · 5,8 · 6,0 · 6,2 · 6,5 |
+
+Passt keiner der Werte, wähle **Manuell** und gib den Wert frei ein. Die Werte nach dem Gießen und die Ablaufwerte gibst du immer frei ein. Mehr zum Formular findest du im [Gießprotokoll](watering-log.md#gievorgang-manuell-erfassen).
 
 ---
 
@@ -69,10 +111,10 @@ Sie ist standardmäßig aktiv, sobald du den Kiosk-Modus einschaltest. Du kannst
 Damit an einer fest installierten Kiosk-Station keine Eingaben eines vorherigen Nutzers offen stehen bleiben, erkennt der Kiosk-Modus Inaktivität automatisch:
 
 1. Nach **120 Sekunden** ohne Berührung erscheint ein großflächiges Warn-Overlay mit der Frage „Noch aktiv?" und einem Countdown.
-2. Reagierst du nicht, kehrt die App nach weiteren **30 Sekunden** automatisch zur Kiosk-Startseite zurück.
+2. Reagierst du nicht, kehrt die App nach weiteren **30 Sekunden** automatisch zur Kiosk-Startseite zurück. Hast du gerade etwas eingegeben und noch nicht gespeichert, steht in der Warnung, dass diese Eingaben dann verworfen werden.
 3. Tippst du auf **Weiter arbeiten**, wird die Warnung geschlossen und der Inaktivitäts-Timer beginnt von vorn.
 
-Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-Timer ebenfalls zurück.
+Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-Timer ebenfalls zurück, ebenso das Scrollen. Solange ein Foto für die Pflanzen- oder Schädlingserkennung hochgeladen wird, pausiert der Timer.
 
 !!! warning "Warnung lässt sich nicht wegtippen"
     Das Warn-Overlay lässt sich nicht durch Tippen daneben oder mit der Escape-Taste schließen — nur über die Schaltfläche **Weiter arbeiten**. Das verhindert, dass die Warnung versehentlich übersehen wird.
@@ -81,16 +123,16 @@ Jede Berührung des Bildschirms außerhalb der Warnung setzt den Inaktivitäts-T
 
 ## Kiosk-Modus verlassen
 
-Tippe in der Kiosk-Kopfleiste auf **Kiosk verlassen**. Du kehrst zum Dashboard zurück, und der Kiosk-Modus wird deaktiviert (die kontrastreiche Darstellung bleibt erhalten, wenn du sie zuvor separat aktiviert hattest). Alternativ schaltest du den Kiosk-Modus jederzeit über den Tab **Kiosk-Modus** in den Kontoeinstellungen aus.
+Halte in der Kiosk-Kopfleiste **Kiosk verlassen** 2 Sekunden gedrückt; ein kurzes Antippen beendet den Kiosk-Modus nicht, damit ihn niemand versehentlich verlässt. Mit der Tastatur genügt die Eingabe- oder Leertaste. Du kehrst zum Dashboard zurück, und der Kiosk-Modus wird deaktiviert (die kontrastreiche Darstellung bleibt erhalten, wenn du sie zuvor separat aktiviert hattest). Alternativ beendest du ihn über den Tab **Kiosk-Modus** in den Kontoeinstellungen; solange der Kiosk-Modus aktiv ist, steht dort statt des Schalters ebenfalls eine Schaltfläche zum Gedrückthalten.
 
-Solange der Kiosk-Modus aktiv ist, bleiben der Kiosk-Badge und der Home-Button permanent sichtbar — auch wenn du über eine Kachel in einen anderen Bereich der App navigierst.
+Solange der Kiosk-Modus aktiv ist, bleiben der Kiosk-Badge und die Schaltflächen **Zurück**, **Start** und **Kiosk verlassen** permanent sichtbar — auch wenn du über eine Kachel in einen anderen Bereich der App navigierst.
 
 ---
 
 ## Was noch folgt
 
 !!! note "Noch nicht implementiert"
-    Weitere geplante Ausbaustufen des Kiosk-Modus sind aktuell noch nicht umgesetzt und werden in Zukunft ergänzt: vereinfachte Sub-Formulare mit Schnellauswahl-Kacheln für häufige Messwerte (z. B. Leitfähigkeit (EC), pH-Wert, Temperatur), Touch-Debouncing gegen versehentliche Doppel-Tipps, ein verstärkter Bestätigungsschutz für kritische Aktionen (Long-Press) sowie ein Bildschirmschoner-Modus nach der automatischen Rückkehr zur Startseite. <!-- UI-NFR-019 -->
+    Weitere geplante Ausbaustufen des Kiosk-Modus sind aktuell noch nicht umgesetzt und werden in Zukunft ergänzt: Schnellauswahl-Kacheln für weitere Messwerte (z. B. Temperatur und Luftfeuchtigkeit) sowie ein Bildschirmschoner-Modus nach der automatischen Rückkehr zur Startseite. <!-- UI-NFR-019 -->
 
 ---
 
@@ -102,8 +144,8 @@ Solange der Kiosk-Modus aktiv ist, bleiben der Kiosk-Badge und der Home-Button p
 ??? question "Wirkt sich der Kiosk-Modus auf andere Geräte oder Nutzer aus?"
     Im Full-Modus ist die Einstellung an dein Konto gebunden und wird zusätzlich serverseitig gespeichert. Andere Mitglieder deines Gartens sind davon nicht betroffen — jede Person aktiviert den Kiosk-Modus für sich selbst.
 
-??? question "Warum sehe ich weiterhin die reguläre Navigation, wenn ich über eine Kiosk-Kachel navigiere?"
-    Manche Kacheln (z. B. „Pflanze scannen") führen dich in den regulären Bereich der App, damit du die volle Funktionalität dieser Seite nutzen kannst. Der Kiosk-Badge und der Home-Button bleiben dabei durchgängig sichtbar, damit du jederzeit zur Kiosk-Startseite zurückfindest.
+??? question "Kann ich mit dem Kiosk-Gerät QR-Etiketten scannen?"
+    Einen eingebauten QR-Scanner gibt es nicht. Öffne QR-Etiketten mit der Kamera-App deines Geräts; die Kachel **Pflanze bestimmen** arbeitet mit Fotos.
 
 ---
 

@@ -26,6 +26,7 @@ import Form from '@/components/form/Form';
 import FormTextField from '@/components/form/FormTextField';
 import FormSelectField from '@/components/form/FormSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
+import { EC_QUICK_SELECT, PH_QUICK_SELECT } from '@/kiosk/quickSelectPresets';
 import FormSwitchField from '@/components/form/FormSwitchField';
 import FormActions from '@/components/form/FormActions';
 import { useNotification } from '@/hooks/useNotification';
@@ -458,10 +459,14 @@ export default function WateringLogCreateDialog({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.wateringLogs.sectionMeasurements')}
           </Typography>
+          {/* UI-NFR-019 R-024 — kiosk quick-select on the values of the solution being applied
+              (wireframe §3.2); after/runoff keep the plain entry, so the dialog stays short at
+              390 px instead of growing by six tile rows. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: { xs: 0, sm: 2 } }}>
             <FormNumberField
               name="ec_before"
               control={control}
+              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.ecBefore')}
               helperText={t('pages.wateringLogs.ecHelper')}
               suffix="mS/cm"
@@ -481,6 +486,7 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ph_before"
               control={control}
+              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.phBefore')}
               helperText={t('pages.wateringLogs.phHelper')}
               min={0}

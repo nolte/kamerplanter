@@ -1267,9 +1267,10 @@
       "badge": "Kiosk",
       "home": "Start",
       "exit": "Kiosk verlassen",
+      "exitHoldHint": "Zum Verlassen {{seconds}} Sekunden gedrückt halten",
       "startTitle": "Was möchtest du tun?",
       "actions": {
-        "scanPlant": "Pflanze scannen",
+        "identifyPlant": "Pflanze bestimmen",
         "logWatering": "Bewässerung erfassen",
         "startRound": "Rundgang starten",
         "reportProblem": "Problem melden"
@@ -1284,7 +1285,8 @@
       "timeout": {
         "title": "Noch aktiv?",
         "countdown": "Rückkehr zum Start in {{seconds}} Sekunden",
-        "continue": "Weiter arbeiten"
+        "continue": "Weiter arbeiten",
+        "unsavedWarning": "Ungespeicherte Eingaben werden dann verworfen."
       },
       "settings": {
         "title": "Kiosk-Modus",
@@ -1294,7 +1296,16 @@
         "highContrastTitle": "Kontrastreiche Darstellung",
         "highContrastDescription": "Reine Schwarz-Weiß-Darstellung mit besonders hohem Kontrast – auch unabhängig vom Kiosk-Modus nutzbar, etwa bei direkter Sonneneinstrahlung auf dem Balkon.",
         "highContrastToggle": "Kontrastreiches Design verwenden",
-        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv."
+        "highContrastKioskHint": "Im Kiosk-Modus ist die kontrastreiche Darstellung standardmäßig aktiv.",
+        "turnOff": "Kiosk-Modus beenden"
+      },
+      "longPress": {
+        "hint": "Zum Bestätigen {{seconds}} Sekunden gedrückt halten",
+        "keyboardHint": "Mit der Tastatur bestätigst du mit der Eingabe- oder Leertaste."
+      },
+      "quickSelect": {
+        "groupLabel": "Schnellauswahl für {{field}}",
+        "manual": "Manuell"
       }
     },
     "season": {

@@ -13,6 +13,11 @@ interface UseKioskTimeoutOptions {
   warningMs?: number;
   /** Invoked on auto-reset — returns the kiosk to its start page (R-035). */
   onReset: () => void;
+  /**
+   * Work the user is waiting for (an identification upload in flight): the idle timer keeps
+   * restarting instead of warning, so the session is not ended under a running request.
+   */
+  paused?: boolean;
 }
 
 export interface KioskTimeoutState {
@@ -24,12 +29,13 @@ export interface KioskTimeoutState {
   dismissWarning: () => void;
 }
 
-/** Activity events that reset the inactivity timer (R-036). */
+/** Activity events that reset the inactivity timer (R-036) — reading a long page by scrolling is activity too. */
 const ACTIVITY_EVENTS: Array<keyof WindowEventMap> = [
   'pointerdown',
   'touchstart',
   'mousedown',
   'keydown',
+  'wheel',
 ];
 
 /**
@@ -43,6 +49,7 @@ export function useKioskTimeout({
   idleMs = KIOSK_IDLE_MS,
   warningMs = KIOSK_WARNING_MS,
   onReset,
+  paused = false,
 }: UseKioskTimeoutOptions): KioskTimeoutState {
   const [showWarning, setShowWarning] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(Math.ceil(warningMs / 1000));
@@ -51,9 +58,11 @@ export function useKioskTimeout({
   const countdownTimer = useRef<ReturnType<typeof setInterval>>(undefined);
   // Latest onReset without re-arming listeners on every parent render.
   const onResetRef = useRef(onReset);
+  const pausedRef = useRef(paused);
   useEffect(() => {
     onResetRef.current = onReset;
-  }, [onReset]);
+    pausedRef.current = paused;
+  }, [onReset, paused]);
 
   const clearTimers = useCallback(() => {
     if (idleTimer.current) clearTimeout(idleTimer.current);
@@ -62,12 +71,17 @@ export function useKioskTimeout({
 
   const startIdleTimer = useCallback(() => {
     if (idleTimer.current) clearTimeout(idleTimer.current);
-    idleTimer.current = setTimeout(() => {
+    const expire = () => {
+      if (pausedRef.current) {
+        idleTimer.current = setTimeout(expire, idleMs);
+        return;
+      }
       // Seed the countdown here so the countdown effect never has to call
       // setState synchronously in its body.
       setRemainingSeconds(Math.ceil(warningMs / 1000));
       setShowWarning(true);
-    }, idleMs);
+    };
+    idleTimer.current = setTimeout(expire, idleMs);
   }, [idleMs, warningMs]);
 
   const dismissWarning = useCallback(() => {
@@ -109,6 +123,8 @@ export function useKioskTimeout({
     ACTIVITY_EVENTS.forEach((evt) =>
       window.addEventListener(evt, handleActivity, { passive: true }),
     );
+    // `scroll` does not bubble: listen in the capture phase to see every scrolling container.
+    document.addEventListener('scroll', handleActivity, { capture: true, passive: true });
     // While the warning overlay is up the idle timer must stay stopped, otherwise
     // it would re-trigger and reseed the countdown, preventing the auto-reset.
     if (showWarning) {
@@ -118,6 +134,7 @@ export function useKioskTimeout({
     }
     return () => {
       ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, handleActivity));
+      document.removeEventListener('scroll', handleActivity, { capture: true });
       if (idleTimer.current) clearTimeout(idleTimer.current);
     };
   }, [enabled, showWarning, startIdleTimer, clearTimers]);

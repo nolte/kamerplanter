@@ -67,6 +67,9 @@ Pro Eintrag werden folgende Spalten angezeigt (einige nur, wenn mindestens ein E
 !!! warning "Pflanzen oder Stellplätze sind Pflicht"
     Ein Eintrag muss mindestens eine Pflanze oder einen Stellplatz referenzieren — sonst lässt er sich nicht speichern. Ergänzende Gießrunden (**ergänzend** aktiviert) können außerdem nicht gleichzeitig die Anwendungsart **Fertigation** verwenden.
 
+!!! tip "Im Kiosk-Modus"
+    Ist der [Kiosk-Modus](kiosk-mode.md#schnellauswahl-im-gieprotokoll) aktiv, wählst du EC, pH und die Ablaufwerte über große Schnellauswahl-Kacheln. Mit **Manuell** gibst du jeden anderen Wert frei ein.
+
 ### Aus einem Ausbringungskanal protokollieren
 
 Ist ein Nährstoffplan-Phaseneintrag mit einem [Ausbringungskanal](fertilization.md#ausbringungskanaele-multi-channel-delivery) verknüpft, kannst du den Gießvorgang direkt aus dem Kanal heraus protokollieren — das Formular ist dann bereits mit Anwendungsmethode, Ziel-EC/-pH und den Dünger-Dosierungen des Kanals vorausgefüllt.

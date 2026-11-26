@@ -24,7 +24,8 @@ interface QuickAction {
 
 /**
  * UI-NFR-019 §2.3 — kiosk start page (R-014). Four large quick-action tiles
- * (R-015: scan plant, log watering, start round, report problem) plus a
+ * (R-015: identify plant — the spec's QR scan does not exist, see below — log
+ * watering, start round, report problem) plus a
  * "Current status" summary (R-016). Tiles are far larger than the 80×80px
  * minimum so they are usable with gloves or the back of a hand.
  */
@@ -36,9 +37,12 @@ export default function KioskStartPage() {
 
   const actions = useMemo<QuickAction[]>(
     () => [
+      // R-015 asks for "Pflanze scannen (QR)". The app has no QR scanner — the plant labels carry a
+      // QR code that a phone's camera opens as a URL — and this tile leads to the photo-based
+      // identification. It is named for what it does (#3025 N-38) until a scanner exists.
       {
-        key: 'scan',
-        labelKey: 'pages.kiosk.actions.scanPlant',
+        key: 'identify',
+        labelKey: 'pages.kiosk.actions.identifyPlant',
         path: '/pflanzen/identifikation',
         icon: <PhotoCameraIcon sx={{ fontSize: 72 }} />,
         color: 'primary.main',

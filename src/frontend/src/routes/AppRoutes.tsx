@@ -1,7 +1,6 @@
 import { Route, Navigate, createBrowserRouter, createRoutesFromElements } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import MainLayout from '@/layouts/MainLayout';
-import KioskLayout from '@/layouts/KioskLayout';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import ProtectedRoute from '@/auth/ProtectedRoute';
@@ -15,6 +14,7 @@ import RequireRole from '@/auth/RequireRole';
 import RequirePlatformAdmin from '@/auth/RequirePlatformAdmin';
 import RouterErrorPage from '@/pages/RouterErrorPage';
 import { isLightMode } from '@/config/mode';
+import { loadKioskLayout, loadKioskStartPage } from '@/kiosk/kioskChunks';
 
 // Auth pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -144,8 +144,10 @@ const AdminOidcProvidersPage = lazy(() => import('@/pages/admin/AdminOidcProvide
 const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
 const AdminTenantImportsPage = lazy(() => import('@/pages/admin/AdminTenantImportsPage'));
 
-// UI-NFR-019 Kiosk mode
-const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
+// UI-NFR-019 Kiosk mode — the shell as well as the start page: neither belongs in the first paint.
+// The loaders are shared with the kiosk shell's preload (offline kiosk, #3025 M16 review S1).
+const KioskLayout = lazy(loadKioskLayout);
+const KioskStartPage = lazy(loadKioskStartPage);
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 
@@ -277,8 +279,17 @@ export const router = createBrowserRouter(
 
       {/* Protected routes (require authentication) */}
       <Route element={<ProtectedRoute />}>
-        {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb) */}
-        <Route path="kiosk" element={<KioskLayout />}>
+        {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb). The pages its tiles
+            lead to stay under MainLayout, which renders them into the same kiosk shell while
+            kiosk mode is on (#3025 N-37). */}
+        <Route
+          path="kiosk"
+          element={
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <KioskLayout />
+            </Suspense>
+          }
+        >
           <Route
             index
             element={
