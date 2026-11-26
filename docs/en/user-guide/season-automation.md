@@ -69,7 +69,7 @@ With **live weather**, Kamerplanter also shows you a frost countdown ("First fro
 
 As soon as a site switches into winter dormancy, Kamerplanter automatically activates a dedicated care plan for all affected plants:
 
-- **Watering** follows the watering setting from the plant's [overwintering plan](overwintering.md) — from "none" (dry-stored tubers) to "normal" (plants in a bright, frost-free winter quarter).
+- **Watering** follows the watering setting from the plant's [overwintering plan](overwintering.md) — from "none" (dry-stored tubers) to "normal" (plants in a bright, frost-free winter quarter). With "none", Kamerplanter closes the plant's open watering task as **Skipped**, and its notification leaves your open notifications instead of escalating as overdue all winter. This does not count as watering.
 - **Fertilizing** pauses completely.
 - Two new control reminders appear as needed, alongside your other [tasks](tasks.md) (source "Care"):
 
@@ -80,7 +80,7 @@ As soon as a site switches into winter dormancy, Kamerplanter automatically acti
 
 <!-- REQ-047 -->
 
-When the site leaves winter dormancy again (transitioning into spring reactivation), Kamerplanter automatically switches off the winter-dormancy care plan and returns to the normal seasonal watering rhythm.
+When the site leaves winter dormancy again (transitioning into spring reactivation), Kamerplanter automatically switches off the winter-dormancy care plan and returns to the normal seasonal watering rhythm. If a plant rested without watering, Kamerplanter creates a watering task for it again right away, provided **Auto-create watering tasks** is enabled in its care profile — due after the normal interval from your last real watering. If that was before winter, the new task is due at once.
 
 ---
 
