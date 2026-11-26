@@ -14,6 +14,7 @@ import RequireRole from '@/auth/RequireRole';
 import RequirePlatformAdmin from '@/auth/RequirePlatformAdmin';
 import RouterErrorPage from '@/pages/RouterErrorPage';
 import { isLightMode } from '@/config/mode';
+import { loadKioskLayout, loadKioskStartPage } from '@/kiosk/kioskChunks';
 
 // Auth pages
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage'));
@@ -144,8 +145,9 @@ const AdminPlansPage = lazy(() => import('@/pages/admin/AdminPlansPage'));
 const AdminTenantImportsPage = lazy(() => import('@/pages/admin/AdminTenantImportsPage'));
 
 // UI-NFR-019 Kiosk mode — the shell as well as the start page: neither belongs in the first paint.
-const KioskLayout = lazy(() => import('@/layouts/KioskLayout'));
-const KioskStartPage = lazy(() => import('@/pages/kiosk/KioskStartPage'));
+// The loaders are shared with the kiosk shell's preload (offline kiosk, #3025 M16 review S1).
+const KioskLayout = lazy(loadKioskLayout);
+const KioskStartPage = lazy(loadKioskStartPage);
 
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'));
 

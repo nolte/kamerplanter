@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import KioskAppBar from '@/components/kiosk/KioskAppBar';
@@ -6,7 +6,10 @@ import KioskTimeoutOverlay from '@/components/kiosk/KioskTimeoutOverlay';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
 import SkipLink from '@/components/layout/SkipLink';
+import { preloadKioskChunks } from '@/kiosk/kioskChunks';
+import { runKioskReset, useHasUnsavedInput } from '@/kiosk/kioskSession';
 import { KIOSK_START_PATH } from '@/kiosk/kioskStartPath';
+import { useAppSelector } from '@/store/hooks';
 import { useKioskTimeout } from '@/kiosk/useKioskTimeout';
 import { useTapDebounce } from '@/kiosk/useTapDebounce';
 
@@ -25,17 +28,48 @@ const MAIN_ID = 'main-content';
  *
  * - kiosk app bar with badge, Home, Back and Exit — no menu button, no sidebar, no breadcrumbs
  *   (R-003, R-017, R-018, R-021);
- * - the inactivity timeout and its warning, returning to the kiosk start (R-033..R-036);
+ * - the inactivity timeout and its warning, returning to the kiosk start even past an
+ *   unsaved-changes prompt, after saying that unsaved input will be discarded (R-033..R-038);
+ * - the preload of every kiosk chunk, so the kiosk keeps working offline (review S1);
  * - the 300 ms double-tap debounce for every click below it (R-029);
  * - skip link and route announcement, as in the standard shell (W-09, #3017 W-02).
  */
-export default function KioskShell({ children }: { children: ReactNode }) {
+interface KioskShellProps {
+  children: ReactNode;
+  /**
+   * Move the focus into `main` on mount when it was lost to the body — the shell replaces the
+   * standard one when kiosk mode is switched on, which unmounts the focused switch.
+   */
+  takeFocus?: boolean;
+}
+
+export default function KioskShell({ children, takeFocus = false }: KioskShellProps) {
   const navigate = useNavigate();
   const tapDebounce = useTapDebounce();
+  const hasUnsavedInput = useHasUnsavedInput();
+  // An identification or pest-detection upload the user is waiting for keeps the session alive.
+  const uploading = useAppSelector(
+    (s) => Boolean(s.identification?.identifying) || Boolean(s.pestDetection?.detecting),
+  );
   const { showWarning, remainingSeconds, dismissWarning } = useKioskTimeout({
     enabled: true,
-    onReset: () => navigate(KIOSK_START_PATH),
+    paused: uploading,
+    // R-035 — the return to the start page is not stoppable by an unsaved-changes prompt; the
+    // overlay said beforehand that unsaved input will be discarded (R-038).
+    onReset: () => runKioskReset(() => navigate(KIOSK_START_PATH)),
   });
+
+  // #3025 M16 review S1 — every kiosk chunk now, while the tablet is online: the hold button of a
+  // destructive dialog, the quick-select tiles, and the start page the timeout returns to.
+  useEffect(() => {
+    void preloadKioskChunks();
+  }, []);
+
+  useEffect(() => {
+    if (!takeFocus) return;
+    const active = document.activeElement;
+    if (active === null || active === document.body) document.getElementById(MAIN_ID)?.focus();
+  }, [takeFocus]);
 
   return (
     <Box
@@ -72,6 +106,7 @@ export default function KioskShell({ children }: { children: ReactNode }) {
         open={showWarning}
         remainingSeconds={remainingSeconds}
         onContinue={dismissWarning}
+        unsavedInput={hasUnsavedInput}
       />
     </Box>
   );

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext, useId } from 'react';
+import { lazy, Suspense, useContext, useId, type ComponentProps } from 'react';
 import Dialog from '@mui/material/Dialog';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
@@ -11,9 +11,41 @@ import Box from '@mui/material/Box';
 import { visuallyHidden } from '@mui/utils';
 import { useTranslation } from 'react-i18next';
 import { KioskContext } from '@/kiosk/KioskProvider';
+import { loadLongPressButton } from '@/kiosk/kioskChunks';
+// Type only: the button itself stays in its lazy chunk.
+import type HoldButton from '@/components/kiosk/LongPressButton';
+
+/**
+ * The plain confirm button, standing in for the hold button while its chunk loads and for good if
+ * it cannot load (offline before the kiosk shell could preload it). A destructive dialog never
+ * shows Cancel alone; and this dialog IS the two-step confirmation R-030 accepts on its own.
+ */
+function PlainConfirmButton({
+  onConfirm,
+  loading,
+  disabled,
+  children,
+  'data-testid': testId,
+}: ComponentProps<typeof HoldButton>) {
+  return (
+    <Button
+      onClick={onConfirm}
+      color="error"
+      variant="contained"
+      loading={loading}
+      disabled={disabled}
+      aria-busy={loading}
+      data-testid={testId}
+    >
+      {children}
+    </Button>
+  );
+}
 
 // UI-NFR-019 R-030 — only a kiosk session holds a destructive confirmation; its own chunk.
-const LongPressButton = lazy(() => import('@/components/kiosk/LongPressButton'));
+const LongPressButton = lazy(() =>
+  loadLongPressButton().catch(() => ({ default: PlainConfirmButton })),
+);
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -79,10 +111,18 @@ export default function ConfirmDialog({
           {t('common.cancel')}
         </Button>
         {holdToConfirm ? (
-          <Suspense fallback={null}>
+          <Suspense
+            fallback={
+              <PlainConfirmButton onConfirm={onConfirm} disabled data-testid="confirm-dialog-confirm">
+                {confirmLabel ?? t('common.delete')}
+              </PlainConfirmButton>
+            }
+          >
             <LongPressButton
               onConfirm={onConfirm}
               loading={loading}
+              // The hold stops the moment the dialog starts closing (its exit transition).
+              disabled={!open}
               data-testid="confirm-dialog-confirm"
             >
               {confirmLabel ?? t('common.delete')}

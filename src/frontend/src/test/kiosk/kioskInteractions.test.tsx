@@ -40,7 +40,7 @@ function inKiosk(ui: React.ReactNode, isKiosk = true) {
 
 /** A real tap: the press the debounce measures, then the click it produces. */
 function tap(el: Element) {
-  fireEvent.pointerDown(el, { button: 0 });
+  fireEvent.pointerDown(el, { button: 0, isPrimary: true });
   fireEvent.pointerUp(el, { button: 0 });
   fireEvent.click(el, { detail: 1 });
 }
@@ -112,6 +112,90 @@ describe('kiosk tap debounce (UI-NFR-019 R-029, #3025 N-38)', () => {
     expect(onDialogAction).toHaveBeenCalledTimes(1);
   });
 
+  it('throttles instead of sliding: taps every 200 ms still count every second one', async () => {
+    vi.useFakeTimers();
+    const onAction = vi.fn();
+    renderShellWith(onAction, vi.fn());
+    await settle();
+    const action = screen.getByTestId('action');
+
+    // 0 accepted, 200 swallowed, 400 accepted, 600 swallowed, 800 accepted.
+    for (let i = 0; i < 5; i += 1) {
+      tap(action);
+      act(() => void vi.advanceTimersByTime(200));
+    }
+    expect(onAction).toHaveBeenCalledTimes(3);
+  });
+
+  it('ignores a second finger: a non-primary press neither counts nor swallows', async () => {
+    vi.useFakeTimers();
+    const onAction = vi.fn();
+    renderShellWith(onAction, vi.fn());
+    await settle();
+    const action = screen.getByTestId('action');
+
+    tap(action);
+    act(() => void vi.advanceTimersByTime(KIOSK_TAP_DEBOUNCE_MS + 1));
+    fireEvent.pointerDown(action, { button: 0, isPrimary: false });
+    act(() => void vi.advanceTimersByTime(100));
+    tap(action);
+    expect(onAction).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not keep a swallow mark from a press that produced no click (a scroll flick)', async () => {
+    vi.useFakeTimers();
+    const onAction = vi.fn();
+    renderShellWith(onAction, vi.fn());
+    await settle();
+    const action = screen.getByTestId('action');
+
+    tap(action);
+    act(() => void vi.advanceTimersByTime(100));
+    // A flick inside the window: pressed, then cancelled by the scroll — no click.
+    fireEvent.pointerDown(action, { button: 0, isPrimary: true });
+    fireEvent.pointerCancel(action);
+    // A screen reader's activation afterwards: a click with no press of its own.
+    fireEvent.click(action, { detail: 1 });
+    expect(onAction).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets the click a label forwards and a handler's input.click() through", async () => {
+    vi.useFakeTimers();
+    const onFilePick = vi.fn();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/giessprotokoll',
+          element: (
+            <KioskShell>
+              <label>
+                <input type="checkbox" data-testid="check" /> Ergänzung
+              </label>
+              <input type="file" data-testid="file" onClick={onFilePick} hidden />
+              <Button
+                onClick={() => (screen.getByTestId('file') as HTMLInputElement).click()}
+                data-testid="photo"
+              >
+                Foto
+              </Button>
+            </KioskShell>
+          ),
+        },
+        { path: '/kiosk', element: <div /> },
+      ],
+      { initialEntries: ['/giessprotokoll'] },
+    );
+    render(inKiosk(<RouterProvider router={router} />));
+    await settle();
+
+    tap(screen.getByText('Ergänzung'));
+    expect(screen.getByTestId('check')).toBeChecked();
+
+    act(() => void vi.advanceTimersByTime(KIOSK_TAP_DEBOUNCE_MS + 1));
+    tap(screen.getByTestId('photo'));
+    expect(onFilePick).toHaveBeenCalledTimes(1);
+  });
+
   it('leaves keyboard activation alone — a double tap is a touch phenomenon', async () => {
     vi.useFakeTimers();
     const onAction = vi.fn();
@@ -155,14 +239,14 @@ describe('kiosk long-press for destructive confirmations (UI-NFR-019 R-030, R-03
     expect(onConfirm).not.toHaveBeenCalled();
 
     // Released a moment too early: still nothing.
-    fireEvent.pointerDown(confirm, { button: 0 });
+    fireEvent.pointerDown(confirm, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS - 1));
     fireEvent.pointerUp(confirm, { button: 0 });
     fireEvent.click(confirm, { detail: 1 });
     expect(onConfirm).not.toHaveBeenCalled();
 
     // Held to the end: exactly one confirmation, the release adds none.
-    fireEvent.pointerDown(confirm, { button: 0 });
+    fireEvent.pointerDown(confirm, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
     expect(onConfirm).toHaveBeenCalledTimes(1);
     fireEvent.pointerUp(confirm, { button: 0 });
@@ -170,18 +254,80 @@ describe('kiosk long-press for destructive confirmations (UI-NFR-019 R-030, R-03
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
-  it('cancels the hold when the finger slides off the button', async () => {
+  function stubRect(el: Element) {
+    vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 200, bottom: 64, width: 200, height: 64, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect);
+  }
+
+  it('cancels the hold when a captured touch slides off the button (no pointerleave until lift)', async () => {
+    vi.useFakeTimers();
+    const onConfirm = vi.fn();
+    renderConfirm(onConfirm);
+    await settle();
+    const confirm = screen.getByTestId('confirm-dialog-confirm');
+    stubRect(confirm);
+
+    // A touch pointer is captured to the button: it gets the moves, `pointerleave` only on lift.
+    fireEvent.pointerDown(confirm, { button: 0, isPrimary: true, pointerType: 'touch', pointerId: 7 });
+    fireEvent.pointerMove(confirm, { pointerType: 'touch', pointerId: 7, clientX: 100, clientY: 30 });
+    act(() => void vi.advanceTimersByTime(800));
+    fireEvent.pointerMove(confirm, { pointerType: 'touch', pointerId: 7, clientX: 100, clientY: 300 });
+    act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('cancels the hold when a mouse leaves the button', async () => {
     vi.useFakeTimers();
     const onConfirm = vi.fn();
     renderConfirm(onConfirm);
     await settle();
     const confirm = screen.getByTestId('confirm-dialog-confirm');
 
-    fireEvent.pointerDown(confirm, { button: 0 });
+    fireEvent.pointerDown(confirm, { button: 0, isPrimary: true, pointerType: 'mouse' });
     act(() => void vi.advanceTimersByTime(1000));
-    fireEvent.pointerLeave(confirm);
+    fireEvent.pointerLeave(confirm, { pointerType: 'mouse' });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('stops a running hold when the dialog starts closing', async () => {
+    vi.useFakeTimers();
+    const onConfirm = vi.fn();
+    const ui = (open: boolean) =>
+      inKiosk(
+        <ConfirmDialog open={open} destructive title="T" message="M" onConfirm={onConfirm} onCancel={vi.fn()} />,
+      );
+    const { rerender } = render(ui(true));
+    await settle();
+    const confirm = screen.getByTestId('confirm-dialog-confirm');
+
+    fireEvent.pointerDown(confirm, { button: 0, isPrimary: true });
+    act(() => void vi.advanceTimersByTime(1500));
+    rerender(ui(false));
+    act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('confirms an assistive-technology activation: a click no press preceded', async () => {
+    const onConfirm = vi.fn();
+    renderConfirm(onConfirm);
+    const confirm = await screen.findByTestId('confirm-dialog-confirm');
+
+    // VoiceOver/TalkBack "activate": a click with detail 1, but no pointerdown on the button.
+    fireEvent.click(confirm, { detail: 1 });
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('confirms a held Enter key once, not once per key repeat', async () => {
+    const onConfirm = vi.fn();
+    const user = userEvent.setup();
+    renderConfirm(onConfirm);
+    const confirm = await screen.findByTestId('confirm-dialog-confirm');
+
+    confirm.focus();
+    await user.keyboard('{Enter>4/}');
+    expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
   it('offers a keyboard path: Enter on the focused button confirms at once', async () => {

@@ -51,7 +51,7 @@ function renderAt(ui: React.ReactNode, disableKiosk: () => void, isKiosk = true)
 }
 
 function tap(el: Element) {
-  fireEvent.pointerDown(el, { button: 0 });
+  fireEvent.pointerDown(el, { button: 0, isPrimary: true });
   fireEvent.pointerUp(el, { button: 0 });
   fireEvent.click(el, { detail: 1 });
 }
@@ -79,14 +79,14 @@ describe('"Kiosk verlassen" in the kiosk app bar', () => {
     const exit = screen.getByTestId('kiosk-exit-button');
 
     tap(exit);
-    fireEvent.pointerDown(exit, { button: 0 });
+    fireEvent.pointerDown(exit, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS - 1));
     fireEvent.pointerUp(exit, { button: 0 });
     fireEvent.click(exit, { detail: 1 });
     expect(disableKiosk).not.toHaveBeenCalled();
     expect(router.state.location.pathname).toBe('/giessprotokoll');
 
-    fireEvent.pointerDown(exit, { button: 0 });
+    fireEvent.pointerDown(exit, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
     fireEvent.pointerUp(exit, { button: 0 });
     fireEvent.click(exit, { detail: 1 });
@@ -120,12 +120,12 @@ describe('kiosk switch-off on the settings page inside the kiosk shell', () => {
     const off = screen.getByTestId('kiosk-mode-exit');
 
     tap(off);
-    fireEvent.pointerDown(off, { button: 0 });
+    fireEvent.pointerDown(off, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS - 1));
     fireEvent.pointerUp(off, { button: 0 });
     expect(disableKiosk).not.toHaveBeenCalled();
 
-    fireEvent.pointerDown(off, { button: 0 });
+    fireEvent.pointerDown(off, { button: 0, isPrimary: true });
     act(() => void vi.advanceTimersByTime(KIOSK_LONG_PRESS_MS));
     fireEvent.pointerUp(off, { button: 0 });
     fireEvent.click(off, { detail: 1 });

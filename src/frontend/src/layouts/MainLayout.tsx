@@ -18,6 +18,7 @@ import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import Sidebar from './Sidebar';
+import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
@@ -142,8 +143,10 @@ export default function MainLayout() {
 
   if (isKiosk) {
     return (
-      <Suspense fallback={null}>
-        <KioskShell>
+      // A visible placeholder while the shell chunk arrives (switching kiosk mode on unmounts the
+      // standard shell at once), and the focus goes into `main` once the shell is there.
+      <Suspense fallback={<LoadingSkeleton variant="card" />}>
+        <KioskShell takeFocus>
           {lightModeWarning}
           {page}
           {pageCompanions}

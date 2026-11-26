@@ -37,6 +37,39 @@ describe('useKioskTimeout', () => {
     expect(result.current.showWarning).toBe(false);
   });
 
+  it('counts reading a long page as activity: wheel and scrolling of any container (R-036)', () => {
+    const onReset = vi.fn();
+    const list = document.createElement('div');
+    document.body.appendChild(list);
+    const { result } = renderHook(() =>
+      useKioskTimeout({ enabled: true, idleMs: 1000, warningMs: 500, onReset }),
+    );
+
+    act(() => void vi.advanceTimersByTime(800));
+    act(() => window.dispatchEvent(new Event('wheel')));
+    act(() => void vi.advanceTimersByTime(800));
+    // `scroll` does not bubble: a scrolled list must still count.
+    act(() => void list.dispatchEvent(new Event('scroll')));
+    act(() => void vi.advanceTimersByTime(800));
+    expect(result.current.showWarning).toBe(false);
+    list.remove();
+  });
+
+  it('does not warn while an upload the user waits for is running, and resumes after it', () => {
+    const onReset = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ paused }) => useKioskTimeout({ enabled: true, idleMs: 1000, warningMs: 500, onReset, paused }),
+      { initialProps: { paused: true } },
+    );
+
+    act(() => void vi.advanceTimersByTime(5000));
+    expect(result.current.showWarning).toBe(false);
+
+    rerender({ paused: false });
+    act(() => void vi.advanceTimersByTime(1000));
+    expect(result.current.showWarning).toBe(true);
+  });
+
   it('resets the idle timer on touch interaction (R-036)', () => {
     const onReset = vi.fn();
     const { result } = renderHook(() =>

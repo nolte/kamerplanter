@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { renderWithProviders } from '../helpers';
+import { KioskContext, type KioskContextValue } from '@/kiosk/KioskProvider';
 import { server } from '../mocks/server';
 import type { PlantInstance, Fertilizer } from '@/api/types';
 import WateringLogCreateDialog, {
@@ -417,5 +418,39 @@ describe('WateringLogCreateDialog', () => {
     await screen.findByTestId('watering-log-create-dialog');
     await user.click(screen.getByTestId('form-cancel-button'));
     expect(onClose).toHaveBeenCalled();
+  });
+  it('offers kiosk quick-select tiles for the EC and pH of the applied solution only (UI-NFR-019 R-024)', async () => {
+    seed();
+    const user = userEvent.setup();
+    const kiosk: KioskContextValue = {
+      isKiosk: true,
+      highContrast: true,
+      enableKiosk: vi.fn(),
+      disableKiosk: vi.fn(),
+      toggleKiosk: vi.fn(),
+      setHighContrast: vi.fn(),
+    };
+    renderWithProviders(
+      <KioskContext.Provider value={kiosk}>
+        <WateringLogCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} />
+      </KioskContext.Provider>,
+    );
+
+    const ecTiles = await screen.findByTestId('form-field-ec_before-quick-select');
+    expect(await screen.findByTestId('form-field-ph_before-quick-select')).toBeInTheDocument();
+    // After/runoff values keep the plain entry: six tile rows would make the dialog 800 px longer.
+    for (const name of ['ec_after', 'ph_after', 'runoff_ec', 'runoff_ph']) {
+      expect(screen.queryByTestId(`form-field-${name}-quick-select`)).toBeNull();
+    }
+
+    await user.click(within(ecTiles).getByRole('button', { name: '1.5' }));
+    expect(within(screen.getByTestId('form-field-ec_before')).getByRole('spinbutton')).toHaveValue(1.5);
+  });
+
+  it('shows no quick-select tiles outside kiosk mode', async () => {
+    seed();
+    renderDialog();
+    expect(await screen.findByTestId('watering-log-create-dialog')).toBeInTheDocument();
+    expect(screen.queryByTestId('form-field-ec_before-quick-select')).toBeNull();
   });
 });

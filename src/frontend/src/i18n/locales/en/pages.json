@@ -1285,7 +1285,8 @@
       "timeout": {
         "title": "Still there?",
         "countdown": "Returning to the start page in {{seconds}} seconds",
-        "continue": "Keep working"
+        "continue": "Keep working",
+        "unsavedWarning": "Unsaved input will then be discarded."
       },
       "settings": {
         "title": "Kiosk mode",

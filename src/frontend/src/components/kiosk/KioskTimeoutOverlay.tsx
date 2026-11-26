@@ -12,6 +12,8 @@ interface KioskTimeoutOverlayProps {
   open: boolean;
   remainingSeconds: number;
   onContinue: () => void;
+  /** A form on the page holds unsaved input: say that the reset discards it (R-038). */
+  unsavedInput?: boolean;
 }
 
 /**
@@ -31,6 +33,7 @@ export default function KioskTimeoutOverlay({
   open,
   remainingSeconds,
   onContinue,
+  unsavedInput = false,
 }: KioskTimeoutOverlayProps) {
   const { t } = useTranslation();
 
@@ -60,7 +63,7 @@ export default function KioskTimeoutOverlay({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="kiosk-timeout-title"
-        aria-describedby="kiosk-timeout-desc"
+        aria-describedby={unsavedInput ? 'kiosk-timeout-desc kiosk-timeout-unsaved' : 'kiosk-timeout-desc'}
         sx={{
           bgcolor: 'background.paper',
           color: 'text.primary',
@@ -88,6 +91,18 @@ export default function KioskTimeoutOverlay({
         <Typography id="kiosk-timeout-desc" variant="h5" component="p">
           {t('pages.kiosk.timeout.countdown', { seconds: remainingSeconds })}
         </Typography>
+        {unsavedInput && (
+          <Typography
+            id="kiosk-timeout-unsaved"
+            variant="h6"
+            component="p"
+            color="error"
+            sx={{ fontWeight: 700 }}
+            data-testid="kiosk-timeout-unsaved"
+          >
+            {t('pages.kiosk.timeout.unsavedWarning')}
+          </Typography>
+        )}
         <Box role="status" aria-live="polite" sx={visuallyHidden} data-testid="kiosk-timeout-announcement">
           {spokenSeconds !== null ? t('pages.kiosk.timeout.countdown', { seconds: spokenSeconds }) : ''}
         </Box>

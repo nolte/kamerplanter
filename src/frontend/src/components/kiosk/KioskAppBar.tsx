@@ -16,6 +16,14 @@ import { KIOSK_LONG_PRESS_MS } from '@/kiosk/longPress';
 import { useKiosk } from '@/kiosk/KioskProvider';
 import { KIOSK_START_PATH } from '@/kiosk/kioskStartPath';
 
+/** Below `sm` a control shows its icon only; the label text is its accessible name. */
+const wideOnlySx = { display: { xs: 'none', sm: 'inline' } } as const;
+const compactButtonSx = {
+  minHeight: 64,
+  minWidth: 64,
+  '& .MuiButton-startIcon': { mr: { xs: 0, sm: 1 }, ml: { xs: 0, sm: -0.5 } },
+} as const;
+
 interface KioskAppBarProps {
   /** Status indicators shown before the controls (connectivity, offline buffer). */
   indicators?: ReactNode;
@@ -48,22 +56,37 @@ export default function KioskAppBar({ indicators }: KioskAppBarProps) {
   };
 
   return (
-    <AppBar position="static" color="default" data-testid="kiosk-app-bar">
-      {/* R-009 — 24px is the recommended (not just the 16px minimum) gap
-          between kiosk touch targets, here between Home and Exit. */}
-      <Toolbar sx={{ gap: 3, minHeight: { xs: 72, sm: 80 }, flexWrap: 'wrap', py: 1 }}>
+    // R-018 — Home (and Back, R-017) must be visible at all times: the bar stays at the top while
+    // a long page scrolls under it.
+    <AppBar position="sticky" color="default" sx={{ top: 0 }} data-testid="kiosk-app-bar">
+      {/* One row down to 390 px: below `sm` the controls show their icon only (their names stay
+          as accessible names) and the brand text steps back. R-009 — 16 px between touch targets
+          there, 24 px (the recommended gap) from `sm`. The badge is not interactive and sits
+          closer to Back. */}
+      <Toolbar
+        sx={{
+          gap: { xs: 2, sm: 3 },
+          minHeight: { xs: 72, sm: 80 },
+          flexWrap: 'nowrap',
+          px: { xs: 1, sm: 2 },
+          py: 1,
+        }}
+      >
         {!onStartPage && (
           <Button
             variant="contained"
             startIcon={<ArrowBackIcon />}
             onClick={handleBack}
-            sx={{ minHeight: 64 }}
+            aria-label={t('common.back')}
+            sx={compactButtonSx}
             data-testid="kiosk-back-button"
           >
-            {t('common.back')}
+            <Box component="span" sx={wideOnlySx}>
+              {t('common.back')}
+            </Box>
           </Button>
         )}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
           <LocalFloristIcon aria-hidden="true" sx={{ fontSize: 36 }} />
           <Typography variant="h5" component="span" sx={{ fontWeight: 700 }}>
             Kamerplanter
@@ -72,7 +95,7 @@ export default function KioskAppBar({ indicators }: KioskAppBarProps) {
         <Chip
           label={t('pages.kiosk.badge')}
           color="primary"
-          sx={{ fontWeight: 700, fontSize: '1rem', height: 40, px: 1 }}
+          sx={{ fontWeight: 700, fontSize: '1rem', height: 40, px: { xs: 0, sm: 1 }, ml: onStartPage ? 0 : { xs: -1, sm: 0 } }}
           data-testid="kiosk-badge"
         />
         <Box sx={{ flexGrow: 1 }} />
@@ -81,23 +104,31 @@ export default function KioskAppBar({ indicators }: KioskAppBarProps) {
           variant="outlined"
           startIcon={<HomeIcon />}
           onClick={() => navigate(KIOSK_START_PATH)}
-          sx={{ minHeight: 64 }}
+          aria-label={t('pages.kiosk.home')}
+          sx={compactButtonSx}
           data-testid="kiosk-home-button"
         >
-          {t('pages.kiosk.home')}
+          <Box component="span" sx={wideOnlySx}>
+            {t('pages.kiosk.home')}
+          </Box>
         </Button>
         {/* Operator decision 2026-11-27 — leaving the kiosk is held for 2 s, so a visitor's tap
             (or a wet finger) does not drop the tablet into the full app. Keyboard and assistive
-            activation leave directly, as with every LongPressButton. */}
+            activation leave directly, as with every LongPressButton. The hint shows on a tap
+            (compact bar) and is always part of the button's description. */}
         <LongPressButton
           variant="outlined"
           color="inherit"
           startIcon={<LogoutIcon />}
           onConfirm={handleExit}
+          aria-label={t('pages.kiosk.exit')}
           hint={t('pages.kiosk.exitHoldHint', { seconds: KIOSK_LONG_PRESS_MS / 1000 })}
+          compactHint
           data-testid="kiosk-exit-button"
         >
-          {t('pages.kiosk.exit')}
+          <Box component="span" sx={wideOnlySx}>
+            {t('pages.kiosk.exit')}
+          </Box>
         </LongPressButton>
       </Toolbar>
     </AppBar>

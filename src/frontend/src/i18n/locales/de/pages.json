@@ -1285,7 +1285,8 @@
       "timeout": {
         "title": "Noch aktiv?",
         "countdown": "Rückkehr zum Start in {{seconds}} Sekunden",
-        "continue": "Weiter arbeiten"
+        "continue": "Weiter arbeiten",
+        "unsavedWarning": "Ungespeicherte Eingaben werden dann verworfen."
       },
       "settings": {
         "title": "Kiosk-Modus",

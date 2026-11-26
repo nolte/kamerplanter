@@ -459,6 +459,9 @@ export default function WateringLogCreateDialog({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             {t('pages.wateringLogs.sectionMeasurements')}
           </Typography>
+          {/* UI-NFR-019 R-024 — kiosk quick-select on the values of the solution being applied
+              (wireframe §3.2); after/runoff keep the plain entry, so the dialog stays short at
+              390 px instead of growing by six tile rows. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: { xs: 0, sm: 2 } }}>
             <FormNumberField
               name="ec_before"
@@ -473,7 +476,6 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ec_after"
               control={control}
-              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.ecAfter')}
               suffix="mS/cm"
               min={0}
@@ -494,7 +496,6 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="ph_after"
               control={control}
-              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.phAfter')}
               min={0}
               max={14}
@@ -511,7 +512,6 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="runoff_ec"
               control={control}
-              quickSelect={EC_QUICK_SELECT}
               label={t('pages.wateringLogs.runoffEc')}
               helperText={t('pages.wateringLogs.runoffEcHelper')}
               suffix="mS/cm"
@@ -521,7 +521,6 @@ export default function WateringLogCreateDialog({
             <FormNumberField
               name="runoff_ph"
               control={control}
-              quickSelect={PH_QUICK_SELECT}
               label={t('pages.wateringLogs.runoffPh')}
               min={0}
               max={14}

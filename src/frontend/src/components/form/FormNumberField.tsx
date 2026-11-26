@@ -1,13 +1,20 @@
-import { lazy, Suspense, useContext, useRef, type ReactNode } from 'react';
+import { lazy, Suspense, useContext, useRef, type ComponentProps, type ComponentType, type ReactNode } from 'react';
+import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import { Controller, type Control, type FieldValues, type Path } from 'react-hook-form';
 import FieldHelp from './FieldHelp';
 import { KioskContext } from '@/kiosk/KioskProvider';
+import { loadKioskQuickSelect } from '@/kiosk/kioskChunks';
 import type { QuickSelectPreset } from '@/kiosk/quickSelectPresets';
+// Type only: the tiles themselves stay in their lazy chunk.
+import type QuickSelectTiles from '@/components/kiosk/KioskQuickSelect';
 
 // UI-NFR-019 R-024 — only a kiosk session shows quick-select tiles; their own chunk.
-const KioskQuickSelect = lazy(() => import('@/components/kiosk/KioskQuickSelect'));
+// Offline before the shell's preload: the tiles stay away and the number field still works.
+const KioskQuickSelect = lazy<ComponentType<ComponentProps<typeof QuickSelectTiles>>>(() =>
+  loadKioskQuickSelect().catch(() => ({ default: () => null })),
+);
 
 interface FormNumberFieldProps<T extends FieldValues> {
   name: Path<T>;
@@ -66,8 +73,8 @@ export default function FormNumberField<T extends FieldValues>({
     <Controller
       name={name}
       control={control}
-      render={({ field, fieldState: { error } }) => (
-        <>
+      render={({ field, fieldState: { error } }) => {
+        const input = (
           <FieldHelp helpTerm={helpTerm}>
             <TextField
               {...field}
@@ -117,7 +124,14 @@ export default function FormNumberField<T extends FieldValues>({
               data-testid={`form-field-${name}`}
             />
           </FieldHelp>
-          {isKiosk && quickSelect && (
+        );
+        // Without tiles the field renders exactly as before (the 700+ call sites keep their DOM).
+        if (!isKiosk || !quickSelect) return input;
+        // One grid item: the field and its kiosk tiles stay together in a two-column form, from the
+        // first render on — not only once the tiles' chunk has arrived.
+        return (
+          <Box sx={{ minWidth: 0 }}>
+            {input}
             <Suspense fallback={null}>
               <KioskQuickSelect
                 preset={quickSelect}
@@ -128,9 +142,9 @@ export default function FormNumberField<T extends FieldValues>({
                 testIdPrefix={`form-field-${name}`}
               />
             </Suspense>
-          )}
-        </>
-      )}
+          </Box>
+        );
+      }}
     />
   );
 }

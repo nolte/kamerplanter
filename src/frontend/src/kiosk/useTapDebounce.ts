@@ -5,6 +5,8 @@ export const KIOSK_TAP_DEBOUNCE_MS = 300;
 
 export interface TapDebounceHandlers {
   onPointerDownCapture: (event: PointerEvent<HTMLElement>) => void;
+  onPointerUpCapture: () => void;
+  onPointerCancelCapture: () => void;
   onClickCapture: (event: MouseEvent<HTMLElement>) => void;
   onKeyDownCapture: () => void;
 }
@@ -14,23 +16,42 @@ export interface TapDebounceHandlers {
  * handlers on the shell's root element: they see every click below it, including those in
  * portalled dialogs and menus (React propagates through the component tree, not the DOM).
  *
- * The measure is the PRESS, not the click. A pointer press that lands within
- * {@link KIOSK_TAP_DEBOUNCE_MS} of the previous one marks the click it produces, and that click
- * is stopped before any handler (or a router link's navigation) sees it. Clicks without a pointer
- * press of their own pass untouched: the click a `<label>` forwards to its control, a
- * `input.click()` a handler issues for a file picker, and every keyboard activation — debouncing
- * those would break controls, and a double tap is a touch phenomenon.
+ * The measure is the PRESS of the primary pointer, and it is a throttle: a press within
+ * {@link KIOSK_TAP_DEBOUNCE_MS} of the last ACCEPTED press marks the click it produces, and that
+ * click is stopped before any handler (or a router link's navigation) sees it. Swallowed presses
+ * do not extend the window, so a deliberate series of taps on a stepper at 200 ms still counts
+ * every second one instead of one in total. A second finger (`isPrimary === false`) is ignored.
+ *
+ * Clicks without a pointer press of their own pass untouched: the click a `<label>` forwards to
+ * its control, an `input.click()` a handler issues for a file picker, keyboard activation and an
+ * assistive technology's activation. The mark therefore lives only until its own press ends — it
+ * is cleared once the click of that press had its chance (after `pointerup`), on `pointercancel`
+ * (a scroll flick) and on a key press, so it never swallows a later, press-less click.
  */
 export function useTapDebounce(windowMs: number = KIOSK_TAP_DEBOUNCE_MS): TapDebounceHandlers {
-  const lastPressAt = useRef<number | null>(null);
+  const lastAcceptedAt = useRef<number | null>(null);
   const suppressClick = useRef(false);
+  const pressId = useRef(0);
 
   return useMemo<TapDebounceHandlers>(
     () => ({
-      onPointerDownCapture: () => {
+      onPointerDownCapture: (event) => {
+        if (event.isPrimary === false) return;
+        pressId.current += 1;
         const now = Date.now();
-        suppressClick.current = lastPressAt.current !== null && now - lastPressAt.current < windowMs;
-        lastPressAt.current = now;
+        const tooSoon = lastAcceptedAt.current !== null && now - lastAcceptedAt.current < windowMs;
+        suppressClick.current = tooSoon;
+        if (!tooSoon) lastAcceptedAt.current = now;
+      },
+      onPointerUpCapture: () => {
+        // The click of this press is dispatched in the same task as `pointerup`.
+        const id = pressId.current;
+        setTimeout(() => {
+          if (pressId.current === id) suppressClick.current = false;
+        }, 0);
+      },
+      onPointerCancelCapture: () => {
+        suppressClick.current = false;
       },
       onClickCapture: (event) => {
         if (!suppressClick.current) return;
@@ -39,7 +60,6 @@ export function useTapDebounce(windowMs: number = KIOSK_TAP_DEBOUNCE_MS): TapDeb
         event.preventDefault();
         event.stopPropagation();
       },
-      // A press that produced no click (released elsewhere) must not swallow a later key press.
       onKeyDownCapture: () => {
         suppressClick.current = false;
       },

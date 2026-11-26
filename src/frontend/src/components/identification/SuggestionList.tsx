@@ -1,3 +1,4 @@
+import { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatFixed } from '@/utils/formatting';
 import Box from '@mui/material/Box';
@@ -14,6 +15,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import type { ExperienceLevel, IdentificationSuggestion } from '@/api/types';
 import { getLocalizedCommonName } from '@/utils/plantDisplay';
+import { KioskContext } from '@/kiosk/KioskProvider';
 
 interface SuggestionListProps {
   suggestions: IdentificationSuggestion[];
@@ -56,7 +58,10 @@ export default function SuggestionList({
   const { t, i18n } = useTranslation();
   const showConfidence = level !== 'beginner';
   const showRawScore = level === 'expert';
-  const showGbif = level === 'expert';
+  // UI-NFR-019 R-019/R-021 — a kiosk session does not open external sites: a new tab has no way
+  // back to the kiosk surface.
+  const isKiosk = useContext(KioskContext)?.isKiosk ?? false;
+  const showGbif = level === 'expert' && !isKiosk;
   const imageSize = IMAGE_SIZE[level];
   const isBeginner = level === 'beginner';
 

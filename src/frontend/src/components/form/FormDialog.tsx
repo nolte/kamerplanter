@@ -3,6 +3,7 @@ import Dialog, { type DialogProps } from '@mui/material/Dialog';
 import { useTranslation } from 'react-i18next';
 import { useFormState, type Control, type FieldValues } from 'react-hook-form';
 import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { useReportUnsavedInput } from '@/kiosk/kioskSession';
 import { validateEnteredFields } from '@/hooks/useDialogForm';
 import { FormDialogContext, type FormDialogContextValue } from './formDialogContext';
 
@@ -48,6 +49,8 @@ export default function FormDialog<TFieldValues extends FieldValues = FieldValue
   const { t } = useTranslation();
   const { isDirty } = useFormState({ control });
   const guarded = isDirty || dirty;
+  // UI-NFR-019 R-038 — the kiosk timeout warns that this input will be discarded.
+  useReportUnsavedInput(guarded && Boolean(dialogProps.open));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const pendingClose = useRef<(() => void) | null>(null);
 
