@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Navigation, Routing, URL-Design
 Technologie: React, TypeScript, React Router, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.3
+Version: 1.4
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-28
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
@@ -84,14 +84,17 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 | # | Regel | Stufe |
 |---|-------|-------|
 | R-023 | Auf Viewports ≤ 768px MUSS eine fixierte Bottom-Navigation (`MuiBottomNavigation`) angezeigt werden. Die Desktop-Sidebar MUSS auf diesem Breakpoint ausgeblendet sein. | MUSS |
-| R-024 | Die Bottom-Navigation MUSS erfahrungsstufenabhängig sein (REQ-021): **Einsteiger** 4 Tabs, **Fortgeschritten** 4 Tabs + Overflow-Menü, **Experte** 5 Tabs. | MUSS |
-| R-025 | Einsteiger-Tabs (4): Start (Dashboard), Pflanzen (Instanzen-Liste), Aufgaben (Task-Queue), Einstellungen (Account). | MUSS |
-| R-026 | Experten-Tabs (5): Start, Pflanzen, Aufgaben, Düngung, Mehr (Overflow mit allen weiteren Bereichen). | MUSS |
+| R-024 | Die Bottom-Navigation MUSS für **alle Erfahrungsstufen gleich** sein: vier feste Ziele plus „Mehr“. Sie ist NICHT erfahrungsstufenabhängig (Betreiberentscheidung 2026-11-22, #3018; ersetzt die Stufen-Tabs aus Version 1.3 — siehe Hinweis unter der Tabelle). | MUSS |
+| R-025 | Die vier festen Ziele sind in dieser Reihenfolge: Start (Dashboard), Pflanzen (Instanzen-Liste), Aufgaben (Task-Queue), Kalender. | MUSS |
+| R-026 | Der fünfte Eintrag „Mehr“ MUSS die Seitenleiste als Drawer öffnen. Sie enthält alle weiteren Bereiche in derselben Auswahl wie die Desktop-Sidebar (Erfahrungsstufe und Modul-Sichtbarkeit wirken dort, nicht in der Bottom-Navigation). „Mehr“ ist kein Navigationsziel und wird nicht als aktiver Tab hervorgehoben. | MUSS |
 | R-027 | Touch-Targets in der Bottom-Navigation MÜSSEN mindestens 48×48px betragen, empfohlen 56×48px. | MUSS |
 | R-028 | Die Bottom-Navigation MUSS den aktuell aktiven Tab visuell hervorheben (Icon-Farbe + Label). | MUSS |
 | R-029 | Doppel-Tap auf den aktiven Tab SOLL zum Seitenanfang scrollen (Scroll-to-Top). | SOLL |
 | R-030 | Die Bottom-Navigation DARF NICHT bei Scroll-Down ausgeblendet werden — sie MUSS permanent fixiert bleiben (`position: fixed; bottom: 0`). | MUSS |
 | R-031 | Der Seiteninhalt MUSS ausreichend Bottom-Padding erhalten, damit der letzte Inhalt nicht von der Bottom-Navigation verdeckt wird (mindestens Höhe der Navigation + 8px). | MUSS |
+
+!!! note "Abweichung von Version 1.3 (Betreiberentscheidung 2026-11-22, #3018)"
+    Bis Version 1.3 verlangten R-024 bis R-026 eigene Tabs je Erfahrungsstufe (Einsteiger: Start, Pflanzen, Aufgaben, Einstellungen; Fortgeschritten: vier Tabs plus Overflow; Experte: Start, Pflanzen, Aufgaben, Düngung, Mehr). Der Betreiber hat am 2026-11-22 entschieden, dass die Bottom-Navigation für alle Stufen dieselben vier Ziele plus „Mehr“ zeigt: Die Leiste bleibt beim Wechsel der Stufe an ihrem Platz, und jeder weitere Bereich ist über „Mehr“ erreichbar. Die Einstellungen und die Düngung liegen damit hinter „Mehr“.
 
 ### 2.4 Breadcrumb-Navigation
 
@@ -156,7 +159,7 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 <!-- Quelle: Frontend-Design-Review K-001 (Massentauglichkeit 2026-02-28) -->
 ### 3.2 Mobile-Navigation (Bottom-Navigation, R-023 bis R-031)
 
-**Einsteiger-Modus (4 Tabs):**
+**Alle Erfahrungsstufen (4 Ziele + „Mehr“):**
 ```
 ┌──────────────────────────────────────┐
 │  Kamerplanter          Seitentitel   │  ← AppBar (kein Hamburger)
@@ -169,22 +172,10 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 │                                      │
 │                   padding-bottom: 64px│
 ├──────────────────────────────────────┤
-│  🏠       🌱       ✅       ⚙      │  ← Bottom Navigation (fixiert)
-│  Start   Pflanzen  Aufgaben  Einst.  │
-│  ↑ aktiv                             │
+│  🏠     🌱      ✅      📅     ⋯   │  ← Bottom Navigation (fixiert)
+│  Start Pflanzen Aufg.  Kalender Mehr │
+│  ↑ aktiv                 Mehr → Drawer│
 │       min. 48×48px Touch-Target      │
-└──────────────────────────────────────┘
-```
-
-**Experten-Modus (5 Tabs):**
-```
-┌──────────────────────────────────────┐
-│  Kamerplanter          Seitentitel   │
-├──────────────────────────────────────┤
-│  ...                                 │
-├──────────────────────────────────────┤
-│  🏠     🌱     ✅     🧪     ⋯    │
-│  Start Pflanzen Aufg. Düngung Mehr   │
 └──────────────────────────────────────┘
 ```
 
@@ -229,8 +220,8 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 - [ ] **Bottom-Navigation (Mobile)**
     - [ ] Bottom-Navigation ist auf Viewports ≤ 768px sichtbar und fixiert
     - [ ] Desktop-Sidebar ist auf ≤ 768px ausgeblendet
-    - [ ] Einsteiger: 4 Tabs (Start, Pflanzen, Aufgaben, Einstellungen)
-    - [ ] Experte: 5 Tabs (Start, Pflanzen, Aufgaben, Düngung, Mehr)
+    - [ ] Alle Erfahrungsstufen: dieselben 4 Ziele (Start, Pflanzen, Aufgaben, Kalender) plus „Mehr“
+    - [ ] „Mehr“ öffnet die Seitenleiste als Drawer und ist nie der aktive Tab
     - [ ] Touch-Targets ≥ 48×48px
     - [ ] Aktiver Tab visuell hervorgehoben
     - [ ] Seiteninhalt hat ausreichend Bottom-Padding
