@@ -23,6 +23,7 @@ from app.domain.models.notification import (
     NotificationUrgency,
     QuietHoursPreference,
 )
+from app.domain.services.notification_propagation_service import NotificationPropagationService
 
 logger = structlog.get_logger()
 
@@ -58,12 +59,18 @@ class NotificationEngine:
         redis_client: object,
         *,
         user_repo: IUserRepository,
+        propagation: NotificationPropagationService | None = None,
     ) -> None:
         self._notification_repo = notification_repo
         self._preference_repo = preference_repo
         self._channel_registry = channel_registry
         self._user_repo = user_repo
         self._redis = redis_client
+        # ADR-008 boundary 3 (F-8): a write that follows an existing row — the
+        # escalation stamp — goes through the propagation owner. Defaulting to one
+        # over the same repository keeps every construction site on that path; no
+        # engine instance can be built that writes the row directly.
+        self._propagation = propagation or NotificationPropagationService(notification_repo)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -258,13 +265,20 @@ class NotificationEngine:
         return {"status": "batch_complete", "sent": total_sent, "failed": total_failed}
 
     async def escalate_overdue(self, tenant_key: str) -> dict:
-        """Escalate overdue watering reminders.
+        """Escalate the tenant's overdue watering reminders.
 
         Escalation levels:
         - Day +2: urgency -> HIGH
         - Day +4: urgency -> CRITICAL
         - Day +7: final warning
+
+        Only the run's own tenant is read (the overdue query is tenant-scoped; an
+        empty tenant escalates nothing). One row that fails is logged and skipped —
+        it does not abort the tenant's remaining rows.
         """
+        if not tenant_key:
+            return {"escalated": 0}
+
         escalation_config = EscalationPreference()
         escalation_days = escalation_config.escalation_days  # [2, 4, 7]
 
@@ -276,51 +290,21 @@ class NotificationEngine:
             overdue = self._notification_repo.find_overdue_watering(
                 overdue_since=cutoff,
                 escalation_level=level,
+                tenant_key=tenant_key,
             )
 
             for notif in overdue:
-                # Check user preferences for watering escalation
-                prefs = self._load_preferences(notif.user_key)
-                if not prefs.escalation.watering_enabled:
-                    continue
-
-                # Determine new urgency based on level
-                if level == 0:
-                    new_urgency = NotificationUrgency.HIGH
-                elif level == 1:
-                    new_urgency = NotificationUrgency.CRITICAL
-                else:
-                    new_urgency = NotificationUrgency.CRITICAL
-
-                escalation_notif = Notification(
-                    tenant_key=notif.tenant_key,
-                    user_key=notif.user_key,
-                    notification_type="care.watering.escalation",
-                    title=notif.title,
-                    body=f"Overdue: {notif.body}",
-                    urgency=new_urgency,
-                    data={
-                        **notif.data,
-                        "escalation_level": level + 1,
-                        "original_notification_key": notif.key,
-                    },
-                    group_key=notif.group_key,
-                    escalation_level=level + 1,
-                    parent_notification_key=notif.key,
-                )
-
-                await self.notify(
-                    user_key=notif.user_key,
-                    tenant_key=notif.tenant_key,
-                    notification=escalation_notif,
-                )
-
-                # Update original notification escalation level
-                notif.escalation_level = level + 1
-                if notif.key:
-                    self._notification_repo.update(notif.key, notif)
-
-                escalated_count += 1
+                try:
+                    if await self._escalate_one(notif, level, tenant_key):
+                        escalated_count += 1
+                except Exception as exc:  # noqa: BLE001 — one row must not abort the tenant's run
+                    logger.warning(
+                        "escalation_row_failed",
+                        tenant=log_tenant(tenant_key),
+                        notification_key=notif.key,
+                        escalation_level=level + 1,
+                        error=loggable_error(exc),
+                    )
 
         logger.info(
             "escalation_complete",
@@ -329,6 +313,54 @@ class NotificationEngine:
         )
 
         return {"escalated": escalated_count}
+
+    async def _escalate_one(self, notif: Notification, level: int, tenant_key: str) -> bool:
+        """Escalate one overdue row by one level; ``True`` when the escalation was sent."""
+        # Check user preferences for watering escalation
+        prefs = self._load_preferences(notif.user_key)
+        if not prefs.escalation.watering_enabled:
+            return False
+
+        new_urgency = NotificationUrgency.HIGH if level == 0 else NotificationUrgency.CRITICAL
+
+        escalation_notif = Notification(
+            tenant_key=notif.tenant_key,
+            user_key=notif.user_key,
+            notification_type="care.watering.escalation",
+            title=notif.title,
+            body=f"Overdue: {notif.body}",
+            urgency=new_urgency,
+            data={
+                **notif.data,
+                "escalation_level": level + 1,
+                "original_notification_key": notif.key,
+            },
+            group_key=notif.group_key,
+            escalation_level=level + 1,
+            parent_notification_key=notif.key,
+        )
+
+        # Claim the level on the escalated row FIRST, through the owner of that row
+        # (ADR-008 boundary 3, F-8). The stamp is a propagation write — the row
+        # already exists and follows the escalation — so it is not this engine's to
+        # make. The claim is one conditional write: of two overlapping runs exactly
+        # one sends, and a row of another tenant is never claimed. A claimed level
+        # whose send then fails stays claimed (logged by the caller): a missed
+        # escalation is preferred over a double one.
+        claimed = self._propagation.on_notification_escalated(
+            notif,
+            tenant_key=tenant_key,
+            escalation_level=level + 1,
+        )
+        if not claimed:
+            return False
+
+        await self.notify(
+            user_key=notif.user_key,
+            tenant_key=notif.tenant_key,
+            notification=escalation_notif,
+        )
+        return True
 
     # ── Channel resolution ────────────────────────────────────────────
 

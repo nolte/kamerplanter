@@ -63,10 +63,23 @@ class INotificationRepository(ABC):
     def mark_acted(self, key: str, acted_at: datetime) -> Notification | None: ...
 
     @abstractmethod
+    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+        """Raise the row's ``escalation_level`` to ``escalation_level`` in ONE conditional write.
+
+        Writes only when the row exists, belongs to ``tenant_key`` and is still
+        below the level; returns the updated row, else ``None``. A partial update —
+        no other field is touched. Two concurrent callers cannot both get a row back
+        for the same level: that is the escalation claim (ADR-008 F-8).
+        """
+        ...
+
+    @abstractmethod
     def find_overdue_watering(
         self,
         overdue_since: datetime,
         escalation_level: int,
+        *,
+        tenant_key: str,
     ) -> list[Notification]: ...
 
     @abstractmethod

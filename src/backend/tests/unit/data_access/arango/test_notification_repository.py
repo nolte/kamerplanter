@@ -224,21 +224,50 @@ class TestFindOverdueWatering:
         cutoff = datetime(2026, 6, 12, tzinfo=UTC)
         mock_db.aql.execute.return_value = iter([_notif_doc(escalation_level=1)])
 
-        result = repo.find_overdue_watering(overdue_since=cutoff, escalation_level=1)
+        result = repo.find_overdue_watering(overdue_since=cutoff, escalation_level=1, tenant_key="t1")
 
         assert len(result) == 1
         call = mock_db.aql.execute.call_args
         assert "STARTS_WITH(doc.notification_type, 'care.watering')" in call.args[0]
+        assert "doc.tenant_key == @tenant_key" in call.args[0]
         assert call.kwargs["bind_vars"] == {
             "cutoff": cutoff.isoformat(),
             "cutoff_slack": (cutoff + timedelta(days=1)).isoformat(),
             "level": 1,
+            "tenant_key": "t1",
         }
 
     def test_empty_result_returns_empty_list(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.find_overdue_watering(datetime(2026, 6, 12, tzinfo=UTC), 0) == []
+        assert repo.find_overdue_watering(datetime(2026, 6, 12, tzinfo=UTC), 0, tenant_key="t1") == []
+
+    def test_an_empty_tenant_reads_nothing(self, repo, mock_db):
+        assert repo.find_overdue_watering(datetime(2026, 6, 12, tzinfo=UTC), 0, tenant_key="") == []
+        mock_db.aql.execute.assert_not_called()
+
+
+class TestClaimEscalationLevel:
+    def test_one_conditional_partial_update(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([_notif_doc(escalation_level=1)])
+
+        claimed = repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1)
+
+        assert claimed is not None
+        query = mock_db.aql.execute.call_args.args[0]
+        assert "doc._key == @key AND doc.tenant_key == @tenant_key" in query
+        assert "doc.escalation_level < @level" in query
+        assert "UPDATE doc WITH { escalation_level: @level, updated_at: @now }" in query
+        assert "REPLACE" not in query
+
+    def test_no_row_back_is_no_claim(self, repo, mock_db):
+        mock_db.aql.execute.return_value = iter([])
+
+        assert repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1) is None
+
+    def test_an_empty_tenant_claims_nothing(self, repo, mock_db):
+        assert repo.claim_escalation_level("n1", tenant_key="", escalation_level=1) is None
+        mock_db.aql.execute.assert_not_called()
 
 
 class TestCountUnread:

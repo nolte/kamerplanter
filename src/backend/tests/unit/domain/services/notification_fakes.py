@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.domain.models.notification import Notification
+from app.domain.models.notification import Notification, NotificationStatus
 
 
 class FakeNotificationRepo:
@@ -92,3 +92,83 @@ class FakeNotificationRepo:
             for n in self._store.values()
             if n.user_key == user_key and n.tenant_key == tenant_key and n.read_at is None
         ]
+
+
+class EscalationNotificationRepo(FakeNotificationRepo):
+    """The fake plus the escalation surface, modelled on the real AQL (ADR-008 F-8).
+
+    * Every read returns a fresh copy, as ArangoDB materialises a new model per
+      document — so a caller holding a stale row is representable.
+    * :meth:`find_overdue_watering` is tenant-scoped (an empty tenant reads
+      nothing), type prefix ``care.watering``, not acted upon, older than the
+      cutoff, at exactly the queried level.
+    * :meth:`claim_escalation_level` is the single conditional write: key, tenant
+      and "level still below" are checked and the level is raised in one step,
+      touching no other field. A sequential fake cannot interleave inside it, and
+      neither can the real statement — that is the property being modelled, not
+      assumed away. Full-model ``update`` calls are recorded so a test can assert
+      the escalation path makes none.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.updates: list[str] = []
+        self.claims: list[tuple[str, int]] = []
+
+    def get(self, key: str) -> Notification | None:
+        row = super().get(key)
+        return row.model_copy(deep=True) if row is not None else None
+
+    def update(self, key: str, notification: Notification) -> Notification:
+        self.updates.append(key)
+        return super().update(key, notification.model_copy(deep=True))
+
+    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+        row = self._store.get(key)
+        if not tenant_key or row is None or row.tenant_key != tenant_key or row.escalation_level >= escalation_level:
+            return None
+        row.escalation_level = escalation_level
+        self.claims.append((key, escalation_level))
+        return row.model_copy(deep=True)
+
+    def find_overdue_watering(
+        self, overdue_since: datetime, escalation_level: int, *, tenant_key: str
+    ) -> list[Notification]:
+        if not tenant_key:
+            return []
+        return [
+            row.model_copy(deep=True)
+            for row in self._store.values()
+            if row.tenant_key == tenant_key
+            and row.notification_type.startswith("care.watering")
+            and row.acted_at is None
+            and row.created_at is not None
+            and row.created_at < overdue_since
+            and row.escalation_level == escalation_level
+        ]
+
+    def escalations(self) -> list[Notification]:
+        return [row for row in self._store.values() if row.notification_type == "care.watering.escalation"]
+
+    def seed_overdue_care_row(
+        self,
+        *,
+        tenant_key: str,
+        user_key: str,
+        days_old: int = 3,
+        group_key: str = "care.watering:plant-1",
+    ) -> str:
+        """A care note its user has not acted on for *days_old* days (level-0 overdue only)."""
+        row = self.create(
+            Notification(
+                tenant_key=tenant_key,
+                user_key=user_key,
+                notification_type="care.watering",
+                title="Monstera",
+                body="watering due: Monstera",
+                group_key=group_key,
+                status=NotificationStatus.DELIVERED,
+            )
+        )
+        row.created_at = datetime.now(UTC) - timedelta(days=days_old)
+        return row.key or ""

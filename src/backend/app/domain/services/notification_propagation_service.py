@@ -5,7 +5,8 @@ This service closes the *reverse* gap: when the **source** of a notification
 changes — a task is moved, reassigned, completed or deleted, or a care reminder's
 cycle is edited or confirmed — the associated in-app notification must follow
 synchronously (updated, marked done or removed), without creating duplicates or
-leaving orphans.
+leaving orphans. The overdue escalation's stamp on the escalated row is the same
+kind of write and lives here too (:meth:`on_notification_escalated`, ADR-008 F-8).
 
 Design (why here / why sync):
 
@@ -331,6 +332,12 @@ class NotificationPropagationService:
             )
             return
 
+        # Nobody to address: a background retiming (no acting user) follows an
+        # existing note but never invents one — the repository refuses a row
+        # without a recipient anyway (MT-045.8).
+        if not user_key:
+            return
+
         self._create(
             Notification(
                 tenant_key=tenant_key,
@@ -358,6 +365,57 @@ class NotificationPropagationService:
             return
         group_key = _care_group_key(reminder_type, plant_key)
         self._mark_group_done(self._safe_lookup(group_key, tenant_key))
+
+    # ── Escalation hook ───────────────────────────────────────────────
+
+    def on_notification_escalated(
+        self,
+        notification: Notification,
+        *,
+        tenant_key: str,
+        escalation_level: int,
+    ) -> bool:
+        """Follow an overdue escalation onto the escalated row (ADR-008 boundary 3, F-8).
+
+        The overdue-watering escalation (:meth:`NotificationEngine.escalate_overdue`)
+        sends a *new* escalation notification — an event, born in the engine — and
+        has to record on the **existing** care row that this level has been reached,
+        so the next run does not escalate the same level again. That second write
+        follows a change instead of creating one: it is a propagation write, and the
+        row it lands on is the same ``care.*`` row :meth:`sync_care_notification`
+        maintains. One owner per row is why it lives here (the #548 two-writers shape).
+
+        The stamp is the **claim** of the escalation: the engine only sends the
+        escalation notification when this method returns ``True``.
+
+        * **One conditional write.** :meth:`INotificationRepository.claim_escalation_level`
+          filters on key, tenant and "level still below" and updates in the same
+          statement, so of two overlapping runs that both read the row at the old
+          level exactly one gets ``True``. The update is partial: ``read_at``,
+          ``acted_at`` and every other field stay as stored.
+        * **Fail-closed per tenant.** An empty ``tenant_key``, a row without a key,
+          or a row of another tenant — as passed in, or as stored — writes nothing
+          and returns ``False``.
+        * **No retry.** A failing write is logged and answered ``False``: the level
+          stays unclaimed and the next run tries again, rather than an escalation
+          being sent that was never recorded.
+
+        Returns:
+            ``True`` when this call raised the level and the escalation may be sent,
+            ``False`` when nothing was written.
+        """
+        if not tenant_key or not notification.key or notification.tenant_key != tenant_key:
+            return False
+        try:
+            claimed = self._repo.claim_escalation_level(
+                notification.key,
+                tenant_key=tenant_key,
+                escalation_level=escalation_level,
+            )
+        except Exception:
+            logger.warning("notification_propagation_escalation_claim_failed", key=notification.key)
+            return False
+        return claimed is not None
 
     # ── Internal helpers ──────────────────────────────────────────────
 

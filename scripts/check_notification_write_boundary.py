@@ -22,7 +22,8 @@ Counting definition (the shared vocabulary, F-6 acceptance-1)
 -------------------------------------------------------------
 
 A **site** is a call to a mutating method — ``create``, ``update``, ``delete``,
-``mark_read``, ``mark_acted``: the write half of ``INotificationRepository`` —
+``mark_read``, ``mark_acted``, ``claim_escalation_level``: the write half of
+``INotificationRepository`` —
 on a receiver this scan resolves to a notification repository, in any module
 except the owner (``notification_propagation_service.py``).
 
@@ -146,7 +147,7 @@ DEFINITION_MODULES = (
 )
 
 #: The write half of ``INotificationRepository``.
-MUTATING_METHODS = frozenset({"create", "update", "delete", "mark_read", "mark_acted"})
+MUTATING_METHODS = frozenset({"create", "update", "delete", "mark_read", "mark_acted", "claim_escalation_level"})
 
 #: Annotations that identify a notification repository.
 REPOSITORY_TYPES = frozenset({"INotificationRepository", "NotificationRepository", "ArangoNotificationRepository"})

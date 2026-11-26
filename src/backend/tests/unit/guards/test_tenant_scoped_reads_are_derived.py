@@ -1033,9 +1033,6 @@ EXCLUSIONS: dict[tuple[str, str], Exclusion] = {
         "every tenant's Home Assistant entity grants, read once by the cross-tenant ingest/control/weather "
         "beat tasks so each row is checked against its own tenant's allowlist (MT-015, #2112)",
     ),
-    ("ArangoNotificationRepository", "find_overdue_watering"): Exclusion(
-        "system", "the escalation Celery task re-notifies every overdue watering reminder"
-    ),
     ("ArangoFertilizerRepository", "get_global_fertilizers"): Exclusion(
         "system",
         "the fertilizer seed loaders match a seed product to a GLOBAL row only (tenant_key empty, never a tenant's "
