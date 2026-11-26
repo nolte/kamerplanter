@@ -1,0 +1,482 @@
+# yaml-language-server: $schema=./schemas/soil_hazards.schema.yaml
+#
+# Soil-hazard knowledge table (REQ-054 §5.2a, issue #2888, feature F-18).
+#
+# Every number comes from spec/analysis/agrobiology-soil-hazards-research-2888.md
+# (research 2026-11-15, re-research #3005 on 2026-11-17, sections §6 and §7.11),
+# with the operator decisions of 2026-11-22:
+#   1. A value that lies within all three sources' figures counts as 3/3 even
+#      where the sources give ranges (evidence.kind: range).
+#   2. soil_persistence_years is the CULTIVATION PAUSE after a confirmed
+#      infestation, not the rotation length and not the maximum survival.
+#
+# evidence.status: evidenced = 3/3 independent full-text sources; insufficient =
+# fewer; contradictory = sources disagree; not_found = no value researched (years
+# is null). evidence.sources counts the independent sources that support the
+# stated value (capped at 3). Only an evidenced duration carries a time statement
+# or a block — see app/domain/engines/soil_hazard_knowledge_engine.py.
+#
+# A re-researched value is a data change only: set years and evidence here. No
+# code reads a hazard-specific number.
+hazards:
+  - hazard: clubroot
+    pathogens: [Plasmodiophora brassicae]
+    soil_persistence_years:
+      years: 7
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: range
+        basis: "AHDB at least 4 y; UT Extension W235 7 y; DLR Rheinpfalz 7-10 y"
+        ref: "§7.1"
+    max_survival_years:
+      years: 15
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: lower_bound
+        basis: "AHDB up to 15 y; RHS 20 y; LW 2013 up to 20 y; Dixon 2009 at least 18 y (20 y only 2/3)"
+        ref: "R-001.1, §7.1"
+    hosts:
+      - level: family
+        name: Brassicaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "RHS, AHDB, NC State Extension"
+          ref: "R-002"
+    notes:
+      - "Half-life of resting spores 3.5-3.6 y (3/3, possibly one shared primary source, §7.1)."
+      - "Cruciferous weeds keep the population alive during the pause (AHDB, RHS)."
+
+  - hazard: cyst_nematode
+    pathogens: [Heterodera schachtii]
+    soil_persistence_years:
+      years: 3
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: range
+        basis: "LfL host at most every third year (pause >= 2 y); NDSU 3-4 y rotation (pause 2-3 y); AGES 4-year rotation (pause 3 y). Pause reading per operator decision 2026-11-22"
+        ref: "R-001.2, §7.12 item 5"
+    max_survival_years:
+      years: null
+      evidence:
+        status: contradictory
+        sources: 3
+        basis: "SESVanderHave 5-6 y, top agrar up to 10 y, NDSU over 12 y; only 'at least 5 y' agrees (3/3), no single number per §7.2"
+        ref: "§7.2"
+    hosts:
+      - level: family
+        name: Brassicaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "LfL p_37956, AGES, UNL G1906 / NDSU"
+          ref: "R-002"
+      - level: family
+        name: Amaranthaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "LfL p_37956 (beetroot, spinach), AGES, UNL G1906 / NDSU (Chenopodiaceae)"
+          ref: "R-002"
+    non_hosts:
+      - level: family
+        name: Poaceae
+        evidence: &cyst_neutral
+          status: insufficient
+          sources: 2
+          basis: "AGES neutral plants; NDSU non-host crops"
+          ref: "R-002"
+      - level: family
+        name: Solanaceae
+        evidence: *cyst_neutral
+      - level: family
+        name: Fabaceae
+        evidence: *cyst_neutral
+      - level: family
+        name: Asteraceae
+        evidence: *cyst_neutral
+      - level: family
+        name: Cannabaceae
+        evidence:
+          status: insufficient
+          sources: 1
+          basis: "AGES neutral plants (hemp)"
+          ref: "R-002"
+    notes:
+      - "Nematode-resistant cultivars of Sinapis alba and Raphanus sativus var. oleiformis lower the population although Brassicaceae — a cultivar trait, not a family value (LfL, 1/3)."
+      - "Decline without host 40-60 % per year (2/3, UNL, NDSU)."
+
+  - hazard: root_knot_nematode
+    pathogens: [Meloidogyne hapla, Meloidogyne incognita]
+    soil_persistence_years:
+      years: 3
+      evidence:
+        status: insufficient
+        sources: 1
+        basis: "3 y only LfL (2 y UC IPM + LfL, 2/3); only 'at least 1 y with a non-host' is 3/3, which understates the residual risk and is no warning duration"
+        ref: "R-001.3, §7.3"
+    max_survival_years:
+      years: null
+      evidence:
+        status: contradictory
+        sources: 1
+        basis: "AGES up to 2 y (M. hapla) against INRAE ephytia 'several years' (genus); JKI only the decline"
+        ref: "§7.3"
+    hosts:
+      - level: family
+        name: Solanaceae
+        evidence: &rkn_hosts
+          status: evidenced
+          sources: 3
+          basis: "UC IPM Pest Note 7489 table 1; CDFA pest rating M. hapla; LfL p_37956"
+          ref: "R-002"
+      - level: family
+        name: Brassicaceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Fabaceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Apiaceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Asteraceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Cucurbitaceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Amaranthaceae
+        evidence: *rkn_hosts
+      - level: family
+        name: Rosaceae
+        evidence: *rkn_hosts
+      - level: genus
+        name: Allium
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "host of M. hapla, within the 3/3 host list of R-002 / §6.2"
+          ref: "R-002, §6.2"
+    non_hosts:
+      - level: family
+        name: Poaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "CDFA, LfL, AGES, JKI, UW PDDC (cereals, maize, grasses)"
+          ref: "§7.3"
+    soft: true
+    notes:
+      - "In Central European open ground practically only M. hapla; M. incognita in greenhouses (LfL)."
+      - "Soft hazard: nearly all dicotyledonous vegetables are hosts, a block would hit almost every bed (R-001 open point 3)."
+
+  - hazard: white_rot
+    pathogens: [Stromatinia cepivora]
+    soil_persistence_years:
+      years: null
+      evidence:
+        status: insufficient
+        sources: 1
+        basis: "Only FiBL 2003 gives a number (8-10 y); LK NOe/BOKU, UC IPM, RHS, AUSVEG say 'long' without a number and that rotation alone does not control it (3/3)"
+        ref: "R-001.4, §7.4"
+    max_survival_years:
+      years: 15
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: lower_bound
+        basis: "UC IPM over 20 y; RHS at least 15 y; FiBL up to 20 y; AUSVEG over 25 y"
+        ref: "§7.4"
+    hosts:
+      - level: genus
+        name: Allium
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "UC IPM, RHS, ISIP chapter 11 (onion, leek, garlic, chives); Clivia and Hippeastrum not affected"
+          ref: "R-002"
+    notes:
+      - "Sclerotia germinate only on Allium root exudates, so a pause hardly uses them up."
+
+  - hazard: pea_root_rot
+    pathogens: [Aphanomyces euteiches, Fusarium solani f. sp. pisi, Fusarium oxysporum f. sp. pisi]
+    soil_persistence_years:
+      years: 8
+      evidence:
+        status: contradictory
+        sources: 2
+        basis: "UT W235 3-5 y (single pathogens), FiBL 1667 7-8 y after a poor soil test, SaskPulse 8-10 y; 8 y supported by FiBL and SaskPulse only"
+        ref: "R-001.5, §7.5"
+    max_survival_years:
+      years: 10
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: lower_bound
+        basis: "Aphanomyces: SaskPulse, PNW, APS/UW 10+ y; F. oxysporum f. sp. pisi: NDSU, UDel, MOFGA about 10 to over 10 y"
+        ref: "§7.5"
+    hosts:
+      - level: genus
+        name: Pisum
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "FiBL 1667, SaskPulse, NDSU PP1790, APS/UW, PNW"
+          ref: "§7.5"
+      - level: genus
+        name: Lens
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "SaskPulse, NDSU PP1790, APS/UW / PNW host lists"
+          ref: "§7.5"
+      - level: genus
+        name: Medicago
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "APS/UW, LFA MV, Frontiers 2024 / PNW (alfalfa)"
+          ref: "§7.5"
+      - level: species
+        name: Trifolium pratense
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "APS/UW, LFA MV, Frontiers 2024 / PNW (red clover)"
+          ref: "§7.5"
+    non_hosts:
+      - level: species
+        name: Phaseolus vulgaris
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "own pathotypes of Aphanomyces (APS/UW, Dillard & Abawi 1988, Banniza) and of F. solani f. sp. phaseoli (UC IPM, UNL, SaskPulse)"
+          ref: "§7.5"
+      - level: species
+        name: Vicia faba
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "field non-host of Aphanomyces (NDSU PP1790, Banniza, Frontiers 2024); laboratory counter-evidence (APS/UW), open for the whole complex"
+          ref: "§7.5"
+      - level: species
+        name: Glycine max
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "Banniza, Top Crop Manager 2023 (AAFC); NDSU lists soybean as host of the Fusarium root rot complex"
+          ref: "§7.5"
+    notes:
+      - "The family pause Fabaceae (REQ-053 GP-FR-131) and the Phaseolus species override stay unaffected."
+
+  - hazard: sclerotinia
+    pathogens: [Sclerotinia sclerotiorum]
+    soil_persistence_years:
+      years: 5
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: range
+        basis: "AGES at least 4 (better 6) y; Manitoba 5 y; PNW 3-8 y (a review gives shorter pauses)"
+        ref: "§7.6"
+    max_survival_years:
+      years: 10
+      evidence:
+        status: insufficient
+        sources: 2
+        basis: "range 4-10 y is 3/3 (AGES, UW PDDC, Canola Council / Manitoba); 10 y only AGES and the Pathogens 2019 review"
+        ref: "§7.6"
+    hosts:
+      - level: family
+        name: Brassicaceae
+        evidence: &sclerotinia_hosts
+          status: insufficient
+          sources: 2
+          basis: "PNW 2347, Pathogens 2019 review (Bolton et al. 2006 only a search excerpt)"
+          ref: "R-002"
+      - level: family
+        name: Fabaceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Apiaceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Asteraceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Solanaceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Cucurbitaceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Lamiaceae
+        evidence: *sclerotinia_hosts
+      - level: family
+        name: Rosaceae
+        evidence: *sclerotinia_hosts
+    non_hosts:
+      - level: family
+        name: Poaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "Canola Council, Cornell Vegetable Program, AGES / Derbyshire et al. 2022; symptomless endophytic colonisation described"
+          ref: "§7.6"
+    soft: true
+    notes:
+      - "More than 400 host species, almost all dicotyledons; monocot hosts outside the Poaceae: onion, garlic, tulip."
+      - "Soft hazard: a block would hit almost every vegetable bed (R-001 open point 3)."
+
+  - hazard: verticillium
+    pathogens: [Verticillium dahliae, Verticillium albo-atrum, Verticillium longisporum]
+    soil_persistence_years:
+      years: 4
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: range
+        basis: "UC IPM at least 3 / 3-4 y; CT Agricultural Experiment Station 4-5 y; Illinois Extension at least 3 y; strawberry 3-5 y (PSU, BOELW, Illinois)"
+        ref: "§7.7"
+    max_survival_years:
+      years: 10
+      evidence:
+        status: evidenced
+        sources: 3
+        kind: lower_bound
+        basis: "Depotter et al. 2016, AHDB, Pflanzenschutzdienst M-V (plus JLU, HS Osnabrueck, MSU); LfL 2017 contradicts ('not very long')"
+        ref: "§7.7"
+    hosts:
+      - level: family
+        name: Brassicaceae
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "Depotter 2016, CAES 2008, Agroscope 2009 (V. longisporum)"
+          ref: "§7.7"
+      - level: genus
+        name: Mentha
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "CAES 2008, Dung 2020, Hortipendium; basil and culinary sage 0/3"
+          ref: "§7.7"
+      - level: species
+        name: Spinacia oleracea
+        evidence:
+          status: evidenced
+          sources: 3
+          basis: "CAES 2008, UW PDDC, du Toit et al. 2009"
+          ref: "§7.7"
+      - level: species
+        name: Beta vulgaris
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "UW PDDC (beet), Depotter 2016 (sugar beet)"
+          ref: "§7.7"
+      - level: family
+        name: Solanaceae
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "RHS, UC IPM (potato, lettuce, home garden pages count as one source)"
+          ref: "R-002"
+      - level: family
+        name: Rosaceae
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "RHS, UC IPM Lettuce (strawberry); oekolandbau.de only a search excerpt"
+          ref: "R-002"
+      - level: family
+        name: Cucurbitaceae
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "RHS, UC IPM Home Garden"
+          ref: "R-002"
+      - level: family
+        name: Asteraceae
+        evidence:
+          status: insufficient
+          sources: 2
+          basis: "UC IPM Lettuce, RHS Chrysanthemum"
+          ref: "R-002"
+    non_hosts:
+      - level: family
+        name: Poaceae
+        evidence:
+          status: contradictory
+          sources: 2
+          basis: "UC IPM, RHS, UW PDDC: grasses do not get the disease; Dung 2020, Pflanzenschutzdienst M-V, SARE: symptomless colonisation"
+          ref: "§7.7"
+    notes:
+      - "All sources stress that rotation alone does not eliminate Verticillium (UC IPM Potato)."
+
+  - hazard: juglone
+    pathogens: [Juglans nigra, Juglans cinerea, Juglans regia]
+    soil_persistence_years:
+      years: 5
+      evidence:
+        status: contradictory
+        sources: 1
+        basis: "UW-Madison 'five or more years' until the roots have decomposed (1/3); Purdue 'some years'; Iowa State 'a few months'; UMD/WSU no conclusive evidence"
+        ref: "R-001.8, §7.9"
+    max_survival_years:
+      years: null
+      evidence:
+        status: not_found
+        sources: 0
+        basis: "not applicable: juglone itself degrades quickly, decaying roots keep releasing it (R-001.8)"
+        ref: "R-001.8"
+    hosts:
+      - level: species
+        name: Solanum lycopersicum
+        evidence: &juglone_solanaceae
+          status: evidenced
+          sources: 3
+          basis: "Purdue HO-193, UW-Madison, Iowa State — observed sensitivity, not experiments; the cause is disputed (UMD/WSU)"
+          ref: "§7.9"
+      - level: species
+        name: Solanum tuberosum
+        evidence: *juglone_solanaceae
+      - level: species
+        name: Solanum melongena
+        evidence: *juglone_solanaceae
+      - level: species
+        name: Capsicum annuum
+        evidence: *juglone_solanaceae
+      - level: species
+        name: Asparagus officinalis
+        evidence: &juglone_purdue
+          status: insufficient
+          sources: 1
+          basis: "Purdue HO-193 (UW-Madison copies the Purdue list, not independent)"
+          ref: "§7.9"
+      - level: species
+        name: Brassica oleracea
+        evidence: *juglone_purdue
+      - level: species
+        name: Rheum rhabarbarum
+        evidence: *juglone_purdue
+      - level: species
+        name: Rubus fruticosus
+        evidence: *juglone_purdue
+      - level: genus
+        name: Malus
+        evidence: *juglone_purdue
+      - level: genus
+        name: Pyrus
+        evidence: *juglone_purdue
+      - level: genus
+        name: Vaccinium
+        evidence: *juglone_purdue
+    notes:
+      - "No family block: within the Rosaceae apple and pear are sensitive, cherry and plum tolerant (Purdue vs. PSU)."
+      - "confirmed_at is the felling of the tree; while the tree stands the hazard is unlimited in time."
+      - "With the root system fully removed one year suffices (Iowa State, 1/3)."

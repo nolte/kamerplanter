@@ -1,0 +1,124 @@
+# JSON Schema for soil_hazards.yaml — soil-hazard knowledge table (REQ-054 §5.2a, #2888 F-18)
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "soil_hazards.schema.yaml"
+title: "Soil Hazard Knowledge Table"
+description: >-
+  One row per persistent soil hazard of a bed: cultivation pause after a
+  confirmed infestation, maximum survival without a host, hosts at family,
+  genus or species level, and an evidence status per value. Only an
+  `evidenced` (3/3) duration may carry a time statement. Values come from
+  spec/analysis/agrobiology-soil-hazards-research-2888.md. The domain model
+  (app/domain/models/soil_hazard_knowledge.py) enforces the cross-field
+  evidence invariants on top of this schema.
+type: object
+
+properties:
+  hazards:
+    type: array
+    minItems: 8
+    maxItems: 8
+    items:
+      $ref: "#/$defs/hazard_row"
+
+required: [hazards]
+additionalProperties: false
+
+$defs:
+  hazard_key:
+    type: string
+    enum: [clubroot, cyst_nematode, root_knot_nematode, white_rot, pea_root_rot, sclerotinia, verticillium, juglone]
+
+  evidence:
+    type: object
+    properties:
+      status:
+        type: string
+        enum: [evidenced, insufficient, contradictory, not_found]
+        description: "evidenced = 3/3 independent full-text sources (method E-10)."
+      sources:
+        type: integer
+        minimum: 0
+        maximum: 3
+        description: "Independent full-text sources supporting the stated value, capped at 3."
+      kind:
+        type: string
+        enum: [number, lower_bound, range]
+        description: "Shape of the agreement; range = the value lies in each source's range (counts as 3/3)."
+      basis:
+        type: string
+        minLength: 1
+      ref:
+        type: string
+        minLength: 1
+        description: "Section of the research document."
+    required: [status, sources, basis, ref]
+    additionalProperties: false
+    allOf:
+      - if:
+          properties: {status: {const: evidenced}}
+        then:
+          properties: {sources: {const: 3}}
+      - if:
+          properties: {status: {const: not_found}}
+        then:
+          properties: {sources: {const: 0}}
+
+  evidenced_years:
+    type: object
+    properties:
+      years:
+        type: [integer, "null"]
+        minimum: 1
+        maximum: 50
+      evidence:
+        $ref: "#/$defs/evidence"
+    required: [years, evidence]
+    additionalProperties: false
+
+  host_entry:
+    type: object
+    properties:
+      level:
+        type: string
+        enum: [family, genus, species]
+      name:
+        type: string
+        minLength: 1
+        description: "APG IV family name, genus, or scientific species name (Species.scientific_name)."
+      evidence:
+        $ref: "#/$defs/evidence"
+    required: [level, name, evidence]
+    additionalProperties: false
+
+  hazard_row:
+    type: object
+    properties:
+      hazard:
+        $ref: "#/$defs/hazard_key"
+      pathogens:
+        type: array
+        minItems: 1
+        items: {type: string, minLength: 1}
+      soil_persistence_years:
+        $ref: "#/$defs/evidenced_years"
+        description: "Cultivation pause after a confirmed infestation — not the rotation length (operator decision 2026-11-22)."
+      max_survival_years:
+        $ref: "#/$defs/evidenced_years"
+        description: "Maximum survival of the pathogen without a host (residual risk, informative)."
+      hosts:
+        type: array
+        minItems: 1
+        items:
+          $ref: "#/$defs/host_entry"
+      non_hosts:
+        type: array
+        items:
+          $ref: "#/$defs/host_entry"
+      soft:
+        type: boolean
+        description: "Host range so broad that the hazard only yields a hint, never a block or warning."
+      notes:
+        type: array
+        items: {type: string, minLength: 1}
+    required: [hazard, pathogens, soil_persistence_years, max_survival_years, hosts]
+    additionalProperties: false

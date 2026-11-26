@@ -50,17 +50,17 @@ ergänzt, ohne dass sich Code ändert.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Vor jeder Codeänderung beschreiben REQ-053 §11.3/§16, REQ-054 §5.2/§6 H-10 samt AP-ACC-022, TC-REQ-054 und REQ-003 E5 die Ursachenklasse, `bolting`, die Saison als Anbaufenster, die zwei Zeitfelder, die weichen Gefahren und die Wirtsebenen.
-- [ ] **acceptance-2** Die Wissenstabelle hält je Bodengefahr Anbaupause, maximale Überdauerung und Wirte (Familie, Gattung oder Art), jeden Wert mit Belegstatus.
-- [ ] **acceptance-3** Die Startwerte aus der Recherche sind mit ihrem Status geladen; nur 3/3-belegte Werte gelten als nutzbar für Zeitangaben.
-- [ ] **acceptance-4** Ein nachrecherchierter Wert wird allein durch eine Datenänderung wirksam.
+- [x] **acceptance-1** Vor jeder Codeänderung beschreiben REQ-053 §11.3/§16, REQ-054 §5.2/§6 H-10 samt AP-ACC-022, TC-REQ-054 und REQ-003 E5 die Ursachenklasse, `bolting`, die Saison als Anbaufenster, die zwei Zeitfelder, die weichen Gefahren und die Wirtsebenen.
+- [x] **acceptance-2** Die Wissenstabelle hält je Bodengefahr Anbaupause, maximale Überdauerung und Wirte (Familie, Gattung oder Art), jeden Wert mit Belegstatus.
+- [x] **acceptance-3** Die Startwerte aus der Recherche sind mit ihrem Status geladen; nur 3/3-belegte Werte gelten als nutzbar für Zeitangaben.
+- [x] **acceptance-4** Ein nachrecherchierter Wert wird allein durch eine Datenänderung wirksam.
 
 ## Test hooks
 
-- **acceptance-1** — spec diff review (REQ-003, REQ-053, REQ-054, TC-REQ-054) before the first code commit — pending
-- **acceptance-2** — schema validation of the seed YAML (`seed YAML matches the schema` hook) — pending
-- **acceptance-3** — unit test: loader exposes durations only for 3/3 values — pending
-- **acceptance-4** — unit test: changing a value's status in the fixture changes the resolved duration without code change — pending
+- **acceptance-1** — spec diff review (REQ-003, REQ-053, REQ-054, TC-REQ-054) before the first code commit — commit `docs(spec): specify the soil-hazard knowledge table before code` precedes the first code commit; REQ-003 E5 v2.23, REQ-053 §11.3/§11.3a/§16 (GP-FR-131/137/193) v1.55, REQ-054 §3/§5.2/§5.2a/§5.5/§6 H-10/H-11/§7.2/AP-API-012/AP-ACC-022/028 v1.4, TC-REQ-054 v1.3 (TC-054-013, TC-054-029); `tests/unit/guards/test_spec_literal_discriminators_match_models.py` green — proven 2026-11-27
+- **acceptance-2** — schema validation of the seed YAML (`seed YAML matches the schema` hook) — `seed-schema-conformance` hook over `src/backend/app/migrations/seed_data/soil_hazards.yaml`; `tests/unit/migrations/test_soil_hazards_seed.py` (schema refuses a value without evidence, a 3/3 claim with two sources, a host without level, `affected_families`; host taxa known to the seed catalogue at all three levels) — proven 2026-11-27
+- **acceptance-3** — unit test: loader exposes durations only for 3/3 values — `tests/unit/data_access/knowledge/test_soil_hazard_knowledge_source.py::TestShippedStartValues` (start values and status per hazard, usable durations only for `evidenced`); invariants in `tests/unit/domain/models/test_soil_hazard_knowledge.py` — proven 2026-11-27
+- **acceptance-4** — unit test: changing a value's status in the fixture changes the resolved duration without code change — `tests/unit/data_access/knowledge/test_soil_hazard_knowledge_source.py::TestDataChangeAlone` (status raised → usable, lowered → withdrawn, new value takes effect, a 3/3 claim without three sources is refused) — proven 2026-11-27
 
 ## Consistency notes
 

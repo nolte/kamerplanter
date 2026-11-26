@@ -14,6 +14,10 @@ SEED_DATA_DIR = Path(__file__).parent / "seed_data"
 
 def load_yaml(filename: str) -> Any:
     """Load and parse a YAML file from the seed_data directory."""
-    path = SEED_DATA_DIR / filename
+    return load_yaml_path(SEED_DATA_DIR / filename)
+
+
+def load_yaml_path(path: Path) -> Any:
+    """Load and parse the YAML file at ``path`` (``yaml.safe_load``)."""
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
