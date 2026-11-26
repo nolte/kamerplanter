@@ -64,7 +64,7 @@ export default function PlantingRunListPage() {
         if (!dominant_phase) return '—';
         return (
           <Chip
-            label={`${t(`enums.phase.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
+            label={`${t(`enums.phaseName.${dominant_phase}`, dominant_phase)} (${dominant_phase_count}/${total_plant_count})`}
             size="small"
             color="info"
           />

@@ -537,7 +537,7 @@ export default function WorkflowInstantiateDialog({
                         {getPlantLabel(plant, i18n.language)}
                       </Typography>
                       <Chip
-                        label={t(`enums.phase.${plant.current_phase}`)}
+                        label={t(`enums.phaseName.${plant.current_phase}`)}
                         size="small"
                         variant="outlined"
                       />

@@ -1349,6 +1349,12 @@
       "phase_requirement_profile": "Phasenprofil",
       "species_watering_guide": "Gießempfehlung der Art",
       "container_substrate_calculation": "Topf und Substrat"
+    },
+    "timeOfDay": {
+      "morning": "Morgens",
+      "afternoon": "Nachmittags",
+      "evening": "Abends",
+      "night": "Nachts"
     }
   }
 }
