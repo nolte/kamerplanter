@@ -259,6 +259,9 @@ describe('PlantInstanceDetailPage — section load banner (#3037)', () => {
   });
 });
 
+/** How long a held answer waits for the request it is held for. Only a serial load ever waits it out. */
+const HELD_ANSWER_BOUND = 5000;
+
 describe('PlantInstanceDetailPage — independent reads run as one stage (#3015, A-11)', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('de');
@@ -298,27 +301,28 @@ describe('PlantInstanceDetailPage — independent reads run as one stage (#3015,
     expect(slotReads).toEqual(['slot-1']);
   });
 
-  it('asks for the nutrient plan while the phase history is still unanswered', async () => {
+  it('asks for the nutrient plan before the phase history has answered', async () => {
     // The serial chain asked for the plan only after the phase history, the watering reads and the lifecycle had
-    // answered. Held here until the plan request arrives (or a bound passes): in one stage it arrives at once.
+    // answered. The history answer is held until the plan request arrives (or a bound passes), and the plan handler
+    // records whether the history had answered by then. Which of the two requests reaches its handler first is not
+    // the page's to decide and not asserted: a plan request that overtakes the history request is one stage too.
     let planAsked: () => void = () => {};
     const planRequested = new Promise<void>((resolve) => {
       planAsked = resolve;
     });
-    let planSeenWhileHistoryPending = false;
-    let historyPending = false;
+    let historyAnswered = false;
+    let planSeenBeforeHistoryAnswered = false;
     const calls = seed({
       planResponder: () => {
-        planSeenWhileHistoryPending = historyPending;
+        planSeenBeforeHistoryAnswered = !historyAnswered;
         planAsked();
         return HttpResponse.json(null);
       },
     });
     server.use(
       http.get('*/plant-instances/:key/phases/history', async () => {
-        historyPending = true;
-        await Promise.race([planRequested, new Promise((resolve) => setTimeout(resolve, 1500))]);
-        historyPending = false;
+        await Promise.race([planRequested, new Promise((resolve) => setTimeout(resolve, HELD_ANSWER_BOUND))]);
+        historyAnswered = true;
         return HttpResponse.json([]);
       }),
     );
@@ -326,6 +330,6 @@ describe('PlantInstanceDetailPage — independent reads run as one stage (#3015,
 
     await screen.findByTestId('plant-instance-detail-page', {}, { timeout: WAIT_BUDGET });
     await waitFor(() => expect(calls.plan).toBe(1), { timeout: WAIT_BUDGET });
-    expect(planSeenWhileHistoryPending).toBe(true);
+    expect(planSeenBeforeHistoryAnswered).toBe(true);
   });
 });
