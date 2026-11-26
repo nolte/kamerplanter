@@ -33,6 +33,7 @@ import { runtimeConfig } from '@/config/runtimeConfig';
 import { API_CACHE_TTL_SECONDS, isPwaCachingEnabled } from '@/pwa/cachePolicy';
 import { offlineDataGeneration, onOfflineDataEvent } from '@/pwa/offlineData';
 import { PLAN_CACHE_DB_NAME } from '@/pwa/storageWipe';
+import type { Transaction } from 'dexie';
 import type { CachedRecord, PlanCacheDatabase, PlanCacheTable } from './db';
 
 /** R-012: a cached answer older than this is never served. */
@@ -113,6 +114,14 @@ let localClearing = false;
 let foreignDeletionUntil = 0;
 /** How far apart the broadcast and the `versionchange` of the same clearing may arrive. */
 const SAME_CLEARING_WINDOW_MS = 5000;
+/**
+ * The document is hidden — `pagehide` (it may enter the back/forward cache) or `freeze` — until `pageshow` /
+ * `resume` (#3082). A frozen document runs no script: a connection it holds, or an open or upgrade it left in
+ * flight, stays until the browser evicts it, and an upgrade it never finishes holds every later open of the
+ * database in every other document. So hiding closes the connection, ends an open in flight, and nothing opens
+ * until the document is shown again; the next read or write then opens a new connection.
+ */
+let suspended = false;
 /** The loaded `db` module, so a clearing can close the connection synchronously. */
 let dbModule: typeof import('./db') | null = null;
 
@@ -157,6 +166,29 @@ onOfflineDataEvent((event) => {
   }
 });
 
+/** The transactions of this tab still running: hiding aborts them, a closing connection waits for them. */
+const activeTransactions = new Set<Transaction>();
+
+function suspend(): void {
+  suspended = true;
+  // Dexie's `abort()` acts only on a transaction still active, so a finished one is no error.
+  activeTransactions.forEach((transaction) => transaction.abort());
+  activeTransactions.clear();
+  closeConnection();
+}
+
+function resume(): void {
+  suspended = false;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', suspend);
+  window.addEventListener('pageshow', resume);
+  // Page Lifecycle: a hidden tab the browser freezes without leaving it (a bfcache entry fires both).
+  document.addEventListener('freeze', suspend);
+  document.addEventListener('resume', resume);
+}
+
 /** Whether the plan cache may be used in this tab: kill switch on, not retired, IndexedDB present. */
 function cacheUsable(): boolean {
   if (retired || typeof indexedDB === 'undefined') return false;
@@ -168,10 +200,10 @@ function cacheUsable(): boolean {
 }
 
 async function database(): Promise<PlanCacheDatabase | null> {
-  if (!cacheUsable() || localClearing) return null;
+  if (!cacheUsable() || localClearing || suspended) return null;
   try {
     dbModule ??= await import('./db');
-    return retired || localClearing ? null : dbModule.planCacheDatabase(deletedElsewhere);
+    return retired || localClearing || suspended ? null : dbModule.planCacheDatabase(deletedElsewhere);
   } catch {
     return null;
   }
@@ -181,6 +213,21 @@ async function database(): Promise<PlanCacheDatabase | null> {
 async function purgeExpired(db: PlanCacheDatabase, now: number): Promise<void> {
   const limit = now - PLAN_CACHE_TTL_MS;
   await Promise.all(TABLES.map((table) => db[table].where('cachedAt').below(limit).delete()));
+}
+
+/**
+ * Every access runs in one transaction over all tables, recorded so that hiding the document can abort it (#3082):
+ * a connection closes only once its transactions are done, and a frozen document never finishes one.
+ */
+function inTransaction<T>(db: PlanCacheDatabase, work: () => Promise<T>): Promise<T> {
+  return db.transaction('rw', TABLES.map((name) => db[name]), async (transaction) => {
+    activeTransactions.add(transaction);
+    try {
+      return await work();
+    } finally {
+      activeTransactions.delete(transaction);
+    }
+  });
 }
 
 /**
@@ -195,7 +242,7 @@ export async function purgeExpiredPlanCache(now: number = Date.now()): Promise<v
       if (!names.includes(PLAN_CACHE_DB_NAME)) return;
     }
     const db = await database();
-    if (db) await purgeExpired(db, now);
+    if (db) await inTransaction(db, () => purgeExpired(db, now));
   } catch {
     // Best effort: the next read or write purges as well.
   }
@@ -223,7 +270,7 @@ async function writeRecord(
   if (!db) return;
   try {
     const record: CachedRecord = { key, userKey: scope.userKey, tenantKey: scope.tenantKey, cachedAt: now, data };
-    await db.transaction('rw', TABLES.map((name) => db[name]), async () => {
+    await inTransaction(db, async () => {
       await purgeExpired(db, now);
       // Checked again inside the transaction: a clearing that began meanwhile wins.
       if (retired || currentGeneration() !== generation) return;
@@ -243,8 +290,10 @@ async function readRecord<T>(
   const db = await database();
   if (!db) return null;
   try {
-    await purgeExpired(db, now);
-    const record = await db[table].get(key);
+    const record = await inTransaction(db, async () => {
+      await purgeExpired(db, now);
+      return db[table].get(key);
+    });
     if (!record || record.userKey !== scope.userKey || record.tenantKey !== scope.tenantKey) return null;
     const age = now - record.cachedAt;
     if (!Number.isFinite(age) || age < 0 || age > PLAN_CACHE_TTL_MS) return null;
@@ -438,5 +487,6 @@ export function resetPlanCacheForTests(): void {
   retiredByDeletionAt = null;
   localClearing = false;
   foreignDeletionUntil = 0;
+  suspended = false;
   dbModule?.forgetPlanCacheConnection();
 }
