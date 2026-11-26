@@ -16,7 +16,9 @@ import {
 } from 'recharts';
 import dayjs from 'dayjs';
 import type { TankState } from '@/api/types';
-import { formatFixed } from '@/utils/formatting';
+import { formatDateTime, formatDateWith, formatFixed } from '@/utils/formatting';
+
+const DAY_MONTH: Intl.DateTimeFormatOptions = { day: '2-digit', month: '2-digit' };
 
 /** Metric keys that can be toggled on/off in the chart. */
 type MetricKey = 'ph' | 'ec_ms' | 'water_temp_celsius' | 'fill_level_percent';
@@ -50,7 +52,6 @@ function CustomTooltip({
   label?: number;
 }) {
   if (!active || !payload?.length) return null;
-  const d = dayjs(label);
   return (
     <Box
       role="tooltip"
@@ -65,7 +66,7 @@ function CustomTooltip({
       }}
     >
       <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: 'text.secondary' }}>
-        {d.format('DD.MM.YYYY HH:mm')}
+        {formatDateTime(label ?? null)}
       </Typography>
       {payload.map((p) => (
         <Box key={String(p.dataKey)} sx={{ color: p.color, lineHeight: 1.6 }}>
@@ -151,12 +152,13 @@ export default function TankStateChart({ states }: TankStateChartProps) {
   };
 
   const tickFormatter = useMemo(() => {
-    if (chartData.length < 2) return (ts: number) => dayjs(ts).format('DD.MM.');
+    // The returned formatters read the active language when they run (utils/formatting.ts).
+    if (chartData.length < 2) return (ts: number) => formatDateWith(ts, DAY_MONTH);
     const rangeMs = chartData[chartData.length - 1].time - chartData[0].time;
     const rangeDays = rangeMs / (1000 * 60 * 60 * 24);
-    if (rangeDays <= 2) return (ts: number) => dayjs(ts).format('DD.MM. HH:mm');
-    if (rangeDays <= 14) return (ts: number) => dayjs(ts).format('dd DD.MM.');
-    return (ts: number) => dayjs(ts).format('DD.MM.');
+    if (rangeDays <= 2) return (ts: number) => formatDateWith(ts, { ...DAY_MONTH, hour: '2-digit', minute: '2-digit' });
+    if (rangeDays <= 14) return (ts: number) => formatDateWith(ts, { ...DAY_MONTH, weekday: 'short' });
+    return (ts: number) => formatDateWith(ts, DAY_MONTH);
   }, [chartData]);
 
   // Check which Y-axes are needed based on visible metrics

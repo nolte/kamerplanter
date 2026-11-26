@@ -15,7 +15,10 @@ import { blankComments } from './jsxScan';
  *    (`en-GB` in the season panel, `en-US` everywhere else).
  *  - `a.localeCompare(b)` -> `compareText` (human text, active language) or `compareCodes`
  *    (`utils/compareCodes.ts`: keys, ids, enum values — the same order in every language).
- *  - `new Intl.*(undefined)` / `new Intl.*()` -> the browser's locale again.
+ *  - `new Intl.*(undefined)` / `new Intl.*()` -> the browser's locale again; `new Intl.*('de')`
+ *    -> one fixed language whatever the UI shows.
+ *  - `dayjs(x).format('DD.MM.')` -> a German pattern in every language (and English weekday
+ *    names: dayjs carries no locale here) -> `formatDateWith`.
  *  - `.replace('{{count}}', …)` -> i18next interpolation, which also picks the plural form.
  *  - `value.toFixed(n)` shown to the user -> `formatFixed(value, n)`: `toFixed` always writes
  *    a decimal POINT ("0.2 L" in German). Rounding a number (`Number(x.toFixed(2))`) is not
@@ -73,6 +76,16 @@ const RULES: Rule[] = [
     name: 'hard-coded BCP-47 locale',
     pattern: /['"`][a-z]{2}-[A-Z]{2}['"`]/g,
     allow: { [HOME]: 'the home: the UI-language -> BCP-47 table' },
+  },
+  {
+    name: 'two-letter locale literal in Intl',
+    pattern: /new\s+Intl\.\w+\(\s*['"`][a-z]{2}(?:-[A-Za-z]+)?['"`]/g,
+    allow: {},
+  },
+  {
+    name: 'dayjs display format',
+    pattern: /\.format\(\s*['"`][^'"`]*\b(?:DD|MM|YYYY|HH|dd)\b/g,
+    allow: {},
   },
   {
     name: 'localeCompare',
@@ -180,6 +193,10 @@ describe('locale-aware formatting has one home (#3025 M14)', () => {
       ['toLocale*String', "d.toLocaleString(i18n.language, { month: 'long' })"],
       ['toLocale*String', 'v.toLocaleTimeString()'],
       ['hard-coded BCP-47 locale', "const locale = lang === 'de' ? 'de-DE' : 'en-GB';"],
+      ['two-letter locale literal in Intl', "new Intl.NumberFormat('de', { maximumFractionDigits: 1 })"],
+      ['two-letter locale literal in Intl', 'new Intl.DateTimeFormat("en")'],
+      ['dayjs display format', "dayjs(ts).format('DD.MM. HH:mm')"],
+      ['dayjs display format', "d.format('dd HH:mm')"],
       ['localeCompare', 'a.name.localeCompare(b.name)'],
       ['Intl without a locale', 'new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 })'],
       ['Intl without a locale', 'new Intl.Collator()'],
@@ -196,6 +213,9 @@ describe('locale-aware formatting has one home (#3025 M14)', () => {
 
     it.each([
       ['toLocale*String', '// was new Date(x).toLocaleDateString() before #3025'],
+      ['two-letter locale literal in Intl', 'new Intl.NumberFormat(language)'],
+      ['dayjs display format', "dayjs().toISOString()"],
+      ['dayjs display format', "logger.format('%s', value)"],
       ['localeCompare', 'compareText(a.name, b.name)'],
       ['Intl without a locale', 'new Intl.NumberFormat(language, { maximumFractionDigits: 2 })'],
       ['toFixed for display', 'const rounded = Number(value.toFixed(2));'],

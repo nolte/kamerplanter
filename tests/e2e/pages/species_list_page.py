@@ -21,7 +21,12 @@ class SpeciesListPage(BasePage):
     SEARCH_INPUT = (By.CSS_SELECTOR, "[data-testid='table-search-input'] input")
     SHOWING_COUNT = (By.CSS_SELECTOR, "[data-testid='showing-count']")
     EMPTY_STATE = (By.CSS_SELECTOR, "[data-testid='empty-state']")
-    NEXT_PAGE = (By.CSS_SELECTOR, "[aria-label='Go to next page']")
+    # Language-independent: MUI's aria-label follows the UI language since #3025 ("Zur nächsten Seite").
+    # DataTable renders no first/last buttons, so the last action button is "next".
+    NEXT_PAGE = (
+        By.CSS_SELECTOR,
+        "[data-testid='data-table'] .MuiTablePagination-actions button:last-of-type",
+    )
     CREATE_DIALOG = (By.CSS_SELECTOR, "[data-testid='species-create-dialog']")
     FORM_SUBMIT = (By.CSS_SELECTOR, "[data-testid='form-submit-button']")
     FORM_CANCEL = (By.CSS_SELECTOR, "[data-testid='form-cancel-button']")

@@ -116,7 +116,7 @@ export function formatDateWith(
 /**
  * Format the time of day, hours and minutes. Example DE: "14:05" — EN: "02:05 PM".
  */
-export function formatTime(value: string | Date | null | undefined): string {
+export function formatTime(value: string | Date | number | null | undefined): string {
   return formatDateWith(value, { hour: '2-digit', minute: '2-digit' });
 }
 
