@@ -1192,6 +1192,18 @@ class TestSoilHazardsInTheBackup2888:
         assert [d["field"] for d in refused.value.details] == ["locations[0].soil_hazards[0].hazard"]
         assert repo.applied == []
 
+    @pytest.mark.parametrize("day", ["1899-12-31", "2999-01-01"])
+    def test_an_implausible_confirmation_date_refuses_the_file(self, rig, repo, day: str) -> None:
+        """Review D5: the plan import applies the same date rule as the route (on the entry model)."""
+        document = rig.file()
+        document["locations"][0]["soil_hazards"] = [{"hazard": "clubroot", "confirmed_at": day, "source": "lab_test"}]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [d["field"] for d in refused.value.details] == ["locations[0].soil_hazards[0].confirmed_at"]
+        assert repo.applied == []
+
     def test_a_hazard_listed_twice_refuses_the_file(self, rig, repo) -> None:
         document = rig.file()
         entry = {"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"}

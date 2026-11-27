@@ -344,7 +344,7 @@ class TerminationOptionsResponse(BaseModel):
         examples=[["pest_soil", "disease_soil"]],
     )
     pathogens: list[SoilHazard] = Field(
-        description="The pathogens that may be named: the soil-hazard list.",
+        description="The pathogens a loss may name: the soil-hazard list without juglone (entered at the bed only).",
         examples=[["clubroot", "verticillium"]],
     )
     confirmation_sources: list[PathogenConfirmationSource] = Field(

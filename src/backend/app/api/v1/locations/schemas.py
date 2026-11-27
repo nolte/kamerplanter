@@ -2140,6 +2140,7 @@ class LocationSoilHazardsResponse(BaseModel):
             "examples": [
                 {
                     "location_key": "loc_b03",
+                    "changed": True,
                     "soil_hazards": [
                         {
                             "hazard": "clubroot",
@@ -2157,6 +2158,13 @@ class LocationSoilHazardsResponse(BaseModel):
     )
 
     location_key: str = Field(description="The bed.", examples=["loc_b03"])
+    changed: bool = Field(
+        description=(
+            "Whether this request wrote anything. `false` (status 200): the bed already carries the hazard confirmed "
+            "as late or later - an earlier date changes nothing, only the lead can remove the entry."
+        ),
+        examples=[True],
+    )
     soil_hazards: list[BedSoilHazardResponse] = Field(
         description="Every soil hazard of the bed, newest confirmation first.", examples=[[]]
     )

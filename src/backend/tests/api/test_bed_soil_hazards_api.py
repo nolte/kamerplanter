@@ -28,7 +28,7 @@ from app.common.dependencies import (
     get_tenant_service,
 )
 from app.common.enums import IrrigationSystem, PathogenConfirmationSource, SoilHazard, TenantRole
-from app.common.exceptions import NotFoundError
+from app.common.exceptions import NotFoundError, StoredDocumentInvalidError
 from app.domain.models.bed_soil_hazard import BedSoilHazard
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.phase import PhaseHistory
@@ -271,7 +271,7 @@ class TestGrowersAddOnlyTheLeadRemoves:
         response = client(TenantRole.GROWER).post(f"{_BASE}/locations/bed/soil-hazards", json=_manual())
 
         assert response.status_code == 201
-        assert response.json()["location_key"] == "bed"
+        assert response.json()["location_key"] == "bed" and response.json()["changed"] is True
         assert [e["hazard"] for e in response.json()["soil_hazards"]] == ["verticillium"]
         assert [e.hazard for e in world.entries()] == [SoilHazard.VERTICILLIUM]
 
@@ -321,11 +321,35 @@ class TestGrowersAddOnlyTheLeadRemoves:
         world.seed("bed", CLUBROOT_2025)
 
         earlier = client().post(f"{_BASE}/locations/bed/soil-hazards", json=_manual("clubroot", "2024-01-01"))
-        assert earlier.status_code == 201 and world.entries() == [CLUBROOT_2025]
+        # Nothing written: 200 and ``changed: false``, never the 201 of a recorded entry (review D3).
+        assert earlier.status_code == 200 and earlier.json()["changed"] is False
+        assert world.entries() == [CLUBROOT_2025] and world.hazard_repo.writes == []
 
         later = client().post(f"{_BASE}/locations/bed/soil-hazards", json=_manual("clubroot", "2026-07-01"))
-        assert later.status_code == 201
+        assert later.status_code == 201 and later.json()["changed"] is True
         assert [(e.hazard, e.confirmed_at) for e in world.entries()] == [(SoilHazard.CLUBROOT, date(2026, 7, 1))]
+
+    def test_the_same_date_again_writes_nothing_and_says_so(self, client, world) -> None:
+        world.seed("bed", CLUBROOT_2025)
+
+        again = client().post(f"{_BASE}/locations/bed/soil-hazards", json=_manual("clubroot", "2025-06-01"))
+
+        assert again.status_code == 200 and again.json()["changed"] is False
+        assert world.hazard_repo.writes == []
+
+    def test_a_confirmation_before_1900_is_422(self, client, world) -> None:
+        response = client().post(f"{_BASE}/locations/bed/soil-hazards", json=_manual(confirmed_at="1899-12-31"))
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.confirmed_too_early"]
+        assert world.entries() == []
+
+    def test_a_container_group_is_refused_with_the_vessel_words(self, client, world) -> None:
+        """Review D8: ``container`` (pot/container group) is no bed type but a vessel - the vessel answer."""
+        world.repo.locations["pots"] = make_location("pots", "Topfgruppe", location_type_key="container")
+
+        response = client().post(f"{_BASE}/locations/pots/soil-hazards", json=_manual())
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.container"]
 
     def test_a_confirmation_in_the_future_is_422(self, client, world) -> None:
         tomorrow = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
@@ -402,11 +426,29 @@ class TestTheOfferAfterALoss:
         assert response.status_code == 422 and _codes(response) == ["soil_hazard.loss_not_confirmed"]
         assert world.entries() == []
 
-    def test_a_confirmed_juglone_loss_is_not_offered_and_not_taken_over(self, client, world) -> None:
+    def test_a_new_loss_naming_juglone_is_refused(self, client, world) -> None:
         removed = client().post(
             f"{_BASE}/plant-instances/kohl/remove", json={**CONFIRMED_LOSS, "failure_pathogen": "juglone"}
         )
-        assert removed.status_code == 200 and removed.json()["soil_hazard_follow_up"] is None
+
+        assert removed.status_code == 422 and "no pathogen of a loss" in removed.text
+        assert world.plants.rows["kohl"].removed_on is None and world.entries() == []
+
+    def test_a_juglone_loss_stored_before_the_rule_is_neither_offered_nor_taken_over(self, client, world) -> None:
+        # Possible data: F-19 accepted juglone until #2888 F-20 (review D4); such a loss keeps loading.
+        legacy = world.plants.rows["kohl"].model_copy(
+            update={
+                "removed_on": date(2026, 7, 1),
+                "termination_type": "died",
+                "termination_cause": "disease",
+                "failure_cause_class": "disease_soil",
+                "failure_pathogen": "juglone",
+                "failure_pathogen_confirmed": True,
+                "failure_pathogen_source": "clear_symptoms",
+            }
+        )
+        world.plants.rows["kohl"] = legacy
+        assert world.hazards.follow_up_for_loss(legacy, tenant_key=TENANT) is None
 
         response = client().post(f"{_BASE}/locations/bed/soil-hazards", json={"plant_key": "kohl"})
 
@@ -513,3 +555,19 @@ class TestAnotherTenantsHazards:
         assert foreign.status_code == unknown.status_code == 404
         assert foreign.json()["message"].replace("kohl_foreign", "gone") == unknown.json()["message"]
         assert world.entries() == []
+
+
+class TestTheFollowUpNeverFailsTheRemoval:
+    """Review D2: the loss is stored before the follow-up is computed; a failing read there must not fail the call."""
+
+    def test_a_location_read_that_raises_answers_the_removal_without_a_follow_up(self, client, world) -> None:
+        def broken(key: str):  # type: ignore[no-untyped-def]
+            raise StoredDocumentInvalidError("Location", key, ["soil_hazards"])
+
+        world.repo._sites.get_location_by_key = broken  # type: ignore[method-assign]
+
+        response = client().post(f"{_BASE}/plant-instances/kohl/remove", json=CONFIRMED_LOSS)
+
+        assert response.status_code == 200
+        assert response.json()["removed_on"] is not None and response.json()["soil_hazard_follow_up"] is None
+        assert world.plants.rows["kohl"].termination_type == "died"

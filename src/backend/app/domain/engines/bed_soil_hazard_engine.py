@@ -23,6 +23,7 @@ from app.domain.models.bed_soil_hazard import (
     CONTAINER_LOCATION_TYPES,
     HYDROPONIC_IRRIGATION_SYSTEMS,
     LOSS_SOIL_HAZARDS,
+    NON_BED_VESSEL_LOCATION_TYPES,
     BedSoilHazard,
     ResolvedBedSoilHazard,
     ResolvedHost,
@@ -47,7 +48,7 @@ def soil_hazard_refusal_for_type(location_type_key: str, *, is_bed: bool) -> Soi
 
     ``is_bed`` is ``LocationType.is_bed`` of the type (``False`` for an unknown or empty type key).
     """
-    if location_type_key in CONTAINER_LOCATION_TYPES:
+    if location_type_key in CONTAINER_LOCATION_TYPES or location_type_key in NON_BED_VESSEL_LOCATION_TYPES:
         return SoilHazardRefusal.CONTAINER
     if not is_bed:
         return SoilHazardRefusal.NOT_A_BED

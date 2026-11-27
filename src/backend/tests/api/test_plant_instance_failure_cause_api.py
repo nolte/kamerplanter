@@ -201,7 +201,8 @@ class TestTerminationOptions:
         assert by_cause["unknown"]["asks_wilt_follow_up"] is True  # a tomato is Solanaceae
         assert by_cause["bolting"]["prefill"] == "abiotic"
         assert body["wilt_follow_up_class"] == "disease_soil"
-        assert body["pathogens"] == [h.value for h in SoilHazard]
+        # #2888 F-20 (review D4): juglone is no pathogen of a loss - entered at the bed by hand only.
+        assert body["pathogens"] == [h.value for h in SoilHazard if h is not SoilHazard.JUGLONE]
         assert body["pathogen_classes"] == ["pest_soil", "disease_soil"]
 
     def test_the_options_path_is_not_captured_by_the_key_route(self, world) -> None:

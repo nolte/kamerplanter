@@ -37,6 +37,15 @@ SOIL_BORNE_CLASSES: frozenset[FailureCauseClass] = frozenset(
     {FailureCauseClass.PEST_SOIL, FailureCauseClass.DISEASE_SOIL}
 )
 
+#: The hazards a plant loss may name as its pathogen (REQ-053 §11.3a Nr. 5, #2888 F-20), in the order of
+#: ``SoilHazard``. ``juglone`` is not among them: it is the allelopathy of a walnut tree next to or formerly on the
+#: bed, no pathogen of the plant (research §2: "a hazard from outside the bed"), and its ``confirmed_at`` is the
+#: felling of the tree (REQ-054 §5.2a), which no loss records - it is entered at the bed by hand only. The one
+#: definition: the termination dialog offers these, a new loss is checked against them, and only these are taken
+#: over into a bed (``bed_soil_hazard_engine.entry_from_loss``). A loss stored before #2888 F-20 may still carry
+#: ``juglone``; it keeps loading (the field stays a ``SoilHazard``).
+LOSS_PATHOGENS: tuple[SoilHazard, ...] = tuple(hazard for hazard in SoilHazard if hazard is not SoilHazard.JUGLONE)
+
 #: Name of the growth phase a premature bolt enters (REQ-003 E6, ``vegetative → bolting`` with ``is_premature``).
 BOLTING_PHASE_NAME: str = "bolting"
 
@@ -180,5 +189,5 @@ class TerminationOptions(BaseModel):
     rules: tuple[ResolvedFailureCauseRule, ...]
     wilt_follow_up_class: FailureCauseClass = WILT_FOLLOW_UP_CLASS
     pathogen_classes: tuple[FailureCauseClass, ...]
-    pathogens: tuple[SoilHazard, ...] = tuple(SoilHazard)
+    pathogens: tuple[SoilHazard, ...] = LOSS_PATHOGENS
     confirmation_sources: tuple[PathogenConfirmationSource, ...] = tuple(PathogenConfirmationSource)

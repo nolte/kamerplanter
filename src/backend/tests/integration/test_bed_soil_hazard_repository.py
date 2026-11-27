@@ -174,7 +174,9 @@ class TestTheServiceOverTheRealRepositories:
             and _stored(db, "bed_a").get("soil_hazards") is None
         )
 
-        (entry,) = service.take_over_loss("bed_a", tenant_key=A, plant_key="kohl_a")
+        outcome = service.take_over_loss("bed_a", tenant_key=A, plant_key="kohl_a")
+        assert outcome.changed is True
+        (entry,) = outcome.entries
 
         assert (entry.hazard, entry.confirmed_at, entry.hosts[0].name) == (
             SoilHazard.CLUBROOT,

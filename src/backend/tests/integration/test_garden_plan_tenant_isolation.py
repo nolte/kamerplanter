@@ -2640,3 +2640,16 @@ class TestTheParcelListPrintsOnlyTheTenantsMembers:
         assert (foreign.status_code, absent.status_code) == (404, 404)
         assert _canonical(foreign.text).replace("site_a", "site_gone") == _canonical(absent.text)
         assert "Alice" not in foreign.text
+
+
+def test_a_foreign_loss_is_not_taken_over_into_the_callers_own_bed(db) -> None:
+    """#2888 F-20 (review D10): the caller's own bed with tenant B's plant key answers like an unknown plant."""
+    client = _client(db)
+    before = _snapshot(db)
+
+    foreign = client.post(f"/api/v1/t/{SLUG_A}/locations/bed_a/soil-hazards", json={"plant_key": "lost_b"})
+    unknown = client.post(f"/api/v1/t/{SLUG_A}/locations/bed_a/soil-hazards", json={"plant_key": "lost_gone"})
+
+    assert foreign.status_code == unknown.status_code == 404
+    assert _canonical(foreign.text).replace("lost_b", "lost_gone") == _canonical(unknown.text)
+    assert _snapshot(db) == before

@@ -20,6 +20,7 @@ from app.common.enums import (
 from app.domain.models.failure_cause import (
     BOLTING_PHASE_NAME,
     FAILURE_CAUSE_TABLE,
+    LOSS_PATHOGENS,
     SOIL_BORNE_CLASSES,
     WILT_PRONE_FAMILIES,
     FailureCauseTable,
@@ -74,6 +75,9 @@ def find_failure_cause_violations(
         resolved_class = table.rule_for(termination_cause).prefill
     if failure_pathogen is not None and resolved_class not in SOIL_BORNE_CLASSES:
         violations.append("failure_pathogen needs failure_cause_class 'pest_soil' or 'disease_soil'")
+    if failure_pathogen is not None and failure_pathogen not in LOSS_PATHOGENS:
+        options = ", ".join(LOSS_PATHOGENS)
+        violations.append(f"failure_pathogen '{failure_pathogen}' is no pathogen of a loss: one of {options}")
     if failure_pathogen_confirmed is not None and failure_pathogen is None:
         violations.append("failure_pathogen_confirmed needs a failure_pathogen")
     if failure_pathogen_source is not None and failure_pathogen_confirmed is not True:

@@ -480,9 +480,15 @@ async def delete_location(
     "/{key}/soil-hazards",
     response_model=LocationSoilHazardsResponse,
     status_code=201,
-    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE, **VALIDATION_RESPONSE},
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **VALIDATION_RESPONSE,
+        200: {"model": LocationSoilHazardsResponse, "description": "Nothing written (`changed: false`)."},
+    },
 )
 def record_soil_hazard(
+    response: Response,
     key: Annotated[str, Path(description="Document key of the bed.")],
     body: SoilHazardCreateRequest,
     ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
@@ -496,18 +502,25 @@ def record_soil_hazard(
     shortens a hazard. 422 `soil_hazard.container` (planter, tent, shelf), `soil_hazard.not_a_bed`,
     `soil_hazard.hydroponic` (no soil: clean the system instead), `soil_hazard.confirmed_in_future`,
     `soil_hazard.plant_not_in_bed`, `soil_hazard.loss_not_confirmed` (no soil-borne loss, no listed or no confirmed
-    pathogen, or `juglone`, which is entered by hand only). A bed of another tenant answers 404 like an unknown one.
+    pathogen, or `juglone`, which is entered by hand only), `soil_hazard.confirmed_too_early` (before 1900). When the
+    bed already carries the hazard confirmed as late or later nothing is written: 200 with `changed: false` instead of
+    201. A bed of another tenant answers 404 like an unknown one.
     """
     hazard, confirmed_at, source = body.hazard, body.confirmed_at, body.source
     if body.plant_key is not None:
-        entries = service.take_over_loss(key, tenant_key=ctx.tenant_key, plant_key=body.plant_key)
+        outcome = service.take_over_loss(key, tenant_key=ctx.tenant_key, plant_key=body.plant_key)
     elif hazard is not None and confirmed_at is not None and source is not None:
-        entries = service.record(
+        outcome = service.record(
             key, tenant_key=ctx.tenant_key, hazard=hazard, confirmed_at=confirmed_at, source=source
         )
     else:  # the request schema refuses this shape already; kept so no caller of the schema can slip past it
         raise ValidationError("Send hazard, confirmed_at and source, or plant_key alone.")
-    return LocationSoilHazardsResponse(location_key=key, soil_hazards=soil_hazard_responses(entries))
+    if not outcome.changed:
+        # Nothing was written: 200, not 201, and ``changed: false`` - the client must not report it as recorded.
+        response.status_code = 200
+    return LocationSoilHazardsResponse(
+        location_key=key, changed=outcome.changed, soil_hazards=soil_hazard_responses(outcome.entries)
+    )
 
 
 @router.delete(

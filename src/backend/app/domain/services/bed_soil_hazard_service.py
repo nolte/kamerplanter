@@ -13,13 +13,13 @@ The knowledge table is read through ``ISoilHazardKnowledgeSource`` - one instanc
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 
 import structlog
 
-from app.common.datetimes import today_utc
 from app.common.enums import PathogenConfirmationSource, SoilHazard
-from app.common.exceptions import NotFoundError, PlanError
+from app.common.exceptions import KamerplanterError, NotFoundError, PlanError
 from app.common.log_privacy import log_tenant
 from app.common.tenant_guard import verify_tenant_ownership
 from app.domain.engines.bed_soil_hazard_engine import (
@@ -35,7 +35,12 @@ from app.domain.interfaces.location_type_repository import ILocationTypeReposito
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.soil_hazard_knowledge_source import ISoilHazardKnowledgeSource
-from app.domain.models.bed_soil_hazard import BedSoilHazard, ResolvedBedSoilHazard, SoilHazardFollowUp
+from app.domain.models.bed_soil_hazard import (
+    BedSoilHazard,
+    ResolvedBedSoilHazard,
+    SoilHazardFollowUp,
+    confirmation_date_violation,
+)
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location
 from app.domain.services.location_ownership import find_owned_location, resolve_owned_location
@@ -47,14 +52,30 @@ logger = structlog.get_logger(__name__)
 ERROR_LOSS_NOT_CONFIRMED = "soil_hazard.loss_not_confirmed"
 #: 422 when the plant of ``plant_key`` did not stand in this bed.
 ERROR_PLANT_NOT_IN_BED = "soil_hazard.plant_not_in_bed"
-#: 422 for a confirmation dated after today (UTC).
+#: 422 for a confirmation dated after today (UTC) / before 1900 (``confirmation_date_violation``).
 ERROR_CONFIRMED_IN_FUTURE = "soil_hazard.confirmed_in_future"
+ERROR_CONFIRMED_TOO_EARLY = "soil_hazard.confirmed_too_early"
+_DATE_MESSAGES: dict[str, str] = {
+    ERROR_CONFIRMED_IN_FUTURE: "A soil hazard cannot be confirmed in the future.",
+    ERROR_CONFIRMED_TOO_EARLY: "A soil hazard cannot be confirmed before 1900.",
+}
 
 _REFUSAL_MESSAGES: dict[str, str] = {
-    "soil_hazard.container": "A planter, tent or shelf has no soil hazard: its substrate is replaced, not rotated.",
+    "soil_hazard.container": (
+        "A planter, tent, shelf or container group has no soil hazard: its substrate is replaced, not rotated."
+    ),
     "soil_hazard.not_a_bed": "Only a bed carries soil hazards.",
     "soil_hazard.hydroponic": "A hydroponic location has no soil: clean and disinfect the system instead.",
 }
+
+
+@dataclass(frozen=True)
+class RecordOutcome:
+    """The bed's soil hazards after a record; ``changed`` is ``False`` when the bed already held the hazard confirmed
+    as late or later and nothing was written (#2888 F-20 review D3)."""
+
+    entries: list[ResolvedBedSoilHazard]
+    changed: bool
 
 
 class BedSoilHazardService:
@@ -82,10 +103,23 @@ class BedSoilHazardService:
         """
         if not plant.location_key:
             return None
-        location = find_owned_location(self._sites, plant.location_key, tenant_key)
-        if location is None:
+        # The loss is stored before this runs: a suggestion that cannot be computed (a stored location or type that
+        # fails validation, a database hiccup) must never turn the recorded removal into an error the client would
+        # retry into a 422. It proposes nothing and says so in the log (#2888 F-20 review D2).
+        try:
+            location = find_owned_location(self._sites, plant.location_key, tenant_key)
+            if location is None:
+                return None
+            return follow_up_for_loss(plant, location, is_bed=self._is_bed(location))
+        except KamerplanterError as exc:
+            logger.warning(
+                "soil_hazard_follow_up_failed",
+                plant_key=plant.key,
+                location_key=plant.location_key,
+                error_code=exc.error_code,
+                tenant=log_tenant(tenant_key),
+            )
             return None
-        return follow_up_for_loss(plant, location, is_bed=self._is_bed(location))
 
     # ── Write ─────────────────────────────────────────────────────────────
 
@@ -97,24 +131,21 @@ class BedSoilHazardService:
         hazard: SoilHazard,
         confirmed_at: date,
         source: PathogenConfirmationSource,
-    ) -> list[ResolvedBedSoilHazard]:
+    ) -> RecordOutcome:
         """Record a confirmed soil hazard of the bed by hand (grower and above).
 
         One entry per hazard: a later confirmation replaces the stored one, an earlier or equal one changes nothing
         - so recording never shortens a hazard; only :meth:`remove` (lead) takes one away.
         """
         location = self._writable_bed(location_key, tenant_key=tenant_key)
-        if confirmed_at > today_utc():
-            raise PlanError(
-                ERROR_CONFIRMED_IN_FUTURE,
-                "A soil hazard cannot be confirmed in the future.",
-                status_code=422,
-                field="confirmed_at",
-            )
+        violation = confirmation_date_violation(confirmed_at)
+        if violation is not None:
+            code = f"soil_hazard.{violation}"
+            raise PlanError(code, _DATE_MESSAGES[code], status_code=422, field="confirmed_at")
         entry = BedSoilHazard(hazard=hazard, confirmed_at=confirmed_at, source=source)
         return self._write_entry(location, entry, tenant_key=tenant_key)
 
-    def take_over_loss(self, location_key: str, *, tenant_key: str, plant_key: str) -> list[ResolvedBedSoilHazard]:
+    def take_over_loss(self, location_key: str, *, tenant_key: str, plant_key: str) -> RecordOutcome:
         """Take the confirmed pathogen of ``plant_key``'s loss over into the bed - the accepted offer.
 
         Pathogen, date (the day of the loss) and source come from the stored loss, never from the request, so an
@@ -174,7 +205,7 @@ class BedSoilHazardService:
             raise PlanError(refusal.value, _REFUSAL_MESSAGES[refusal.value], status_code=422, field="location")
         return location
 
-    def _write_entry(self, location: Location, entry: BedSoilHazard, *, tenant_key: str) -> list[ResolvedBedSoilHazard]:
+    def _write_entry(self, location: Location, entry: BedSoilHazard, *, tenant_key: str) -> RecordOutcome:
         location_key = location.key or ""
         written: SoilHazardWrite = self._hazards.change_soil_hazards(
             location_key,
@@ -191,4 +222,6 @@ class BedSoilHazardService:
                 source=entry.source.value,
                 tenant=log_tenant(tenant_key),
             )
-        return resolve_entries(written.entries, self._knowledge.get_table())
+        return RecordOutcome(
+            entries=resolve_entries(written.entries, self._knowledge.get_table()), changed=written.status == "written"
+        )

@@ -65,17 +65,25 @@ def _loss(
     confirmed: bool | None = True,
     source: PathogenConfirmationSource | None = PathogenConfirmationSource.LAB_TEST,
     location_key: str | None = "bed",
+    legacy: bool = False,
 ) -> PlantInstance:
-    """A died plant as ``POST /plant-instances/{key}/remove`` stores it - refused here if F-19 would refuse it."""
+    """A died plant as ``POST /plant-instances/{key}/remove`` stores it - refused here if F-19 would refuse it.
+
+    ``legacy``: a loss stored before #2888 F-20 (juglone was accepted then); the current rule is not applied.
+    """
     if pathogen is not None and confirmed is None:
         confirmed = False
-    violations = find_failure_cause_violations(
-        termination_type=TerminationType.DIED,
-        termination_cause=cause,
-        failure_cause_class=cls,
-        failure_pathogen=pathogen,
-        failure_pathogen_confirmed=confirmed,
-        failure_pathogen_source=source,
+    violations = (
+        []
+        if legacy
+        else find_failure_cause_violations(
+            termination_type=TerminationType.DIED,
+            termination_cause=cause,
+            failure_cause_class=cls,
+            failure_pathogen=pathogen,
+            failure_pathogen_confirmed=confirmed,
+            failure_pathogen_source=source,
+        )
     )
     assert violations == [], f"the fixture names a loss F-19 refuses: {violations}"
     return PlantInstance(
@@ -143,7 +151,7 @@ class TestALossBecomesAnEntryOnlyWhenConfirmed:
     def test_juglone_is_entered_by_hand_not_taken_over_from_a_loss(self) -> None:
         # F-19 lets a loss name it (the list is SoilHazard); the walnut is no pathogen of the plant (research §2).
         with pytest.raises(LossNotPromotableError, match="by hand"):
-            entry_from_loss(_loss(pathogen=SoilHazard.JUGLONE))
+            entry_from_loss(_loss(pathogen=SoilHazard.JUGLONE, legacy=True))
         assert set(SoilHazard) - LOSS_SOIL_HAZARDS == {SoilHazard.JUGLONE}
 
     def test_a_foliar_loss_never_is(self) -> None:
@@ -204,7 +212,7 @@ class TestWhatALossProposes:
         assert follow_up_for_loss(_loss(confirmed=False, source=None), _bed(), is_bed=True) is None
 
     def test_a_juglone_loss_proposes_nothing(self) -> None:
-        assert follow_up_for_loss(_loss(pathogen=SoilHazard.JUGLONE), _bed(), is_bed=True) is None
+        assert follow_up_for_loss(_loss(pathogen=SoilHazard.JUGLONE, legacy=True), _bed(), is_bed=True) is None
 
     @pytest.mark.parametrize("type_key", ["planter", "shelf"])
     def test_a_vessel_proposes_nothing(self, type_key: str) -> None:
@@ -303,3 +311,27 @@ class TestTheStoredField:
     def test_an_unknown_hazard_key_is_refused(self) -> None:
         with pytest.raises(ValueError, match="hazard"):
             _bed(soil_hazards=[{"hazard": "fusarium", "confirmed_at": "2026-07-01", "source": "lab_test"}])
+
+
+class TestTheConfirmationDate:
+    """Review D5: one rule on the entry for every writer - not after today (UTC), not before 1900."""
+
+    @pytest.mark.parametrize("day", ["1899-12-31", "2999-01-01"])
+    def test_an_implausible_day_is_refused(self, day: str) -> None:
+        with pytest.raises(ValueError, match="confirmed_at"):
+            BedSoilHazard.model_validate({"hazard": "clubroot", "confirmed_at": day, "source": "lab_test"})
+
+    def test_1900_and_today_are_accepted(self) -> None:
+        from app.common.datetimes import today_utc
+
+        for day in (date(1900, 1, 1), today_utc()):
+            assert (
+                BedSoilHazard(
+                    hazard=SoilHazard.CLUBROOT, confirmed_at=day, source=PathogenConfirmationSource.LAB_TEST
+                ).confirmed_at
+                == day
+            )
+
+    def test_a_container_group_is_refused_like_a_vessel_but_keeps_its_rotation(self) -> None:
+        assert soil_hazard_refusal_for_type("container", is_bed=False) is SoilHazardRefusal.CONTAINER
+        assert "container" not in ROTATION_OFF_LOCATION_TYPES

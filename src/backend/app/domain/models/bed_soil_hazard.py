@@ -15,8 +15,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     EvidenceStatus,
     HostLevel,
@@ -25,6 +26,7 @@ from app.common.enums import (
     SoilHazard,
     SoilHazardFollowUpKind,
 )
+from app.domain.models.failure_cause import LOSS_PATHOGENS
 
 #: A bed holds at most one entry per hazard, so never more entries than there are hazards.
 MAX_BED_SOIL_HAZARDS: int = len(SoilHazard)
@@ -38,13 +40,31 @@ HYDROPONIC_IRRIGATION_SYSTEMS: frozenset[IrrigationSystem] = frozenset(
     {IrrigationSystem.HYDRO, IrrigationSystem.NFT, IrrigationSystem.EBB_FLOW}
 )
 
-#: Hazards a plant loss can name as its cause and offer to the bed. ``juglone`` is no pathogen of the plant but the
-#: allelopathy of a walnut tree next to or formerly on the bed (research §2: "a hazard from outside the bed, no
-#: prior crop"); its ``confirmed_at`` is the felling of the tree (REQ-054 §5.2a), which no loss records. It is
-#: entered by hand only.
-LOSS_SOIL_HAZARDS: frozenset[SoilHazard] = frozenset(
-    hazard for hazard in SoilHazard if hazard is not SoilHazard.JUGLONE
-)
+#: Location types that are no bed but a vessel all the same (``container``: pot/container group, ``is_bed`` false).
+#: They are refused like ``planter``/``tent``/``shelf`` and with the same words, but they stay out of
+#: :data:`CONTAINER_LOCATION_TYPES`, because that set also switches the crop-rotation check off (GP-FR-137).
+NON_BED_VESSEL_LOCATION_TYPES: frozenset[str] = frozenset({"container"})
+
+#: The earliest confirmation date accepted (#2888 F-20 review D5): older is a typo, not a finding.
+EARLIEST_CONFIRMATION: date = date(1900, 1, 1)
+
+
+def confirmation_date_violation(confirmed_at: date) -> str | None:
+    """Why ``confirmed_at`` cannot be a confirmation date - after today (UTC) or before 1900 - or ``None``.
+
+    One rule for every writer: the manual route, the take-over from a loss and the plan import all build a
+    :class:`BedSoilHazard`, whose validator applies it.
+    """
+    if confirmed_at > today_utc():
+        return "confirmed_in_future"
+    if confirmed_at < EARLIEST_CONFIRMATION:
+        return "confirmed_too_early"
+    return None
+
+
+#: Hazards a loss can hand over to its bed: exactly the pathogens a loss may name (``failure_cause.LOSS_PATHOGENS``,
+#: the one definition - ``juglone`` is entered by hand only).
+LOSS_SOIL_HAZARDS: frozenset[SoilHazard] = frozenset(LOSS_PATHOGENS)
 
 
 class BedSoilHazard(BaseModel):
@@ -55,6 +75,15 @@ class BedSoilHazard(BaseModel):
     hazard: SoilHazard
     confirmed_at: date
     source: PathogenConfirmationSource
+
+    @field_validator("confirmed_at")
+    @classmethod
+    def _a_plausible_day(cls, value: date) -> date:
+        """Not after today (UTC) and not before 1900 - for a hand entry, a loss and an imported plan alike."""
+        violation = confirmation_date_violation(value)
+        if violation is not None:
+            raise ValueError(f"confirmed_at {value.isoformat()}: {violation.replace('_', ' ')}")
+        return value
 
 
 class SoilHazardFollowUp(BaseModel):
