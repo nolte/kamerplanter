@@ -24,6 +24,7 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
+from . import _click_fallback
 from ._element_proxy import ReResolvingElement, resolve_element
 
 DEFAULT_TIMEOUT = 15
@@ -1590,7 +1591,7 @@ class BasePage:
                 f"rejected the change."
             ) from exc
 
-    def scroll_and_click(self, element: WebElement) -> None:
+    def scroll_and_click(self, element: WebElement, *, locator: Locator | None = None) -> None:
         """Scroll an element into view and click it, with a sound JS fallback.
 
         The fallback is chosen by target: a bare JS ``click()`` is fine for
@@ -1635,6 +1636,14 @@ class BasePage:
         the alert endpoint (which does not dismiss) and, if a prompt is open,
         sends no script and gives no verdict. The armed listener then stays on
         the page until the next arm replaces it; it only records, never acts.
+
+        **The JS fallback is recorded, not yet refused (#3157, step 1).** It is
+        dispatched on the element whatever covers it, so a control a user could
+        not hit is still activated. Before it runs, :meth:`_record_click_fallback`
+        reads what lies at the element's centre and records an event (see
+        ``pages/_click_fallback.py``); the fallback then proceeds unchanged.
+        *locator* only names the target in that record -- ``wait_and_click``
+        passes its own, and a re-resolving element carries one already.
         """
         self.scroll_into_view(element)
         if self._settled_hit(element) is False:
@@ -1643,10 +1652,18 @@ class BasePage:
         self._arm_press_probe(element)
         try:
             element.click()
-        except ElementNotInteractableException, ElementClickInterceptedException:
+        except (ElementNotInteractableException, ElementClickInterceptedException) as refused:
             # No pointer event went out: the driver refused before dispatching.
             self._read_press_probe()
-            if self.opens_on_mousedown(element):
+            mousedown = self.opens_on_mousedown(element)
+            self._record_click_fallback(
+                element,
+                helper="BasePage.scroll_and_click",
+                activation="js_mousedown" if mousedown else "js_click",
+                trigger=refused,
+                locator=locator,
+            )
+            if mousedown:
                 self.dispatch_menu_trigger_open(element)
             else:
                 self._dispatch_click(element)
@@ -1745,6 +1762,49 @@ return p.probe;
             return True
         return True
 
+    def _record_click_fallback(
+        self,
+        element: WebElement,
+        *,
+        helper: str,
+        activation: str,
+        trigger: BaseException | str,
+        locator: Locator | None = None,
+    ) -> None:
+        """Record a covering-blind fallback activation that is about to happen (#3157).
+
+        Reads what a press at *element*'s centre would hit -- one script, before
+        the fallback, so the answer describes the layout the fallback is about to
+        ignore -- and hands it to :func:`_click_fallback.record_fallback`. Never
+        raises and never acts: a read that fails is recorded as ``probe_failed``,
+        and an open user prompt gets no script at all (WebDriver would dismiss it,
+        see :meth:`scroll_and_click`). The caller's fallback then runs exactly as
+        it did before this record existed.
+
+        The probe reads through :func:`raw_reference`: a re-resolving element
+        that went stale would otherwise heal itself *in the probe* (up to its
+        re-resolution budget), shifting that wait in front of the fallback. A
+        stale node is recorded as ``probe_failed`` instead, and the fallback
+        heals it exactly as before.
+        """
+        try:
+            if locator is None:
+                locator = getattr(element, "_locator", None)
+            probe = (
+                None
+                if self._prompt_is_open()
+                else _click_fallback.probe_cover(self.driver.execute_script, raw_reference(element))
+            )
+            _click_fallback.record_fallback(
+                helper=helper,
+                activation=activation,
+                trigger=trigger,
+                locator=locator,
+                probe=probe,
+            )
+        except Exception:  # noqa: BLE001 -- the record must never fail the click it records
+            pass
+
     def _settled_hit(self, element: WebElement) -> bool | None:
         """Whether *element*'s centre hits it, one frame after the last scroll.
 
@@ -1807,7 +1867,9 @@ return p.probe;
         document, where the coordinate dispatch this helper ends in silently
         misses. Those go through :meth:`wait_and_click_coordinate_free`.
         """
-        self.scroll_and_click(self.wait_for_element_clickable(locator, timeout=timeout))
+        self.scroll_and_click(
+            self.wait_for_element_clickable(locator, timeout=timeout), locator=locator
+        )
 
     #: The confirm button of the "discard changes?" prompt `FormDialog` opens
     #: over a dirty create/edit dialog (#3019, UI-NFR-008 R-006). The prompt is
