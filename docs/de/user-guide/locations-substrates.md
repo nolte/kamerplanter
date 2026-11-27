@@ -517,20 +517,27 @@ Zu jeder Bodengefahr siehst du:
 
 - den **Erreger** mit wissenschaftlichem Namen,
 - die **gefährdeten Pflanzen** als Familie, Gattung oder Art. Jede trägt dazu, wie gut sie belegt ist: **belegt** heißt, drei unabhängige Quellen stimmen überein; **nicht ausreichend belegt**, **widersprüchlich** und **nicht belegt** zeigt Kamerplanter dir zur Information. Die Liste stammt aus der Wissenstabelle der Bodengefahren und ist immer auf dem neuesten Stand – wird ein Wert nachrecherchiert, gilt er auch für Einträge, die du früher gemacht hast,
+- die Pflanzen, die als **nicht betroffen genannt** werden, ebenfalls mit ihrem Beleg. Ein schwach belegter Eintrag dort ist keine Entwarnung,
 - das **Bestätigungsdatum** und **wie** der Befall bestätigt wurde: **Laborbefund**, **Pflanzenschutz-Beratung** oder **Eindeutiges Schadbild**. Wer ihn bestätigt hat, speichert Kamerplanter nicht.
 
-**Eintragen** darfst du ab der Rolle „grower": Mit **Bodengefahr eintragen** wählst du die Bodengefahr, das Datum und wie sie bestätigt wurde. Bei **Juglon** (Walnuss) ist das Datum der Tag, an dem der Walnussbaum gefällt wurde; steht er noch, nimmst du das heutige Datum. Juglon trägst du immer hier von Hand ein, denn der Walnussbaum ist kein Erreger einer Pflanze. Trägst du eine Bodengefahr ein, die das Beet schon hat, zählt die spätere Bestätigung; ein früheres Datum ändert nichts.
+**Eintragen** darfst du ab der Rolle „grower": Mit **Bodengefahr eintragen** wählst du die Bodengefahr, das Datum und wie sie bestätigt wurde. Das Datum liegt zwischen 1900 und heute. Bei **Juglon** (Walnuss) nimmst du bei einem gefällten Baum das Datum der Fällung, bei einem stehenden den Tag, an dem du es festgestellt hast. Juglon trägst du immer hier von Hand ein, denn der Walnussbaum ist kein Erreger einer Pflanze. Trägst du eine Bodengefahr ein, die das Beet schon hat, zählt die spätere Bestätigung. Ein früheres oder dasselbe Datum ändert nichts, und Kamerplanter sagt dir das; ein zu spät eingetragenes Datum korrigiert die Leitung, indem sie die Bodengefahr entfernt und neu einträgt.
 
 **Entfernen** darf nur die Leitung (Rolle „lead"), über das Papierkorb-Symbol an der Bodengefahr. Entferne eine Bodengefahr nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde.
 
-**Kübel, Zelte und Regale** haben keine Bodengefahren – dort tauschst du das Substrat aus. Auch ein Standort mit **Hydrokultur** (Bewässerung „Hydro“, „NFT“ oder „Ebbe-Flut“) hat keinen Boden. In beiden Fällen bietet der Tab das Eintragen nicht an und sagt dir, warum.
+**Kübel, Zelte, Regale und Topfgruppen** haben keine Bodengefahren – dort tauschst du das Substrat aus. Auch ein Standort mit **Hydrokultur** (Bewässerung „Hydro“, „NFT“ oder „Ebbe-Flut“) hat keinen Boden. In beiden Fällen bietet der Tab das Eintragen nicht an und sagt dir, warum.
 
 **Nach einem Ausfall:** Erfasst du eine eingegangene Pflanze mit einem bodenbürtigen Erreger, den eine der drei Stellen bestätigt hat (siehe [Ursachenklasse beim Entfernen](growth-phases.md#ursache-wo)), fragt Kamerplanter dich anschließend, ob das Beet diese Bodengefahr übernehmen soll. Erst wenn du **Ins Beet übernehmen** wählst, wird sie eingetragen – mit dem Tag des Ausfalls als Bestätigungsdatum. Ein unbestätigter Verdacht wird nie zu einer Bodengefahr. Stand die Pflanze in Hydrokultur, bekommst du stattdessen den Hinweis, das System zu reinigen und zu desinfizieren, bevor du nachpflanzt. <!-- REQ-053 §11.3a Nr. 5 -->
+
+!!! tip "Angebot versehentlich abgelehnt?"
+    Ein abgelehntes oder geschlossenes Angebot kommt nicht wieder. Trag die Bodengefahr dann im Tab **Boden** des Beets mit **Bodengefahr eintragen** selbst ein – mit dem Tag des Ausfalls und wie der Erreger bestätigt wurde.
 
 !!! warning "Noch nicht implementiert"
     Beim Bepflanzen warnt Kamerplanter noch nicht vor einer Bodengefahr des Beets, und die Anbauplanung berücksichtigt sie noch nicht. Die Bodengefahren werden dafür bereits gespeichert und angezeigt.
 
 Bodengefahren sind Teil der [Plan-Sicherung](garden-plan.md#plan-export-import) und des Garten-Exports.
+
+!!! warning "Ältere Sicherungen"
+    Eine Sicherung aus der Zeit vor den Bodengefahren enthält keine. Spielst du sie mit **Ersetzen** ein oder stellst du einen solchen früheren Stand wieder her, haben die Beete danach keine Bodengefahren mehr – trag sie dann neu ein. Eine ältere Kamerplanter-Version, die die Bodengefahren noch nicht kennt, übergeht sie beim Einspielen einer neueren Sicherung ohne Meldung.
 
 ### Bodenanalysen erfassen {#bodenanalysen-erfassen}
 

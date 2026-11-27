@@ -509,20 +509,27 @@ For each soil hazard you see:
 
 - the **pathogen** with its scientific name,
 - the **endangered plants** as family, genus or species. Each one says how well it is backed: **evidenced** means three independent sources agree; **insufficient evidence**, **contradictory** and **no evidence** are shown for your information. The list comes from the soil-hazard knowledge table and is always current - when a value is re-researched, it also applies to entries you made earlier,
+- the plants **named as not affected**, also with their evidence. A weakly backed entry there is no all-clear,
 - the **confirmation date** and **how** the infestation was confirmed: **Lab test**, **Plant protection advice** or **Unmistakable symptoms**. Kamerplanter does not store who confirmed it.
 
-**Recording** is open from the role "grower": **Record soil hazard** asks for the hazard, the date and how it was confirmed. For **juglone** (walnut) the date is the day the walnut tree was felled; if it still stands, use today's date. You always record juglone here by hand, because the walnut tree is no pathogen of a plant. If you record a hazard the bed already has, the later confirmation counts; an earlier date changes nothing.
+**Recording** is open from the role "grower": **Record soil hazard** asks for the hazard, the date and how it was confirmed. The date lies between 1900 and today. For **juglone** (walnut), use the felling date of a felled tree, and for a standing tree the day you noticed it. You always record juglone here by hand, because the walnut tree is no pathogen of a plant. If you record a hazard the bed already has, the later confirmation counts. An earlier or the same date changes nothing, and Kamerplanter tells you so; a date entered too late is corrected by the lead, who removes the soil hazard and records it again.
 
 **Removing** is for the lead only (role "lead"), with the bin icon at the soil hazard. Only remove a soil hazard if the infestation is gone or was recorded by mistake.
 
-**Planters, tents and shelves** have no soil hazards - there you replace the substrate. A **hydroponic** location (irrigation "Hydro", "NFT" or "Ebb & Flow") has no soil either. In both cases the tab does not offer recording and tells you why.
+**Planters, tents, shelves and container groups** have no soil hazards - there you replace the substrate. A **hydroponic** location (irrigation "Hydro", "NFT" or "Ebb & Flow") has no soil either. In both cases the tab does not offer recording and tells you why.
 
 **After a loss:** when you record a died plant with a soil-borne pathogen that one of the three sources confirmed (see [cause class when removing](growth-phases.md#ursache-wo)), Kamerplanter then asks whether the bed should take over this soil hazard. Only **Take into the bed** records it - with the day of the loss as the confirmation date. An unconfirmed suspicion never becomes a soil hazard. If the plant stood in hydroponics, you get the hint to clean and disinfect the system before you replant instead. <!-- REQ-053 §11.3a Nr. 5 -->
+
+!!! tip "Declined the offer by mistake?"
+    A declined or closed offer does not come back. Record the soil hazard yourself in the bed's **Soil** tab with **Record soil hazard** - with the day of the loss and how the pathogen was confirmed.
 
 !!! warning "Not yet implemented"
     When you plant, Kamerplanter does not yet warn about a soil hazard of the bed, and the cultivation planning does not take it into account yet. The soil hazards are already stored and shown for that.
 
 Soil hazards are part of the [plan backup](garden-plan.md#plan-export-import) and the garden export.
+
+!!! warning "Older backups"
+    A backup from before soil hazards existed holds none. If you import it with **Replace** or restore such an earlier state, the beds have no soil hazards afterwards - record them again. An older Kamerplanter version that does not know soil hazards yet drops them without a message when it imports a newer backup.
 
 ### Recording soil analyses {#recording-soil-analyses}
 
