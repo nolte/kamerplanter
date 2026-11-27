@@ -13,10 +13,11 @@ The knowledge table is read through ``ISoilHazardKnowledgeSource`` - one instanc
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import date
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.enums import PathogenConfirmationSource, SoilHazard
 from app.common.exceptions import NotFoundError, PlanError
 from app.common.log_privacy import log_tenant
@@ -103,7 +104,7 @@ class BedSoilHazardService:
         - so recording never shortens a hazard; only :meth:`remove` (lead) takes one away.
         """
         location = self._writable_bed(location_key, tenant_key=tenant_key)
-        if confirmed_at > datetime.now(UTC).date():
+        if confirmed_at > today_utc():
             raise PlanError(
                 ERROR_CONFIRMED_IN_FUTURE,
                 "A soil hazard cannot be confirmed in the future.",
