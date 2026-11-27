@@ -15,14 +15,15 @@ coverage_areas:
   - Smartphone 390 × 844 (Liste, Warnung vor Annehmen, alle annehmen)
   - Druckfassung (PDF)
 generated: "2026-10-04"
-version: "1.3"
+version: "1.4"
 ---
 
 # Testfälle REQ-054: Automatische Anbauplanung
 
 Dieses Dokument enthält End-to-End-Testfälle aus **REQ-054 Automatische Anbauplanung v1.4**
 (v1.3 dieses Dokuments, 2026-11-26: Bodengefahren nach der Wissenstabelle REQ-054 §5.2a, #2888 F-18 —
-TC-054-013 mit belegter Anbaupause, neu TC-054-029),
+TC-054-013 mit belegter Anbaupause, neu TC-054-029; v1.4, 2026-11-27: TC-054-029 ohne Vorbehalt nach
+Betreiberentscheid P4, REQ-054 v1.6),
 ausschließlich aus der Perspektive eines Nutzers im Browser. Keine Endpunkte, HTTP-Statuscodes,
 Collection-Namen oder Datenbankabfragen erscheinen in den Testschritten. Alle Aussagen beschreiben,
 was der Nutzer sieht, anklickt, antippt, eintippt und auf dem Bildschirm erwartet.
@@ -525,8 +526,9 @@ nicht als Anbau (nicht Teil dieser Fälle).
 - Liegt die Zwiebel in Beet 8, trägt die Belegung die Warnung „dauerhafter Bodenerreger" **ohne**
   Jahresangabe
 - Liegt die Buschbohne in Beet 9, zeigt die Belegung keine Warnung „dauerhafter Bodenerreger";
-  die Sklerotinia erscheint nur als schlechtere Bewertung beim Schädlingsdruck (vorläufig: Fabaceae ist
-  Sklerotinia-Wirt nur mit 2/3, Betreiberentscheid P4 offen — `project/features/soil-hazard-knowledge.md`)
+  die Sklerotinia erscheint nur als schlechtere Bewertung beim Schädlingsdruck (Fabaceae ist
+  Sklerotinia-Wirt nur mit 2/3; ein Wirt unter 3/3 zählt nur beim Schädlingsdruck, Betreiberentscheid P4
+  vom 2026-11-27 — `project/features/soil-hazard-knowledge.md`)
 
 **Nachbedingungen**:
 - Vorschlag ohne Ausschluss wegen Bodengefahr
