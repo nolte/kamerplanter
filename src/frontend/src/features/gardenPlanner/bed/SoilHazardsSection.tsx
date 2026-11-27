@@ -179,9 +179,23 @@ export default function SoilHazardsSection({
                   ))}
                 </Box>
                 {entry.non_hosts.length > 0 && (
-                  <Typography variant="body2" color="text.secondary">
-                    {t(`${PREFIX}.nonHosts`, { names: entry.non_hosts.map((host) => host.name).join(', ') })}
-                  </Typography>
+                  <>
+                    {/* Shown with their evidence like the hosts: a non-host under 3/3 is no all-clear (review D1). */}
+                    <Typography variant="body2" component="h4" sx={{ fontWeight: 500 }}>
+                      {t(`${PREFIX}.nonHosts`)}
+                    </Typography>
+                    <Box
+                      component="ul"
+                      sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, listStyle: 'none', p: 0, m: 0 }}
+                      data-testid={`soil-hazard-non-hosts-${entry.hazard}`}
+                    >
+                      {entry.non_hosts.map((host) => (
+                        <li key={`${host.level}:${host.name}`}>
+                          <HostChip host={host} />
+                        </li>
+                      ))}
+                    </Box>
+                  </>
                 )}
                 {entry.soft && (
                   <Typography variant="body2" color="text.secondary">
@@ -194,7 +208,9 @@ export default function SoilHazardsSection({
         </Stack>
       )}
 
-      {hazards.some((entry) => entry.hosts.some((host) => host.evidence_status !== 'evidenced')) && (
+      {hazards.some((entry) =>
+        [...entry.hosts, ...entry.non_hosts].some((host) => host.evidence_status !== 'evidenced'),
+      ) && (
         <Typography variant="caption" color="text.secondary">
           {t(`${PREFIX}.evidenceNote`)}
         </Typography>

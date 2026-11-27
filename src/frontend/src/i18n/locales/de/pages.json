@@ -8620,14 +8620,14 @@
         "intro": "Ein bestätigter Bodenerreger bleibt über Jahre im Boden – unabhängig davon, was gerade im Beet steht. Hier siehst du, welche Pflanzen er gefährdet.",
         "empty": "Für dieses Beet ist keine Bodengefahr eingetragen.",
         "unavailable": {
-          "container": "In einem Kübel, Zelt oder Regal tauschst du das Substrat aus – deshalb gibt es hier keine Bodengefahren.",
+          "container": "In einem Kübel, Zelt, Regal oder einer Topfgruppe tauschst du das Substrat aus – deshalb gibt es hier keine Bodengefahren.",
           "hydroponic": "Hydrokultur hat keinen Boden und deshalb keine Bodengefahren. Nach einem bodenbürtigen Ausfall reinigst und desinfizierst du das System."
         },
         "confirmed": "Bestätigt am {{date}} · {{source}}",
         "hosts": "Gefährdete Pflanzen",
-        "nonHosts": "Nicht betroffen: {{names}}",
+        "nonHosts": "Als nicht betroffen genannt",
         "soft": "Der Erreger befällt fast jedes Gemüse – er wird deshalb nur als Hinweis geführt.",
-        "evidenceNote": "„belegt“ heißt: drei unabhängige Quellen stimmen überein. Wirte mit schwächerem Beleg siehst du hier zur Information.",
+        "evidenceNote": "„belegt“ heißt: drei unabhängige Quellen stimmen überein. Was schwächer belegt ist – ob als gefährdet oder als nicht betroffen genannt –, siehst du hier nur zur Information.",
         "evidence": {
           "evidenced": "belegt",
           "insufficient": "nicht ausreichend belegt",
@@ -8653,17 +8653,18 @@
         "hazardMissing": "Wähle die Bodengefahr aus.",
         "confirmedAt": "Bestätigt am",
         "confirmedAtHelper": "Der Tag, an dem der Befall bestätigt wurde.",
-        "confirmedAtJuglone": "Bei Juglon: der Tag, an dem der Walnussbaum gefällt wurde. Steht er noch, nimm das heutige Datum.",
-        "confirmedAtInvalid": "Gib ein Datum an, das nicht in der Zukunft liegt.",
+        "confirmedAtJuglone": "Bei Juglon: Ist der Walnussbaum gefällt, das Datum der Fällung; steht er noch, der Tag, an dem du es festgestellt hast.",
+        "confirmedAtInvalid": "Gib ein Datum zwischen 1900 und heute an.",
         "source": "Bestätigt durch",
         "sourceHelper": "Wie wurde der Befall bestätigt? Es wird keine Person gespeichert.",
         "sourceMissing": "Wähle aus, wie der Befall bestätigt wurde.",
         "save": "Eintragen",
         "refusal": {
-          "container": "Ein Kübel, Zelt oder Regal hat keine Bodengefahren.",
+          "container": "Ein Kübel, Zelt, Regal oder eine Topfgruppe hat keine Bodengefahren.",
           "not_a_bed": "Nur ein Beet kann eine Bodengefahr tragen.",
           "hydroponic": "Ein Hydrokultur-Standort hat keinen Boden und deshalb keine Bodengefahren.",
-          "confirmed_in_future": "Das Datum liegt in der Zukunft. Gib den Tag der Bestätigung an."
+          "confirmed_in_future": "Das Datum liegt in der Zukunft. Gib den Tag der Bestätigung an.",
+          "confirmed_too_early": "Das Datum liegt vor 1900. Gib den Tag der Bestätigung an."
         },
         "followUp": {
           "offerTitle": "Bodengefahr ins Beet übernehmen?",
@@ -8673,7 +8674,8 @@
           "cleanTitle": "System reinigen und desinfizieren",
           "cleanMessage": "{{plant}} ist an einer bodenbürtigen Ursache eingegangen. In Hydrokultur gibt es keine Bodengefahr – reinige und desinfiziere das System, bevor du nachpflanzt.",
           "cleanOk": "Verstanden"
-        }
+        },
+        "unchanged": "{{hazard}} ist schon mit einem späteren oder demselben Bestätigungsdatum eingetragen – es wurde nichts geändert. Ein früheres Datum ersetzt es nicht; entfernen kann den Eintrag nur die Leitung."
       }
     },
     "rotationMatrix": {

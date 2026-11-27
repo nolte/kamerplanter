@@ -70,8 +70,13 @@ export default function SoilHazardFollowUpDialog({ followUp, plantKey, plantName
     if (saving) return;
     setSaving(true);
     try {
-      await takeOverLossAsSoilHazard(followUp.location_key, plantKey);
-      notification.success(t(`${PREFIX}.accepted`, { hazard }));
+      const result = await takeOverLossAsSoilHazard(followUp.location_key, plantKey);
+      if (result.changed) {
+        notification.success(t(`${PREFIX}.accepted`, { hazard }));
+      } else {
+        // Nothing written (review D3): the bed meanwhile carries the hazard with this or a later date.
+        notification.info(t('pages.bed.soilHazards.unchanged', { hazard }));
+      }
       onClose();
     } catch (error) {
       handleError(error);

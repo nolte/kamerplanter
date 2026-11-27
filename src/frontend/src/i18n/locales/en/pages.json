@@ -8620,14 +8620,14 @@
         "intro": "A confirmed soil pathogen stays in the soil for years – whatever grows in the bed right now. Here you see which plants it endangers.",
         "empty": "No soil hazard is recorded for this bed.",
         "unavailable": {
-          "container": "In a planter, tent or shelf you replace the substrate – so there are no soil hazards here.",
+          "container": "In a planter, tent, shelf or container group you replace the substrate – so there are no soil hazards here.",
           "hydroponic": "Hydroponics has no soil and therefore no soil hazards. After a soil-borne loss, clean and disinfect the system."
         },
         "confirmed": "Confirmed on {{date}} · {{source}}",
         "hosts": "Endangered plants",
-        "nonHosts": "Not affected: {{names}}",
+        "nonHosts": "Named as not affected",
         "soft": "The pathogen attacks almost every vegetable – so it is only kept as a hint.",
-        "evidenceNote": "“evidenced” means three independent sources agree. Hosts with weaker evidence are shown for your information.",
+        "evidenceNote": "“evidenced” means three independent sources agree. Anything with weaker evidence – named as endangered or as not affected – is shown for your information only.",
         "evidence": {
           "evidenced": "evidenced",
           "insufficient": "insufficient evidence",
@@ -8653,17 +8653,18 @@
         "hazardMissing": "Choose the soil hazard.",
         "confirmedAt": "Confirmed on",
         "confirmedAtHelper": "The day the infestation was confirmed.",
-        "confirmedAtJuglone": "For juglone: the day the walnut tree was felled. If it still stands, use today's date.",
-        "confirmedAtInvalid": "Enter a date that is not in the future.",
+        "confirmedAtJuglone": "For juglone: if the walnut tree was felled, the felling date; if it still stands, the day you noticed it.",
+        "confirmedAtInvalid": "Enter a date between 1900 and today.",
         "source": "Confirmed by",
         "sourceHelper": "How was the infestation confirmed? No person is stored.",
         "sourceMissing": "Choose how the infestation was confirmed.",
         "save": "Record",
         "refusal": {
-          "container": "A planter, tent or shelf has no soil hazards.",
+          "container": "A planter, tent, shelf or container group has no soil hazards.",
           "not_a_bed": "Only a bed can carry a soil hazard.",
           "hydroponic": "A hydroponic location has no soil and therefore no soil hazards.",
-          "confirmed_in_future": "The date lies in the future. Enter the day of the confirmation."
+          "confirmed_in_future": "The date lies in the future. Enter the day of the confirmation.",
+          "confirmed_too_early": "The date lies before 1900. Enter the day of the confirmation."
         },
         "followUp": {
           "offerTitle": "Take the soil hazard into the bed?",
@@ -8673,7 +8674,8 @@
           "cleanTitle": "Clean and disinfect the system",
           "cleanMessage": "{{plant}} died of a soil-borne cause. Hydroponics has no soil hazard – clean and disinfect the system before you replant.",
           "cleanOk": "Got it"
-        }
+        },
+        "unchanged": "{{hazard}} is already recorded with a later or the same confirmation date – nothing was changed. An earlier date does not replace it; only the lead can remove the entry."
       }
     },
     "rotationMatrix": {

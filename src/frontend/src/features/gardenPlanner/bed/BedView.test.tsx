@@ -813,7 +813,13 @@ describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
     // A 2/3 host is shown as data with its status - not left out, not judged (P4 is open).
     const soft = screen.getByTestId('soil-hazard-row-sclerotinia');
     expect(within(soft).getByLabelText('Fabaceae, family, insufficient evidence')).toBeInTheDocument();
-    expect(soft).toHaveTextContent('Not affected: Poaceae');
+    // Non-hosts carry their evidence too - an "insufficient" non-host is no all-clear (review D1).
+    expect(within(soft).getByRole('heading', { name: 'Named as not affected' })).toBeInTheDocument();
+    expect(
+      within(within(soft).getByTestId('soil-hazard-non-hosts-sclerotinia')).getByLabelText(
+        'Poaceae, family, insufficient evidence',
+      ),
+    ).toBeInTheDocument();
     expect(soft).toHaveTextContent('only kept as a hint');
     // No "{sources}/3" anywhere: only the evidence status is shown.
     expect(screen.getByTestId('soil-hazards-section')).not.toHaveTextContent('/3');
@@ -864,7 +870,7 @@ describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
     useBackend([
       http.post(`${BASE}/locations/:key/soil-hazards`, async ({ request }) => {
         bodies.push(await request.json());
-        return HttpResponse.json({ location_key: 'loc_b03', soil_hazards: [] }, { status: 201 });
+        return HttpResponse.json({ location_key: 'loc_b03', changed: true, soil_hazards: [] }, { status: 201 });
       }),
     ]);
     const user = userEvent.setup();
@@ -890,12 +896,33 @@ describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
     await waitFor(() => expect(reloaded).toBe(1));
   });
 
+  it('says so when the bed already carries the hazard with a later date - never "recorded" (review D3)', async () => {
+    useBackend([
+      http.post(`${BASE}/locations/:key/soil-hazards`, () =>
+        HttpResponse.json({ location_key: 'loc_b03', changed: false, soil_hazards: [CLUBROOT] }, { status: 200 }),
+      ),
+    ]);
+    const user = userEvent.setup();
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT] }), '/standorte/locations/loc_b03#soil', 'grower');
+
+    await user.click(await screen.findByTestId('soil-hazards-add'));
+    const dialog = await screen.findByTestId('soil-hazard-dialog');
+    await user.click(within(within(dialog).getByTestId('form-field-hazard')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Clubroot' }));
+    await user.click(within(within(dialog).getByTestId('form-field-source')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Lab test' }));
+    await user.click(within(dialog).getByTestId('soil-hazard-dialog-save'));
+
+    expect(await screen.findByText(/already recorded with a later or the same confirmation date/)).toBeInTheDocument();
+    expect(screen.queryByText('Clubroot is now recorded as a soil hazard.')).not.toBeInTheDocument();
+  });
+
   it('sends nothing until hazard and source are chosen', async () => {
     const bodies: unknown[] = [];
     useBackend([
       http.post(`${BASE}/locations/:key/soil-hazards`, async ({ request }) => {
         bodies.push(await request.json());
-        return HttpResponse.json({ location_key: 'loc_b03', soil_hazards: [] }, { status: 201 });
+        return HttpResponse.json({ location_key: 'loc_b03', changed: true, soil_hazards: [] }, { status: 201 });
       }),
     ]);
     const user = userEvent.setup();

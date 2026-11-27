@@ -32,6 +32,8 @@ export interface BedSoilHazard {
 /** `POST /locations/{key}/soil-hazards`: the bed's hazards after the write. */
 export interface LocationSoilHazards {
   location_key: string;
+  /** `false` (status 200): nothing written - the bed already carries the hazard confirmed as late or later. */
+  changed: boolean;
   soil_hazards: BedSoilHazard[];
 }
 
@@ -75,6 +77,8 @@ export const CONFIRMATION_SOURCES: readonly PathogenConfirmationSource[] = [
 
 /** Vessels carry no soil hazard: their substrate is replaced (REQ-053 §11.3a Nr. 5; the server refuses them). */
 export const CONTAINER_LOCATION_TYPES: ReadonlySet<string> = new Set(['planter', 'tent', 'shelf']);
+/** No bed type but a vessel all the same (pot/container group): the server answers it with the vessel refusal. */
+export const NON_BED_VESSEL_LOCATION_TYPES: ReadonlySet<string> = new Set(['container']);
 /** Irrigation systems without soil (`Location.irrigation_system` is authoritative). */
 export const HYDROPONIC_IRRIGATION_SYSTEMS: ReadonlySet<string> = new Set(['hydro', 'nft', 'ebb_flow']);
 
@@ -83,7 +87,9 @@ export function soilHazardsUnavailable(
   locationTypeKey: string,
   irrigationSystem: string | null | undefined,
 ): 'container' | 'hydroponic' | null {
-  if (CONTAINER_LOCATION_TYPES.has(locationTypeKey)) return 'container';
+  if (CONTAINER_LOCATION_TYPES.has(locationTypeKey) || NON_BED_VESSEL_LOCATION_TYPES.has(locationTypeKey)) {
+    return 'container';
+  }
   if (irrigationSystem && HYDROPONIC_IRRIGATION_SYSTEMS.has(irrigationSystem)) return 'hydroponic';
   return null;
 }

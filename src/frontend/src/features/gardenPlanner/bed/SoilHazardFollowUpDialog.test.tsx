@@ -29,12 +29,15 @@ function setOnline(value: boolean) {
   });
 }
 
-function useTakeOver() {
+function useTakeOver(changed = true) {
   const posts: { key: string; body: unknown }[] = [];
   server.use(
     http.post(`${BASE}/locations/:key/soil-hazards`, async ({ params, request }) => {
       posts.push({ key: String(params.key), body: await request.json() });
-      return HttpResponse.json({ location_key: String(params.key), soil_hazards: [] }, { status: 201 });
+      return HttpResponse.json(
+        { location_key: String(params.key), changed, soil_hazards: [] },
+        { status: changed ? 201 : 200 },
+      );
     }),
   );
   return posts;
@@ -68,6 +71,27 @@ describe('SoilHazardFollowUpDialog', () => {
 
     await waitFor(() => expect(posts).toEqual([{ key: 'loc_b03', body: { plant_key: 'pi_kohl' } }]));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('says "recorded" only when the bed changed (review D3)', async () => {
+    useTakeOver(false);
+    const user = userEvent.setup();
+    renderDialog(OFFER);
+
+    await user.click(within(await screen.findByTestId('confirm-dialog')).getByTestId('confirm-dialog-confirm'));
+
+    expect(await screen.findByText(/already recorded with a later or the same confirmation date/)).toBeInTheDocument();
+    expect(screen.queryByText(/is now recorded as a soil hazard of the bed/)).not.toBeInTheDocument();
+  });
+
+  it('confirms a written take-over as recorded', async () => {
+    useTakeOver(true);
+    const user = userEvent.setup();
+    renderDialog(OFFER);
+
+    await user.click(within(await screen.findByTestId('confirm-dialog')).getByTestId('confirm-dialog-confirm'));
+
+    expect(await screen.findByText('Clubroot is now recorded as a soil hazard of the bed.')).toBeInTheDocument();
   });
 
   it('writes nothing when the offer is declined', async () => {

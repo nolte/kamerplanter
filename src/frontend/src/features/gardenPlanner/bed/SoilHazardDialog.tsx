@@ -1,7 +1,7 @@
 /**
  * "Bodengefahr eintragen" (AP-API-012, REQ-054 §5.2, #2888 F-20): which soil hazard, since when, and how it was
  * confirmed - a lab result, plant-protection advice or an unmistakable symptom (a category, no name). For juglone the
- * date is the felling of the walnut tree; while the tree stands, today. A later confirmation of a hazard the bed
+ * date is the felling of a felled walnut, or the day the gardener noticed a standing one. A later confirmation of a hazard the bed
  * already carries replaces the stored date, an earlier one changes nothing (the server's rule).
  *
  * The server validates it, so saving is locked offline and says why (UI-NFR-012 R-020a).
@@ -32,12 +32,15 @@ import { CONFIRMATION_SOURCES, SOIL_HAZARDS } from './soilHazardTypes';
 
 const TOUCH = { '& .MuiInputBase-root': { minHeight: 48 } };
 const PREFIX = 'pages.bed.soilHazards';
+/** The server's lower bound of a confirmation date (`EARLIEST_CONFIRMATION`). */
+const EARLIEST = '1900-01-01';
 /** The refusals the server names for this form; anything else goes to the general error handling. */
 const KNOWN_REFUSALS = new Set([
   'soil_hazard.container',
   'soil_hazard.not_a_bed',
   'soil_hazard.hydroponic',
   'soil_hazard.confirmed_in_future',
+  'soil_hazard.confirmed_too_early',
 ]);
 
 interface SoilHazardDialogProps {
@@ -66,7 +69,7 @@ export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: 
 
   const missing = {
     hazard: hazard === '',
-    confirmedAt: confirmedAt === '' || confirmedAt > today,
+    confirmedAt: confirmedAt === '' || confirmedAt > today || confirmedAt < EARLIEST,
     source: source === '',
   };
 
@@ -76,8 +79,14 @@ export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: 
     setSaving(true);
     setRefusal(null);
     try {
-      await recordSoilHazard(bedKey, { hazard, confirmed_at: confirmedAt, source });
-      notification.success(t(`${PREFIX}.recorded`, { hazard: t(`enums.soilHazard.${hazard}`) }));
+      const result = await recordSoilHazard(bedKey, { hazard, confirmed_at: confirmedAt, source });
+      const name = t(`enums.soilHazard.${hazard}`);
+      if (result.changed) {
+        notification.success(t(`${PREFIX}.recorded`, { hazard: name }));
+      } else {
+        // Nothing written (review D3): the bed already carries it with a later date - never "eingetragen".
+        notification.info(t(`${PREFIX}.unchanged`, { hazard: name }));
+      }
       onSaved();
     } catch (error) {
       const code = getFieldViolations(error)
@@ -145,7 +154,7 @@ export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: 
             fullWidth
             sx={TOUCH}
             data-testid="form-field-confirmed-at"
-            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: today } }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: EARLIEST, max: today } }}
           />
           <TextField
             select
