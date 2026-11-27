@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -22,6 +22,7 @@ import Checkbox from '@mui/material/Checkbox';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import { visuallyHidden } from '@mui/utils';
 import { getTerminationOptions } from '@/api/endpoints/plantTermination';
 import { captureHandledError } from '@/observability/errorTracking';
 import type {
@@ -103,6 +104,8 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
   // The class the user picked or answered; null = the pre-fill of the cause.
   const [classChoice, setClassChoice] = useState<FailureCauseClass | null>(null);
   const [wilt, setWilt] = useState<WiltAnswer>('');
+  // Whether the current class came from a wilt "yes" (and not from the picker): only then may a "no" take it back.
+  const [classFromWilt, setClassFromWilt] = useState(false);
   const [pathogen, setPathogen] = useState<SoilHazard | ''>('');
   const [confirmed, setConfirmed] = useState(false);
   const [source, setSource] = useState<PathogenConfirmationSource | ''>('');
@@ -153,6 +156,7 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
     setCauseChoice(cause);
     setClassChoice(null);
     setWilt('');
+    setClassFromWilt(false);
     clearPathogen();
   };
 
@@ -170,11 +174,22 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
     if (resolved === null || !(pathogenClasses ?? []).includes(resolved)) clearPathogen();
   };
 
+  const pickClass = (next: FailureCauseClass) => {
+    setClassFromWilt(false);
+    changeClass(next);
+  };
+
   const answerWilt = (answer: WiltAnswer) => {
     setWilt(answer);
-    if (answer === 'yes' && wiltClass) changeClass(wiltClass);
-    // A "no" only takes back what a "yes" recorded; a class picked on purpose stays.
-    if (answer === 'no' && wiltRecorded) changeClass(null);
+    if (answer === 'yes' && wiltClass) {
+      setClassFromWilt(true);
+      changeClass(wiltClass);
+    }
+    // A "no" only takes back what a "yes" recorded; a class picked in the picker stays, with its pathogen.
+    if (answer === 'no' && classFromWilt) {
+      setClassFromWilt(false);
+      changeClass(null);
+    }
   };
 
   const changePathogen = (next: SoilHazard | '') => {
@@ -196,6 +211,8 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
   }, [isDied, terminationCause, optionsState, failureClass, confirmed, source, t]);
 
   const canConfirm = !loading && missing === null;
+  const blockedReasonId = useId();
+  const blockedReason = !loading && missing !== null ? missing : null;
 
   const body = useMemo<RemovePlantRequest>(() => {
     if (terminationType === '') return {};
@@ -328,7 +345,7 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
                 <FormLabel component="legend">{t('pages.plantInstances.termination.wiltQuestion')}</FormLabel>
                 <RadioGroup
                   row
-                  value={wiltRecorded ? 'yes' : wilt === 'no' ? 'no' : ''}
+                  value={classFromWilt && wiltRecorded ? 'yes' : wilt === 'no' ? 'no' : ''}
                   onChange={(e) => answerWilt(e.target.value as WiltAnswer)}
                 >
                   <FormControlLabel
@@ -361,7 +378,7 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
                 data-testid="termination-class-picker"
               >
                 <FormLabel component="legend">{t('pages.plantInstances.termination.classLabel')}</FormLabel>
-                <RadioGroup value={failureClass} onChange={(e) => changeClass(e.target.value as FailureCauseClass)}>
+                <RadioGroup value={failureClass} onChange={(e) => pickClass(e.target.value as FailureCauseClass)}>
                   {rule.choices.map((cls) => (
                     <FormControlLabel
                       key={cls}
@@ -465,13 +482,20 @@ function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: 
         <Button onClick={onCancel} disabled={loading} data-testid="termination-cancel">
           {t('common.cancel')}
         </Button>
-        <Tooltip title={!loading && missing !== null ? missing : ''}>
+        {/* The reason the confirm is blocked, for keyboard and screen-reader users too (the tooltip is hover-only). */}
+        {blockedReason !== null && (
+          <Box component="span" id={blockedReasonId} sx={visuallyHidden} data-testid="termination-confirm-blocked-reason">
+            {blockedReason}
+          </Box>
+        )}
+        <Tooltip title={blockedReason ?? ''}>
           <span>
             <Button
               variant="contained"
               color="error"
               onClick={handleConfirm}
               disabled={!canConfirm}
+              aria-describedby={blockedReason !== null ? blockedReasonId : undefined}
               startIcon={loading ? <CircularProgress size={16} color="inherit" /> : undefined}
               data-testid="termination-confirm"
             >

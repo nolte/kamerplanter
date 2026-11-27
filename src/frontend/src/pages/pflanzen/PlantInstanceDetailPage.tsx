@@ -798,7 +798,9 @@ export default function PlantInstanceDetailPage() {
 
   const [removing, setRemoving] = useState(false);
   const onRemove = async (body: import('@/api/types').RemovePlantRequest) => {
-    if (!key) return;
+    // An ended plant is not removed twice: a second click while the dialog animates out would only earn a 422 toast
+    // after the success toast (#2888 F-19).
+    if (!key || plant?.removed_on) return;
     try {
       setRemoving(true);
       const updated = await plantApi.removePlantInstance(key, body);
@@ -3055,7 +3057,7 @@ export default function PlantInstanceDetailPage() {
         plantName={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : ''}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}
-        loading={removing}
+        loading={removing || !!plant?.removed_on}
       />
 
       <ConfirmDialog

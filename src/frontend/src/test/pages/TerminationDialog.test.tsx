@@ -274,6 +274,29 @@ describe('TerminationDialog', () => {
       expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ failure_cause_class: 'mechanical' }));
     });
 
+    it('a no keeps a soil-borne disease picked in the picker, with its pathogen', async () => {
+      const user = userEvent.setup();
+      const onConfirm = await unknownOnNightshade(user);
+      await user.click(screen.getByTestId('termination-class-disease_soil'));
+      await selectFrom(user, 'form-field-failure-pathogen', 'termination-pathogen-verticillium');
+      await user.click(screen.getByTestId('termination-pathogen-confirmed'));
+      await user.click(screen.getByTestId('termination-source-lab_test'));
+
+      await user.click(screen.getByTestId('termination-wilt-no'));
+
+      expect(screen.getByTestId('termination-class-disease_soil')).toBeChecked();
+      expect(screen.getByTestId('termination-pathogen-confirmed')).toBeChecked();
+      await user.click(screen.getByTestId('termination-confirm'));
+      expect(onConfirm).toHaveBeenCalledWith({
+        termination_type: 'died',
+        termination_cause: 'unknown',
+        failure_cause_class: 'disease_soil',
+        failure_pathogen: 'verticillium',
+        failure_pathogen_confirmed: true,
+        failure_pathogen_source: 'lab_test',
+      });
+    });
+
     it('a no after a yes takes the soil-borne disease back to the pre-fill', async () => {
       const user = userEvent.setup();
       const onConfirm = await unknownOnNightshade(user);
@@ -412,6 +435,21 @@ describe('TerminationDialog', () => {
         failure_cause_class: 'disease_foliar',
       });
     });
+  });
+
+  it('describes why the confirm is blocked for keyboard and screen-reader users', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await chooseDied(user);
+    await chooseCause(user, 'pest');
+
+    const confirm = screen.getByTestId('termination-confirm');
+    expect(confirm).toBeDisabled();
+    expect(confirm).toHaveAccessibleDescription('Bitte wähle aus, ob die Ursache an Blatt oder im Boden saß.');
+
+    await user.click(screen.getByTestId('termination-class-pest_soil'));
+    expect(screen.getByTestId('termination-confirm')).toBeEnabled();
+    expect(screen.getByTestId('termination-confirm')).not.toHaveAttribute('aria-describedby');
   });
 
   it('announces the options load as a status', async () => {
