@@ -12,11 +12,14 @@ from app.api.v1.care_events.schemas import CareEventResponse, care_event_to_resp
 from app.common.enums import (
     BedStatus,
     EcMethod,
+    EvidenceStatus,
     GrowingMediumKind,
+    HostLevel,
     IrrigationSystem,
     LayoutStrategy,
     LightType,
     Orientation,
+    PathogenConfirmationSource,
     PhMethod,
     PlanRole,
     RowDirection,
@@ -24,6 +27,7 @@ from app.common.enums import (
     SlotRole,
     SoilConditionFlag,
     SoilDrainage,
+    SoilHazard,
     SoilTexture,
     StoneContentClass,
     SunExposure,
@@ -38,6 +42,7 @@ from app.domain.calculators.planting_layout_calculator import (
     LayoutResult,
 )
 from app.domain.engines.crop_rotation_validator import TimelineEntry
+from app.domain.models.bed_soil_hazard import ResolvedBedSoilHazard
 from app.domain.models.garden_plan import LocationPatch
 from app.domain.models.geometry import BedFrameGeometry, Geometry
 from app.domain.models.nutrient_hint import NUTRIENT_HINT_REASONS, NutrientHint, NutrientHintReason
@@ -603,6 +608,14 @@ class BedSummaryResponse(LocationResponse):
     supports_layout: bool = False
     #: W-016.6 (V-23): light-schedule hints of a tent or shelf level with two or more plants; empty elsewhere.
     tent_hints: list[TentHintResponse] = Field(default_factory=list)
+    soil_hazards: list[BedSoilHazardResponse] = Field(
+        default_factory=list,
+        description=(
+            "Confirmed soil hazards of the bed (REQ-054 §5.2, #2888), newest first, hosts resolved from the knowledge "
+            "table at read time; empty for every location without one."
+        ),
+        examples=[[]],
+    )
 
 
 class LocationTreeNode(BaseModel):
@@ -2004,3 +2017,159 @@ class CompanionEdgesResponse(BaseModel):
     #: `true` when `total` exceeds the pairs answered. At most 2000 pairs (the first by slot keys) are judged; within
     #: them the 500 strongest are answered.
     truncated: bool
+
+
+# ── Soil hazards of a bed (REQ-054 §5.2, AP-API-012, #2888 F-20) ─────────────────
+
+
+class SoilHazardHostResponse(BaseModel):
+    """A host or non-host of the soil-hazard knowledge table (REQ-054 §5.2a) - data, no verdict."""
+
+    level: HostLevel = Field(description="Taxonomic level of the entry.", examples=["family"])
+    name: str = Field(
+        description="APG IV family name, genus, or scientific species name as stored in the species catalogue.",
+        examples=["Brassicaceae"],
+    )
+    evidence_status: EvidenceStatus = Field(
+        description=(
+            "How well the knowledge table backs this host: `evidenced` = three independent sources (3/3). Whether a "
+            "host under 3/3 warns is an open operator decision (P4); shown as data only."
+        ),
+        examples=["evidenced"],
+    )
+
+
+class BedSoilHazardResponse(BaseModel):
+    """One soil hazard of a bed with what the knowledge table says about it at read time."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    hazard: SoilHazard = Field(description="Key of the hazard in the knowledge table.", examples=["clubroot"])
+    confirmed_at: date = Field(
+        description="Day the infestation was confirmed (for `juglone`: the felling of the walnut tree).",
+        examples=["2026-07-01"],
+    )
+    source: PathogenConfirmationSource = Field(
+        description="How it was confirmed - a category, never a person.", examples=["lab_test"]
+    )
+    pathogens: list[str] = Field(
+        description="Scientific names of the organisms behind the hazard.", examples=[["Plasmodiophora brassicae"]]
+    )
+    soft: bool = Field(
+        description="Host range so broad that the hazard never blocks or warns, only hints (REQ-054 §5.2a).",
+        examples=[False],
+    )
+    hosts: list[SoilHazardHostResponse] = Field(
+        description="Endangered plants from the knowledge table, each with its evidence status.",
+        examples=[[{"level": "family", "name": "Brassicaceae", "evidence_status": "evidenced"}]],
+    )
+    non_hosts: list[SoilHazardHostResponse] = Field(
+        default_factory=list,
+        description="Plants the knowledge table names as not affected, each with its evidence status.",
+        examples=[[{"level": "species", "name": "Phaseolus vulgaris", "evidence_status": "evidenced"}]],
+    )
+
+    @classmethod
+    def from_resolved(cls, entry: ResolvedBedSoilHazard) -> BedSoilHazardResponse:
+        return cls(
+            hazard=entry.hazard,
+            confirmed_at=entry.confirmed_at,
+            source=entry.source,
+            pathogens=list(entry.pathogens),
+            soft=entry.soft,
+            hosts=[SoilHazardHostResponse.model_validate(host, from_attributes=True) for host in entry.hosts],
+            non_hosts=[SoilHazardHostResponse.model_validate(host, from_attributes=True) for host in entry.non_hosts],
+        )
+
+
+def soil_hazard_responses(entries: Iterable[ResolvedBedSoilHazard]) -> list[BedSoilHazardResponse]:
+    return [BedSoilHazardResponse.from_resolved(entry) for entry in entries]
+
+
+class SoilHazardCreateRequest(BaseModel):
+    """``POST /locations/{key}/soil-hazards``: a hazard by hand, or the accepted offer after a loss.
+
+    Either ``hazard`` + ``confirmed_at`` + ``source`` (entered by hand), or ``plant_key`` alone (take over the
+    confirmed pathogen of that plant's loss - pathogen, date and source then come from the stored loss).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {"hazard": "clubroot", "confirmed_at": "2026-07-01", "source": "lab_test"},
+                {"plant_key": "pi_4711"},
+            ]
+        },
+    )
+
+    hazard: SoilHazard | None = Field(
+        default=None, description="Hazard entered by hand; with `confirmed_at` and `source`.", examples=["clubroot"]
+    )
+    confirmed_at: date | None = Field(
+        default=None, description="Day it was confirmed; not in the future.", examples=["2026-07-01"]
+    )
+    source: PathogenConfirmationSource | None = Field(
+        default=None, description="How it was confirmed (a category).", examples=["advisory_service"]
+    )
+    plant_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=200,
+        description="Take over the confirmed pathogen of this died plant of the bed (the offer after a loss).",
+        examples=["pi_4711"],
+    )
+
+    @model_validator(mode="after")
+    def _one_form(self) -> Self:
+        manual = (self.hazard, self.confirmed_at, self.source)
+        if self.plant_key is not None:
+            if any(value is not None for value in manual):
+                raise ValueError("plant_key takes the hazard from the loss: send it alone.")
+            return self
+        if any(value is None for value in manual):
+            raise ValueError("Send hazard, confirmed_at and source, or plant_key alone.")
+        return self
+
+
+class LocationSoilHazardsResponse(BaseModel):
+    """The bed's soil hazards after a write."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "location_key": "loc_b03",
+                    "soil_hazards": [
+                        {
+                            "hazard": "clubroot",
+                            "confirmed_at": "2026-07-01",
+                            "source": "lab_test",
+                            "pathogens": ["Plasmodiophora brassicae"],
+                            "soft": False,
+                            "hosts": [{"level": "family", "name": "Brassicaceae", "evidence_status": "evidenced"}],
+                            "non_hosts": [],
+                        }
+                    ],
+                }
+            ]
+        }
+    )
+
+    location_key: str = Field(description="The bed.", examples=["loc_b03"])
+    soil_hazards: list[BedSoilHazardResponse] = Field(
+        description="Every soil hazard of the bed, newest confirmation first.", examples=[[]]
+    )
+
+
+class LocationDetailResponse(LocationResponse):
+    """``GET /locations/{key}``: the location with its soil hazards resolved (AP-API-012: read with the location)."""
+
+    soil_hazards: list[BedSoilHazardResponse] = Field(
+        default_factory=list,
+        description=(
+            "Confirmed soil hazards of the bed, newest first, hosts resolved from the knowledge table at read time; "
+            "empty for every location without one."
+        ),
+        examples=[[]],
+    )

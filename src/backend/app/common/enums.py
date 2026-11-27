@@ -396,6 +396,23 @@ class SoilHazard(StrEnum):
     JUGLONE = "juglone"
 
 
+class SoilHazardRefusal(StrEnum):
+    """Why a location carries no soil hazard (REQ-053 §11.3a Nr. 5, #2888 F-20); the value is the 422 code."""
+
+    CONTAINER = "soil_hazard.container"
+    NOT_A_BED = "soil_hazard.not_a_bed"
+    HYDROPONIC = "soil_hazard.hydroponic"
+
+
+class SoilHazardFollowUpKind(StrEnum):
+    """What the app proposes after a soil-borne loss (REQ-053 §11.3a Nr. 5, #2888 F-20)."""
+
+    #: Offer to take the confirmed pathogen over into the bed; nothing is written until the user confirms.
+    OFFER = "offer"
+    #: Hydroponics: no soil hazard, the hint "System reinigen und desinfizieren, bevor du nachpflanzt".
+    CLEAN_SYSTEM = "clean_system"
+
+
 class EvidenceStatus(StrEnum):
     """How well a knowledge-table value is backed (REQ-054 §5.2a, method E-10).
 

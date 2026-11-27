@@ -53,6 +53,8 @@ LOCATION_FIELDS_KEPT_ON_EDIT: tuple[str, ...] = (
     "rotation_exempt",
     "site_conditions",
     "soil_profile",
+    # #2888 F-20: written by ``BedSoilHazardService`` only; the PUT body does not carry it.
+    "soil_hazards",
     "sun_exposure",
     "template_key",
     "z_order",

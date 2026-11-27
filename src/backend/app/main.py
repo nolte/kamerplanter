@@ -19,7 +19,13 @@ from app.common.body_limit import (
     request_body_limit_bytes,
 )
 from app.common.cache_control import API_DEFAULT_CACHE_CONTROL
-from app.common.dependencies import close_connection, get_connection, get_ha_client, get_ha_entity_grant_service
+from app.common.dependencies import (
+    close_connection,
+    get_connection,
+    get_ha_client,
+    get_ha_entity_grant_service,
+    get_soil_hazard_knowledge_source,
+)
 from app.common.error_handlers import (
     app_error_handler,
     unhandled_error_handler,
@@ -209,6 +215,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     run_pending_migrations(db)
     run_seeds(db)
+
+    # REQ-054 §5.2a (#2888 F-20): the soil-hazard knowledge table is read once per process. Reading it here makes a
+    # corrupt or schema-violating seed file fail the boot (fatal, like a migration) instead of the first request
+    # that shows a bed's soil hazards.
+    get_soil_hazard_knowledge_source().get_table()
 
     if settings.kamerplanter_mode == "light":
         logger.info("light_mode_active")

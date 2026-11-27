@@ -32,6 +32,7 @@ from app.common.enums import (
     SlotRole,
     SunExposure,
 )
+from app.domain.models.bed_soil_hazard import MAX_BED_SOIL_HAZARDS, BedSoilHazard
 from app.domain.models.garden_object import GardenObjectProps
 from app.domain.models.garden_plan import MAX_PLAN_OBJECTS_PER_SITE, MAX_PLAN_ZONES, MAX_SLOTS_PER_SITE
 from app.domain.models.geometry import BedFrameGeometry, Geometry
@@ -109,6 +110,12 @@ class ExportLocation(_ExportModel):
     #: follows the site's factor and has no lighting (``null``), the stored default.
     adjacency_factor: float | None = None
     lighting: LocationLighting | None = None
+    #: The bed's confirmed soil hazards (REQ-054 §5.2, R19, #2888 F-20), additive inside ``schema_version "1"``: a file
+    #: written before lacks the key, and the restored bed has none. Only the hazard key, the date and the source
+    #: category travel - no person, and no host list (it resolves from the knowledge table of the importing
+    #: installation). A hazard key outside ``SoilHazard`` refuses the file; on a vessel or a location that is no bed
+    #: the import drops them and reports it (``dropped_references[]``, field ``soil_hazards``).
+    soil_hazards: list[BedSoilHazard] = Field(default_factory=list, max_length=MAX_BED_SOIL_HAZARDS)
 
 
 class ExportSlot(_ExportModel):

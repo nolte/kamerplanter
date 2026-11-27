@@ -40,6 +40,7 @@ from app.common.enums import GardenObjectType, TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import area_m2, validate_geometry
+from app.domain.engines.bed_soil_hazard_engine import soil_hazard_refusal_for_type
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_SLOT_OUTSIDE_BED,
@@ -799,6 +800,13 @@ class GardenPlanImportService:
                 )
                 soil.substrate_key = None
 
+        soil_hazards = list(item.soil_hazards)
+        if soil_hazards and soil_hazard_refusal_for_type(type_key, is_bed=flags.get(type_key, False)) is not None:
+            # A vessel or a location that is no bed carries no soil hazard (REQ-053 §11.3a Nr. 5): the file may
+            # not put one there either. Dropped and reported, the rest of the bed imports.
+            prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="soil_hazards", reason="no_soil"))
+            soil_hazards = []
+
         fields: dict[str, Any] = {
             "name": item.name,
             "site_key": site_key,
@@ -823,6 +831,7 @@ class GardenPlanImportService:
             "rotation_enabled": item.rotation_enabled,
             "adjacency_factor": item.adjacency_factor,
             "lighting": item.lighting,
+            "soil_hazards": soil_hazards,
         }
         if item.pitch_m is not None:
             fields["pitch_m"] = item.pitch_m

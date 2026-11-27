@@ -8,6 +8,7 @@ from app.common.enums import (
     FailureCauseClass,
     PathogenConfirmationSource,
     SoilHazard,
+    SoilHazardFollowUpKind,
     SubstrateType,
     TerminationCause,
     TerminationType,
@@ -250,6 +251,52 @@ class PlantResponse(BaseModel):
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class SoilHazardFollowUpResponse(BaseModel):
+    """What the app proposes after a soil-borne loss (REQ-053 §11.3a Nr. 5, #2888 F-20); nothing is written yet."""
+
+    kind: SoilHazardFollowUpKind = Field(
+        description=(
+            "`offer`: take the confirmed pathogen over into the bed - the client asks, and on yes sends "
+            "`POST /locations/{location_key}/soil-hazards` with `plant_key`. `clean_system`: a hydroponic location, "
+            "no soil hazard - clean and disinfect the system before replanting."
+        ),
+        examples=["offer"],
+    )
+    location_key: str = Field(description="The bed or hydroponic location of the loss.", examples=["loc_b03"])
+    hazard: SoilHazard | None = Field(
+        default=None, description="The hazard the offer would record; null for `clean_system`.", examples=["clubroot"]
+    )
+    confirmed_at: date | None = Field(
+        default=None,
+        description="The day of the loss, recorded as the confirmation date; null for `clean_system`.",
+        examples=["2026-07-01"],
+    )
+    source: PathogenConfirmationSource | None = Field(
+        default=None, description="How the pathogen was confirmed; null for `clean_system`.", examples=["lab_test"]
+    )
+
+
+class RemovePlantResponse(PlantResponse):
+    """``POST /plant-instances/{key}/remove``: the ended plant and what the app proposes after its loss."""
+
+    soil_hazard_follow_up: SoilHazardFollowUpResponse | None = Field(
+        default=None,
+        description=(
+            "After a soil-borne loss: the offer to take its confirmed, listed pathogen over into the bed, or the "
+            "clean-system hint at a hydroponic location; null otherwise. An unconfirmed loss is never offered."
+        ),
+        examples=[
+            {
+                "kind": "offer",
+                "location_key": "loc_b03",
+                "hazard": "clubroot",
+                "confirmed_at": "2026-07-01",
+                "source": "lab_test",
+            }
+        ],
+    )
 
 
 class FailureCauseRuleResponse(BaseModel):

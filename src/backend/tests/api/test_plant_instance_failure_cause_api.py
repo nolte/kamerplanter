@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.plant_instances.tenant_router import router as plant_router
 from app.common.auth import get_current_tenant
-from app.common.dependencies import get_plant_instance_service
+from app.common.dependencies import get_bed_soil_hazard_service, get_plant_instance_service
 from app.common.enums import FailureCauseClass, SoilHazard, TenantRole, TerminationCause
 from app.common.error_handlers import app_error_handler
 from app.common.exceptions import KamerplanterError, NotFoundError
@@ -23,6 +23,8 @@ from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.species import Species
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.plant_instance_service import PlantInstanceService
+from tests.support.bed_soil_hazard_fakes import soil_hazard_service
+from tests.support.garden_plan_fakes import FakePlanRepo, FakeSites
 
 TENANT_KEY = "t-test-1"
 BASE = "/api/v1/t/test-slug/plant-instances"
@@ -105,6 +107,9 @@ def world():
     app = FastAPI()
     app.include_router(plant_router, prefix="/api/v1/t/test-slug")
     app.dependency_overrides[get_plant_instance_service] = lambda: service
+    # #2888 F-20: the remove answer carries the soil-hazard follow-up; the plants here stand in no bed.
+    hazards = soil_hazard_service(FakePlanRepo(FakeSites()))
+    app.dependency_overrides[get_bed_soil_hazard_service] = lambda: hazards
     app.dependency_overrides[get_current_tenant] = _ctx
     app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     return TestClient(app), plant_repo

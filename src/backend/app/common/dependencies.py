@@ -9,6 +9,7 @@ from arango.database import StandardDatabase
 from app.config.settings import settings
 from app.data_access.arango.auth_provider_repository import ArangoAuthProviderRepository
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_soil_hazard_repository import ArangoBedSoilHazardRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_gap_repository import ArangoCareEventGapReader
@@ -62,6 +63,7 @@ from app.data_access.external.console_email_adapter import ConsoleEmailAdapter
 from app.data_access.external.ha_flow_rate_sensor import HaFlowRateSensor
 from app.data_access.external.resend_email_adapter import ResendEmailAdapter
 from app.data_access.external.smtp_email_adapter import SmtpEmailAdapter
+from app.data_access.knowledge.soil_hazard_knowledge_source import YamlSoilHazardKnowledgeSource
 from app.data_access.repositories.propagation_repository import PropagationRepository
 from app.domain.engines.care_reminder_engine import CareReminderEngine
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
@@ -94,6 +96,7 @@ from app.domain.interfaces.email_service import IEmailService
 from app.domain.interfaces.erasure_repository import IErasureRepository
 from app.domain.interfaces.object_storage_adapter import IObjectStorageAdapter
 from app.domain.interfaces.reference_index_store import IReferenceIndexStore
+from app.domain.interfaces.soil_hazard_knowledge_source import ISoilHazardKnowledgeSource
 from app.domain.interfaces.step_up_throttle import IStepUpThrottleStore
 from app.domain.interfaces.storage_release_retry_repository import IStorageReleaseRetryRepository
 from app.domain.services.adjacency_service import AdjacencyDispatch, AdjacencyService
@@ -101,6 +104,7 @@ from app.domain.services.auth_service import AuthService
 from app.domain.services.bed_csv_import_service import BedCsvImportService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_soil_hazard_service import BedSoilHazardService
 from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.care_reminder_service import CareReminderService
@@ -623,6 +627,27 @@ def get_bed_history_service() -> BedHistoryService:
 def get_soil_analysis_service() -> SoilAnalysisService:
     """REQ-053 WP 8.7 — the soil analyses of a bed as series per method."""
     return SoilAnalysisService(get_site_repo(), get_care_event_repo())
+
+
+@functools.lru_cache(maxsize=1)
+def get_soil_hazard_knowledge_source() -> ISoilHazardKnowledgeSource:
+    """REQ-054 §5.2a (#2888 F-20) — the soil-hazard knowledge table, one instance per process.
+
+    The table is read once and kept; ``app.main.lifespan`` reads it at start-up, so a corrupt seed file stops the
+    boot instead of failing the first request that shows a soil hazard.
+    """
+    return YamlSoilHazardKnowledgeSource()
+
+
+def get_bed_soil_hazard_service() -> BedSoilHazardService:
+    """REQ-054 §5.2 / AP-API-012 (#2888 F-20) — the soil hazards of a bed and the offer after a soil-borne loss."""
+    return BedSoilHazardService(
+        get_site_repo(),
+        get_location_type_repo(),
+        get_plant_repo(),
+        ArangoBedSoilHazardRepository(get_db()),
+        get_soil_hazard_knowledge_source(),
+    )
 
 
 def get_garden_resource_service() -> GardenResourceService:
