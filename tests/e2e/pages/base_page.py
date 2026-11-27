@@ -2441,6 +2441,10 @@ return p.probe;
                 self.open_select(field_name)
                 self.select_option_by_value(value, field_name)
                 return
+            except _click_fallback.CoveredControlError:
+                # Not the animation race this retry is for: something lies on the
+                # select, and a second attempt that happens to pass would hide it.
+                raise
             except AssertionError as exc:
                 last_error = exc
                 # Recovery only: a stuck popover here is a *symptom* of the

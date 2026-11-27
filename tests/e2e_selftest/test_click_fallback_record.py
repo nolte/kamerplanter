@@ -454,6 +454,24 @@ def _event(nodeid: str, *, covered: bool | None, testid: str = "bottom-nav-plant
     }
 
 
+class TestTheSelectRetry:
+    def test_a_refusal_on_the_select_is_not_retried_away(self) -> None:
+        """`choose_select_value` retries a popover race once; a covered select is not that race."""
+        page = BasePage(SimpleNamespace(), "http://app.invalid")  # type: ignore[arg-type]
+        opened: list[str] = []
+
+        def covered(field_name: str) -> None:
+            opened.append(field_name)
+            raise _click_fallback.CoveredControlError("covered")
+
+        page.open_select = covered  # type: ignore[method-assign]
+
+        with pytest.raises(_click_fallback.CoveredControlError):
+            page.choose_select_value("status", "done")
+
+        assert opened == ["status"], "one attempt, no second one that could pass by luck"
+
+
 class TestTheReporter:
     def _config(self, tmp_path: Path | None, *, worker: bool = False) -> Any:
         options = {"--app-mode": "light", "--device": "mobile"}
@@ -496,11 +514,16 @@ class TestTheReporter:
 
     def test_a_skip_after_a_refused_click_becomes_a_failure(self) -> None:
         """`except Exception: pytest.skip(...)` around a step must not hide a covered control."""
-        report = SimpleNamespace(skipped=True, outcome="skipped", longrepr="skip reason")
+        report = SimpleNamespace(
+            skipped=True,
+            outcome="skipped",
+            longrepr=("tests/e2e/test_x.py", 12, "Skipped: no plants"),
+        )
 
         self._phase(report, _click_fallback.OUTCOME_RAISED)
 
         assert report.outcome == "failed"
+        assert "tests/e2e/test_x.py:12: Skipped: no plants" in report.longrepr
         assert "skipped after a guarded click was refused" in report.longrepr
         assert "scroll_and_click()" in report.longrepr
 

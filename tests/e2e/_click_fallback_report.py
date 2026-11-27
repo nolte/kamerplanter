@@ -188,19 +188,32 @@ def fail_a_skip_after_a_refused_click(report: Any, events: list[dict[str, Any]])
     tests wrap a step in ``except Exception: pytest.skip("... not available")``;
     there the refusal ended as "skipped", which reads as "nothing to test here"
     while a control was on screen and covered. The skip is the giveaway: no
-    helper recovers from a refusal by skipping. An expected failure (``xfail``)
-    is left alone -- pytest reports it as skipped too, and it is declared.
+    page object recovers from a refusal (the one retry on ``AssertionError``,
+    ``choose_select_value``, lets it through). An expected failure (``xfail``)
+    is left alone -- pytest reports it as skipped too, and it is declared; an
+    ``xfail`` test that calls ``pytest.skip`` itself is a plain skip and fails.
+    The message keeps the swallowing skip's reason and place.
     """
     if not getattr(report, "skipped", False) or getattr(report, "wasxfail", None) is not None:
         return
     refused = [e for e in events if e.get("outcome") == _click_fallback.OUTCOME_RAISED]
     if not refused:
         return
+    skip = report.longrepr
+    where = (
+        f"{skip[0]}:{skip[1]}: {skip[2]}"
+        if isinstance(skip, tuple) and len(skip) == 3
+        else str(skip)
+    )
     report.outcome = "failed"
     report.longrepr = (
         "The test skipped after a guarded click was refused on a covered control; a covered "
         "control is present, so this is a failure and not a skip (#3157).\n"
-        + "\n".join(_click_fallback.refusal_message(e, str(e.get("helper"))) for e in refused)
+        f"The skip that swallowed it: {where}\n"
+        + "\n".join(
+            f"{_click_fallback.refusal_message(e, str(e.get('helper')))} Called from {e.get('caller')}."
+            for e in refused
+        )
     )
 
 
