@@ -230,7 +230,7 @@ The nitrogen-phosphorus-potassium ratio changes across phases:
 
 Each phase also has a target pH stored for the nutrient solution. The pH value affects how well individual micronutrients (iron, manganese, zinc, copper, boron) can be taken up by the plant: outside an optimal window of pH 6.0–6.5, these micronutrients increasingly lock out (chlorosis risk — pale, yellowish leaf veins), while molybdenum behaves the other way round and becomes more available as pH rises. If a phase's target pH falls outside this window, Kamerplanter shows this in the phase's nutrient view (tab **Growth Phases** → click a phase) as the warning "**Micronutrients locked out (pH lockout)**" with a plain-language explanation. <!-- REQ-003 E8 -->
 
-### Distinguishing Planned from Premature Bolting
+### Distinguishing Planned from Premature Bolting {#vorzeitiges-schossen}
 
 For some biennial crops (e.g. leafy vegetables such as spinach or lettuce), heat or long-day stress can cause a plant to bolt towards flowering much earlier than planned, losing its harvest window prematurely. Kamerplanter distinguishes such a stress-induced, premature transition from planned bolting — for example the regular flower induction in the second growing season for biennial crops with a cold requirement.
 
@@ -346,7 +346,35 @@ If you select **Died (loss)**, you must also select a loss cause before you can 
 | Waterlogging | Substrate permanently too wet |
 | Neglect | Extended absence without cover |
 | Mechanical damage | Broken, bent over |
+| Bolting | Lettuce or spinach ran to flower prematurely |
 | Unknown | Cause can no longer be determined |
+
+If the plant bolted prematurely (see [Distinguishing planned and premature bolting](#vorzeitiges-schossen)), **Bolting** is already pre-filled. <!-- REQ-003 E6 -->
+
+### Step 4a: Say where the cause sat
+
+Along with the cause, the dialog records **where** it sat — on the leaves and shoots or in the soil. That later decides whether you can safely replant in the same spot. <!-- REQ-003 E5, REQ-053 §11.3a -->
+
+| Cause | What the dialog does |
+|-------|----------------------|
+| Frost, neglect, bolting | Pre-fills **Abiotic** — no further question |
+| Mechanical damage | Pre-fills **Mechanical damage** |
+| Heat, drought, waterlogging | Pre-fills **Abiotic** and asks the wilt question (see below) |
+| Disease | You must choose **Foliar disease** or **Soil-borne disease** |
+| Pest infestation | You must choose **Pest on leaves or shoots** or **Soil pest** |
+| Unknown | Pre-fills **Unknown**; you can choose any class |
+
+**The wilt question:** For heat, drought and waterlogging — and for "Unknown" on nightshades, brassicas, cucurbits and roses — the dialog asks: "Did the plant wilt despite moist soil, or were the vessels in the stem or the roots brown?" If you answer **Yes**, Kamerplanter records a **soil-borne disease**, because Verticillium wilt, for example, can be behind such a picture.
+
+**Naming the pathogen (optional):** For a soil pest or a soil-borne disease you can pick the pathogen from the soil-hazard list — for example clubroot, cyst nematodes or Verticillium wilt. If you know for sure, tick **The pathogen is confirmed** and choose who confirmed it: **Lab test**, **Plant protection advice** or **Unmistakable symptoms** (such as clubroot galls).
+
+!!! info "No soil hazard on the bed yet"
+    A named pathogen is stored on the plant. It does not add a soil hazard to the bed by itself.
+
+!!! tip "Not sure whether leaves or soil?"
+    If in doubt, choose the soil. Kamerplanter then warns you when you replant the same plant family in the same spot.
+
+Plants removed before this extension and plants you end with **Clear bed** have no class; for them only the loss cause counts, as before.
 
 !!! note "The current growth phase is frozen"
     Classifying a plant as "Died" freezes its current growth phase: the open phase-history entry is closed, but **no** automatic transition into a senescence phase happens. This keeps it visible which phase the loss actually occurred in — an important basis for the [loss-cause analysis](#ueberlebensrate-verlustursachen) below.

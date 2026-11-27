@@ -1,7 +1,7 @@
 ---
 id: F-19
 title: Ursachenklasse am Ausfall
-status: ready
+status: in_progress
 roadmap_item: R-20
 sprint: 4
 created: 2026-11-17
@@ -52,21 +52,21 @@ Schoss-Phase ging.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Beim Erfassen einer eingegangenen Pflanze wird die Ursachenklasse abgeleitet oder abgefragt: abiotische Ursachen vorbelegt, bei Krankheit oder Schädling Pflichtauswahl Blatt/Boden.
-- [ ] **acceptance-2** Bei Hitze, Trockenheit, Staunässe und bei „unbekannt“ an welkeanfälligen Familien erscheint die Welke-Rückfrage, die zu „bodenbürtige Krankheit“ führen kann.
-- [ ] **acceptance-3** Es gibt die Ursache „Schossen“; sie gilt als abiotisch, löst beim Nachpflanzen keinen Hinweis aus und ist vorbelegt, wenn die Pflanze vorzeitig in die Schoss-Phase ging.
-- [ ] **acceptance-4** Bei einem bodenbürtigen Ausfall kann der Gärtner einen Erreger aus der Liste der Bodengefahren wählen und festhalten, ob und von wem er bestätigt wurde.
-- [ ] **acceptance-5** Pflanzen ohne Ursachenklasse — Altdaten und über „Beet räumen“ beendete — verhalten sich wie bisher.
-- [ ] **acceptance-6** Alle neuen Beschriftungen gibt es in DE und EN, auch in der Überlebensstatistik.
+- [x] **acceptance-1** Beim Erfassen einer eingegangenen Pflanze wird die Ursachenklasse abgeleitet oder abgefragt: abiotische Ursachen vorbelegt, bei Krankheit oder Schädling Pflichtauswahl Blatt/Boden.
+- [x] **acceptance-2** Bei Hitze, Trockenheit, Staunässe und bei „unbekannt“ an welkeanfälligen Familien erscheint die Welke-Rückfrage, die zu „bodenbürtige Krankheit“ führen kann.
+- [x] **acceptance-3** Es gibt die Ursache „Schossen“; sie gilt als abiotisch, löst beim Nachpflanzen keinen Hinweis aus und ist vorbelegt, wenn die Pflanze vorzeitig in die Schoss-Phase ging.
+- [x] **acceptance-4** Bei einem bodenbürtigen Ausfall kann der Gärtner einen Erreger aus der Liste der Bodengefahren wählen und festhalten, ob und von wem er bestätigt wurde.
+- [x] **acceptance-5** Pflanzen ohne Ursachenklasse — Altdaten und über „Beet räumen“ beendete — verhalten sich wie bisher.
+- [x] **acceptance-6** Alle neuen Beschriftungen gibt es in DE und EN, auch in der Überlebensstatistik.
 
 ## Test hooks
 
-- **acceptance-1** — backend unit test of the pre-fill table (research §5) + vitest on `TerminationDialog` — pending
-- **acceptance-2** — vitest: wilt follow-up shown for the listed causes/families — pending
-- **acceptance-3** — unit test: `bolting` in `ABIOTIC_TERMINATION_CAUSES`, no replant hint; pre-fill from `is_premature` bolting phase — pending
-- **acceptance-4** — service test: pathogen limited to the hazard list; `confirmed`/`source` persisted — pending
-- **acceptance-5** — regression: TC-053-111 unchanged for plants without class; `BedClearDialog` path unchanged — pending
-- **acceptance-6** — i18n completeness check — pending
+- **acceptance-1** — backend unit test of the pre-fill table (research §5) + vitest on `TerminationDialog` — `src/backend/tests/unit/domain/engines/test_failure_cause_engine.py::TestPrefillTable`, `src/backend/tests/unit/domain/services/test_plant_instance_failure_cause.py::TestRemoveRecordsTheClass`, `src/backend/tests/api/test_plant_instance_failure_cause_api.py::TestRemove`, `src/backend/tests/unit/guards/test_req003_e5_failure_cause_matches_spec.py` (spec table = domain table), `src/frontend/src/test/pages/TerminationDialog.test.tsx` (acceptance-1 block)
+- **acceptance-2** — vitest: wilt follow-up shown for the listed causes/families — `src/frontend/src/test/pages/TerminationDialog.test.tsx` (acceptance-2 block), `src/backend/tests/unit/domain/engines/test_failure_cause_engine.py::TestWiltFollowUp`, `src/backend/tests/unit/domain/services/test_plant_instance_failure_cause.py::TestTerminationOptions`; fixture kept equal to the API by `src/backend/tests/contracts/test_termination_options_fixture.py`
+- **acceptance-3** — unit test: `bolting` in `ABIOTIC_TERMINATION_CAUSES`, no replant hint; pre-fill from `is_premature` bolting phase — `src/backend/tests/unit/domain/engines/test_crop_rotation_validator_bed.py::TestReplantOfAFailedPlant::test_a_bolting_loss_is_abiotic_and_leaves_no_residual_hint`, `src/backend/tests/unit/domain/engines/test_failure_cause_engine.py::TestBoltingSuggestion` and `::TestPrefillTable::test_the_replant_hint_sets_agree_with_the_table`, `src/backend/tests/unit/guards/test_req003_e5_failure_cause_matches_spec.py` (E5 literal = `TerminationCause`), vitest acceptance-3 block
+- **acceptance-4** — service test: pathogen limited to the hazard list; `confirmed`/`source` persisted — `src/backend/tests/unit/domain/services/test_plant_instance_failure_cause.py::TestRemoveRecordsTheClass`, `src/backend/tests/api/test_plant_instance_failure_cause_api.py` (422 for `fusarium`), `src/backend/tests/unit/domain/engines/test_failure_cause_engine.py::TestPathogen`, vitest acceptance-4 block
+- **acceptance-5** — regression: TC-053-111 unchanged for plants without class; `BedClearDialog` path unchanged — `src/backend/tests/unit/domain/services/test_plant_instance_failure_cause.py::TestWithoutAClass`, `src/backend/tests/unit/domain/engines/test_failure_cause_engine.py::TestNoClassStaysNoClass`; the replant rule for plants without class stays pinned by `test_crop_rotation_validator_bed.py::TestReplantOfAFailedPlant` (unchanged); `BedClearDialog.tsx` and its test are untouched
+- **acceptance-6** — i18n completeness check — `src/backend/tests/contracts/test_plant_property_enum_sync.py` (`terminationCause`, `failureCauseClass`, `soilHazard`, `pathogenConfirmationSource` in DE and EN, unions in `types.ts`), `src/frontend/src/test/pages/SurvivalStatsPanel.test.tsx` (bolting label DE/EN), vitest acceptance-6 test, `src/frontend/src/test/i18n/keyCatalog.test.ts`
 
 ## Consistency notes
 
