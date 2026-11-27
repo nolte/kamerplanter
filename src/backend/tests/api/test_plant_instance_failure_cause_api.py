@@ -61,6 +61,18 @@ def world():
                 species_key="sp-tomato",
                 planted_on=date(2026, 4, 1),
             )
+        if key == "plant-foreign-ended":
+            return PlantInstance(
+                _key="plant-foreign-ended",
+                tenant_key="t-other",
+                instance_id="X-2",
+                species_key="sp-tomato",
+                planted_on=date(2026, 4, 1),
+                removed_on=date(2026, 6, 1),
+                termination_type="died",
+                termination_cause="frost",
+                failure_cause_class="abiotic",
+            )
         raise NotFoundError("PlantInstance", key)
 
     plant_repo.get_or_raise.side_effect = get_or_raise
@@ -201,6 +213,17 @@ class TestNotTheCallersPlant:
 
         assert resp.status_code == 404
         assert "t-other" not in resp.text
+
+    def test_a_foreign_ended_plant_answers_404_not_the_terminal_state_422(self, world) -> None:
+        """Ownership is checked before the terminal state: a 422 would tell another tenant the plant has ended."""
+        client, plant_repo = world
+
+        foreign = client.post(f"{BASE}/plant-foreign-ended/remove", json={})
+        unknown = client.post(f"{BASE}/plant-missing/remove", json={})
+
+        assert (foreign.status_code, unknown.status_code) == (404, 404)
+        assert foreign.json()["error_code"] == unknown.json()["error_code"]
+        plant_repo.update.assert_not_called()
 
 
 class TestAnEndedPlant:
