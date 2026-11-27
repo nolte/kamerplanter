@@ -71,7 +71,9 @@ than it says:
   ``__getattr__`` — that does not define the called name neither resolves nor
   falls back by name: the fallback is for UNTYPED receivers only. That holds for
   a top-level parameter, a nested ``def``'s and a lambda's alike (#3144 review);
-  the call is counted as a genuine unresolved one, never hidden.
+  the call is counted as a genuine unresolved one, never hidden. ``Any`` and
+  ``object`` are not such a type: they say "unknown", and a receiver annotated
+  with nothing else is untyped for the fallback, everywhere (#3148).
 * **Anything outside the ``app`` package.** A write performed by a library on the
   application's behalf is invisible.
 
@@ -216,6 +218,16 @@ _CALLABLE_ARGUMENT_SINKS = frozenset({"add_task", "to_thread"})
 #: method from a library: an `I*Repository(ABC)` lacking a method is an interface
 #: that does not declare it — an annotation gap, not an external call (#3144).
 _METHODLESS_BASES = frozenset({"object", "ABC", "Protocol", "Generic"})
+
+#: The annotations that say "unknown" instead of naming a type. A receiver whose
+#: every possible type is one of these is UNTYPED for every rule of this module:
+#: it falls back by name in `link()`, it is a genuine gap and not an external
+#: one, and it never inherits a library method. One set, read through
+#: :meth:`CallGraph._known_types_of` everywhere, because two copies of this rule
+#: had drifted: a nested parameter annotated `Any` fell back by name, a top-level
+#: one did not, and five functions that write — `ActuatorService.
+#: _create_fallback_task` among them — did not read as writers (#3148).
+_UNKNOWN_TYPE_NAMES = frozenset({"Any", "object"})
 
 #: Builtin names an annotation can denote: a `dict`, a `str`, a `BaseException`
 #: are known types from outside the tree, not names nobody defined (#3144 F1).
@@ -878,7 +890,7 @@ class CallGraph:
         # `str` or a `StandardDatabase` is a fact and keeps a non-repository value
         # out of the name fallback. `Any`/`object` are the annotation saying
         # "unknown" and must not block it.
-        return found - {"Any", "object"}
+        return found - _UNKNOWN_TYPE_NAMES
 
     def _yielded_annotations(self, iterable: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
         """Annotations of the value one iteration over `iterable` yields, as far as written down."""
@@ -1106,12 +1118,20 @@ class CallGraph:
                     # spot: `params: dict[str, Any]` calling `.update(...)` is a
                     # dict merge, and letting it match the repository vocabulary
                     # was measured turning `api.mapping.to_response` into a
-                    # writer and 181 read routes into hits.
+                    # writer and 181 read routes into hits. A receiver annotated
+                    # `Any` or `object` IS untyped — the annotation says "could
+                    # be anything", which includes a repository (#3148): it
+                    # falls back exactly like one nothing annotates, at the top
+                    # level and in a nested `def` alike.
                     receiver_source = ast.unparse(call.func.value)
                     is_primitive = call.func.attr in _COLLECTION_MUTATORS and _COLLECTION_RECEIVER.search(
                         receiver_source
                     )
-                    if not is_primitive and call.func.attr in vocabulary and not self._types_of(call.func.value, fn):
+                    if (
+                        not is_primitive
+                        and call.func.attr in vocabulary
+                        and not self._known_types_of(call.func.value, fn)
+                    ):
                         # Conservative fallback, bounded to the repository write
                         # vocabulary: over-report rather than miss a write behind
                         # a receiver nothing annotates.
@@ -1182,9 +1202,19 @@ class CallGraph:
             return self._is_external_receiver(expression.value, scope, depth + 1)
         return self._types_are_external(expression, scope)
 
+    def _known_types_of(self, expression: ast.expr, scope: FunctionNode) -> set[str]:
+        """The types `expression` can denote, without the annotations that say "unknown" (#3148).
+
+        Empty means UNTYPED: nothing annotates the receiver, or only `Any`/`object`
+        does. :meth:`link` falls back by name on exactly that, and
+        :meth:`_types_are_external` refuses to call it external on exactly that —
+        one reading of `Any`, not one per rule.
+        """
+        return self._types_of(expression, scope) - _UNKNOWN_TYPE_NAMES
+
     def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
-        found = self._types_of(expression, scope)
-        return bool(found) and not (found & set(self.classes)) and not (found <= {"Any", "object"})
+        found = self._known_types_of(expression, scope)
+        return bool(found) and not (found & set(self.classes))
 
     def _is_external_call(self, call: ast.Call, scope: FunctionNode) -> bool:
         """Is this unresolved attribute call owned by something outside the tree? (#2039, #3144)
@@ -1254,12 +1284,18 @@ class CallGraph:
         """The annotation a nested-`def` parameter occurrence is typed by, or `None` (#3144 F1).
 
         Only an annotation every leaf of which is KNOWN binds: a class of this
-        tree, a builtin, or a name imported from outside the tree (``re.Match``
-        through its imported root). ``Any``, ``object``, a ``TypeVar`` and a name
-        nobody defines bind nothing: typing the receiver by them would type it as
-        nothing in particular and still switch off the name fallback that
-        ``link()`` keeps for untyped receivers — a write behind
-        ``def write(repo: Any): repo.create(...)`` would disappear.
+        tree, a builtin, a name imported from outside the tree (``re.Match``
+        through its imported root), or ``Any``/``object``. A ``TypeVar`` and a
+        name nobody defines bind nothing: typing the receiver by them would type
+        it as something in particular that it is not, and switch off the name
+        fallback ``link()`` keeps for untyped receivers — a write behind
+        ``def write(repo: T): repo.create(...)`` would disappear.
+
+        ``Any``/``object`` bind since #3148, as what they say: "unknown". The
+        fallback reads them through :meth:`_known_types_of`, the same rule as for
+        a top-level ``repo: Any``, so ``def write(repo: Any): repo.create(...)``
+        still falls back — and the occurrence is no longer looked up by NAME in
+        the enclosing body, where a namesake could type it.
         """
         bound = scope._parameter_bindings.get(id(name))
         if bound is None or not self._annotation_is_known(bound, scope.module):
@@ -1273,8 +1309,8 @@ class CallGraph:
         external = self.external_names.get(module, set())
         for leaf in leaves:
             if isinstance(leaf, ast.Name):
-                if leaf.id in {"Any", "object"}:
-                    return False
+                if leaf.id in _UNKNOWN_TYPE_NAMES:
+                    continue
                 if not (leaf.id in self.classes or leaf.id in _BUILTIN_NAMES or leaf.id in external):
                     return False
             else:

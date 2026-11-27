@@ -2503,8 +2503,8 @@ def control_dict_loop(repos: dict[str, InventedRepository]):
 }
 
 
-#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039, #3144); baseline 2231.
-_GENUINE_UNRESOLVED_CEILING = 2292
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039, #3144, #3148); baseline 2224.
+_GENUINE_UNRESOLVED_CEILING = 2285
 
 
 class TestTheDetectorTypesWhatIsWrittenDown:
@@ -2892,13 +2892,14 @@ class TestTheCountSeesInheritedMethodsAndNestedParameters:
     def test_a_binding_that_names_nothing_known_keeps_the_fallback(self, graph: CallGraph, name: str) -> None:
         """#3144 review F1/F2/F4: a type that is no type must not switch the name fallback off.
 
-        `link()` falls back by name only for a receiver `_types_of` cannot type,
-        so binding a parameter to `Any`, `object`, a `TypeVar`, a name nobody
-        defines, an annotation the body overwrites, a lambda position the call
-        does not fix (an unbound call, a starred argument before it), a
-        container, or a callee that only one of several targets annotates, does
-        not merely type nothing — it makes a write behind it disappear. Each of
-        these is a writer by fallback and must stay one.
+        `link()` falls back by name only for a receiver `_known_types_of` cannot
+        type (`Any`/`object` bind as "unknown" since #3148 and keep it), so
+        binding a parameter to a `TypeVar`, a name nobody defines, an
+        annotation the body overwrites, a lambda position the call does not fix
+        (an unbound call, a starred argument before it), a container, or a
+        callee that only one of several targets annotates, does not merely type
+        nothing — it makes a write behind it disappear. Each of these is a
+        writer by fallback and must stay one.
         """
         caller = self._function(graph, name)
 
@@ -2924,6 +2925,199 @@ class TestTheCountSeesInheritedMethodsAndNestedParameters:
         assert "create" in caller.unresolved
         assert not self._fell_back(graph, name)
         assert caller.id not in graph.writers()
+
+
+#: #3148: `Any` and `object` say "unknown" — at the top level, on an attribute and
+#: in a nested `def` alike — plus the control that a KNOWN type lacking the
+#: method still does not fall back.
+_UNKNOWN_ANNOTATION_TREE = {
+    **_SYNTHETIC_TREE,
+    "domain/unknown_annotations.py": """
+from typing import Any, Protocol
+
+from app.data_access.invented_repository import InventedRepository
+
+
+class Saver(Protocol):
+    def get_by_key(self, key: str): ...
+
+
+class Plain:
+    def own(self) -> None:
+        return None
+
+
+class Holder:
+    def __init__(self, repo: Any | None = None, sink: object = None, saver: Saver | None = None) -> None:
+        self._repo = repo
+        self._sink = sink
+        self._saver = saver
+
+    def write_through_any_attribute(self) -> None:
+        self._repo.create({})
+
+    def write_through_object_attribute(self) -> None:
+        self._sink.create({})
+
+    def control_known_attribute_without_the_method(self) -> None:
+        self._saver.create({})
+
+
+def write_through_any(repo: Any):
+    repo.create({})
+
+
+def write_through_object(repo: object):
+    repo.create({})
+
+
+def write_through_nested_any_under_a_typed_namesake(repo: Plain):
+    def write(repo: Any) -> None:
+        repo.create({})
+
+    repo.own()
+    return write
+
+
+def control_known_type_without_the_method(saver: Saver):
+    saver.create({})
+
+
+def control_known_type_widened_by_any(saver: Saver | Any):
+    saver.create({})
+""",
+}
+
+
+class TestAnUnknownAnnotationIsUntyped:
+    """#3148: a receiver annotated only `Any`/`object` falls back by name like an unannotated one.
+
+    `Any`/`object` counted as a TYPE for the fallback in `link()` and as "unknown"
+    everywhere else, so a write-vocabulary call on such a receiver neither
+    resolved nor fell back — measured on 2026-11-27 at 11 calls, five of them in
+    functions that then did not read as writers. A nested `def` already treated
+    `Any` as untyped; the rule is now one (`CallGraph._known_types_of`).
+
+    The control is the half that keeps the repair from over-reaching: a receiver
+    typed as a class of this tree that lacks the method — alone or next to
+    `Any` — still neither resolves nor falls back.
+    """
+
+    @pytest.fixture
+    def graph(self, tmp_path: pathlib.Path) -> CallGraph:
+        for relative, source in _UNKNOWN_ANNOTATION_TREE.items():
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+        return graph
+
+    @staticmethod
+    def _function(graph: CallGraph, name: str):
+        return graph.by_id[f"app.domain.unknown_annotations::{name}"]
+
+    def _fell_back_to_the_write(self, graph: CallGraph, name: str) -> bool:
+        return (self._function(graph, name).id, _INVENTED_CREATE) in graph.fallback_edges
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "write_through_any",
+            "write_through_object",
+            "Holder.write_through_any_attribute",
+            "Holder.write_through_object_attribute",
+        ],
+    )
+    def test_an_any_or_object_receiver_falls_back_and_writes(self, graph: CallGraph, name: str) -> None:
+        caller = self._function(graph, name)
+
+        assert "create" in caller.unresolved, f"{name}: {caller.unresolved}"
+        assert self._fell_back_to_the_write(graph, name), f"{name}: the Any/object receiver did not fall back"
+        assert caller.id in graph.writers(), f"{name} does not read as a writer"
+
+    def test_a_nested_any_parameter_is_not_typed_by_an_enclosing_namesake(self, graph: CallGraph) -> None:
+        """`repo: Any` of the nested `def` is unknown, not the enclosing `repo: Plain`.
+
+        Before #3148 an `Any` annotation bound nothing, so the occurrence was looked
+        up by NAME in the enclosing body, typed as `Plain` (which lacks `create`)
+        and lost its fallback.
+        """
+        name = "write_through_nested_any_under_a_typed_namesake"
+
+        assert self._fell_back_to_the_write(graph, name)
+        assert self._function(graph, name).id in graph.writers()
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "control_known_type_without_the_method",
+            "control_known_type_widened_by_any",
+            "Holder.control_known_attribute_without_the_method",
+        ],
+    )
+    def test_a_known_type_lacking_the_method_still_does_not_fall_back(self, graph: CallGraph, name: str) -> None:
+        caller = self._function(graph, name)
+
+        assert "create" in caller.unresolved
+        assert not any(edge[0] == caller.id for edge in graph.fallback_edges), f"{name} fell back by name"
+        assert caller.id not in graph.writers()
+
+    def test_the_count_keeps_an_any_receiver_genuine(self, graph: CallGraph) -> None:
+        """Falling back is not resolving: the call stays a counted, genuine gap."""
+        function = self._function(graph, "write_through_any")
+        (call,) = [call for call in function._call_nodes if isinstance(call.func, ast.Attribute)]
+
+        assert not graph._call_targets(call, function)
+        assert not graph._is_external_call(call, function)
+
+
+_EMERGENCY_STOP = ("POST", "/api/v1/t/{tenant_slug}/emergency-stop")
+_TASK_INSERT = "app.data_access.arango.task_repository::ArangoTaskRepository.create_task"
+_FALLBACK_TASK = "app.domain.services.actuator_service::ActuatorService._create_fallback_task"
+
+
+class TestTheActuatorFallbackTaskIsAWrite:
+    """#3148 on the real tree: the manual-fallback task an actuator command creates is a write.
+
+    `ActuatorService._task_repo` was annotated `Any | None`, so
+    `self._task_repo.create_task(task)` neither resolved nor fell back, and
+    `_create_fallback_task` did not read as a writer. It is now annotated with
+    `ITaskRepository` and resolves by TYPE — not by the name fallback, which
+    reaches every `create_task` of the tree (``TaskService.create_task`` among
+    them) and so names sinks the real path never touches.
+    """
+
+    def test_the_fallback_task_writer_resolves_by_type(self) -> None:
+        graph = call_graph()
+        caller = graph.by_id[_FALLBACK_TASK]
+
+        assert caller.id in graph.writers()
+        assert _TASK_INSERT in {callee.id for callee in caller.callees}
+        assert (caller.id, _TASK_INSERT) not in graph.fallback_edges, "linked by name, not by the annotation"
+
+    def test_the_emergency_stop_route_reaches_the_task_insert_and_its_sinks(self) -> None:
+        graph = call_graph()
+        (endpoint,) = [
+            endpoint for method, path, endpoint, _route in mounted_operations() if (method, path) == _EMERGENCY_STOP
+        ]
+        entry = graph.by_id[f"{endpoint.__module__}::{endpoint.__qualname__}"]
+
+        typed_reach = {entry.id}
+        queue = [entry]
+        while queue:
+            current = queue.pop()
+            for callee in current.callees:
+                if callee.id not in typed_reach and (current.id, callee.id) not in graph.fallback_edges:
+                    typed_reach.add(callee.id)
+                    queue.append(callee)
+
+        assert _FALLBACK_TASK in typed_reach
+        assert _TASK_INSERT in typed_reach
+        task_sinks = graph.write_sinks(graph.by_id[_TASK_INSERT])
+        assert task_sinks, "the task insert reaches no write"
+        assert task_sinks <= write_sinks_of(endpoint)
 
 
 class TestPersistingReadsAreSweptLikeWrites:
@@ -3433,10 +3627,28 @@ class TestPersistingReadsAreSweptLikeWrites:
         upserts the care notification — and seven write routes reach the
         notification writes behind it. The ceiling is the new genuine baseline
         plus the same 61 of headroom.
+
+        Re-baselined 2026-11-27 on develop 612eea105 (#3148). A receiver annotated
+        only ``Any``/``object`` was a TYPE for the name fallback and "unknown"
+        everywhere else, so 11 write-vocabulary calls neither resolved nor fell
+        back. The receivers were typed at the source where a real type exists:
+        ``ActuatorService._task_repo`` as ``ITaskRepository`` (its
+        ``create_task`` now resolves), the lock client of ``glossary_tasks`` as
+        the in-tree ``_DecodedRedis`` (its ``delete`` resolves to the protocol),
+        and ``LatchedRedis._client`` as ``redis.Redis``, which moves its five
+        calls (``get``/``set``/``ttl``/``delete``/``pipeline``) to external.
+        ``tracking.record``/``record_seed_run`` bind ``col = _collection(db)``
+        like their siblings, which the collection-receiver pattern sees; the
+        call counts do not move with that. Measured result: 14351 unresolved =
+        2231 genuine + 12120 external before, 14349 = 2224 genuine + 12125
+        external after (2 newly resolved, 5 genuine → external). No call lost a
+        target, no edge and no name-fallback edge disappeared (2545 before and
+        after), no function stopped reading as a writer. The ceiling is the new
+        genuine baseline plus the same 61 of headroom.
         """
         assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
             f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
-            "owner, up from the 2231 measured on 2026-11-27. The detector is guessing on more of the tree "
+            "owner, up from the 2224 measured on 2026-11-27 (#3148). The detector is guessing on more of the tree "
             "than it was; check what stopped carrying annotations before trusting a green run."
         )
         assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()
@@ -3464,10 +3676,20 @@ class TestPersistingReadsAreSweptLikeWrites:
         Lowering a floor is allowed and needs a stated reason in the same diff:
         what was deleted, or which annotation replaced which fallback. "The
         number went down" is not one — measure what the detector lost first.
+
+        Raised 2026-11-27 on the #3148 branch (base develop 612eea105), same slack:
+        316 direct writers (+2: ``tracking.record`` and ``tracking.record_seed_run``,
+        whose ``_collection(db).insert(...)`` the collection-receiver pattern did
+        not see and which now bind ``col`` like their siblings) and 2079 writers
+        (+3: those two and ``ActuatorService._create_fallback_task``, whose
+        ``_task_repo`` is now typed as ``ITaskRepository``). The name-fallback
+        edges stay at 2545: the ``Any``/``object`` receivers that would now fall
+        back were typed at the source instead, and the ones left are collection
+        primitives, which never fall back — so its floor stays.
         """
         graph = call_graph()
-        assert len(direct_writers()) >= 310, f"{len(direct_writers())} direct writers, floor 310 (314 on 2026-11-27)"
-        assert len(graph.writers()) >= 2050, f"{len(graph.writers())} writers, floor 2050 (2076 on 2026-11-27)"
+        assert len(direct_writers()) >= 312, f"{len(direct_writers())} direct writers, floor 312 (316 on 2026-11-27)"
+        assert len(graph.writers()) >= 2053, f"{len(graph.writers())} writers, floor 2053 (2079 on 2026-11-27)"
         assert len(graph.fallback_edges) >= 2400, (
             f"{len(graph.fallback_edges)} name-fallback edges, floor 2400 (2545 on 2026-11-27)"
         )
