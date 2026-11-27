@@ -62,10 +62,16 @@ describe('plantInstances endpoints', () => {
 
   it('removePlantInstance forwards the termination body', async () => {
     client.post.mockResolvedValue({ data: { key: 'pl1' } });
-    await plants.removePlantInstance('pl1', { termination_type: 'died', termination_cause: 'pest' });
+    // A pest loss names where it sat since #2888 (F-19); the server refuses it without a class.
+    await plants.removePlantInstance('pl1', {
+      termination_type: 'died',
+      termination_cause: 'pest',
+      failure_cause_class: 'pest_soil',
+    });
     expect(client.post).toHaveBeenCalledWith('/plant-instances/pl1/remove', {
       termination_type: 'died',
       termination_cause: 'pest',
+      failure_cause_class: 'pest_soil',
     });
   });
 

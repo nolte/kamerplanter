@@ -241,6 +241,83 @@ describe('TerminationDialog', () => {
     });
   });
 
+  describe('wilt question and class picker together (unknown on a wilt-prone family)', () => {
+    async function unknownOnNightshade(user: User, onConfirm = vi.fn()) {
+      getTerminationOptions.mockResolvedValue(BOLTED_NIGHTSHADE);
+      renderDialog({ onConfirm });
+      await chooseDied(user);
+      await chooseCause(user, 'unknown');
+      return onConfirm;
+    }
+
+    it('a class picked after a wilt yes wins, and the helper no longer claims a soil-borne disease', async () => {
+      const user = userEvent.setup();
+      const onConfirm = await unknownOnNightshade(user);
+      await user.click(screen.getByTestId('termination-wilt-yes'));
+      expect(screen.getByTestId('termination-wilt-question').textContent).toContain('Erfasst als bodenbürtige Krankheit');
+
+      await user.click(screen.getByTestId('termination-class-pest_foliar'));
+      const question = screen.getByTestId('termination-wilt-question');
+      expect(question.textContent).not.toContain('Erfasst als bodenbürtige Krankheit');
+      expect(screen.getByTestId('termination-wilt-yes')).not.toBeChecked();
+      await user.click(screen.getByTestId('termination-confirm'));
+      expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ failure_cause_class: 'pest_foliar' }));
+    });
+
+    it('a late no keeps a class picked on purpose', async () => {
+      const user = userEvent.setup();
+      const onConfirm = await unknownOnNightshade(user);
+      await user.click(screen.getByTestId('termination-class-mechanical'));
+      await user.click(screen.getByTestId('termination-wilt-no'));
+      expect(screen.getByTestId('termination-class-mechanical')).toBeChecked();
+      await user.click(screen.getByTestId('termination-confirm'));
+      expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ failure_cause_class: 'mechanical' }));
+    });
+
+    it('a no after a yes takes the soil-borne disease back to the pre-fill', async () => {
+      const user = userEvent.setup();
+      const onConfirm = await unknownOnNightshade(user);
+      await user.click(screen.getByTestId('termination-wilt-yes'));
+      await user.click(screen.getByTestId('termination-wilt-no'));
+      expect(screen.getByTestId('termination-class-unknown')).toBeChecked();
+      await user.click(screen.getByTestId('termination-confirm'));
+      expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ failure_cause_class: 'unknown' }));
+    });
+  });
+
+  it('after a wilt yes the class is not called pre-filled', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await chooseDied(user);
+    await chooseCause(user, 'heat');
+    expect(screen.getByTestId('termination-class-prefilled').textContent).toContain('vorbelegt');
+    await user.click(screen.getByTestId('termination-wilt-yes'));
+    const text = screen.getByTestId('termination-class-prefilled').textContent ?? '';
+    expect(text).toContain('Bodenbürtige Krankheit');
+    expect(text).not.toContain('vorbelegt');
+  });
+
+  it('starts empty and loads the options again when reopened', async () => {
+    const user = userEvent.setup();
+    const { rerender, onConfirm, onCancel } = renderDialog();
+    await chooseDied(user);
+    await chooseCause(user, 'frost');
+    const props = { plantKey: 'plant-1', plantName: 'TOMATO-1', onConfirm, onCancel };
+    const wrap = (open: boolean) => (
+      <ThemeContextProvider>
+        <SnackbarProvider>
+          <TerminationDialog open={open} {...props} />
+        </SnackbarProvider>
+      </ThemeContextProvider>
+    );
+    rerender(wrap(false));
+    await waitFor(() => expect(screen.queryByTestId('termination-type-select')).toBeNull());
+    rerender(wrap(true));
+    await screen.findByTestId('termination-type-select');
+    expect(screen.queryByTestId('termination-cause-block')).toBeNull();
+    await waitFor(() => expect(getTerminationOptions).toHaveBeenCalledTimes(2));
+  });
+
   describe('acceptance-3: bolting', () => {
     it('is pre-filled after a premature bolt and sent as abiotic', async () => {
       const user = userEvent.setup();
@@ -337,6 +414,14 @@ describe('TerminationDialog', () => {
     });
   });
 
+  it('announces the options load as a status', async () => {
+    const user = userEvent.setup();
+    getTerminationOptions.mockReturnValue(new Promise(() => {}));
+    renderDialog();
+    await selectFrom(user, 'termination-type-select', 'termination-type-died');
+    expect(screen.getByTestId('loading-skeleton').getAttribute('role')).toBe('status');
+  });
+
   it('a failed options load says so, blocks a died confirm and can be retried', async () => {
     const user = userEvent.setup();
     getTerminationOptions.mockRejectedValueOnce(new Error('network'));
@@ -344,6 +429,9 @@ describe('TerminationDialog', () => {
     await selectFrom(user, 'termination-type-select', 'termination-type-died');
     expect(await screen.findByTestId('termination-options-error')).toBeTruthy();
     expect(screen.getByTestId('termination-confirm')).toBeDisabled();
+    // The hint on the blocked button names the failure, not a load that is no longer running.
+    await user.hover(screen.getByTestId('termination-confirm').parentElement as HTMLElement);
+    expect((await screen.findByRole('tooltip')).textContent).toBe('Die Ursachen konnten nicht geladen werden.');
 
     await user.click(screen.getByTestId('termination-options-retry'));
     expect(await screen.findByTestId('termination-cause-select')).toBeTruthy();

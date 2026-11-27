@@ -2390,6 +2390,7 @@
         "classLabel": "Where did the cause sit?",
         "classHelperRequired": "Required: did the cause sit on the leaves and shoots, or in the soil? If unsure, choose \"soil\" — the app then warns you when you replant.",
         "classPrefilled": "Cause class: {{label}} — pre-filled from the cause.",
+        "classRecorded": "Cause class: {{label}}.",
         "classPickerHelper": "Pre-filled from the cause; change it if you know more.",
         "wiltQuestion": "Did the plant wilt despite moist soil, or were the vessels in the stem or the roots brown?",
         "wiltHelper": "A soil-borne disease such as Verticillium wilt can be behind it.",

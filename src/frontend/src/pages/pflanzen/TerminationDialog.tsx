@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -63,13 +63,45 @@ interface Props {
  * by whom it was confirmed.
  */
 export default function TerminationDialog({ open, plantKey, plantName, onConfirm, onCancel, loading = false }: Props) {
-  const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // The form lives in its own component: the Dialog unmounts it once closed, so every opening starts with an empty
+  // form and a fresh options load - no reset effect needed.
+  return (
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      fullScreen={fullScreen}
+      maxWidth="sm"
+      fullWidth
+      aria-labelledby="termination-dialog-title"
+      aria-describedby="termination-dialog-description"
+      role="alertdialog"
+      data-testid="termination-dialog"
+    >
+      <TerminationForm
+        key={plantKey}
+        plantKey={plantKey}
+        plantName={plantName}
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+        loading={loading}
+      />
+    </Dialog>
+  );
+}
+
+type FormProps = Omit<Props, 'open'> & { loading: boolean };
+
+function TerminationForm({ plantKey, plantName, onConfirm, onCancel, loading }: FormProps) {
+  const { t } = useTranslation();
+
   const [terminationType, setTerminationType] = useState<TerminationType | ''>('');
-  const [terminationCause, setTerminationCause] = useState<TerminationCause | ''>('');
-  const [failureClass, setFailureClass] = useState<FailureCauseClass | ''>('');
+  // The cause the user picked; until then the suggested cause of the options stands (premature bolting, E6).
+  const [causeChoice, setCauseChoice] = useState<TerminationCause | ''>('');
+  // The class the user picked or answered; null = the pre-fill of the cause.
+  const [classChoice, setClassChoice] = useState<FailureCauseClass | null>(null);
   const [wilt, setWilt] = useState<WiltAnswer>('');
   const [pathogen, setPathogen] = useState<SoilHazard | ''>('');
   const [confirmed, setConfirmed] = useState(false);
@@ -78,25 +110,9 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
   const [optionsState, setOptionsState] = useState<OptionsState>('loading');
   const [attempt, setAttempt] = useState(0);
 
-  // Reset the form each time the dialog is (re)opened.
+  // Load this plant's options on mount and on every retry.
   useEffect(() => {
-    if (open) {
-      setTerminationType('');
-      setTerminationCause('');
-      setFailureClass('');
-      setWilt('');
-      setPathogen('');
-      setConfirmed(false);
-      setSource('');
-    }
-  }, [open]);
-
-  // Load this plant's options whenever the dialog opens (or the user retries).
-  useEffect(() => {
-    if (!open) return;
     let cancelled = false;
-    setOptions(null);
-    setOptionsState('loading');
     getTerminationOptions(plantKey)
       .then((loaded) => {
         if (cancelled) return;
@@ -110,55 +126,55 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
     return () => {
       cancelled = true;
     };
-  }, [open, plantKey, attempt]);
+  }, [plantKey, attempt]);
 
-  const ruleFor = useCallback(
-    (cause: TerminationCause | '') => options?.rules.find((r) => r.termination_cause === cause) ?? null,
-    [options],
-  );
-  const rule = useMemo(() => ruleFor(terminationCause), [ruleFor, terminationCause]);
-
-  const selectCause = useCallback(
-    (cause: TerminationCause | '') => {
-      setTerminationCause(cause);
-      setFailureClass(ruleFor(cause)?.prefill ?? '');
-      setWilt('');
-      setPathogen('');
-      setConfirmed(false);
-      setSource('');
-    },
-    [ruleFor],
-  );
+  const retry = () => {
+    setOptionsState('loading');
+    setAttempt((n) => n + 1);
+  };
 
   const isDied = terminationType === 'died';
   const suggestedCause = options?.suggested_cause ?? null;
+  const terminationCause: TerminationCause | '' = causeChoice || (isDied && suggestedCause ? suggestedCause : '');
 
-  // Pre-fill the suggested cause (premature bolting, REQ-003 E6) once `died` is chosen and the options are there.
-  // The cause select offers no empty entry, so a cause the user picked is never replaced by the suggestion.
-  useEffect(() => {
-    if (isDied && terminationCause === '' && suggestedCause) selectCause(suggestedCause);
-  }, [isDied, terminationCause, suggestedCause, selectCause]);
+  const rule = useMemo(
+    () => options?.rules.find((r) => r.termination_cause === terminationCause) ?? null,
+    [options, terminationCause],
+  );
+  const failureClass: FailureCauseClass | '' = classChoice ?? rule?.prefill ?? '';
+
+  const clearPathogen = () => {
+    setPathogen('');
+    setConfirmed(false);
+    setSource('');
+  };
+
+  const selectCause = (cause: TerminationCause | '') => {
+    setCauseChoice(cause);
+    setClassChoice(null);
+    setWilt('');
+    clearPathogen();
+  };
 
   const wiltClass = options?.wilt_follow_up_class ?? null;
   const asksWilt = rule?.asks_wilt_follow_up ?? false;
+  const wiltRecorded = wiltClass !== null && failureClass === wiltClass;
   // A picker only when the cause offers more than its pre-fill (plus the wilt class the question already offers).
   const showPicker = rule !== null && rule.choices.length > (asksWilt ? 2 : 1);
   const pathogenClasses = options?.pathogen_classes;
   const isSoilBorne = failureClass !== '' && (pathogenClasses ?? []).includes(failureClass);
 
-  const changeClass = (next: FailureCauseClass | '') => {
-    setFailureClass(next);
-    if (next === '' || !(pathogenClasses ?? []).includes(next)) {
-      setPathogen('');
-      setConfirmed(false);
-      setSource('');
-    }
+  const changeClass = (next: FailureCauseClass | null) => {
+    setClassChoice(next);
+    const resolved = next ?? rule?.prefill ?? null;
+    if (resolved === null || !(pathogenClasses ?? []).includes(resolved)) clearPathogen();
   };
 
   const answerWilt = (answer: WiltAnswer) => {
     setWilt(answer);
     if (answer === 'yes' && wiltClass) changeClass(wiltClass);
-    if (answer === 'no') changeClass(rule?.prefill ?? '');
+    // A "no" only takes back what a "yes" recorded; a class picked on purpose stays.
+    if (answer === 'no' && wiltRecorded) changeClass(null);
   };
 
   const changePathogen = (next: SoilHazard | '') => {
@@ -171,7 +187,8 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
 
   const missing: string | null = useMemo(() => {
     if (!isDied) return null;
-    if (optionsState !== 'ready') return t('pages.plantInstances.termination.optionsLoading');
+    if (optionsState === 'error') return t('pages.plantInstances.termination.optionsError');
+    if (optionsState === 'loading') return t('pages.plantInstances.termination.optionsLoading');
     if (terminationCause === '') return t('pages.plantInstances.termination.confirmDisabledHint');
     if (failureClass === '') return t('pages.plantInstances.termination.classRequiredHint');
     if (confirmed && source === '') return t('pages.plantInstances.termination.sourceRequiredHint');
@@ -202,17 +219,7 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
   };
 
   return (
-    <Dialog
-      open={open}
-      onClose={onCancel}
-      fullScreen={fullScreen}
-      maxWidth="sm"
-      fullWidth
-      aria-labelledby="termination-dialog-title"
-      aria-describedby="termination-dialog-description"
-      role="alertdialog"
-      data-testid="termination-dialog"
-    >
+    <>
       <DialogTitle id="termination-dialog-title">{t('pages.plantInstances.termination.title')}</DialogTitle>
       <DialogContent>
         <DialogContentText id="termination-dialog-description" sx={{ mb: 2 }}>
@@ -253,7 +260,11 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
             </Alert>
 
             {optionsState === 'loading' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }} data-testid="loading-skeleton">
+              <Box
+                role="status"
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
+                data-testid="loading-skeleton"
+              >
                 <CircularProgress size={20} />
                 <Typography variant="body2">{t('pages.plantInstances.termination.optionsLoading')}</Typography>
               </Box>
@@ -268,7 +279,7 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
                   <Button
                     color="inherit"
                     size="small"
-                    onClick={() => setAttempt((n) => n + 1)}
+                    onClick={retry}
                     data-testid="termination-options-retry"
                   >
                     {t('pages.plantInstances.termination.optionsRetry')}
@@ -315,7 +326,11 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
             {rule && asksWilt && (
               <FormControl component="fieldset" sx={{ mb: 2, display: 'block' }} data-testid="termination-wilt-question">
                 <FormLabel component="legend">{t('pages.plantInstances.termination.wiltQuestion')}</FormLabel>
-                <RadioGroup row value={wilt} onChange={(e) => answerWilt(e.target.value as WiltAnswer)}>
+                <RadioGroup
+                  row
+                  value={wiltRecorded ? 'yes' : wilt === 'no' ? 'no' : ''}
+                  onChange={(e) => answerWilt(e.target.value as WiltAnswer)}
+                >
                   <FormControlLabel
                     value="yes"
                     control={<Radio slotProps={{ input: { 'data-testid': 'termination-wilt-yes' } as object }} />}
@@ -330,7 +345,7 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
                   />
                 </RadioGroup>
                 <FormHelperText>
-                  {wilt === 'yes'
+                  {wiltRecorded
                     ? t('pages.plantInstances.termination.wiltYesResult')
                     : t('pages.plantInstances.termination.wiltHelper')}
                 </FormHelperText>
@@ -367,9 +382,13 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
 
             {rule && !showPicker && failureClass !== '' && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} data-testid="termination-class-prefilled">
-                {t('pages.plantInstances.termination.classPrefilled', {
-                  label: t(`enums.failureCauseClass.${failureClass}`),
-                })}
+                {failureClass === rule.prefill
+                  ? t('pages.plantInstances.termination.classPrefilled', {
+                      label: t(`enums.failureCauseClass.${failureClass}`),
+                    })
+                  : t('pages.plantInstances.termination.classRecorded', {
+                      label: t(`enums.failureCauseClass.${failureClass}`),
+                    })}
               </Typography>
             )}
 
@@ -461,6 +480,6 @@ export default function TerminationDialog({ open, plantKey, plantName, onConfirm
           </span>
         </Tooltip>
       </DialogActions>
-    </Dialog>
+    </>
   );
 }

@@ -2390,6 +2390,7 @@
         "classLabel": "Wo saß die Ursache?",
         "classHelperRequired": "Pflichtangabe: Saß die Ursache an Blatt und Spross oder im Boden? Bist du unsicher, wähle „Boden“ — dann warnt dich die App beim Nachpflanzen.",
         "classPrefilled": "Ursachenklasse: {{label}} — aus der Ursache vorbelegt.",
+        "classRecorded": "Ursachenklasse: {{label}}.",
         "classPickerHelper": "Vorbelegt aus der Ursache; ändere sie, wenn du mehr weißt.",
         "wiltQuestion": "Welkte die Pflanze trotz feuchter Erde, waren Gefäße im Stängel oder die Wurzeln braun?",
         "wiltHelper": "Dann kann eine bodenbürtige Krankheit wie die Verticillium-Welke dahinterstecken.",
