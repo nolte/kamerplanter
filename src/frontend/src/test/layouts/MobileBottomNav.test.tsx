@@ -138,6 +138,38 @@ describe('MainLayout — mobile bottom navigation (#3018, UI-NFR-005 R-023..R-03
     }
   });
 
+  it('keeps every label on one line with an ellipsis, at 12 px, the full text as its name', async () => {
+    stubViewport({ width: PHONE });
+    renderShell('/dashboard');
+    await screen.findByRole('heading', { name: 'Dashboard' });
+    for (const name of ['Start', 'Pflanzen', 'Aufgaben', 'Kalender', 'Mehr']) {
+      const label = entry(name).querySelector('.MuiBottomNavigationAction-label') as HTMLElement;
+      const style = window.getComputedStyle(label);
+      expect(style.whiteSpace).toBe('nowrap');
+      expect(style.overflow).toBe('hidden');
+      expect(style.textOverflow).toBe('ellipsis');
+      expect(style.fontSize).toBe('0.75rem');
+      expect(window.getComputedStyle(entry(name)).minHeight).toBe('56px');
+    }
+  });
+
+  it('returns the focus to "Mehr" when the drawer is closed with Escape', async () => {
+    stubViewport({ width: PHONE });
+    const user = userEvent.setup();
+    const { store } = renderShell('/dashboard');
+    await screen.findByRole('heading', { name: 'Dashboard' });
+    const more = entry('Mehr');
+    more.focus();
+    await user.keyboard('{Enter}');
+    const drawer = await screen.findByRole('dialog');
+    await waitFor(() => expect(drawer).toContainElement(document.activeElement as HTMLElement));
+
+    await user.keyboard('{Escape}');
+
+    expect(store.getState().ui.sidebarOpen).toBe(false);
+    await waitFor(() => expect(screen.getByTestId('bottom-nav-more')).toHaveFocus());
+  });
+
   it('replaces the hamburger on the phone and leaves the desktop shell as it was', async () => {
     stubViewport({ width: PHONE });
     renderShell('/dashboard');

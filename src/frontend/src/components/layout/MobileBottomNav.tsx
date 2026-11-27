@@ -101,6 +101,13 @@ export default function MobileBottomNav() {
     // The selected label keeps its size, so the row does not shift on a tap.
     '& .MuiBottomNavigationAction-label, & .MuiBottomNavigationAction-label.Mui-selected': {
       fontSize: '0.75rem',
+      // At a large text zoom a label stays on one line inside its 1/5 of the bar instead of spilling into
+      // the neighbour; the accessible name is the full text either way.
+      display: 'block',
+      maxWidth: '100%',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     // The theme's ring sits outside the control; at the screen edge it would be cut off.
     '&.Mui-focusVisible': { outlineOffset: -2 },
