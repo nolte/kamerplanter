@@ -57,7 +57,7 @@ ergänzt, ohne dass sich Code ändert.
 
 ## Test hooks
 
-- **acceptance-1** — spec diff review (REQ-003, REQ-053, REQ-054, TC-REQ-054) before the first code commit — commit `docs(spec): specify the soil-hazard knowledge table before code` precedes the first code commit; REQ-003 E5 v2.23, REQ-053 §11.3/§11.3a/§16 (GP-FR-131/137/193) v1.55, REQ-054 §3/§5.2/§5.2a/§5.5/§6 H-10/H-11/§7.2/AP-API-012/AP-ACC-022/028 v1.4, TC-REQ-054 v1.3 (TC-054-013, TC-054-029); `tests/unit/guards/test_spec_literal_discriminators_match_models.py` green — proven 2026-11-27
+- **acceptance-1** — spec diff review (REQ-003, REQ-053, REQ-054, TC-REQ-054) before the first code commit — commit `docs(spec): specify the soil-hazard knowledge table before code` precedes the first code commit; REQ-003 E5 v2.23, REQ-053 §11.3/§11.3a/§16 (GP-FR-131/137/193) v1.55, REQ-054 §3/§5.2/§5.2a/§5.5/§6 H-10/H-11/§7.2/AP-API-012/AP-ACC-022/028 v1.4, TC-REQ-054 v1.3 (TC-054-013, TC-054-029); `tests/unit/guards/test_spec_literal_discriminators_match_models.py` deckt das neue `termination_cause`-Literal **nicht** ab (zweizeiliges Literal, falsche Modell-Zuordnung, `TerminationCause` ohne `bolting`) — Enum, i18n und Literal-Abgleich liefert F-19 — proven 2026-11-27
 - **acceptance-2** — schema validation of the seed YAML (`seed YAML matches the schema` hook) — `seed-schema-conformance` hook over `src/backend/app/migrations/seed_data/soil_hazards.yaml`; `tests/unit/migrations/test_soil_hazards_seed.py` (schema refuses a value without evidence, a 3/3 claim with two sources, a host without level, `affected_families`; host taxa known to the seed catalogue at all three levels) — proven 2026-11-27
 - **acceptance-3** — unit test: loader exposes durations only for 3/3 values — `tests/unit/data_access/knowledge/test_soil_hazard_knowledge_source.py::TestShippedStartValues` (start values and status per hazard, usable durations only for `evidenced`); invariants in `tests/unit/domain/models/test_soil_hazard_knowledge.py` — proven 2026-11-27
 - **acceptance-4** — unit test: changing a value's status in the fixture changes the resolved duration without code change — `tests/unit/data_access/knowledge/test_soil_hazard_knowledge_source.py::TestDataChangeAlone` (status raised → usable, lowered → withdrawn, new value takes effect, a 3/3 claim without three sources is refused) — proven 2026-11-27
@@ -87,6 +87,22 @@ table lives as seed YAML next to `ipm.yaml`.
 
 **Rotation window constant (prior-art, proceed).** Established:
 `constants.py:13-15` already says longer blocks belong to `soil_hazards`.
+
+## Offene Betreiberentscheidungen
+
+Aus dem Review von F-18 (2026-11-27). Die Daten in `src/backend/app/migrations/seed_data/soil_hazards.yaml` folgen heute der jeweils genannten Regel; Spec-Stellen, die eine Antwort vorwegnehmen, sind in REQ-054 §5.2a/AP-ACC-022/AP-ACC-028 und REQ-053 §11.3a als vorläufig markiert. F-20/F-21 zitieren diese Punkte.
+
+- **P1 — 3/3 trotz vierter Gegenstimme?** Bleibt ein Wert 3/3, wenn drei unabhängige Quellen ihn tragen und eine vierte widerspricht? Betroffen: `sclerotinia` Pause 5 (`evidenced`; das Review PMC8417578 nennt 2–3 J. bzw. 1–4 J.), `verticillium` Überdauerung 10 (`evidenced`; LfL 2017 „nicht sehr lange“). Heute: beide `evidenced`, die Gegenstimme steht nur in `basis`.
+- **P2 — Wann ist ein abweichendes Maximum `lower_bound` 3/3, wann `contradictory`?** Heute uneinheitlich:
+  - `clubroot` Überdauerung 15 — `evidenced`/`lower_bound` (AHDB bis 15, RHS 20, LW bis 20: kleinste gemeinsame Untergrenze);
+  - `white_rot` 15 und `pea_root_rot` 10 — ebenso `evidenced`/`lower_bound`;
+  - `verticillium` 10 — `evidenced`/`lower_bound` (siehe P1);
+  - `cyst_nematode` — `contradictory`, Feld leer, obwohl „mindestens 5 J.“ nach derselben Regel 3/3 wäre (5–6 J., bis 10 J., > 12 J.); eingetragen nach Recherche §7.2 („keine belegte Einzelzahl“);
+  - `sclerotinia` 10 — `insufficient` (2/3); die Untergrenze 4 der 3/3-Spanne 4–10 J. ist nicht eingetragen;
+  - `root_knot_nematode` — `contradictory`, Feld leer (bis 2 J. gegen „mehrere Jahre“).
+- **P3 — Darf eine Überdauerungs-Untergrenze den Restrisiko-Hinweis beenden?** Alle nutzbaren Überdauerungen sind `lower_bound` („mindestens“). Heute spezifiziert (vorläufig): der Hinweis endet bei `confirmed_at + max_survival_years` (REQ-053 §11.3a Nr. 6 „danach nichts“, AP-ACC-022 „Restrisiko bis 2037“).
+- **P4 — Zählen Wirte unter 3/3?** Für Sperre/Warnung, nur für Hinweis und `pest_risk`, oder gar nicht? Betroffen: `sclerotinia` alle acht Familien (2/3), `verticillium` Solanaceae, Rosaceae, Cucurbitaceae, Asteraceae und *Beta vulgaris* (2/3), `root_knot_nematode` *Allium* (1/3), `juglone` Purdue-Restliste (1/3). Vorläufig vorweggenommen: AP-ACC-028 gibt der Bohne (Fabaceae, Sklerotinia-Wirt 2/3) `pest_risk = −0,9`.
+- **P5 — „unbefristet“ als Rückfall ohne belegte Überdauerung?** Betroffen: `juglone`, `root_knot_nematode`, `sclerotinia`, `cyst_nematode` (nach der Pause). Vorläufig spezifiziert in REQ-054 §5.2a „Wirkdauer am Beet“ und REQ-053 §11.3a Nr. 6.
 
 ## Risks
 
