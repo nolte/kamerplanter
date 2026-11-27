@@ -45,7 +45,7 @@ Self-consistency (k=2) diverged on scope (now vs. with the planner → Q1) and o
   - _dimension_: `domain_objects` · _status_: `confirmed` · _source_: Q3 point 6
 - **R3** — A bed SHALL carry `soil_hazards[] {hazard, affected hosts, confirmed_at, source}`, maintained via API (create from grower, delete lead only).
   - _dimension_: `domain_objects`, `actors` · _status_: `confirmed` · _source_: Q1, Q4 point 2
-- **R4** — WHEN a loss is `disease_soil` with a named pathogen from the hazard list and confirmed, the system SHALL **offer** to add it to the bed's `soil_hazards[]`; an unconfirmed soil-borne loss SHALL never create an entry.
+- **R4** — WHEN a loss is `pest_soil` or `disease_soil` (REQ-053 §11.3a Nr. 5) with a named pathogen from the hazard list and confirmed, the system SHALL **offer** to add it to the bed's `soil_hazards[]`; an unconfirmed soil-borne loss SHALL never create an entry.
   - _dimension_: `functional`, `edge_cases` · _status_: `confirmed` · _source_: Q3 point 5, Q4 point 2
 - **R5** — A knowledge table SHALL hold per hazard `soil_persistence_years`, `max_survival_years` and hosts at the finest available level (`families[]`, `genera[]`, `species_keys[]`), **each value with its evidence status**; only values at 3/3 SHALL drive the warning duration; supplementary research SHALL be added as data without code change.
   - _dimension_: `domain_objects`, `constraints` · _status_: `confirmed` · _source_: Q2 "b", Q3 points 1+3
