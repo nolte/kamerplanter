@@ -346,7 +346,8 @@ class FailureCauseClass(StrEnum):
 
     ``termination_cause`` stays what the gardener observed; the class is derived from it or
     refined by the gardener (table ``FAILURE_CAUSE_TABLE`` in ``app/domain/models/failure_cause.py``)
-    and is read by the replant hint and the soil hazards. Only set when ``termination_type='died'``.
+    and will be read by the replant hint (F-21) and the soil hazards (F-20); today no rule reads it.
+    Only set when ``termination_type='died'``.
     """
 
     ABIOTIC = "abiotic"

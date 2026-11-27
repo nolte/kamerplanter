@@ -37,6 +37,10 @@ class TestRemovePlantTaskCleanup:
         # The task cascade is tenant-scoped since #927 and reads the tenant off
         # the plant being removed, so the double has to carry a real one.
         self.plant.tenant_key = "tenant-a"
+        # A plant that is being removed has not ended yet; a MagicMock would answer both with a truthy double and
+        # read as already removed (#2888 F-19: an ended plant is refused).
+        self.plant.removed_on = None
+        self.plant.termination_type = None
         self.plant_repo.get_by_key.return_value = self.plant
         # ``remove_plant`` loads through ``get_or_raise``; the double has to
         # answer there too, or the tenant read off the plant is a MagicMock.
@@ -119,6 +123,10 @@ class TestRemovePlantRunTaskCleanup:
         self.plant = MagicMock()
         self.plant.slot_key = None
         self.plant.tenant_key = "tenant-a"
+        # A plant that is being removed has not ended yet; a MagicMock would answer both with a truthy double and
+        # read as already removed (#2888 F-19: an ended plant is refused).
+        self.plant.removed_on = None
+        self.plant.termination_type = None
         self.plant_repo.get_by_key.return_value = self.plant
         self.plant_repo.get_or_raise.return_value = self.plant
         self.plant_repo.update.return_value = self.plant

@@ -29,6 +29,8 @@ from app.domain.models.failure_cause import (
 )
 from app.domain.models.phase import PhaseHistory
 
+_WILT_PRONE_NORMALISED: frozenset[str] = frozenset(name.casefold() for name in WILT_PRONE_FAMILIES)
+
 
 def find_failure_cause_violations(
     *,
@@ -123,8 +125,15 @@ class FailureCauseEngine:
         return None
 
     def is_wilt_prone(self, family_name: str | None) -> bool:
-        """Whether the family is one of the wilt-prone families of research §5."""
-        return family_name is not None and family_name in WILT_PRONE_FAMILIES
+        """Whether the family is one of the wilt-prone families of research §5.
+
+        The name is the only identifier a family has that is the same in every installation, so it is matched
+        - with case and surrounding whitespace ignored: a family created through the API is checked only for
+        its ``-aceae`` ending, not for the catalogue's spelling.
+        """
+        if family_name is None:
+            return False
+        return family_name.strip().casefold() in _WILT_PRONE_NORMALISED
 
     def options(self, *, open_phase: PhaseHistory | None, family_name: str | None) -> TerminationOptions:
         """The table resolved for one plant: its suggested cause and where the wilt follow-up is asked."""

@@ -41,7 +41,7 @@ class PlantInstance(BaseModel):
         default=None,
         description="Cause of an unplanned loss — only set when termination_type='died'.",
     )
-    # ── Cause class of the loss (REQ-003 E5 v2.23, REQ-053 §11.3a, #2888 F-19) ──
+    # ── Cause class of the loss (REQ-003 E5 v2.23/v2.24, REQ-053 §11.3a, #2888 F-19) ──
     # All four stay None on legacy documents and on plants ended by "clear bed": such a plant
     # behaves as before, only termination_cause counts (acceptance-5). No migration.
     failure_cause_class: FailureCauseClass | None = Field(

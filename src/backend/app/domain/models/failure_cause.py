@@ -1,4 +1,4 @@
-"""Cause class of an unplanned loss (REQ-003 E5 v2.23, REQ-053 §11.3a Nr. 1-2, #2888 F-19).
+"""Cause class of an unplanned loss (REQ-003 E5 v2.23, pathogen fields v2.24, REQ-053 §11.3a Nr. 1-2, #2888 F-19).
 
 The one home of the pre-fill table: per ``termination_cause`` the class the dialog pre-fills,
 the classes the gardener may pick instead, and whether the wilt follow-up question is asked.
@@ -27,7 +27,9 @@ from app.common.enums import (
 WILT_FOLLOW_UP_CLASS: FailureCauseClass = FailureCauseClass.DISEASE_SOIL
 
 #: Families with a wilt risk: an ``unknown`` loss on one of them gets the wilt follow-up (research §5, REQ-053
-#: §11.3a Nr. 1). APG IV family names as stored in ``BotanicalFamily.name``.
+#: §11.3a Nr. 1). APG IV family names as in the global family catalogue (``BotanicalFamily.name``; families carry no
+#: tenant and no installation-stable key - the document key is assigned at seed time). Compared case- and
+#: whitespace-insensitively by ``FailureCauseEngine.is_wilt_prone``.
 WILT_PRONE_FAMILIES: frozenset[str] = frozenset({"Solanaceae", "Brassicaceae", "Cucurbitaceae", "Rosaceae"})
 
 #: Classes whose loss may name a pathogen from the soil-hazard list (REQ-053 §11.3a Nr. 5).

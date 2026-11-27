@@ -16,7 +16,7 @@ from app.common.enums import (
     TerminationType,
     TransitionTrigger,
 )
-from app.common.exceptions import DuplicateError, NotFoundError, ValidationError
+from app.common.exceptions import DuplicateError, InvalidStatusTransitionError, NotFoundError, ValidationError
 from app.common.log_privacy import log_tenant, loggable_error
 from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
@@ -1099,7 +1099,7 @@ class PlantInstanceService:
     ) -> PlantInstance:
         """Soft-remove a plant, optionally classifying how its lifecycle ended (E5).
 
-        A ``died`` loss with a cause also records where the cause sat (REQ-003 E5 v2.23, #2888): the class is
+        A ``died`` loss with a cause also records where the cause sat (REQ-003 E5 v2.23/v2.24, #2888): the class is
         pre-filled from the cause or checked against it, and a soil-borne class may name a pathogen with
         whether and by whom it was confirmed (``find_failure_cause_violations`` — the same rule the request
         schema applies). A loss without cause and class keeps no class (bulk clear, acceptance-5).
@@ -1117,6 +1117,15 @@ class PlantInstanceService:
         that left it out.
         """
         plant = self._get_owned_plant(key, tenant_key)
+
+        # An ended plant stays as it ended (#2888 F-19): a second remove would rewrite its cause class and a
+        # confirmed pathogen, or wipe them with an empty body and re-stamp ``removed_on``. No flow posts it twice
+        # (the detail page disables the action once ``removed_on`` is set; harvest completion skips ended plants).
+        if plant.removed_on is not None or plant.termination_type is not None:
+            raise InvalidStatusTransitionError(
+                plant.termination_type.value if plant.termination_type is not None else "removed",
+                termination_type.value if termination_type is not None else "removed",
+            )
 
         # E5: a cause only makes sense for an unplanned death.
         if termination_cause is not None and termination_type != TerminationType.DIED:

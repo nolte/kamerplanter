@@ -18,7 +18,7 @@ from app.common.enums import (
     TerminationCause,
     TerminationType,
 )
-from app.common.exceptions import NotFoundError, ValidationError
+from app.common.exceptions import InvalidStatusTransitionError, NotFoundError, ValidationError
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
@@ -289,3 +289,61 @@ class TestTerminationOptions(_Base):
         with pytest.raises(NotFoundError):
             self._service().get_termination_options("plant-1", tenant_key="tenant-b")
         self.phase_repo.get_phase_history.assert_not_called()
+
+
+class TestAnEndedPlantStaysEnded(_Base):
+    """A second remove cannot rewrite or wipe how a plant ended (#2888 F-19, review item 4)."""
+
+    def _end_with_a_confirmed_pathogen(self) -> None:
+        self._service().remove_plant(
+            "plant-1",
+            termination_type=TerminationType.DIED,
+            termination_cause=TerminationCause.DISEASE,
+            failure_cause_class=FailureCauseClass.DISEASE_SOIL,
+            failure_pathogen=SoilHazard.CLUBROOT,
+            failure_pathogen_confirmed=True,
+            failure_pathogen_source=PathogenConfirmationSource.LAB_TEST,
+            tenant_key="tenant-a",
+        )
+        self.plant_repo.update.reset_mock()
+        self.phase_repo.update_phase_history.reset_mock()
+
+    @pytest.mark.parametrize(
+        "second",
+        [
+            {},
+            {"termination_type": TerminationType.DIED, "termination_cause": TerminationCause.FROST},
+            {"termination_type": TerminationType.HARVESTED},
+        ],
+    )
+    def test_a_second_remove_is_refused_and_writes_nothing(self, second) -> None:
+        self._end_with_a_confirmed_pathogen()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            self._service().remove_plant("plant-1", tenant_key="tenant-a", **second)
+
+        self.plant_repo.update.assert_not_called()
+        self.phase_repo.update_phase_history.assert_not_called()
+        assert (self.plant.failure_pathogen, self.plant.failure_pathogen_confirmed) == (SoilHazard.CLUBROOT, True)
+
+    def test_a_plainly_removed_plant_is_refused_too(self) -> None:
+        self._service().remove_plant("plant-1", tenant_key="tenant-a")
+        self.plant_repo.update.reset_mock()
+
+        with pytest.raises(InvalidStatusTransitionError):
+            self._service().remove_plant(
+                "plant-1",
+                termination_type=TerminationType.DIED,
+                termination_cause=TerminationCause.FROST,
+                tenant_key="tenant-a",
+            )
+        self.plant_repo.update.assert_not_called()
+
+
+class TestFamilyNameMatching(_Base):
+    # Spellings ``BotanicalFamily`` accepts (its only check: the name ends in "-aceae").
+    @pytest.mark.parametrize("name", ["Solanaceae", "solanaceae", " Solanaceae", "SOLANaceae"])
+    def test_a_wilt_prone_family_is_matched_whatever_its_case_or_padding(self, name) -> None:
+        self.families = _Families(BotanicalFamily(_key="asteraceae", name=name))
+        options = self._service().get_termination_options("plant-1", tenant_key="tenant-a")
+        assert options.wilt_prone_family is True

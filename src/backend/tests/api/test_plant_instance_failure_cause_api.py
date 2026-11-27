@@ -15,6 +15,8 @@ from app.api.v1.plant_instances.tenant_router import router as plant_router
 from app.common.auth import get_current_tenant
 from app.common.dependencies import get_plant_instance_service
 from app.common.enums import FailureCauseClass, SoilHazard, TenantRole, TerminationCause
+from app.common.error_handlers import app_error_handler
+from app.common.exceptions import KamerplanterError, NotFoundError
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
@@ -47,7 +49,21 @@ def world():
         current_phase_started_at=datetime(2026, 5, 1, tzinfo=UTC),
     )
     plant_repo = MagicMock()
-    plant_repo.get_or_raise.return_value = plant
+
+    def get_or_raise(key: str) -> PlantInstance:
+        if key == "plant-1":
+            return plant
+        if key == "plant-foreign":
+            return PlantInstance(
+                _key="plant-foreign",
+                tenant_key="t-other",
+                instance_id="X-1",
+                species_key="sp-tomato",
+                planted_on=date(2026, 4, 1),
+            )
+        raise NotFoundError("PlantInstance", key)
+
+    plant_repo.get_or_raise.side_effect = get_or_raise
     plant_repo.get_by_key.return_value = plant
     plant_repo.update.side_effect = lambda _key, p: p
     phase_repo = MagicMock()
@@ -78,6 +94,7 @@ def world():
     app.include_router(plant_router, prefix="/api/v1/t/test-slug")
     app.dependency_overrides[get_plant_instance_service] = lambda: service
     app.dependency_overrides[get_current_tenant] = _ctx
+    app.add_exception_handler(KamerplanterError, app_error_handler)  # type: ignore[arg-type]
     return TestClient(app), plant_repo
 
 
@@ -173,3 +190,35 @@ class TestTerminationOptions:
     def test_the_options_path_is_not_captured_by_the_key_route(self, world) -> None:
         client, _ = world
         assert "rules" in client.get(f"{BASE}/plant-1/termination-options").json()
+
+
+class TestNotTheCallersPlant:
+    @pytest.mark.parametrize("key", ["plant-foreign", "plant-missing"])
+    def test_a_foreign_and_an_unknown_plant_answer_the_same_404(self, world, key) -> None:
+        client, _ = world
+
+        resp = client.get(f"{BASE}/{key}/termination-options")
+
+        assert resp.status_code == 404
+        assert "t-other" not in resp.text
+
+
+class TestAnEndedPlant:
+    def test_a_second_remove_answers_422_and_keeps_the_first_record(self, world) -> None:
+        client, plant_repo = world
+        first = {
+            "termination_type": "died",
+            "termination_cause": "disease",
+            "failure_cause_class": "disease_soil",
+            "failure_pathogen": "clubroot",
+            "failure_pathogen_confirmed": True,
+            "failure_pathogen_source": "lab_test",
+        }
+        assert client.post(f"{BASE}/plant-1/remove", json=first).status_code == 200
+        plant_repo.update.reset_mock()
+
+        resp = client.post(f"{BASE}/plant-1/remove", json={})
+
+        assert resp.status_code == 422
+        assert resp.json()["error_code"] == "INVALID_STATUS_TRANSITION"
+        plant_repo.update.assert_not_called()

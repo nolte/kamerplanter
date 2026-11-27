@@ -107,10 +107,10 @@ class RemovePlantRequest(BaseModel):
     Backward compatible: an empty body keeps the previous plain-removal behaviour.
     ``termination_cause`` is only valid together with ``termination_type='died'``.
 
-    The cause class (REQ-003 E5 v2.23, #2888) follows the pre-fill table: an abiotic cause may omit it (it is
-    derived), ``disease``/``pest`` must name foliar or soil. A pathogen is only valid for a soil-borne class;
-    ``failure_pathogen_source`` only for a confirmed pathogen, which needs one. Violations answer 422 here,
-    from the same rule the service applies.
+    The cause class (REQ-003 E5 v2.23; pathogen fields v2.24, #2888) follows the pre-fill table: an abiotic
+    cause may omit it (it is derived), ``disease``/``pest`` must name foliar or soil. A pathogen is only valid
+    for a soil-borne class; ``failure_pathogen_source`` only for a confirmed pathogen, which needs one.
+    Violations answer 422 here, from the same rule the service applies.
     """
 
     termination_type: TerminationType | None = None
