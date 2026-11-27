@@ -26,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from app.common.enums import FailureCauseClass, TerminationCause, TerminationType, WiltFollowUp
+from app.domain.engines.failure_cause_engine import FailureCauseEngine, find_failure_cause_violations
 from app.domain.models.failure_cause import FAILURE_CAUSE_TABLE, FailureCauseTable
 from tests.support.repo_scripts import find_repo_root
 
@@ -90,6 +91,20 @@ def e5_table(section: str) -> dict[str, tuple[str | None, frozenset[str], str]]:
     return rows
 
 
+def e5_empty_cause_row(section: str) -> tuple[str, str] | None:
+    """The (pre-fill, change-to) cells of the table row for an empty cause (``leer …``), or ``None``."""
+    for line in section.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) == 3 and cells[0].startswith("leer"):  # noqa: PLR2004 - the table has three columns
+            return cells[1], cells[2]
+    return None
+
+
+def empty_cause_row_says_what_holds(row: tuple[str, str] | None) -> bool:
+    """The row exists, derives no class and accepts any class that is stated explicitly."""
+    return row is not None and row[0].startswith("keine") and "jede Klasse" in row[1] and "`" not in row[0]
+
+
 def table_as_spec(table: FailureCauseTable) -> dict[str, tuple[str | None, frozenset[str], str]]:
     """The domain table in the shape :func:`e5_table` reads the spec."""
     return {
@@ -119,6 +134,29 @@ class TestE5MatchesTheCode:
         ]
         assert not divergent, "REQ-003 E5 and the enums disagree:\n  " + "\n  ".join(divergent)
 
+    def test_an_empty_cause_derives_no_class_and_accepts_a_stated_one(self, section) -> None:
+        """v2.25: the empty-cause row says what the code does (bulk clear and legacy keep no class)."""
+        assert empty_cause_row_says_what_holds(e5_empty_cause_row(section)), (
+            "REQ-003 E5 lost the row 'leer (keine Ursache) | keine | jede Klasse, nur wenn ausdrücklich angegeben'"
+        )
+        record = FailureCauseEngine().resolve(
+            termination_cause=None,
+            failure_cause_class=None,
+            failure_pathogen=None,
+            failure_pathogen_confirmed=None,
+            failure_pathogen_source=None,
+        )
+        assert record.failure_cause_class is None
+        for cls in FailureCauseClass:
+            assert not find_failure_cause_violations(
+                termination_type=TerminationType.DIED,
+                termination_cause=None,
+                failure_cause_class=cls,
+                failure_pathogen=None,
+                failure_pathogen_confirmed=None,
+                failure_pathogen_source=None,
+            )
+
     def test_the_prefill_table_is_the_domain_table(self, section) -> None:
         spec = e5_table(section)
         code = table_as_spec(FAILURE_CAUSE_TABLE)
@@ -145,7 +183,8 @@ _SPEC_SAMPLE = """
   | `mechanical` | `mechanical` | — |
   | `pest` | keine — Pflichtauswahl | `pest_foliar` / `pest_soil` |
   | `disease` | keine — Pflichtauswahl | `disease_foliar` / `disease_soil` |
-  | `unknown` / leer | `unknown` | jede Klasse (Welke-Rückfrage bei welkeanfälligen Familien) |
+  | `unknown` | `unknown` | jede Klasse (Welke-Rückfrage bei welkeanfälligen Familien) |
+  | leer (keine Ursache) | keine — es entsteht keine Klasse | jede Klasse, nur wenn ausdrücklich angegeben |
 
 ### E6 — next
 """
@@ -166,6 +205,21 @@ class TestTheParsersDiscriminate:
     def test_an_enum_value_the_spec_lacks_is_seen(self) -> None:
         literal = e5_literals(e5_section(_SPEC_SAMPLE))["termination_cause"]
         assert literal != frozenset(TerminationCause) | {"lightning"}
+
+    def test_the_old_unknown_or_empty_row_is_seen(self) -> None:
+        old = _SPEC_SAMPLE.replace(
+            "  | `unknown` | `unknown` | jede Klasse (Welke-Rückfrage bei welkeanfälligen Familien) |\n"
+            "  | leer (keine Ursache) | keine — es entsteht keine Klasse "
+            "| jede Klasse, nur wenn ausdrücklich angegeben |\n",
+            "  | `unknown` / leer | `unknown` | jede Klasse (Welke-Rückfrage bei welkeanfälligen Familien) |\n",
+        )
+        assert old != _SPEC_SAMPLE
+        assert not empty_cause_row_says_what_holds(e5_empty_cause_row(e5_section(old)))
+        assert empty_cause_row_says_what_holds(e5_empty_cause_row(e5_section(_SPEC_SAMPLE)))
+
+    def test_an_empty_row_that_derives_a_class_is_seen(self) -> None:
+        drifted = _SPEC_SAMPLE.replace("| keine — es entsteht keine Klasse |", "| `unknown` |")
+        assert not empty_cause_row_says_what_holds(e5_empty_cause_row(e5_section(drifted)))
 
     def test_a_changed_prefill_row_is_seen(self) -> None:
         drifted = _SPEC_SAMPLE.replace("| `bolting` | `abiotic` | — |", "| `bolting` | `unknown` | — |")
