@@ -69,7 +69,14 @@ const offset = `var(${BOTTOM_NAV_OFFSET})`;
 
 /** What has to clear the bar while it is there (see `BOTTOM_NAV_OFFSET`). */
 const clearanceStyles = {
-  ':root': { [BOTTOM_NAV_OFFSET]: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom, 0px))` },
+  ':root': {
+    [BOTTOM_NAV_OFFSET]: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+    // The document is the shell's scroll container (`main` does not scroll), and the root's `scroll-padding`
+    // is what the viewport uses: whatever the browser scrolls into view — a control reached with Tab, an
+    // anchor, `scrollIntoView` — stops above the bar instead of behind it (WCAG 2.2 SC 2.4.11). A pinned
+    // form row may override it inline with its own, larger reservation (`useStickyBarScrollPadding`).
+    scrollPaddingBottom: offset,
+  },
   // A dialog covers the bar (full screen below `sm`): inside it nothing has to clear it.
   '.MuiDialog-root': { [BOTTOM_NAV_OFFSET]: '0px' },
   // notistack's bottom container sits 14 px above the edge, MUI's Snackbar 8 px (24 px from `sm`).

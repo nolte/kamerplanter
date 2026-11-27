@@ -255,6 +255,16 @@ describe('MainLayout in kiosk mode (#3025 N-37)', () => {
     expect(await screen.findByTestId('confirm-dialog')).toBeInTheDocument();
   });
 
+  it('keeps what the browser scrolls into view clear of the sticky kiosk bar (#3018)', async () => {
+    stubLocalStorage(KIOSK_ON);
+    renderTileDestination();
+    await screen.findByTestId('kiosk-shell');
+    // The kiosk bar is 72 px high, 80 px from `sm` (jsdom applies no media query, so the rule is read).
+    expect(window.getComputedStyle(document.documentElement).scrollPaddingTop).toBe('72px');
+    const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('\n');
+    expect(css).toMatch(/@media \(min-width:600px\)\{:root\{scroll-padding-top:80px;\}/);
+  });
+
   it('renders the kiosk app bar sticky, so Back and Home stay visible on long pages (R-018)', async () => {
     stubLocalStorage(KIOSK_ON);
     renderTileDestination();

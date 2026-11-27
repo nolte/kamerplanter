@@ -25,8 +25,9 @@ export default function SettingsSection({ section, children }: SettingsSectionPr
       id={id}
       aria-labelledby={headingId}
       data-testid={`settings-section-${section.key}`}
-      // Keeps the heading clear of the sticky app bar when scrolled to.
-      sx={{ scrollMarginTop: (theme) => theme.spacing(10) }}
+      // Breathing room below the app bar when scrolled to; the bar's own height is the root's
+      // `scroll-padding-top` (MainLayout), so the two add up to the former 80 px clearance.
+      sx={{ scrollMarginTop: (theme) => theme.spacing(2) }}
     >
       <Typography
         id={headingId}
