@@ -240,3 +240,4 @@ The following functions are already fully implemented in the backend, but still 
 - [Home Assistant Integration](../guides/home-assistant-integration.md)
 - [VPD Optimization](../guides/vpd-optimization.md)
 - [Tank Management](tanks.md)
+- [What works offline](garden-plan.md#what-works-offline) — switching on and off is locked without a connection, the emergency stop stays available

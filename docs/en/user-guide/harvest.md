@@ -240,3 +240,4 @@ Some growers maintain a dark period of 24–48 hours immediately before harvest.
 - [Planting Runs](planting-runs.md)
 - [Post-Harvest](post-harvest.md)
 - [Post-Harvest: Drying, Curing & Storage](../guides/post-harvest.md)
+- [What works offline](garden-plan.md#what-works-offline) — creating and completing a harvest is locked without a connection

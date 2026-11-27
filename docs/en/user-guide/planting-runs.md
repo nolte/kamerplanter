@@ -306,3 +306,4 @@ Every plant in a run has its own diary — a tab on its detail page where you re
 - [Task Planning](tasks.md)
 - [Harvest](harvest.md)
 - [Fertilization](fertilization.md)
+- [What works offline](garden-plan.md#what-works-offline) — phase changes and harvest completion of a run are locked without a connection

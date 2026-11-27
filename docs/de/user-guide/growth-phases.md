@@ -412,3 +412,4 @@ Pflanzen ohne gesetzte Abschlussart (einfach entfernt, ohne Klassifizierung) fli
 - [Gießprotokoll](watering-log.md#vorgeschlagene-giessmenge) — vorgeschlagene Gießmenge
 - [Guides: Nährlösung mischen](../guides/nutrient-mixing.md#flush-ruhephase-ohne-duengung) — Flush/Ruhephase ohne Düngung
 - [Vermehrungsmanagement](propagation.md)
+- [Was geht ohne Netz](garden-plan.md#was-geht-ohne-netz) — Phasenwechsel sind ohne Verbindung gesperrt
