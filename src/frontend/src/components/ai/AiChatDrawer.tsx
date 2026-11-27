@@ -13,6 +13,8 @@ import Paper from '@mui/material/Paper';
 import SendIcon from '@mui/icons-material/Send';
 import StopIcon from '@mui/icons-material/Stop';
 import AIResponse from './AIResponse';
+import AiDrawerHeader from './AiDrawerHeader';
+import { aiDrawerPaperSx, useAiDrawerBelowBar } from './aiDrawerPaper';
 import { resolveAiErrorMessage } from './aiErrorMessage';
 import { aiApi } from '@/api';
 import type { AiConversationSummary, AiResponse as AiResponseData } from '@/api/types';
@@ -59,6 +61,7 @@ export default function AiChatDrawer({
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const belowBar = useAiDrawerBelowBar();
 
   const language = i18n.language.startsWith('en') ? 'en' : 'de';
 
@@ -171,15 +174,22 @@ export default function AiChatDrawer({
   }, []);
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose} data-testid="ai-chat-drawer">
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      // #3162 — width and the offset below the app bar sit on the paper, see `aiDrawerPaperSx`.
+      slotProps={{ paper: { sx: aiDrawerPaperSx(420, belowBar) } }}
+      data-testid="ai-chat-drawer"
+    >
+      {/* Fills the (column-flex) paper instead of `height: 100%`: the paper is shorter than the viewport below the
+          app bar, and the input row at the bottom has to stay inside it. */}
       <Box
-        sx={{ width: { xs: '100vw', sm: 420 }, height: '100%', display: 'flex', flexDirection: 'column', p: 2 }}
+        sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', p: 2 }}
         role="region"
         aria-label={t('ai.chat.title')}
       >
-        <Typography variant="h6" gutterBottom>
-          {t('ai.chat.title')}
-        </Typography>
+        <AiDrawerHeader title={t('ai.chat.title')} onClose={onClose} closeTestId="ai-chat-drawer-close" />
 
         {initError && (
           <Alert

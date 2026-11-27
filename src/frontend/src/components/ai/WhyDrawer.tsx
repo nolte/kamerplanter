@@ -7,6 +7,8 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import AIResponse from './AIResponse';
+import AiDrawerHeader from './AiDrawerHeader';
+import { aiDrawerPaperSx, useAiDrawerBelowBar } from './aiDrawerPaper';
 import { resolveAiErrorMessage } from './aiErrorMessage';
 import { aiApi } from '@/api';
 import type { AiExplainRequest, AiResponse as AiResponseData } from '@/api/types';
@@ -35,6 +37,7 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
   // when the KI feature is disabled/un-consented at the moment the drawer
   // first opens but gets enabled while it stays open).
   const [retryToken, setRetryToken] = useState(0);
+  const belowBar = useAiDrawerBelowBar();
 
   const retry = useCallback(() => setRetryToken((n) => n + 1), []);
 
@@ -67,11 +70,16 @@ export default function WhyDrawer({ open, onClose, request, onFollow }: WhyDrawe
   }, [open, retryToken]);
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose} data-testid="why-drawer">
-      <Box sx={{ width: { xs: '100vw', sm: 360 }, p: 2 }} role="region" aria-label={t('ai.why.title')}>
-        <Typography variant="h6" gutterBottom>
-          {t('ai.why.title')}
-        </Typography>
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      // #3162 — width and the offset below the app bar sit on the paper, see `aiDrawerPaperSx`.
+      slotProps={{ paper: { sx: aiDrawerPaperSx(360, belowBar) } }}
+      data-testid="why-drawer"
+    >
+      <Box sx={{ p: 2 }} role="region" aria-label={t('ai.why.title')}>
+        <AiDrawerHeader title={t('ai.why.title')} onClose={onClose} closeTestId="why-drawer-close" />
 
         {loading && (
           <Stack direction="row" spacing={1} sx={{ py: 2, alignItems: 'center' }}>
