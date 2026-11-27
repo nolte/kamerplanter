@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 
 from selenium.common.exceptions import (
+    ElementClickInterceptedException,
     NoAlertPresentException,
     NoSuchElementException,
     UnexpectedAlertPresentException,
@@ -42,7 +43,16 @@ class FakeElement:
 
     def click(self) -> None:
         if self._driver is not None:
+            if self.selector in self._driver.intercepts:
+                raise ElementClickInterceptedException(
+                    f"element click intercepted: {self.selector} is not clickable at point "
+                    f"(196, 812). Other element would receive the click: <nav ...>"
+                )
             self._driver.record_click(self.selector, native=True)
+
+    def send_keys(self, *keys: str) -> None:
+        if self._driver is not None:
+            self._driver.keys_sent.append((self.selector, "".join(keys)))
 
     def get_attribute(self, name: str) -> str | None:
         return self._text if name == "textContent" else None
@@ -72,6 +82,8 @@ class FakeDriver:
         press_lands_outside: Iterable[str] = (),
         moves_after_scroll: Iterable[str] = (),
         opens_prompt_on_click: Iterable[str] = (),
+        intercepts: Iterable[str] = (),
+        cover_probe: dict[str, dict[str, object]] | None = None,
     ) -> None:
         self.states: list[frozenset[str]] = [frozenset(s) for s in states] or [frozenset()]
         self.polls = 0
@@ -103,6 +115,15 @@ class FakeDriver:
         #: Scripts that reached the driver while a prompt was open. WebDriver's
         #: default unhandled-prompt behaviour dismisses the prompt on each one.
         self.scripts_while_prompt: list[str] = []
+        #: Selectors whose *native* click the driver refuses with
+        #: ``ElementClickInterceptedException`` -- something covers the hit point.
+        self.intercepts = frozenset(intercepts)
+        #: Selector -> what the ``/* coverProbe */`` script answers for it (#3157).
+        #: A selector not listed answers "the centre hits the element itself".
+        self.cover_probe = cover_probe or {}
+        self.cover_probes = 0
+        #: ``(selector, keys)`` for every ``send_keys``.
+        self.keys_sent: list[tuple[str, str]] = []
         self.switch_to = _FakeSwitchTo(self)
 
     def record_click(self, selector: str, *, native: bool = False) -> None:
@@ -159,6 +180,18 @@ class FakeDriver:
                 "at": "div.MuiDialogContent-root" if outside else pressed,
                 "element": pressed,
             }
+        if script.startswith("/* coverProbe */") and args and isinstance(args[0], FakeElement):
+            self.cover_probes += 1
+            selector = args[0].selector
+            target = {"tag": "button", "testid": selector, "id": None, "cls": "MuiButton-root"}
+            answer = self.cover_probe.get(selector, {"relation": "self", "hit": target})
+            return {
+                "target": target,
+                "rect": {"x": 150.0, "y": 790.0, "width": 92.0, "height": 44.0},
+                "point": {"x": 196.0, "y": 812.0},
+                "viewport": {"width": 393, "height": 852},
+                **answer,
+            }
         if ".click()" in script and args and isinstance(args[0], FakeElement):
             self.record_click(args[0].selector)
             return None
@@ -209,6 +242,10 @@ class _FakeSwitchTo:
 
     def __init__(self, driver: FakeDriver) -> None:
         self._driver = driver
+
+    @property
+    def active_element(self) -> FakeElement:
+        return FakeElement("<active-element>", driver=self._driver)
 
     @property
     def alert(self) -> _FakeAlert:

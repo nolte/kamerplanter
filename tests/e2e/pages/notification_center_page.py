@@ -16,6 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
+from . import _click_fallback
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
@@ -62,17 +63,58 @@ class NotificationCenterPage(BasePage):
         )
         from selenium.webdriver.common.keys import Keys
 
+        # Both Escape fallbacks close the drawer whatever covers its close button,
+        # so each is recorded before it is sent (#3157, step 1: measure only).
+        close: WebElement | None = None
         try:
-            self.wait_for_element_clickable(self.DRAWER_CLOSE).click()
-        except ElementClickInterceptedException, TimeoutException:
+            close = self.wait_for_element_clickable(self.DRAWER_CLOSE)
+            close.click()
+        except (ElementClickInterceptedException, TimeoutException) as refused:
+            self._record_close_fallback(close, refused)
             self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
         try:
             self.wait_for_element_hidden(self.DRAWER)
         except TimeoutException:
             # A late-arriving interception may have swallowed the first attempt —
             # send Escape once more and require the drawer to be gone.
+            self._record_close_fallback(close, "drawer_still_open")
             self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
             self.wait_for_element_hidden(self.DRAWER)
+
+    def _record_close_fallback(
+        self, close: WebElement | None, trigger: BaseException | str
+    ) -> None:
+        """Record that :meth:`close_drawer` falls back to ``Escape`` (#3157); never raises.
+
+        The probe target is the close button: the one the wait resolved, else
+        whichever is in the DOM now (the wait may have timed out before handing
+        one over). With no button at all there is nothing to hit-test, and the
+        event says so instead of being dropped.
+        """
+        try:
+            target = (
+                close
+                if close is not None
+                else next(iter(self.driver.find_elements(*self.DRAWER_CLOSE)), None)
+            )
+        except Exception:  # noqa: BLE001 -- a lookup for the record must not fail the close
+            target = None
+        if target is not None:
+            self._record_click_fallback(
+                target,
+                helper="NotificationCenterPage.close_drawer",
+                activation="escape_key",
+                trigger=trigger,
+                locator=self.DRAWER_CLOSE,
+            )
+            return
+        _click_fallback.record_fallback(
+            helper="NotificationCenterPage.close_drawer",
+            activation="escape_key",
+            trigger=trigger,
+            locator=self.DRAWER_CLOSE,
+            probe={"probe": "probe_failed", "probe_error": "no close button in the DOM"},
+        )
 
     def is_drawer_open(self) -> bool:
         """Return True if the notification drawer is currently visible."""

@@ -26,6 +26,7 @@ except ImportError:
     ChromeDriverManager = None  # type: ignore[assignment,misc]
     GeckoDriverManager = None  # type: ignore[assignment,misc]
 
+from ._click_fallback_report import ClickFallbackReporter
 from ._gherkin import iter_tags as _iter_gherkin_tags
 from ._session_health import SESSION_LOST_PROPERTY, quit_driver, run_if_session_alive
 from .pages.plant_instance_detail_page import PlantInstanceDetailPage
@@ -262,7 +263,11 @@ _junit_report_path: Path | None = None
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register custom markers (incl. the Gherkin tags of ``features/``)."""
+    """Register custom markers (incl. the Gherkin tags of ``features/``) and plugins."""
+    # Records every covering-blind click fallback per profile (#3157, step 1:
+    # measure before the fallback is made to fail) -- see _click_fallback_report.py.
+    if not config.pluginmanager.has_plugin("e2e-click-fallbacks"):
+        config.pluginmanager.register(ClickFallbackReporter(config), "e2e-click-fallbacks")
     config.addinivalue_line(
         "markers",
         "requires_auth: mark test as requiring full auth mode (skipped in light mode)",
