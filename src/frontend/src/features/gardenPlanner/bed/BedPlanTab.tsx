@@ -42,6 +42,7 @@ import { usePlantInfoHover } from '../planting/usePlantInfoHover';
 import { usePlantStates } from '../planting/usePlantStates';
 import { usePlantStateText } from '../planting/usePlantStateText';
 import type { BedSummary } from './types';
+import { bottomNavOffsetPx } from '@/components/layout/bottomNavOffset';
 
 const PlantInfoSheet = lazy(() => import('../planting/PlantInfoSheet'));
 
@@ -146,7 +147,7 @@ export default function BedPlanTab({ bed, planLinkVisible }: BedPlanTabProps) {
   const viewport = useMemo(() => {
     if (!location || !geometry) return null;
     const bounds = location.bbox ?? boundingBox(geometry);
-    const windowHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
+    const windowHeight = typeof window === 'undefined' ? 800 : window.innerHeight - bottomNavOffsetPx();
     return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, windowHeight * MAX_HEIGHT_SHARE));
   }, [location, geometry, canvasWidth]);
   const selectedPlant = selectedKey && model ? (model.plants[selectedKey] ?? null) : null;
