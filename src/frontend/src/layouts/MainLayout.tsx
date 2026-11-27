@@ -27,6 +27,7 @@ import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
 import MobileBottomNav from '@/components/layout/MobileBottomNav';
 import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
+import { fromToolbarHeight, type ToolbarRule } from '@/components/layout/appBarOffset';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
 import SkipLink from '@/components/layout/SkipLink';
@@ -59,26 +60,15 @@ function isPrivateNetwork(): boolean {
   return false;
 }
 
-/** A style rule of the theme's toolbar mixin: values, or media queries holding values. */
-type ToolbarRule = { readonly [key: string]: string | number | ToolbarRule };
-
-function asScrollPaddingTop(rule: ToolbarRule): ToolbarRule {
-  return Object.fromEntries(
-    Object.entries(rule).map(([key, value]) =>
-      key === 'minHeight'
-        ? ['scrollPaddingTop', value]
-        : [key, typeof value === 'object' ? asScrollPaddingTop(value) : value],
-    ),
-  );
-}
-
 /**
  * The fixed app bar's height as the root's `scroll-padding-top` (WCAG 2.2 SC 2.4.11): what the browser scrolls
  * into view — a control reached with Shift+Tab from below, an anchor, `scrollIntoView` — comes to rest below the
  * bar instead of behind it. Read from the theme's toolbar mixin, the rule the bar's `Toolbar` takes its height
  * from (56 px, 48 px in landscape, 64 px from `sm`), with every `minHeight` turned into the padding.
  */
-const appBarClearance = (theme: Theme) => ({ ':root': asScrollPaddingTop(theme.mixins.toolbar as ToolbarRule) });
+const appBarClearance = (theme: Theme) => ({
+  ':root': fromToolbarHeight(theme.mixins.toolbar as ToolbarRule, (height) => ({ scrollPaddingTop: height })),
+});
 
 export default function MainLayout() {
   const { t } = useTranslation();
