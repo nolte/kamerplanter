@@ -340,6 +340,12 @@ Ein Banner sagt dir, von wann die Daten sind: „Ohne Verbindung: Du siehst den 
 
 Ohne Verbindung kannst du den Plan nur ansehen: Zeichnen, Verschieben und Umsetzen sind gesperrt, ungespeicherte Änderungen bleiben erhalten. Am Beet sind Status, Sonne, Boden, Fruchtfolge und Fotos gesperrt, bis die Verbindung zurück ist.
 
+### Gesperrt ohne Netz
+
+Manche Aktionen prüft der Server, bevor er sie annimmt. Ohne Verbindung sind ihre Schaltflächen deshalb gesperrt, und der Hinweis „Netzwerkverbindung erforderlich" sagt dir, warum: der Phasenwechsel einer Pflanze oder eines Durchlaufs, das Anlegen einer Ernte, das Abschließen einer Ernte (auch in der Rückfrage, wenn die Verbindung abreißt, während sie offen ist) und das Ein- und Ausschalten von Aktoren. Verlierst du die Verbindung oder bekommst du sie zurück, meldet Kamerplanter das zusätzlich kurz unten am Bildschirm.
+
+Die **Notabschaltung** bleibt immer verfügbar. Der Browser hält sich manchmal für offline, obwohl der Server erreichbar ist, etwa wenn Kamerplanter auf demselben Rechner läuft. Ohne Verbindung warnt die Seite **Umgebungssteuerung**, dass die Verbindung unterbrochen sein kann; erreicht die Notabschaltung den Server nicht, siehst du eine Fehlermeldung.
+
 ### Erfassen ohne Netz
 
 Im Feldmodus kannst du ohne Verbindung drei Dinge erfassen:
