@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.23 (#2888 F-18: Ursache `bolting` und Ursachenklasse `failure_cause_class` am Ausfall, E5); 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.23 | 2026-11-26 | **#2888 / F-18 (Sprint 0004, Spec vor Code):** E5 erhält den Ursachenwert `bolting` (Schossen, abiotisch) und das neue Feld `failure_cause_class` (`abiotic` / `pest_foliar` / `pest_soil` / `disease_soil` / `disease_foliar` / `mechanical` / `unknown`), vorbelegt aus `termination_cause` nach der Tabelle in E5, bei `disease`/`pest` Pflichtauswahl Blatt/Boden. `bolting` wird vorbelegt, wenn die Pflanze vorzeitig in die Schoss-Phase ging (E6, `is_premature`). Pflanzen ohne Klasse (Altdaten, „Beet räumen“) verhalten sich wie bisher. Verbraucher: Nachpflanz-Hinweis und Bodengefahren REQ-053 §11.3a v1.55, Wissenstabelle REQ-054 §5.2a v1.4. Quelle: `spec/analysis/agrobiology-soil-hazards-research-2888.md` §5, R-004.1 (Schossen-Ursachen 3/3, §7.10). Additiv, Umsetzung F-19. |
 | 2.22 | 2026-11-15 | **#2857 Teil B:** `LifecycleConfig.photoperiod_type` und `PhaseSequence.photoperiod_type` haben den zusätzlichen Wert `unspecified` als Vorgabe (vorher `day_neutral`, das damit von „nie eingestuft“ nicht zu unterscheiden war). `unspecified` löst wie `day_neutral` keinen Photo-Trigger aus (E1) und greift in keiner Resolver-Regel (§D14). Migration v0113 überführt gespeicherte Vorgabewerte; der Saatlauf setzt einen Typ nur aus einer Quelle (`lifecycle_configs`, `lifecycles_outdoor.yaml`). Verbraucher: Zelt-Hinweis REQ-053 §9.2a v1.51 (tagneutrale Pflanzen ohne Konflikt, Datenfehler „Kurztagpflanze mit Langtag-Profil in der Blüte“). |
 | 2.21 | 2026-11-13 | **#2857 Teil A:** `RequirementProfile.photoperiod_source` (`sourced` / `generated` / `default` / leer) nennt die Herkunft von `photoperiod_hours`; der Server setzt sie, nie der Client: Speichern im Profil-Editor (POST/PUT) ergibt `sourced`, der Generator `generated` bzw. `default`, Saatdaten aus Steckbrief-Phasen `sourced`. Für Arten mit nur allgemeinen Phasen überträgt die Tabelle `species.yaml` `steckbrief_phase_photoperiods` Steckbrief-Lichtstunden je Phase (zuerst Hanf), gegen den Steckbrief geprüft (`seed_steckbrief_consistency`). Additiv, keine Migration. Verbraucher: Zelt-Hinweis REQ-053 §9.2a (v1.42). |
 | 2.20 | 2026-11-06 | **E8 an E-17 Variante A angeglichen (REQ-053 §32.3, Betreiberantwort #2643 Frage 1, #2685):** Die EC-Zielwerte je Phase werden **nicht** mehr nach Zehrerstufe skaliert — weder im Boden noch in Substrat/Nährlösung (die EC-Logik von REQ-004-A bleibt phasenbasiert und braucht kein `nutrient_demand`). Das Alt-Feld `species.nutrient_demand_level` (vier Werte inkl. `nitrogen_fixer`) ist abgelöst durch `nutrient_demand` (drei Stufen) + `nitrogen_fixing` (REQ-001 v4.11, REQ-053 §16.3); die Zehrerstufe steuert Hinweistext (REQ-053 GP-FR-125) und Fruchtfolge, nie eine Menge. Boden-EC ist nur ein Salz-Hinweis (REQ-053 §15.1). |
@@ -1876,7 +1877,31 @@ Seneszenz, Tod und Abbruch. E5 ergänzt zwei Felder am `PlantInstance` (REQ-013)
   abgestorben) ist die neue, bisher fehlende Ausprägung, klar getrennt von `harvested`/`senesced` (planmäßig)
   und `cancelled` (User-Abbruch der Planung).
 - `termination_cause: Literal['disease','pest','frost','heat','drought','waterlogging','neglect','mechanical',
-  'unknown'] | None` — nur bei `termination_type='died'` gesetzt.
+  'bolting','unknown'] | None` — nur bei `termination_type='died'` gesetzt. `bolting` (v2.23, #2888) ist das
+  vorzeitige Schossen als Ausfallursache: eine physiologische Reaktion auf Tageslänge, Kälte, Hitze oder
+  Trockenheit (Recherche R-004.1 a, 3/3), keine Krankheit. Ging die Pflanze vorzeitig in die Schoss-Phase
+  (E6, `is_premature: true`), ist `bolting` beim Erfassen des Ausfalls vorbelegt.
+- `failure_cause_class: Literal['abiotic','pest_foliar','pest_soil','disease_soil','disease_foliar','mechanical',
+  'unknown'] | None` (v2.23, #2888) — **wo** die Ursache saß. `termination_cause` bleibt, was der Nutzer
+  beobachtet hat; die Klasse ist daraus abgeleitet oder vom Nutzer präzisiert und wird vom Nachpflanz-Hinweis
+  und von den Bodengefahren gelesen (REQ-053 §11.3a, REQ-054 §5.2a). Nur bei `termination_type='died'`.
+  Vorbelegung (Recherche §5):
+
+  | `termination_cause` | Vorbelegung `failure_cause_class` | Nutzer kann ändern zu |
+  |---------------------|-----------------------------------|------------------------|
+  | `frost`, `neglect` | `abiotic` | — |
+  | `heat`, `drought`, `waterlogging` | `abiotic` | `disease_soil` (Welke-Rückfrage, REQ-053 §11.3a) |
+  | `bolting` | `abiotic` | — |
+  | `mechanical` | `mechanical` | — |
+  | `pest` | keine — Pflichtauswahl | `pest_foliar` / `pest_soil` |
+  | `disease` | keine — Pflichtauswahl | `disease_foliar` / `disease_soil` |
+  | `unknown` / leer | `unknown` | jede Klasse (Welke-Rückfrage bei welkeanfälligen Familien) |
+
+  Bei `pest_soil`/`disease_soil` kann der Nutzer einen Erreger aus der Liste der Bodengefahren
+  (REQ-054 §5.2a) nennen und festhalten, ob und von wem er bestätigt wurde; daraus entsteht nie
+  automatisch eine Bodengefahr am Beet (Übernahme nur auf Angebot, REQ-053 §11.3a). Eine Pflanze **ohne**
+  Klasse (Altdaten, über „Beet räumen“ beendete Pflanzen) verhält sich wie bisher: es gilt allein
+  `termination_cause`. Keine Migration bestehender Pflanzen.
 - **Lifecycle-Interaktion:** Bei `died` wird die **aktuelle `growth_phase` eingefroren**
   (`current_phase_started_at` bleibt, keine weiteren Transitions), die Pflanze geht **nicht** in `senescence`.
   Offene Aufgaben/Erinnerungen werden geschlossen (analog Plant-Removal, vgl. #291).

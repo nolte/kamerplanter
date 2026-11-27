@@ -2,25 +2,27 @@
 req_id: REQ-054
 title: Automatische Anbauplanung (Bedarfserfassung, Beetbelegung je Saison, Teilplan, Erklärung, Annahme, Druckfassung)
 category: Planung & Empfehlung
-test_count: 28
+test_count: 29
 coverage_areas:
   - Planung starten, Geltungsbereich, Profilwahl, Leerzustand
   - Bedarfserfassung (Menge, Rest auffüllen, Bestand, Vorjahr übernehmen)
   - Beete prüfen (Historie-Ampel, Bodengefahren, Nacherfassung)
   - Ergebnisansicht (Vorschlagsebene, Zu besprechen, Erklärsatz, Symbol-Breakdown, Warum nicht Beet X)
   - Teilplan und least-bad-Angebot
-  - Fixierung, Warnungen an Beetkachel, Gewächshaus-Hinweis, Bodengefahr
+  - Fixierung, Warnungen an Beetkachel, Gewächshaus-Hinweis, Bodengefahr (mit und ohne belegte Anbaupause, weiche Gefahr)
   - Frostmodell, Bestand verteilt, Vor-/Nachkultur, Gründüngung, Dauerkultur, Rankhilfe, Historie-Lücke, Profile
   - Annehmen (je Beet, alle, Dialog, reserviert ohne Positionen, Ersetzen/behalten, veralteter Vorschlag, Schreibrechte)
   - Smartphone 390 × 844 (Liste, Warnung vor Annehmen, alle annehmen)
   - Druckfassung (PDF)
 generated: "2026-10-04"
-version: "1.2"
+version: "1.3"
 ---
 
 # Testfälle REQ-054: Automatische Anbauplanung
 
-Dieses Dokument enthält End-to-End-Testfälle aus **REQ-054 Automatische Anbauplanung v1.2**,
+Dieses Dokument enthält End-to-End-Testfälle aus **REQ-054 Automatische Anbauplanung v1.4**
+(v1.3 dieses Dokuments, 2026-11-26: Bodengefahren nach der Wissenstabelle REQ-054 §5.2a, #2888 F-18 —
+TC-054-013 mit belegter Anbaupause, neu TC-054-029),
 ausschließlich aus der Perspektive eines Nutzers im Browser. Keine Endpunkte, HTTP-Statuscodes,
 Collection-Namen oder Datenbankabfragen erscheinen in den Testschritten. Alle Aussagen beschreiben,
 was der Nutzer sieht, anklickt, antippt, eintippt und auf dem Bildschirm erwartet.
@@ -74,9 +76,11 @@ Saison 2026. Der **Seed-Satz „Planer"** umfasst:
 | Beet 2 (4 m²) | Historie vollständig, Vorjahr 2025 Nachtschattengewächse (Tomaten), Kohl 2024 |
 | Beet 3 (4 m²) | Historie fehlt (keine Einträge), Erdbeeren als Dauerkultur auf 2 m² |
 | Beet 4 (4 m²) | Historie lückenhaft (nur 2024 und 2025, 2022/2023 ohne Eintrag) |
-| Beet 5 (4 m²) | Bodengefahr „Kohlhernie" (bestätigt 2022), Historie vollständig |
+| Beet 5 (4 m²) | Bodengefahr „Kohlhernie" (bestätigt 1. Juli 2022; Anbaupause laut Wissenstabelle 7 Jahre, 3/3 belegt), Historie vollständig |
 | Beet 6 (4 m²) | Rankhilfe in 0,3 m Entfernung, Historie vollständig |
 | Beet 7 (4 m²) | Gewächshausbeet, unbeheizt |
+| Beet 8 (4 m²) | Bodengefahr „Weißfäule" (bestätigt 2024; Anbaupause nicht belegt, Überdauerung 15 Jahre belegt), Historie vollständig (nur TC-054-029) |
+| Beet 9 (4 m²) | Bodengefahr „Sklerotinia" (bestätigt 2025; weiche Gefahr), Historie vollständig (nur TC-054-029) |
 | Parzelle P1 / P2 | zwei Parzellen mit unterschiedlichen Schreibrechten (nur TC-054-025) |
 
 Site-Frostdaten: letzter mittlerer Frost 20. April, Frost-Sicherheitsdatum („Eisheilige") 15. Mai.
@@ -469,13 +473,14 @@ nicht als Anbau (nicht Teil dieser Fälle).
 
 ### TC-054-013: Beet mit Bodengefahr — Kohl ausgeschlossen, Fixierung warnt
 
-**Requirement**: REQ-054 §6 H-10; §5.2 `soil_hazards`
+**Requirement**: REQ-054 §6 H-10; §5.2 `soil_hazards`; §5.2a Wissenstabelle (v1.4)
 **AP-ACC**: Gegenstück zu AP-ACC-022
 **Gerät**: Desktop
 **Priority**: High
 **Category**: Validierung
 **Preconditions**:
-- Beet 5 hat die bestätigte Bodengefahr „Kohlhernie" (2022); Anbaupause für Kohl wäre eingehalten
+- Beet 5 hat die bestätigte Bodengefahr „Kohlhernie" (1. Juli 2022); die belegte Anbaupause nach Befall
+  (7 Jahre) läuft bis 2029; die Familien-Anbaupause für Kohl wäre eingehalten
 - Bedarf Kohl `must`; Geltungsbereich Beet 1, Beet 5
 
 **Testschritte**:
@@ -485,7 +490,8 @@ nicht als Anbau (nicht Teil dieser Fälle).
 
 **Erwartete Ergebnisse**:
 - Kohl liegt nicht in Beet 5; „Warum nicht Beet 5?" nennt die Bodengefahr (Kohlhernie) als Grund,
-  nicht die Anbaupause
+  nicht die Familien-Anbaupause
+- Der Grund nennt das Ende der belegten Anbaupause („bis 2029")
 - Nach der Fixierung liegt Kohl in Beet 5 mit Warnung „dauerhafter Bodenerreger" an Belegung und
   Beetkachel
 
@@ -493,6 +499,39 @@ nicht als Anbau (nicht Teil dieser Fälle).
 - Vorschlag mit Warnung
 
 **Tags**: [req-054, bodengefahr, kohlhernie, ausschluss, desktop, ap-acc-022]
+
+---
+
+### TC-054-029: Bodengefahr ohne belegte Anbaupause und weiche Gefahr — Warnung statt Ausschluss
+
+**Requirement**: REQ-054 §5.2a (Belegstatus, weiche Gefahren, Wirtsebene Gattung), §6 H-10, §7.2 `pest_risk`
+**AP-ACC**: Gegenstück zu AP-ACC-028
+**Gerät**: Desktop
+**Priority**: Medium
+**Category**: Validierung
+**Preconditions**:
+- Beet 8 hat die bestätigte Bodengefahr „Weißfäule" (2024), Beet 9 die bestätigte Bodengefahr
+  „Sklerotinia" (2025)
+- Bedarf Zwiebel `must` und Buschbohne `must`; Geltungsbereich Beet 8, Beet 9
+
+**Testschritte**:
+1. Nutzer berechnet den Vorschlag
+2. Nutzer öffnet die Belegung der Zwiebel und liest die Warnungen
+3. Nutzer öffnet die Belegung der Buschbohne und liest die Warnungen
+
+**Erwartete Ergebnisse**:
+- Weder Beet 8 noch Beet 9 ist für die Bedarfe ausgeschlossen; kein Bedarf steht wegen einer
+  Bodengefahr in „Nicht untergebracht"
+- Liegt die Zwiebel in Beet 8, trägt die Belegung die Warnung „dauerhafter Bodenerreger" **ohne**
+  Jahresangabe
+- Liegt die Buschbohne in Beet 9, zeigt die Belegung keine Warnung „dauerhafter Bodenerreger";
+  die Sklerotinia erscheint nur als schlechtere Bewertung beim Schädlingsdruck (vorläufig: Fabaceae ist
+  Sklerotinia-Wirt nur mit 2/3, Betreiberentscheid P4 offen — `project/features/soil-hazard-knowledge.md`)
+
+**Nachbedingungen**:
+- Vorschlag ohne Ausschluss wegen Bodengefahr
+
+**Tags**: [req-054, bodengefahr, weissfaeule, sklerotinia, belegstatus, desktop, ap-acc-028]
 
 ---
 
@@ -957,9 +996,10 @@ nicht als Anbau (nicht Teil dieser Fälle).
 | AP-ACC-018 | Parzellen, Schreibrechte bei Annahme | TC-054-025 |
 | AP-ACC-019 | Vor-/Nachkultur, gleiche Familie (sichtbares Gegenstück) | TC-054-016 |
 | AP-ACC-020 | Gründüngung gestrichelt (sichtbares Gegenstück) | TC-054-017 |
-| AP-ACC-022 | Bodengefahr (sichtbares Gegenstück) | TC-054-013 |
+| AP-ACC-022 | Bodengefahr mit belegter Anbaupause (sichtbares Gegenstück) | TC-054-013 |
 | AP-ACC-023 | Historie-Lücke (sichtbares Gegenstück) | TC-054-020 |
 | AP-ACC-025 | Rankhilfe (sichtbares Gegenstück) | TC-054-019 |
+| AP-ACC-028 | Bodengefahr ohne belegte Pause, weiche Gefahr (sichtbares Gegenstück) | TC-054-029 |
 | AP-ACC-027 | Druckfassung | TC-054-028 |
 | (abgeleitet aus §9.1 Schritt 1) | Planung starten, Profile | TC-054-001 |
 | (abgeleitet aus §9.1 Schritt 1, AP-FR-014) | Geltungsbereich | TC-054-002 |
@@ -985,7 +1025,7 @@ anderen Testebenen:
 | AP-ACC-024 | `timing` bei 10 vs. 20 Tagen Puffer | Unit-Test der Rechenregel |
 | AP-ACC-026 | `rotation_future` lässt Beet für Kohl 2027 frei | Unit-Test der Planerentscheidung |
 
-Die übrigen U-Kriterien (001, 003, 004, 005, 007, 016, 017, 019, 020, 022, 023, 025) bleiben
+Die übrigen U-Kriterien (001, 003, 004, 005, 007, 016, 017, 019, 020, 022, 023, 025, 028) bleiben
 Unit-Tests; ihr sichtbares Gegenstück ist in der Abdeckungs-Matrix mit den E2E-Fällen verknüpft.
 
 Nicht im MVP und daher nicht abgedeckt: Vergleich zweier Vorschläge (AP-UX-005), „Rest neu planen"

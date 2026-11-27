@@ -338,6 +338,56 @@ class TerminationCause(StrEnum):
     UNKNOWN = "unknown"
 
 
+class SoilHazard(StrEnum):
+    """Persistent soil hazard of a bed (REQ-054 §5.2, knowledge table §5.2a).
+
+    Keys the soil-hazard knowledge table; a bed's ``soil_hazards[]`` entry stores
+    only this key, its hosts and durations resolve from the table.
+    """
+
+    CLUBROOT = "clubroot"
+    CYST_NEMATODE = "cyst_nematode"
+    ROOT_KNOT_NEMATODE = "root_knot_nematode"
+    WHITE_ROT = "white_rot"
+    PEA_ROOT_ROT = "pea_root_rot"
+    SCLEROTINIA = "sclerotinia"
+    VERTICILLIUM = "verticillium"
+    JUGLONE = "juglone"
+
+
+class EvidenceStatus(StrEnum):
+    """How well a knowledge-table value is backed (REQ-054 §5.2a, method E-10).
+
+    Only ``EVIDENCED`` (three independent full-text sources, 3/3) may carry a
+    time statement or a block.
+    """
+
+    EVIDENCED = "evidenced"
+    INSUFFICIENT = "insufficient"
+    CONTRADICTORY = "contradictory"
+    NOT_FOUND = "not_found"
+
+
+class EvidenceKind(StrEnum):
+    """Shape of the agreement behind an evidenced duration (REQ-054 §5.2a).
+
+    ``RANGE``: the sources give differing ranges and the value lies in each of
+    them — counts as 3/3 (operator decision 2026-11-22).
+    """
+
+    NUMBER = "number"
+    LOWER_BOUND = "lower_bound"
+    RANGE = "range"
+
+
+class HostLevel(StrEnum):
+    """Taxonomic level of a soil-hazard host entry; the finest level wins."""
+
+    FAMILY = "family"
+    GENUS = "genus"
+    SPECIES = "species"
+
+
 class SiteType(StrEnum):
     OUTDOOR = "outdoor"
     GREENHOUSE = "greenhouse"

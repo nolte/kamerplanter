@@ -6,6 +6,7 @@
 | Bezug | GitHub #2888; REQ-054 §5.2 (`soil_hazards[]`), §5.5 (Bodenpathogene), §6 H-10/H-11 und Notiz „Übernommen aus REQ-053 §11.3“; REQ-053 §11.3 „ausgefallen“, GP-FR-131 |
 | Methode | E-10: je Wert drei voneinander unabhängige Quellen (Fachliteratur, Landesanstalten/Kammern/JKI, RHS, AHDB, UC IPM, US-Extension-Services, Reviews). Wo weniger als drei unabhängige Quellen gefunden wurden, steht der Wert als **„nicht belegt (n/3)“**. |
 | Nachtrag | 2026-11-17, GitHub #3005: Nachrecherche der in §6.3 offenen Werte, Ergebnisse in §7 |
+| Korrektur | 2026-11-26, F-18 (#2888): Betreiberentscheidungen vom 2026-11-22 zu §7.12 Punkt 1 (Spannen zählen als 3/3) und Punkt 5 (`soil_persistence_years` = Anbaupause) eingearbeitet; R-001.2, §6.1, §7.2, §7.11 korrigiert. Die Werte stehen in der Wissenstabelle `src/backend/app/migrations/seed_data/soil_hazards.yaml` (REQ-054 §5.2a). |
 | Status | Recherche, keine Entscheidung. Planungswerte sind **Vorschläge** für den Betreiber und das REQ-001-Folge-Issue (`soil_persistence_years`, `pathogen_hosts`). |
 
 ## 0. Lesehinweise zur Methode
@@ -65,9 +66,9 @@ Zusatzbefund: Der Abbau ist nicht linear. Kher et al. (2019, bioRxiv-Preprint, n
 |-------|-------------|----------|----------|----------|-------------|
 | max. Überdauerung | „jahrelang“ bis > 12 J. | NDSU: „a small percentage of eggs within cysts can survive over 12 years under fallow conditions“ — [NDSU Sugarbeet cyst nematode](https://www.ndsu.edu/agriculture/ag-hub/publications/sugarbeet-cyst-nematode) (verifiziert) | AGES: Zysten „bleiben jahrelang lebensfähig“ — [AGES Rübenzystennematoden](https://www.ages.at/pflanze/pflanzengesundheit/schaderreger-von-a-bis-z/ruebenzystennematoden) (verifiziert, ohne Zahl) | KWS (Züchter): ca. 10 J. — [KWS dzz 05/2017](https://mediamaster.kws.com/01_Products/DE_Deutschland/Sugar_Beet/Downloads/R%C3%BCbenzystennematoden-Ein_verbreitetes_Problem_dzz_05-2017.pdf) (Suchauszug) | Zahl **1/3**; „mehrjährig“ 2/3 |
 | Abnahme ohne Wirt | 40–60 %/J. | UNL G1906: „decline about 40 to 60 percent per year“ — [UNL Extension G1906](https://extensionpubs.unl.edu/publication/g1906/na/html/view) (verifiziert) | NDSU: Nichtwirte senken die Ausgangspopulation um 40–60 % in einem Jahr (verifiziert) | — | **2/3** |
-| empfohlene Pause nach Befall | 3–4 J. (Tara-Böden 3–5) | LfL Merkblatt „Nematoden im Feldgemüsebau“: „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ — [LfL p_37956](https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_37956.pdf) (verifiziert) | NDSU: „Heavily infested fields need a three- to four-year rotation“ (verifiziert) | AGES: „Ein vierjähriger Fruchtwechsel ist wesentlich“ (verifiziert) | **3/3** |
+| empfohlene Pause nach Befall | 2–3 J. Pause (Rotation 3–4 J., Tara-Böden 3–5; Korrektur 2026-11-26) | LfL Merkblatt „Nematoden im Feldgemüsebau“: „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ — [LfL p_37956](https://www.lfl.bayern.de/mam/cms07/publikationen/daten/merkblaetter/p_37956.pdf) (verifiziert) | NDSU: „Heavily infested fields need a three- to four-year rotation“ (verifiziert) | AGES: „Ein vierjähriger Fruchtwechsel ist wesentlich“ (verifiziert) | **3/3 Spanne** für 3 J. Pause (LfL ≥ 2, NDSU 2–3, AGES 3 J.) |
 
-**Vorschlag:** `soil_persistence_years = 4`, `max_survival_years = 12`. Begründung: oberer Rand der drei übereinstimmenden Beratungsempfehlungen (3, 3–4, 4); bei 50 % Abnahme pro Jahr bleiben nach 4 Jahren ≈ 6 % der Ausgangsdichte.
+**Vorschlag:** `soil_persistence_years = 3`, `max_survival_years` ohne belegte Zahl (§7.2). Begründung: **Korrektur 2026-11-26** nach Betreiberentscheid 2026-11-22 (§7.12 Punkt 5): `soil_persistence_years` meint die Anbaupause, nicht die Rotationslänge. Die Quellen nennen Rotationen: LfL „maximal alle drei Jahre“ (≥ 2 J. Pause), NDSU „three- to four-year rotation“ (2–3 J. Pause), AGES „vierjähriger Fruchtwechsel“ (3 J. Pause). 3 J. Pause liegt in allen drei Angaben und gilt nach Betreiberentscheid als 3/3 (Belegart Spanne). Die frühere Bewertung (4 J., 3/3) las „Rotation“ als Pause. Bei 50 % Abnahme pro Jahr (2/3) bleiben nach 3 Jahren ≈ 12 % der Ausgangsdichte.
 
 ### R-001.3 Wurzelgallenälchen (`root_knot_nematode`, *Meloidogyne* spp.)
 
@@ -152,7 +153,7 @@ Die Positionen widersprechen sich nur scheinbar: Juglon selbst wird im Boden ras
 | *Heterodera schachtii* | **Brassicaceae**, **Amaranthaceae** (*Beta*, *Spinacia*, Gänsefuß); > 200 Arten in 23 Familien | LfL p_37956: alle Kohlarten, Kohlrübe, Kohlrabi, Rettich, Radies, Rote Rübe, Spinat (verifiziert) | AGES: „Kreuzblütler (Brassicaceae) und Gänsefußgewächse (Chenopodiaceae)“ (verifiziert) | UNL G1906: „Chenopodiaceae and Cruciferae“; NDSU: Zuckerrübe, Rote Bete, Raps; Unkräuter u. a. Portulak (verifiziert) | **3/3** |
 | — Nichtwirte („Neutralpflanzen“) | Poaceae, Solanaceae (Kartoffel), Fabaceae (Erbse, Klee), Asteraceae (Sonnenblume), Cannabaceae (Hanf) | AGES (verifiziert) | NDSU: wheat, barley, corn, bean, potato, alfalfa (verifiziert) | — | **2/3** |
 | — Ausnahme | resistente Sorten von *Sinapis alba* und *Raphanus sativus* var. *oleiformis* senken die Population, obwohl Brassicaceae | LfL p_37956 (verifiziert) | — | — | 1/3 → **Sortenmerkmal, kein Familienwert** |
-| *Meloidogyne* spp. (v. a. *M. hapla*) | nahezu alle zweikeimblättrigen Gemüse: **Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae** (Erdbeere); *Allium* bei *M. hapla* Wirt | UC IPM Pest Note 7489, Tab. 1: beans, beets, carrots, celery, cole crops, cucumbers, eggplant, lettuce, melons, peas, peppers, potatoes, radish, spinach, squash, strawberry, tomatoes, turnips (verifiziert) | CDFA Pest Rating *M. hapla*: „nearly all temperate vegetables … Most grasses and cereals appear to be non-hosts“, > 500 Wirte — [CDFA](https://blogs.cdfa.ca.gov/Section3162/wp-content/uploads/2019/12/Meloidogyne-hapla.pdf) (verifiziert) | LfL p_37956: „sehr großer Wirtspflanzenkreis“, Getreide/Mais senken *M. hapla* (verifiziert) | **3/3** (Familienliste), Nichtwirt Poaceae **2/3** (CDFA, LfL) |
+| *Meloidogyne* spp. (v. a. *M. hapla*) | nahezu alle zweikeimblättrigen Gemüse: **Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae** (Erdbeere); *Allium* bei *M. hapla* Wirt | UC IPM Pest Note 7489, Tab. 1: beans, beets, carrots, celery, cole crops, cucumbers, eggplant, lettuce, melons, peas, peppers, potatoes, radish, spinach, squash, strawberry, tomatoes, turnips (verifiziert) | CDFA Pest Rating *M. hapla*: „nearly all temperate vegetables … Most grasses and cereals appear to be non-hosts“, > 500 Wirte — [CDFA](https://blogs.cdfa.ca.gov/Section3162/wp-content/uploads/2019/12/Meloidogyne-hapla.pdf) (verifiziert) | LfL p_37956: „sehr großer Wirtspflanzenkreis“, Getreide/Mais senken *M. hapla* (verifiziert) | **3/3** (Familienliste), Nichtwirt Poaceae **2/3** (CDFA, LfL); **Korrektur 2026-11-27:** *Allium* gehört nicht zur 3/3-Liste — die UC-IPM-Tabelle nennt kein *Allium*, CDFA und LfL sind allgemein; nur der JKI-Flyer „Nematodenschäden an Zwiebeln“ (§7.3) belegt *M. hapla* an Zwiebel → *Allium* **1/3** |
 | *Sclerotinia sclerotiorum* | > 400 (bis > 600) Arten, „almost all dicotyledonous and some monocotyledonous plants“: **Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Solanaceae, Cucurbitaceae, Lamiaceae, Rosaceae** | PNW 2347: Brokkoli, Rettich, Bohne, Möhre, Erbse, Salat, Kartoffel, Paprika, Kürbisgewächse, Pastinake, Sonnenblume, Minze, Apfel, Kirsche (verifiziert) | *Pathogens* 2019 (verifiziert) | Bolton, Thomma & Nelson 2006, *Mol. Plant Pathol.* 7:1–16: > 400 Arten, überwiegend Dikotyle — [OUCI-Eintrag](https://ouci.dntb.gov.ua/works/4LvrLy39) (Suchauszug) | **2/3** |
 | — Nichtwirt | Poaceae („thought to not be affected“) | PNW 2347 (verifiziert) | — | — | **nicht belegt (1/3)**; Review nennt einige Monokotyle als Wirte |
 | *Verticillium dahliae* / *albo-atrum* | **Solanaceae** (Kartoffel, Tomate, Aubergine, Paprika) | RHS (verifiziert) | UC IPM Potato/Lettuce (verifiziert) | UC IPM Home Garden: Kartoffel, Paprika, Aubergine, Tomate, Kürbisgewächse — [UC IPM cuverticwilt](https://ipm.ucanr.edu/PMG/GARDEN/VEGES/DISEASES/cuverticwilt.html) (verifiziert, gleiche Institution) | **2/3** |
@@ -304,9 +305,9 @@ Belegstatus nach der Nachrecherche vom 2026-11-17 (§7). Die Vorschlagswerte sin
 | hazard | soil_persistence_years (Vorschlag) | max_survival_years (Vorschlag, informativ) | affected_families (Ebene) | Belegstatus Sperrdauer / Überdauerung / Wirte |
 |--------|-----------------------------------|---------------------------------------------|---------------------------|-----------------------------------------------|
 | `clubroot` | 7 | 20 (3/3 nur für 15) | Brassicaceae (Familie) | 3/3 Spanne · 3/3 (≥ 15) · 3/3 |
-| `cyst_nematode` | 4 | 12 | Brassicaceae, Amaranthaceae (Familie; Ausnahme resistente Zwischenfruchtsorten) | 3/3 · widersprüchlich (5–> 12) · 3/3 |
-| `root_knot_nematode` | 3 | — (unbekannt) | Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae; *Allium* bei *M. hapla* (Familie; Nichtwirt Poaceae) | nur „≥ 1 J.“ 3/3 · widersprüchlich · 3/3 |
-| `white_rot` | 15 | 20 | Amaryllidaceae, nur Gattung *Allium* | 1/3 · 3/3 (≥ 15) · 3/3 |
+| `cyst_nematode` | 3 (Korrektur 2026-11-26, vorher 4) | — (vorher 12) | Brassicaceae, Amaranthaceae (Familie; Ausnahme resistente Zwischenfruchtsorten) | 3/3 Spanne · widersprüchlich (5–> 12) · 3/3 |
+| `root_knot_nematode` | 3 | — (unbekannt) | Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae; *Allium* bei *M. hapla* (Familie; Nichtwirt Poaceae) | nur „≥ 1 J.“ 3/3 · widersprüchlich · 3/3 für die acht Familien, *Allium* nur 1/3 (Korrektur 2026-11-27, R-002) |
+| `white_rot` | — (FiBL 8–10 J., 1/3; die frühere 15 ist die Überdauerung, Korrektur 2026-11-26) | 20 (3/3 nur für 15) | Amaryllidaceae, nur Gattung *Allium* | 1/3 · 3/3 (≥ 15) · 3/3 |
 | `pea_root_rot` | 8 | 12 | Fabaceae: *Pisum*, *Lens*, *Vicia* (Gattung); *Glycine* und *Vicia faba* (für *Aphanomyces*) ausgenommen, *Phaseolus* ausgenommen | widersprüchlich (3–10) · 3/3 (≥ 10) · 3/3 |
 | `sclerotinia` | 5 | 10 | Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Solanaceae, Cucurbitaceae, Lamiaceae, Rosaceae (Familie; Nichtwirt Poaceae 3/3) | 3/3 Spanne · 3/3 (4–10) · 2/3 |
 | `verticillium` | 4 | 14 (3/3 nur für 10) | Solanaceae, Rosaceae, Cucurbitaceae, Asteraceae (2/3); Amaranthaceae (Spinat), Brassicaceae, Lamiaceae (*Mentha*) (3/3, §7.7) (Familie; Nichtwirt Poaceae widersprüchlich) | 3/3 Spanne · 3/3 (≥ 10) · 3/3 (nach §7.7) |
@@ -318,7 +319,7 @@ Belegstatus nach der Nachrecherche vom 2026-11-17 (§7). Die Vorschlagswerte sin
 |----------|----------------------------------|-------|-------------|
 | *Plasmodiophora brassicae* | Brassicaceae | Familie | 3/3 |
 | *Heterodera schachtii* | Brassicaceae, Amaranthaceae | Familie | 3/3 |
-| *Meloidogyne* spp. (*hapla*, *incognita*) | Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae, Amaryllidaceae (*M. hapla*) | Familie | 3/3 (Liste), Nichtwirt Poaceae 2/3 |
+| *Meloidogyne* spp. (*hapla*, *incognita*) | Solanaceae, Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Cucurbitaceae, Amaranthaceae, Rosaceae, Amaryllidaceae (*M. hapla*) | Familie | 3/3 (Liste) ohne Amaryllidaceae/*Allium*: das nur 1/3 (JKI-Flyer, Korrektur 2026-11-27); Nichtwirt Poaceae 2/3 |
 | *Sclerotinia sclerotiorum* | Brassicaceae, Fabaceae, Apiaceae, Asteraceae, Solanaceae, Cucurbitaceae, Lamiaceae, Rosaceae | Familie | 2/3 |
 | *Verticillium dahliae* / *albo-atrum* / *longisporum* | Solanaceae, Rosaceae, Cucurbitaceae, Asteraceae (2/3); Amaranthaceae (Spinat), Brassicaceae, Lamiaceae (*Mentha*) (3/3) | Familie | 2/3 bzw. 3/3 |
 | *Stromatinia cepivora* | Amaryllidaceae → *Allium* | Gattung | 3/3 |
@@ -347,10 +348,10 @@ Ursprüngliche Kurzliste (2026-11-15): Halbwertszeit Kohlhernie; Pausenempfehlun
 | Erbsen-Komplex, Überdauerung | 0/3 | **3/3** | ≥ 10 J. (*Aphanomyces*, *F. o.* f. sp. *pisi*) | §7.5 |
 | Erbsen-Komplex, Wirtsliste | 1/3 | **3/3** | *Pisum*, *Lens*, Luzerne, Rotklee; ohne *Phaseolus* (eigene Pathotypen, 3/3); *Vicia faba* widersprüchlich | §7.5 |
 | Erbsen-Komplex, Pause | 2/3 | **widersprüchlich** | 3–10 J., kein gemeinsamer Wert; 8 J. 2/3 | §7.5 |
-| Sklerotinia, Pause | 1/3 | **3/3 Spanne** | 2–8 J.; 5 J. in drei Angaben | §7.6 |
+| Sklerotinia, Pause | 1/3 | **3/3 Spanne** | 2–8 J.; 5 J. in drei Angaben (Korrektur 2026-11-27: AGES als Rotation gelesen = Pause 3–5 J.; Manitoba als Pause gelesen, siehe §7.6) | §7.6 |
 | Sklerotinia, Nichtwirt Poaceae | 1/3 | **3/3** | Getreide/Gräser erkranken nicht | §7.6 |
 | Verticillium, Überdauerung | 0/3 | **3/3** | ≥ 10 J. (LfL widerspricht) | §7.7 |
-| Verticillium, Pause | 1/3 | **3/3 Spanne** | Gemüse 3–5 J.; Erdbeere 3–5 J. | §7.7 |
+| Verticillium, Pause | 1/3 | **3/3 Spanne** | Gemüse 3–5 J.; Erdbeere 3–5 J. (Korrektur 2026-11-27: CAES „rotations of four to five years“ = Pause 3–4 J.; 4 J. liegt weiter in allen Angaben) | §7.7 |
 | Verticillium, Amaranthaceae / Brassicaceae / Lamiaceae | 1/3, 1/3, 0/3 | **3/3** | Spinat, Kohlarten, *Mentha*; Basilikum/Salbei 0/3 | §7.7 |
 | Verticillium, Nichtwirt Poaceae | 2/3 | **widersprüchlich** | symptomlose Besiedlung belegt | §7.7 |
 | *F. oxysporum* formae speciales außer *cepae*, Wirte | 1/3 | **3/3** (mit Gegenstimmen) | *lycopersici* Solanaceae, *conglutinans* *B. oleracea*, *pisi* nur Erbse, Kürbis-formae je eine Art | §7.8 |
@@ -382,7 +383,7 @@ Das DLR-Infoblatt nennt außerdem: „Einmal befallene Gartenbeete bleiben für 
 |-------|-------------|----------|----------|----------|-------------|
 | max. Überdauerung (Zahl) | 5–6 J. / bis 10 J. / > 12 J. | NDSU: „a small percentage of eggs within cysts can survive over 12 years under fallow conditions“ — [NDSU Sugarbeet cyst nematode](https://www.ndsu.edu/agriculture/ag-hub/publications/sugarbeet-cyst-nematode) | top agrar 10/2015, S. 60: Eier in den Zysten „können dort bis zu 10 Jahre überdauern“ — [top agrar, PDF](https://www.topagrar.com/dl/2/8/0/5/8/4/9/Nematoden_Rueben.pdf) | SESVanderHave, Technisches Datenblatt Zystennematoden: „kann der Rübennematode im Boden bis zu fünf oder sechs Jahren in Form von Zysten überleben“ — [myagrar.de, PDF](https://www.myagrar.de/media/wysiwyg/pdf/Zystennematoden_sesvanderhave.pdf) | **widersprüchlich** (3 Quellen, Spanne 5–6 bis > 12 J.); „mehrjährig, mindestens 5 J.“ **3/3**. UNL G1906 („can remain viable … for several years“) und AGES („jahrelang“) stützen nur „mehrjährig“. KWS dzz 05/2017 ist nicht mehr abrufbar (HTTP 404). |
 
-Folge: `max_survival_years` bleibt ohne belegte Einzelzahl. Die Sperrdauer (4 J., Pause 3/3) ist davon nicht berührt.
+Folge: `max_survival_years` bleibt ohne belegte Einzelzahl. Die Anbaupause (3 J., 3/3 Spanne; Korrektur 2026-11-26, vorher „4 J.“) ist davon nicht berührt.
 
 ### 7.3 Wurzelgallenälchen (`root_knot_nematode`)
 
@@ -437,6 +438,8 @@ Gegenstimmen: PNW, LFA MV und Frontiers führen „common bean“/„Phaseolusbo
 | Nichtwirt Poaceae | Getreide, Mais, Gräser | Canola Council of Canada: „Cereals and grasses are not susceptible“ — [CCC](https://www.canolacouncil.org/canola-encyclopedia/diseases/sclerotinia-stem-rot/) | Cornell Vegetable Program (2022): „non-susceptible crops such as grains (corn, rye, wheat, etc.)“ — [Cornell](https://www.vegetables.cornell.edu/pest-management/disease-factsheets/white-mold) | AGES Rapskrebs: „Nicht oder weniger anfällig sind Getreide, Mais, Rüben und Kartoffeln“; Derbyshire et al. 2022 (PMC9276942): „wheat … and barley …, which are both nonhosts“ | **3/3**; Einschränkung: endophytische, symptomlose Besiedlung von Getreide ist beschrieben (Shang et al. 2024, PMC10895550; Tian et al. 2020). Monokotyle Wirte außerhalb der Poaceae: Zwiebel, Knoblauch, Tulpe. |
 | max. Überdauerung der Sklerotien | 4–10 J. | AGES: „bis zu zehn Jahre lebensfähig“ | UW–Madison PDDC, White Mold (D0125, 2026): „Sclerotia can survive in soil for at least five years.“ — [UW PDDC](https://pddc.wisc.edu/2015/08/19/white-mold/) | Canola Council: „five years or more“; Manitoba: „up to four years“; Review PMC8417578: „up to 5 years or more“ | **3/3** mit **Spanne 4–10 J.** (vorher 2/3); oberer Wert 10 J. von AGES und dem *Pathogens*-Review (2019) gestützt, also 2/3 |
 
+**Korrektur 2026-11-27 (F-18-Review, Lesart wie §7.2):** Eine Rotation von N Jahren heißt eine Anbaupause von N − 1 Jahren. AGES „mindestens vierjährigen (besser sechsjährigen) Fruchtwechsels“ ergibt damit **3 (besser 5) J. Pause**, nicht 4–6. PNW „Rotate with non-hosts for three to eight years“ nennt die Zeit mit Nichtwirten, also die Pause (3–8 J.). **Manitoba** „a crop rotation of 5 years between susceptible crops“ ist hier als **Pause von 5 J.** gelesen, weil „between susceptible crops“ die Zeit zwischen zwei anfälligen Kulturen meint; nach der strengen Regel N − 1 wären es 4 J., und 5 J. läge dann nicht mehr in allen drei Angaben. Der Wert 5 bleibt bis zur Betreiberentscheidung P6 (`project/features/soil-hazard-knowledge.md`) unverändert.
+
 ### 7.7 Verticillium-Welke (`verticillium`)
 
 | Größe | Wert/Spanne | Quelle 1 | Quelle 2 | Quelle 3 | Belegstatus |
@@ -448,6 +451,8 @@ Gegenstimmen: PNW, LFA MV und Frontiers führen „common bean“/„Phaseolusbo
 | Wirt Brassicaceae | Kohlarten, Raps (*V. longisporum*) | Depotter 2016: „cauliflower …, cabbage … and Brussels sprouts“ | CAES 2008: Brussels sprouts, Cabbage, Radish, Rutabaga, Horseradish „Susceptible“ | Agroscope (Michel 2009), Tab. 1: Kreuzblütler werden „von Verticillium longsporum“ befallen; UW PDDC; AHDB („vegetable brassicas“); Pflanzenschutzdienst M-V („Blumenkohl, Chinakohl, Rosenkohl“) | **3/3** |
 | Wirt Lamiaceae | *Mentha* | CAES 2008: „Mint (Mentha spp.)“ | Dung (Oregon State), *Plants* 9:1602 (2020): Pfefferminze ‘Black Mitcham’ und Krauseminze „highly susceptible to Verticillium wilt“ — [PMC7698963](https://pmc.ncbi.nlm.nih.gov/articles/PMC7698963/) | Hortipendium „Verticillium Kohl“: besonders anfällig u. a. „Pfefferminze“ — [Hortipendium](https://www.hortipendium.de/Verticillium_Kohl) | **3/3** für *Mentha*; Basilikum und Küchensalbei **0/3** (nur Zier-Salbei bei CAES). Minze-Isolate sind stark wirtsspezialisiert (Dung). |
 | Nichtwirt Poaceae | Getreide, Mais, Gräser | UC IPM, RHS (verifiziert 2026-11-15); UW PDDC: „sweet corn are immune to the disease“ | **Gegenbeleg** Dung 2020: „many plants, including several economically important grasses, can be asymptomatic hosts“; Minze-Isolate infizieren Wurzeln von Mais, Gerste, Weizen | **Gegenbeleg** Pflanzenschutzdienst M-V: „Weitere anfällige Kulturpflanzen – Ackerbau-Kulturen: … Getreidearten“; SARE GNE17-144 (2019): Linie 4B befällt symptomlos Hafer | **widersprüchlich** (vorher 2/3). Haltbar ist nur: Getreide und Gräser erkranken nicht und gelten als Fruchtfolgeglieder, können aber symptomlos besiedelt werden. Fünf Jahre Mais senkten *V. dahliae* nicht (Davis et al. 1989). |
+
+**Korrektur 2026-11-27 (F-18-Review, Lesart wie §7.2):** Eine Rotation von N Jahren heißt eine Anbaupause von N − 1 Jahren. CAES „Long rotations of four to five years“ ergibt damit **3–4 J. Pause**, nicht 4–5; UC IPM („rotating for 3 to 4 years with nonhosts“) und Illinois („Do not grow these crops for at least three years“) nennen die Pause. 4 J. liegt weiter in allen drei Angaben.
 
 ### 7.8 *Fusarium oxysporum* formae speciales außer *cepae*
 
@@ -501,7 +506,7 @@ Folgen für §5 und R-004:
 
 ### 7.11 Ergebnis für die Wissenstabelle (F-18)
 
-Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte eingetragen werden können. „3/3 Zahl“ heißt: drei unabhängige Quellen nennen dieselbe Zahl oder eine Untergrenze, die sie erfüllt. „3/3 Spanne“ heißt: drei unabhängige Quellen nennen voneinander abweichende Spannen, und der Planungswert liegt in jeder davon.
+Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte eingetragen werden können. „3/3 Zahl“ heißt: drei unabhängige Quellen nennen dieselbe Zahl oder eine Untergrenze, die sie erfüllt. „3/3 Spanne“ heißt: drei unabhängige Quellen nennen voneinander abweichende Spannen, und der Planungswert liegt in jeder davon. Nach Betreiberentscheid 2026-11-22 zählt „3/3 Spanne“ als 3/3 für die Warndauer; die Wissenstabelle weist die Belegart `range` aus.
 
 **Werte mit 3/3, eintragbar mit F-18:**
 
@@ -511,7 +516,7 @@ Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte 
 | `clubroot` | `max_survival_years` | 15 | 3/3 Zahl als Untergrenze (AHDB bis 15, RHS 20, LW 2013 bis 20, Dixon ≥ 18); 20 J. nur 2/3 (RHS, LW) | R-001.1, §7.1 |
 | `clubroot` | Halbwertszeit (informativ) | 3,5–3,6 J. | 3/3 Zahl, mögliche gemeinsame Primärquelle | §7.1 |
 | `clubroot` | Wirte | Brassicaceae | 3/3 (R-002) | R-002 |
-| `cyst_nematode` | `soil_persistence_years` | 4 | 3/3 (R-001.2, siehe offener Punkt 5) | R-001.2 |
+| `cyst_nematode` | `soil_persistence_years` | 3 | 3/3 Spanne (LfL ≥ 2, NDSU 2–3, AGES 3 J. Pause; Korrektur 2026-11-26 nach Betreiberentscheid zu Punkt 5, vorher 4) | R-001.2 |
 | `cyst_nematode` | Wirte | Brassicaceae, Amaranthaceae | 3/3 (R-002) | R-002 |
 | `root_knot_nematode` | Wirte | Familienliste R-002 | 3/3 (R-002) | R-002 |
 | `root_knot_nematode` | Nichtwirt | Poaceae | 3/3 (neu) | §7.3 |
@@ -521,10 +526,10 @@ Die Tabelle selbst entsteht erst im Sprint (F-18); hier steht nur, welche Werte 
 | `pea_root_rot` | Wirte | *Pisum*, *Lens*; *Medicago*, *Trifolium pratense* als Wirt/ungünstige Vorfrucht | 3/3 | §7.5 |
 | `pea_root_rot` | ausgenommen | *Phaseolus vulgaris* (eigene Pathotypen) | 3/3 | §7.5 |
 | `pea_root_rot` | ausgenommen | *Vicia faba* (für *Aphanomyces*) | 3/3, mit Gegenbelegen aus Laborversuchen | §7.5 |
-| `sclerotinia` | `soil_persistence_years` | 5 | 3/3 Spanne (AGES 4–6, Manitoba 5, PNW 3–8; Review kürzer) | §7.6 |
+| `sclerotinia` | `soil_persistence_years` | 5 | 3/3 Spanne (AGES Pause 3–5 nach Korrektur 2026-11-27, vorher „4–6“; Manitoba 5 als Pause gelesen, P6 offen; PNW 3–8; Review kürzer) | §7.6 |
 | `sclerotinia` | Nichtwirt | Poaceae | 3/3 (endophytische Besiedlung möglich) | §7.6 |
 | `sclerotinia` | Überdauerung (informativ) | 4–10 J. | 3/3 Spanne; 10 J. nur 2/3 | §7.6 |
-| `verticillium` | `soil_persistence_years` | 4 | 3/3 Spanne (UC 3–4, CAES 4–5, Illinois ≥ 3) | §7.7 |
+| `verticillium` | `soil_persistence_years` | 4 | 3/3 Spanne (UC 3–4, CAES Pause 3–4 nach Korrektur 2026-11-27, vorher „4–5“; Illinois ≥ 3) | §7.7 |
 | `verticillium` | `max_survival_years` | 10 | 3/3 Zahl als Untergrenze | §7.7 |
 | `verticillium` | Wirte | zusätzlich Amaranthaceae (Spinat), Brassicaceae, Lamiaceae (*Mentha*) | 3/3 | §7.7 |
 | *F. oxysporum* f. sp. *lycopersici* | Wirte | Solanaceae (Tomate, Aubergine, weitere *Solanum*) | 3/3, Widerspruch UC IPM | §7.8 |
@@ -543,7 +548,7 @@ R-003/R-004: 3/3 erreicht haben R-003 a–e, R-004.1 a–b, R-004.3 a, b, d und 
 |------|------------------------|
 | Überdauerung Rübenzystennematode | 5–6 J. (SESVanderHave), bis 10 J. (top agrar), > 12 J. (NDSU) |
 | Überdauerung Wurzelgallenälchen | bis 2 J. (AGES) gegen „several years“ (ephytia, Gattung) |
-| Pause Sklerotinia | 1–4 bzw. 2–3 J. (Review) gegen 4–6 J. (AGES), 5 J. (Manitoba), 3–8 J. (PNW) |
+| Pause Sklerotinia | 1–4 bzw. 2–3 J. (Review) gegen 3–5 J. Pause (AGES, Rotation 4–6 J.; Korrektur 2026-11-27), 5 J. (Manitoba), 3–8 J. (PNW) |
 | Pause Erbsen-Komplex | 3–5 J. (UT W235, Einzelerreger), 5–9 bzw. 7–8 J. (FiBL), 8–10 J. (SaskPulse) |
 | Verticillium-Überdauerung | ≥ 10 J. (sieben Quellen) gegen „nicht sehr lange“ (LfL Kartoffelkrankheiten 2017) |
 | Verticillium-Nichtwirt Poaceae | Nichtwirt (UC IPM, RHS, UW) gegen symptomlose Besiedlung (Dung 2020, Pflanzenschutzdienst M-V, SARE) |
@@ -555,9 +560,9 @@ R-003/R-004: 3/3 erreicht haben R-003 a–e, R-004.1 a–b, R-004.3 a, b, d und 
 
 ### 7.12 Offene Punkte nach #3005
 
-1. **Pausenwerte als Spanne.** Für `clubroot` 7, `sclerotinia` 5 und `verticillium` 4 nennen die drei Quellen nicht dieselbe Zahl, der Wert liegt aber in jeder Angabe. Ob das als 3/3 für die Warndauer gilt, entscheidet der Betreiber. Diese Recherche nennt die Werte eintragbar und weist den Belegtyp aus.
+1. **Pausenwerte als Spanne.** Für `clubroot` 7, `sclerotinia` 5 und `verticillium` 4 nennen die drei Quellen nicht dieselbe Zahl, der Wert liegt aber in jeder Angabe. Ob das als 3/3 für die Warndauer gilt, entscheidet der Betreiber. Diese Recherche nennt die Werte eintragbar und weist den Belegtyp aus. **Entschieden 2026-11-22:** Ein Wert, der in allen drei Quellangaben liegt, gilt als 3/3, auch bei Spannen; die Wissenstabelle führt die Belegart „Spanne“ (`range`).
 2. **Nicht gefunden:** Überdauerung Wurzelgallenälchen als Zahl, Pausenzahl Weißfäule (außer FiBL), Überdauerung *F. solani* f. sp. *pisi* und *F. o.* f. sp. *conglutinans* als Zahl, Verticillium an Basilikum und Küchensalbei, Kreuzinfektion *F. solani* f. sp. *pisi*/*phaseoli*, „nach gesunden Pflanzen ist Wiederverwendung in Ordnung“ (1/3), Falscher Mehltau zu R-003, Definition „dieselbe Saison“ (0/3).
 3. **Deutsche Landesquellen:** LWK NRW/Niedersachsen und LTZ Augustenberg lieferten zu keinem Wert einen abrufbaren Volltext mit Zahl. Verwendet sind LfL, JKI, DLR RLP, LFA MV, Pflanzenschutzdienst M-V, TLLLR, LLH Hessen, AGES, Agroscope, FiBL, LK NÖ/BOKU.
 4. **Nicht mehr abrufbar:** KWS dzz 05/2017, NCDA Nema-Note 12 (HTTP 404); Oklahoma State (Bot-Schutz). Der Penn-State-Satz zur Juglon-Persistenz steht in der aktuellen Fassung nicht mehr.
-5. **Rübenzystennematode, Pause:** LfL schreibt „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ (2 J. Pause im Dreijahresrhythmus), NDSU „three- to four-year rotation“, AGES „vierjähriger Fruchtwechsel“. Die R-001.2-Bewertung (3/3 für 4 J.) liest „Rotation“ als Pause; eine strengere Lesart ergibt 2–3 J. Pause. Vor dem Eintrag in F-18 klären, ob `soil_persistence_years` die Pause oder die Rotationslänge meint.
+5. **Rübenzystennematode, Pause:** LfL schreibt „Wirtspflanzen sollten maximal alle drei Jahre angebaut werden“ (2 J. Pause im Dreijahresrhythmus), NDSU „three- to four-year rotation“, AGES „vierjähriger Fruchtwechsel“. Die R-001.2-Bewertung (3/3 für 4 J.) liest „Rotation“ als Pause; eine strengere Lesart ergibt 2–3 J. Pause. Vor dem Eintrag in F-18 klären, ob `soil_persistence_years` die Pause oder die Rotationslänge meint. **Entschieden 2026-11-22:** `soil_persistence_years` meint die Anbaupause; es gilt die strengere Lesart (2–3 J. Pause). Eingetragen ist 3 J. (liegt in allen drei Angaben, 3/3 Spanne); R-001.2, §6.1, §7.2 und §7.11 sind korrigiert.
 6. **Korrektur Quellenangabe R-004.3:** „University of Kentucky E706“ ist der e-GRO Edible Alert 7(6) der University of Georgia.

@@ -96,6 +96,8 @@ authoritative.
 2026-11-17: the entry references the hazard key; hosts resolve from the F-18
 table, so later research applies to existing findings.
 
+**Knowledge-table caller (handover from F-18).** `YamlSoilHazardKnowledgeSource` has no production caller yet and loads the table lazily, once per instance; wiring it (DI factory, one instance per process, behaviour on a corrupt file) is F-20's. Consumers display and evaluate only `evidence.status`, never "{sources}/3": with empty `years`, `sources` counts the sources that state any figure at all, not support for a value. Open operator decisions P1–P7 are listed in `soil-hazard-knowledge.md`.
+
 **Export (decision).** Established: `garden_plan_export.py:86-106` carries
 the soil profile but no hazards. Operator decision 2026-11-17: hazards travel
 with plan export/import and the tenant export (R-19).

@@ -92,6 +92,8 @@ unclassified (acceptance-5).
 pathogen, `confirmed` and `source` are captured here (acceptance-4); the
 promotion into the bed is F-20.
 
+**Spec literal from F-18 (handover).** F-18 put `bolting` into the REQ-003 E5 `termination_cause` literal. Code and checks are F-19's: `TerminationCause.BOLTING` in `enums.py`, the i18n keys `enums.terminationCause.bolting` (DE/EN), and a spec-literal match — `tests/unit/guards/test_spec_literal_discriminators_match_models.py` does not connect this literal today (two-line literal, no model heading at E5).
+
 **Statistics (prior-art, proceed).** Established: `survival_stats.py:25` and
 `SurvivalStatsPanel.tsx` count by cause; the new labels are covered by
 acceptance-6.
