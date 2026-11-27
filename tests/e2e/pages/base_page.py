@@ -1753,7 +1753,7 @@ class BasePage:
                 covered_ok=covered_ok,
             )
             if outcome == _click_fallback.OUTCOME_RAISED:
-                raise AssertionError(
+                raise _click_fallback.CoveredControlError(
                     _click_fallback.refusal_message(event or {}, "scroll_and_click")
                 ) from refused
             if mousedown:

@@ -181,6 +181,29 @@ def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> 
     return lines
 
 
+def fail_a_skip_after_a_refused_click(report: Any, events: list[dict[str, Any]]) -> None:
+    """Turn a phase that skipped after a refused click into a failure (#3157).
+
+    A refused click raises :class:`_click_fallback.CoveredControlError`. Older
+    tests wrap a step in ``except Exception: pytest.skip("... not available")``;
+    there the refusal ended as "skipped", which reads as "nothing to test here"
+    while a control was on screen and covered. The skip is the giveaway: no
+    helper recovers from a refusal by skipping. An expected failure (``xfail``)
+    is left alone -- pytest reports it as skipped too, and it is declared.
+    """
+    if not getattr(report, "skipped", False) or getattr(report, "wasxfail", None) is not None:
+        return
+    refused = [e for e in events if e.get("outcome") == _click_fallback.OUTCOME_RAISED]
+    if not refused:
+        return
+    report.outcome = "failed"
+    report.longrepr = (
+        "The test skipped after a guarded click was refused on a covered control; a covered "
+        "control is present, so this is a failure and not a skip (#3157).\n"
+        + "\n".join(_click_fallback.refusal_message(e, str(e.get("helper"))) for e in refused)
+    )
+
+
 class ClickFallbackReporter:
     """The pytest plugin: drain per phase, write and count on the controller."""
 
@@ -206,8 +229,11 @@ class ClickFallbackReporter:
     def pytest_runtest_makereport(self, item: pytest.Item) -> Generator[None, Any, None]:
         outcome = yield
         events = _click_fallback.drain()
-        if events:
-            setattr(outcome.get_result(), REPORT_ATTRIBUTE, events)
+        if not events:
+            return
+        report = outcome.get_result()
+        setattr(report, REPORT_ATTRIBUTE, events)
+        fail_a_skip_after_a_refused_click(report, events)
 
     def pytest_runtest_logreport(self, report: pytest.TestReport) -> None:
         if self.is_worker:

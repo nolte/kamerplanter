@@ -335,6 +335,19 @@ def _box(rect: object) -> str:
         return "<unknown>"
 
 
+class CoveredControlError(AssertionError):
+    """A guarded click was refused because something lies on the control (#3157).
+
+    An ``AssertionError``, so it fails a test like every other check. Its own
+    class, so a test that deliberately tolerates a missing control (``except
+    Exception: pytest.skip(...)``) can let this one through: a covered control
+    is there, and "skipped" or "passed" would hide the defect the refusal names.
+    The reporter turns a skip after a refusal into a failure on its own
+    (``_click_fallback_report.py``); a handler that *continues* instead of
+    skipping needs ``except CoveredControlError: raise`` in front.
+    """
+
+
 def refusal_message(event: dict[str, Any], helper: str) -> str:
     """The ``AssertionError`` text for a covered control: what covers what, where (#3157)."""
     viewport = event.get("viewport") if isinstance(event.get("viewport"), dict) else {}
