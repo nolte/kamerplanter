@@ -9,12 +9,22 @@ import { describe, expect, it } from 'vitest';
  * - the error illustrations (up to 74 KB gzip each) load per status code via `import()`, never statically —
  *   both error pages render inside the eager shell;
  * - the English core translations are a dynamic import, only the German fallback core is static;
- * - the notification drawer, the light-mode take-over dialog and the consent banner are `lazy()` boundaries.
+ * - the notification drawer, the light-mode take-over dialog and the consent banner are `lazy()` boundaries;
+ * - #3018: the static German core carries no page-level namespace (dashboard, settings tabs, print, diagnosis,
+ *   AI, …) — those ship with the lazy `pages.json`, as the English ones always did, which made room for the
+ *   mobile bottom navigation in the shell.
  *
  * Each detector is exercised against fixtures below in both directions.
  */
 
 const SOURCES = import.meta.glob(['/src/**/*.ts', '/src/**/*.tsx'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
+/** The German catalogue files as written — the i18n bootstrap merges the imported modules into one object. */
+const DE_CATALOGUE = import.meta.glob(['/src/i18n/locales/de/core.json', '/src/i18n/locales/de/pages.json'], {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -78,6 +88,18 @@ describe('initial bundle exclusions (#3023)', () => {
     expect(importsStatically(code, EN_CORE)).toBe(false);
     expect(importsDynamically(code, EN_CORE)).toBe(true);
     expect(importsStatically(code, /locales\/de\/core\.json$/)).toBe(true);
+  });
+
+  it('the static German core holds no page-level namespace (#3018)', () => {
+    // These keys are read by lazily loaded pages and dialogs — and one by the eager shell: the breadcrumb of
+    // `/diagnose` (`diagnose.title`, `routes/breadcrumbs.ts`). None is read before the app mounts, and `initI18n`
+    // awaits `pages.json` before the mount, so every reader finds its key; only if that load fails does the
+    // breadcrumb show its key text (`defaultValue`) — like every page string in that case.
+    const PAGE_LEVEL = ['dashboard', 'storageSettings', 'print', 'diagnose', 'tankAlerts', 'haPublish', 'ai', 'components'];
+    const deCore = JSON.parse(DE_CATALOGUE['/src/i18n/locales/de/core.json']) as Record<string, unknown>;
+    const dePages = JSON.parse(DE_CATALOGUE['/src/i18n/locales/de/pages.json']) as Record<string, unknown>;
+    expect(PAGE_LEVEL.filter((namespace) => namespace in deCore)).toEqual([]);
+    expect(PAGE_LEVEL.filter((namespace) => !(namespace in dePages))).toEqual([]);
   });
 
   it.each([

@@ -13,7 +13,7 @@ Der Kalender zeigt alle geplanten und vergangenen Aktivitäten in einer zentrale
 
 ## Die Kalenderansicht öffnen
 
-Klicke in der Navigation auf **Kalender**. Die Ansicht öffnet standardmäßig in der Monatsansicht.
+Klicke in der Navigation auf **Kalender** — auf dem Smartphone in der Leiste am unteren Rand. Die Ansicht öffnet standardmäßig in der Monatsansicht.
 
 ---
 
@@ -28,6 +28,8 @@ Oben im Kalender wechselst du über Tabs zwischen fünf Ansichten:
 | **Phasen-Timeline** | Balkendiagramm der Phasenwechsel je Pflanzdurchlauf/Pflanze im aktuellen Monat |
 | **Aussaatkalender** | Wochengenauer Anbaukalender für Freilandpflanzen über das ganze Jahr |
 | **Saisonübersicht** | 12-Monats-Kachelraster mit Aussaat-, Ernte- und Blüte-Anzahl pro Monat |
+
+Die gewählte Ansicht steht in der Adresse (z. B. `/kalender#list`): Ein Lesezeichen, das Neuladen der Seite und der Weg zurück von einem Ereignis öffnen wieder dieselbe Ansicht. `/kalender` ohne Zusatz öffnet die Monatsansicht. <!-- Issue #3018 -->
 
 !!! note "Keine Wochen- oder Tagesansicht"
     Kamerplanter bietet aktuell keine dedizierte Wochen- oder Tagesansicht. Für einen engen Zeitraum nutzt du am besten die Listenansicht.

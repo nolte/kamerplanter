@@ -436,6 +436,37 @@ describe('form per width (GP-UX-069)', () => {
     expect(within(screen.getByTestId('garden-plan-sheet')).getByTestId('garden-plan-snap-toggle')).toBeInTheDocument();
   });
 
+  it('below md: a full sheet takes its share of the height above the bottom navigation (#3018)', () => {
+    const viewport = Object.assign(new EventTarget(), { height: 700 });
+    const original = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+    restores.push(() => {
+      if (original) Object.defineProperty(window, 'visualViewport', original);
+      else delete (window as { visualViewport?: unknown }).visualViewport;
+    });
+    // jsdom has no layout: the probe that resolves `--kp-bottom-nav-offset` gets the 56 px a phone measures.
+    const rect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      if (this instanceof HTMLElement && this.style.height.includes('--kp-bottom-nav-offset')) {
+        return { height: 56 } as DOMRect;
+      }
+      return rect.call(this);
+    };
+    restores.push(() => {
+      Element.prototype.getBoundingClientRect = rect;
+    });
+    restores.push(stubWidth(390));
+    const t = setupEditor();
+    t.click(4, 4);
+    fireEvent.click(screen.getByTestId('garden-plan-sheet-size'));
+    expect(screen.getByTestId('garden-plan-sheet')).toHaveStyle({ height: `${Math.round((700 - 56) * 0.9)}px` });
+    act(() => {
+      viewport.height = 400;
+      viewport.dispatchEvent(new Event('resize'));
+    });
+    expect(screen.getByTestId('garden-plan-sheet')).toHaveStyle({ height: `${Math.round((400 - 56) * 0.9)}px` });
+  });
+
   it('below md every control of the sheet is a 48 px target', () => {
     restores.push(stubWidth(390));
     const t = setupEditor();

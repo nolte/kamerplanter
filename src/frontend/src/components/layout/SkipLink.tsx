@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 
@@ -10,6 +11,10 @@ interface SkipLinkProps {
  * "Skip to content" link (WCAG 2.4.1): off-screen until it receives keyboard focus, then pinned to
  * the top-left corner. Shared by the standard shell and the kiosk shell (#3025 W-09: the kiosk
  * shell had none).
+ *
+ * The jump moves the focus itself instead of following the `href` (#3018): following it would replace the
+ * URL fragment, which the tabbed pages read as their tab (`useTabUrl`) — `/kalender#list` fell back to the
+ * month view — and add a history entry. The `href` stays for the link's semantics and without script.
  */
 export default function SkipLink({ targetId }: SkipLinkProps) {
   const { t } = useTranslation();
@@ -17,6 +22,15 @@ export default function SkipLink({ targetId }: SkipLinkProps) {
     <Box
       component="a"
       href={`#${targetId}`}
+      onClick={(event: MouseEvent<HTMLAnchorElement>) => {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        event.preventDefault();
+        // The landmark carries tabIndex={-1} in both shells; set it where a caller's target lacks it.
+        if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+        target.focus();
+        target.scrollIntoView?.({ block: 'start' });
+      }}
       sx={{
         position: 'absolute',
         left: '-9999px',

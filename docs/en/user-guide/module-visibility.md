@@ -46,7 +46,7 @@ Each module has three possible settings:
 
 Hiding a module removes it consistently from:
 
-- the **sidebar** (navigation items)
+- the **sidebar** (navigation items) — on a phone, the list behind **More**; the bar along the bottom edge (Home, Plants, Tasks, Calendar) always stays the same
 - the **dashboard** (related widgets and quick-actions)
 - **shortcuts** and links elsewhere in the interface
 

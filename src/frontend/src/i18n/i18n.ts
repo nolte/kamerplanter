@@ -15,6 +15,8 @@ import { configureZodErrorMap } from '@/validation/zodErrorMap';
  *                 initial bundle, so a key always resolves synchronously. The
  *                 core of every other locale (~15 KB gzip) is loaded with that
  *                 locale's feature bundles (#3023) — awaited before mount, like them.
+ *                 Keys only a page or a lazy dialog reads (dashboard, settings tabs,
+ *                 print, diagnosis, AI, …) live in `pages.json` instead (#3018).
  *   - features  — `pages`, `enums`, `glossary` — the bulk of the payload. These
  *                 are dynamically imported per locale (separate chunks, excluded
  *                 from the initial JS budget) and awaited before the app mounts

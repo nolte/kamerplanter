@@ -9,6 +9,7 @@ import Switch from '@mui/material/Switch';
 import { useTranslation } from 'react-i18next';
 import { useConsent } from '@/hooks/useConsent';
 import type { ConsentState, OptionalConsentCategory } from '@/observability/consent';
+import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
 
 export type { ConsentState } from '@/observability/consent';
 
@@ -96,8 +97,9 @@ export default function ConsentBanner({
         position: 'fixed',
         left: 16,
         right: 16,
-        // Clear of the iOS home indicator / Android gesture bar.
-        bottom: 'calc(16px + env(safe-area-inset-bottom))',
+        // Clear of the iOS home indicator / Android gesture bar — and of the phone's bottom navigation, whose
+        // offset already contains that inset (#3018).
+        bottom: `calc(16px + var(${BOTTOM_NAV_OFFSET}, env(safe-area-inset-bottom)))`,
         // Above page content and the app bar, below modals, drawers and
         // snackbars — a dialog or an error toast must never hide under it.
         zIndex: (theme) => theme.zIndex.modal - 1,

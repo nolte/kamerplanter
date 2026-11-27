@@ -24,7 +24,9 @@ describe('FormActions — compact viewport', () => {
     // Without this the row is the last child of a scrolling `DialogContent`,
     // so on a long form the primary action sits far below the fold.
     expect(style.position).toBe('sticky');
-    expect(style.bottom).toBe('0px');
+    // #3018: the edge is the bottom navigation's offset, 0 where the bar is absent (a dialog, a wide viewport).
+    // jsdom keeps the declared value instead of resolving the custom property.
+    expect(style.bottom).toBe('var(--kp-bottom-nav-offset, 0px)');
   });
 
   it('keeps both actions operable while pinned', () => {

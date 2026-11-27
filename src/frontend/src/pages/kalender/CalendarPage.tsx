@@ -68,6 +68,7 @@ import {
 } from '@/store/slices/calendarSlice';
 import { fetchSites } from '@/store/slices/sitesSlice';
 import { useNotification } from '@/hooks/useNotification';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
 import { useSowingFavorites } from '@/hooks/useSowingFavorites';
 import { isPlainPrimaryClick } from '@/utils/isPlainPrimaryClick';
@@ -109,7 +110,11 @@ const CATEGORY_I18N_KEYS: Record<CalendarEventCategory, string> = {
   custom: 'pages.calendar.custom',
 };
 
-type ViewMode = 'month' | 'list' | 'phases' | 'sowing' | 'season';
+// #3018 (audit N-19, UI-NFR-005 R-001) — the view is part of the URL (`/kalender#list`), like every other
+// tabbed page (`useTabUrl`): a reload, a bookmark and Back/Forward restore it. The first view has no fragment,
+// so the old `/kalender` still opens the month view.
+const VIEW_MODES = ['month', 'list', 'phases', 'sowing', 'season'] as const;
+type ViewMode = (typeof VIEW_MODES)[number];
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -198,7 +203,9 @@ export default function CalendarPage() {
   const today = new Date();
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [viewIndex, setViewIndex] = useTabUrl(VIEW_MODES);
+  const viewMode: ViewMode = VIEW_MODES[viewIndex];
+  const setViewMode = useCallback((mode: ViewMode) => setViewIndex(VIEW_MODES.indexOf(mode)), [setViewIndex]);
   const [filtersExpanded, setFiltersExpanded] = useState(!fullScreen);
   const [selectedSiteKey, setSelectedSiteKey] = useState<string>('');
   const [selectedCategories, setSelectedCategories] = useState<Set<CalendarEventCategory>>(

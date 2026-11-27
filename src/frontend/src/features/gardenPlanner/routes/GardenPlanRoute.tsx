@@ -102,6 +102,7 @@ import CachedDataBanner from '../offline/CachedDataBanner';
 import OfflineCacheMiss from '../offline/OfflineCacheMiss';
 import ReadOnlyPlanView from '../offline/ReadOnlyPlanView';
 import { useReloadOnReconnect } from '../offline/useReloadOnReconnect';
+import { bottomNavOffsetPx } from '@/components/layout/bottomNavOffset';
 
 // Field mode is its own chunk (GP-UX-020): it loads only when the page opens in field mode.
 const FieldModeView = lazy(() => import('../field/FieldModeView'));
@@ -298,7 +299,7 @@ function PlanningPage({ fieldHref }: { fieldHref: string }) {
       );
     }
     // Not measured yet: a collapsed side panel reserves no width (§17.3, AC-5), so the drawing takes the full width.
-    const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
+    const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight - bottomNavOffsetPx();
     return fitViewport(bounds, Math.max(1, canvasWidth - CANVAS_BORDER_PX), Math.max(240, viewportHeight * MAX_HEIGHT_SHARE));
   }, [bounds, canvasSize, canvasWidth]);
 

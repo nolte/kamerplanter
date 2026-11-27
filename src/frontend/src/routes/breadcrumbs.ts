@@ -38,6 +38,8 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/pflanzen/identifikation': { label: 'nav.plantIdentification', parent: '/dashboard' },
   // REQ-017 Vermehrung / Lineage
   '/vermehrung': { label: 'nav.propagation', parent: '/dashboard' },
+  // REQ-022 Überwinterung
+  '/ueberwinterung/profile': { label: 'nav.overwintering', parent: '/dashboard' },
 
   // REQ-004 Düngung
   '/duengung/fertilizers': { label: 'nav.fertilizers', parent: '/dashboard' },
@@ -49,6 +51,8 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/pflanzenschutz/pests': { label: 'nav.pests', parent: '/dashboard' },
   '/pflanzenschutz/diseases': { label: 'nav.diseases', parent: '/dashboard' },
   '/pflanzenschutz/treatments': { label: 'nav.treatments', parent: '/dashboard' },
+  // REQ-044 Schädlingserkennung
+  '/pflanzenschutz/erkennung': { label: 'nav.pestDetection', parent: '/dashboard' },
 
   // REQ-007 Ernte
   '/ernte/batches': { label: 'nav.harvestBatches', parent: '/dashboard' },
@@ -66,6 +70,22 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
 
   // REQ-013 Durchläufe
   '/durchlaeufe/planting-runs': { label: 'nav.plantingRuns', parent: '/dashboard' },
+  // REQ-013 §2 Staffelanbau (the list and `/:key`, which opens the same page on one plan)
+  '/durchlaeufe/succession-plans': { label: 'nav.successionPlans', parent: '/dashboard' },
+
+  // REQ-026 Aquaponik
+  '/aquaponik': { label: 'nav.aquaponicSystems', parent: '/dashboard' },
+
+  // REQ-018 Umgebungssteuerung / Aktorik
+  '/umgebungssteuerung': { label: 'nav.environmentControl', parent: '/dashboard' },
+
+  // REQ-031 KI-Assistent, REQ-035 Glossar, REQ-036 KI-Diagnose
+  '/ki-assistent': { label: 'nav.kiAssistent', parent: '/dashboard' },
+  '/glossar': { label: 'nav.glossary', parent: '/dashboard' },
+  '/diagnose': { label: 'diagnose.title', parent: '/dashboard' },
+
+  // REQ-020 Onboarding
+  '/onboarding': { label: 'nav.onboarding', parent: '/dashboard' },
 
   // REQ-016 InvenTree integration (Equipment)
   '/inventree': { label: 'nav.equipment', parent: '/dashboard' },
@@ -90,6 +110,11 @@ export const breadcrumbMap: Record<string, BreadcrumbConfig> = {
   '/settings/security': { label: 'pages.settings.groups.security.title', parent: '/settings' },
   '/settings/integrations': { label: 'pages.settings.groups.integrations.title', parent: '/settings' },
   '/settings/installation': { label: 'pages.settings.groups.installation.title', parent: '/settings' },
+
+  // REQ-024 Mandanten (full mode)
+  '/tenants/create': { label: 'pages.tenants.createOrganization', parent: '/dashboard' },
+  '/tenants/settings': { label: 'pages.tenants.gardenSettings', parent: '/dashboard' },
+  '/invitations/accept': { label: 'pages.tenants.invitationAccept', parent: '/dashboard' },
 
   // REQ-025 Datenschutz & Betroffenenrechte (DSGVO self-service)
   '/privacy': { label: 'pages.auth.privacySettings', parent: '/dashboard' },

@@ -16,6 +16,7 @@
  * nothing and keeps its natural height.
  */
 import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
+import { bottomNavOffsetPx } from '@/components/layout/bottomNavOffset';
 
 /** The canvas is never lower than this (GP-UX-067). */
 export const MIN_CANVAS_HEIGHT_PX = 400;
@@ -49,7 +50,10 @@ export function useCanvasArea(
     // Hidden (the "Beete" tab) or not laid out at all: keep what was measured last.
     if (rect.width === 0 && rect.height === 0) return;
     const documentTop = rect.top + window.scrollY;
-    const reserve = bottomRef.current?.getBoundingClientRect().height ?? 0;
+    // The docked bars, and under them the phone's bottom navigation they rest on (#3018) — only where there are
+    // docked bars at all (below md), which is where the bottom navigation is.
+    const dock = bottomRef.current;
+    const reserve = dock ? dock.getBoundingClientRect().height + bottomNavOffsetPx() : 0;
     const heightPx = availableCanvasHeight(window.innerHeight, documentTop, reserve);
     const widthPx = Math.floor(area.clientWidth);
     if (widthPx <= 0) return;

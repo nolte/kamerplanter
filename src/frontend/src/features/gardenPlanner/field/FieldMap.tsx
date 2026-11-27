@@ -30,6 +30,7 @@ import { OwnPositionDot, OwnPositionSwitch } from './OwnPosition';
 import { ownPositionView } from './ownPositionView';
 import { useOwnPosition } from './useOwnPosition';
 import { useSiteCoordinates } from './useSiteCoordinates';
+import { bottomNavOffsetPx } from '@/components/layout/bottomNavOffset';
 
 /** The drawing may take this share of the viewport height in the field. */
 const MAX_HEIGHT_SHARE = 0.6;
@@ -69,7 +70,7 @@ export default function FieldMap({
   const bounds = useMemo(() => planContentBounds(plan), [plan]);
   const fitted = useMemo(() => {
     if (bounds === null) return null;
-    const height = typeof window === 'undefined' ? 800 : window.innerHeight;
+    const height = typeof window === 'undefined' ? 800 : window.innerHeight - bottomNavOffsetPx();
     return fitViewport(bounds, Math.max(1, boxWidth - CANVAS_BORDER_PX), Math.max(240, height * MAX_HEIGHT_SHARE));
   }, [bounds, boxWidth]);
   const [view, setView] = useState<FieldViewport | null>(initialView);

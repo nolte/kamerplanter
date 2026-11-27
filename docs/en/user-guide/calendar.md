@@ -13,7 +13,7 @@ The calendar shows all planned and past activities in one central view: tasks, p
 
 ## Opening the Calendar
 
-Click **Calendar** in the navigation. The view opens in month view by default.
+Click **Calendar** in the navigation — on a phone, in the bar along the bottom edge. The view opens in month view by default.
 
 ---
 
@@ -28,6 +28,8 @@ Switch between five views using the tabs at the top of the calendar:
 | **Phase Timeline** | Bar chart of phase transitions per planting run/plant for the current month |
 | **Sowing Calendar** | Week-precise outdoor growing calendar spanning the whole year |
 | **Season Overview** | A 12-month tile grid showing sowing, harvest, and bloom counts per month |
+
+The chosen view is part of the address (for example `/kalender#list`): a bookmark, a page reload and the way back from an event open the same view again. `/kalender` without a suffix opens the month view. <!-- Issue #3018 -->
 
 !!! note "No week or day view"
     Kamerplanter does not currently offer a dedicated week or day view. For a narrow time range, the list view works best.

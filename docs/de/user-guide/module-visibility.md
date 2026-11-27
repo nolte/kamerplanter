@@ -46,7 +46,7 @@ Jedes Modul hat drei mögliche Einstellungen:
 
 Wird ein Modul ausgeblendet, verschwindet es konsistent aus:
 
-- der **Seitenleiste** (Navigationspunkte)
+- der **Seitenleiste** (Navigationspunkte) — auf dem Smartphone die Liste hinter **Mehr**; die Leiste am unteren Rand (Start, Pflanzen, Aufgaben, Kalender) bleibt immer gleich
 - dem **Dashboard** (zugehörige Widgets und Quick-Actions)
 - **Schnellzugriffe** und Verknüpfungen an anderen Stellen
 

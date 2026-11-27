@@ -203,6 +203,7 @@ import { violationOfNew } from './tools/validation';
 import { useVisibleHeight } from './tools/useVisibleHeight';
 import { useTouchInput } from './tools/useTouchInput';
 import { zOrderOps, type ZMove } from './tools/zOrder';
+import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
 
 export interface GardenPlanEditorProps {
   plan: PlanModel;
@@ -2646,7 +2647,8 @@ export function GardenPlanEditor({
                     flex: '0 0 100%',
                     minWidth: 0,
                     position: 'sticky',
-                    bottom: 0,
+                    // #3018 — above the phone's bottom navigation (0 without it).
+                    bottom: `var(${BOTTOM_NAV_OFFSET}, 0px)`,
                     zIndex: 2,
                     display: 'flex',
                     flexDirection: 'column',

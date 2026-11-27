@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Provider } from 'react-redux';
@@ -13,6 +13,7 @@ import { useReportUnsavedInput } from '@/kiosk/kioskSession';
 import UnsavedChangesGuard from '@/components/form/UnsavedChangesGuard';
 import { createTestStore } from '@/test/helpers';
 import { server } from '@/test/mocks/server';
+import { restoreViewport, stubViewport } from '@/test/viewport';
 
 // Light mode keeps KioskProvider from attempting a server preference sync,
 // mirroring MainLayout.light.test.tsx.
@@ -152,6 +153,27 @@ describe('MainLayout in kiosk mode (#3025 N-37)', () => {
     // W-09 — the kiosk shell has a skip link to its main landmark as well.
     expect(screen.getByRole('link', { name: 'Zum Inhalt springen' })).toHaveAttribute('href', '#main-content');
     expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content');
+  });
+
+  // #3018 — the kiosk shell has its own bar (Back, Home); the phone's bottom navigation does not double it.
+  it('renders the bottom navigation on a phone outside kiosk mode, and none in the kiosk shell', async () => {
+    stubViewport({ width: 390 });
+    try {
+      stubLocalStorage();
+      renderTileDestination();
+      expect(await screen.findByTestId('watering-page')).toBeInTheDocument();
+      expect(screen.getByTestId('bottom-nav')).toBeInTheDocument();
+      cleanup();
+
+      stubLocalStorage(KIOSK_ON);
+      renderTileDestination();
+      expect(await screen.findByTestId('kiosk-shell')).toBeInTheDocument();
+      expect(screen.getByTestId('watering-page')).toBeInTheDocument();
+      expect(screen.queryByTestId('bottom-nav')).toBeNull();
+      expect(screen.queryByRole('navigation', { name: 'Schnellnavigation' })).toBeNull();
+    } finally {
+      restoreViewport();
+    }
   });
 
   it('keeps the inactivity timeout running on a tile destination and returns to the kiosk start', async () => {

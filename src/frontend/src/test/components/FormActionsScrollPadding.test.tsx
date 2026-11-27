@@ -136,6 +136,37 @@ describe('FormActions — reserved space below the pinned row (#768)', () => {
     expect(reserved(container)).toBeLessThan(100);
   });
 
+  it('adds the inset a row pinned above the edge rests at — the phone bottom navigation (#3018)', () => {
+    render(
+      <ThemeContextProvider>
+        <Form onSubmit={vi.fn()}>
+          <FormActions onCancel={vi.fn()} />
+        </Form>
+      </ThemeContextProvider>,
+    );
+    const actions = screen.getByTestId('form-actions');
+    // A browser resolves `bottom: var(--kp-bottom-nav-offset, 0px)` to the bar's 56 px plus the safe-area
+    // inset; jsdom cannot, so the resolved value is handed in for this element only.
+    const computed = window.getComputedStyle.bind(window);
+    const spy = vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+      const style = computed(element, pseudo);
+      if (element !== actions) return style;
+      return new Proxy(style, { get: (target, key) => (key === 'bottom' ? '64px' : Reflect.get(target, key)) });
+    });
+
+    // In-page form followed by more content: no tail, only the row and the band under it.
+    stubRect(actions, 900, 60);
+    stubScrollMetrics(document.documentElement, 5000, 800);
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    spy.mockRestore();
+
+    // 60 px row + 64 px band under it + the gap: a field must not be parked behind either.
+    expect(reserved(document.documentElement)).toBeGreaterThanOrEqual(124);
+    expect(reserved(document.documentElement)).toBeLessThan(160);
+  });
+
   it('reserves nothing on a viewport where the row is not pinned', () => {
     mediaQuery.pinned = false;
     const { container } = renderInScrollContainer();

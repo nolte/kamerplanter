@@ -34,7 +34,7 @@ const CATALOGUES: Record<string, unknown> = Object.fromEntries(
 
 /** `file:key.path` -> reason the string is third person, not an address. */
 const THIRD_PERSON_ALLOWLIST: Record<string, string> = {
-  'core.json:storageSettings.credentialsSectionDesc': '"Sie" = the S3 keys (plural), not the reader',
+  'pages.json:storageSettings.credentialsSectionDesc': '"Sie" = the S3 keys (plural), not the reader',
   'glossary.json:glossary.nuetzlinge.long': '"Ihr gezielter Einsatz" = the beneficial insects',
   'glossary.json:glossary.dormancy.long': '"Sie überdauert" = the plant',
   'glossary.json:glossary.dormancy.beginnerTip': '"Sie sehen … aus" = the plants',
