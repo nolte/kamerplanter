@@ -31,11 +31,16 @@ class Evidence(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    status: EvidenceStatus
+    status: EvidenceStatus = Field(
+        description="not_found also covers a value that does not apply (e.g. juglone survival); basis says which.",
+    )
     sources: int = Field(
         ge=0,
         le=EVIDENCED_SOURCE_COUNT,
-        description="Independent full-text sources supporting the stated value, capped at 3.",
+        description=(
+            "Independent full-text sources supporting the stated finding, capped at 3; "
+            "with years None the sources that give any figure on the question."
+        ),
     )
     kind: EvidenceKind | None = Field(
         default=None,
@@ -104,20 +109,23 @@ class SoilHazardKnowledge(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     hazard: SoilHazard
-    pathogens: list[str] = Field(min_length=1)
+    pathogens: tuple[str, ...] = Field(min_length=1)
     soil_persistence_years: EvidencedYears = Field(
         description="Cultivation pause after a confirmed infestation — not the rotation length.",
     )
     max_survival_years: EvidencedYears = Field(
         description="Maximum survival of the pathogen without a host (residual risk).",
     )
-    hosts: list[HostEntry] = Field(min_length=1)
-    non_hosts: list[HostEntry] = Field(default_factory=list)
+    hosts: tuple[HostEntry, ...] = Field(min_length=1)
+    non_hosts: tuple[HostEntry, ...] = ()
     soft: bool = Field(
         default=False,
-        description="Host range so broad that the hazard only ever yields a hint, never a block.",
+        description=(
+            "Host range so broad that the hazard never yields a block or a warning, only a hint "
+            "(planting dialog) or a pest_risk penalty (planner)."
+        ),
     )
-    notes: list[str] = Field(default_factory=list)
+    notes: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _hosts_are_unique(self) -> Self:
@@ -139,7 +147,7 @@ class SoilHazardKnowledgeTable(BaseModel):
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    hazards: list[SoilHazardKnowledge]
+    hazards: tuple[SoilHazardKnowledge, ...]
 
     @model_validator(mode="after")
     def _one_row_per_hazard(self) -> Self:

@@ -27,7 +27,8 @@ SEED_DIR = Path(__file__).resolve().parents[3] / "app" / "migrations" / "seed_da
 SEED = SEED_DIR / "soil_hazards.yaml"
 SCHEMA = SEED_DIR / "schemas" / "soil_hazards.schema.yaml"
 
-_FAMILY = re.compile(r"\b[A-Z][a-z]+aceae\b")
+#: A scientific species name: genus plus epithet (infraspecific ranks may follow).
+_SPECIES_NAME = re.compile(r"^[A-Z][a-z]+ [a-z][a-z-]+( .+)?$")
 
 
 def _load(path: Path) -> Any:
@@ -39,8 +40,35 @@ def _errors(document: Any) -> list[str]:
     return [error.message for error in validator.iter_errors(document)]
 
 
-def _catalogue_texts() -> list[str]:
-    return [path.read_text(encoding="utf-8") for path in sorted(SEED_DIR.glob("*.yaml")) if path != SEED]
+def _catalogue() -> tuple[set[str], set[str], set[str]]:
+    """Families, genera and scientific names from the structured seed fields only.
+
+    Comments and free text do not count: a name that appears only in a comment
+    would never match a planted species.
+    """
+    families: set[str] = set()
+    genera: set[str] = set()
+    scientific: set[str] = set()
+    for path in sorted(SEED_DIR.glob("*.yaml")):
+        if path == SEED:
+            continue
+        document = _load(path)
+        if not isinstance(document, dict):
+            continue
+        for family in document.get("families") or []:
+            if isinstance(family, dict) and isinstance(family.get("name"), str):
+                families.add(family["name"])
+        for key in ("species", "new_species"):
+            for entry in document.get(key) or []:
+                if not isinstance(entry, dict):
+                    continue
+                for field, target in (("family", families), ("genus", genera), ("scientific_name", scientific)):
+                    if isinstance(entry.get(field), str):
+                        target.add(entry[field].strip())
+        for name, family in (document.get("new_species_family_map") or {}).items():
+            scientific.add(str(name).strip())
+            families.add(str(family).strip())
+    return families, genera, scientific
 
 
 def _all_entries(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -75,6 +103,32 @@ class TestSchema:
 
         assert _errors(document) != []
 
+    def test_an_evidenced_duration_without_kind_is_refused(self) -> None:
+        document = copy.deepcopy(_load(SEED))
+        del document["hazards"][0]["soil_persistence_years"]["evidence"]["kind"]
+
+        assert any("'kind' is a required property" in message for message in _errors(document))
+
+    def test_an_evidenced_duration_without_years_is_refused(self) -> None:
+        document = copy.deepcopy(_load(SEED))
+        document["hazards"][0]["soil_persistence_years"]["years"] = None
+
+        assert _errors(document) != []
+
+    def test_a_not_found_duration_with_years_is_refused(self) -> None:
+        document = copy.deepcopy(_load(SEED))
+        juglone = next(row for row in document["hazards"] if row["hazard"] == "juglone")
+        juglone["max_survival_years"]["years"] = 5
+
+        assert _errors(document) != []
+
+    def test_insufficient_with_three_sources_is_refused(self) -> None:
+        document = copy.deepcopy(_load(SEED))
+        white_rot = next(row for row in document["hazards"] if row["hazard"] == "white_rot")
+        white_rot["soil_persistence_years"]["evidence"]["sources"] = 3
+
+        assert _errors(document) != []
+
     def test_a_host_without_level_is_refused(self) -> None:
         document = copy.deepcopy(_load(SEED))
         del document["hazards"][0]["hosts"][0]["level"]
@@ -103,14 +157,7 @@ class TestHostsMatchTheCatalogue:
 
     @pytest.mark.parametrize("level", ["family", "genus", "species"])
     def test_every_host_taxon_is_known_to_the_seed_catalogue(self, level: str) -> None:
-        texts = _catalogue_texts()
-        families = {name for text in texts for name in _FAMILY.findall(text)}
-        genera = {value for text in texts for value in re.findall(r"^\s*genus:\s*\"?([A-Z][a-z]+)\"?\s*$", text, re.M)}
-        scientific = {
-            value.strip()
-            for text in texts
-            for value in re.findall(r"scientific_name:\s*\"?([A-Z][a-z]+ [a-z][^\"\n#]*)\"?", text)
-        }
+        families, genera, scientific = _catalogue()
 
         def known(name: str) -> bool:
             if level == "family":
@@ -129,3 +176,20 @@ class TestHostsMatchTheCatalogue:
         )
 
         assert unknown == [], f"{level} names the seed catalogue does not know: {unknown}"
+
+    def test_a_species_entry_names_genus_and_epithet(self) -> None:
+        """A bare genus entered at species level would match no planted species."""
+        bare = sorted(
+            entry["name"]
+            for entry in _all_entries(_load(SEED))
+            if entry["level"] == "species" and not _SPECIES_NAME.match(entry["name"])
+        )
+
+        assert bare == []
+
+    def test_a_genus_entry_is_one_word(self) -> None:
+        multi = sorted(
+            entry["name"] for entry in _all_entries(_load(SEED)) if entry["level"] == "genus" and " " in entry["name"]
+        )
+
+        assert multi == []

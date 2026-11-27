@@ -34,12 +34,19 @@ $defs:
       status:
         type: string
         enum: [evidenced, insufficient, contradictory, not_found]
-        description: "evidenced = 3/3 independent full-text sources (method E-10)."
+        description: >-
+          evidenced = 3/3 independent full-text sources (method E-10);
+          insufficient = fewer than three; contradictory = sources disagree;
+          not_found = no value researched OR the value does not apply
+          (e.g. juglone survival) — basis says which.
       sources:
         type: integer
         minimum: 0
         maximum: 3
-        description: "Independent full-text sources supporting the stated value, capped at 3."
+        description: >-
+          Independent full-text sources supporting the stated finding (the
+          duration, or the host / non-host statement), capped at 3. With
+          years null: the sources that give any figure on the question.
       kind:
         type: string
         enum: [number, lower_bound, range]
@@ -62,6 +69,10 @@ $defs:
           properties: {status: {const: not_found}}
         then:
           properties: {sources: {const: 0}}
+      - if:
+          properties: {status: {const: insufficient}}
+        then:
+          properties: {sources: {maximum: 2}}
 
   evidenced_years:
     type: object
@@ -74,6 +85,17 @@ $defs:
         $ref: "#/$defs/evidence"
     required: [years, evidence]
     additionalProperties: false
+    allOf:
+      - if:
+          properties: {evidence: {properties: {status: {const: evidenced}}}}
+        then:
+          properties:
+            years: {type: integer}
+            evidence: {required: [kind]}
+      - if:
+          properties: {evidence: {properties: {status: {const: not_found}}}}
+        then:
+          properties: {years: {type: "null"}}
 
   host_entry:
     type: object
@@ -116,7 +138,7 @@ $defs:
           $ref: "#/$defs/host_entry"
       soft:
         type: boolean
-        description: "Host range so broad that the hazard only yields a hint, never a block or warning."
+        description: "Host range so broad that the hazard never yields a block or a warning, only a hint (planting dialog) or a pest_risk penalty (planner)."
       notes:
         type: array
         items: {type: string, minLength: 1}

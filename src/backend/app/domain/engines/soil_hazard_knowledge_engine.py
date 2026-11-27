@@ -13,18 +13,25 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict
 
-from app.common.enums import EvidenceStatus, SoilHazard
+from app.common.enums import EvidenceKind, EvidenceStatus, SoilHazard
 from app.domain.models.soil_hazard_knowledge import EvidencedYears, SoilHazardKnowledge
 
 
 class ResolvedSoilHazardDurations(BaseModel):
-    """Durations of one hazard that may carry a time statement; ``None`` = no time statement."""
+    """Durations of one hazard that may carry a time statement; ``None`` = no time statement.
+
+    Each duration comes with its evidence kind, so a consumer can tell "at least 15
+    years" (``lower_bound``) from "15 years" (``number``) or a value inside every
+    source's range (``range``). The kind is ``None`` exactly when the duration is.
+    """
 
     model_config = ConfigDict(frozen=True)
 
     hazard: SoilHazard
     soil_persistence_years: int | None
+    soil_persistence_kind: EvidenceKind | None
     max_survival_years: int | None
+    max_survival_kind: EvidenceKind | None
     soft: bool
 
 
@@ -37,11 +44,19 @@ class SoilHazardKnowledgeEngine:
             return value.years
         return None
 
+    def usable_kind(self, value: EvidencedYears) -> EvidenceKind | None:
+        """Return the evidence kind of a usable duration, else ``None``."""
+        if self.usable_years(value) is None:
+            return None
+        return value.evidence.kind
+
     def resolve_durations(self, row: SoilHazardKnowledge) -> ResolvedSoilHazardDurations:
-        """Return the usable cultivation pause and maximum survival of ``row``."""
+        """Return the usable cultivation pause and maximum survival of ``row`` with their kinds."""
         return ResolvedSoilHazardDurations(
             hazard=row.hazard,
             soil_persistence_years=self.usable_years(row.soil_persistence_years),
+            soil_persistence_kind=self.usable_kind(row.soil_persistence_years),
             max_survival_years=self.usable_years(row.max_survival_years),
+            max_survival_kind=self.usable_kind(row.max_survival_years),
             soft=row.soft,
         )

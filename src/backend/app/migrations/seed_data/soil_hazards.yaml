@@ -11,9 +11,11 @@
 #      infestation, not the rotation length and not the maximum survival.
 #
 # evidence.status: evidenced = 3/3 independent full-text sources; insufficient =
-# fewer; contradictory = sources disagree; not_found = no value researched (years
-# is null). evidence.sources counts the independent sources that support the
-# stated value (capped at 3). Only an evidenced duration carries a time statement
+# fewer; contradictory = sources disagree; not_found = no value researched or the
+# value does not apply (basis says which; years is null). evidence.sources counts
+# the independent sources that support the stated finding (the duration, or the
+# host / non-host statement), capped at 3; with years null it counts the sources
+# that give any figure on the question. Only an evidenced duration carries a time statement
 # or a block — see app/domain/engines/soil_hazard_knowledge_engine.py.
 #
 # A re-researched value is a data change only: set years and evidence here. No
@@ -97,7 +99,11 @@ hazards:
         evidence: *cyst_neutral
       - level: family
         name: Asteraceae
-        evidence: *cyst_neutral
+        evidence:
+          status: insufficient
+          sources: 1
+          basis: "AGES neutral plants (sunflower); not in the NDSU non-host list"
+          ref: "R-002"
       - level: family
         name: Cannabaceae
         evidence:
@@ -157,10 +163,10 @@ hazards:
       - level: genus
         name: Allium
         evidence:
-          status: evidenced
-          sources: 3
-          basis: "host of M. hapla, within the 3/3 host list of R-002 / §6.2"
-          ref: "R-002, §6.2"
+          status: insufficient
+          sources: 1
+          basis: "JKI flyer 'Nematodenschaeden an Zwiebeln' (M. hapla on onion); the UC IPM host table names no Allium, CDFA and LfL are generic; R-002 conclusion 3 and NCDA treat Allium as a rotation non-host"
+          ref: "R-002, §7.3"
     non_hosts:
       - level: family
         name: Poaceae
@@ -259,9 +265,9 @@ hazards:
       - level: species
         name: Vicia faba
         evidence:
-          status: evidenced
+          status: contradictory
           sources: 3
-          basis: "field non-host of Aphanomyces (NDSU PP1790, Banniza, Frontiers 2024); laboratory counter-evidence (APS/UW), open for the whole complex"
+          basis: "field non-host of Aphanomyces (NDSU PP1790, Banniza, Frontiers 2024, 3/3); susceptible in laboratory tests (APS/UW, Grau 1991), LFA MV 4-5 y pause for faba bean; open for the whole complex (§6.2, §6.3)"
           ref: "§7.5"
       - level: species
         name: Glycine max
@@ -281,7 +287,7 @@ hazards:
         status: evidenced
         sources: 3
         kind: range
-        basis: "AGES at least 4 (better 6) y; Manitoba 5 y; PNW 3-8 y (a review gives shorter pauses)"
+        basis: "Rotation read as rotation length (pause = rotation - 1, as for cyst_nematode): AGES at least 4-year (better 6-year) rotation = pause 3 (better 5) y; Manitoba 5 y between susceptible crops; PNW 3-8 y with non-hosts (the review PMC8417578 gives shorter pauses)"
         ref: "§7.6"
     max_survival_years:
       years: 10
@@ -340,7 +346,7 @@ hazards:
         status: evidenced
         sources: 3
         kind: range
-        basis: "UC IPM at least 3 / 3-4 y; CT Agricultural Experiment Station 4-5 y; Illinois Extension at least 3 y; strawberry 3-5 y (PSU, BOELW, Illinois)"
+        basis: "UC IPM at least 3 / 3-4 y with non-hosts; CT Agricultural Experiment Station 4-5 y rotations (pause 3-4 y read as for cyst_nematode); Illinois Extension at least 3 y; strawberry 3-5 y (PSU, BOELW, Illinois)"
         ref: "§7.7"
     max_survival_years:
       years: 10
@@ -412,7 +418,7 @@ hazards:
         name: Poaceae
         evidence:
           status: contradictory
-          sources: 2
+          sources: 3
           basis: "UC IPM, RHS, UW PDDC: grasses do not get the disease; Dung 2020, Pflanzenschutzdienst M-V, SARE: symptomless colonisation"
           ref: "§7.7"
     notes:

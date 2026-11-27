@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.common.enums import EvidenceStatus, SoilHazard
+from app.common.enums import EvidenceKind, EvidenceStatus, SoilHazard
 from app.domain.engines.soil_hazard_knowledge_engine import SoilHazardKnowledgeEngine
 from app.domain.models.soil_hazard_knowledge import (
     Evidence,
@@ -128,4 +128,6 @@ class TestRowAndTable:
         resolved = SoilHazardKnowledgeEngine().resolve_durations(row)
 
         assert (resolved.soil_persistence_years, resolved.max_survival_years, resolved.soft) == (4, None, True)
+        # The recorded kind of an unusable duration does not leak into the result.
+        assert (resolved.soil_persistence_kind, resolved.max_survival_kind) == (EvidenceKind.NUMBER, None)
         assert row.max_survival_years.evidence.status is EvidenceStatus.INSUFFICIENT

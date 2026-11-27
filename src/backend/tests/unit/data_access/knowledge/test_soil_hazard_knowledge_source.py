@@ -20,7 +20,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from app.common.enums import EvidenceKind, EvidenceStatus, SoilHazard
+from app.common.enums import EvidenceKind, EvidenceStatus, HostLevel, SoilHazard
 from app.data_access.knowledge.soil_hazard_knowledge_source import (
     SOIL_HAZARDS_SEED_PATH,
     YamlSoilHazardKnowledgeSource,
@@ -126,6 +126,73 @@ class TestShippedStartValues:
             SoilHazard.ROOT_KNOT_NEMATODE,
             SoilHazard.SCLEROTINIA,
         }
+
+
+#: Kinds of the usable durations: every usable survival is a lower bound ("at least").
+USABLE_KINDS: dict[SoilHazard, tuple[EvidenceKind | None, EvidenceKind | None]] = {
+    SoilHazard.CLUBROOT: (EvidenceKind.RANGE, EvidenceKind.LOWER_BOUND),
+    SoilHazard.CYST_NEMATODE: (EvidenceKind.RANGE, None),
+    SoilHazard.ROOT_KNOT_NEMATODE: (None, None),
+    SoilHazard.WHITE_ROT: (None, EvidenceKind.LOWER_BOUND),
+    SoilHazard.PEA_ROOT_ROT: (None, EvidenceKind.LOWER_BOUND),
+    SoilHazard.SCLEROTINIA: (EvidenceKind.RANGE, None),
+    SoilHazard.VERTICILLIUM: (EvidenceKind.RANGE, EvidenceKind.LOWER_BOUND),
+    SoilHazard.JUGLONE: (None, None),
+}
+
+
+class TestResolvedKinds:
+    """A consumer must tell "at least 15 years" from "15 years" (review S5)."""
+
+    @pytest.mark.parametrize("hazard", list(SoilHazard))
+    def test_the_kind_travels_with_each_usable_duration(self, hazard: SoilHazard) -> None:
+        resolved = ENGINE.resolve_durations(YamlSoilHazardKnowledgeSource().get(hazard))
+
+        assert (resolved.soil_persistence_kind, resolved.max_survival_kind) == USABLE_KINDS[hazard]
+
+
+class TestReviewedRows:
+    """Rows corrected against the research after the F-18 review (D1, D2, D5, D8)."""
+
+    @staticmethod
+    def _entry(hazard: SoilHazard, field: str, level: HostLevel, name: str) -> tuple[EvidenceStatus, int]:
+        row = YamlSoilHazardKnowledgeSource().get(hazard)
+        entries = row.hosts if field == "hosts" else row.non_hosts
+        entry = next(e for e in entries if e.level is level and e.name == name)
+        return entry.evidence.status, entry.evidence.sources
+
+    def test_allium_is_a_root_knot_host_on_one_source_only(self) -> None:
+        """§7.3: only the JKI onion flyer; R-002 conclusion 3 treats Allium as a non-host."""
+        assert self._entry(SoilHazard.ROOT_KNOT_NEMATODE, "hosts", HostLevel.GENUS, "Allium") == (
+            EvidenceStatus.INSUFFICIENT,
+            1,
+        )
+
+    def test_faba_bean_is_a_contradictory_non_host_of_the_complex(self) -> None:
+        """§6.2/§6.3: 3/3 only for Aphanomyces, contradictory for the complex."""
+        status, _ = self._entry(SoilHazard.PEA_ROOT_ROT, "non_hosts", HostLevel.SPECIES, "Vicia faba")
+
+        assert status is EvidenceStatus.CONTRADICTORY
+
+    def test_asteraceae_as_cyst_non_host_rests_on_ages_alone(self) -> None:
+        """R-002: the NDSU non-host list names no Asteraceae."""
+        assert self._entry(SoilHazard.CYST_NEMATODE, "non_hosts", HostLevel.FAMILY, "Asteraceae") == (
+            EvidenceStatus.INSUFFICIENT,
+            1,
+        )
+
+    def test_sources_count_the_supporting_sources_named_in_the_basis(self) -> None:
+        """§7.7: UC IPM, RHS and UW PDDC support the Poaceae non-host statement."""
+        assert self._entry(SoilHazard.VERTICILLIUM, "non_hosts", HostLevel.FAMILY, "Poaceae") == (
+            EvidenceStatus.CONTRADICTORY,
+            3,
+        )
+
+    def test_a_shared_table_cannot_be_mutated(self) -> None:
+        table = YamlSoilHazardKnowledgeSource().get_table()
+
+        assert isinstance(table.hazards, tuple)
+        assert all(isinstance(row.hosts, tuple) and isinstance(row.non_hosts, tuple) for row in table.hazards)
 
 
 class TestDataChangeAlone:

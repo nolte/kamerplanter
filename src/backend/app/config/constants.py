@@ -11,7 +11,8 @@ seed_data/substrate_defaults.yaml.
 DEFAULT_ROTATION_WINDOW_YEARS: int = 3
 
 # REQ-053 GP-FR-131 (K-004): the fallback window and any per-family pause stop at 8 years; longer lock-out periods
-# after an infestation (club root, potato cyst nematodes) belong to ``soil_hazards`` (REQ-054 H-10), not here.
+# after an infestation (club root) belong to the bed's ``soil_hazards`` and the soil-hazard knowledge table
+# (REQ-054 §5.2a, H-10), not here. Potato cyst nematodes (Globodera) are quarantine pests and in neither.
 MAX_ROTATION_WINDOW_YEARS: int = 8
 
 # REQ-053 GP-API-039: the look-back of ``GET /locations/{key}/rotation`` is at least this many years by default, at
