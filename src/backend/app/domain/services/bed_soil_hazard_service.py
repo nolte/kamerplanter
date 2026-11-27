@@ -154,7 +154,7 @@ class BedSoilHazardService:
         if written.status == "location_not_found":
             raise NotFoundError("Location", location_key)
         if written.status == "unchanged":
-            raise NotFoundError("SoilHazard", hazard.value)
+            raise NotFoundError("BedSoilHazard", hazard.value)
         logger.info(
             "soil_hazard_removed", location_key=location.key, hazard=hazard.value, tenant=log_tenant(tenant_key)
         )
