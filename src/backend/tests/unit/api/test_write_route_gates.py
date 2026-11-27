@@ -3273,11 +3273,13 @@ class TestPersistingReadsAreSweptLikeWrites:
         ReservationReads`` in ``PlantingReservationService.reserve_slots``, two
         lambdas passed to
         ``WeatherSourceService._ha_entities``, and the four lambdas passed to
-        ``CareReminderService._propagate``, whose ``action`` is now annotated.
-        Measured result: 14346 unresolved = 2803 genuine + 11543 external before,
-        14338 = 2226 genuine + 12112 external after (the 8 resolutions are the
-        difference in total). No call lost a target, no edge and no name-fallback
-        edge (2545 before and after) disappeared, no function stopped reading as a
+        ``CareReminderService._propagate``, whose ``action`` is now annotated —
+        which also let the catch-up announcement of #3135 go back through
+        ``_propagate``. Measured result: 14346 unresolved = 2803 genuine + 11543
+        external before, 14336 = 2226 genuine + 12110 external after (10 fewer in
+        total: the 8 resolutions and the two ``structlog`` calls of the removed
+        workaround). No call lost a target, no edge and no name-fallback edge
+        (2545 before and after) disappeared, no function stopped reading as a
         writer; one newly does — ``_propagate_care_reschedule``, which really
         upserts the care notification — and seven write routes reach the
         notification writes behind it. The ceiling is the new genuine baseline

@@ -2240,23 +2240,18 @@ class CareReminderService:
         )
         if open_task is not None and open_task.key:
             plant_label = self._resolve_plant_label(profile.plant_key)
-            # Called on the typed attribute, not through ``_propagate``'s lambda: the
-            # write-route call graph resolves this receiver, and a lambda parameter
-            # it cannot (``test_the_unresolved_receiver_count_does_not_grow``).
-            # Best-effort like ``_propagate`` (NFR-007).
-            try:
-                self._notifications.catch_up_care_notification(
+            due_date = open_task.due_date
+            task_key = open_task.key
+            self._propagate(
+                lambda p: p.catch_up_care_notification(
                     tenant_key=tenant_key,
                     plant_key=profile.plant_key,
                     plant_label=plant_label,
                     reminder_type=ReminderType.WATERING,
-                    due_date=open_task.due_date,
-                    task_key=open_task.key,
+                    due_date=due_date,
+                    task_key=task_key,
                 )
-            except Exception:  # pragma: no cover - defensive; propagation is best-effort
-                import structlog
-
-                structlog.get_logger().warning("care_notification_propagation_failed")
+            )
         return None
 
     def _next_watering_due_date(
