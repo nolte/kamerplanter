@@ -1816,15 +1816,15 @@ return at.closest('.notistack-CollapseWrapper');
                 return closed
             if wrapper is None:
                 return closed
-            for button in wrapper.find_elements(*self.SNACKBAR_CLOSE)[:1]:
-                try:
+            try:
+                for button in wrapper.find_elements(*self.SNACKBAR_CLOSE)[:1]:
                     button.click()
-                except (
-                    ElementClickInterceptedException,
-                    ElementNotInteractableException,
-                    StaleElementReferenceException,
-                ):
-                    pass  # leaving already: the wait below covers it
+            except (
+                ElementClickInterceptedException,
+                ElementNotInteractableException,
+                StaleElementReferenceException,
+            ):
+                pass  # leaving already, or gone since the probe: the wait below covers it
             try:
                 self.poll(timeout).until(EC.staleness_of(wrapper))
             except TimeoutException as exc:

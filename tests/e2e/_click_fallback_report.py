@@ -167,7 +167,7 @@ def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> 
         lines.extend(_detail(fallbacks, f_covered, "fallbacks"))
         opt_outs = _with_outcome(fallbacks, _click_fallback.OUTCOME_COVERED_OK)
         if opt_outs:
-            lines.append(f"covered_ok opt-outs (of {len(opt_outs)} fallbacks):")
+            lines.append(f"covered_ok opt-outs ({len(opt_outs)}):")
             reasons = Counter((str(e.get("caller")), str(e.get("covered_ok"))) for e in opt_outs)
             for (caller, reason), count in reasons.most_common(TOP_N):
                 lines.append(f"  {count:4d}x  {caller}: {reason}")

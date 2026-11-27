@@ -49,6 +49,8 @@ class _Node:
 
     # -- the wrapper side --
     def find_elements(self, by: str, value: str) -> list[_Node]:
+        if self.gone:
+            raise StaleElementReferenceException(f"{self.name} left the DOM")
         if value == "[data-testid='snackbar-close']" and self._driver.with_close_button:
             return [_Node(f"{self.name}/close", self._driver, wrapper=self)]
         return []
@@ -121,6 +123,22 @@ class TestCloseSnackbarsOver:
         driver = _Driver(covering=0)
 
         assert _page(driver).close_snackbars_over(_Node("row", driver), "the row") == 0  # type: ignore[arg-type]
+        assert driver.clicked == []
+
+    def test_a_snackbar_that_left_between_probe_and_press_counts_as_closed(self) -> None:
+        """It dismissed itself after the probe saw it: benign, not a test failure."""
+        driver = _Driver(covering=1)
+        seen = driver.execute_script
+
+        def probe_then_auto_dismiss(script: str, *args: object) -> Any:
+            wrapper = seen(script, *args)
+            if wrapper is not None:
+                wrapper.gone = True
+            return wrapper
+
+        driver.execute_script = probe_then_auto_dismiss  # type: ignore[method-assign]
+
+        assert _page(driver).close_snackbars_over(_Node("row", driver), "the row") == 1  # type: ignore[arg-type]
         assert driver.clicked == []
 
     def test_a_snackbar_that_does_not_leave_fails_naming_the_step(self) -> None:

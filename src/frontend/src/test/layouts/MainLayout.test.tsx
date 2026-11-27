@@ -189,5 +189,9 @@ describe('MainLayout (full mode)', () => {
       const height = toolbarRule![1];
       expect(css).toContain(`${media}{.${paperClass}{top:${height};height:calc(100% - ${height});}`);
     }
+    // The offset shares its media queries with the responsive width and must not replace it: full width on a
+    // phone, the fixed drawer width from `sm`.
+    expect(css).toContain(`@media (min-width:0px){.${paperClass}{width:100%;}`);
+    expect(css).toMatch(new RegExp(`@media \\(min-width:600px\\)\\{\\.${paperClass}\\{width:\\d+px;\\}`));
   });
 });

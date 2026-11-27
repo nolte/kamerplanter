@@ -543,7 +543,7 @@ class TestTheReporter:
             f"{SUMMARY_TAG} profile=full fallbacks=4 tests=4 covered=3 covered_tests=3 "
             "uncovered=1 no_verdict=0 probe_failed=0 raised=2 covered_ok=1 file=-"
         )
-        opt_outs = lines[lines.index("covered_ok opt-outs (of 1 fallbacks):") + 1]
+        opt_outs = lines[lines.index("covered_ok opt-outs (1):") + 1]
         assert opt_outs.split(None, 1) == ["1x", "pages/x.py:1 X.y: a reason"]
 
     def test_a_run_without_fallbacks_still_prints_both_lines(self) -> None:

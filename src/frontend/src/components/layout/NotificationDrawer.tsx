@@ -17,7 +17,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import InboxIcon from '@mui/icons-material/Inbox';
-import type { Theme } from '@mui/material/styles';
 import {
   getNotifications,
   markRead,
@@ -288,11 +287,9 @@ export default function NotificationDrawer({
         paper: {
           // #3157 — the paper starts below the app bar, which lies above every drawer: from the top of the
           // viewport the header with its close button sat under the bar and could not be hit with a pointer.
-          sx: (theme: Theme) => ({
-            width: { xs: '100%', sm: DRAWER_WIDTH },
-            maxWidth: '100vw',
-            ...belowAppBar(theme),
-          }),
+          // An array, not a spread: the offset's media queries carry the same keys as the responsive width's,
+          // and one object would let them replace the width instead of joining it.
+          sx: [{ width: { xs: '100%', sm: DRAWER_WIDTH }, maxWidth: '100vw' }, belowAppBar],
           role: 'region',
           'aria-label': t('pages.notifications.title'),
         } as Record<string, unknown>,
