@@ -77,7 +77,8 @@ def record(db: StandardDatabase, migration: Migration, duration_ms: float, *, st
         "duration_ms": round(duration_ms, 3),
         "status": status,
     }
-    _collection(db).insert(doc, overwrite=True)
+    col = _collection(db)
+    col.insert(doc, overwrite=True)
 
 
 def remove(db: StandardDatabase, version: str) -> None:
@@ -247,7 +248,8 @@ def record_seed_run(db: StandardDatabase, *, run_id: str, fingerprint: str, fail
     for the lock reads either the previous record or this one, never a half-written
     run.
     """
-    _collection(db).insert(
+    col = _collection(db)
+    col.insert(
         {
             "_key": SEED_RUN_KEY,
             "run_id": run_id,
