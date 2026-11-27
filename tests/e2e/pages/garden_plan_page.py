@@ -847,7 +847,9 @@ class GardenPlanPage(BasePage):
         found = self.driver.execute_script(
             "var c = arguments[0], svg = arguments[1], r = c.getBoundingClientRect();"
             "var left = Math.max(r.left, 0), right = Math.min(r.right, window.innerWidth);"
-            "var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, window.innerHeight);"
+            "var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, "
+            + self.VISIBLE_BOTTOM_JS
+            + ");"
             "var x = (left + right) / 2, y = (top + bottom) / 2;"
             "var el = document.elementFromPoint(x, y);"
             "return {x: x, y: y, inside: !!el && svg.contains(el)};",
@@ -870,10 +872,11 @@ class GardenPlanPage(BasePage):
         centre = self.canvas_centre()
         key = self.driver.execute_script(
             "var svg = arguments[0], cx = arguments[1], cy = arguments[2], best = null, bestD = Infinity;"
+            "var vb = " + self.VISIBLE_BOTTOM_JS + ";"
             "svg.querySelectorAll(\"g.gp-obj[data-plan-kind='location']\").forEach(function (g) {"
             "  var s = g.querySelector('.gp-shape'); if (!s) { return; }"
             "  var r = s.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;"
-            "  if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) { return; }"
+            "  if (x < 0 || y < 0 || x > window.innerWidth || y > vb) { return; }"
             "  var hit = document.elementFromPoint(x, y), obj = hit && hit.closest('[data-plan-key]');"
             "  if (obj !== g) { return; }"
             "  var d = (x - cx) * (x - cx) + (y - cy) * (y - cy);"

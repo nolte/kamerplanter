@@ -469,11 +469,14 @@ class FieldModePage(BasePage):
             raise AssertionError("the bed sheet offers no 'Foto vom Beet' action") from exc
 
     def is_in_viewport_unscrolled(self, element: WebElement) -> bool:
-        """Whether *element* lies fully inside the viewport as rendered - read before anything is scrolled."""
+        """Whether *element* lies fully inside the viewport as rendered - read before anything is scrolled.
+
+        "Inside" ends at the top edge of the phone's bottom navigation (#3018), which covers the band below it.
+        """
         return bool(
             self.driver.execute_script(
-                "var r = arguments[0].getBoundingClientRect();"
-                "return r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth;",
+                "var r = arguments[0].getBoundingClientRect(), vb = " + self.VISIBLE_BOTTOM_JS + ";"
+                "return r.top >= 0 && r.left >= 0 && r.bottom <= vb && r.right <= window.innerWidth;",
                 element,
             )
         )

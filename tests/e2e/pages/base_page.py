@@ -3289,6 +3289,13 @@ return p.probe;
     #: #3018 -- below `md` (768 px) the app bar has no hamburger; "Mehr" in
     #: the bottom navigation opens the drawer.
     BOTTOM_NAV_MORE = (By.CSS_SELECTOR, "[data-testid='bottom-nav-more']")
+    #: JS expression: the lowest visible y of the viewport (CSS px). On the phone profile the fixed bottom
+    #: navigation (#3018) covers the band below its top edge, so "inside ``innerHeight``" no longer means
+    #: "visible"; every viewport check of a page object measures against this instead.
+    VISIBLE_BOTTOM_JS = (
+        "(function () { var n = document.querySelector(\"[data-testid='bottom-nav']\");"
+        " return n ? Math.min(window.innerHeight, n.getBoundingClientRect().top) : window.innerHeight; })()"
+    )
     SIDEBAR_PAPER = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiDrawer-paper")
 
     def is_sidebar_open(self) -> bool:
