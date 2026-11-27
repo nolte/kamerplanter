@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from contextlib import suppress
 
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -103,26 +104,45 @@ class CalendarPage(BasePage):
     # ── View switching ──────────────────────────────────────────────────
 
     def switch_to_month_view(self) -> None:
-        """Click the Month tab."""
-        self.wait_for_element_clickable(self.VIEW_TAB_MONTH).click()
+        """Click the Month tab and wait until it is the selected one."""
+        self._switch_view("month", self.VIEW_TAB_MONTH)
 
     def switch_to_list_view(self) -> None:
-        """Click the List tab."""
-        self.wait_for_element_clickable(self.VIEW_TAB_LIST).click()
+        """Click the List tab and wait until it is the selected one."""
+        self._switch_view("list", self.VIEW_TAB_LIST)
 
     def switch_to_phases_view(self) -> None:
-        """Click the Phases Timeline tab."""
-        self.wait_for_element_clickable(self.VIEW_TAB_PHASES).click()
+        """Click the Phases Timeline tab and wait until it is the selected one."""
+        self._switch_view("phases", self.VIEW_TAB_PHASES)
 
     def switch_to_sowing_view(self) -> None:
         """Click the Sowing Calendar tab and wait for its content to settle."""
-        self.wait_for_element_clickable(self.VIEW_TAB_SOWING).click()
+        self._switch_view("sowing", self.VIEW_TAB_SOWING)
         self.wait_for_sowing_content()
 
     def switch_to_season_view(self) -> None:
         """Click the Season Overview tab and wait for its content to settle."""
-        self.wait_for_element_clickable(self.VIEW_TAB_SEASON).click()
+        self._switch_view("season", self.VIEW_TAB_SEASON)
         self.wait_for_season_content()
+
+    #: Since #3018 the view is the URL fragment (`/kalender#list`, `useTabUrl`), so a tab click is a router
+    #: navigation, not a `useState` update. React Router's `RouterProvider` commits every location change inside
+    #: `React.startTransition`: the click returns at once, and the tab's `aria-selected` follows only when that
+    #: transition has rendered the new view. Before #3018 the view was `useState` set in the click handler -- a
+    #: discrete update React renders before the event returns -- so a read right after the click happened to see
+    #: it. Now such a read races the render: TC-REQ-015-009 read `'month'` on every profile, while the siblings
+    #: that take a screenshot (or wait for content) between click and read passed.
+    def _switch_view(self, view: str, tab: tuple[str, str]) -> None:
+        """Click the tab of *view* and wait until the page marks it selected.
+
+        Deliberately does not raise -- an *anchor*, not an assertion: the caller's own
+        ``get_active_tab_value()`` check stays the verdict, with its own message, if the tab never becomes
+        the selected one.
+        """
+        self.wait_and_click(tab)
+        selected = f"[data-testid='calendar-view-{view}'][aria-selected='true']"
+        with suppress(TimeoutException):
+            self.poll().until(lambda driver: bool(driver.find_elements(By.CSS_SELECTOR, selected)))
 
     def wait_for_month_settled(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Wait until the month grid rendered and no skeleton is up; raise otherwise.
@@ -199,15 +219,15 @@ class CalendarPage(BasePage):
 
     def click_next_month(self) -> None:
         """Navigate to the next month."""
-        self.wait_for_element_clickable(self.NEXT_MONTH_BTN).click()
+        self.wait_and_click(self.NEXT_MONTH_BTN)
 
     def click_prev_month(self) -> None:
         """Navigate to the previous month."""
-        self.wait_for_element_clickable(self.PREV_MONTH_BTN).click()
+        self.wait_and_click(self.PREV_MONTH_BTN)
 
     def click_today(self) -> None:
         """Click the Today button to return to the current month."""
-        self.wait_for_element_clickable(self.TODAY_BTN).click()
+        self.wait_and_click(self.TODAY_BTN)
 
     def get_month_header_text(self) -> str:
         """Return the visible month/year text in the header area.
@@ -334,11 +354,11 @@ class CalendarPage(BasePage):
 
     def click_plant_filter_select_all(self) -> None:
         """Click the Select All button in the plant filter tree."""
-        self.wait_for_element_clickable(self.PLANT_FILTER_SELECT_ALL).click()
+        self.wait_and_click(self.PLANT_FILTER_SELECT_ALL)
 
     def click_plant_filter_clear(self) -> None:
         """Click the Clear button in the plant filter tree."""
-        self.wait_for_element_clickable(self.PLANT_FILTER_CLEAR).click()
+        self.wait_and_click(self.PLANT_FILTER_CLEAR)
 
     # ── Site select ─────────────────────────────────────────────────────
 
@@ -368,7 +388,7 @@ class CalendarPage(BasePage):
 
     def click_sowing_favorites_filter(self) -> None:
         """Toggle the favorites-only filter in the sowing calendar."""
-        self.wait_for_element_clickable(self.SOWING_FAVORITES_FILTER).click()
+        self.wait_and_click(self.SOWING_FAVORITES_FILTER)
 
     def get_sowing_row_count(self) -> int:
         """Count the number of species/plant rows in the sowing calendar grid.
@@ -421,8 +441,14 @@ class CalendarPage(BasePage):
     # ── Feed management ─────────────────────────────────────────────────
 
     def toggle_feeds_section(self) -> None:
-        """Expand or collapse the iCal feeds section."""
-        self.wait_for_element_clickable(self.FEEDS_TOGGLE).click()
+        """Expand or collapse the iCal feeds section.
+
+        Through :meth:`wait_and_click`: the toggle is the last control of the page, so unscrolled it rests at the
+        bottom edge -- on a phone under the fixed bottom navigation (#3018). A bare ``.click()`` does not scroll
+        an element whose centre is already inside the viewport, and hit the bar instead
+        (``ElementClickInterceptedException``, "bottom-nav-plants would receive the click").
+        """
+        self.wait_and_click(self.FEEDS_TOGGLE)
 
     def click_create_feed(self) -> None:
         """Click the Create Feed button (opens the dialog)."""
