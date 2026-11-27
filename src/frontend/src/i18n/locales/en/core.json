@@ -375,7 +375,15 @@
     "phasen": "Phases",
     "detail": "Details",
     "beginnerHint": "Unlock more features in the settings",
-    "careHistory": "Care history"
+    "careHistory": "Care history",
+    "bottomNav": {
+      "label": "Quick navigation",
+      "start": "Home",
+      "plants": "Plants",
+      "tasks": "Tasks",
+      "calendar": "Calendar",
+      "more": "More"
+    }
   },
   "errors": {
     "network": "Network error. Please check your connection.",

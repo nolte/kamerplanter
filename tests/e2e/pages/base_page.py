@@ -3286,6 +3286,9 @@ return p.probe;
 
     SIDEBAR_ROOT = (By.CSS_SELECTOR, "[data-testid='sidebar']")
     SIDEBAR_TOGGLE = (By.CSS_SELECTOR, "[data-testid='sidebar-toggle']")
+    #: #3018 -- below `md` (768 px) the app bar has no hamburger; "Mehr" in
+    #: the bottom navigation opens the drawer.
+    BOTTOM_NAV_MORE = (By.CSS_SELECTOR, "[data-testid='bottom-nav-more']")
     SIDEBAR_PAPER = (By.CSS_SELECTOR, "[data-testid='sidebar'] .MuiDrawer-paper")
 
     def is_sidebar_open(self) -> bool:
@@ -3296,9 +3299,10 @@ return p.probe;
     def ensure_sidebar_open(self, timeout: int = DEFAULT_TIMEOUT) -> None:
         """Open the sidebar drawer if it is closed, and wait until it is visible.
 
-        Viewport-aware and idempotent. Below the `md` breakpoint (900px --
-        i.e. BOTH the mobile and the tablet profile) the Sidebar renders as a
-        *temporary* Drawer with ``ModalProps={{ keepMounted: true }}``, so its
+        Viewport-aware and idempotent. Below the `md` breakpoint (768px -- the
+        mobile profile; the 820px tablet profile is already desktop) the Sidebar
+        renders as a *temporary* Drawer with ``ModalProps={{ keepMounted: true }}``,
+        opened from "Mehr" in the bottom navigation (#3018), so its
         nav items stay in the DOM while the drawer is closed, merely hidden via
         ``visibility: hidden``. `uiSlice` seeds ``sidebarOpen`` from
         ``window.innerWidth >= 768``, so at 393px the drawer starts closed.
@@ -3315,7 +3319,13 @@ return p.probe;
         """
         if self.is_sidebar_open() or not self.is_present(self.SIDEBAR_ROOT):
             return
-        toggle = self.wait_for_element_clickable(self.SIDEBAR_TOGGLE, timeout=timeout)
+        # #3018: the phone layout opens the drawer from the bottom navigation's
+        # "Mehr"; the hamburger exists only from `md` up. Whichever of the two
+        # the shell renders is the opener.
+        opener = (
+            self.BOTTOM_NAV_MORE if self.is_present(self.BOTTOM_NAV_MORE) else self.SIDEBAR_TOGGLE
+        )
+        toggle = self.wait_for_element_clickable(opener, timeout=timeout)
         self.scroll_and_click(toggle)
         self.poll(timeout).until(EC.visibility_of_element_located(self.SIDEBAR_PAPER))
 

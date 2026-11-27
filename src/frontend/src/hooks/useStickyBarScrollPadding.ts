@@ -61,7 +61,11 @@ function reservedSpace(bar: HTMLElement, container: HTMLElement, gapPx: number):
   const tail = container.scrollHeight - (barTop + barRect.height);
   const viewportHeight = container.clientHeight;
   const reachableTail = tail > 0 && tail < viewportHeight ? tail : 0;
-  const reserved = barRect.height + reachableTail + gapPx;
+  // A bar pinned above the edge (`bottom: <inset>`, e.g. clear of the phone's bottom navigation, #3018) rests
+  // that inset higher, and what lies under the inset is covered too — whichever of tail and inset is larger.
+  const stickyInset = Number.parseFloat(window.getComputedStyle(bar).bottom);
+  const restingGap = Math.max(reachableTail, Number.isFinite(stickyInset) && stickyInset > 0 ? stickyInset : 0);
+  const reserved = barRect.height + restingGap + gapPx;
   if (!Number.isFinite(reserved) || reserved <= 0) return 0;
   // Safety valve: `scroll-padding` larger than half the scrollport would make
   // every scroll-into-view on that container jump, so never reserve more than

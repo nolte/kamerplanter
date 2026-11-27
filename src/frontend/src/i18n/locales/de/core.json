@@ -375,7 +375,15 @@
     "phasen": "Phasen",
     "detail": "Details",
     "beginnerHint": "Weitere Funktionen in den Einstellungen freischalten",
-    "careHistory": "Pflegehistorie"
+    "careHistory": "Pflegehistorie",
+    "bottomNav": {
+      "label": "Schnellnavigation",
+      "start": "Start",
+      "plants": "Pflanzen",
+      "tasks": "Aufgaben",
+      "calendar": "Kalender",
+      "more": "Mehr"
+    }
   },
   "errors": {
     "network": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",

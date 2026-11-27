@@ -8,6 +8,7 @@ import { useStickyBarScrollPadding } from '@/hooks/useStickyBarScrollPadding';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useFormDialogClose } from './formDialogContext';
+import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
 
 interface FormActionsProps {
   onCancel: () => void;
@@ -75,7 +76,8 @@ export default function FormActions({
         ...(isPinned
           ? {
               position: 'sticky',
-              bottom: 0,
+              // #3018 — above the phone's bottom navigation on an in-page form; 0 inside a dialog and without the bar.
+              bottom: `var(${BOTTOM_NAV_OFFSET}, 0px)`,
               zIndex: 1,
               py: 1.5,
               bgcolor: 'background.paper',

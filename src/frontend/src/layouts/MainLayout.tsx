@@ -13,6 +13,8 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -22,6 +24,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import ModuleGuard from '@/components/common/ModuleGuard';
 import UpdateBanner from '@/components/common/UpdateBanner';
 import Breadcrumbs from '@/components/layout/Breadcrumbs';
+import MobileBottomNav from '@/components/layout/MobileBottomNav';
+import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
 import SkipLink from '@/components/layout/SkipLink';
@@ -68,6 +72,10 @@ export default function MainLayout() {
   // (mirrors ThemeContext's pattern).
   const kiosk = useContext(KioskContext);
   const isKiosk = kiosk?.isKiosk ?? false;
+  // UI-NFR-005 R-023 — below `md` the bottom navigation replaces the hamburger; its "Mehr" opens the drawer.
+  // The same query Sidebar uses for its temporary variant, so bar and drawer switch at the same width.
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   // Issue #685 — probe the cluster-wide AI feature flag once so the sidebar can
   // hide the KI-Assistent entry and its page can degrade when AI is disabled.
@@ -166,16 +174,18 @@ export default function MainLayout() {
         }}
       >
         <Toolbar>
-          <IconButton
-            color="inherit"
-            edge="start"
-            onClick={() => dispatch(toggleSidebar())}
-            sx={{ mr: { xs: 1, sm: 2 } }} // #2815: room for the offline indicators at 390 px
-            aria-label={t('common.toggleSidebar')}
-            data-testid="sidebar-toggle"
-          >
-            <MenuIcon />
-          </IconButton>
+          {!isMobile && (
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => dispatch(toggleSidebar())}
+              sx={{ mr: 2 }}
+              aria-label={t('common.toggleSidebar')}
+              data-testid="sidebar-toggle"
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <Box sx={{ flexGrow: 1 }} />
           {/* REQ-053 WP 9.4 — entries of the offline write buffer not yet sent, their sync and conflicts. */}
           <Suspense fallback={null}>
@@ -273,7 +283,9 @@ export default function MainLayout() {
           // leaves; `flexGrow: 1` alone then sizes it to that space.
           minWidth: 0,
           px: 2,
-          py: 1,
+          pt: 1,
+          // UI-NFR-005 R-031 — the last content stays clear of the bottom navigation: its height plus 8 px.
+          pb: isMobile ? `calc(var(${BOTTOM_NAV_OFFSET}, 0px) + 8px)` : 1,
           '&:focus': { outline: 'none' },
         }}
       >
@@ -283,6 +295,7 @@ export default function MainLayout() {
         {page}
         {pageCompanions}
       </Box>
+      {isMobile && <MobileBottomNav />}
     </Box>
   );
 }
