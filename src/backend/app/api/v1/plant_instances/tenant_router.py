@@ -16,19 +16,27 @@ from app.api.v1.plant_instances.schemas import (
     PlantResponse,
     PlantRunSummaryResponse,
     RemovePlantRequest,
+    RemovePlantResponse,
+    SoilHazardFollowUpResponse,
     SurvivalStatsResponse,
     TerminationOptionsResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
 from app.common.auth import get_current_tenant, require_permission
-from app.common.dependencies import get_nutrient_plan_service, get_plant_instance_service, get_planting_run_service
+from app.common.dependencies import (
+    get_bed_soil_hazard_service,
+    get_nutrient_plan_service,
+    get_plant_instance_service,
+    get_planting_run_service,
+)
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import CursorPaginationParams, get_cursor_pagination
 from app.core.permissions import Action, ResourceType
 from app.domain.models.failure_cause import TerminationOptions
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
+from app.domain.services.bed_soil_hazard_service import BedSoilHazardService
 from app.domain.services.nutrient_plan_service import NutrientPlanService
 from app.domain.services.plant_instance_service import PlantInstanceService
 from app.domain.services.planting_run_service import PlantingRunService
@@ -261,14 +269,21 @@ def patch_plant(
     return _to_response(updated, service, ctx.tenant_key)
 
 
-@router.post("/{key}/remove", response_model=PlantResponse)
+@router.post("/{key}/remove", response_model=RemovePlantResponse)
 def remove_plant(
     key: Annotated[str, Path(description="Document key of the plant instance.")],
     body: RemovePlantRequest | None = None,
     ctx: TenantContext = Depends(require_permission(ResourceType.PLANT, Action.UPDATE)),
     service: PlantInstanceService = Depends(get_plant_instance_service),
-):
-    """Mark a plant instance as removed, recording the termination reason."""
+    soil_hazards: BedSoilHazardService = Depends(get_bed_soil_hazard_service),
+) -> RemovePlantResponse:
+    """Mark a plant instance as removed, recording the termination reason.
+
+    After a soil-borne loss the answer carries `soil_hazard_follow_up` (REQ-053 §11.3a Nr. 5, #2888): the offer to take
+    a confirmed, listed pathogen over into the bed (written only by a following `POST /locations/{key}/soil-hazards`
+    with `plant_key`), or at a hydroponic location the hint to clean and disinfect the system. Nothing is written to
+    the bed here.
+    """
     removed = service.remove_plant(
         key,
         termination_type=body.termination_type if body else None,
@@ -279,7 +294,13 @@ def remove_plant(
         failure_pathogen_source=body.failure_pathogen_source if body else None,
         tenant_key=ctx.tenant_key,
     )
-    return _to_response(removed, service, ctx.tenant_key)
+    follow_up = soil_hazards.follow_up_for_loss(removed, tenant_key=ctx.tenant_key)
+    return RemovePlantResponse(
+        **_to_response(removed, service, ctx.tenant_key).model_dump(),
+        soil_hazard_follow_up=(
+            SoilHazardFollowUpResponse.model_validate(follow_up, from_attributes=True) if follow_up else None
+        ),
+    )
 
 
 @router.get("/{key}/termination-options", response_model=TerminationOptionsResponse)

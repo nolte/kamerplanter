@@ -293,7 +293,8 @@ class TestPathogen:
 
     def test_the_dialog_options_offer_the_hazard_list_and_the_soil_borne_classes(self) -> None:
         options = FailureCauseEngine().options(open_phase=None, family_name=None)
-        assert list(options.pathogens) == list(SoilHazard)
+        # #2888 F-20 (review D4): every soil hazard but juglone, which is entered at the bed by hand only.
+        assert list(options.pathogens) == [hazard for hazard in SoilHazard if hazard is not SoilHazard.JUGLONE]
         assert set(options.pathogen_classes) == {FailureCauseClass.PEST_SOIL, FailureCauseClass.DISEASE_SOIL}
         assert list(options.confirmation_sources) == list(PathogenConfirmationSource)
 
@@ -310,3 +311,31 @@ class TestNoClassStaysNoClass:
             record.failure_pathogen_confirmed,
             record.failure_pathogen_source,
         ) == (None, None, None, None)
+
+
+class TestJugloneIsNoPathogenOfALoss2888F20:
+    """#2888 F-20 review D4: the termination dialog no longer offers juglone, and a new loss naming it is refused."""
+
+    def test_a_new_loss_naming_juglone_is_refused(self) -> None:
+        violations = find_failure_cause_violations(
+            termination_type=TerminationType.DIED,
+            termination_cause=TerminationCause.DISEASE,
+            failure_cause_class=FailureCauseClass.DISEASE_SOIL,
+            failure_pathogen=SoilHazard.JUGLONE,
+            failure_pathogen_confirmed=True,
+            failure_pathogen_source=PathogenConfirmationSource.CLEAR_SYMPTOMS,
+        )
+        assert violations == [
+            "failure_pathogen 'juglone' is no pathogen of a loss: one of clubroot, cyst_nematode, root_knot_nematode, "
+            "white_rot, pea_root_rot, sclerotinia, verticillium"
+        ]
+
+    def test_the_offer_and_the_take_over_read_the_same_list(self) -> None:
+        from app.domain.models.bed_soil_hazard import LOSS_SOIL_HAZARDS
+        from app.domain.models.failure_cause import LOSS_PATHOGENS
+
+        assert (
+            LOSS_SOIL_HAZARDS
+            == frozenset(LOSS_PATHOGENS)
+            == frozenset(FailureCauseEngine().options(open_phase=None, family_name=None).pathogens)
+        )

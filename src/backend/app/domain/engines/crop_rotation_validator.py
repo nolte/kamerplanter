@@ -17,6 +17,7 @@ from app.domain.interfaces.plant_instance_repository import IPlantInstanceReposi
 from app.domain.interfaces.rotation_history_repository import IRotationHistoryRepository, PlantedRow
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
+from app.domain.models.bed_soil_hazard import CONTAINER_LOCATION_TYPES
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.site import Location
 from app.domain.models.species import Species
@@ -39,7 +40,8 @@ class RotationValidationResult:
 
 
 #: Location types whose substrate is changed instead of rotated (GP-FR-137, REQ-001): the bed-level check is off.
-ROTATION_OFF_LOCATION_TYPES: frozenset[str] = frozenset({"planter", "tent", "shelf"})
+#: The vessels of REQ-053 §11.3a Nr. 5, which carry no soil hazard either (#2888 F-20) - one set for both.
+ROTATION_OFF_LOCATION_TYPES: frozenset[str] = CONTAINER_LOCATION_TYPES
 
 NOT_APPLICABLE_CONTAINER = "rotation.not_applicable.container"
 NOT_APPLICABLE_EXEMPT = "rotation.not_applicable.rotation_exempt"

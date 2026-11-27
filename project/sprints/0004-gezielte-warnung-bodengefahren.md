@@ -52,8 +52,8 @@ Freigabe des Zuschnitts durch den Betreiber am 2026-11-22.
 ## Features
 
 - [F-18](../features/soil-hazard-knowledge.md) — status: done
-- [F-19](../features/failure-cause-class.md) — status: in_progress
-- [F-20](../features/bed-soil-hazards.md) — status: ready
+- [F-19](../features/failure-cause-class.md) — status: done
+- [F-20](../features/bed-soil-hazards.md) — status: in_progress
 - [F-21](../features/soil-aware-replant-hint.md) — status: ready
 
 ## Out of scope

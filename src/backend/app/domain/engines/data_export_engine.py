@@ -627,6 +627,9 @@ class DataExportEngine:
                 # REQ-053 WP 10.11 (W-016): the tent rules, part of the plan backup.
                 "adjacency_factor",
                 "lighting",
+                # REQ-054 §5.2 (#2888 F-20): the bed's confirmed soil hazards, part of the plan backup. Hazard key,
+                # date and a source category - no person.
+                "soil_hazards",
                 # REQ-053 GP-FR-051 (WP 8.18): which photos show the bed. Not in the plan backup (never), but part
                 # of the disclosure; the photos' own metadata is in the ``attachments`` sources.
                 "photo_refs",

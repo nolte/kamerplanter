@@ -10,12 +10,14 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+from datetime import date
 from typing import Any
 
 import pytest
 
-from app.common.enums import GardenObjectType, TenantRole
+from app.common.enums import GardenObjectType, PathogenConfirmationSource, SoilHazard, TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
+from app.domain.models.bed_soil_hazard import BedSoilHazard
 from app.domain.models.garden_object import GardenObject
 from app.domain.models.site import LocationLighting, SiteConditions, SitePlan, Slot
 from app.domain.services.garden_plan_export_service import GardenPlanExportService
@@ -1139,3 +1141,113 @@ class TestTextLabelsInTheBackup2913:
 
         assert repo.applied == applied_before
         assert any(detail["field"].startswith(f"garden_objects[{index}]") for detail in refused.value.details)
+
+
+class TestSoilHazardsInTheBackup2888:
+    """#2888 F-20 acceptance-6: a bed's soil hazards travel with the plan backup and come back from it (R19)."""
+
+    _CLUBROOT = BedSoilHazard(
+        hazard=SoilHazard.CLUBROOT, confirmed_at=date(2025, 6, 1), source=PathogenConfirmationSource.LAB_TEST
+    )
+    _JUGLONE = BedSoilHazard(
+        hazard=SoilHazard.JUGLONE, confirmed_at=date(2019, 3, 1), source=PathogenConfirmationSource.CLEAR_SYMPTOMS
+    )
+
+    def _seed(self, repo: FakePlanRepo, key: str = "b1", **update: Any) -> None:
+        repo.locations[key] = repo.locations[key].model_copy(
+            update={"soil_hazards": [self._CLUBROOT, self._JUGLONE], **update}
+        )
+
+    def test_they_survive_a_restore_from_their_own_backup(self, rig, repo) -> None:
+        self._seed(repo)
+        document = rig.file()
+        exported = {loc["name"]: loc for loc in document["locations"]}["Beet 1"]
+        assert exported["soil_hazards"] == [
+            {"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"},
+            {"hazard": "juglone", "confirmed_at": "2019-03-01", "source": "clear_symptoms"},
+        ]
+
+        report = rig.run(json.loads(json.dumps(document)))
+
+        assert report.applied and report.dropped_references == []
+        assert TestReferencesAndFields._restored_beet_1(repo).soil_hazards == [self._CLUBROOT, self._JUGLONE]
+
+    def test_a_file_written_before_them_restores_none(self, rig, repo) -> None:
+        self._seed(repo)
+        document = rig.file()
+        for item in document["locations"]:
+            item.pop("soil_hazards", None)
+
+        assert rig.run(document).applied
+        assert TestReferencesAndFields._restored_beet_1(repo).soil_hazards == []
+
+    @pytest.mark.parametrize("bad", ["fusarium", "Clubroot", ""])
+    def test_a_hazard_key_outside_the_list_refuses_the_file(self, rig, repo, bad: str) -> None:
+        document = rig.file()
+        document["locations"][0]["soil_hazards"] = [{"hazard": bad, "confirmed_at": "2025-06-01", "source": "lab_test"}]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [d["field"] for d in refused.value.details] == ["locations[0].soil_hazards[0].hazard"]
+        assert repo.applied == []
+
+    @pytest.mark.parametrize("day", ["1899-12-31", "2999-01-01"])
+    def test_an_implausible_confirmation_date_refuses_the_file(self, rig, repo, day: str) -> None:
+        """Review D5: the plan import applies the same date rule as the route (on the entry model)."""
+        document = rig.file()
+        document["locations"][0]["soil_hazards"] = [{"hazard": "clubroot", "confirmed_at": day, "source": "lab_test"}]
+
+        with pytest.raises(PlanValidationError) as refused:
+            rig.run(document, dry_run=True)
+
+        assert [d["field"] for d in refused.value.details] == ["locations[0].soil_hazards[0].confirmed_at"]
+        assert repo.applied == []
+
+    def test_a_hazard_listed_twice_refuses_the_file(self, rig, repo) -> None:
+        document = rig.file()
+        entry = {"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"}
+        document["locations"][0]["soil_hazards"] = [entry, entry]
+
+        with pytest.raises(PlanValidationError):
+            rig.run(document)
+        assert repo.applied == []
+
+    @pytest.mark.parametrize("vessel", ["planter", "tent", "shelf"])
+    def test_a_vessel_of_the_file_imports_without_them_and_says_so(self, rig, repo, vessel: str) -> None:
+        repo.bed_types.update({"planter": True, "tent": False, "shelf": False})
+        document = rig.file()
+        position = next(i for i, loc in enumerate(document["locations"]) if loc["name"] == "Beet 1")
+        document["locations"][position] |= {
+            "location_type_key": vessel,
+            "soil_hazards": [{"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"}],
+        }
+
+        report = rig.run(document)
+
+        assert report.applied
+        assert [(d.key, d.field, d.reason) for d in report.dropped_references] == [("b1", "soil_hazards", "no_soil")]
+        assert TestReferencesAndFields._restored_beet_1(repo).soil_hazards == []
+
+    def test_a_location_that_is_no_bed_imports_without_them(self, rig, repo) -> None:
+        document = rig.file()
+        document["locations"][0] |= {
+            "location_type_key": "greenhouse",
+            "soil_hazards": [{"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"}],
+        }
+
+        report = rig.run(document)
+
+        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards", "no_soil")]
+        assert all(loc.soil_hazards == [] for loc in repo.locations.values())
+
+    def test_they_are_never_written_into_another_tenants_site(self, rig, repo) -> None:
+        self._seed(repo)
+        document = rig.file()
+        before = {key: loc.soil_hazards for key, loc in repo.locations.items()}
+
+        with pytest.raises(NotFoundError):
+            rig.run(document, site=FOREIGN_SITE)
+
+        assert repo.applied == []
+        assert {key: loc.soil_hazards for key, loc in repo.locations.items()} == before

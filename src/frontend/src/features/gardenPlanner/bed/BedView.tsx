@@ -1,6 +1,6 @@
 /**
  * The bed view (REQ-053 GP-FR-041/047): the bed head from the summary and the tabs Plan, Planting,
- * Care, Soil, History, Photos (GP-FR-051) and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
+ * Care, Soil (with the bed's soil hazards, #2888 F-20), History, Photos (GP-FR-051) and Details. The tab is part of the URL hash (`useTabUrl`), so every tab can
  * be linked. "Details" is the location page as it always was (master data, tank, runs, slots,
  * watering, sensors), handed in by `LocationDetailPage`. Under the head, "Etikett drucken" (GP-FR-052, GP-UX-028) opens
  * the bed label: a PDF whose QR code opens this bed in field mode.
@@ -30,6 +30,7 @@ import { useRotationBadge } from '../planting/useRotationBadge';
 import BedStatusDialog from './BedStatusDialog';
 import RotationSwitch from './RotationSwitch';
 import SoilAnalysisSection from './SoilAnalysisSection';
+import SoilHazardsSection from './SoilHazardsSection';
 import SoilProfileForm from './SoilProfileForm';
 import { allowedBedTransitions } from './bedStatus';
 import type { BedSummary } from './types';
@@ -174,6 +175,16 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
               profile={summary.soil_profile}
               canEdit={canEdit}
               onSaved={() => void onReload()}
+            />
+            <SoilHazardsSection
+              bedKey={summary.key}
+              bedName={summary.name}
+              locationTypeKey={summary.location_type_key}
+              irrigationSystem={summary.irrigation_system}
+              hazards={summary.soil_hazards ?? []}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              onChanged={onReload}
             />
             <SoilAnalysisSection
               key={summary.key}

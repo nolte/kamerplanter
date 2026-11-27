@@ -2,6 +2,7 @@
  * Bed read model (REQ-053 WP 3.5): the bed list row (GP-API-011), the summary that heads the bed view
  * (GP-API-012) and the soil profile (GP-FR-120/121). Derived from `app/api/v1/locations/schemas.py`.
  */
+import type { BedSoilHazard } from './soilHazardTypes';
 import type {
   BedStatus,
   FrostRisk,
@@ -246,6 +247,8 @@ export interface BedSummary extends BedListItem {
   adjacency_factor?: number | null;
   /** W-016.2/3: lamp height, canopy distance, fixture footprint. */
   lighting?: LocationLighting | null;
+  /** REQ-054 §5.2 (#2888): confirmed soil hazards, newest first, hosts from the knowledge table. Absent before. */
+  soil_hazards?: BedSoilHazard[];
 }
 
 export type TentHintCode =

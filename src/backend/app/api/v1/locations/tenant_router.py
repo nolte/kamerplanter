@@ -25,6 +25,7 @@ from app.api.v1.locations.schemas import (
     LimingHintResponse,
     LocationCoverRequest,
     LocationCreate,
+    LocationDetailResponse,
     LocationOptionResponse,
     LocationPatch,
     LocationPatchResponse,
@@ -32,6 +33,7 @@ from app.api.v1.locations.schemas import (
     LocationPhotoResponse,
     LocationPhotosResponse,
     LocationResponse,
+    LocationSoilHazardsResponse,
     LocationStatusRequest,
     NeighbourHintResponse,
     NutrientHintResponse,
@@ -47,6 +49,7 @@ from app.api.v1.locations.schemas import (
     SoilAnalysesResponse,
     SoilAnalysisPointResponse,
     SoilAnalysisSeriesItemResponse,
+    SoilHazardCreateRequest,
     SoilMethodChangeResponse,
     SuccessionBasisResponse,
     SuccessionFamilyResponse,
@@ -57,6 +60,7 @@ from app.api.v1.locations.schemas import (
     ValidatePlantingRequest,
     ValidatePlantingResponse,
     rotation_year_responses,
+    soil_hazard_responses,
 )
 from app.api.v1.slots.schemas import SlotBatchRequest, SlotBatchResponse
 from app.api.v1.tanks.schemas import LiveStateResponse, SensorCreate, SensorResponse, SensorUpdate
@@ -67,6 +71,7 @@ from app.common.datetimes import utc_range
 from app.common.dependencies import (
     get_bed_history_service,
     get_bed_rotation_service,
+    get_bed_soil_hazard_service,
     get_companion_overlay_service,
     get_garden_resource_service,
     get_location_photo_service,
@@ -76,8 +81,9 @@ from app.common.dependencies import (
     get_sensor_service,
     get_site_service,
     get_soil_analysis_service,
+    get_soil_hazard_knowledge_source,
 )
-from app.common.enums import BedStatus
+from app.common.enums import BedStatus, SoilHazard
 from app.common.exceptions import PlanError, ValidationError
 from app.common.locale import get_request_locale
 from app.common.openapi_responses import (
@@ -91,8 +97,10 @@ from app.config.constants import MAX_ROTATION_TIMELINE_YEARS
 from app.config.settings import settings
 from app.core.permissions import Action, ResourceType
 from app.domain.engines.bed_list_csv_engine import ERROR_BEDS_ONLY, bed_list_csv_rows, resolve_bed_list_columns
+from app.domain.engines.bed_soil_hazard_engine import resolve_entries
 from app.domain.engines.storage.thumbnail_generator import THUMBNAIL_SIZES, can_render
 from app.domain.interfaces.bed_history_repository import BedHistoryFilter
+from app.domain.interfaces.soil_hazard_knowledge_source import ISoilHazardKnowledgeSource
 from app.domain.models.care_event import CARE_EVENT_CATEGORIES
 from app.domain.models.location_photo import LocationPhoto, LocationPhotoGallery
 from app.domain.models.sensor import Sensor
@@ -100,6 +108,7 @@ from app.domain.models.site import MAX_PHOTO_REF_LENGTH, Location
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_soil_hazard_service import BedSoilHazardService
 from app.domain.services.companion_overlay_service import CompanionEndpoint, CompanionOverlayService
 from app.domain.services.garden_resource_service import GardenResourceService
 from app.domain.services.location_photo_service import LocationPhotoService
@@ -295,15 +304,21 @@ def list_location_options(
     ]
 
 
-@router.get("/{key}", response_model=LocationResponse)
+@router.get("/{key}", response_model=LocationDetailResponse)
 def get_location(
     key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: SiteService = Depends(get_site_service),
-):
-    """Return a single location by key."""
+    knowledge: ISoilHazardKnowledgeSource = Depends(get_soil_hazard_knowledge_source),
+) -> LocationDetailResponse:
+    """Return a single location by key, with its soil hazards (AP-API-012: they are read with the location).
+
+    `soil_hazards[]` lists the confirmed soil hazards of the bed, newest first; pathogens and hosts (each with its
+    evidence status) resolve from the knowledge table (REQ-054 §5.2a) at read time.
+    """
     loc = _verify_location_tenant(key, ctx, service)
-    return to_response(loc, LocationResponse)
+    resolved = resolve_entries(loc.soil_hazards, knowledge.get_table())
+    return to_response(loc, LocationDetailResponse, soil_hazards=soil_hazard_responses(resolved))
 
 
 @router.get("/{key}/children", response_model=list[LocationResponse])
@@ -374,6 +389,7 @@ def get_location_summary(
     key: Annotated[str, Path(description="Document key of the location.")],
     ctx: TenantContext = Depends(get_current_tenant),
     service: GardenResourceService = Depends(get_garden_resource_service),
+    knowledge: ISoilHazardKnowledgeSource = Depends(get_soil_hazard_knowledge_source),
 ) -> BedSummaryResponse:
     """The head data of the bed view: area, type, status, soil, sun, plants, tasks, last care (GP-API-012).
 
@@ -387,6 +403,8 @@ def get_location_summary(
     `tent_hints` (W-016.6, V-23) are hints of a tent or shelf level with two or more plants - never an error:
     `tent.photoperiod_conflict` when their current phases ask for different photoperiods, `tent.photoperiod_unknown`
     when a phase names none, `tent.photoperiod_data_error` when a short-day plant's flowering profile states a long day.
+    `soil_hazards` (REQ-054 §5.2, #2888) are the bed's confirmed soil hazards with hosts resolved from the knowledge
+    table, as on `GET /locations/{key}`.
     Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
@@ -408,6 +426,7 @@ def get_location_summary(
         path_access=view.path_access,
         supports_layout=view.supports_layout,
         tent_hints=[TentHintResponse.from_hint(hint) for hint in view.tent_hints],
+        soil_hazards=soil_hazard_responses(resolve_entries(view.location.soil_hazards, knowledge.get_table())),
     )
 
 
@@ -452,6 +471,74 @@ async def delete_location(
     references go with it; each photo is deleted unless something else still names it (WP 8.18).
     """
     await service.delete_bed(key, tenant_key=ctx.tenant_key, user_key=ctx.user_key, role=ctx.role)
+
+
+# ── Soil hazards of a bed (REQ-054 §5.2, AP-API-012, #2888 F-20) ─────────────────
+
+
+@router.post(
+    "/{key}/soil-hazards",
+    response_model=LocationSoilHazardsResponse,
+    status_code=201,
+    responses={
+        **FORBIDDEN_RESPONSE,
+        **CONFLICT_RESPONSE,
+        **VALIDATION_RESPONSE,
+        200: {"model": LocationSoilHazardsResponse, "description": "Nothing written (`changed: false`)."},
+    },
+)
+def record_soil_hazard(
+    response: Response,
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    body: SoilHazardCreateRequest,
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.UPDATE)),
+    service: BedSoilHazardService = Depends(get_bed_soil_hazard_service),
+) -> LocationSoilHazardsResponse:
+    """Record a confirmed soil hazard of the bed (AP-API-012, REQ-054 §5.2) - grower and above.
+
+    Either by hand (`hazard`, `confirmed_at`, `source`) or as the accepted offer after a loss (`plant_key` alone: the
+    confirmed pathogen of that died plant of this bed, dated on the day of the loss; REQ-053 §11.3a Nr. 5). A bed holds
+    each hazard once: a later confirmation replaces the stored one, an earlier one changes nothing - so recording never
+    shortens a hazard. 422 `soil_hazard.container` (planter, tent, shelf), `soil_hazard.not_a_bed`,
+    `soil_hazard.hydroponic` (no soil: clean the system instead), `soil_hazard.confirmed_in_future`,
+    `soil_hazard.plant_not_in_bed`, `soil_hazard.loss_not_confirmed` (no soil-borne loss, no listed or no confirmed
+    pathogen, or `juglone`, which is entered by hand only), `soil_hazard.confirmed_too_early` (before 1900). When the
+    bed already carries the hazard confirmed as late or later nothing is written: 200 with `changed: false` instead of
+    201. A bed of another tenant answers 404 like an unknown one.
+    """
+    hazard, confirmed_at, source = body.hazard, body.confirmed_at, body.source
+    if body.plant_key is not None:
+        outcome = service.take_over_loss(key, tenant_key=ctx.tenant_key, plant_key=body.plant_key)
+    elif hazard is not None and confirmed_at is not None and source is not None:
+        outcome = service.record(
+            key, tenant_key=ctx.tenant_key, hazard=hazard, confirmed_at=confirmed_at, source=source
+        )
+    else:  # the request schema refuses this shape already; kept so no caller of the schema can slip past it
+        raise ValidationError("Send hazard, confirmed_at and source, or plant_key alone.")
+    if not outcome.changed:
+        # Nothing was written: 200, not 201, and ``changed: false`` - the client must not report it as recorded.
+        response.status_code = 200
+    return LocationSoilHazardsResponse(
+        location_key=key, changed=outcome.changed, soil_hazards=soil_hazard_responses(outcome.entries)
+    )
+
+
+@router.delete(
+    "/{key}/soil-hazards/{hazard}",
+    status_code=204,
+    responses={**FORBIDDEN_RESPONSE, **CONFLICT_RESPONSE},
+)
+def remove_soil_hazard(
+    key: Annotated[str, Path(description="Document key of the bed.")],
+    hazard: Annotated[SoilHazard, Path(description="Key of the soil hazard to remove.")],
+    ctx: TenantContext = Depends(require_permission(ResourceType.LOCATION, Action.DELETE)),
+    service: BedSoilHazardService = Depends(get_bed_soil_hazard_service),
+) -> None:
+    """Remove a soil hazard from the bed (AP-API-012) - lead only.
+
+    404 when the bed does not hold that hazard, and for a bed of another tenant like for an unknown one.
+    """
+    service.remove(key, hazard, tenant_key=ctx.tenant_key)
 
 
 # ── Bed photos (REQ-053 GP-FR-051, WP 8.18) ─────────────────────────────────────

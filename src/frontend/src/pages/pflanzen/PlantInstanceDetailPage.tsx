@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useId } from 'react';
 import { useCatalogue } from '@/hooks/useCatalogue';
 import CatalogueLoadError from '@/components/common/CatalogueLoadError';
 import { useTabUrl } from '@/hooks/useTabUrl';
@@ -71,6 +71,7 @@ import QrCode2Icon from '@mui/icons-material/QrCode2';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import PhaseTransitionDialog from './PhaseTransitionDialog';
 import TerminationDialog from './TerminationDialog';
+import type { SoilHazardFollowUp } from '@/features/gardenPlanner/bed/soilHazardTypes';
 import PlantTagDialog from './PlantTagDialog';
 import { PlantLabelDialog } from '@/components/print/PlantLabelDialog';
 import PlantPhaseTimeline from './PlantPhaseTimeline';
@@ -117,6 +118,9 @@ import PlantDiaryTab from './diary/PlantDiaryTab';
 import TaskCreateDialog from '@/pages/aufgaben/TaskCreateDialog';
 import { captureHandledError } from '@/observability/errorTracking';
 import { formatDate, formatDateTime, formatDateWith } from '@/utils/formatting';
+
+// #2888 F-20: the offer after a soil-borne loss loads only when a loss proposes one.
+const SoilHazardFollowUpDialog = lazy(() => import('@/features/gardenPlanner/bed/SoilHazardFollowUpDialog'));
 
 const editSchema = z.object({
   plant_name: z.string().nullable(),
@@ -797,16 +801,19 @@ export default function PlantInstanceDetailPage() {
   };
 
   const [removing, setRemoving] = useState(false);
+  const [soilHazardFollowUp, setSoilHazardFollowUp] = useState<SoilHazardFollowUp | null>(null);
   const onRemove = async (body: import('@/api/types').RemovePlantRequest) => {
     // An ended plant is not removed twice: a second click while the dialog animates out would only earn a 422 toast
     // after the success toast (#2888 F-19).
     if (!key || plant?.removed_on) return;
     try {
       setRemoving(true);
-      const updated = await plantApi.removePlantInstance(key, body);
+      const { soil_hazard_follow_up: followUp, ...updated } = await plantApi.removePlantInstance(key, body);
       setPlant(updated);
       notification.success(t('pages.plantInstances.remove'));
       setRemoveOpen(false);
+      // #2888 F-20: after a soil-borne loss, the offer to take the pathogen into the bed or the clean-system hint.
+      setSoilHazardFollowUp(followUp ?? null);
     } catch (err) {
       handleError(err);
     } finally {
@@ -3059,6 +3066,17 @@ export default function PlantInstanceDetailPage() {
         onCancel={() => setRemoveOpen(false)}
         loading={removing || !!plant?.removed_on}
       />
+
+      {soilHazardFollowUp && key && (
+        <Suspense fallback={null}>
+          <SoilHazardFollowUpDialog
+            followUp={soilHazardFollowUp}
+            plantKey={key}
+            plantName={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : ''}
+            onClose={() => setSoilHazardFollowUp(null)}
+          />
+        </Suspense>
+      )}
 
       <ConfirmDialog
         open={removePlanOpen}

@@ -351,7 +351,7 @@ Wählst du **Verlust (eingegangen)**, musst du zusätzlich eine Verlustursache a
 
 Ist die Pflanze vorzeitig geschossen (siehe [Geplantes und vorzeitiges Schossen unterscheiden](#vorzeitiges-schossen)), ist **Schossen** schon vorbelegt. <!-- REQ-003 E6 -->
 
-### Schritt 4a: Angeben, wo die Ursache saß
+### Schritt 4a: Angeben, wo die Ursache saß {#ursache-wo}
 
 Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im Boden. Diese Angabe wird künftig bestimmen, ob du an derselben Stelle bedenkenlos nachpflanzen kannst. <!-- REQ-003 E5, REQ-053 §11.3a -->
 
@@ -366,10 +366,10 @@ Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im 
 
 **Die Welke-Frage:** Bei Hitze, Trockenheit und Staunässe — und bei „Unbekannt“ an Nachtschattengewächsen, Kreuzblütlern, Kürbis- und Rosengewächsen — fragt der Dialog: „Welkte die Pflanze trotz feuchter Erde, waren Gefäße im Stängel oder die Wurzeln braun?“ Antwortest du mit **Ja**, erfasst Kamerplanter eine **bodenbürtige Krankheit**, denn hinter einem solchen Bild kann zum Beispiel die Verticillium-Welke stecken.
 
-**Erreger nennen (optional):** Bei einem Bodenschädling oder einer bodenbürtigen Krankheit kannst du den Erreger aus der Liste der Bodengefahren wählen — etwa Kohlhernie, Zystennematoden oder Verticillium-Welke. Weißt du es sicher, setzt du **Der Erreger ist bestätigt** und wählst, wer ihn bestätigt hat: **Laborbefund**, **Pflanzenschutz-Beratung** oder **Eindeutiges Schadbild** (zum Beispiel die Wucherungen der Kohlhernie).
+**Erreger nennen (optional):** Bei einem Bodenschädling oder einer bodenbürtigen Krankheit kannst du den Erreger aus der Liste der Bodengefahren wählen — etwa Kohlhernie, Zystennematoden oder Verticillium-Welke. Juglon (Walnuss) steht dort nicht: Es ist kein Erreger der Pflanze, du trägst es am Beet ein. Weißt du es sicher, setzt du **Der Erreger ist bestätigt** und wählst, wer ihn bestätigt hat: **Laborbefund**, **Pflanzenschutz-Beratung** oder **Eindeutiges Schadbild** (zum Beispiel die Wucherungen der Kohlhernie).
 
-!!! info "Noch keine Bodengefahr am Beet"
-    Ein genannter Erreger wird an der Pflanze gespeichert. Eine Bodengefahr am Beet entsteht dadurch nicht von selbst.
+!!! info "Bodengefahr am Beet nur auf deine Bestätigung"
+    Ein genannter Erreger wird an der Pflanze gespeichert. Ist er bestätigt und stand die Pflanze in einem Beet, fragt dich Kamerplanter nach dem Entfernen, ob das Beet ihn als Bodengefahr übernehmen soll; erst mit **Ins Beet übernehmen** wird sie eingetragen. Ein unbestätigter Verdacht und Juglon werden nie übernommen. Stand die Pflanze in Hydrokultur, bekommst du stattdessen den Hinweis, das System zu reinigen und zu desinfizieren. Mehr unter [Bodengefahren am Beet](locations-substrates.md#bodengefahren-am-beet). <!-- REQ-053 §11.3a Nr. 5 -->
 
 !!! warning "Noch nicht implementiert"
     Der Nachpflanz-Hinweis wird künftig der Ursachenklasse folgen und bei einer bodenbürtigen Ursache gezielt warnen. Bis dahin richtet er sich allein nach der Verlustursache: Pflanzt du dieselbe Pflanzenfamilie an derselben Stelle nach, warnt dich Kamerplanter nach Krankheit oder Schädlingsbefall — egal ob du Blatt oder Boden gewählt hast —, nach Schossen und den anderen abiotischen Ursachen nicht.

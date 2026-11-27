@@ -51,6 +51,7 @@ from app.common.dependencies import (
     get_bed_csv_import_service,
     get_bed_history_service,
     get_bed_rotation_service,
+    get_bed_soil_hazard_service,
     get_bed_template_service,
     get_companion_overlay_service,
     get_garden_plan_export_service,
@@ -77,6 +78,7 @@ from app.data_access.arango import collections as col
 from app.data_access.arango import location_photo_repository
 from app.data_access.arango.attachment_repository import ArangoAttachmentRepository
 from app.data_access.arango.bed_history_repository import ArangoBedHistoryRepository
+from app.data_access.arango.bed_soil_hazard_repository import ArangoBedSoilHazardRepository
 from app.data_access.arango.bed_template_repository import ArangoBedTemplateRepository
 from app.data_access.arango.botanical_family_repository import ArangoBotanicalFamilyRepository
 from app.data_access.arango.care_event_repository import ArangoCareEventRepository
@@ -108,6 +110,7 @@ from app.data_access.arango.rotation_history_repository import ArangoRotationHis
 from app.data_access.arango.site_repository import ArangoSiteRepository
 from app.data_access.arango.species_repository import ArangoSpeciesRepository
 from app.data_access.arango.task_repository import ArangoTaskRepository
+from app.data_access.knowledge.soil_hazard_knowledge_source import YamlSoilHazardKnowledgeSource
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
 from app.domain.engines.dependency_resolver import DependencyResolver
 from app.domain.engines.garden_plan_engine import ERROR_REFERENCE_NOT_FOUND
@@ -122,6 +125,7 @@ from app.domain.services.adjacency_service import AdjacencyService
 from app.domain.services.bed_csv_import_service import BedCsvImportService
 from app.domain.services.bed_history_service import BedHistoryService
 from app.domain.services.bed_rotation_service import BedRotationService
+from app.domain.services.bed_soil_hazard_service import BedSoilHazardService
 from app.domain.services.bed_template_service import BedTemplateService
 from app.domain.services.care_event_service import CareEventService
 from app.domain.services.companion_overlay_service import CompanionOverlayService
@@ -178,6 +182,8 @@ B_SECRETS = (
     "sowable_b",
     "sowrun_b",
     "sowentry_b",
+    # #2888 F-20: the confirmed loss in tenant B's bed.
+    "lost_b",
     B,
 )
 #: The sowing day the ``sow_slot`` case sends: inside the year the route accepts, whenever the tier runs.
@@ -431,6 +437,33 @@ def db(database):
             )
         database.collection(col.LOCATIONS).update(
             {"_key": f"bed_{suffix}", "photo_refs": [f"bedpic_{suffix}"], "cover_photo_ref": f"bedpic_{suffix}"}
+        )
+    # #2888 F-20: per tenant a bed soil hazard (the subject of the remove) and a confirmed soil-borne loss in the bed
+    # (the subject of the take-over), stored as the remove call stores it.
+    for suffix, tenant in (("a", A), ("b", B)):
+        database.collection(col.LOCATIONS).update(
+            {
+                "_key": f"bed_{suffix}",
+                "soil_hazards": [{"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"}],
+            }
+        )
+        database.collection(col.PLANT_INSTANCES).insert(
+            {
+                "_key": f"lost_{suffix}",
+                "tenant_key": tenant,
+                "instance_id": f"LOST-{suffix.upper()}",
+                "species_key": "sp",
+                "site_key": f"site_{suffix}",
+                "location_key": f"bed_{suffix}",
+                "planted_on": "2026-04-01",
+                "removed_on": "2026-07-01",
+                "termination_type": "died",
+                "termination_cause": "pest",
+                "failure_cause_class": "pest_soil",
+                "failure_pathogen": "cyst_nematode",
+                "failure_pathogen_confirmed": True,
+                "failure_pathogen_source": "advisory_service",
+            }
         )
     # WP 7.19: a snapshot a replace import of tenant B left behind (the plan it overwrote).
     database.collection(col.GARDEN_PLAN_AUDIT).insert(
@@ -730,11 +763,20 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
         _RecordDeleter(attachment_repo),  # type: ignore[arg-type]
     )
     bed_photos: Any = _photo_service(db)
+    # #2888 F-20: the soil hazards of a bed over the real repositories and the shipped knowledge table.
+    soil_hazards: Any = BedSoilHazardService(
+        ArangoSiteRepository(db),
+        ArangoLocationTypeRepository(db),
+        ArangoPlantInstanceRepository(db),
+        ArangoBedSoilHazardRepository(db),
+        YamlSoilHazardKnowledgeSource(),
+    )
     # REQ-053 WP 8.17: the decision on a suggested task (GP-API-040) over the real task repository.
     tasks: Any = TaskService(ArangoTaskRepository(db), HSTValidator(), DependencyResolver())
     if unscoped:
         tasks = _Unscoped(tasks)
         bed_photos = _Unscoped(bed_photos)
+        soil_hazards = _Unscoped(soil_hazards)
         underlay = _Unscoped(underlay)
         templates = _Unscoped(templates)
         zones = _Unscoped(zones)
@@ -784,6 +826,7 @@ def _client(db, *, tenant: str = A, role: TenantRole = TenantRole.LEAD, unscoped
     app.dependency_overrides[get_bed_template_service] = lambda: templates
     app.dependency_overrides[get_garden_plan_underlay_service] = lambda: underlay
     app.dependency_overrides[get_location_photo_service] = lambda: bed_photos
+    app.dependency_overrides[get_bed_soil_hazard_service] = lambda: soil_hazards
     app.dependency_overrides[get_task_service] = lambda: tasks
     app.dependency_overrides[get_is_platform_admin] = lambda: False
     app.dependency_overrides[get_adjacency_dispatch] = lambda: lambda _location_key: None  # no broker in this tier
@@ -1095,6 +1138,25 @@ CASES: tuple[Case, ...] = (
         writes=True,
     ),
     Case("remove_location_photo", "DELETE", "/locations/bed_b/photos/bedpic_b", writes=True),
+    # #2888 F-20 (AP-API-012, REQ-054 §5.2): the soil hazards of a bed - recorded by hand, taken over from a loss
+    # in the bed, removed - through the bed's site (acceptance-5). The read rides on ``get_location`` above.
+    Case(
+        "record_soil_hazard",
+        "POST",
+        "/locations/bed_b/soil-hazards",
+        {"hazard": "white_rot", "confirmed_at": "2026-07-01", "source": "lab_test"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case(
+        "take_over_soil_hazard",
+        "POST",
+        "/locations/bed_b/soil-hazards",
+        {"plant_key": "lost_b"},
+        owner_status=201,
+        writes=True,
+    ),
+    Case("remove_soil_hazard", "DELETE", "/locations/bed_b/soil-hazards/clubroot", owner_status=204, writes=True),
     # REQ-053 WP 8.12, GP-FR-135: the rotation matrix of a site reads every bed's history under the tenant.
     Case("get_rotation_matrix", "GET", "/sites/site_b/rotation-matrix"),
     # REQ-053 WP 4.5, GP-API-038: the combined history of a bed (care events + derived planting events).
@@ -2578,3 +2640,16 @@ class TestTheParcelListPrintsOnlyTheTenantsMembers:
         assert (foreign.status_code, absent.status_code) == (404, 404)
         assert _canonical(foreign.text).replace("site_a", "site_gone") == _canonical(absent.text)
         assert "Alice" not in foreign.text
+
+
+def test_a_foreign_loss_is_not_taken_over_into_the_callers_own_bed(db) -> None:
+    """#2888 F-20 (review D10): the caller's own bed with tenant B's plant key answers like an unknown plant."""
+    client = _client(db)
+    before = _snapshot(db)
+
+    foreign = client.post(f"/api/v1/t/{SLUG_A}/locations/bed_a/soil-hazards", json={"plant_key": "lost_b"})
+    unknown = client.post(f"/api/v1/t/{SLUG_A}/locations/bed_a/soil-hazards", json={"plant_key": "lost_gone"})
+
+    assert foreign.status_code == unknown.status_code == 404
+    assert _canonical(foreign.text).replace("lost_b", "lost_gone") == _canonical(unknown.text)
+    assert _snapshot(db) == before

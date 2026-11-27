@@ -36,6 +36,7 @@ from app.domain.calculators.geometry_calculator import BoundingBox, area_m2, bou
 from app.domain.calculators.orientation_calculator import derived_orientation, orientation_from_aspect
 from app.domain.calculators.reach_calculator import PATH_ACCESS_MAX_DISTANCE_M, REACH_BOTH_SIDES_M, REACH_ONE_SIDE_M
 from app.domain.calculators.window_orientation import DEFAULT_WINDOW_SUGGESTION_RADIUS_M
+from app.domain.models.bed_soil_hazard import MAX_BED_SOIL_HAZARDS, BedSoilHazard
 from app.domain.models.geometry import (
     AREA_KINDS,
     FULL_TURN_DEG,
@@ -702,10 +703,23 @@ class Location(BaseModel):
     )
     #: The photo shown for the bed; one of ``photo_refs`` or ``None`` (cleared when that photo is removed).
     cover_photo_ref: str | None = Field(default=None, min_length=1, max_length=MAX_PHOTO_REF_LENGTH)
+    #: Confirmed persistent soil hazards of the bed (REQ-054 §5.2, #2888 F-20): one entry per hazard key, hosts and
+    #: durations resolve from the knowledge table at read time. Written only by ``BedSoilHazardService`` and the plan
+    #: import; an edit body never carries it. Empty on every legacy document.
+    soil_hazards: list[BedSoilHazard] = Field(default_factory=list, max_length=MAX_BED_SOIL_HAZARDS)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("soil_hazards")
+    @classmethod
+    def _one_entry_per_hazard(cls, value: list[BedSoilHazard]) -> list[BedSoilHazard]:
+        """A bed records each hazard once; a newer confirmation replaces the entry instead of adding one."""
+        hazards = [entry.hazard for entry in value]
+        if len(set(hazards)) != len(hazards):
+            raise ValueError("soil_hazards must not list a hazard twice.")
+        return value
 
     @model_validator(mode="after")
     def validate_photos(self) -> Self:

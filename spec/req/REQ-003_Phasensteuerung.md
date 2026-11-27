@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.25 (#2888 F-19: E5-Tabelle trennt `unknown` von leerer Ursache); 2.24 (#2888 F-19: Feldnamen von Erreger und Bestätigung am Ausfall, E5); 2.23 (#2888 F-18: Ursache `bolting` und Ursachenklasse `failure_cause_class` am Ausfall, E5); 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.26 (#2888 F-20: `juglone` ist kein Erreger eines Ausfalls); 2.25 (#2888 F-19: E5-Tabelle trennt `unknown` von leerer Ursache); 2.24 (#2888 F-19: Feldnamen von Erreger und Bestätigung am Ausfall, E5); 2.23 (#2888 F-18: Ursache `bolting` und Ursachenklasse `failure_cause_class` am Ausfall, E5); 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.26 | 2026-11-27 | **#2888 / F-20 (Review D4):** Ein Ausfall nennt seinen Erreger aus der Liste der Bodengefahren **ohne `juglone`** — Juglon ist die Allelopathie eines Walnussbaums neben oder früher auf dem Beet, kein Erreger der Pflanze (Recherche §2), und wird nur am Beet von Hand eingetragen (REQ-054 §5.2, REQ-053 §11.3a Nr. 5). Ein neuer Ausfall mit `juglone` wird abgelehnt (`422`); vor dieser Version gespeicherte Ausfälle mit `juglone` bleiben lesbar. Regeländerung gegenüber v2.24, vom Betreiber zu bestätigen (`project/features/bed-soil-hazards.md` „Offene Betreiberentscheidungen (F-20)“ O4). |
 | 2.25 | 2026-11-27 | **#2888 / F-19 (Review):** Die Vorbelegungstabelle in E5 trennt `unknown` (Vorbelegung `unknown`) von einer leeren Ursache: Ohne Ursache entsteht keine Klasse (Altdaten, „Beet räumen“); eine ausdrücklich angegebene Klasse ohne Ursache wird angenommen. So sagte es schon der Satz von v2.24; die Zeile `unknown` / leer → `unknown` widersprach ihm. Keine Regeländerung im Code. |
 | 2.24 | 2026-11-27 | **#2888 / F-19 (Klarstellung bei der Umsetzung):** E5 nennt die Felder, die ein bodenbürtiger Ausfall zum Erreger trägt — `failure_pathogen` (Schlüssel der Bodengefahren-Liste), `failure_pathogen_confirmed` und `failure_pathogen_source` (`lab_test` / `advisory_service` / `clear_symptoms`, eine Kategorie statt eines Namens) — und wann `bolting` vorbelegt ist: Die Phase, in der die Pflanze steht, ist `bolting` und wurde mit `is_premature` betreten. Eine Klasse ohne Ursache ist zulässig, entsteht aber nie von selbst. Keine Regeländerung. |
 | 2.23 | 2026-11-26 | **#2888 / F-18 (Sprint 0004, Spec vor Code):** E5 erhält den Ursachenwert `bolting` (Schossen, abiotisch) und das neue Feld `failure_cause_class` (`abiotic` / `pest_foliar` / `pest_soil` / `disease_soil` / `disease_foliar` / `mechanical` / `unknown`), vorbelegt aus `termination_cause` nach der Tabelle in E5, bei `disease`/`pest` Pflichtauswahl Blatt/Boden. `bolting` wird vorbelegt, wenn die Pflanze vorzeitig in die Schoss-Phase ging (E6, `is_premature`). Pflanzen ohne Klasse (Altdaten, „Beet räumen“) verhalten sich wie bisher. Verbraucher: Nachpflanz-Hinweis und Bodengefahren REQ-053 §11.3a v1.55, Wissenstabelle REQ-054 §5.2a v1.4. Quelle: `spec/analysis/agrobiology-soil-hazards-research-2888.md` §5, R-004.1 (Schossen-Ursachen 3/3, §7.10). Additiv, Umsetzung F-19. |
@@ -1901,7 +1902,7 @@ Seneszenz, Tod und Abbruch. E5 ergänzt zwei Felder am `PlantInstance` (REQ-013)
   | leer (keine Ursache) | keine — es entsteht keine Klasse | jede Klasse, nur wenn ausdrücklich angegeben |
 
   Bei `pest_soil`/`disease_soil` kann der Nutzer einen Erreger aus der Liste der Bodengefahren
-  (REQ-054 §5.2a) nennen und festhalten, ob und von wem er bestätigt wurde; daraus entsteht nie
+  ohne `juglone` (REQ-054 §5.2a; Juglon ist kein Erreger eines Ausfalls, v2.26) nennen und festhalten, ob und von wem er bestätigt wurde; daraus entsteht nie
   automatisch eine Bodengefahr am Beet (Übernahme nur auf Angebot, REQ-053 §11.3a). Felder (v2.24):
   `failure_pathogen` (Hazard-Schlüssel), `failure_pathogen_confirmed` (`false`, wenn nur benannt) und
   `failure_pathogen_source` ∈ {`lab_test`, `advisory_service`, `clear_symptoms`} — Laborbefund, Beratung,

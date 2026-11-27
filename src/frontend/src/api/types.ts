@@ -989,6 +989,21 @@ export type SoilHazard =
 /** Who confirmed the pathogen of a soil-borne loss (REQ-053 §11.3a). */
 export type PathogenConfirmationSource = 'lab_test' | 'advisory_service' | 'clear_symptoms';
 
+/**
+ * The answer of `POST /plant-instances/{key}/remove` (#2888 F-20): the ended plant plus what the app proposes after a
+ * soil-borne loss - `offer` (take the confirmed pathogen over into the bed, written only on confirmation) or
+ * `clean_system` (hydroponics); `null` otherwise.
+ */
+export interface RemovedPlantInstance extends PlantInstance {
+  soil_hazard_follow_up?: {
+    kind: 'offer' | 'clean_system';
+    location_key: string;
+    hazard?: SoilHazard | null;
+    confirmed_at?: string | null;
+    source?: PathogenConfirmationSource | null;
+  } | null;
+}
+
 /** Optional body for POST /{key}/remove — classifies how the lifecycle ended. */
 export interface RemovePlantRequest {
   termination_type?: TerminationType | null;

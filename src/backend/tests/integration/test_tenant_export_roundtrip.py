@@ -75,6 +75,7 @@ from app.domain.engines.membership_engine import MembershipEngine
 from app.domain.engines.tenant_engine import TenantEngine
 from app.domain.engines.tenant_export_engine import TenantArchiveWriter, read_tenant_archive
 from app.domain.engines.tenant_import_engine import TenantImportEngine
+from app.domain.models.site import Location
 from app.domain.models.tenant_export import TenantImportMemberGrant, TenantImportRequest
 from app.domain.models.user import User
 from app.domain.services.attachment_service import imported_object_body
@@ -164,6 +165,13 @@ def _underlay(attachment_key: str) -> dict[str, Any]:
     }
 
 
+#: A bed's soil hazards as ``BedSoilHazardService`` stores them: key, date and a source category - no person.
+_SOIL_HAZARDS = [
+    {"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"},
+    {"hazard": "juglone", "confirmed_at": "2019-03-01", "source": "clear_symptoms"},
+]
+
+
 def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
     """A small but connected tenant: places, plants, diary, IPM, a task, a photo and edges."""
     db.collection("tenants").insert(
@@ -221,7 +229,10 @@ def _seed_tenant(db, tenant: str, *, marker: str = "") -> dict[str, str]:
             },
         }
     )
-    db.collection("locations").insert({"_key": k["loc"], "site_key": k["site"], "name": "Bed 1"})
+    # #2888 F-20 (R19): the bed's soil hazards travel with the tenant archive.
+    db.collection("locations").insert(
+        {"_key": k["loc"], "site_key": k["site"], "name": "Bed 1", "area_m2": 2.0, "soil_hazards": _SOIL_HAZARDS}
+    )
     db.collection("slots").insert({"_key": k["slot"], "location_key": k["loc"], "slot_id": "S1"})
     db.collection("species").insert(
         {
@@ -476,6 +487,15 @@ def test_roundtrip_export_import_export_differs_only_in_keys(source, target, tmp
         target.aql.execute("FOR m IN memberships FILTER m.tenant_key == @t RETURN m", bind_vars={"t": new_tenant})
     )
     assert [(m["user_key"], m["role"], m["is_active"]) for m in imported_members] == [("new-lead", "lead", True)]
+    # #2888 F-20 acceptance-6: the bed's soil hazards arrived and load as the location they belong to.
+    (imported_bed,) = list(
+        target.aql.execute(
+            "FOR s IN sites FILTER s.tenant_key == @t FOR l IN locations FILTER l.site_key == s._key RETURN l",
+            bind_vars={"t": new_tenant},
+        )
+    )
+    assert imported_bed["soil_hazards"] == _SOIL_HAZARDS
+    assert [entry.hazard for entry in Location.model_validate(imported_bed).soil_hazards] == ["clubroot", "juglone"]
 
     request = dst.request_export(
         requester=_person("new-lead"),

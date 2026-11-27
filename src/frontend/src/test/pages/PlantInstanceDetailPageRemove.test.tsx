@@ -74,7 +74,7 @@ function makePlant(): PlantInstance {
   };
 }
 
-describe('PlantInstanceDetailPage — removing a plant (#2888 F-19)', () => {
+describe('PlantInstanceDetailPage — removing a plant (#2888 F-19, F-20)', () => {
   beforeEach(async () => {
     await i18n.changeLanguage('de');
     setActiveTenantSlug('test-tenant');
@@ -106,5 +106,58 @@ describe('PlantInstanceDetailPage — removing a plant (#2888 F-19)', () => {
     await user.click(screen.getByTestId('stub-termination-confirm'));
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(posts).toBe(1);
+  });
+
+  // #2888 F-20: the answer's follow-up opens the offer; the page writes nothing to the bed by itself.
+  it.each([
+    [
+      { kind: 'offer', location_key: 'loc_b03', hazard: 'clubroot', confirmed_at: '2026-11-27', source: 'lab_test' },
+      'Bodengefahr ins Beet übernehmen?',
+    ],
+    [{ kind: 'clean_system', location_key: 'loc_nft' }, 'System reinigen und desinfizieren'],
+  ])('shows the follow-up the remove answer carries (%o)', async (followUp, title) => {
+    const plant = makePlant();
+    const bedWrites: unknown[] = [];
+    server.use(
+      http.get('/api/v1/t/:tenant/plant-instances/:key', () => HttpResponse.json(plant)),
+      http.get('/api/v1/t/:tenant/tasks/plants/:plantKey', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json([])),
+      http.post('/api/v1/t/:tenant/plant-instances/:key/remove', () =>
+        HttpResponse.json({ ...plant, removed_on: '2026-11-27', termination_type: 'died', soil_hazard_follow_up: followUp }),
+      ),
+      http.post('/api/v1/t/:tenant/locations/:key/soil-hazards', async ({ request }) => {
+        bedWrites.push(await request.json());
+        return HttpResponse.json({ location_key: 'loc_b03', soil_hazards: [] }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PlantInstanceDetailPage />, { route: '/pflanzen/plant-instances/pi-1' });
+
+    await user.click(await screen.findByTestId('remove-button', {}, { timeout: 5000 }));
+    await user.click(screen.getByTestId('stub-termination-confirm'));
+
+    expect(await screen.findByText(title, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(bedWrites).toEqual([]);
+  });
+
+  it('opens no follow-up when the answer carries none', async () => {
+    const plant = makePlant();
+    server.use(
+      http.get('/api/v1/t/:tenant/plant-instances/:key', () => HttpResponse.json(plant)),
+      http.get('/api/v1/t/:tenant/tasks/plants/:plantKey', () => HttpResponse.json([])),
+      http.get('/api/v1/t/:tenant/tasks', () => HttpResponse.json([])),
+      http.post('/api/v1/t/:tenant/plant-instances/:key/remove', () =>
+        HttpResponse.json({ ...plant, removed_on: '2026-11-27', termination_type: 'died', soil_hazard_follow_up: null }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(<PlantInstanceDetailPage />, { route: '/pflanzen/plant-instances/pi-1' });
+
+    await user.click(await screen.findByTestId('remove-button', {}, { timeout: 5000 }));
+    await user.click(screen.getByTestId('stub-termination-confirm'));
+    await waitFor(() => expect(screen.getByTestId('stub-termination-confirm').dataset.loading).toBe('true'));
+
+    expect(screen.queryByText('Bodengefahr ins Beet übernehmen?')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('soil-hazard-clean-system-dialog')).not.toBeInTheDocument();
   });
 });

@@ -358,9 +358,14 @@ class TestTheRouteOperand:
         +1 (2026-11-27): the cause-class options of the termination dialog (REQ-003 E5/E6, #2888 F-19):
         ``GET /t/{slug}/plant-instances/{key}/termination-options``. Consumed in the same change by
         ``getTerminationOptions`` (``api/endpoints/plantTermination.ts``) from ``TerminationDialog``.
+
+        +2 (2026-11-27): the soil hazards of a bed (AP-API-012, REQ-054 §5.2, #2888 F-20):
+        ``POST /t/{slug}/locations/{key}/soil-hazards`` and ``DELETE …/soil-hazards/{hazard}``. Consumed in the
+        same change by ``recordSoilHazard`` / ``takeOverLossAsSoilHazard`` and ``removeSoilHazard``
+        (``features/gardenPlanner/bed/soilHazardApi.ts``) from the soil tab and the offer after a loss.
         """
         app = checker.load_app(REPO_ROOT / "src" / "backend")
-        assert len(checker.collect_operations(app)) == 913
+        assert len(checker.collect_operations(app)) == 915
 
     def test_it_reads_the_gate_from_the_factory_not_the_closure(self) -> None:
         """Every guard in ``app/common/auth.py`` returns a closure named ``_check``.
