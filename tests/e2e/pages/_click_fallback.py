@@ -21,6 +21,29 @@ as before. No click is added, removed or redirected, and nothing here can fail a
 test: every read is wrapped, and a read that cannot be made is recorded as
 ``probe_failed``.
 
+## The second kind: direct coordinate-free clicks
+
+:meth:`BasePage.click_coordinate_free` (and ``wait_and_click_coordinate_free``)
+dispatch a JS ``click()`` **without** trying a native click first -- deliberately,
+because the form submits they serve sit at the bottom of a page taller than the
+viewport, where a coordinate click can miss (see that method's docstring). They
+are as covering-blind as the fallback, and since the mobile bottom navigation
+(#3149) the bottom of the page is exactly where a user can be blocked. They are
+recorded with the same probe as ``kind: "direct"`` (``trigger: "direct"``, no
+exception); fallbacks carry ``kind: "fallback"``. The reporter keeps the two
+apart in its summary.
+
+For a direct click ``relation: "outside_viewport"`` is its own outcome rather
+than noise: the helper exists because the centre can lie below the fold. Such a
+control is not *covered* -- but a user would have had to scroll to reach it.
+
+Deliberately **not** measured: ``click_menu_option`` and
+``dispatch_menu_trigger_open`` act on an open menu's options / a Select trigger
+whose popover is the top layer by construction (a covering element would be the
+menu itself), and ``expand_all_fields`` toggles a control inside the dialog it
+reveals. Their coordinate independence protects against *moving* targets, not
+against covered ones, so a probe there would measure nothing #3157 decides on.
+
 ## Where the events go
 
 Events are kept in :data:`_pending`, a per-process list. The reporting plugin
@@ -183,9 +206,12 @@ def record_fallback(
     trigger: BaseException | str,
     locator: object = None,
     probe: dict[str, Any] | None = None,
+    kind: str = "fallback",
 ) -> dict[str, Any] | None:
     """Append one fallback event to :data:`_pending` and return it; never raises.
 
+    *kind* is ``"fallback"`` (a fallback after a refused native click) or
+    ``"direct"`` (a deliberately coordinate-free click, see the module docstring).
     *probe* is :func:`probe_cover`'s answer, or ``None`` when the caller could not
     ask (an open user prompt must not receive a script) -- recorded as
     ``probe_failed`` with the reason in ``probe_error``.
@@ -202,6 +228,7 @@ def record_fallback(
             # drained by something else (a self-test, a debugging session).
             "nodeid": os.environ.get("PYTEST_CURRENT_TEST", "").rsplit(" (", 1)[0] or None,
             "worker": os.environ.get("PYTEST_XDIST_WORKER"),
+            "kind": kind,
             "helper": helper,
             "caller": _caller(),
             "activation": activation,

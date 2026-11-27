@@ -1495,7 +1495,7 @@ class BasePage:
         """
         self.driver.execute_script("arguments[0].click();", element)
 
-    def click_coordinate_free(self, element: WebElement) -> None:
+    def click_coordinate_free(self, element: WebElement, *, locator: Locator | None = None) -> None:
         """Click a ``click``-activated control without going through coordinates.
 
         Use this for the submit/confirm button of a long in-page form. A native
@@ -1525,6 +1525,12 @@ class BasePage:
         A disabled control is rejected for the same reason: the browser drops
         the default action, so the call would report success without having
         done anything.
+
+        **Measured, not yet judged (#3157).** Like the fallback of
+        :meth:`scroll_and_click`, this click reaches the control whatever covers
+        it, so every call records a ``kind: "direct"`` event with what lies at
+        the control's centre (``pages/_click_fallback.py``). *locator* only names
+        the target in that record.
         """
         if self.opens_on_mousedown(element):
             raise AssertionError(
@@ -1540,6 +1546,21 @@ class BasePage:
                 "browser suppresses its default action, so the click would be a "
                 "silent no-op. Wait for the control to become enabled first."
             )
+        # The probe runs here -- after the scroll, immediately before the dispatch --
+        # because that is the layout the click happens in: "what would a user's
+        # press hit right now". It cannot disturb what this helper protects
+        # against: the hazard above is residual scrolling *between a coordinate
+        # resolution and a coordinate dispatch*, and the dispatch below resolves
+        # no coordinates. The probe only adds one round trip before a click whose
+        # target is the already-resolved element, wherever it has moved to.
+        self._record_click_fallback(
+            element,
+            helper="BasePage.click_coordinate_free",
+            activation="js_click",
+            trigger="direct",
+            locator=locator,
+            kind="direct",
+        )
         self._dispatch_click(element)
 
     def wait_and_click_coordinate_free(
@@ -1550,7 +1571,9 @@ class BasePage:
         The counterpart of :meth:`wait_and_click` for form submits; see
         :meth:`click_coordinate_free` for why coordinates are the hazard there.
         """
-        self.click_coordinate_free(self.wait_for_element_clickable(locator, timeout=timeout))
+        self.click_coordinate_free(
+            self.wait_for_element_clickable(locator, timeout=timeout), locator=locator
+        )
 
     def toggle_switch(self, field_name: str) -> None:
         """Flip the MUI ``Switch`` in ``form-field-{field_name}``, and verify it flipped.
@@ -1770,6 +1793,7 @@ return p.probe;
         activation: str,
         trigger: BaseException | str,
         locator: Locator | None = None,
+        kind: str = "fallback",
     ) -> None:
         """Record a covering-blind fallback activation that is about to happen (#3157).
 
@@ -1801,6 +1825,7 @@ return p.probe;
                 trigger=trigger,
                 locator=locator,
                 probe=probe,
+                kind=kind,
             )
         except Exception:  # noqa: BLE001 -- the record must never fail the click it records
             pass

@@ -36,6 +36,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from tests.e2e import _click_fallback_report as report_mod
 from tests.e2e._click_fallback_report import (
+    DIRECT_TAG,
     REPORT_ATTRIBUTE,
     SUMMARY_TAG,
     ClickFallbackReporter,
@@ -91,6 +92,7 @@ class TestAnInterceptedClick:
         assert event["relation"] == "other"
         assert event["hit"]["testid"] == "bottom-nav-plants", "the record must name the cover"
         assert event["probe"] == "ok"
+        assert event["kind"] == "fallback"
         assert event["helper"] == "BasePage.scroll_and_click"
         assert event["activation"] == "js_click"
         assert event["trigger"] == "ElementClickInterceptedException"
@@ -204,6 +206,97 @@ class TestAStaleProxy:
         assert "StaleElementReferenceException" in event["probe_error"]
         assert harness.connection.count(Command.FIND_ELEMENT) == finds_before, "no re-resolution"
         assert event["locator"] == f"css selector: {self.DIALOG[1]}", "the proxy names its locator"
+
+
+class TestADirectCoordinateFreeClick:
+    """`click_coordinate_free` never tries a native click; every call is measured."""
+
+    def test_a_covered_submit_records_a_direct_event_naming_the_cover(self) -> None:
+        driver = FakeDriver({SAVE}, cover_probe={SAVE: {"relation": "other", "hit": BOTTOM_NAV}})
+
+        page_for(driver).wait_and_click_coordinate_free(SAVE_LOCATOR)
+
+        [event] = _click_fallback.drain()
+        assert event["kind"] == "direct"
+        assert event["trigger"] == "direct" and event["trigger_message"] == ""
+        assert event["helper"] == "BasePage.click_coordinate_free"
+        assert event["activation"] == "js_click"
+        assert event["covered"] is True
+        assert event["hit"]["testid"] == "bottom-nav-plants"
+        assert event["locator"] == f"css selector: {SAVE}"
+        assert driver.clicked == [SAVE], "still exactly one JS click"
+
+    def test_a_centre_on_the_control_records_not_covered(self) -> None:
+        driver = FakeDriver({SAVE})
+
+        page_for(driver).click_coordinate_free(driver.find_element(*SAVE_LOCATOR))
+
+        [event] = _click_fallback.drain()
+        assert event["kind"] == "direct" and event["relation"] == "self"
+        assert event["covered"] is False
+        assert driver.clicked == [SAVE]
+
+    def test_a_centre_below_the_fold_records_outside_viewport_without_a_verdict(self) -> None:
+        driver = FakeDriver(
+            {SAVE}, cover_probe={SAVE: {"relation": "outside_viewport", "hit": None}}
+        )
+
+        page_for(driver).wait_and_click_coordinate_free(SAVE_LOCATOR)
+
+        [event] = _click_fallback.drain()
+        assert event["relation"] == "outside_viewport"
+        assert event["covered"] is None, "off the fold is not covered -- and not uncovered"
+        assert driver.clicked == [SAVE]
+
+    def test_a_failing_probe_still_clicks(self) -> None:
+        driver = FakeDriver({SAVE})
+
+        def broken(script: str, *args: object) -> object:
+            if script.startswith("/* coverProbe */"):
+                raise RuntimeError("javascript error: probe broke")
+            return FakeDriver.execute_script(driver, script, *args)
+
+        driver.execute_script = broken  # type: ignore[method-assign]
+
+        page_for(driver).wait_and_click_coordinate_free(SAVE_LOCATOR)
+
+        [event] = _click_fallback.drain()
+        assert event["kind"] == "direct" and event["probe"] == "probe_failed"
+        assert driver.clicked == [SAVE]
+
+    def test_the_probe_sees_the_layout_after_the_scroll(self) -> None:
+        """Measured where the click happens: after `scroll_into_view`, before the dispatch."""
+        driver = FakeDriver({SAVE})
+        scrolls_at_probe: list[int] = []
+
+        def spy(script: str, *args: object) -> object:
+            if script.startswith("/* coverProbe */"):
+                scrolls_at_probe.append(driver.scrolls)
+                assert driver.clicked == [], "the probe must run before the click"
+            return FakeDriver.execute_script(driver, script, *args)
+
+        driver.execute_script = spy  # type: ignore[method-assign]
+
+        page_for(driver).wait_and_click_coordinate_free(SAVE_LOCATOR)
+
+        assert scrolls_at_probe == [1]
+        assert driver.clicked == [SAVE]
+
+    def test_an_open_prompt_gets_no_probe_and_the_click_still_goes_out(self) -> None:
+        driver = FakeDriver({SAVE})
+        element = driver.find_element(*SAVE_LOCATOR)
+        page = page_for(driver)
+        page.scroll_into_view = lambda el: None  # type: ignore[method-assign]
+        page.opens_on_mousedown = lambda el: False  # type: ignore[method-assign]
+        page._dispatch_click = lambda el: driver.record_click(el.selector)  # type: ignore[method-assign]
+        driver.prompt = "confirm"
+
+        page.click_coordinate_free(element)
+
+        [event] = _click_fallback.drain()
+        assert event["probe"] == "probe_failed"
+        assert driver.scripts_while_prompt == [] and driver.prompt == "confirm"
+        assert driver.clicked == [SAVE]
 
 
 class TestAnAcceptedClick:
@@ -344,11 +437,45 @@ class TestTheReporter:
         covering = lines[lines.index("top covering elements (of 3 covered fallbacks):") + 1]
         assert covering.split() == ["2x", "button[data-testid='bottom-nav-plants']", "(other)"]
 
-    def test_a_run_without_fallbacks_still_prints_the_line(self) -> None:
+    def test_a_run_without_fallbacks_still_prints_both_lines(self) -> None:
         assert summarize([], "light", None) == [
             f"{SUMMARY_TAG} profile=light fallbacks=0 tests=0 covered=0 covered_tests=0 "
-            "uncovered=0 no_verdict=0 probe_failed=0 file=-"
+            "uncovered=0 no_verdict=0 probe_failed=0 file=-",
+            f"{DIRECT_TAG} profile=light clicks=0 tests=0 covered=0 covered_tests=0 "
+            "uncovered=0 outside_viewport=0 no_verdict=0 probe_failed=0",
         ]
+
+    def test_direct_clicks_are_counted_apart_from_the_fallbacks(self) -> None:
+        def direct(nodeid: str, relation: str, covered: bool | None, testid: str) -> dict:
+            return {
+                **_event(nodeid, covered=covered, testid=testid),
+                "kind": "direct",
+                "helper": "BasePage.click_coordinate_free",
+                "trigger": "direct",
+                "relation": relation,
+                "target": {"tag": "button", "testid": "form-submit-button"},
+            }
+
+        events = [
+            _event("f1", covered=True),
+            direct("d1", "other", True, "bottom-nav"),
+            direct("d1", "other", True, "bottom-nav"),
+            direct("d2", "self", False, "x"),
+            direct("d3", "outside_viewport", None, "x"),
+            direct("d4", "detached", None, "x"),
+        ]
+
+        lines = summarize(events, "mobile", None)
+
+        assert lines[0].startswith(f"{SUMMARY_TAG} profile=mobile fallbacks=1 tests=1 covered=1 ")
+        assert lines[1] == (
+            f"{DIRECT_TAG} profile=mobile clicks=5 tests=4 covered=2 covered_tests=1 "
+            "uncovered=1 outside_viewport=1 no_verdict=1 probe_failed=0"
+        )
+        covering = lines[lines.index("top covering elements (of 2 covered direct clicks):") + 1]
+        assert covering.split() == ["2x", "button[data-testid='bottom-nav']", "(other)"]
+        offscreen = lines[lines.index("top targets outside the viewport (of 1 direct clicks):") + 1]
+        assert offscreen.split() == ["1x", "button[data-testid='form-submit-button']"]
 
     def test_the_module_is_the_one_the_conftest_registers(self) -> None:
         source = (Path(report_mod.__file__).parent / "conftest.py").read_text()

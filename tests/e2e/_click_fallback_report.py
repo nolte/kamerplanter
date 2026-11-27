@@ -53,6 +53,9 @@ REPORT_ATTRIBUTE = "e2e_click_fallbacks"
 #: The fixed first token of the summary line, so the job log can be grepped for it.
 SUMMARY_TAG = "E2E-CLICK-FALLBACKS"
 
+#: The fixed first token of the direct-click line (``kind: "direct"``).
+DIRECT_TAG = "E2E-CLICK-DIRECT"
+
 #: How many covering elements / tests the summary lists.
 TOP_N = 10
 
@@ -86,40 +89,77 @@ def describe_node(node: object) -> str:
     return text
 
 
-def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> list[str]:
-    """Return the terminal summary lines for *events*.
+def _is_direct(event: dict[str, Any]) -> bool:
+    return event.get("kind") == "direct"
 
-    The first line is always printed -- with zeros on a run that needed no
-    fallback -- so "nothing fell back" is visible as a measurement and cannot be
-    confused with "the instrumentation did not run".
-    """
-    covered = [e for e in events if e.get("probe") == "ok" and e.get("covered") is True]
-    uncovered = [e for e in events if e.get("probe") == "ok" and e.get("covered") is False]
-    no_verdict = [e for e in events if e.get("probe") == "ok" and e.get("covered") is None]
-    failed = [e for e in events if e.get("probe") != "ok"]
-    tests = {e.get("nodeid") for e in events}
-    covered_tests = {e.get("nodeid") for e in covered}
-    lines = [
-        f"{SUMMARY_TAG} profile={profile} fallbacks={len(events)} tests={len(tests)} "
-        f"covered={len(covered)} covered_tests={len(covered_tests)} "
-        f"uncovered={len(uncovered)} no_verdict={len(no_verdict)} probe_failed={len(failed)} "
-        f"file={path if path is not None else '-'}"
-    ]
-    if not events:
-        return lines
+
+def _detail(events: list[dict[str, Any]], covered: list[dict[str, Any]], noun: str) -> list[str]:
+    """The ranked lines under one kind's summary line."""
+    lines: list[str] = []
     helpers = Counter(f"{e.get('helper')}/{e.get('activation')}" for e in events)
-    lines.append("by helper: " + ", ".join(f"{h}={n}" for h, n in helpers.most_common()))
+    lines.append(f"{noun} by helper: " + ", ".join(f"{h}={n}" for h, n in helpers.most_common()))
     triggers = Counter(str(e.get("trigger")) for e in events)
-    lines.append("by trigger: " + ", ".join(f"{t}={n}" for t, n in triggers.most_common()))
+    lines.append(f"{noun} by trigger: " + ", ".join(f"{t}={n}" for t, n in triggers.most_common()))
     if covered:
-        lines.append(f"top covering elements (of {len(covered)} covered fallbacks):")
+        lines.append(f"top covering elements (of {len(covered)} covered {noun}):")
         covering = Counter((describe_node(e.get("hit")), str(e.get("relation"))) for e in covered)
         for (node, relation), count in covering.most_common(TOP_N):
             lines.append(f"  {count:4d}x  {node}  ({relation})")
-    lines.append("top tests by fallback count:")
+    lines.append(f"top tests by {noun} count:")
     per_test = Counter(str(e.get("nodeid")) for e in events)
     for nodeid, count in per_test.most_common(TOP_N):
         lines.append(f"  {count:4d}x  {nodeid}")
+    return lines
+
+
+def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> list[str]:
+    """Return the terminal summary lines for *events*.
+
+    Two kinds, kept apart: the ``E2E-CLICK-FALLBACKS`` line counts only the
+    fallbacks after a refused native click, the ``E2E-CLICK-DIRECT`` line only
+    the deliberately coordinate-free clicks. Both lines are always printed --
+    with zeros on a run that had none -- so "nothing happened" is visible as a
+    measurement and cannot be confused with "the instrumentation did not run".
+
+    On the direct line ``outside_viewport`` is counted on its own: the
+    coordinate-free helper exists because a control's centre can lie below the
+    fold, which is not *covered* but is the case where a user must scroll first.
+    ``no_verdict`` there is what remains without a verdict (a detached node).
+    """
+    fallbacks = [e for e in events if not _is_direct(e)]
+    direct = [e for e in events if _is_direct(e)]
+
+    def ok(group: list[dict[str, Any]], covered: bool | None) -> list[dict[str, Any]]:
+        return [e for e in group if e.get("probe") == "ok" and e.get("covered") is covered]
+
+    f_covered = ok(fallbacks, True)
+    lines = [
+        f"{SUMMARY_TAG} profile={profile} fallbacks={len(fallbacks)} "
+        f"tests={len({e.get('nodeid') for e in fallbacks})} "
+        f"covered={len(f_covered)} covered_tests={len({e.get('nodeid') for e in f_covered})} "
+        f"uncovered={len(ok(fallbacks, False))} no_verdict={len(ok(fallbacks, None))} "
+        f"probe_failed={len([e for e in fallbacks if e.get('probe') != 'ok'])} "
+        f"file={path if path is not None else '-'}"
+    ]
+    d_covered = ok(direct, True)
+    d_offscreen = [e for e in ok(direct, None) if e.get("relation") == "outside_viewport"]
+    lines.append(
+        f"{DIRECT_TAG} profile={profile} clicks={len(direct)} "
+        f"tests={len({e.get('nodeid') for e in direct})} "
+        f"covered={len(d_covered)} covered_tests={len({e.get('nodeid') for e in d_covered})} "
+        f"uncovered={len(ok(direct, False))} outside_viewport={len(d_offscreen)} "
+        f"no_verdict={len(ok(direct, None)) - len(d_offscreen)} "
+        f"probe_failed={len([e for e in direct if e.get('probe') != 'ok'])}"
+    )
+    if fallbacks:
+        lines.extend(_detail(fallbacks, f_covered, "fallbacks"))
+    if direct:
+        lines.extend(_detail(direct, d_covered, "direct clicks"))
+        if d_offscreen:
+            lines.append(f"top targets outside the viewport (of {len(d_offscreen)} direct clicks):")
+            targets = Counter(describe_node(e.get("target")) for e in d_offscreen)
+            for node, count in targets.most_common(TOP_N):
+                lines.append(f"  {count:4d}x  {node}")
     return lines
 
 
