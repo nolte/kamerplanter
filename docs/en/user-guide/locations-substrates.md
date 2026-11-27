@@ -305,7 +305,7 @@ The active tab is part of the address (e.g. `#plan` or `#soil`), so you can shar
 | Care | Open and overdue tasks of the bed and its plants, completing them, suggestions and the care log (see [Care on the bed](#care-on-the-bed)). |
 | Planting | Planned and standing plants of the bed, the **Plant** and **Clear bed** buttons and the actions on a plant (see [Planting a bed](#planting-a-bed) and [Clearing a bed](#clearing-a-bed)). |
 | History | A timeline of what stood in the bed in earlier years, and the list of all care entries and plantings (see [History of the bed](#history-of-the-bed)). |
-| Soil | The bed's soil profile and soil analyses (see [Maintaining the soil profile](#maintaining-the-soil-profile) and [Recording soil analyses](#recording-soil-analyses)). |
+| Soil | The bed's soil profile, soil hazards and soil analyses (see [Maintaining the soil profile](#maintaining-the-soil-profile), [Soil hazards of a bed](#soil-hazards-of-a-bed) and [Recording soil analyses](#recording-soil-analyses)). |
 | Photos | The bed's photos with its cover photo (see [Photos of the bed](#photos-of-the-bed)). |
 | Details | The previous location page, unchanged. |
 
@@ -500,6 +500,29 @@ A permanent crop cannot have the check switched on. If you try, Kamerplanter ref
 In the **Soil** tab you record: filling, soil type (with a finger test as help if you are unsure of the type), drainage, site moisture, conditions, as well as pH, EC (electrical conductivity) and humus content. If you optionally pick a [substrate](#managing-substrates), Kamerplanter pre-fills its pH and EC. The drainage also appears in the bed overview once you have recorded it. As a viewer (role "viewer") you see the profile read-only.
 
 If you enter an EC, you also choose the **EC method** (saturated paste, 1:2 or 1:5 extract, probe or "Method unknown") - an EC value cannot be read without its method, and the form does not save it without one. Only fill in the **Target pH (CaCl₂)** if your lab states it; Kamerplanter does not derive a target pH from the soil texture.
+
+### Soil hazards of a bed {#soil-hazards-of-a-bed}
+
+Some pathogens stay in the soil for years, whatever grows in the bed right now - clubroot, cyst nematodes or Verticillium wilt, for example. Once such an infestation is confirmed, you record it in the **Soil** tab under **Soil hazards**. <!-- REQ-054 §5.2, AP-API-012 -->
+
+For each soil hazard you see:
+
+- the **pathogen** with its scientific name,
+- the **endangered plants** as family, genus or species. Each one says how well it is backed: **evidenced** means three independent sources agree; **insufficient evidence**, **contradictory** and **no evidence** are shown for your information. The list comes from the soil-hazard knowledge table and is always current - when a value is re-researched, it also applies to entries you made earlier,
+- the **confirmation date** and **how** the infestation was confirmed: **Lab test**, **Plant protection advice** or **Unmistakable symptoms**. Kamerplanter does not store who confirmed it.
+
+**Recording** is open from the role "grower": **Record soil hazard** asks for the hazard, the date and how it was confirmed. For **juglone** (walnut) the date is the day the walnut tree was felled; if it still stands, use today's date. You always record juglone here by hand, because the walnut tree is no pathogen of a plant. If you record a hazard the bed already has, the later confirmation counts; an earlier date changes nothing.
+
+**Removing** is for the lead only (role "lead"), with the bin icon at the soil hazard. Only remove a soil hazard if the infestation is gone or was recorded by mistake.
+
+**Planters, tents and shelves** have no soil hazards - there you replace the substrate. A **hydroponic** location (irrigation "Hydro", "NFT" or "Ebb & Flow") has no soil either. In both cases the tab does not offer recording and tells you why.
+
+**After a loss:** when you record a died plant with a soil-borne pathogen that one of the three sources confirmed (see [cause class when removing](growth-phases.md#ursache-wo)), Kamerplanter then asks whether the bed should take over this soil hazard. Only **Take into the bed** records it - with the day of the loss as the confirmation date. An unconfirmed suspicion never becomes a soil hazard. If the plant stood in hydroponics, you get the hint to clean and disinfect the system before you replant instead. <!-- REQ-053 §11.3a Nr. 5 -->
+
+!!! warning "Not yet implemented"
+    When you plant, Kamerplanter does not yet warn about a soil hazard of the bed, and the cultivation planning does not take it into account yet. The soil hazards are already stored and shown for that.
+
+Soil hazards are part of the [plan backup](garden-plan.md#plan-export-import) and the garden export.
 
 ### Recording soil analyses {#recording-soil-analyses}
 
