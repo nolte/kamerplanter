@@ -165,8 +165,9 @@ function findingText(
     case 'rotation.replant_foliar_disease':
       return t('pages.bed.planting.hints.replantFoliarDisease');
     case 'rotation.replant_soil_borne':
+      // The class says where the cause sat (`pest_soil` / `disease_soil`); the cause alone may not (#2888 F-21).
       return t(
-        finding.termination_cause === 'pest'
+        finding.failure_cause_class === 'pest_soil'
           ? 'pages.bed.planting.hints.replantSoilBornePest'
           : 'pages.bed.planting.hints.replantSoilBorneDisease',
       );
@@ -242,12 +243,16 @@ export default function HintsPanel({
     const lines = [
       ...data.rotation.map((finding) => ({
         id: `${finding.code}-${finding.hazard ?? finding.family_key ?? ''}`,
+        code: finding.code,
         severity: finding.severity,
+        stage: finding.hazard_stage ?? null,
         text: findingText(finding, t),
       })),
       ...data.neighbours.map((hint) => ({
         id: `${hint.code}-${hint.species_key}`,
+        code: hint.code,
         severity: hint.severity,
+        stage: null,
         text: neighbourText(hint, speciesNames, t),
       })),
     ];
@@ -273,7 +278,14 @@ export default function HintsPanel({
         ) : null}
         <Box component="ul" sx={{ m: 0, pl: 2 }}>
           {lines.map((line) => (
-            <li key={line.id}>
+            // The server's code, strength and stage on each line: a browser test compares them with the route's
+            // answer (acceptance-6, #2888 F-21) instead of parsing the worded text.
+            <li
+              key={line.id}
+              data-code={line.code}
+              data-severity={line.severity}
+              {...(line.stage ? { 'data-hazard-stage': line.stage } : {})}
+            >
               {line.text}
               {line.severity !== data.severity ? (
                 <Typography component="span" variant="caption" color="text.secondary">

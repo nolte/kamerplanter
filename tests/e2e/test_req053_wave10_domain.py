@@ -9,7 +9,9 @@ Mapping (test TC -> spec/e2e-testcases/TC-REQ-053.md, section 15):
                   empty submit, takes the grower's count of seedlings left standing                              W-015, E-10)
   TC-053-111  ->  a died plant's slot is "Ausgefallen" with "Nachpflanzen" (a senesced one is not); the planting  (§11.3
                   dialog opens with that crop and its Steckbrief spacing; the died plant is no previous crop of  W-015,
-                  the replant, its disease leaves a residual warning; the replant is planned                     #2888)
+                  the replant, its soil-borne disease leaves a residual warning; the replant is planned;         #2888)
+                  a bed with a confirmed clubroot warns a brassica in the dialog with its year, and every hint   (§11.3a
+                  line (code, strength, stage) is the planting check's answer for that species                    Nr. 6)
   TC-053-112  ->  "Aufgaben" on a compost heap: the object's own category list, no "for every plant", the new    (R-7.2
                   task listed and stored on the object; a trellis gets no task section                           W-008)
   TC-053-113  ->  trellis hint in the planting dialog: a species with support_required names the trellis in    (§9.5
@@ -65,7 +67,9 @@ from ._garden_plan_helpers import (
     tenant_get,
     thinning_plan,
     unique_tag,
+    record_soil_hazard,
     utc_today,
+    validate_planting,
 )
 from .pages.bed_care_page import BedCareTab
 from .pages.bed_view_page import BedViewPage
@@ -78,6 +82,9 @@ CARROT = "Daucus carota"
 LETTUCE = "Lactuca sativa"
 PEA = "Pisum sativum"
 HEMP = "Cannabis sativa"
+BROCCOLI = "Brassica oleracea var. italica"
+#: The class an ``Alert`` carries per server severity (``HintsPanel``'s ``ALERT_SEVERITY``).
+ALERT_CLASS = {"OK": "success", "INFO": "info", "WARNING": "warning", "CRITICAL": "error"}
 
 #: One bed of 3 x 1,2 m in the 10 x 10 m garden; its rows run along the 3 m side.
 BED = rect(1.0, 1.0, 3.0, 1.2)
@@ -411,8 +418,9 @@ def test_tc_053_111_failed_slot_offers_a_replant_with_the_same_crop(
     assert "in diesem Jahr schon in diesem Beet" not in rotation, (
         f"TC-053-111: the replant meets no rotation hint against the plant it replaces: {rotation!r}"
     )
-    assert severity == "warning" and "an einer Krankheit eingegangen" in rotation, (
-        f"TC-053-111: the disease of the replaced plant leaves a residual warning: {severity!r}, {rotation!r}"
+    # The loss is soil-borne without a confirmed pathogen: the residual hint follows its class (§11.3a Nr. 4, F-21).
+    assert severity == "warning" and "an einer Krankheit aus dem Boden eingegangen" in rotation, (
+        f"TC-053-111: the soil-borne disease of the replaced plant leaves a residual warning: {severity!r}, {rotation!r}"
     )
     dialog.choose_layout("rows")
     dialog.set_count(2)
@@ -425,6 +433,65 @@ def test_tc_053_111_failed_slot_offers_a_replant_with_the_same_crop(
     planned = plantings(base_url, e2e_seed_data, bed, "planned")
     assert len(planned) == 2 and {item["species_key"] for item in planned} == {lettuce["key"]}, (
         f"TC-053-111: the replant plans two positions of the failed crop: {planned!r}"
+    )
+
+
+def test_tc_053_111_soil_hazard_in_the_dialog_is_the_planting_checks_answer(
+    bed_view: BedViewPage, base_url: str, e2e_seed_data: dict, screenshot
+) -> None:
+    """TC-053-111 part 2 - a bed with a confirmed clubroot warns a brassica; the dialog shows the check's answer.
+
+    Precondition (API): Beet 2 in its own fresh garden with the soil hazard clubroot, confirmed by a lab test a year ago
+    (inside its 3/3-evidenced cultivation pause, REQ-054 §5.2a). Breaks if the planting dialog shows no soil-hazard
+    warning for broccoli, names no year, offers no "Trotzdem pflanzen", or if any hint line - code, strength, stage, in
+    order - or the block's strength differs from what ``validate-planting`` answers for the same bed and species
+    (F-21 acceptance-6: one source of truth, no second way of computing in the client; REQ-053 §11.3a Nr. 6).
+    """
+    broccoli = species(base_url, e2e_seed_data, BROCCOLI)
+    garden = provision_garden(
+        base_url, e2e_seed_data, purpose="tc111b", beds=(BedSpec("Beet 2", BED),)
+    )
+    bed = garden.bed_key("Beet 2")
+    record_soil_hazard(
+        base_url,
+        e2e_seed_data,
+        bed,
+        hazard="clubroot",
+        confirmed_at=utc_today().replace(year=utc_today().year - 1, day=1),
+    )
+    answer = validate_planting(base_url, e2e_seed_data, bed, broccoli["key"])
+    soil = [
+        item
+        for item in answer.get("rotation") or []
+        if item.get("code", "").startswith("soil_hazard.")
+    ]
+    assert [(item["code"], item["severity"]) for item in soil] == [
+        ("soil_hazard.pause", "WARNING")
+    ], f"precondition: the planting check warns broccoli inside the clubroot pause: {answer!r}"
+    until_year = str(soil[0]["hazard_until"])[:4]
+
+    bed_view.open(bed, "planting")
+    dialog = bed_view.open_planting_dialog()
+    dialog.choose_species(BROCCOLI)
+    severity, text = dialog.wait_for_hint(broccoli["key"], "TC-053-111b: the soil hazard hint")
+    lines = dialog.hint_lines(broccoli["key"])
+    screenshot("053_111_03_soil_hazard", "Bepflanzen: Kohlhernie im Beet, Warnung mit Jahr")
+
+    expected = [
+        (item["code"], item["severity"], item.get("hazard_stage"))
+        for item in answer.get("rotation") or []
+    ] + [(item["code"], item["severity"], None) for item in answer.get("neighbours") or []]
+    assert lines == expected, (
+        f"TC-053-111b: the dialog's lines must be the planting check's answer: shown {lines!r}, route {expected!r}"
+    )
+    assert severity == ALERT_CLASS[answer["severity"]], (
+        f"TC-053-111b: the block carries the check's strength {answer['severity']!r}: {severity!r}"
+    )
+    assert "Kohlhernie" in text and "Brassicaceae" in text and f"bis {until_year}" in text, (
+        f"TC-053-111b: the warning names the hazard, the host family and the year {until_year}: {text!r}"
+    )
+    assert dialog.offers_plant_anyway(), (
+        "TC-053-111b: a soil-hazard warning is overridable with 'Trotzdem pflanzen' (never a block, D-09)"
     )
 
 

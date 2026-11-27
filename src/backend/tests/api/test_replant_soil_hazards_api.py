@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import date, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -75,11 +75,11 @@ class _Tenants:
         return None
 
 
-def _clubroot(confirmed_days_ago: int = 365) -> list[BedSoilHazard]:
+def _clubroot(confirmed_at: date) -> list[BedSoilHazard]:
     return [
         BedSoilHazard(
             hazard=SoilHazard.CLUBROOT,
-            confirmed_at=today_utc() - timedelta(days=confirmed_days_ago),
+            confirmed_at=confirmed_at,
             source=PathogenConfirmationSource.LAB_TEST,
         )
     ]
@@ -89,8 +89,11 @@ def _clubroot(confirmed_days_ago: int = 365) -> list[BedSoilHazard]:
 def world() -> SimpleNamespace:
     sites = FakeSites(make_site())
     plan = FakePlanRepo(sites)
-    plan.locations["bed"] = make_location("bed", soil_hazards=_clubroot())
-    plan.locations["perennial"] = make_location("perennial", rotation_exempt=True, soil_hazards=_clubroot())
+    # Today is read once per test: a run across midnight UTC must not compare two different days.
+    today = today_utc()
+    confirmed = today - timedelta(days=365)
+    plan.locations["bed"] = make_location("bed", soil_hazards=_clubroot(confirmed))
+    plan.locations["perennial"] = make_location("perennial", rotation_exempt=True, soil_hazards=_clubroot(confirmed))
     species = FakeSpecies(
         Species(_key="cabbage", scientific_name="Brassica oleracea", genus="Brassica", family_key="fam_brassica"),
         Species(_key="tomato", scientific_name="Solanum lycopersicum", genus="Solanum", family_key="fam_solanum"),
@@ -115,7 +118,9 @@ def world() -> SimpleNamespace:
         soil_hazards=YamlSoilHazardKnowledgeSource(),
     )
     service = BedRotationService(sites, plan, graph, species, families, care, validator)
-    return SimpleNamespace(service=service, validator=validator, plan=plan, sites=sites, history=history)
+    return SimpleNamespace(
+        service=service, validator=validator, plan=plan, sites=sites, history=history, today=today, confirmed=confirmed
+    )
 
 
 @pytest.fixture
@@ -165,10 +170,10 @@ class TestOneSourceForTheDialogAndTheCheck:
         assert body["rotation_applicable"] is expected.applicable
         assert body["rotation"] == [_wire(finding) for finding in expected.findings]
 
-    def test_the_soil_hazard_finding_carries_its_end_and_host(self, client) -> None:
+    def test_the_soil_hazard_finding_carries_its_end_and_host(self, client, world) -> None:
         (finding,) = [f for f in _hints(client, "bed")["rotation"] if f["code"].startswith("soil_hazard.")]
 
-        confirmed = today_utc() - timedelta(days=365)
+        confirmed = world.confirmed
         assert finding == {
             **finding,
             "severity": "WARNING",
@@ -199,8 +204,8 @@ class TestOneSourceForTheDialogAndTheCheck:
 class TestFreshSubstrateOnTheWire:
     """acceptance-5: the field is written through the location PATCH and lifts the warning."""
 
-    def test_a_renewal_after_the_confirmation_lifts_the_warning(self, client) -> None:
-        renewed = (today_utc() - timedelta(days=30)).isoformat()
+    def test_a_renewal_after_the_confirmation_lifts_the_warning(self, client, world) -> None:
+        renewed = (world.today - timedelta(days=30)).isoformat()
 
         patched = client().patch(f"{_BASE}/locations/bed", json={"soil_profile": {"substrate_replaced_on": renewed}})
 
@@ -210,7 +215,8 @@ class TestFreshSubstrateOnTheWire:
         assert not [f for f in body["rotation"] if f["code"].startswith("soil_hazard.")]
 
     def test_a_renewal_after_today_is_a_422_and_changes_nothing(self, client, world) -> None:
-        tomorrow = (today_utc() + timedelta(days=1)).isoformat()
+        # Two days ahead: still after today when the request lands just past midnight UTC.
+        tomorrow = (world.today + timedelta(days=2)).isoformat()
 
         response = client().patch(f"{_BASE}/locations/bed", json={"soil_profile": {"substrate_replaced_on": tomorrow}})
 

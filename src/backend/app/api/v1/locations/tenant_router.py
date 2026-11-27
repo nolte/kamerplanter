@@ -855,13 +855,14 @@ def validate_planting(
     (`adjacent_to`) are checked, otherwise every species standing or planned in the bed. 422
     `reference.not_found` for a species or slot the tenant cannot see.
 
-    **Replant** (`replant_of_plant_key`, REQ-053 §11.3, #2888): a plant of this bed that died this calendar year is no
+    **Replant** (`replant_of_plant_key`, REQ-053 §11.3, #2888): a plant of this bed that died in its season is no
     previous crop for this check. Replanting its family adds `rotation.replant_after_biotic_failure` (`WARNING`,
     cause disease or pest) or `rotation.replant_cause_unknown` (`INFO`, no or unknown cause); an abiotic loss adds
-    nothing. Any other key (another bed's, another tenant's, a harvested plant, an earlier year) is ignored.
+    nothing. Any other key (another bed's, another tenant's, a harvested plant, an earlier season) is ignored.
     The replaced plant is left out entirely when the replant lies inside its cultivation window (`planted_on` plus the
-    species' `days_to_maturity`), else for the year of its loss only; a loss with a cause class follows the class
-    (`rotation.replant_foliar_disease` `INFO`, `rotation.replant_soil_borne` `WARNING`, REQ-053 §11.3a Nr. 3-4).
+    `days_to_maturity` of its cultivar), else - without a cultivar window, or after standing past it - for the year of
+    its loss only; a loss with a cause class follows the class (`rotation.replant_foliar_disease` `INFO`,
+    `rotation.replant_soil_borne` `WARNING`, REQ-053 §11.3a Nr. 3-4).
 
     **Soil hazards** (REQ-053 §11.3a Nr. 6, GP-FR-193, #2888 F-21): for every soil hazard of the bed whose host the
     species is, `soil_hazard.pause` (`WARNING` with `hazard_until`), `soil_hazard.no_evidenced_pause` (`WARNING`

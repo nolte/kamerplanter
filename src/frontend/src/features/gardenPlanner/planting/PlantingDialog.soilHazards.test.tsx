@@ -107,6 +107,11 @@ describe('a host of a soil hazard of the bed (acceptance-1)', () => {
     expect(panel).toHaveTextContent('keeping host plants out of this bed until 2029');
     expect(panel).not.toHaveTextContent('english server text');
     expect(screen.getByTestId('planting-override-check')).toBeInTheDocument();
+    // The server's code, strength and stage on the line - what the browser test compares with the route.
+    const line = panel.querySelector('li[data-code="soil_hazard.pause"]');
+    expect(line).not.toBeNull();
+    expect(line).toHaveAttribute('data-severity', 'WARNING');
+    expect(line).toHaveAttribute('data-hazard-stage', 'pause');
   });
 
   it('shows the hazard on a bed whose rotation check is off, with a note why it still applies', async () => {
@@ -145,7 +150,7 @@ describe('a host of a soil hazard of the bed (acceptance-1)', () => {
       ),
     );
     const panel = await openPanel();
-    expect(panel).toHaveTextContent('can survive in the soil until 2037');
+    expect(panel).toHaveTextContent('can survive in the soil at least until 2037; after that, Kamerplanter no longer reports it');
     expect(screen.queryByTestId('planting-override-check')).toBeNull();
   });
 
@@ -289,6 +294,8 @@ describe('the residual hint follows the cause class (acceptance-7)', () => {
   it.each([
     ['disease', 'disease_soil', 'died from a soil-borne disease'],
     ['pest', 'pest_soil', 'died from pests in the soil'],
+    // The class decides, not the cause: an "unknown" loss the grower placed in the soil as pests.
+    ['unknown', 'pest_soil', 'died from pests in the soil'],
   ])(
     'an unconfirmed soil-borne %s is a warning that asks for a reason',
     async (cause, cls, text) => {

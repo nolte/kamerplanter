@@ -25,7 +25,7 @@ from app.domain.engines.soil_hazard_planting_engine import (
     judge_soil_hazards,
 )
 from app.domain.models.bed_soil_hazard import BedSoilHazard
-from app.domain.models.soil_hazard_knowledge import Evidence, SoilHazardKnowledgeTable
+from app.domain.models.soil_hazard_knowledge import Evidence, HostEntry, SoilHazardKnowledgeTable
 
 TABLE: SoilHazardKnowledgeTable = YamlSoilHazardKnowledgeSource().get_table()
 
@@ -143,10 +143,16 @@ class TestSoftHazardsAndUncertainHosts:
 
         assert (verdict.code, verdict.severity) == (SOIL_HAZARD_SOFT, "INFO")
 
-    def test_sclerotinia_keeps_its_evidenced_pause_as_the_end_of_the_first_stage(self) -> None:
+    def test_a_soft_hint_carries_no_time_statement_even_inside_an_evidenced_pause(self) -> None:
+        """REQ-053 §11.3a Nr. 6: ``hazard_until`` only for ``soil_hazard.pause`` / ``soil_hazard.residual``."""
         (verdict,) = judge(SoilHazard.SCLEROTINIA, date(2025, 8, 1), BEAN, date(2026, 6, 1))
 
-        assert (verdict.stage, verdict.until, verdict.severity) == ("pause", date(2030, 8, 1), "INFO")
+        assert (verdict.code, verdict.stage, verdict.until, verdict.severity) == (
+            SOIL_HAZARD_SOFT,
+            "pause",
+            None,
+            "INFO",
+        )
 
     def test_a_host_below_three_sources_is_a_hint_inside_the_pause(self) -> None:
         # verticillium: pause 4 (3/3); Solanaceae a host with 2/3 only.
@@ -158,6 +164,7 @@ class TestSoftHazardsAndUncertainHosts:
             "pause",
             False,
         )
+        assert verdict.until is None
 
     def test_an_evidenced_host_of_the_same_hazard_still_warns(self) -> None:
         (verdict,) = judge(SoilHazard.VERTICILLIUM, date(2025, 8, 1), CABBAGE, date(2026, 6, 1))
@@ -207,6 +214,40 @@ class TestTheFinestHostLevel:
 
     def test_a_species_without_family_genus_or_name_is_no_host(self) -> None:
         assert judge(SoilHazard.CLUBROOT, date(2025, 8, 1), PlantedSpecies("", "", None), date(2026, 6, 1)) == []
+
+    def test_a_species_without_a_genus_takes_it_from_its_scientific_name(self) -> None:
+        """Review S1: a tenant's own leek with ``genus = ""`` is still an *Allium* host of white rot."""
+        leek = PlantedSpecies("Allium porrum", "", "Amaryllidaceae")
+
+        (verdict,) = judge(SoilHazard.WHITE_ROT, date(2025, 8, 1), leek, date(2026, 6, 1))
+
+        assert (verdict.host.level, verdict.host.name) == (HostLevel.GENUS, "Allium")
+
+    def test_a_non_host_below_three_sources_does_not_lift_an_evidenced_host(self) -> None:
+        """A weak "not affected" on a finer level is no all-clear against an evidenced host on a coarser one."""
+        table = _with_non_host(TABLE, SoilHazard.CLUBROOT, "Brassica oleracea", EvidenceStatus.INSUFFICIENT)
+
+        (verdict,) = judge(SoilHazard.CLUBROOT, date(2025, 8, 1), CABBAGE, date(2026, 6, 1), table=table)
+
+        assert (verdict.host.level, verdict.host.name) == (HostLevel.FAMILY, "Brassicaceae")
+
+    def test_an_evidenced_non_host_lifts_the_coarser_host(self) -> None:
+        table = _with_non_host(TABLE, SoilHazard.CLUBROOT, "Brassica oleracea", EvidenceStatus.EVIDENCED)
+
+        assert judge(SoilHazard.CLUBROOT, date(2025, 8, 1), CABBAGE, date(2026, 6, 1), table=table) == []
+
+
+def _with_non_host(table: SoilHazardKnowledgeTable, hazard: SoilHazard, name: str, status: EvidenceStatus):
+    """The table with one more species-level non-host of ``hazard`` - a data change, no code."""
+    sources = 3 if status is EvidenceStatus.EVIDENCED else 1
+    extra = HostEntry(
+        level=HostLevel.SPECIES, name=name, evidence=Evidence(status=status, sources=sources, basis="test", ref="test")
+    )
+    rows = tuple(
+        row.model_copy(update={"non_hosts": (*row.non_hosts, extra)}) if row.hazard is hazard else row
+        for row in table.hazards
+    )
+    return SoilHazardKnowledgeTable(hazards=rows)
 
 
 class TestFreshSubstrate:

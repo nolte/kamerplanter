@@ -242,6 +242,23 @@ class TestNoEvidencedPause:
         )
         assert "no cultivation pause is evidenced" in finding.message
 
+    def test_a_tenants_own_species_without_a_genus_still_hits_a_genus_host(self, world) -> None:
+        """Review S1: ``Species.genus`` is optional; "Allium porrum" with ``genus = ""`` is an *Allium* host."""
+        validator, plan, _ = world
+        validator._species_repo.by_key["own_leek"] = Species(
+            _key="own_leek", scientific_name="Allium porrum", genus="", family_key="fam_amaryllis", tenant_key=TENANT
+        )
+        plan.locations["bed"] = make_location("bed", soil_hazards=[_hazard(SoilHazard.WHITE_ROT, date(2024, 8, 1))])
+
+        (finding,) = hazard_findings(check(validator, "own_leek"))
+
+        assert (finding.severity, finding.code, finding.host_level, finding.host_name) == (
+            "WARNING",
+            "soil_hazard.no_evidenced_pause",
+            "genus",
+            "Allium",
+        )
+
     def test_juglone_warns_without_an_end(self, world) -> None:
         validator, plan, _ = world
         plan.locations["bed"] = make_location("bed", soil_hazards=[_hazard(SoilHazard.JUGLONE, date(2001, 3, 1))])

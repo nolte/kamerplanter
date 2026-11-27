@@ -75,7 +75,8 @@ class SoilHazardVerdict:
     stage: HazardStage
     severity: HazardSeverity
     code: str
-    #: The end of the pause (``pause``) or of the evidenced residual risk (``residual``); ``None`` = no time statement.
+    #: The end of the pause (``soil_hazard.pause``) or of the evidenced residual risk (``soil_hazard.residual``);
+    #: ``None`` = no time statement, always for ``soil_hazard.soft`` / ``soil_hazard.uncertain_host``.
     until: date | None
     host: HostMatch
 
@@ -92,6 +93,19 @@ def _normalised(text: str | None) -> str:
     return " ".join(text.split()).casefold() if text else ""
 
 
+def genus_of(species: PlantedSpecies) -> str:
+    """The genus of ``species``: ``Species.genus``, else the first word of its scientific name.
+
+    ``Species.genus`` is optional (a tenant's own species often leaves it empty); the genus is the first word of a
+    binomial by nomenclature, so "Allium porrum" without a genus is still an *Allium* (#2888 F-21 review S1).
+    """
+    genus = _normalised(species.genus)
+    if genus:
+        return genus
+    words = _normalised(species.scientific_name).split(" ")
+    return words[0] if words and words[0] else ""
+
+
 def _matches(entry: HostEntry, species: PlantedSpecies) -> bool:
     """Whether the species falls under ``entry``; a species name also covers its infraspecific taxa."""
     name = _normalised(entry.name)
@@ -99,19 +113,25 @@ def _matches(entry: HostEntry, species: PlantedSpecies) -> bool:
         own = _normalised(species.scientific_name)
         return own != "" and (own == name or own.startswith(f"{name} "))
     if entry.level is HostLevel.GENUS:
-        return _normalised(species.genus) == name
+        genus = genus_of(species)
+        return genus != "" and genus == name
     return _normalised(species.family_name) == name
 
 
 def match_host(row: SoilHazardKnowledge, species: PlantedSpecies) -> HostMatch | None:
     """The host entry ``species`` falls under, or ``None`` when it is no host of ``row``'s hazard.
 
-    The finest level decides: at each level from species to family a non-host ends the search with ``None`` (it
-    lifts a host on a coarser level), a host ends it with the match. A species without a genus or a name falls back to
-    its family; one without a family is no host of a family entry.
+    The finest level decides: at each level from species to family an **evidenced** non-host ends the search with
+    ``None`` (it lifts a host on a coarser level), a host ends it with the match. A non-host whose evidence is below
+    3/3 (insufficient, contradictory) lifts nothing - a weak "not affected" is no all-clear against an evidenced host
+    on a coarser level. The genus falls back to the first word of the scientific name (:func:`genus_of`); a species
+    without a name and a genus falls back to its family; one without a family is no host of a family entry.
     """
     for level in _LEVEL_ORDER:
-        if any(entry.level is level and _matches(entry, species) for entry in row.non_hosts):
+        if any(
+            entry.level is level and entry.evidence.status is EvidenceStatus.EVIDENCED and _matches(entry, species)
+            for entry in row.non_hosts
+        ):
             return None
         host = next((entry for entry in row.hosts if entry.level is level and _matches(entry, species)), None)
         if host is not None:
@@ -157,6 +177,10 @@ def _verdict(
         code, severity = SOIL_HAZARD_NO_EVIDENCED_PAUSE, "WARNING"
     else:
         code, severity = SOIL_HAZARD_RESIDUAL, "INFO"
+    # REQ-053 §11.3a Nr. 6: ``hazard_until`` names the end of the pause (``soil_hazard.pause``) or of the evidenced
+    # residual risk (``soil_hazard.residual``) only, else it is empty - a soft hazard or an uncertain host carries none.
+    if code not in (SOIL_HAZARD_PAUSE, SOIL_HAZARD_RESIDUAL):
+        until = None
     return SoilHazardVerdict(entry.hazard, entry.confirmed_at, stage, severity, code, until, host)
 
 

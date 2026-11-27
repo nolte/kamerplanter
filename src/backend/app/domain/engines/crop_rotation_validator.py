@@ -368,13 +368,13 @@ def _replant_finding(
         severity: Severity = "WARNING"
         code = REPLANT_AFTER_BIOTIC_FAILURE
         message = (
-            f"The plant this replant follows died from {cause} this year; if the cause sits in the soil, "
+            f"The plant this replant follows died from {cause} in its season; if the cause sits in the soil, "
             "the new plant can fail the same way."
         )
     else:
         severity = "INFO"
         code = REPLANT_CAUSE_UNKNOWN
-        message = "The plant this replant follows died this year from an unrecorded cause."
+        message = "The plant this replant follows died in its season from an unrecorded cause."
     return RotationFinding(
         severity,
         code,
@@ -832,10 +832,15 @@ class CropRotationValidator:
         Off for ``rotation_exempt`` beds and, unless the bed is switched on (``rotation_enabled``), for ``planter`` /
         ``tent`` / ``shelf``; a bed switched off is off whatever its type (GP-FR-137, :func:`not_applicable_reason`).
 
-        ``replant_of_plant_key`` names the plant a replant replaces (REQ-053 §11.3 "ausgefallen", #2888): a plant of
-        this bed and tenant that died this calendar year is no previous crop for this one check. Replanting its
-        family adds a residual hint from its ``termination_cause`` (:func:`_replant_finding`). Any other key is
-        ignored without an error.
+        ``replant_of_plant_key`` names the plant a replant replaces (REQ-053 §11.3 "ausgefallen", §11.3a Nr. 3, #2888):
+        a died plant of this bed and tenant is no previous crop for this one check when the replant falls into its
+        season - inside its cultivation window (``planted_on`` plus its cultivar's ``days_to_maturity``) in no year,
+        without a window or after standing past it only in the year of its loss (:meth:`_replant_season`).
+        Replanting its family adds a residual hint from its cause class, else its ``termination_cause``
+        (:func:`_replant_finding`). Any other key is ignored without an error.
+
+        The bed's soil hazards are checked for every species whose host it is, also when the rotation check is off
+        (REQ-053 §11.3a Nr. 6, :meth:`_soil_hazard_findings`).
 
         ``tenant_key`` is required and keyword-only (#2107): the bed is resolved through its site, the species must
         be visible to the tenant, and the history is read under the tenant.
