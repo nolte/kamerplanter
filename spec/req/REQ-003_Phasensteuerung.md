@@ -7,13 +7,14 @@ Kategorie: Wachstumslogik
 Fokus: Beides
 Technologie: Python, ArangoDB
 Status: Entwurf
-Version: 2.23 (#2888 F-18: Ursache `bolting` und Ursachenklasse `failure_cause_class` am Ausfall, E5); 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
+Version: 2.24 (#2888 F-19: Feldnamen von Erreger und Bestätigung am Ausfall, E5); 2.23 (#2888 F-18: Ursache `bolting` und Ursachenklasse `failure_cause_class` am Ausfall, E5); 2.22 (#2857 Teil B: `photoperiod_type = unspecified` als Vorgabe, kein Photo-Trigger); 2.21 (#2857: Herkunft der Lichtdauer `photoperiod_source` am Anforderungsprofil); 2.20 (E8: keine EC-Skalierung nach Zehrerstufe, E-17 Variante A); 2.19 (Rechte-Tabelle auf REQ-049 §3.3/§3.4 umgestellt)
 ```
 
 ### Changelog
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 2.24 | 2026-11-27 | **#2888 / F-19 (Klarstellung bei der Umsetzung):** E5 nennt die Felder, die ein bodenbürtiger Ausfall zum Erreger trägt — `failure_pathogen` (Schlüssel der Bodengefahren-Liste), `failure_pathogen_confirmed` und `failure_pathogen_source` (`lab_test` / `advisory_service` / `clear_symptoms`, eine Kategorie statt eines Namens) — und wann `bolting` vorbelegt ist: Die Phase, in der die Pflanze steht, ist `bolting` und wurde mit `is_premature` betreten. Eine Klasse ohne Ursache ist zulässig, entsteht aber nie von selbst. Keine Regeländerung. |
 | 2.23 | 2026-11-26 | **#2888 / F-18 (Sprint 0004, Spec vor Code):** E5 erhält den Ursachenwert `bolting` (Schossen, abiotisch) und das neue Feld `failure_cause_class` (`abiotic` / `pest_foliar` / `pest_soil` / `disease_soil` / `disease_foliar` / `mechanical` / `unknown`), vorbelegt aus `termination_cause` nach der Tabelle in E5, bei `disease`/`pest` Pflichtauswahl Blatt/Boden. `bolting` wird vorbelegt, wenn die Pflanze vorzeitig in die Schoss-Phase ging (E6, `is_premature`). Pflanzen ohne Klasse (Altdaten, „Beet räumen“) verhalten sich wie bisher. Verbraucher: Nachpflanz-Hinweis und Bodengefahren REQ-053 §11.3a v1.55, Wissenstabelle REQ-054 §5.2a v1.4. Quelle: `spec/analysis/agrobiology-soil-hazards-research-2888.md` §5, R-004.1 (Schossen-Ursachen 3/3, §7.10). Additiv, Umsetzung F-19. |
 | 2.22 | 2026-11-15 | **#2857 Teil B:** `LifecycleConfig.photoperiod_type` und `PhaseSequence.photoperiod_type` haben den zusätzlichen Wert `unspecified` als Vorgabe (vorher `day_neutral`, das damit von „nie eingestuft“ nicht zu unterscheiden war). `unspecified` löst wie `day_neutral` keinen Photo-Trigger aus (E1) und greift in keiner Resolver-Regel (§D14). Migration v0113 überführt gespeicherte Vorgabewerte; der Saatlauf setzt einen Typ nur aus einer Quelle (`lifecycle_configs`, `lifecycles_outdoor.yaml`). Verbraucher: Zelt-Hinweis REQ-053 §9.2a v1.51 (tagneutrale Pflanzen ohne Konflikt, Datenfehler „Kurztagpflanze mit Langtag-Profil in der Blüte“). |
 | 2.21 | 2026-11-13 | **#2857 Teil A:** `RequirementProfile.photoperiod_source` (`sourced` / `generated` / `default` / leer) nennt die Herkunft von `photoperiod_hours`; der Server setzt sie, nie der Client: Speichern im Profil-Editor (POST/PUT) ergibt `sourced`, der Generator `generated` bzw. `default`, Saatdaten aus Steckbrief-Phasen `sourced`. Für Arten mit nur allgemeinen Phasen überträgt die Tabelle `species.yaml` `steckbrief_phase_photoperiods` Steckbrief-Lichtstunden je Phase (zuerst Hanf), gegen den Steckbrief geprüft (`seed_steckbrief_consistency`). Additiv, keine Migration. Verbraucher: Zelt-Hinweis REQ-053 §9.2a (v1.42). |
@@ -1899,7 +1900,12 @@ Seneszenz, Tod und Abbruch. E5 ergänzt zwei Felder am `PlantInstance` (REQ-013)
 
   Bei `pest_soil`/`disease_soil` kann der Nutzer einen Erreger aus der Liste der Bodengefahren
   (REQ-054 §5.2a) nennen und festhalten, ob und von wem er bestätigt wurde; daraus entsteht nie
-  automatisch eine Bodengefahr am Beet (Übernahme nur auf Angebot, REQ-053 §11.3a). Eine Pflanze **ohne**
+  automatisch eine Bodengefahr am Beet (Übernahme nur auf Angebot, REQ-053 §11.3a). Felder (v2.24):
+  `failure_pathogen` (Hazard-Schlüssel), `failure_pathogen_confirmed` (`false`, wenn nur benannt) und
+  `failure_pathogen_source` ∈ {`lab_test`, `advisory_service`, `clear_symptoms`} — Laborbefund, Beratung,
+  eindeutiges Schadbild; eine Kategorie, kein Personenname. Eine Bestätigung verlangt die Quelle.
+  `bolting` ist vorbelegt, wenn die Phase, in der die Pflanze steht, `bolting` heißt und mit
+  `is_premature: true` betreten wurde (ein planmäßiges Biennial-Schossen schlägt nichts vor). Eine Pflanze **ohne**
   Klasse (Altdaten, über „Beet räumen“ beendete Pflanzen) verhält sich wie bisher: es gilt allein
   `termination_cause`. Keine Migration bestehender Pflanzen.
 - **Lifecycle-Interaktion:** Bei `died` wird die **aktuelle `growth_phase` eingefroren**
