@@ -72,8 +72,10 @@ class _RunAwareRepo(EscalationNotificationRepo):
         self.current_run = ""
         self.claimed_in: list[tuple[str, str]] = []
 
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int):  # noqa: ANN201
-        claimed = super().claim_escalation_level(key, tenant_key=tenant_key, escalation_level=escalation_level)
+    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int, due_date: str):  # noqa: ANN201
+        claimed = super().claim_escalation_level(
+            key, tenant_key=tenant_key, escalation_level=escalation_level, due_date=due_date
+        )
         if claimed is not None:
             self.claimed_in.append((key, self.current_run))
         return claimed

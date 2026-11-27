@@ -398,6 +398,49 @@ class NotificationPropagationService:
             )
         )
 
+    def catch_up_care_notification(
+        self,
+        *,
+        tenant_key: str,
+        plant_key: str,
+        plant_label: str,
+        reminder_type: ReminderType,
+        due_date: datetime | None,
+        task_key: str,
+    ) -> bool:
+        """Announce the open care task on the plant's row when the row is still on another task (#3135).
+
+        The repair path for a lost announcement: the producer created the task, and
+        then the propagation failed or the worker died. The next run finds the task
+        already open and creates nothing, so without this the row stayed on the old
+        occurrence and the new task never escalated. Only a row that announces a
+        **different, named** task is caught up — as a new occurrence, through
+        :meth:`sync_care_notification`, with no acting user (nothing is invented
+        for a plant without a row). A row that names no task is left alone: whether
+        it is behind cannot be told, and resurfacing it would be a guess.
+
+        Returns:
+            Whether the row was caught up.
+        """
+        if not tenant_key or not plant_key or not task_key:
+            return False
+        rows = self._safe_lookup(_care_group_key(reminder_type, plant_key), tenant_key)
+        reminders = [row for row in rows if not is_watering_escalation(row)]
+        announced = reminders[0].data.get("task_key") if reminders else None
+        if not announced or announced == task_key:
+            return False
+        self.sync_care_notification(
+            tenant_key=tenant_key,
+            user_key="",
+            plant_key=plant_key,
+            plant_label=plant_label,
+            reminder_type=reminder_type,
+            due_date=due_date,
+            task_key=task_key,
+            reset_read=True,
+        )
+        return True
+
     def on_care_confirmed(
         self,
         *,
@@ -438,6 +481,10 @@ class NotificationPropagationService:
           statement, so of two overlapping runs that both read the row at the old
           level exactly one gets ``True``. The update is partial: ``read_at``,
           ``acted_at`` and every other field stay as stored.
+        * **Still the selected occurrence.** The claim also requires the stored row
+          to be unacted and to announce the due date of the row as passed in: a
+          watering or a new occurrence between the overdue read and the claim
+          writes nothing and sends nothing (#3135).
         * **Fail-closed per tenant.** An empty ``tenant_key``, a row without a key,
           or a row of another tenant — as passed in, or as stored — writes nothing
           and returns ``False``.
@@ -451,11 +498,17 @@ class NotificationPropagationService:
         """
         if not tenant_key or not notification.key or notification.tenant_key != tenant_key:
             return False
+        # The occurrence the row was selected as: the claim only lands while the row
+        # still announces it and is not acted on (#3135).
+        due_date = notification.data.get("due_date") if isinstance(notification.data, dict) else None
+        if not isinstance(due_date, str) or not due_date:
+            return False
         try:
             claimed = self._repo.claim_escalation_level(
                 notification.key,
                 tenant_key=tenant_key,
                 escalation_level=escalation_level,
+                due_date=due_date,
             )
         except Exception:
             logger.warning("notification_propagation_escalation_claim_failed", key=notification.key)

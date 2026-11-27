@@ -2207,6 +2207,12 @@ class CareReminderService:
         as a **new** occurrence (read state cleared, escalation cycle restarted).
         There is no acting user, so a plant without a reminder row gets none
         invented (``sync_care_notification`` never addresses nobody).
+
+        **Catch-up.** When the task is already open, an earlier run may have created
+        it and lost the announcement (propagation failed, worker died). The open
+        task is then announced on a row that still names another task
+        (:meth:`NotificationPropagationService.catch_up_care_notification`); a row
+        already on it is not written.
         """
         created = self.ensure_next_watering_task(
             profile,
@@ -2223,7 +2229,25 @@ class CareReminderService:
                 created.key,
                 announces_new_task=True,
             )
-        return created
+            return created
+        if self._task_repo is None or self._notifications is None or not tenant_key:
+            return None
+        open_task = self._task_repo.find_open_care_task(
+            profile.plant_key, ReminderType.WATERING, tenant_key, include_completed_today=False
+        )
+        if open_task is not None and open_task.key:
+            plant_label = self._resolve_plant_label(profile.plant_key)
+            self._propagate(
+                lambda p: p.catch_up_care_notification(
+                    tenant_key=tenant_key,
+                    plant_key=profile.plant_key,
+                    plant_label=plant_label,
+                    reminder_type=ReminderType.WATERING,
+                    due_date=open_task.due_date,
+                    task_key=open_task.key or "",
+                )
+            )
+        return None
 
     def _next_watering_due_date(
         self,

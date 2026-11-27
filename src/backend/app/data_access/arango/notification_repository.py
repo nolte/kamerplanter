@@ -190,7 +190,9 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             return None
         return self._to_notification(doc)
 
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+    def claim_escalation_level(
+        self, key: str, *, tenant_key: str, escalation_level: int, due_date: str
+    ) -> Notification | None:
         """Raise ``escalation_level`` by exactly one step, atomically, only for the tenant's row (ADR-008 F-8).
 
         One AQL statement — filter and update are evaluated in the same write, so
@@ -199,16 +201,25 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         stored level must be exactly ``escalation_level - 1`` (#3135): a run that
         read the row at an older level cannot jump it over a level another run has
         claimed meanwhile. A row stored without a level counts as level 0, the
-        model's default, as in :meth:`find_overdue_watering`. The ``UPDATE … WITH``
+        model's default, as in :meth:`find_overdue_watering`.
+
+        The row must also still be the overdue occurrence the candidate was selected
+        as (#3135): not acted on, and announcing the same ``data.due_date`` the
+        caller read. Between :meth:`find_overdue_watering` and this claim the user
+        can water the plant, or a sync can announce the next occurrence on the same
+        row; the claim then writes nothing, and no "overdue" goes out for a watering
+        that is done or for an occurrence that is not due. The ``UPDATE … WITH``
         is partial: ``read_at``/``acted_at`` and every other field stay as stored.
         An empty ``tenant_key`` claims nothing.
         """
-        if not tenant_key or not key:
+        if not tenant_key or not key or not due_date:
             return None
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc._key == @key AND doc.tenant_key == @tenant_key "
             f"AND NOT_NULL(doc.escalation_level, 0) == @previous_level "
+            f"AND doc.acted_at == null "
+            f"AND doc.data.due_date == @due_date "
             f"UPDATE doc WITH {{ escalation_level: @level, updated_at: @now }} IN {NOTIFICATIONS} "
             f"RETURN NEW"
         )
@@ -217,6 +228,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             "tenant_key": tenant_key,
             "level": escalation_level,
             "previous_level": escalation_level - 1,
+            "due_date": due_date,
             "now": datetime.now(UTC).isoformat(),
         }
         cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))

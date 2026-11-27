@@ -153,7 +153,8 @@ class EscalationNotificationRepo(FakeNotificationRepo):
       fake, the integration test ``test_overdue_watering_candidates`` against
       ArangoDB — so the fake cannot select a row the real statement would not.
     * :meth:`claim_escalation_level` is the single conditional write: key, tenant
-      and "level exactly one below" are checked and the level is raised in one step,
+      and "level exactly one below", "not acted on" and "still announces the selected
+      due date" are checked and the level is raised in one step,
       touching no other field. A sequential fake cannot interleave inside it, and
       neither can the real statement — that is the property being modelled, not
       assumed away. Full-model ``update`` calls are recorded so a test can assert
@@ -181,11 +182,15 @@ class EscalationNotificationRepo(FakeNotificationRepo):
         self.updates.append(key)
         return super().update(key, notification.model_copy(deep=True))
 
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+    def claim_escalation_level(
+        self, key: str, *, tenant_key: str, escalation_level: int, due_date: str
+    ) -> Notification | None:
         row = self._store.get(key)
-        if not tenant_key or row is None or row.tenant_key != tenant_key:
+        if not tenant_key or not due_date or row is None or row.tenant_key != tenant_key:
             return None
         if row.escalation_level != escalation_level - 1:  # exactly one step, as the AQL (#3135)
+            return None
+        if row.acted_at is not None or row.data.get("due_date") != due_date:  # still the selected occurrence
             return None
         row.escalation_level = escalation_level
         self.claims.append((key, escalation_level))

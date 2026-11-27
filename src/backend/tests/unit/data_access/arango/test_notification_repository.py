@@ -257,26 +257,41 @@ class TestFindOverdueWatering:
         mock_db.aql.execute.assert_not_called()
 
 
+class TestUpdateLeavesTheLevelAlone:
+    def test_the_written_document_names_no_escalation_level(self, repo, mock_db):
+        """#3135: the full-model refresh must not write the level a claim may have raised meanwhile."""
+        collection = mock_db.collection.return_value
+        collection.update.return_value = {"new": _notif_doc(escalation_level=2)}
+
+        repo.update("n1", _notif_model(escalation_level=0, title="refreshed"))
+
+        written = collection.update.call_args.args[0]
+        assert written["_key"] == "n1"
+        assert written["title"] == "refreshed"
+        assert "escalation_level" not in written
+
+
 class TestClaimEscalationLevel:
     def test_one_conditional_partial_update(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([_notif_doc(escalation_level=1)])
 
-        claimed = repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1)
+        claimed = repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1, due_date="2026-11-10")
 
         assert claimed is not None
         query = mock_db.aql.execute.call_args.args[0]
         assert "doc._key == @key AND doc.tenant_key == @tenant_key" in query
         assert "NOT_NULL(doc.escalation_level, 0) == @previous_level" in query  # exactly one step (#3135)
+        assert "doc.acted_at == null AND doc.data.due_date == @due_date" in query  # the selected occurrence
         assert "UPDATE doc WITH { escalation_level: @level, updated_at: @now }" in query
         assert "REPLACE" not in query
 
     def test_no_row_back_is_no_claim(self, repo, mock_db):
         mock_db.aql.execute.return_value = iter([])
 
-        assert repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1) is None
+        assert repo.claim_escalation_level("n1", tenant_key="t1", escalation_level=1, due_date="2026-11-10") is None
 
     def test_an_empty_tenant_claims_nothing(self, repo, mock_db):
-        assert repo.claim_escalation_level("n1", tenant_key="", escalation_level=1) is None
+        assert repo.claim_escalation_level("n1", tenant_key="", escalation_level=1, due_date="2026-11-10") is None
         mock_db.aql.execute.assert_not_called()
 
 

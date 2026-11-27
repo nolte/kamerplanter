@@ -63,11 +63,15 @@ class INotificationRepository(ABC):
     def mark_acted(self, key: str, acted_at: datetime) -> Notification | None: ...
 
     @abstractmethod
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+    def claim_escalation_level(
+        self, key: str, *, tenant_key: str, escalation_level: int, due_date: str
+    ) -> Notification | None:
         """Raise the row's ``escalation_level`` to ``escalation_level`` in ONE conditional write.
 
-        Writes only when the row exists, belongs to ``tenant_key`` and stands at
-        exactly ``escalation_level - 1`` (a missing level counts as 0, #3135);
+        Writes only when the row exists, belongs to ``tenant_key``, stands at
+        exactly ``escalation_level - 1`` (a missing level counts as 0, #3135), is
+        not acted on and still announces ``due_date`` — the occurrence the caller
+        selected (#3135);
         returns the updated row, else ``None``. A partial update — no other field
         is touched. Two concurrent callers cannot both get a row back for the same
         level: that is the escalation claim (ADR-008 F-8).

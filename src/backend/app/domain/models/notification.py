@@ -89,10 +89,13 @@ WATERING_ESCALATION_TYPE = "care.watering.escalation"
 #: ``"2026-11-20T12"``, ``"20261120"``, ``"2026-W47-5"``, ``"+0200"`` and hour 24, and
 #: ArangoDB reads year 0000 — so the overdue query and :func:`announced_due_date` both
 #: require this shape first (hours 00–23, minutes and seconds 00–59, years 1000–9999).
-#: Plain ``[0-9]`` (no ``\d``) so the same text is a valid ArangoDB ``REGEX_TEST``.
+#: Plain ``[0-9]`` (no ``\d``) so the same text is a valid ArangoDB ``REGEX_TEST``. It ends
+#: in ``\z`` (end of input), not ``$``: in both engines ``$`` also matches before a
+#: trailing line break — in ArangoDB even before ``\r\n`` (measured) — so a value
+#: with a trailing newline passed.
 DUE_DATE_SHAPE = (
     "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}"
-    "(T([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9]([.][0-9]+)?)?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])?)?$"
+    "(T([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9]([.][0-9]+)?)?(Z|[+-]([01][0-9]|2[0-3]):[0-5][0-9])?)?\\z"
 )
 _DUE_DATE_SHAPE = re.compile(DUE_DATE_SHAPE)
 
@@ -114,7 +117,7 @@ def announced_due_date(notification: Notification) -> datetime | None:
     readable due date is not proven overdue.
     """
     raw = notification.data.get("due_date") if isinstance(notification.data, dict) else None
-    if not isinstance(raw, str) or not _DUE_DATE_SHAPE.match(raw):
+    if not isinstance(raw, str) or not _DUE_DATE_SHAPE.fullmatch(raw):
         return None
     try:
         moment = datetime.fromisoformat(raw)

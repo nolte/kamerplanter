@@ -160,6 +160,8 @@ CASES: tuple[Case, ...] = (
     Case(
         "space_separator", False, {"data": {"due_date": "2026-11-19 12:00:00"}}, "ArangoDB reads it, outside the shape"
     ),
+    Case("trailing_newline", False, {"data": {"due_date": "2026-11-19\n"}}, "'$' matched before it on both sides"),
+    Case("trailing_crlf", False, {"data": {"due_date": "2026-11-19\r\n"}}, "ArangoDB's '$' matched before it"),
     Case("leading_space", False, {"data": {"due_date": " 2026-11-19"}}, "ArangoDB reads it, Python does not"),
     Case("signed_year", False, {"data": {"due_date": "+2026-11-19"}}, "ArangoDB reads it, Python does not"),
     Case("year_zero", False, {"data": {"due_date": "0000-01-01"}}, "ArangoDB reads it, Python does not"),
