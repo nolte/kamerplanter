@@ -172,8 +172,18 @@ class OfflineFieldMode(FieldModePage):
             ) from exc
 
     def tap_bed_offline(self, bed_key: str, what: str) -> str:
-        """Tap a bed row while offline; return the sheet's "Stand von" banner once the cached sheet is shown."""
-        self.wait_and_click(_tid(f"field-bed-row-{bed_key}"))
+        """Tap a bed row while offline; return the sheet's "Stand von" banner once the cached sheet is shown.
+
+        Going offline raises the R-036 warning (UI-NFR-012, 8 s, with a close
+        button). On a phone it is four lines plus its "x" on a line of its own,
+        about 156 px tall above the bottom navigation, and lies on the bed list
+        (nightly 46027854891, TC-053-087/089: row y 672-772 of 844/852 under
+        ``.notistack-MuiContent-warning``). A user reads it and closes it, or
+        waits; so does this (#3157).
+        """
+        self.click_clear_of_snackbars(
+            _tid(f"field-bed-row-{bed_key}"), f"{what}: the bed row {bed_key} offline"
+        )
         self.wait_for_element(self.SHEET)
         state = self.wait_for_settled(
             {"cached": self.SHEET_CACHED_BANNER, "miss": self.SHEET_OFFLINE_MISS},
@@ -226,8 +236,14 @@ class OfflineFieldMode(FieldModePage):
         return self.is_present(_tid(f"field-done-{task_key}"))
 
     def open_note(self) -> None:
-        """The note chip of the quick protocol; return once its short form is open."""
-        self.tap_chip("note")
+        """The note chip of the quick protocol; return once its short form is open.
+
+        Offline, "Fertig" raises its own snackbar while the R-036 warning may still
+        stand; stacked above the phone's bottom navigation they reached the note chip
+        (nightly 46027854891, TC-053-087 on mobile and full-mobile: chip y 436-500
+        under ``.notistack-CollapseWrapper``). Closed the way a user does first (#3157).
+        """
+        self.click_clear_of_snackbars(_tid("field-chip-note"), "the note chip")
         self.wait_for_element_visible(self.NOTE_DIALOG)
 
     def submit_note(self, text: str, what: str) -> None:

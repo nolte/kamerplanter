@@ -93,6 +93,10 @@ def _is_direct(event: dict[str, Any]) -> bool:
     return event.get("kind") == "direct"
 
 
+def _with_outcome(events: list[dict[str, Any]], outcome: str) -> list[dict[str, Any]]:
+    return [e for e in events if e.get("outcome") == outcome]
+
+
 def _detail(events: list[dict[str, Any]], covered: list[dict[str, Any]], noun: str) -> list[str]:
     """The ranked lines under one kind's summary line."""
     lines: list[str] = []
@@ -125,6 +129,12 @@ def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> 
     coordinate-free helper exists because a control's centre can lie below the
     fold, which is not *covered* but is the case where a user must scroll first.
     ``no_verdict`` there is what remains without a verdict (a detached node).
+
+    Since step 2 the fallback line also counts what became of the refused clicks:
+    ``raised`` -- covered, so the test failed naming the cover and no click was
+    sent -- and ``covered_ok`` -- covered, clicked anyway on a caller's stated
+    reason. The step-1 fields keep their meaning: ``covered`` still counts every
+    covered fallback, raised or not. The opt-outs are listed with their reasons.
     """
     fallbacks = [e for e in events if not _is_direct(e)]
     direct = [e for e in events if _is_direct(e)]
@@ -139,6 +149,8 @@ def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> 
         f"covered={len(f_covered)} covered_tests={len({e.get('nodeid') for e in f_covered})} "
         f"uncovered={len(ok(fallbacks, False))} no_verdict={len(ok(fallbacks, None))} "
         f"probe_failed={len([e for e in fallbacks if e.get('probe') != 'ok'])} "
+        f"raised={len(_with_outcome(fallbacks, _click_fallback.OUTCOME_RAISED))} "
+        f"covered_ok={len(_with_outcome(fallbacks, _click_fallback.OUTCOME_COVERED_OK))} "
         f"file={path if path is not None else '-'}"
     ]
     d_covered = ok(direct, True)
@@ -153,6 +165,12 @@ def summarize(events: list[dict[str, Any]], profile: str, path: Path | None) -> 
     )
     if fallbacks:
         lines.extend(_detail(fallbacks, f_covered, "fallbacks"))
+        opt_outs = _with_outcome(fallbacks, _click_fallback.OUTCOME_COVERED_OK)
+        if opt_outs:
+            lines.append(f"covered_ok opt-outs ({len(opt_outs)}):")
+            reasons = Counter((str(e.get("caller")), str(e.get("covered_ok"))) for e in opt_outs)
+            for (caller, reason), count in reasons.most_common(TOP_N):
+                lines.append(f"  {count:4d}x  {caller}: {reason}")
     if direct:
         lines.extend(_detail(direct, d_covered, "direct clicks"))
         if d_offscreen:

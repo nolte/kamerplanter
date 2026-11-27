@@ -434,8 +434,15 @@ class BedViewPage(BasePage):
         return dialog
 
     def open_thinning_dialog(self, slot_key: str) -> ThinningDialog:
-        """ "Vereinzeln" on the sown row *slot_key*; returns once the dialog read the server's thinning plan."""
-        self.wait_and_click_coordinate_free(_tid(f"planting-thin-{slot_key}"))
+        """ "Vereinzeln" on the sown row *slot_key*; returns once the dialog read the server's thinning plan.
+
+        The row action can lie under the sowing's confirmation snackbar ("Als gesät
+        erfassen" submitted just before) at the end of the page (nightly 46027854891, TC-053-109, light and full: the direct click
+        landed on the snackbar). Closed the way a user does first (#3157).
+        """
+        self.click_clear_of_snackbars(
+            _tid(f"planting-thin-{slot_key}"), f"'Vereinzeln' of {slot_key}", coordinate_free=True
+        )
         dialog = ThinningDialog(self.driver, self.base_url)
         dialog.wait_until_loaded()
         return dialog
@@ -491,8 +498,16 @@ class BedViewPage(BasePage):
         }
 
     def open_position_dialog(self, plant_key: str) -> PositionDialog:
-        """Click "Position korrigieren" of *plant_key*; the caller reads which branch loaded."""
-        self.wait_and_click(_tid(f"planting-correct-{plant_key}"))
+        """Click "Position korrigieren" of *plant_key*; the caller reads which branch loaded.
+
+        After "Position speichern" its confirmation snackbar lies bottom right, where
+        the row action of the last planting sits at the end of the page (nightly
+        46027854891, TC-053-019's second dialog, light and full: y 860-904 of 937
+        under ``#notistack-snackbar``). Closed the way a user does first (#3157).
+        """
+        self.click_clear_of_snackbars(
+            _tid(f"planting-correct-{plant_key}"), f"'Position korrigieren' of {plant_key}"
+        )
         dialog = PositionDialog(self.driver, self.base_url)
         dialog.wait_for_element(dialog.DIALOG)
         return dialog

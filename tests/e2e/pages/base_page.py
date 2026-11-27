@@ -932,6 +932,47 @@ class BasePage:
 
     #: Overflow trigger rendered by ``PageHeaderActions`` on ``xs``.
     PAGE_HEADER_OVERFLOW = (By.CSS_SELECTOR, "[data-testid='page-header-overflow']")
+    PAGE_HEADER_OVERFLOW_MENU = (By.CSS_SELECTOR, "[data-testid='page-header-overflow-menu']")
+
+    def close_header_overflow(self, timeout: int = 5) -> None:
+        """Close the page header's ``⋮`` menu if it is open, or fail loudly if it stays open.
+
+        The overflow is a MUI ``Menu`` (``role='menu'``, ``menuitem`` entries), not a
+        Select listbox, so :meth:`close_mui_dropdown` -- which looks for
+        ``li[role='option']`` -- sees nothing and returns at once. That is how the
+        read-only header probes (:meth:`is_header_action_enabled`,
+        :meth:`has_header_action`) used to leave the menu open on ``xs``: its
+        invisible backdrop then lay over the whole page, and the next click -- the
+        test's own ``initiate_remove`` on the same trigger -- was intercepted and
+        only went through on the covering-blind JS fallback (#3157, nightly
+        46027854891, ``MuiBackdrop-invisible`` over ``page-header-overflow`` on the
+        phone profiles).
+
+        Not an app defect: ``PageHeaderActions`` closes the menu when an entry is
+        chosen and on ``Escape``/click-away; the probes chose nothing. Closed the way
+        a keyboard user does it -- ``Escape`` to the open menu, where MUI's modal key
+        handler sits -- and then waited for the menu root to leave the DOM, so its
+        backdrop is gone before the caller's next click.
+        """
+        from selenium.webdriver.common.keys import Keys
+
+        if not self.driver.find_elements(*self.PAGE_HEADER_OVERFLOW_MENU):
+            return
+        menus = self.driver.find_elements(By.CSS_SELECTOR, "[role='menu']")
+        try:
+            (menus[0] if menus else self.driver.switch_to.active_element).send_keys(Keys.ESCAPE)
+        except (
+            ElementNotInteractableException,
+            StaleElementReferenceException,
+        ):
+            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
+        try:
+            self.poll(timeout).until(lambda d: not d.find_elements(*self.PAGE_HEADER_OVERFLOW_MENU))
+        except TimeoutException as exc:
+            raise AssertionError(
+                f"the page header's overflow menu did not close within {timeout}s after "
+                "Escape -- its invisible backdrop will intercept every following click."
+            ) from exc
 
     def _header_action_element(
         self, testid: str, timeout: int = IMPLICIT_WAIT_EQUIVALENT
@@ -966,7 +1007,8 @@ class BasePage:
         preserved without a hang.
 
         Leaves the menu open when it had to be opened; callers that only inspect
-        state can close it with ``close_mui_dropdown``.
+        state close it with :meth:`close_header_overflow` (``close_mui_dropdown``
+        only knows Select listboxes and would leave it open).
         """
         direct_locator = (By.CSS_SELECTOR, f"[data-testid='{testid}']")
         try:
@@ -995,7 +1037,7 @@ class BasePage:
     def has_header_action(self, testid: str) -> bool:
         """Whether a page-header action exists, as button (``sm``+) or menu entry (``xs``)."""
         found = self._header_action_element(testid) is not None
-        self.close_mui_dropdown()
+        self.close_header_overflow()
         return found
 
     def is_header_action_enabled(self, testid: str) -> bool:
@@ -1009,14 +1051,14 @@ class BasePage:
         """
         el = self._header_action_element(testid)
         if el is None:
-            self.close_mui_dropdown()
+            self.close_header_overflow()
             return False
         enabled = (
             el.is_enabled()
             and not el.get_attribute("disabled")
             and el.get_attribute("aria-disabled") != "true"
         )
-        self.close_mui_dropdown()
+        self.close_header_overflow()
         return enabled
 
     def click_header_action(self, testid: str) -> None:
@@ -1614,8 +1656,14 @@ class BasePage:
                 f"rejected the change."
             ) from exc
 
-    def scroll_and_click(self, element: WebElement, *, locator: Locator | None = None) -> None:
-        """Scroll an element into view and click it, with a sound JS fallback.
+    def scroll_and_click(
+        self,
+        element: WebElement,
+        *,
+        locator: Locator | None = None,
+        covered_ok: str | None = None,
+    ) -> None:
+        """Scroll an element into view and click it; a JS fallback only for an uncovered control.
 
         The fallback is chosen by target: a bare JS ``click()`` is fine for
         buttons and links, but is a *silent no-op* on a MUI Select trigger
@@ -1660,14 +1708,31 @@ class BasePage:
         sends no script and gives no verdict. The armed listener then stays on
         the page until the next arm replaces it; it only records, never acts.
 
-        **The JS fallback is recorded, not yet refused (#3157, step 1).** It is
-        dispatched on the element whatever covers it, so a control a user could
-        not hit is still activated. Before it runs, :meth:`_record_click_fallback`
+        **A covered control fails the test instead of being clicked through
+        (#3157).** A JS activation is dispatched on the element whatever covers
+        it, so it used to activate a control a user could not hit, and the test
+        passed. When the native click is refused, :meth:`_record_click_fallback`
         reads what lies at the element's centre and records an event (see
-        ``pages/_click_fallback.py``); the fallback then proceeds unchanged.
-        *locator* only names the target in that record -- ``wait_and_click``
+        ``pages/_click_fallback.py``); :func:`_click_fallback.decide` then picks:
+
+        * **covered** (another element, or an ancestor, at the centre): an
+          ``AssertionError`` names the covering element, the target, both boxes
+          and the viewport, and **no click is sent**;
+        * **not covered** (the centre is the control or a descendant): the JS
+          fallback runs as before -- the driver refused for another reason;
+        * **no verdict / probe failed**: the JS fallback runs and is recorded
+          (never observed in the measuring nightly; see ``decide``).
+
+        *covered_ok* is the explicit opt-out for a caller that expects its target
+        to be covered: a non-empty reason, recorded in the event, after which the
+        fallback runs. Every use is a claim that a user can reach the control by
+        other means -- name that means in the reason.
+
+        *locator* only names the target in the record -- ``wait_and_click``
         passes its own, and a re-resolving element carries one already.
         """
+        if covered_ok is not None and not covered_ok.strip():
+            raise ValueError("scroll_and_click(covered_ok=...) needs a reason, not an empty string")
         self.scroll_into_view(element)
         if self._settled_hit(element) is False:
             self.scroll_into_view(element)
@@ -1679,13 +1744,18 @@ class BasePage:
             # No pointer event went out: the driver refused before dispatching.
             self._read_press_probe()
             mousedown = self.opens_on_mousedown(element)
-            self._record_click_fallback(
+            outcome, event = self._record_click_fallback(
                 element,
                 helper="BasePage.scroll_and_click",
                 activation="js_mousedown" if mousedown else "js_click",
                 trigger=refused,
                 locator=locator,
+                covered_ok=covered_ok,
             )
+            if outcome == _click_fallback.OUTCOME_RAISED:
+                raise AssertionError(
+                    _click_fallback.refusal_message(event or {}, "scroll_and_click")
+                ) from refused
             if mousedown:
                 self.dispatch_menu_trigger_open(element)
             else:
@@ -1702,6 +1772,87 @@ class BasePage:
                 f"hit-test and the press. This is a missed click, not a control that "
                 f"ignored it; find what changes the layout around the target (#3065)."
             )
+
+    #: The notistack snackbar lying on an element's centre: its collapse wrapper
+    #: (one per snackbar, the node notistack unmounts once the snackbar has left),
+    #: else ``null``. Same hit-test as the cover probe of ``_click_fallback``.
+    _SNACKBAR_OVER_JS = """/* snackbarOver */
+var el = arguments[0];
+if (!el.isConnected) return null;
+var r = el.getBoundingClientRect();
+var at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+if (!at || at === el || el.contains(at)) return null;
+return at.closest('.notistack-CollapseWrapper');
+"""
+
+    #: The close button every snackbar carries (``SnackbarCloseButton``, #3013 N-10).
+    SNACKBAR_CLOSE = (By.CSS_SELECTOR, "[data-testid='snackbar-close']")
+
+    def close_snackbars_over(self, element: WebElement, what: str, timeout: int = 12) -> int:
+        """Close every snackbar that lies on *element*'s centre, the way a user does; return how many.
+
+        A confirmation snackbar (bottom right, 5 s; an undo offer or a warning
+        8 s) can come to rest on the control the test wants next -- a list row's
+        action at the end of the page, a bed row under the phone's tall offline
+        warning. A user sees it there and closes it with its "x" (or waits);
+        clicking through it is what a JS fallback did and what #3157 forbids.
+        This closes exactly the snackbars that cover the control's centre, with
+        their own close button, and waits until each has left the DOM -- a
+        snackbar elsewhere on screen is left alone, so a later read of its text
+        still finds it. One already on its way out (its close button no longer
+        takes a click) is simply waited for.
+
+        Call it only where the previous step raised a transient confirmation on
+        top of the next control (each caller says which); a snackbar that sits on
+        a control for good is a layout defect and must keep failing the click.
+        """
+        closed = 0
+        for _ in range(4):  # notistack shows at most three, a fourth may slide in
+            if self._prompt_is_open():
+                return closed
+            try:
+                wrapper = self.driver.execute_script(self._SNACKBAR_OVER_JS, raw_reference(element))
+            except WebDriverException:
+                return closed
+            if wrapper is None:
+                return closed
+            try:
+                for button in wrapper.find_elements(*self.SNACKBAR_CLOSE)[:1]:
+                    button.click()
+            except (
+                ElementClickInterceptedException,
+                ElementNotInteractableException,
+                StaleElementReferenceException,
+            ):
+                pass  # leaving already, or gone since the probe: the wait below covers it
+            try:
+                self.poll(timeout).until(EC.staleness_of(wrapper))
+            except TimeoutException as exc:
+                raise AssertionError(
+                    f"{what}: a snackbar on the control was still on screen {timeout}s after "
+                    "its close button was pressed"
+                ) from exc
+            closed += 1
+        raise AssertionError(
+            f"{what}: more snackbars kept arriving on the control than notistack shows"
+        )
+
+    def click_clear_of_snackbars(
+        self, locator: Locator, what: str, *, coordinate_free: bool = False
+    ) -> None:
+        """Click *locator* once the snackbars covering it are closed (:meth:`close_snackbars_over`).
+
+        *coordinate_free* routes the click through :meth:`click_coordinate_free`
+        for the targets that need it; otherwise it is the guarded
+        :meth:`scroll_and_click`, which still fails on any *other* cover.
+        """
+        element = self.wait_for_element_clickable(locator)
+        self.scroll_into_view(element)
+        self.close_snackbars_over(element, what)
+        if coordinate_free:
+            self.click_coordinate_free(element, locator=locator)
+        else:
+            self.scroll_and_click(element, locator=locator)
 
     #: Frame-settled hit-test of an element's centre, for :meth:`scroll_and_click`.
     #: Two nested ``requestAnimationFrame`` callbacks let work the scroll
@@ -1794,16 +1945,20 @@ return p.probe;
         trigger: BaseException | str,
         locator: Locator | None = None,
         kind: str = "fallback",
-    ) -> None:
-        """Record a covering-blind fallback activation that is about to happen (#3157).
+        covered_ok: str | None = None,
+    ) -> tuple[str, dict | None]:
+        """Probe and record a covering-blind activation that is about to happen (#3157).
 
         Reads what a press at *element*'s centre would hit -- one script, before
         the fallback, so the answer describes the layout the fallback is about to
-        ignore -- and hands it to :func:`_click_fallback.record_fallback`. Never
-        raises and never acts: a read that fails is recorded as ``probe_failed``,
-        and an open user prompt gets no script at all (WebDriver would dismiss it,
-        see :meth:`scroll_and_click`). The caller's fallback then runs exactly as
-        it did before this record existed.
+        ignore -- decides with :func:`_click_fallback.decide` what the refused
+        click turns into, and records the event with that ``outcome`` (a
+        ``kind: "direct"`` click is recorded without one: it is measured, not
+        decided). Returns ``(outcome, event)``; acting on the outcome -- raising,
+        or running the fallback -- is the caller's. Never raises and never acts: a
+        read that fails is recorded as ``probe_failed`` (and decided as the
+        fallback), and an open user prompt gets no script at all (WebDriver would
+        dismiss it, see :meth:`scroll_and_click`).
 
         The probe reads through :func:`raw_reference`: a re-resolving element
         that went stale would otherwise heal itself *in the probe* (up to its
@@ -1819,16 +1974,20 @@ return p.probe;
                 if self._prompt_is_open()
                 else _click_fallback.probe_cover(self.driver.execute_script, raw_reference(element))
             )
-            _click_fallback.record_fallback(
+            outcome = _click_fallback.decide(probe, covered_ok)
+            event = _click_fallback.record_fallback(
                 helper=helper,
                 activation=activation,
                 trigger=trigger,
                 locator=locator,
                 probe=probe,
                 kind=kind,
+                outcome=outcome if kind == "fallback" else None,
+                covered_ok=covered_ok if outcome == _click_fallback.OUTCOME_COVERED_OK else None,
             )
+            return outcome, event
         except Exception:  # noqa: BLE001 -- the record must never fail the click it records
-            pass
+            return _click_fallback.OUTCOME_JS_FALLBACK, None
 
     def _settled_hit(self, element: WebElement) -> bool | None:
         """Whether *element*'s centre hits it, one frame after the last scroll.
@@ -1872,7 +2031,13 @@ return p.probe;
             return None
         return probe if isinstance(probe, dict) else None
 
-    def wait_and_click(self, locator: tuple[str, str], timeout: int = DEFAULT_TIMEOUT) -> None:
+    def wait_and_click(
+        self,
+        locator: tuple[str, str],
+        timeout: int = DEFAULT_TIMEOUT,
+        *,
+        covered_ok: str | None = None,
+    ) -> None:
         """Wait until *locator* is clickable, scroll it into view, then click it.
 
         The scroll step is not cosmetic: below the `sm` breakpoint MUI dialogs
@@ -1891,9 +2056,14 @@ return p.probe;
         edit tab, not a dialog) is scroll-clamped against the bottom of the
         document, where the coordinate dispatch this helper ends in silently
         misses. Those go through :meth:`wait_and_click_coordinate_free`.
+
+        A covered control fails the click; *covered_ok* is the reasoned opt-out,
+        see :meth:`scroll_and_click`.
         """
         self.scroll_and_click(
-            self.wait_for_element_clickable(locator, timeout=timeout), locator=locator
+            self.wait_for_element_clickable(locator, timeout=timeout),
+            locator=locator,
+            covered_ok=covered_ok,
         )
 
     #: The confirm button of the "discard changes?" prompt `FormDialog` opens

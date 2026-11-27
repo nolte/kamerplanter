@@ -24,6 +24,7 @@ import {
   markAllRead,
 } from '@/api/endpoints/notifications';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
+import { belowAppBar } from '@/components/layout/appBarOffset';
 import { errorKey } from '@/api/errors';
 import { useAbortableLoad } from '@/hooks/useAbortableLoad';
 import { captureHandledError } from '@/observability/errorTracking';
@@ -284,10 +285,11 @@ export default function NotificationDrawer({
       onClose={onClose}
       slotProps={{
         paper: {
-          sx: {
-            width: { xs: '100%', sm: DRAWER_WIDTH },
-            maxWidth: '100vw',
-          },
+          // #3157 — the paper starts below the app bar, which lies above every drawer: from the top of the
+          // viewport the header with its close button sat under the bar and could not be hit with a pointer.
+          // An array, not a spread: the offset's media queries carry the same keys as the responsive width's,
+          // and one object would let them replace the width instead of joining it.
+          sx: [{ width: { xs: '100%', sm: DRAWER_WIDTH }, maxWidth: '100vw' }, belowAppBar],
           role: 'region',
           'aria-label': t('pages.notifications.title'),
         } as Record<string, unknown>,
