@@ -38,11 +38,14 @@ class YamlSoilHazardKnowledgeSource(ISoilHazardKnowledgeSource):
 
         Raises:
             pydantic.ValidationError: If the file violates the evidence invariants.
+            ValueError: If the file does not hold a mapping.
             OSError: If the file cannot be read.
         """
         if self._table is None:
             raw = load_yaml_path(self._path)
-            self._table = SoilHazardKnowledgeTable.model_validate(raw)
+            if not isinstance(raw, dict):
+                raise ValueError(f"{self._path.name} must hold a mapping, found {type(raw).__name__}")
+            self._table = SoilHazardKnowledgeTable(**raw)
             logger.info("soil_hazard_knowledge_loaded", path=self._path.name, hazards=len(self._table.hazards))
         return self._table
 
