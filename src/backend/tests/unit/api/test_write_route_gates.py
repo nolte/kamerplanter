@@ -327,6 +327,14 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #: says the thing the entry actually claims: this route reaches no write it is
 #: not excused for.
 #:
+#: Re-measured 2026-11-27 (#3148): the fifteen-and-more came from ONE untyped
+#: receiver — the redis pipeline in ``RedisOAuthStateStore.get_and_delete``,
+#: whose ``pipe.delete(key)`` fell back to every repository ``delete`` of the
+#: tree. With the store's client typed as ``redis.Redis`` the route reaches its
+#: 13 sinks by type alone (no name-fallback edge left on its path); the 11 sinks
+#: only that pipeline reached — tombstones, the storage-release retry, eight
+#: repository deletes, ``graph_edges.remove_edges`` — are no longer excused.
+#:
 #: **How much "a NEW sink turns it red" is worth differs per entry, and the honest
 #: version of that sentence is below** (review SCR-006). Both halves were measured
 #: by mutation on 2026-09-18 — an added, detector-resolvable
@@ -337,8 +345,8 @@ _GUARDED_PERSISTING_READS: dict[str, tuple[str, str, frozenset[str]]] = {
 #:   mutation adds ``_insert_doc``, which is not in the set, and the sweep goes
 #:   **red**. `test_a_second_write_in_an_intentional_read_is_reported` pins that,
 #:   so the claim is checked and not believed.
-#: * ``auth.oauth_callback`` excuses fifteen, and those fifteen already include
-#:   **all four** base document primitives plus ``create_edge``/``delete_edges``.
+#: * ``auth.oauth_callback`` excuses thirteen (since #3148; more before), and
+#:   those already include **all four** base document primitives plus ``create_edge``/``delete_edges``.
 #:   Any write added anywhere below it goes through one of them, so the identity
 #:   is already in the set and the sweep stays **green**. For this entry the sink
 #:   set bounds the *shape* of what the route reaches — repository primitives, no
@@ -359,27 +367,14 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
         frozenset(
             {
                 "col.insert() in app.data_access.arango.base_repository::BaseArangoRepository.create_edge",
-                "raw query write (f-string) in app.data_access.arango.activity_repository"
-                "::ArangoActivityRepository.delete",
                 "raw query write (f-string) in app.data_access.arango.base_repository"
                 "::BaseArangoRepository.delete_edges",
-                "raw query write (f-string) in app.data_access.arango.consent_repository"
-                "::ArangoConsentRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.data_export_repository"
-                "::ArangoDataExportRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.email_change_repository"
-                "::ArangoEmailChangeRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.fertilizer_repository"
-                "::ArangoFertilizerRepository.delete",
                 "raw query write (f-string) in app.data_access.arango.membership_repository"
                 "::ArangoMembershipRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.processing_restriction_repository"
-                "::ArangoProcessingRestrictionRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.tank_repository::ArangoTankRepository.delete",
                 # #1664 — ``ArangoUserRepository.delete`` runs its cascade through the
-                # shared erasure executor instead of ``_remove_docs_for_user``. The route
-                # reaches it only through the detector's ``.delete`` name fallback, as it
-                # reached the helper before; the sinks moved, the reach did not.
+                # shared erasure executor. Since #3148 the route reaches it by TYPE, through
+                # ``AuthService._take_back_registration`` (the take-back of a half-registered
+                # OAuth account), not through the ``.delete`` name fallback.
                 "module-level query write _REMOVE_USER in app.data_access.arango.erasure_executor"
                 "::ArangoErasureExecutor._run_step",
                 "module-level query write _REWRITE_REFERENCE in app.data_access.arango.erasure_executor"
@@ -399,22 +394,6 @@ _INTENTIONAL_PERSISTING_READS: dict[str, tuple[str, frozenset[str]]] = {
                 "self._db.collection(col.SECURITY_AUDIT_LOG).insert() in "
                 "app.data_access.arango.security_audit_repository::ArangoSecurityAuditRepository.record",
                 "self.collection.delete() in app.data_access.arango.base_repository::BaseArangoRepository._delete_doc",
-                # REQ-053 WP 9.3 — the tombstone a deleted attachment or task leaves; reached only through the
-                # detector's ``.delete`` name fallback, like the repository deletes above.
-                "db.collection(col.CLIENT_EVENT_TOMBSTONES).insert() in "
-                "app.data_access.arango.client_event_tombstones::record_tombstone",
-                # #2630 — the release a failed storage delete still owes, recorded by ``AttachmentService`` after
-                # the record is gone; reached only through the detector's ``.delete`` name fallback, like the
-                # tombstone above.
-                "module-level query write _RECORD in app.data_access.arango.storage_release_retry_repository"
-                "::ArangoStorageReleaseRetryRepository.owe_release",
-                # #2560/#2561 — ``ArangoPlantInstanceRepository.delete`` removes the instance and cuts every
-                # derived edge in one stream transaction (``graph_edges.remove_edges``) instead of going through
-                # the base primitives. Reached only through the detector's ``.delete`` name fallback on the
-                # untyped redis pipeline in ``RedisOAuthStateStore.get_and_delete``, like the deletes above.
-                "txn.collection(col.PLANT_INSTANCES).delete() in app.data_access.arango.plant_instance_repository"
-                "::ArangoPlantInstanceRepository.delete",
-                "raw query write (f-string) in app.data_access.arango.graph_edges::remove_edges",
                 "self.collection.insert() in app.data_access.arango.base_repository::BaseArangoRepository._insert_doc",
                 "self.collection.update() in app.data_access.arango.base_repository::BaseArangoRepository._update_doc",
                 "self.collection.update() in app.data_access.arango.base_repository"
@@ -2503,8 +2482,8 @@ def control_dict_loop(repos: dict[str, InventedRepository]):
 }
 
 
-#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039, #3144, #3148); baseline 2224.
-_GENUINE_UNRESOLVED_CEILING = 2285
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039, #3144, #3148); baseline 2217.
+_GENUINE_UNRESOLVED_CEILING = 2278
 
 
 class TestTheDetectorTypesWhatIsWrittenDown:
@@ -2933,9 +2912,12 @@ class TestTheCountSeesInheritedMethodsAndNestedParameters:
 _UNKNOWN_ANNOTATION_TREE = {
     **_SYNTHETIC_TREE,
     "domain/unknown_annotations.py": """
-from typing import Any, Protocol
+from typing import Any, Optional, Protocol, TypeVar
+from typing import Any as Unknown
 
 from app.data_access.invented_repository import InventedRepository
+
+T = TypeVar("T")
 
 
 class Saver(Protocol):
@@ -2983,8 +2965,38 @@ def control_known_type_without_the_method(saver: Saver):
     saver.create({})
 
 
-def control_known_type_widened_by_any(saver: Saver | Any):
+def write_through_known_type_widened_by_any(saver: Saver | Any):
     saver.create({})
+
+
+def write_through_nested_known_type_widened_by_any(key: str):
+    def write(saver: Saver | Any) -> None:
+        saver.create({})
+
+    return write
+
+
+def write_through_nested_optional_union_with_any(key: str):
+    def write(saver: Optional[Saver | Any]) -> None:
+        saver.create({})
+
+    return write
+
+
+def control_container_of_any_is_a_container(filters: list[tuple[str, Any]]):
+    filters.insert(0, ("key", None))
+
+
+def hole_subscript_of_a_dict_of_any(rows: dict[str, Any]):
+    rows["x"].create({})
+
+
+def hole_aliased_any(repo: Unknown):
+    repo.create({})
+
+
+def hole_top_level_typevar(repo: T):
+    repo.create({})
 """,
 }
 
@@ -2998,9 +3010,13 @@ class TestAnUnknownAnnotationIsUntyped:
     functions that then did not read as writers. A nested `def` already treated
     `Any` as untyped; the rule is now one (`CallGraph._known_types_of`).
 
-    The control is the half that keeps the repair from over-reaching: a receiver
-    typed as a class of this tree that lacks the method — alone or next to
-    `Any` — still neither resolves nor falls back.
+    A union with `Any` is unknown as a whole — `Saver | Any`, `Optional[Saver |
+    Any]`, at the top level and in a nested `def` alike (#3148 review S1): "could
+    be anything" includes a repository, whatever else the union names.
+
+    The controls keep the repair from over-reaching: a receiver typed as a class
+    of this tree that lacks the method still neither resolves nor falls back, and
+    a container whose ELEMENT is `Any` is still a container.
     """
 
     @pytest.fixture
@@ -3028,6 +3044,9 @@ class TestAnUnknownAnnotationIsUntyped:
             "write_through_object",
             "Holder.write_through_any_attribute",
             "Holder.write_through_object_attribute",
+            "write_through_known_type_widened_by_any",
+            "write_through_nested_known_type_widened_by_any",
+            "write_through_nested_optional_union_with_any",
         ],
     )
     def test_an_any_or_object_receiver_falls_back_and_writes(self, graph: CallGraph, name: str) -> None:
@@ -3053,7 +3072,6 @@ class TestAnUnknownAnnotationIsUntyped:
         "name",
         [
             "control_known_type_without_the_method",
-            "control_known_type_widened_by_any",
             "Holder.control_known_attribute_without_the_method",
         ],
     )
@@ -3062,6 +3080,34 @@ class TestAnUnknownAnnotationIsUntyped:
 
         assert "create" in caller.unresolved
         assert not any(edge[0] == caller.id for edge in graph.fallback_edges), f"{name} fell back by name"
+        assert caller.id not in graph.writers()
+
+    def test_an_unknown_element_does_not_make_the_container_unknown(self, graph: CallGraph) -> None:
+        """`list[tuple[str, Any]]` is a list: its `.insert(...)` is not a repository write (#3148 review S1).
+
+        Only `Any` as an alternative of the annotation itself makes the receiver
+        unknown. Read inside the container, it sent 28 list receivers of the tree
+        to the genuine count, and a `.insert` on one would have fallen back to
+        every repository `insert`.
+        """
+        name = "control_container_of_any_is_a_container"
+        caller = self._function(graph, name)
+
+        assert "insert" in caller.unresolved
+        assert not any(edge[0] == caller.id for edge in graph.fallback_edges), f"{name} fell back by name"
+        assert caller.id not in graph.writers()
+
+    @pytest.mark.parametrize("name", ["hole_subscript_of_a_dict_of_any", "hole_aliased_any", "hole_top_level_typevar"])
+    def test_the_documented_holes_are_still_holes(self, graph: CallGraph, name: str) -> None:
+        """Pinned, not endorsed: the three shapes the module docstring lists under "still read as a type".
+
+        Each is typed as something external and neither falls back nor writes. If
+        one of them starts falling back, the docstring is wrong in the safe
+        direction — update it in the same diff.
+        """
+        caller = self._function(graph, name)
+
+        assert not any(edge[0] == caller.id for edge in graph.fallback_edges), f"{name} now falls back"
         assert caller.id not in graph.writers()
 
     def test_the_count_keeps_an_any_receiver_genuine(self, graph: CallGraph) -> None:
@@ -3118,6 +3164,130 @@ class TestTheActuatorFallbackTaskIsAWrite:
         task_sinks = graph.write_sinks(graph.by_id[_TASK_INSERT])
         assert task_sinks, "the task insert reaches no write"
         assert task_sinks <= write_sinks_of(endpoint)
+
+
+#: #3148 review S2: a collection handle recognised by its TYPE, not only its spelling.
+_TYPED_COLLECTION_TREE = {
+    **_SYNTHETIC_TREE,
+    "data_access/meta_repository.py": """
+from collections.abc import Collection
+
+from arango.collection import StandardCollection
+
+
+class MetaRepository:
+    def __init__(self, db) -> None:
+        self._db = db
+
+    @property
+    def _meta(self) -> StandardCollection:
+        return self._db.collection("meta")
+
+    def set_mode(self, mode: str) -> None:
+        self._meta.insert({"_key": "mode", "mode": mode})
+
+    def read_mode(self):
+        return self._meta.get("mode")
+
+
+def write_through_an_annotated_handle(handle: StandardCollection) -> None:
+    handle.update({"_key": "k"})
+
+
+def control_a_list_is_not_a_collection_handle(rows: list[str]) -> None:
+    rows.insert(0, "x")
+
+
+def control_an_abc_collection_is_not_a_handle(items: Collection) -> None:
+    items.delete("x")
+""",
+    "domain/meta_service.py": """
+from app.data_access.meta_repository import MetaRepository
+
+
+class MetaService:
+    def __init__(self, repo: MetaRepository) -> None:
+        self._repo = repo
+
+    def switch(self, mode: str) -> None:
+        self._repo.set_mode(mode)
+""",
+}
+
+
+class TestACollectionHandleIsKnownByItsType:
+    """#3148 review S2: `self._meta.insert(...)` on a `StandardCollection` is a direct write.
+
+    The parse-time scan recognises a collection handle by spelling only
+    (`_COLLECTION_RECEIVER`: `collection`, `col`). A handle with another name and
+    an honest annotation — `ArangoModeSwitchRepository._meta`, a property
+    returning `StandardCollection` — matched no spelling, was typed as external
+    (so no fallback either), and its two inserts did not read as writes.
+    """
+
+    @pytest.fixture
+    def graph(self, tmp_path: pathlib.Path) -> CallGraph:
+        for relative, source in _TYPED_COLLECTION_TREE.items():
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(tmp_path)
+        graph.link()
+        return graph
+
+    def test_a_mutator_on_a_typed_handle_is_a_direct_write(self, graph: CallGraph) -> None:
+        setter = graph.by_id["app.data_access.meta_repository::MetaRepository.set_mode"]
+        handle = graph.by_id["app.data_access.meta_repository::write_through_an_annotated_handle"]
+
+        assert setter.direct_write == "self._meta.insert() in app.data_access.meta_repository::MetaRepository.set_mode"
+        assert handle.direct_write == (
+            "handle.update() in app.data_access.meta_repository::write_through_an_annotated_handle"
+        )
+
+    def test_the_write_propagates_to_its_callers_by_type(self, graph: CallGraph) -> None:
+        assert "app.domain.meta_service::MetaService.switch" in graph.writers()
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "MetaRepository.read_mode",
+            "control_a_list_is_not_a_collection_handle",
+            "control_an_abc_collection_is_not_a_handle",
+        ],
+    )
+    def test_a_read_or_another_type_is_not_a_write(self, graph: CallGraph, name: str) -> None:
+        function = graph.by_id[f"app.data_access.meta_repository::{name}"]
+
+        assert not function.direct_write, function.direct_write
+        assert function.id not in graph.writers()
+
+
+class TestTheRealTreeSeesTheTypedReceivers:
+    """#3148 review S2/N3 on the real tree, each pinned by the function it is about."""
+
+    @pytest.mark.parametrize(
+        "name",
+        ["ArangoModeSwitchRepository.set_deployment_mode", "ArangoModeSwitchRepository.record_pending_takeover"],
+    )
+    def test_the_mode_switch_inserts_are_direct_writes(self, name: str) -> None:
+        function = call_graph().by_id[f"app.data_access.arango.mode_switch_repository::{name}"]
+
+        assert function.direct_write == f"self._meta.insert() in {function.id}"
+
+    @pytest.mark.parametrize(
+        "function_id",
+        [
+            "app.data_access.external.redis_oauth_state::RedisOAuthStateStore.get_and_delete",
+            "app.mcp_server.session::McpSessionStore.terminate",
+        ],
+    )
+    def test_a_typed_valkey_delete_does_not_chain_to_repository_deletes(self, function_id: str) -> None:
+        """Typed at the source: the Valkey `delete` no longer falls back to every repository `delete`."""
+        graph = call_graph()
+
+        assert not [edge for edge in graph.fallback_edges if edge[0] == function_id]
+        assert function_id not in graph.writers()
 
 
 class TestPersistingReadsAreSweptLikeWrites:
@@ -3645,10 +3815,21 @@ class TestPersistingReadsAreSweptLikeWrites:
         target, no edge and no name-fallback edge disappeared (2545 before and
         after), no function stopped reading as a writer. The ceiling is the new
         genuine baseline plus the same 61 of headroom.
+
+        Re-baselined again 2026-11-27 after the review of #3148: 2224 → 2217
+        genuine (14349 → 14346 total). The Redis clients of
+        ``RedisOAuthStateStore`` (``redis.Redis``, its pipeline ``Pipeline``) and
+        ``McpSessionStore`` (``_DecodedRedis``, which gained ``setex``) are typed
+        at the source: 5 calls genuine → external, 3 genuine → resolved (to the
+        protocol stubs). A receiver whose annotation has ``Any`` as an
+        ALTERNATIVE is now unknown as a whole (``Saver | Any``), an ``Any`` inside
+        a container is not: one call — ``data = load_yaml(...) or {}`` in
+        ``seed_phase_ownership``, ``Any | dict`` — moved external → genuine. Same
+        61 of headroom.
         """
         assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
             f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
-            "owner, up from the 2224 measured on 2026-11-27 (#3148). The detector is guessing on more of the tree "
+            "owner, up from the 2217 measured on 2026-11-27 (#3148). The detector is guessing on more of the tree "
             "than it was; check what stopped carrying annotations before trusting a green run."
         )
         assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()
@@ -3686,12 +3867,31 @@ class TestPersistingReadsAreSweptLikeWrites:
         edges stay at 2545: the ``Any``/``object`` receivers that would now fall
         back were typed at the source instead, and the ones left are collection
         primitives, which never fall back — so its floor stays.
+
+        Moved again 2026-11-27 after the review of #3148, same slack each:
+
+        * **direct writers 312 → 314** (318, +2): the detector now also knows a
+          collection handle by its TYPE (``StandardCollection``), and
+          ``ArangoModeSwitchRepository.set_deployment_mode`` /
+          ``record_pending_takeover`` — ``self._meta.insert(...)`` — are real
+          inserts it did not see;
+        * **writers 2053 → 2051** (2077, LOWERED by 2): +3 from those two and
+          ``ModeSwitchService._open_takeover``, −5 that never wrote to the
+          database: ``RedisOAuthStateStore.get_and_delete``,
+          ``McpSessionStore.terminate``, and through them
+          ``AuthService._take_oauth_state``, ``AuthService.abandon_oauth_state``
+          and the ``DELETE /api/v1/mcp`` handler. Their untyped Redis receivers
+          fell back to every repository ``delete``; typed at the source, the
+          Valkey delete is what they do;
+        * **fallback edges 2400 → 2266** (2411, LOWERED): the 134 edges those two
+          receivers produced, every one to a repository method they never call.
+          No real edge went with them — measured edge by edge.
         """
         graph = call_graph()
-        assert len(direct_writers()) >= 312, f"{len(direct_writers())} direct writers, floor 312 (316 on 2026-11-27)"
-        assert len(graph.writers()) >= 2053, f"{len(graph.writers())} writers, floor 2053 (2079 on 2026-11-27)"
-        assert len(graph.fallback_edges) >= 2400, (
-            f"{len(graph.fallback_edges)} name-fallback edges, floor 2400 (2545 on 2026-11-27)"
+        assert len(direct_writers()) >= 314, f"{len(direct_writers())} direct writers, floor 314 (318 on 2026-11-27)"
+        assert len(graph.writers()) >= 2051, f"{len(graph.writers())} writers, floor 2051 (2077 on 2026-11-27)"
+        assert len(graph.fallback_edges) >= 2266, (
+            f"{len(graph.fallback_edges)} name-fallback edges, floor 2266 (2411 on 2026-11-27)"
         )
 
     def test_the_split_sees_external_and_untyped_receivers_apart(self, tmp_path: pathlib.Path):

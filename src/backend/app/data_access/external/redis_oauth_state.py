@@ -4,6 +4,7 @@ import json
 
 import redis
 import structlog
+from redis.client import Pipeline
 
 logger = structlog.get_logger()
 
@@ -19,7 +20,9 @@ class RedisOAuthStateStore:
         # against a Valkey that accepts TCP and never answers.
         from app.common.rate_limit import bounded_redis_client_options
 
-        self._redis = redis.Redis.from_url(redis_url, decode_responses=True, **bounded_redis_client_options())
+        self._redis: redis.Redis = redis.Redis.from_url(
+            redis_url, decode_responses=True, **bounded_redis_client_options()
+        )
 
     def save_state(self, state: str, data: dict, ttl: int = 300) -> None:
         """Store OAuth state data with a TTL (default 5 minutes)."""
@@ -29,7 +32,7 @@ class RedisOAuthStateStore:
     def get_and_delete(self, state: str) -> dict | None:
         """Retrieve and atomically delete OAuth state (one-time use)."""
         key = f"{_PREFIX}{state}"
-        pipe = self._redis.pipeline()
+        pipe: Pipeline = self._redis.pipeline()
         pipe.get(key)
         pipe.delete(key)
         results = pipe.execute()
