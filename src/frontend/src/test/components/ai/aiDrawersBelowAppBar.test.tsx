@@ -196,6 +196,10 @@ describe('AiChatDrawer content (#3162)', () => {
     expect(rule).toContain('flex:1');
     expect(rule).toContain('min-height:0');
     expect(rule).not.toContain('height:100%');
+    // `flex: 1` fills the paper only because MUI's drawer paper is a column flex container.
+    const paper = region.closest('.MuiDrawer-paper') as HTMLElement;
+    expect(window.getComputedStyle(paper).display).toBe('flex');
+    expect(window.getComputedStyle(paper).flexDirection).toBe('column');
     expect(within(region).getByTestId('ai-chat-input')).toBeInTheDocument();
   });
 });
