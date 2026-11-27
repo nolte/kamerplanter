@@ -501,6 +501,8 @@ In the **Soil** tab you record: filling, soil type (with a finger test as help i
 
 If you enter an EC, you also choose the **EC method** (saturated paste, 1:2 or 1:5 extract, probe or "Method unknown") - an EC value cannot be read without its method, and the form does not save it without one. Only fill in the **Target pH (CaCl₂)** if your lab states it; Kamerplanter does not derive a target pH from the soil texture.
 
+**Substrate renewed on:** if you replaced the soil of the bed (not just topped it up), enter the day here. It cannot lie in the future. Soil hazards confirmed before this day no longer warn when you plant, and the warning after a soil-borne loss before this day is gone too - the pathogen left with the old soil. A raised bed on grown soil whose soil you did not renew keeps its soil hazards. <!-- REQ-053 §11.3a Nr. 7 -->
+
 ### Soil hazards of a bed {#soil-hazards-of-a-bed}
 
 Some pathogens stay in the soil for years, whatever grows in the bed right now - clubroot, cyst nematodes or Verticillium wilt, for example. Once such an infestation is confirmed, you record it in the **Soil** tab under **Soil hazards**. <!-- REQ-054 §5.2, AP-API-012 -->
@@ -523,8 +525,10 @@ For each soil hazard you see:
 !!! tip "Declined the offer by mistake?"
     A declined or closed offer does not come back. Record the soil hazard yourself in the bed's **Soil** tab with **Record soil hazard** - with the day of the loss and how the pathogen was confirmed.
 
+**When you plant**, Kamerplanter warns if the chosen species is a host of a soil hazard of the bed - see [Soil hazards when planting](garden-plan.md#soil-hazards-when-planting).
+
 !!! warning "Not yet implemented"
-    When you plant, Kamerplanter does not yet warn about a soil hazard of the bed, and the cultivation planning does not take it into account yet. The soil hazards are already stored and shown for that.
+    The automatic cultivation planning does not take soil hazards into account yet. <!-- REQ-054 H-10 -->
 
 Soil hazards are part of the [plan backup](garden-plan.md#plan-export-import) and the garden export.
 

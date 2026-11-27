@@ -1,11 +1,11 @@
 ---
 id: F-20
 title: Bodengefahren am Beet
-status: in_progress
+status: done
 roadmap_item: R-20
 sprint: 4
 created: 2026-11-17
-ended: null
+ended: 2026-11-27
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-11-17

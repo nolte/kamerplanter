@@ -509,6 +509,8 @@ Im Tab **Boden** hältst du fest: Füllung, Bodentyp (mit Fingerprobe als Hilfe,
 
 Trägst du eine EC ein, wählst du auch die **EC-Messmethode** (Sättigungsextrakt, 1:2- oder 1:5-Extrakt, Sonde oder „Methode unbekannt“) – ohne Methode lässt sich ein EC-Wert nicht lesen, und das Formular speichert ihn nicht. Den **Ziel-pH (CaCl₂)** trägst du nur ein, wenn dein Labor ihn nennt; Kamerplanter leitet keinen Ziel-pH aus der Bodenart ab.
 
+**Substrat erneuert am:** Hast du die Erde des Beets ausgetauscht (nicht nur aufgefüllt), trägst du hier den Tag ein. Er darf nicht in der Zukunft liegen. Bodengefahren, die vor diesem Tag bestätigt wurden, warnen beim Bepflanzen danach nicht mehr, und auch die Warnung nach einem bodenbürtigen Ausfall vor diesem Tag entfällt – der Erreger ist mit der alten Erde gegangen. Ein Hochbeet auf gewachsenem Boden, dessen Erde du nicht erneuert hast, behält seine Bodengefahren. <!-- REQ-053 §11.3a Nr. 7 -->
+
 ### Bodengefahren am Beet {#bodengefahren-am-beet}
 
 Manche Erreger bleiben über Jahre im Boden, ganz gleich, was gerade im Beet wächst – etwa die Kohlhernie, Zystennematoden oder die Verticillium-Welke. Ist ein solcher Befall bestätigt, hältst du ihn im Tab **Boden** unter **Bodengefahren** fest. <!-- REQ-054 §5.2, AP-API-012 -->
@@ -531,8 +533,10 @@ Zu jeder Bodengefahr siehst du:
 !!! tip "Angebot versehentlich abgelehnt?"
     Ein abgelehntes oder geschlossenes Angebot kommt nicht wieder. Trag die Bodengefahr dann im Tab **Boden** des Beets mit **Bodengefahr eintragen** selbst ein – mit dem Tag des Ausfalls und wie der Erreger bestätigt wurde.
 
+**Beim Bepflanzen** warnt Kamerplanter, wenn die gewählte Art ein Wirt einer Bodengefahr des Beets ist – siehe [Bodengefahren beim Bepflanzen](garden-plan.md#bodengefahren-beim-bepflanzen).
+
 !!! warning "Noch nicht implementiert"
-    Beim Bepflanzen warnt Kamerplanter noch nicht vor einer Bodengefahr des Beets, und die Anbauplanung berücksichtigt sie noch nicht. Die Bodengefahren werden dafür bereits gespeichert und angezeigt.
+    Die automatische Anbauplanung berücksichtigt Bodengefahren noch nicht. <!-- REQ-054 H-10 -->
 
 Bodengefahren sind Teil der [Plan-Sicherung](garden-plan.md#plan-export-import) und des Garten-Exports.
 

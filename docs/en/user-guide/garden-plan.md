@@ -258,18 +258,37 @@ In the **Planting** tab of the bed view, rows and areas you sow directly work li
 !!! note "Partially available: sowing"
     Sown rows and areas appear in the **Planting** tab, in the plant state and in the legend, but not yet as a line or area on the drawing area and not in the PDF or SVG. <!-- REQ-053 W-015 -->
 
-**Crop rotation hint when replanting.** The dialog knows which plant you are replacing and no longer holds its family against you as "already stood here this year". Instead, a residual hint depends on the cause you recorded when you removed the plant:
+**Crop rotation hint when replanting.** The dialog knows which plant you are replacing and does not hold it against you as a previous crop as long as you replant within its season. The season is the cultivation window of the replaced plant: its planting date plus the culture duration of its cultivar (days to maturity). So an autumn garlic you replace in March counts neither for this year nor for last year. If the plant has no cultivar with a culture duration, the calendar year of its loss applies. If it stood longer than its window - a perennial crop such as strawberries - only the year of the loss does not count; the years before still do. If you replant only after the window, the replaced plant counts like any other previous crop.
+
+If you replant the same family, a residual hint depends on where the cause sat that you recorded when you removed the plant (see [cause class when removing](growth-phases.md#ursache-wo)):
 
 | Recorded cause | Hint in the dialog |
 |----------------|--------------------|
-| Disease or pests | Warning: if the pathogen or pest lives in the soil, the new plant of the same family can fail the same way. **Plant anyway** needs a short reason; nothing is ever blocked. |
-| Cause unknown or not recorded | Soft info hint with the same consideration. |
-| Frost, heat, drought, waterlogging, neglect or mechanical damage | No hint. |
+| Disease or pests in the soil, pathogen not confirmed | Warning: the new plant of the same family can fail the same way. **Plant anyway** needs a short reason; nothing is ever blocked. |
+| Disease or pests in the soil, pathogen confirmed and recorded as a soil hazard of the bed | No hint of its own - the soil hazard speaks for itself (see below). |
+| Leaf disease | Hint: take the plant's remains out of the bed and keep them off the garden compost; only hot composting kills the pathogen reliably. |
+| Leaf pests, an abiotic cause (frost, heat, drought, waterlogging, neglect, bolting) or mechanical damage | No hint. |
+| Cause unknown | Soft hint. |
 
-Other plants in the bed and earlier years count as before. If you recorded a soil change on the bed, the hint is gone entirely.
+For a plant recorded before the cause class existed, or one that ended with **Clear bed**, only the cause counts as before: disease or pests give the warning, no or an unknown cause a soft hint. If you recorded a soil change on the bed after the loss, or renewed the substrate after it (field **Substrate renewed on** in the [soil profile](locations-substrates.md#maintaining-the-soil-profile)), the warning is gone. Other plants in the bed, the rotation matrix and the timeline stay unchanged.
 
 !!! tip "Tip"
-    Record the cause when you mark a plant as "died". Without a cause you see the info hint even if frost was the reason. <!-- REQ-053 §11.3, GP-FR-131, #2888 -->
+    Record the cause when you mark a plant as "died". Without a cause you see the info hint even if frost was the reason. <!-- REQ-053 §11.3, §11.3a Nr. 3–4, GP-FR-131, #2888 -->
+
+### Soil hazards when planting {#soil-hazards-when-planting}
+
+If the bed has a confirmed [soil hazard](locations-substrates.md#soil-hazards-of-a-bed) - clubroot, say - and the species you want to plant is a host of that pathogen, the planting dialog shows it among its hints. How strongly depends on how long the pathogen stays in the soil according to expert sources:
+
+| Situation | Hint in the dialog |
+|-----------|--------------------|
+| Within the advised cultivation pause | Warning with a year ("keep host plants out of this bed until 2029"). **Plant anyway** needs a short reason. |
+| No cultivation pause reliably known | Warning without a year - until the longest evidenced survival, otherwise until a lead removes the soil hazard from the bed. |
+| After the cultivation pause | Soft hint about the residual risk, with a year if the survival is evidenced, otherwise without an end. |
+| After the longest evidenced survival | Nothing any more. |
+
+Kamerplanter only names a time if three independent sources back the value. **Root-knot nematodes** and **Sclerotinia** attack almost every vegetable, so they always give only a soft hint. It also stays a hint when it is not reliably known that the pathogen attacks your species (tomatoes with Verticillium wilt, for example). Nothing is ever blocked.
+
+The check belongs to the soil, not to the crop rotation: it also runs for perennial crops and for beds whose crop rotation check is switched off. It does not check planters, tents, shelves, container groups or hydroponics. If you entered **Substrate renewed on** in the soil profile with a day after the confirmation, the soil hazard no longer warns. The planting dialog and the **Set a plant** dialog show the same result, because both ask the same check. <!-- REQ-053 §11.3a Nr. 6–7, GP-FR-193, #2888 -->
 
 ## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
 
