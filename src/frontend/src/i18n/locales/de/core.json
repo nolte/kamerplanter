@@ -313,7 +313,10 @@
       "offlineHint": "Keine Verbindung – Änderungen sind erst wieder online möglich.",
       "updateAvailable": "Neue Version verfügbar",
       "updateNow": "Jetzt aktualisieren",
-      "updateLater": "Später"
+      "updateLater": "Später",
+      "wentOffline": "Offline – Erledigt, Notiz und Foto im Feldmodus werden lokal gespeichert. Aktionen, die der Server prüfen muss, sind gesperrt.",
+      "backOnline": "Online – Synchronisation startet …",
+      "requiresConnectivity": "Netzwerkverbindung erforderlich"
     },
     "sliderLabel": "{{label}} (Regler)",
     "days": "Tage",

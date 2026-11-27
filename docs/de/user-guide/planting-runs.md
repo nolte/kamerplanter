@@ -306,3 +306,4 @@ Jede Pflanze eines Durchlaufs hat ein eigenes Tagebuch — einen Tab an ihrer De
 - [Aufgabenplanung](tasks.md)
 - [Ernte](harvest.md)
 - [Dünge-Logik](fertilization.md)
+- [Was geht ohne Netz](garden-plan.md#was-geht-ohne-netz) — Phasenwechsel und Ernte-Abschluss eines Durchlaufs sind ohne Verbindung gesperrt

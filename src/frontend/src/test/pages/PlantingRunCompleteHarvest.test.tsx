@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import { setActiveTenantSlug } from '@/api/client';
@@ -117,6 +117,45 @@ describe('PlantingRunDetailPage — run-batch complete harvest (REQ-007/013)', (
     await waitFor(() => expect(completeCalls.length).toBe(1), QUERY_TIMEOUT);
     // Empty body (no explicit back-date) → terminate as of today.
     expect(completeCalls[0].body).toEqual({});
+  });
+
+  // #3025 N-39 — UI-NFR-012 R-020a/R-020b: moving the run into harvest is validated on the server.
+  describe('offline', () => {
+    const setOnline = (value: boolean) =>
+      Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => value });
+    afterEach(() => setOnline(true));
+
+    it('locks the complete-harvest action and names the reason', async () => {
+      seedRun({ status: 'active', activePlants: 2 });
+      renderWithProviders(<PlantingRunDetailPage />);
+      const button = await screen.findByTestId('complete-harvest-button', {}, QUERY_TIMEOUT);
+      expect(button).toBeEnabled();
+
+      act(() => {
+        setOnline(false);
+        window.dispatchEvent(new Event('offline'));
+      });
+      expect(screen.getByTestId('complete-harvest-button')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByTestId('complete-harvest-button')).toHaveAccessibleDescription(
+        'Netzwerkverbindung erforderlich',
+      );
+    });
+
+    it('does not complete the harvest when the connection drops while the confirmation is open', async () => {
+      const { completeCalls } = seedRun({ status: 'active', activePlants: 2 });
+      const user = userEvent.setup();
+      renderWithProviders(<PlantingRunDetailPage />);
+      await user.click(await screen.findByTestId('complete-harvest-button', {}, QUERY_TIMEOUT));
+      const dialog = await screen.findByTestId('confirm-dialog', {}, QUERY_TIMEOUT);
+
+      act(() => {
+        setOnline(false);
+        window.dispatchEvent(new Event('offline'));
+      });
+      await user.click(within(dialog).getByTestId('confirm-dialog-confirm'));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(completeCalls).toHaveLength(0);
+    });
   });
 
   it('hides the complete-harvest action for a planned run', async () => {

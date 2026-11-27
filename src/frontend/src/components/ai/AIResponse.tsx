@@ -15,6 +15,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloudOutlinedIcon from '@mui/icons-material/CloudOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutlined';
 import { useExpertiseLevel } from '@/hooks/useExpertiseLevel';
+import { isLightMode } from '@/config/mode';
 import type { AiConfidence, AiSourceRef } from '@/api/types';
 import { formatFixed } from '@/utils/formatting';
 
@@ -92,21 +93,34 @@ export default function AIResponse({
           />
         </Tooltip>
 
-        {usesTenantData && (
-          <Tooltip title={`${t('ai.tenantData.tooltip')} ${t('ai.tenantData.link')}`}>
-            <Chip
-              size="small"
-              color="info"
-              variant="outlined"
-              clickable
-              component={RouterLink}
-              to="/privacy"
-              icon={<PersonOutlineIcon />}
-              label={t('ai.tenantData.label')}
-              data-testid="ai-tenant-data-indicator"
-            />
-          </Tooltip>
-        )}
+        {usesTenantData &&
+          (isLightMode ? (
+            // #3025 L-14 — light mode has no privacy settings (no accounts); the chip informs and links nowhere.
+            <Tooltip title={t('ai.tenantData.tooltip')}>
+              <Chip
+                size="small"
+                color="info"
+                variant="outlined"
+                icon={<PersonOutlineIcon />}
+                label={t('ai.tenantData.label')}
+                data-testid="ai-tenant-data-indicator"
+              />
+            </Tooltip>
+          ) : (
+            <Tooltip title={`${t('ai.tenantData.tooltip')} ${t('ai.tenantData.link')}`}>
+              <Chip
+                size="small"
+                color="info"
+                variant="outlined"
+                clickable
+                component={RouterLink}
+                to="/privacy"
+                icon={<PersonOutlineIcon />}
+                label={t('ai.tenantData.label')}
+                data-testid="ai-tenant-data-indicator"
+              />
+            </Tooltip>
+          ))}
 
         {usesCloudProvider && (
           <Tooltip title={t('ai.cloud.tooltip', { provider: providerType ?? '' })}>

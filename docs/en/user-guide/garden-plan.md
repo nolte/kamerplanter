@@ -340,6 +340,12 @@ A banner tells you how old the data is: "Offline: you are looking at the state a
 
 Without a connection you can only look at the plan: drawing, moving and relocating are locked, unsaved changes are kept. On the bed, status, sun, soil, rotation and photos are locked until the connection is back.
 
+### Locked offline
+
+Some actions are checked by the server before it accepts them. Without a connection their buttons are therefore locked, and the hint "Network connection required" tells you why: the phase change of a plant or a planting run, creating a harvest, completing a harvest (also in the confirmation if the connection drops while it is open), and switching actuators on and off. When you lose the connection or get it back, Kamerplanter also tells you briefly at the bottom of the screen.
+
+The **emergency stop** always stays available. The browser sometimes believes it is offline although the server can be reached, for example when Kamerplanter runs on the same machine. Without a connection the **Environment control** page warns that the connection may be down; if the emergency stop cannot reach the server, you see an error message.
+
 ### Capturing offline
 
 In field mode you can capture three things without a connection:

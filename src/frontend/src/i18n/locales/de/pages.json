@@ -101,6 +101,7 @@
       "commandQueued": "Gerät ist nicht direkt erreichbar — der Befehl wurde als Aufgabe zur manuellen Bedienung hinterlegt.",
       "emergencyStop": "Notabschaltung",
       "emergencyConfirm": "Alle Stromverbraucher werden abgeschaltet (Brand-Szenario). Diese Aktion kann nicht rückgängig gemacht werden. Fortfahren?",
+      "offlineWarning": "Die Verbindung ist möglicherweise unterbrochen. Ein- und Ausschalten ist gesperrt. Die Notabschaltung bleibt verfügbar; erreicht sie den Server nicht, siehst du eine Fehlermeldung.",
       "emergencyDone": "Notabschaltung ausgeführt: {{count}} Aktor(en) abgeschaltet.",
       "emergencyPartialFailure": "Notabschaltung teilweise ausgeführt: {{stoppedCount}} Aktor(en) abgeschaltet, {{failedCount}} Aktor(en) konnten NICHT abgeschaltet werden ({{failedNames}}). Bitte diese Geräte sofort manuell prüfen und trennen.",
       "summary": "{{total}} Aktor(en), davon {{online}} online.",

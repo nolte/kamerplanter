@@ -240,3 +240,4 @@ Manche Gärtner halten eine Dunkelphase von 24–48 Stunden direkt vor der Ernte
 - [Pflanzdurchläufe](planting-runs.md)
 - [Nacherntebehandlung](post-harvest.md)
 - [Nachernte: Trocknung, Curing & Lagerung](../guides/post-harvest.md)
+- [Was geht ohne Netz](garden-plan.md#was-geht-ohne-netz) — Ernte anlegen und abschließen ist ohne Verbindung gesperrt

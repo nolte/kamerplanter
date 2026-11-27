@@ -231,10 +231,12 @@ export default function HarvestCreateDialog({
             multiline
             rows={3}
           />
+          {/* UI-NFR-012 R-020b: the Karenz gate is checked on the server, so a harvest is never created offline. */}
           <FormActions
             onCancel={onClose}
             loading={saving}
             saveLabel={t('common.create')}
+            requiresConnectivity
           />
         </form>
       </DialogContent>

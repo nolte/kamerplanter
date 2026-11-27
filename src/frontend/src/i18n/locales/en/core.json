@@ -313,7 +313,10 @@
       "offlineHint": "No connection – changes are possible again once you are online.",
       "updateAvailable": "New version available",
       "updateNow": "Update now",
-      "updateLater": "Later"
+      "updateLater": "Later",
+      "wentOffline": "Offline – done, note and photo in field mode are stored on this device. Actions the server has to check are locked.",
+      "backOnline": "Online – sync is starting …",
+      "requiresConnectivity": "Network connection required"
     },
     "sliderLabel": "{{label}} (slider)",
     "days": "days",

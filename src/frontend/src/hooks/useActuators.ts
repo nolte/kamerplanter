@@ -6,6 +6,8 @@ import type { Actuator } from '@/api/types';
 interface UseActuatorsResult {
   actuators: Actuator[];
   loading: boolean;
+  /** `true` once a list read succeeded: only then is an empty list known to be empty. */
+  loaded: boolean;
   /** Re-fetches the actuator list, e.g. after a command or creation. */
   reload: () => void;
 }
@@ -21,6 +23,7 @@ export function useActuators(): UseActuatorsResult {
   const { handleError } = useApiError();
   const [actuators, setActuators] = useState<Actuator[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
@@ -29,7 +32,10 @@ export function useActuators(): UseActuatorsResult {
       setLoading(true);
       try {
         const data = await api.listActuators();
-        if (!cancelled) setActuators(data);
+        if (!cancelled) {
+          setActuators(data);
+          setLoaded(true);
+        }
       } catch (error) {
         if (!cancelled) handleError(error);
       } finally {
@@ -45,7 +51,7 @@ export function useActuators(): UseActuatorsResult {
   const reload = useCallback(() => setReloadToken((t) => t + 1), []);
 
   return useMemo(
-    () => ({ actuators, loading, reload }),
-    [actuators, loading, reload],
+    () => ({ actuators, loading, loaded, reload }),
+    [actuators, loading, loaded, reload],
   );
 }

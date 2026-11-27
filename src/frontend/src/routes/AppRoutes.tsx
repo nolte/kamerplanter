@@ -277,6 +277,25 @@ export const router = createBrowserRouter(
         </Route>
       )}
 
+      {/* #3025 L-14 — light mode has no accounts, so none of the account pages above exist there. A bookmark,
+          an old link or a typed /login used to land on the 404 page; it now leads to the dashboard, which is
+          where a light-mode session starts anyway (the auth bootstrap signs the system user in). */}
+      {isLightMode && (
+        <>
+          <Route path="login" element={<Navigate to="/dashboard" replace />} />
+          <Route path="register" element={<Navigate to="/dashboard" replace />} />
+          <Route path="verify-email/:token" element={<Navigate to="/dashboard" replace />} />
+          <Route path="resend-verification" element={<Navigate to="/dashboard" replace />} />
+          <Route path="password-reset" element={<Navigate to="/dashboard" replace />} />
+          <Route path="password-reset/:token" element={<Navigate to="/dashboard" replace />} />
+          <Route path="auth/callback" element={<Navigate to="/dashboard" replace />} />
+          <Route path="auth/step-up/callback" element={<Navigate to="/dashboard" replace />} />
+          <Route path="email-change/:token" element={<Navigate to="/dashboard" replace />} />
+          <Route path="email-change/revert/:token" element={<Navigate to="/dashboard" replace />} />
+          <Route path="privacy" element={<Navigate to="/dashboard" replace />} />
+        </>
+      )}
+
       {/* Protected routes (require authentication) */}
       <Route element={<ProtectedRoute />}>
         {/* UI-NFR-019 Kiosk mode — dedicated shell (no sidebar/breadcrumb). The pages its tiles

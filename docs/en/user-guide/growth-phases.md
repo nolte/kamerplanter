@@ -412,3 +412,4 @@ Plants without an ending type set (simply removed, without classification) still
 - [Watering Log](watering-log.md#suggested-watering-volume) — suggested watering volume
 - [Guides: Nutrient Mixing](../guides/nutrient-mixing.md#flush-rest-phases-no-feed) — flush/rest phases with no feed
 - [Propagation Management](propagation.md)
+- [What works offline](garden-plan.md#what-works-offline) — phase changes are locked without a connection

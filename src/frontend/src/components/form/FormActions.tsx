@@ -5,6 +5,8 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import { useStickyBarScrollPadding } from '@/hooks/useStickyBarScrollPadding';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { useFormDialogClose } from './formDialogContext';
 
 interface FormActionsProps {
@@ -12,6 +14,12 @@ interface FormActionsProps {
   loading?: boolean;
   saveLabel?: string;
   disabled?: boolean;
+  /**
+   * UI-NFR-012 R-020a–R-020e (#3025 N-39): the save is an action the server must validate (e.g. creating a
+   * harvest). Offline the save button is locked (`aria-disabled`, still focusable) and names the reason in a
+   * tooltip, to assistive tech and as a visible line. Without the prop the button renders unwrapped.
+   */
+  requiresConnectivity?: boolean;
 }
 
 export default function FormActions({
@@ -19,8 +27,11 @@ export default function FormActions({
   loading = false,
   saveLabel,
   disabled = false,
+  requiresConnectivity = false,
 }: FormActionsProps) {
   const { t } = useTranslation();
+  const online = useOnlineStatus();
+  const lockedOffline = requiresConnectivity && !online;
   const theme = useTheme();
   // Inside a FormDialog the cancel button goes through its dirty guard (#3019):
   // a dirty form asks before the input is discarded, a clean one closes at once.
@@ -40,6 +51,18 @@ export default function FormActions({
   // band on whichever ancestor scrolls, measured from this row's real height,
   // and stays inert on wider viewports where the row is not pinned.
   const stickyBarRef = useStickyBarScrollPadding(isPinned, Number.parseFloat(theme.spacing(1)));
+
+  const submit = (
+    <Button
+      type="submit"
+      variant="contained"
+      disabled={loading || disabled}
+      startIcon={loading ? <CircularProgress size={16} /> : undefined}
+      data-testid="form-submit-button"
+    >
+      {saveLabel ?? t('common.save')}
+    </Button>
+  );
 
   return (
     <Box
@@ -65,15 +88,15 @@ export default function FormActions({
       <Button variant="outlined" onClick={handleCancel} disabled={loading} data-testid="form-cancel-button">
         {t('common.cancel')}
       </Button>
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={loading || disabled}
-        startIcon={loading ? <CircularProgress size={16} /> : undefined}
-        data-testid="form-submit-button"
-      >
-        {saveLabel ?? t('common.save')}
-      </Button>
+      {/* Wrapped only when asked for (a static prop): a form that sets it keeps the same structure online and
+          offline, every other form keeps its plain button. */}
+      {requiresConnectivity ? (
+        <RequiresConnectivity offline={lockedOffline} showReason>
+          {submit}
+        </RequiresConnectivity>
+      ) : (
+        submit
+      )}
     </Box>
   );
 }

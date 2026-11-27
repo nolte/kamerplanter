@@ -240,3 +240,4 @@ Die folgenden Funktionen sind im Backend bereits vollständig implementiert, abe
 - [Home Assistant Integration](../guides/home-assistant-integration.md)
 - [VPD-Optimierung](../guides/vpd-optimization.md)
 - [Tankmanagement](tanks.md)
+- [Was geht ohne Netz](garden-plan.md#was-geht-ohne-netz) — Ein- und Ausschalten ist ohne Verbindung gesperrt, die Notabschaltung bleibt verfügbar

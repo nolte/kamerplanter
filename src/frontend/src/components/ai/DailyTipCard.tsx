@@ -13,6 +13,7 @@ import { resolveAiErrorMessage } from './aiErrorMessage';
 import ErrorDisplay from '@/components/common/ErrorDisplay';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useTenantPermissions } from '@/hooks/useTenantPermissions';
+import { useAppSelector } from '@/store/hooks';
 import { aiApi } from '@/api';
 import { apiLanguage } from '@/i18n/apiLanguage';
 import type { AiTipCard } from '@/api/types';
@@ -83,8 +84,17 @@ export default function DailyTipCard() {
   // Lazy init from storage so the "already dismissed today" state is set without
   // a cascading setState inside the effect (react-hooks/set-state-in-effect).
   const [dismissed, setDismissed] = useState(() => readDismissed(dismissStorageKey));
+  // #3025 L-16 — the tenant AI routes answer 404 while the operator has AI switched off (REQ-031 §1.3, "as if
+  // they did not exist"), so asking for the tip there was a failed request — and a console error — on every
+  // dashboard load. The ungated `GET /ai/status` probe (MainLayout) says whether AI is on. The card skips the
+  // request while the probe is in flight and when it reports AI as off; after a failed probe the status is
+  // unknown, which is not "off" (aiStatusSlice), so the card asks as it always did.
+  const aiOff = useAppSelector((s) => s.aiStatus?.available === false);
+  const aiProbing = useAppSelector((s) => s.aiStatus?.loading === true);
+  const mayAsk = !aiOff && !aiProbing;
 
   useEffect(() => {
+    if (!mayAsk) return;
     if (readDismissed(dismissStorageKey)) return;
     let active = true;
     aiApi
@@ -105,7 +115,7 @@ export default function DailyTipCard() {
     return () => {
       active = false;
     };
-  }, [dismissStorageKey]);
+  }, [dismissStorageKey, mayAsk]);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
