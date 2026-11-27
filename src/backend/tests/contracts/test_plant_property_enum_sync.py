@@ -36,16 +36,20 @@ from app.common.enums import (
     ClimactericClass,
     CycleType,
     DtmReference,
+    FailureCauseClass,
     FloweringStrategy,
     GrowthHabit,
     HarvestedPart,
     HarvestPattern,
     Orientation,
+    PathogenConfirmationSource,
     PhotoperiodSource,
     PhotoperiodType,
     RootType,
     SeedType,
     SkillLevel,
+    SoilHazard,
+    TerminationCause,
     TimeOfDay,
 )
 
@@ -82,6 +86,11 @@ _TS_ONLY_ENUM_SYNC: list[tuple[type[StrEnum], str]] = [
     # #2857 part B: ``unspecified`` was added. Not in the 3-way gate: the seed schema's ``photoperiod_type`` lists only
     # the stated types on purpose - a seed file states a type or leaves the key out, it never writes ``unspecified``.
     (PhotoperiodType, "PhotoperiodType"),
+    # #2888 F-19: the termination dialog and the survival statistics render these; ``bolting`` is new.
+    (TerminationCause, "TerminationCause"),
+    (FailureCauseClass, "FailureCauseClass"),
+    (SoilHazard, "SoilHazard"),
+    (PathogenConfirmationSource, "PathogenConfirmationSource"),
 ]
 
 # (python enum, enums.* i18n key) — every value must resolve in de AND en.
@@ -102,6 +111,11 @@ _I18N_ENUMS: list[tuple[type[StrEnum], str]] = [
     # #3025: the task-template dialog labels both; it offered ``night``/``expert``, which the backend refuses.
     (TimeOfDay, "timeOfDay"),
     (SkillLevel, "skillLevel"),
+    # #2888 F-19 (acceptance-6): every cause, class, pathogen and confirmation source is labelled in DE and EN.
+    (TerminationCause, "terminationCause"),
+    (FailureCauseClass, "failureCauseClass"),
+    (SoilHazard, "soilHazard"),
+    (PathogenConfirmationSource, "pathogenConfirmationSource"),
 ]
 
 # (python enum, ``const <name> = [...] as const`` in TaskTemplateDialog.tsx) — the dialog's

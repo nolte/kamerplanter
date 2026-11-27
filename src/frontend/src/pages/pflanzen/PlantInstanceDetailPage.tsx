@@ -3051,6 +3051,7 @@ export default function PlantInstanceDetailPage() {
 
       <TerminationDialog
         open={removeOpen}
+        plantKey={key ?? ''}
         plantName={plant ? getPlantLabel(plant, i18n.language, species, assignedCultivar) : ''}
         onConfirm={onRemove}
         onCancel={() => setRemoveOpen(false)}

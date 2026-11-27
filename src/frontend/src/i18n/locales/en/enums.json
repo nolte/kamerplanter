@@ -1049,6 +1049,7 @@
       "waterlogging": "Waterlogging",
       "neglect": "Neglect",
       "mechanical": "Mechanical damage",
+      "bolting": "Bolting",
       "unknown": "Unknown"
     },
     "weatherSource": {
@@ -1355,6 +1356,30 @@
       "afternoon": "Afternoon",
       "evening": "Evening",
       "lights_off": "After lights-off"
+    },
+    "failureCauseClass": {
+      "abiotic": "Abiotic (weather, water, care)",
+      "pest_foliar": "Pest on leaves or shoots",
+      "pest_soil": "Soil pest",
+      "disease_soil": "Soil-borne disease",
+      "disease_foliar": "Foliar disease",
+      "mechanical": "Mechanical damage",
+      "unknown": "Unknown"
+    },
+    "soilHazard": {
+      "clubroot": "Clubroot",
+      "cyst_nematode": "Cyst nematodes",
+      "root_knot_nematode": "Root-knot nematodes",
+      "white_rot": "Allium white rot",
+      "pea_root_rot": "Pea root rot",
+      "sclerotinia": "Sclerotinia rot",
+      "verticillium": "Verticillium wilt",
+      "juglone": "Juglone (walnut)"
+    },
+    "pathogenConfirmationSource": {
+      "lab_test": "Lab test",
+      "advisory_service": "Plant protection advice",
+      "clear_symptoms": "Unmistakable symptoms"
     }
   }
 }

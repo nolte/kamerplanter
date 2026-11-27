@@ -1,0 +1,236 @@
+{
+  "default": {
+    "suggested_cause": null,
+    "wilt_prone_family": false,
+    "rules": [
+      {
+        "termination_cause": "disease",
+        "prefill": null,
+        "choices": [
+          "disease_foliar",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "pest",
+        "prefill": null,
+        "choices": [
+          "pest_foliar",
+          "pest_soil"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "frost",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "heat",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "drought",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "waterlogging",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "neglect",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "mechanical",
+        "prefill": "mechanical",
+        "choices": [
+          "mechanical"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "bolting",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "unknown",
+        "prefill": "unknown",
+        "choices": [
+          "abiotic",
+          "pest_foliar",
+          "pest_soil",
+          "disease_soil",
+          "disease_foliar",
+          "mechanical",
+          "unknown"
+        ],
+        "asks_wilt_follow_up": false
+      }
+    ],
+    "wilt_follow_up_class": "disease_soil",
+    "pathogen_classes": [
+      "pest_soil",
+      "disease_soil"
+    ],
+    "pathogens": [
+      "clubroot",
+      "cyst_nematode",
+      "root_knot_nematode",
+      "white_rot",
+      "pea_root_rot",
+      "sclerotinia",
+      "verticillium",
+      "juglone"
+    ],
+    "confirmation_sources": [
+      "lab_test",
+      "advisory_service",
+      "clear_symptoms"
+    ]
+  },
+  "wiltProneBolting": {
+    "suggested_cause": "bolting",
+    "wilt_prone_family": true,
+    "rules": [
+      {
+        "termination_cause": "disease",
+        "prefill": null,
+        "choices": [
+          "disease_foliar",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "pest",
+        "prefill": null,
+        "choices": [
+          "pest_foliar",
+          "pest_soil"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "frost",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "heat",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "drought",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "waterlogging",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic",
+          "disease_soil"
+        ],
+        "asks_wilt_follow_up": true
+      },
+      {
+        "termination_cause": "neglect",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "mechanical",
+        "prefill": "mechanical",
+        "choices": [
+          "mechanical"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "bolting",
+        "prefill": "abiotic",
+        "choices": [
+          "abiotic"
+        ],
+        "asks_wilt_follow_up": false
+      },
+      {
+        "termination_cause": "unknown",
+        "prefill": "unknown",
+        "choices": [
+          "abiotic",
+          "pest_foliar",
+          "pest_soil",
+          "disease_soil",
+          "disease_foliar",
+          "mechanical",
+          "unknown"
+        ],
+        "asks_wilt_follow_up": true
+      }
+    ],
+    "wilt_follow_up_class": "disease_soil",
+    "pathogen_classes": [
+      "pest_soil",
+      "disease_soil"
+    ],
+    "pathogens": [
+      "clubroot",
+      "cyst_nematode",
+      "root_knot_nematode",
+      "white_rot",
+      "pea_root_rot",
+      "sclerotinia",
+      "verticillium",
+      "juglone"
+    ],
+    "confirmation_sources": [
+      "lab_test",
+      "advisory_service",
+      "clear_symptoms"
+    ]
+  }
+}

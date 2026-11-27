@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { ThemeContextProvider } from '@/theme';
 import SurvivalStatsPanel from '@/pages/pflanzen/SurvivalStatsPanel';
 import type { SurvivalStats } from '@/api/types';
-import '@/i18n';
+import i18n from '@/i18n';
 
 function makeStats(overrides: Partial<SurvivalStats> = {}): SurvivalStats {
   return {
@@ -73,5 +73,19 @@ describe('SurvivalStatsPanel', () => {
   it('shows an empty state when there are no plants at all', () => {
     renderPanel(makeStats({ total: 0, terminated: 0, active: 0, died: 0, survived: 0, survival_rate: 0, by_termination_type: [], by_termination_cause: [], loss_by_phase: [] }));
     expect(screen.getByTestId('survival-empty')).toBeTruthy();
+  });
+
+  it.each([
+    ['de', 'Schossen'],
+    ['en', 'Bolting'],
+  ])('labels a bolting loss in the cause table (%s, #2888 acceptance-6)', async (lng, label) => {
+    await i18n.changeLanguage(lng);
+    try {
+      renderPanel(makeStats({ by_termination_cause: [{ termination_cause: 'bolting', count: 2 }] }));
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.queryByText('enums.terminationCause.bolting')).toBeNull();
+    } finally {
+      await i18n.changeLanguage('de');
+    }
   });
 });

@@ -901,6 +901,14 @@ export interface PlantInstance {
   removed_on: string | null;
   termination_type: TerminationType | null;
   termination_cause: TerminationCause | null;
+  /** Where the cause of a `died` loss sat (#2888); null = no class (legacy data, bulk bed clear). */
+  failure_cause_class?: FailureCauseClass | null;
+  /** Pathogen named for a soil-borne loss, from the soil-hazard list. */
+  failure_pathogen?: SoilHazard | null;
+  /** Whether the named pathogen was confirmed; null when none was named. */
+  failure_pathogen_confirmed?: boolean | null;
+  /** Who confirmed the pathogen; null unless confirmed. */
+  failure_pathogen_source?: PathogenConfirmationSource | null;
   current_phase: string;
   current_phase_key: string | null;
   current_phase_started_at: string | null;
@@ -954,12 +962,61 @@ export type TerminationCause =
   | 'waterlogging'
   | 'neglect'
   | 'mechanical'
+  | 'bolting'
   | 'unknown';
+
+/** Where the cause of an unplanned loss sat (REQ-003 E5 v2.23, #2888). */
+export type FailureCauseClass =
+  | 'abiotic'
+  | 'pest_foliar'
+  | 'pest_soil'
+  | 'disease_soil'
+  | 'disease_foliar'
+  | 'mechanical'
+  | 'unknown';
+
+/** Persistent soil hazard of a bed (REQ-054 §5.2); also the pathogens a soil-borne loss may name. */
+export type SoilHazard =
+  | 'clubroot'
+  | 'cyst_nematode'
+  | 'root_knot_nematode'
+  | 'white_rot'
+  | 'pea_root_rot'
+  | 'sclerotinia'
+  | 'verticillium'
+  | 'juglone';
+
+/** Who confirmed the pathogen of a soil-borne loss (REQ-053 §11.3a). */
+export type PathogenConfirmationSource = 'lab_test' | 'advisory_service' | 'clear_symptoms';
 
 /** Optional body for POST /{key}/remove — classifies how the lifecycle ended. */
 export interface RemovePlantRequest {
   termination_type?: TerminationType | null;
   termination_cause?: TerminationCause | null;
+  failure_cause_class?: FailureCauseClass | null;
+  failure_pathogen?: SoilHazard | null;
+  failure_pathogen_confirmed?: boolean | null;
+  failure_pathogen_source?: PathogenConfirmationSource | null;
+}
+
+/** One row of the cause-class pre-fill table, resolved for one plant (`GET /{key}/termination-options`). */
+export interface FailureCauseRule {
+  termination_cause: TerminationCause;
+  /** null = no pre-fill, the gardener must choose (disease, pest). */
+  prefill: FailureCauseClass | null;
+  choices: FailureCauseClass[];
+  asks_wilt_follow_up: boolean;
+}
+
+/** What the termination dialog offers for one plant (REQ-003 E5/E6, REQ-053 §11.3a, #2888). */
+export interface TerminationOptions {
+  suggested_cause: TerminationCause | null;
+  wilt_prone_family: boolean;
+  rules: FailureCauseRule[];
+  wilt_follow_up_class: FailureCauseClass;
+  pathogen_classes: FailureCauseClass[];
+  pathogens: SoilHazard[];
+  confirmation_sources: PathogenConfirmationSource[];
 }
 
 export interface TerminationTypeCount {
