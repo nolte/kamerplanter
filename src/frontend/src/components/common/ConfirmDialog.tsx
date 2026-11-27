@@ -11,6 +11,8 @@ import Box from '@mui/material/Box';
 import { visuallyHidden } from '@mui/utils';
 import { useTranslation } from 'react-i18next';
 import { KioskContext } from '@/kiosk/KioskProvider';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import RequiresConnectivity from '@/components/common/RequiresConnectivity';
 import { loadLongPressButton } from '@/kiosk/kioskChunks';
 // Type only: the button itself stays in its lazy chunk.
 import type HoldButton from '@/components/kiosk/LongPressButton';
@@ -56,6 +58,11 @@ interface ConfirmDialogProps {
   onCancel: () => void;
   destructive?: boolean;
   loading?: boolean;
+  /**
+   * UI-NFR-012 R-020a–R-020e (#3025 N-39): the confirmed action is one the server must validate. Offline the
+   * confirm button is locked and says why — also when the dialog was opened before the connection dropped.
+   */
+  requiresConnectivity?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -67,7 +74,15 @@ export default function ConfirmDialog({
   onCancel,
   destructive = false,
   loading = false,
+  requiresConnectivity = false,
 }: ConfirmDialogProps) {
+  const online = useOnlineStatus();
+  const lockedOffline = requiresConnectivity && !online;
+  // The guard sits on the action itself, so the hold button (kiosk) cannot confirm offline either.
+  const confirm = () => {
+    if (lockedOffline) return;
+    onConfirm();
+  };
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
@@ -82,6 +97,32 @@ export default function ConfirmDialog({
   // Keyboard and assistive activation still confirm directly; see LongPressButton.
   const isKiosk = useContext(KioskContext)?.isKiosk ?? false;
   const holdToConfirm = destructive && isKiosk;
+
+  const plainConfirm = (
+    <Button
+      onClick={confirm}
+      color={destructive ? 'error' : 'primary'}
+      variant="contained"
+      // MUI's native `loading` prop disables the button, renders an
+      // accessible CircularProgress (labelled by the button's own text via
+      // aria-labelledby) and keeps the label in the DOM (UI-NFR-002,
+      // UI-NFR-008 R-016/R-017 double-submit protection + loading state).
+      // Default (centered) loading position overlays the spinner on the
+      // label, avoiding the width jump a "start" position causes without a
+      // reserved startIcon.
+      loading={loading}
+      aria-busy={loading}
+      data-testid="confirm-dialog-confirm"
+    >
+      {confirmLabel ?? t(destructive ? 'common.delete' : 'common.confirm')}
+    </Button>
+  );
+  // Wrapped only where the call site asks for it (a static prop): every other dialog keeps its DOM.
+  const confirmButton = requiresConnectivity ? (
+    <RequiresConnectivity offline={lockedOffline}>{plainConfirm}</RequiresConnectivity>
+  ) : (
+    plainConfirm
+  );
 
   return (
     <Dialog
@@ -103,6 +144,11 @@ export default function ConfirmDialog({
         <DialogContentText id={descriptionId} sx={{ whiteSpace: 'pre-line' }}>
           {message}
         </DialogContentText>
+        {lockedOffline && (
+          <DialogContentText sx={{ mt: 2, color: 'warning.main' }} data-testid="confirm-dialog-offline">
+            {t('common.pwa.requiresConnectivity')}
+          </DialogContentText>
+        )}
       </DialogContent>
       <DialogActions
         sx={holdToConfirm ? { gap: 4, alignItems: 'flex-start', '& > :not(style) ~ :not(style)': { ml: 0 } } : undefined}
@@ -119,33 +165,17 @@ export default function ConfirmDialog({
             }
           >
             <LongPressButton
-              onConfirm={onConfirm}
+              onConfirm={confirm}
               loading={loading}
-              // The hold stops the moment the dialog starts closing (its exit transition).
-              disabled={!open}
+              // The hold stops the moment the dialog starts closing (its exit transition), and offline.
+              disabled={!open || lockedOffline}
               data-testid="confirm-dialog-confirm"
             >
               {confirmLabel ?? t('common.delete')}
             </LongPressButton>
           </Suspense>
         ) : (
-          <Button
-            onClick={onConfirm}
-            color={destructive ? 'error' : 'primary'}
-            variant="contained"
-            // MUI's native `loading` prop disables the button, renders an
-            // accessible CircularProgress (labelled by the button's own text via
-            // aria-labelledby) and keeps the label in the DOM (UI-NFR-002,
-            // UI-NFR-008 R-016/R-017 double-submit protection + loading state).
-            // Default (centered) loading position overlays the spinner on the
-            // label, avoiding the width jump a "start" position causes without a
-            // reserved startIcon.
-            loading={loading}
-            aria-busy={loading}
-            data-testid="confirm-dialog-confirm"
-          >
-            {confirmLabel ?? t(destructive ? 'common.delete' : 'common.confirm')}
-          </Button>
+          confirmButton
         )}
       </DialogActions>
       {/* UI-NFR-002 R-011: politely announce the pending state for screen-reader

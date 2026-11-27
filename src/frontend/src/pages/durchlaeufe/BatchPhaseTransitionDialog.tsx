@@ -193,7 +193,7 @@ export default function BatchPhaseTransitionDialog({
           <Button
             variant="contained"
             onClick={handleTransition}
-            disabled={!targetPhaseKey || saving || !online}
+            disabled={!targetPhaseKey || saving}
             data-testid="batch-transition-confirm"
           >
             {saving ? <CircularProgress size={20} /> : t('common.confirm')}

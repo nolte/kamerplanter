@@ -101,6 +101,7 @@
       "commandQueued": "Device is not directly reachable — the command was queued as a manual task instead.",
       "emergencyStop": "Emergency stop",
       "emergencyConfirm": "All powered devices will be switched off (fire scenario). This action cannot be undone. Continue?",
+      "offlineWarning": "The connection may be down. Switching on and off is locked. The emergency stop stays available; if it cannot reach the server, you see an error message.",
       "emergencyDone": "Emergency stop executed: {{count}} actuator(s) switched off.",
       "emergencyPartialFailure": "Emergency stop partially executed: {{stoppedCount}} actuator(s) switched off, {{failedCount}} actuator(s) could NOT be switched off ({{failedNames}}). Please check and disconnect these devices manually right away.",
       "summary": "{{total}} actuator(s), {{online}} online.",

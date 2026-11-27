@@ -689,7 +689,7 @@ export default function PlantingRunDetailPage() {
                   color="warning"
                   startIcon={<AgricultureIcon />}
                   onClick={() => setCompleteHarvestOpen(true)}
-                  disabled={completingHarvest || !online}
+                  disabled={completingHarvest}
                   data-testid="complete-harvest-button"
                   sx={{ minHeight: 48 }}
                 >
@@ -1017,6 +1017,7 @@ export default function PlantingRunDetailPage() {
           count: plants.filter((p) => !p.removed_on && !p.detached_at).length,
         })}`}
         confirmLabel={t('pages.plantingRuns.completeHarvestConfirmButton')}
+        requiresConnectivity
         onConfirm={onCompleteHarvest}
         onCancel={() => setCompleteHarvestOpen(false)}
         destructive

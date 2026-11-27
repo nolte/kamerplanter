@@ -8,7 +8,11 @@ import { visuallyHidden } from '@mui/utils';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 
 // #3025 N-39 — the change snackbars (R-036/R-037) are their own chunk; the indicator stays in the first paint.
-const ConnectivityNotices = lazy(() => import('@/components/layout/ConnectivityNotices'));
+// A chunk that fails to load (offline before it was cached, a deploy in between) renders nothing instead of
+// throwing into the shell's error boundary: the indicator itself still shows the state.
+const ConnectivityNotices = lazy(() =>
+  import('@/components/layout/ConnectivityNotices').catch(() => ({ default: () => null })),
+);
 
 /**
  * The permanent connectivity indicator of the app shell (UI-NFR-012 R-033–R-035, REQ-053 WP 9.1):

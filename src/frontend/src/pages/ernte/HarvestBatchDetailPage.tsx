@@ -439,7 +439,7 @@ export default function HarvestBatchDetailPage() {
                   color="warning"
                   startIcon={<AgricultureIcon />}
                   onClick={() => setCompleteOpen(true)}
-                  disabled={completing || !online}
+                  disabled={completing}
                   data-testid="complete-harvest-button"
                   sx={{ minHeight: 48 }}
                 >
@@ -947,6 +947,7 @@ export default function HarvestBatchDetailPage() {
         title={t('pages.harvest.completeHarvestTitle')}
         message={t('pages.harvest.completeHarvestConfirm')}
         confirmLabel={t('pages.harvest.completeHarvestConfirmButton')}
+        requiresConnectivity
         onConfirm={onCompleteHarvest}
         onCancel={() => setCompleteOpen(false)}
         loading={completing}

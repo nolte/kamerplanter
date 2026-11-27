@@ -314,8 +314,8 @@
       "updateAvailable": "Neue Version verfügbar",
       "updateNow": "Jetzt aktualisieren",
       "updateLater": "Später",
-      "wentOffline": "Du bist offline. Aktionen, die der Server prüfen muss (z. B. Phasenwechsel, Ernte, Aktoren), sind gesperrt, bis die Verbindung zurück ist. Erledigt, Notiz und Foto im Gartenplan werden auf dem Gerät gespeichert.",
-      "backOnline": "Wieder online. Gespeicherte Eingaben werden jetzt gesendet.",
+      "wentOffline": "Offline – Erledigt, Notiz und Foto im Feldmodus werden lokal gespeichert. Aktionen, die der Server prüfen muss, sind gesperrt.",
+      "backOnline": "Online – Synchronisation startet …",
       "requiresConnectivity": "Netzwerkverbindung erforderlich"
     },
     "sliderLabel": "{{label}} (Regler)",

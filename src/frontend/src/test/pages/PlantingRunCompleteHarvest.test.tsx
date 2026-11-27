@@ -135,10 +135,26 @@ describe('PlantingRunDetailPage — run-batch complete harvest (REQ-007/013)', (
         setOnline(false);
         window.dispatchEvent(new Event('offline'));
       });
-      expect(screen.getByTestId('complete-harvest-button')).toBeDisabled();
-      expect(screen.getByTestId('requires-connectivity')).toContainElement(
-        screen.getByTestId('complete-harvest-button'),
+      expect(screen.getByTestId('complete-harvest-button')).toHaveAttribute('aria-disabled', 'true');
+      expect(screen.getByTestId('complete-harvest-button')).toHaveAccessibleDescription(
+        'Netzwerkverbindung erforderlich',
       );
+    });
+
+    it('does not complete the harvest when the connection drops while the confirmation is open', async () => {
+      const { completeCalls } = seedRun({ status: 'active', activePlants: 2 });
+      const user = userEvent.setup();
+      renderWithProviders(<PlantingRunDetailPage />);
+      await user.click(await screen.findByTestId('complete-harvest-button', {}, QUERY_TIMEOUT));
+      const dialog = await screen.findByTestId('confirm-dialog', {}, QUERY_TIMEOUT);
+
+      act(() => {
+        setOnline(false);
+        window.dispatchEvent(new Event('offline'));
+      });
+      await user.click(within(dialog).getByTestId('confirm-dialog-confirm'));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(completeCalls).toHaveLength(0);
     });
   });
 

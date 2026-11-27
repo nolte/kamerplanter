@@ -169,7 +169,7 @@ export default function PhaseTransitionDialog({
           <Button
             variant="contained"
             onClick={handleTransition}
-            disabled={!targetPhaseKey || saving || !online}
+            disabled={!targetPhaseKey || saving}
             color={force ? 'warning' : 'primary'}
             data-testid="transition-confirm"
           >

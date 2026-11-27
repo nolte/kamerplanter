@@ -79,7 +79,7 @@ export default function FormActions({
         <Button
           type="submit"
           variant="contained"
-          disabled={loading || disabled || lockedOffline}
+          disabled={loading || disabled}
           startIcon={loading ? <CircularProgress size={16} /> : undefined}
           data-testid="form-submit-button"
         >
