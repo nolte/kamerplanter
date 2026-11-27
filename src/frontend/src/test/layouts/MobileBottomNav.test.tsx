@@ -298,6 +298,36 @@ describe('MainLayout — mobile bottom navigation (#3018, UI-NFR-005 R-023..R-03
     expect(window.getComputedStyle(bottomNav()).position).toBe('fixed');
   });
 
+  it('keeps what the browser scrolls into view clear of the bar and of the app bar (WCAG 2.2 SC 2.4.11)', async () => {
+    stubViewport({ width: PHONE });
+    renderShell('/dashboard');
+    await screen.findByRole('heading', { name: 'Dashboard' });
+
+    // The document is the shell's scroll container: `main` does not scroll, so the padding belongs on the root.
+    expect(['auto', 'scroll']).not.toContain(window.getComputedStyle(screen.getByRole('main')).overflowY);
+    const root = window.getComputedStyle(document.documentElement);
+    // Tab, an anchor jump or `scrollIntoView` (WebDriver's click too) stops above the bar, not behind it.
+    expect(root.scrollPaddingBottom).toBe('var(--kp-bottom-nav-offset)');
+    // …and below the fixed app bar, whose toolbar is 56 px high on a phone held upright.
+    expect(root.scrollPaddingTop).toBe('56px');
+  });
+
+  it('reserves no room for a bottom bar that is not there, but keeps clear of the app bar (desktop)', async () => {
+    stubViewport({ width: DESKTOP });
+    renderShell('/dashboard');
+    await screen.findByRole('heading', { name: 'Dashboard' });
+    expect(screen.queryByTestId('bottom-nav')).toBeNull();
+    const root = window.getComputedStyle(document.documentElement);
+    // The initial value: the viewport is not inset at the bottom.
+    expect(root.scrollPaddingBottom).toBe('auto');
+    // The app bar is there on every width, as high as its toolbar: 48 px in landscape, 64 px from `sm` up (jsdom
+    // does not apply media queries to the computed style, so the rules are read).
+    const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('\n');
+    expect(root.scrollPaddingTop).toBe('56px');
+    expect(css).toMatch(/@media \(orientation: landscape\)\{:root\{scroll-padding-top:48px;\}/);
+    expect(css).toMatch(/@media \(min-width:600px\)\{:root\{scroll-padding-top:64px;\}/);
+  });
+
   it.each<ExpertiseLevel>(['beginner', 'intermediate', 'expert'])(
     'shows the same destinations for the %s level (R-024)',
     async (level) => {

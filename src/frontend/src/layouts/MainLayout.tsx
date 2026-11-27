@@ -13,8 +13,9 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import Alert from '@mui/material/Alert';
+import GlobalStyles from '@mui/material/GlobalStyles';
 import useMediaQuery from '@mui/material/useMediaQuery';
-import { useTheme } from '@mui/material/styles';
+import { useTheme, type Theme } from '@mui/material/styles';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PrivacyTipIcon from '@mui/icons-material/PrivacyTip';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -57,6 +58,27 @@ function isPrivateNetwork(): boolean {
   if (/^172\.(1[6-9]|2\d|3[01])\./.test(hostname)) return true;
   return false;
 }
+
+/** A style rule of the theme's toolbar mixin: values, or media queries holding values. */
+type ToolbarRule = { readonly [key: string]: string | number | ToolbarRule };
+
+function asScrollPaddingTop(rule: ToolbarRule): ToolbarRule {
+  return Object.fromEntries(
+    Object.entries(rule).map(([key, value]) =>
+      key === 'minHeight'
+        ? ['scrollPaddingTop', value]
+        : [key, typeof value === 'object' ? asScrollPaddingTop(value) : value],
+    ),
+  );
+}
+
+/**
+ * The fixed app bar's height as the root's `scroll-padding-top` (WCAG 2.2 SC 2.4.11): what the browser scrolls
+ * into view — a control reached with Shift+Tab from below, an anchor, `scrollIntoView` — comes to rest below the
+ * bar instead of behind it. Read from the theme's toolbar mixin, the rule the bar's `Toolbar` takes its height
+ * from (56 px, 48 px in landscape, 64 px from `sm`), with every `minHeight` turned into the padding.
+ */
+const appBarClearance = (theme: Theme) => ({ ':root': asScrollPaddingTop(theme.mixins.toolbar as ToolbarRule) });
 
 export default function MainLayout() {
   const { t } = useTranslation();
@@ -165,6 +187,7 @@ export default function MainLayout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <GlobalStyles styles={appBarClearance} />
       <SkipLink targetId="main-content" />
 
       <AppBar

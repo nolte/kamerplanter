@@ -150,7 +150,8 @@ export default function AccountSettingsPage() {
             variant="h5"
             tabIndex={-1}
             data-testid="settings-panel-title"
-            sx={{ outline: 'none', scrollMarginTop: (th) => th.spacing(10) }}
+            // The app bar's height is the root's `scroll-padding-top` (MainLayout); this is the breathing room below it.
+            sx={{ outline: 'none', scrollMarginTop: (th) => th.spacing(2) }}
           >
             {t(activeGroup.titleKey)}
           </Typography>
