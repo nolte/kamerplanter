@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from freezegun import freeze_time
 
@@ -38,6 +38,7 @@ from app.domain.models.care_reminder import CareConfirmation, CareProfile
 from app.domain.models.notification import (
     WATERING_ESCALATION_TYPE,
     WATERING_REMINDER_TYPE,
+    ChannelResult,
     Notification,
     NotificationPreferences,
     NotificationStatus,
@@ -45,6 +46,7 @@ from app.domain.models.notification import (
 from app.domain.models.task import Task
 from app.domain.services.care_reminder_service import CareReminderService
 from app.domain.services.notification_propagation_service import NotificationPropagationService
+from app.domain.services.notification_service import NotificationService
 from tests.unit.domain.services.care_task_fakes import FakeTaskRepo
 from tests.unit.domain.services.notification_fakes import EscalationNotificationRepo
 
@@ -313,14 +315,20 @@ def test_a_new_occurrence_closes_the_open_escalations_of_the_previous_cycle() ->
     assert [n.notification_type for n in world.notifications.unread_for(USER, TENANT)] == [WATERING_REMINDER_TYPE]
 
 
-def test_a_group_left_with_only_an_escalation_gets_its_reminder_back() -> None:
-    """Installed systems: the pre-#3135 prune deleted the reminder and kept the escalation."""
+def test_an_escalation_row_is_no_recipient_for_a_missing_reminder() -> None:
+    """#3135 / #2114: a group holding only escalation rows gets no reminder addressed from them.
+
+    The pre-#3135 prune could leave such a group (the reminder deleted, the
+    escalation kept). Its recipient may have left the tenant since, so a
+    background retiming creates nothing; the escalation is no candidate either,
+    so the group stays harmless until a user's own action creates the reminder.
+    """
     world = _world()
     with freeze_time(FIRST_DUE + timedelta(days=3)):
-        orphan = world.notifications.create(
+        world.notifications.create(
             Notification(
                 tenant_key=TENANT,
-                user_key=USER,
+                user_key="former-member",
                 notification_type=WATERING_ESCALATION_TYPE,
                 title=PLANT_LABEL,
                 body="Overdue: watering due on 2026-11-02: Monstera",
@@ -331,7 +339,6 @@ def test_a_group_left_with_only_an_escalation_gets_its_reminder_back() -> None:
                 status=NotificationStatus.DELIVERED,
             )
         )
-        # A background retiming has no acting user — the recipient comes from the group.
         world.propagation.sync_care_notification(
             tenant_key=TENANT,
             user_key="",
@@ -341,11 +348,13 @@ def test_a_group_left_with_only_an_escalation_gets_its_reminder_back() -> None:
             due_date=FIRST_DUE + timedelta(days=10),
             task_key="task-1",
         )
+    assert [row.notification_type for row in world.notifications.all_rows()] == [WATERING_ESCALATION_TYPE]
+    assert _escalate(world, FIRST_DUE + timedelta(days=20) + BEAT) == {"escalated": 0}
 
-    reminder = _reminder(world)
-    assert reminder.user_key == USER
-    assert reminder.data["due_date"] == (FIRST_DUE + timedelta(days=10)).isoformat()
-    assert world.notifications.get(orphan.key or "").notification_type == WATERING_ESCALATION_TYPE
+    # A user's own action addresses the reminder to that user.
+    with freeze_time(FIRST_DUE + timedelta(days=4)):
+        _announce(world, FIRST_DUE + timedelta(days=10))
+    assert _reminder(world).user_key == USER
 
 
 # ── the run's own bookkeeping ───────────────────────────────────────────────
@@ -387,3 +396,211 @@ def test_a_former_member_is_not_escalated_to() -> None:
     assert world.notifications.claims == []
     assert world.notifications.escalations() == []
     world.engine._preference_repo.get_by_user.assert_not_called()
+
+
+# ── one chain per occurrence (SCR-001) ──────────────────────────────────────
+
+
+def _dispatch_due_care(world: SimpleNamespace, due: datetime) -> None:
+    """The 06:05 due-care dispatch for the plant, through the real service (rows ``care:<user>:watering``)."""
+    service = NotificationService(
+        engine=world.engine, notification_repo=world.notifications, preference_repo=MagicMock()
+    )
+    entry = {
+        "user_key": USER,
+        "plant_key": PLANT_KEY,
+        "plant_name": PLANT_LABEL,
+        "reminder_type": ReminderType.WATERING.value,
+        "urgency": "due_today",
+        "due_date": due.isoformat(),
+    }
+    with freeze_time(due + timedelta(hours=6)):
+        asyncio.run(service.send_care_notifications(TENANT, [entry]))
+
+
+def test_an_occurrence_delivered_by_the_dispatch_escalates_in_one_chain() -> None:
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE)
+    _dispatch_due_care(world, FIRST_DUE)
+    dispatched = [row for row in world.notifications.all_rows() if row.group_key == f"care:{USER}:watering"]
+    assert len(dispatched) == 1, "premise: the dispatch wrote its own care.watering row"
+
+    for offset in (2, 4, 7):
+        assert _escalate(world, FIRST_DUE + timedelta(days=offset) + BEAT) == {"escalated": 1}
+
+    assert {row.parent_notification_key for row in world.notifications.escalations()} == {_reminder(world).key}
+    assert world.notifications.get(dispatched[0].key or "").escalation_level == 0
+
+
+def test_nothing_escalates_after_the_plant_was_watered() -> None:
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE)
+    _dispatch_due_care(world, FIRST_DUE)
+    with freeze_time(FIRST_DUE + timedelta(hours=9)):
+        world.care.confirm_reminder(PLANT_KEY, ReminderType.WATERING, tenant_key=TENANT, user_key=USER)
+
+    for offset in (2, 3, 4, 5, 6):
+        assert _escalate(world, FIRST_DUE + timedelta(days=offset) + BEAT) == {"escalated": 0}, offset
+    assert world.notifications.escalations() == []
+
+
+def test_a_task_the_beat_creates_is_announced_on_the_reminder_row() -> None:
+    """The daily producer reuses the row as a new occurrence, like every other creator (#3135)."""
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE)
+    for offset in (2, 4, 7):
+        _escalate(world, FIRST_DUE + timedelta(days=offset) + BEAT)
+    assert _reminder(world).escalation_level == 3
+    # The user deletes the stale task; its reminder row is closed with it.
+    (task,) = world.tasks.open_care_tasks(ReminderType.WATERING)
+    world.tasks.store.remove(next(t for t in world.tasks.store if t.key == task.key))
+    world.propagation.on_task_deleted(task)
+    assert _reminder(world).acted_at is not None, "a deleted occurrence does not keep escalating"
+
+    with freeze_time(FIRST_DUE + timedelta(days=8, hours=6)):
+        created = world.care.ensure_and_announce_next_watering_task(
+            world.care._repo.get_profile_by_plant_key(PLANT_KEY), phase_watering_interval=None, tenant_key=TENANT
+        )
+    assert created is not None
+    reminder = _reminder(world)
+    assert reminder.data["task_key"] == created.key
+    assert reminder.data["due_date"] == created.due_date.isoformat()
+    assert reminder.escalation_level == 0
+    assert reminder.read_at is None and reminder.acted_at is None
+    assert all(row.acted_at is not None for row in world.notifications.escalations())
+
+
+def test_a_retiming_that_announces_another_task_is_a_new_occurrence() -> None:
+    """SCR-004: the row says which task it announces; a different one is new whatever the caller's flag."""
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE, task_key="task-1")
+    for offset in (2, 4, 7):
+        _escalate(world, FIRST_DUE + timedelta(days=offset) + BEAT)
+    world.notifications.mark_read(_reminder(world).key or "", FIRST_DUE + timedelta(days=7))
+
+    second_due = FIRST_DUE + timedelta(days=12)
+    with freeze_time(FIRST_DUE + timedelta(days=9)):
+        _announce(world, second_due, task_key="task-2", reset_read=False)  # e.g. an interval edit
+
+    reminder = _reminder(world)
+    assert reminder.escalation_level == 0
+    assert reminder.read_at is None
+    assert all(row.acted_at is not None for row in world.notifications.escalations())
+    assert _escalate(world, second_due + timedelta(days=2) + BEAT) == {"escalated": 1}
+
+
+def test_deleting_a_task_the_row_no_longer_announces_leaves_the_row_open() -> None:
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE, task_key="task-2")
+    stale = Task(
+        key="task-1",
+        name=f"{PLANT_LABEL} — {ReminderType.WATERING.value}",
+        category=TaskCategory.CARE_REMINDER,
+        entity_key=PLANT_KEY,
+        entity_type="plant_instance",
+        tenant_key=TENANT,
+        status=TaskStatus.PENDING,
+        due_date=FIRST_DUE,
+    )
+
+    world.propagation.on_task_deleted(stale)
+
+    assert _reminder(world).acted_at is None
+
+
+# ── at most once per level, under concurrency and dedup (SCR-002/-003) ─────
+
+
+class _Redis:
+    """A Redis slice with real TTLs on the frozen clock: what the engine's dedup reads."""
+
+    def __init__(self) -> None:
+        self.keys: dict[str, datetime] = {}
+
+    def get(self, key: str) -> bytes | None:
+        expires = self.keys.get(key)
+        return b"1" if expires is not None and datetime.now(UTC) < expires else None
+
+    def set(self, key: str, _value: str, ex: int) -> None:
+        self.keys[key] = datetime.now(UTC) + timedelta(seconds=ex)
+
+
+def _with_dedup(world: SimpleNamespace) -> None:
+    """A stateful Redis and one channel that delivers: only a delivered send sets the dedup key."""
+    world.engine._redis = _Redis()
+    world.engine._resolve_channels = MagicMock(return_value=["push"])  # type: ignore[method-assign]
+    world.engine._send_to_channel = AsyncMock(  # type: ignore[method-assign]
+        return_value=ChannelResult(channel_key="push", success=True)
+    )
+
+
+def test_each_level_is_sent_when_the_next_run_comes_within_24_hours() -> None:
+    """Level n+1 must not meet level n's live dedup key — or it is claimed and never sent."""
+    world = _world()
+    _with_dedup(world)
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE)
+
+    # Long overdue, one level per run; each run is earlier in the day than the one before.
+    runs = (
+        FIRST_DUE + timedelta(days=10, hours=18),
+        FIRST_DUE + timedelta(days=11, hours=9),
+        FIRST_DUE + timedelta(days=12, hours=1),
+    )
+    results = [_escalate(world, at) for at in runs]
+
+    assert results == [{"escalated": 1}] * 3
+    assert [row.escalation_level for row in world.notifications.escalations()] == [1, 2, 3]
+    assert world.engine._send_to_channel.await_count == 3, "every level reached the channel"
+
+
+def test_the_same_level_of_the_next_occurrence_is_not_deduplicated() -> None:
+    world = _world()
+    _with_dedup(world)
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE, task_key="task-1")
+    assert _escalate(world, FIRST_DUE + timedelta(days=2, hours=23)) == {"escalated": 1}
+    with freeze_time(FIRST_DUE + timedelta(days=2, hours=23, minutes=30)):
+        _announce(world, FIRST_DUE + timedelta(days=1), task_key="task-2", reset_read=True)
+
+    # The next occurrence is two days overdue an hour later: its level 1 is its own event.
+    assert _escalate(world, FIRST_DUE + timedelta(days=3, hours=1)) == {"escalated": 1}
+
+
+def test_a_claim_landing_between_a_refresh_and_its_write_is_not_undone() -> None:
+    world = _world()
+    with freeze_time(FIRST_DUE):
+        _announce(world, FIRST_DUE)
+    key = _reminder(world).key or ""
+    real_update = world.notifications.update
+
+    def update_after_a_concurrent_claim(update_key: str, notification: Notification) -> Notification:
+        # The overlapping beat claims level 1 after the refresh read the row at level 0.
+        world.notifications.claim_escalation_level(key, tenant_key=TENANT, escalation_level=1)
+        world.notifications.update = real_update  # type: ignore[method-assign]
+        return real_update(update_key, notification)
+
+    world.notifications.update = update_after_a_concurrent_claim  # type: ignore[method-assign]
+    with freeze_time(FIRST_DUE + timedelta(days=2)):
+        _announce(world, FIRST_DUE)  # a retiming to the same date: the refresh still writes the row
+
+    assert _reminder(world).escalation_level == 1
+    # Level 1 counts as sent: the next run goes on with level 2, not level 1 again.
+    assert _escalate(world, FIRST_DUE + timedelta(days=4) + BEAT) == {"escalated": 1}
+    assert [level for _key, level in world.notifications.claims] == [1, 2]
+
+
+def test_overdue_counts_utc_calendar_days_not_hours_from_the_due_time() -> None:
+    """SCR-009: due at 18:00 on day D is two days overdue at the 12:00 beat of day D+2 — not on D+3."""
+    world = _world()
+    due = FIRST_DUE + timedelta(hours=18)
+    with freeze_time(due):
+        _announce(world, due)
+
+    assert _escalate(world, FIRST_DUE + timedelta(days=1) + BEAT) == {"escalated": 0}
+    assert _escalate(world, FIRST_DUE + timedelta(days=2) + BEAT) == {"escalated": 1}

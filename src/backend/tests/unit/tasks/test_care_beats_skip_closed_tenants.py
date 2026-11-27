@@ -100,7 +100,7 @@ def _wire_care(deps: ModuleType, tenants: _Tenants, plants: dict[str, str | None
     care_service._repo.get_all_profiles.return_value = [SimpleNamespace(plant_key=key) for key in plants]
     care_service._repo.count_plants_without_profile.return_value = 0
     care_service._engine.should_generate_reminder.return_value = False
-    care_service.ensure_next_watering_task.return_value = SimpleNamespace(due_date="2026-10-10")
+    care_service.ensure_and_announce_next_watering_task.return_value = SimpleNamespace(due_date="2026-10-10")
     deps.get_care_reminder_service.return_value = care_service
     deps.get_planting_run_repo.return_value.get_plant_keys_with_active_schedule.return_value = set()
     deps.get_plant_repo.return_value.get_by_key.side_effect = lambda key: SimpleNamespace(
@@ -120,7 +120,7 @@ def _wire_care(deps: ModuleType, tenants: _Tenants, plants: dict[str, str | None
 
 
 def _watered(care_service: MagicMock) -> list[str]:
-    return [call.args[0].plant_key for call in care_service.ensure_next_watering_task.call_args_list]
+    return [call.args[0].plant_key for call in care_service.ensure_and_announce_next_watering_task.call_args_list]
 
 
 @pytest.mark.parametrize("status", CLOSED_STATES)

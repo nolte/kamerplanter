@@ -1,11 +1,12 @@
 """Notification engine — orchestrates delivery across channels."""
 
 from collections.abc import Callable
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.log_privacy import log_subject, log_tenant, loggable_error, mask_url_paths
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
@@ -40,6 +41,18 @@ _DEDUP_TTL_SECONDS: int = 86400
 
 # Redis key prefix for dedup
 _DEDUP_PREFIX: str = "kp:notif:dedup:"
+
+
+def overdue_cutoff(today: date, days: int) -> datetime:
+    """The instant a reminder must be due before to be ``days`` days overdue on ``today`` (#3135).
+
+    Calendar days in UTC: a reminder due on day D reaches ``days`` days overdue on
+    day D + ``days``, whatever time of day it is due and whatever time the beat
+    runs — everything due before the start of the UTC day ``today - days + 1``.
+    Measuring 48 h from the due instant instead would put a reminder due after the
+    beat's hour on day +3.
+    """
+    return datetime.combine(today - timedelta(days=days - 1), time.min, tzinfo=UTC)
 
 
 class NotificationEngine:
@@ -106,7 +119,7 @@ class NotificationEngine:
         dedup_key = self._build_dedup_key(
             user_key,
             notification.notification_type,
-            notification.group_key,
+            self._dedup_group(notification),
         )
         if await self._is_duplicate(dedup_key):
             # Not the dedup key: it embeds the account key (#1830, NFR-011 §3.4 L-1).
@@ -269,8 +282,9 @@ class NotificationEngine:
     async def escalate_overdue(self, tenant_key: str, *, is_active_member: Callable[[str, str], bool]) -> dict:
         """Escalate the tenant's overdue watering reminders.
 
-        Escalation levels, counted from the due date the reminder announces
-        (REQ-030 §1.2, "Tag 0 = fällig"; never from the row's ``created_at``, #3135):
+        Escalation levels, counted in UTC calendar days from the due date the
+        reminder announces (REQ-030 §1.2, "Tag 0 = fällig"; never from the row's
+        ``created_at``, #3135):
         - Day +2: urgency -> HIGH
         - Day +4: urgency -> CRITICAL
         - Day +7: final warning
@@ -306,10 +320,10 @@ class NotificationEngine:
 
         escalated_count = 0
         moved_this_run: set[str] = set()
-        now = datetime.now(UTC)
+        today = today_utc()
 
         for level, days in enumerate(escalation_days):
-            cutoff = now - timedelta(days=days)
+            cutoff = overdue_cutoff(today, days)
             overdue = self._notification_repo.find_overdue_watering(
                 overdue_since=cutoff,
                 escalation_level=level,
@@ -603,6 +617,21 @@ class NotificationEngine:
             if address is not None:
                 config["email"] = address
         return config
+
+    @staticmethod
+    def _dedup_group(notification: Notification) -> str | None:
+        """The group part of the dedup key; an escalation's names its level and occurrence (#3135).
+
+        An escalation shares its reminder's ``group_key``, and the beat moves a row
+        one level per day. With the plain group, level n+1 met the still-live 24 h
+        key of level n whenever the run reached the row earlier than the day before:
+        the level was claimed and never sent — the final warning included. Each
+        level of each announced occurrence is its own event, so the key says which.
+        """
+        if notification.escalation_level <= 0:
+            return notification.group_key
+        due = notification.data.get("due_date") if isinstance(notification.data, dict) else None
+        return f"{notification.group_key or 'default'}:escalation:{notification.escalation_level}:{due or ''}"
 
     def _build_dedup_key(
         self,

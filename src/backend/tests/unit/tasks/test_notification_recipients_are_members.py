@@ -195,3 +195,44 @@ def test_an_ex_member_gets_no_summary_at_all(world) -> None:
 
     assert world.notifier.summaries == []
     assert result["summaries_sent"] == 0
+
+
+def test_the_email_digest_leaves_out_what_a_former_member_was_notified_of(world, monkeypatch) -> None:
+    """#2114 / #3135 review: the digest reads the user's rows of every tenant; a left tenant's are not mailed.
+
+    The real ``NotificationService.send_email_digest`` filters the window with the
+    predicate the beat hands it; the beat must hand it the membership rule, not only
+    "tenant active" — the row was created the day before the user left.
+    """
+    from app.domain.models.notification import Notification
+    from app.domain.services.notification_service import NotificationService
+
+    rows = [
+        Notification(_key=key, tenant_key=tenant, user_key="u1", notification_type="care.watering", title=key, body=key)
+        for key, tenant in (("a", "t-stay"), ("b", "t-left"))
+    ]
+    notification_repo = MagicMock()
+    notification_repo.list_for_user_since.return_value = rows
+    mailed: list[list[str]] = []
+
+    async def send_batch(notifications, _config):  # noqa: ANN001, ANN202 - the channel contract
+        mailed.append([n.key for n in notifications])
+        return MagicMock(success=True)
+
+    engine = MagicMock()
+    engine._channel_registry.get.return_value = MagicMock(send_batch=send_batch)
+    engine.resolve_email_recipient.return_value = "u1@example.invalid"
+    service = NotificationService(engine=engine, notification_repo=notification_repo, preference_repo=MagicMock())
+    deps = sys.modules["app.common.dependencies"]
+    deps.get_notification_service = MagicMock(return_value=service)  # type: ignore[attr-defined]
+    prefs = MagicMock(user_key="u1")
+    deps.get_notification_preference_repo = MagicMock(  # type: ignore[attr-defined]
+        return_value=MagicMock(list_users_with_digest_enabled=MagicMock(return_value=[prefs]))
+    )
+    world.memberships.active = {("u1", "t-stay")}
+
+    from app.tasks.notification_tasks import send_email_digests
+
+    send_email_digests()
+
+    assert mailed == [["a"]]

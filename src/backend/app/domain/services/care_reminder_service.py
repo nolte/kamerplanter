@@ -2190,6 +2190,41 @@ class CareReminderService:
         )
         return create_care_reminder_task(self._task_repo, task, reminder_type=ReminderType.WATERING)
 
+    def ensure_and_announce_next_watering_task(
+        self,
+        profile: CareProfile,
+        *,
+        phase_watering_interval: int | None,
+        tenant_key: str,
+    ) -> Task | None:
+        """:meth:`ensure_next_watering_task` for the daily producer, announced like every other creator (#3135).
+
+        The beat used to create the plant's next watering task without telling the
+        plant's care reminder row, so the row kept announcing the previous
+        occurrence — open, at its old escalation level — while the new task had no
+        reminder at all. The created task now goes through the same propagation as
+        the confirmation, the watering log and the season paths: the row is reused
+        as a **new** occurrence (read state cleared, escalation cycle restarted).
+        There is no acting user, so a plant without a reminder row gets none
+        invented (``sync_care_notification`` never addresses nobody).
+        """
+        created = self.ensure_next_watering_task(
+            profile,
+            phase_watering_interval=phase_watering_interval,
+            tenant_key=tenant_key,
+        )
+        if created is not None:
+            self._propagate_care_reschedule(
+                profile,
+                ReminderType.WATERING,
+                tenant_key,
+                "",
+                created.due_date,
+                created.key,
+                announces_new_task=True,
+            )
+        return created
+
     def _next_watering_due_date(
         self,
         profile: CareProfile,

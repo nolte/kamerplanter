@@ -45,6 +45,7 @@ from app.domain.models.notification import (
     NotificationAction,
     NotificationStatus,
     NotificationUrgency,
+    is_watering_escalation,
 )
 from app.domain.models.task import Task
 
@@ -93,17 +94,6 @@ def _group_kind(group_key: str | None) -> str | None:
     only what kind of group it is (NFR-011 §3.4 L-1).
     """
     return group_key.split(":", 1)[0] if group_key else None
-
-
-def _is_escalation_row(notification: Notification) -> bool:
-    """Whether *notification* is an overdue escalation sent for another row of its group (#3135).
-
-    An escalation carries the reminder's ``group_key`` — so closing the reminder
-    closes its escalations too — but it is an event row: it follows no source,
-    and a reminder update must neither keep it in place of the reminder nor
-    prune the reminder as its "duplicate".
-    """
-    return notification.parent_notification_key is not None or notification.notification_type.endswith(".escalation")
 
 
 class NotificationPropagationService:
@@ -276,12 +266,28 @@ class NotificationPropagationService:
         return None
 
     def on_task_deleted(self, task: Task) -> None:
-        """Remove the deleted task's orphaned notifications (no dead action_url)."""
+        """Remove the deleted task's orphaned notifications (no dead action_url).
+
+        A plant's care-reminder task also closes the plant's ``care.<type>`` row —
+        as :meth:`on_task_completed` does — but only while that row still announces
+        this task: the occurrence is gone, and the row must not keep escalating as
+        "overdue" for a task that no longer exists (#3135). The row is marked done,
+        not deleted: the single-entry row is reused by the plant's next occurrence.
+        """
         if not task.tenant_key or not task.key:
             return
         for gk in (_task_due_group_key(task.key), _task_assigned_group_key(task.key)):
             for notif in self._safe_lookup(gk, task.tenant_key):
                 self._delete(notif)
+
+        if task.category == "care_reminder" and task.entity_key:
+            reminder_type = self._reminder_type_from_task_name(task.name)
+            if reminder_type is None:
+                return
+            group = self._safe_lookup(_care_group_key(reminder_type, task.entity_key), task.tenant_key)
+            reminders = [row for row in group if not is_watering_escalation(row)]
+            if reminders and reminders[0].data.get("task_key") == task.key:
+                self._mark_group_done(group)
 
     # ── Care hooks ────────────────────────────────────────────────────
 
@@ -321,6 +327,11 @@ class NotificationPropagationService:
                 levels already sent for this occurrence are not sent again; the
                 remaining ones follow the moved due date (REQ-030 §1.2 counts from
                 "fällig").
+
+                The flag is not the only evidence (#3135): when the row announces a
+                different task than ``task_key``, the call announces a new occurrence
+                whatever the caller passed — a retiming of a task the row never
+                announced is the first announcement of that task.
         """
         if not tenant_key or not plant_key:
             return
@@ -342,9 +353,11 @@ class NotificationPropagationService:
         # newest row of a retimed group used to be the escalation, and the reminder
         # itself was deleted). Only this group can hold one; the task groups cannot.
         group = self._safe_lookup(group_key, tenant_key)
-        escalations = [row for row in group if _is_escalation_row(row)]
-        existing = [row for row in group if not _is_escalation_row(row)]
-        if reset_read:
+        escalations = [row for row in group if is_watering_escalation(row)]
+        existing = [row for row in group if not is_watering_escalation(row)]
+        announced_task = existing[0].data.get("task_key") if existing else None
+        new_occurrence = reset_read or bool(task_key and announced_task and announced_task != task_key)
+        if new_occurrence:
             # A new occurrence ends the previous one's escalation cycle (#3135): its
             # "Overdue" rows no longer describe anything open.
             self._mark_group_done(escalations)
@@ -356,16 +369,17 @@ class NotificationPropagationService:
                 body=body,
                 data=data,
                 actions=actions,
-                reset_read=reset_read,
+                reset_read=new_occurrence,
             )
+            if new_occurrence:
+                self._reset_escalation(existing[0], tenant_key)
             return
 
         # Nobody to address: a background retiming (no acting user) follows an
         # existing note but never invents one — the repository refuses a row
-        # without a recipient anyway (MT-045.8). A group that holds only escalation
-        # rows lost its reminder to the pre-#3135 prune; their recipient is the
-        # reminder's, so the reminder is re-created for them.
-        user_key = user_key or next((row.user_key for row in escalations if row.user_key), "")
+        # without a recipient anyway (MT-045.8). An escalation row of the group is
+        # no recipient source either: its recipient may have left the tenant since
+        # (#2114), and it announces nothing that a missing reminder would need.
         if not user_key:
             return
 
@@ -494,6 +508,21 @@ class NotificationPropagationService:
         except Exception:
             logger.warning("notification_propagation_delete_failed", key=notification.key)
 
+    def _reset_escalation(self, notification: Notification, tenant_key: str) -> None:
+        """A new occurrence, a new escalation cycle (#3135) — its own conditional write.
+
+        The level of the previous occurrence would otherwise hold back (level 3:
+        never again) or skip the first steps of this one. Not part of the refresh
+        write: :meth:`INotificationRepository.update` leaves the level alone, so a
+        claim that lands between the refresh's read and write is not undone.
+        """
+        if not notification.key:
+            return
+        try:
+            self._repo.reset_escalation_level(notification.key, tenant_key=tenant_key)
+        except Exception:
+            logger.warning("notification_propagation_escalation_reset_failed", key=notification.key)
+
     def _delete_group_for_user(self, group_key: str, tenant_key: str, user_key: str | None) -> None:
         for notif in self._safe_lookup(group_key, tenant_key):
             if user_key is None or notif.user_key == user_key:
@@ -555,10 +584,6 @@ class NotificationPropagationService:
         if reset_read:
             keep.read_at = None
             keep.acted_at = None
-            # A new occurrence, a new escalation cycle (#3135). The level of the
-            # previous occurrence would otherwise hold back (level 3: never again) or
-            # skip the first steps of this one.
-            keep.escalation_level = 0
 
         for attempt in (1, 2):
             try:

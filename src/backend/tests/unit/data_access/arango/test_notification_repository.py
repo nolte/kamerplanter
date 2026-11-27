@@ -16,6 +16,7 @@ from app.data_access.arango.notification_repository import (
     ArangoNotificationRepository,
 )
 from app.domain.models.notification import (
+    DUE_DATE_SHAPE,
     Notification,
     NotificationStatus,
     NotificationUrgency,
@@ -231,13 +232,16 @@ class TestFindOverdueWatering:
         # #3135: the exact type (no prefix — escalation rows are not candidates) and the
         # announced due date, as instants; the selection itself is measured against
         # ArangoDB in tests/integration/test_overdue_watering_candidates.py.
-        assert "STARTS_WITH" not in call.args[0]
+        assert "STARTS_WITH(doc.notification_type" not in call.args[0]
         assert "doc.notification_type == @notification_type" in call.args[0]
+        assert "STARTS_WITH(doc.group_key, @group_prefix)" in call.args[0]
         assert "DATE_TIMESTAMP(doc.data.due_date) < DATE_TIMESTAMP(@cutoff)" in call.args[0]
         assert "created_at" not in call.args[0]
         assert "doc.tenant_key == @tenant_key" in call.args[0]
         assert call.kwargs["bind_vars"] == {
             "cutoff": cutoff.isoformat(),
+            "due_shape": DUE_DATE_SHAPE,
+            "group_prefix": "care.watering:",
             "level": 1,
             "notification_type": "care.watering",
             "tenant_key": "t1",
@@ -262,7 +266,7 @@ class TestClaimEscalationLevel:
         assert claimed is not None
         query = mock_db.aql.execute.call_args.args[0]
         assert "doc._key == @key AND doc.tenant_key == @tenant_key" in query
-        assert "doc.escalation_level < @level" in query
+        assert "NOT_NULL(doc.escalation_level, 0) == @previous_level" in query  # exactly one step (#3135)
         assert "UPDATE doc WITH { escalation_level: @level, updated_at: @now }" in query
         assert "REPLACE" not in query
 

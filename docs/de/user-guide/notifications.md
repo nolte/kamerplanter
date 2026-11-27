@@ -172,7 +172,7 @@ Aktivierst du die **Tägliche Zusammenfassung**, erhältst du zusätzlich einmal
 
 ### Eskalation bei überfälligem Gießen
 
-Bleibt eine Gieß-Erinnerung unbestätigt, wiederholt Kamerplanter sie mit steigender Dringlichkeit. Die Tage zählen ab dem Tag, an dem das Gießen fällig ist, nicht ab dem Tag, an dem die Erinnerung kam:
+Bleibt eine Gieß-Erinnerung unbestätigt, wiederholt Kamerplanter sie mit steigender Dringlichkeit. Die Tage zählen als Kalendertage (UTC) ab dem Tag, an dem das Gießen fällig ist, nicht ab dem Tag, an dem die Erinnerung kam und nicht ab der Uhrzeit:
 
 | Zeitpunkt | Dringlichkeit |
 |-----------|---------------|
@@ -180,7 +180,7 @@ Bleibt eine Gieß-Erinnerung unbestätigt, wiederholt Kamerplanter sie mit steig
 | +4 Tage überfällig | Kritisch |
 | +7 Tage überfällig | Kritisch (letzte Erinnerung) |
 
-Pro Tag steigt eine Erinnerung höchstens um eine Stufe. Jedes neue Gießen beginnt wieder von vorn. Wird nur der Termin verschoben, etwa durch die Winterruhe, kommen schon gesendete Stufen nicht noch einmal, und die übrigen richten sich nach dem neuen Termin.
+Pro Tag steigt eine Erinnerung höchstens um eine Stufe. Jedes neue Gießen beginnt wieder von vorn, und nach dem Gießen kommt keine Eskalation mehr. Es eskaliert nur die Gieß-Erinnerung der Pflanze, nicht zusätzlich die morgendliche Fälligkeitsmeldung. Wird nur der Termin verschoben, etwa durch die Winterruhe, kommen schon gesendete Stufen nicht noch einmal, und die übrigen richten sich nach dem neuen Termin.
 
 Diese Eskalationstage sind fest vorgegeben und aktuell nicht individuell einstellbar; du kannst die Eskalation für Gieß-Erinnerungen aber komplett ein- oder ausschalten. Für andere Erinnerungstypen (Düngen, Umtopfen, Schädlingskontrolle) gibt es keine Eskalation.
 

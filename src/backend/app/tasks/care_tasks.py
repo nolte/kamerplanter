@@ -187,7 +187,8 @@ def generate_due_care_reminders(tenant_key: str | None = None) -> dict:
                         phase_interval = phase.watering_interval_days
             # The tenant of the plant this iteration loaded and gated above (#2107):
             # the sweep spans tenants, each plant is processed for its own.
-            task = care_service.ensure_next_watering_task(
+            # #3135 — announced on the plant's care reminder row like every other creator.
+            task = care_service.ensure_and_announce_next_watering_task(
                 profile,
                 phase_watering_interval=phase_interval,
                 tenant_key=plant.tenant_key,

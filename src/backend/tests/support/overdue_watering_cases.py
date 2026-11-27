@@ -33,9 +33,20 @@ OTHER_TENANT = "tenant-overdue-other"
 USER = "user-overdue"
 LEVEL = 0
 
-#: The escalation's cutoff (``now - escalation_days[level]``), spelled like ``isoformat()``.
+#: The escalation's cutoff, spelled like ``isoformat()`` of a whole second.
 CUTOFF_ISO = "2026-11-20T12:00:00+00:00"
 CUTOFF = datetime.fromisoformat(CUTOFF_ISO)
+
+#: The table is asked against every spelling a cutoff can arrive in: ``isoformat()``
+#: of a whole second, of a microsecond instant (six fraction digits), and the same
+#: instant in another offset. A cutoff ArangoDB could not read would make
+#: ``DATE_TIMESTAMP(@cutoff)`` null and production would never escalate, while a
+#: table asked with one convenient spelling stayed green (#3135).
+CUTOFF_SPELLINGS: tuple[str, ...] = (
+    CUTOFF_ISO,
+    "2026-11-20T12:00:00.123456+00:00",
+    "2026-11-20T14:00:00+02:00",
+)
 
 LONG_AGO = "2026-10-01T00:00:00+00:00"
 RECENT = "2026-11-25T08:00:00+00:00"
@@ -137,6 +148,45 @@ CASES: tuple[Case, ...] = (
         {"notification_type": "care.watering.due"},
         "the type is matched exactly, not as a prefix",
     ),
+    Case(
+        "due_date_only_before_the_cutoff",
+        True,
+        {"data": {"due_date": "2026-11-19"}},
+        "a calendar date alone is midnight UTC on both sides",
+    ),
+    Case("due_date_only_after_the_cutoff", False, {"data": {"due_date": "2026-11-21"}}, "midnight UTC, after"),
+    # Spellings outside the shape both sides read alike (DUE_DATE_SHAPE): each is
+    # read by exactly one of DATE_TIMESTAMP and fromisoformat, measured on 3.12.13.
+    Case(
+        "space_separator", False, {"data": {"due_date": "2026-11-19 12:00:00"}}, "ArangoDB reads it, outside the shape"
+    ),
+    Case("leading_space", False, {"data": {"due_date": " 2026-11-19"}}, "ArangoDB reads it, Python does not"),
+    Case("signed_year", False, {"data": {"due_date": "+2026-11-19"}}, "ArangoDB reads it, Python does not"),
+    Case("year_zero", False, {"data": {"due_date": "0000-01-01"}}, "ArangoDB reads it, Python does not"),
+    Case("hour_only", False, {"data": {"due_date": "2026-11-19T12"}}, "Python reads it, ArangoDB does not"),
+    Case("basic_format", False, {"data": {"due_date": "20261119T120000Z"}}, "Python reads it, ArangoDB does not"),
+    Case("week_date", False, {"data": {"due_date": "2026-W47-4"}}, "Python reads it, ArangoDB does not"),
+    Case("offset_without_colon", False, {"data": {"due_date": "2026-11-19T12:00:00+0200"}}, "Python only"),
+    Case("hour_24", False, {"data": {"due_date": "2026-11-19T24:00:00Z"}}, "Python reads it as the next day"),
+    Case(
+        "impossible_date",
+        False,
+        {"data": {"due_date": "2026-02-30T00:00:00Z"}},
+        "ArangoDB rolls it over into March; refused like Python refuses it",
+    ),
+    Case(
+        "missing_level",
+        True,
+        {"escalation_level": "__absent__"},
+        "a row stored before the field existed is at level 0 (NOT_NULL, model default)",
+    ),
+    Case("null_level", True, {"escalation_level": None}, "a stored null level is level 0 on both sides"),
+    Case(
+        "due_care_dispatch_row",
+        False,
+        {"group_key": f"care:{USER}:watering"},
+        "the per-day dispatch row is delivery; only the plant's reminder row escalates",
+    ),
     Case("acted", False, {"acted_at": RECENT}, "the user dealt with it"),
     Case("read_but_not_acted", True, {"read_at": RECENT}, "reading is not watering"),
     Case("another_tenant", False, {"tenant_key": OTHER_TENANT}, "tenant-scoped"),
@@ -148,4 +198,7 @@ def document(case: Case) -> dict:
     """The stored document of *case*."""
     doc = base_document(case.name)
     doc.update(case.doc)
+    for name, value in list(doc.items()):
+        if value == "__absent__":
+            del doc[name]
     return doc

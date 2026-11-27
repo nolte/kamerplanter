@@ -193,7 +193,7 @@ class TestCeleryPathUsesFactory:
         care_service = MagicMock()
         care_service._repo.get_all_profiles.return_value = [SimpleNamespace(plant_key="plant_1")]
         care_service._repo.get_last_confirmation.return_value = None
-        care_service.ensure_next_watering_task.return_value = None
+        care_service.ensure_and_announce_next_watering_task.return_value = None
         care_service.resolve_overwintering_profile.return_value = None
         care_service._resolve_species.return_value = None
         care_service._resolve_cultivar_traits.return_value = None

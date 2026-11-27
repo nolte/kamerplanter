@@ -27,6 +27,7 @@ from datetime import UTC, datetime, timedelta
 
 from app.domain.models.notification import (
     WATERING_ESCALATION_TYPE,
+    WATERING_REMINDER_GROUP_PREFIX,
     WATERING_REMINDER_TYPE,
     Notification,
     NotificationStatus,
@@ -51,9 +52,24 @@ class FakeNotificationRepo:
         return notification
 
     def update(self, key: str, notification: Notification) -> Notification:
+        """Full rewrite — except ``escalation_level``, as ``ArangoNotificationRepository.update`` (#3135).
+
+        The stored level stays as it is at write time; only the claim and the reset
+        move it. A caller holding a stale copy cannot write its level back.
+        """
         notification.key = key
+        stored = self._store.get(key)
+        if stored is not None:
+            notification.escalation_level = stored.escalation_level
         self._store[key] = notification
         return notification
+
+    def reset_escalation_level(self, key: str, *, tenant_key: str) -> bool:
+        row = self._store.get(key)
+        if not tenant_key or row is None or row.tenant_key != tenant_key or row.escalation_level == 0:
+            return False
+        row.escalation_level = 0
+        return True
 
     def delete(self, key: str) -> bool:
         return self._store.pop(key, None) is not None
@@ -106,15 +122,18 @@ def is_overdue_watering_candidate(
     """The filter of ``ArangoNotificationRepository.find_overdue_watering``, clause by clause (#3135).
 
     ``tenant_key`` (empty: nothing) · ``notification_type == care.watering`` exactly ·
-    ``acted_at == null`` · ``data.due_date`` a readable ISO string before the cutoff,
-    as instants (:func:`announced_due_date` reads it like ``DATE_TIMESTAMP``) ·
-    ``escalation_level == level``. Held to the same case table as the AQL.
+    ``group_key`` starts with ``care.watering:`` · ``acted_at == null`` ·
+    ``data.due_date`` of the shared shape, a real date, before the cutoff as instants
+    (:func:`announced_due_date`) · ``escalation_level == level`` (the model reads a
+    missing or null level as 0, as ``NOT_NULL`` does). Held to the same case table
+    as the AQL.
     """
     due = announced_due_date(row)
     return (
         bool(tenant_key)
         and row.tenant_key == tenant_key
         and row.notification_type == WATERING_REMINDER_TYPE
+        and (row.group_key or "").startswith(WATERING_REMINDER_GROUP_PREFIX)
         and row.acted_at is None
         and due is not None
         and due < overdue_since
@@ -134,7 +153,7 @@ class EscalationNotificationRepo(FakeNotificationRepo):
       fake, the integration test ``test_overdue_watering_candidates`` against
       ArangoDB — so the fake cannot select a row the real statement would not.
     * :meth:`claim_escalation_level` is the single conditional write: key, tenant
-      and "level still below" are checked and the level is raised in one step,
+      and "level exactly one below" are checked and the level is raised in one step,
       touching no other field. A sequential fake cannot interleave inside it, and
       neither can the real statement — that is the property being modelled, not
       assumed away. Full-model ``update`` calls are recorded so a test can assert
@@ -150,13 +169,23 @@ class EscalationNotificationRepo(FakeNotificationRepo):
         row = super().get(key)
         return row.model_copy(deep=True) if row is not None else None
 
+    def list_by_group_key(self, group_key: str, *, tenant_key: str) -> list[Notification]:
+        """Fresh copies, as ArangoDB materialises a new model per document (#3135).
+
+        Handing out the stored objects let a refresh "see" a claim made after its
+        read, so a test of the read-then-write race could not fail.
+        """
+        return [row.model_copy(deep=True) for row in super().list_by_group_key(group_key, tenant_key=tenant_key)]
+
     def update(self, key: str, notification: Notification) -> Notification:
         self.updates.append(key)
         return super().update(key, notification.model_copy(deep=True))
 
     def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
         row = self._store.get(key)
-        if not tenant_key or row is None or row.tenant_key != tenant_key or row.escalation_level >= escalation_level:
+        if not tenant_key or row is None or row.tenant_key != tenant_key:
+            return None
+        if row.escalation_level != escalation_level - 1:  # exactly one step, as the AQL (#3135)
             return None
         row.escalation_level = escalation_level
         self.claims.append((key, escalation_level))

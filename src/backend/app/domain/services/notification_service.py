@@ -296,10 +296,12 @@ class NotificationService:
         failed send returns ``"failed"`` without raising.
 
         ``tenant_is_active`` (REQ-056 §5.2) drops every notification about a tenant
-        that is no longer ``active`` — a suspended or pending-deletion tenant resolves
+        it answers ``False`` for — a suspended or pending-deletion tenant resolves
         for nobody, and the digest would otherwise deliver what was created about it
-        before the suspension. A notification without a tenant (account-level) stays.
-        A window left empty by the filter sends no mail.
+        before the suspension. The beat hands it the recipient's membership rule
+        (#2114): a tenant the user is no longer an active member of is dropped too.
+        A notification without a tenant (account-level) stays. A window left empty
+        by the filter sends no mail.
         """
         notifications = self._notification_repo.list_for_user_since(user_key, since)
         if tenant_is_active is not None:

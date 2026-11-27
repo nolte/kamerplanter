@@ -96,10 +96,68 @@ class TestTheRepositoryClaim:
 
     def test_never_lowers_a_level(self, db: StandardDatabase) -> None:
         repo = ArangoNotificationRepository(db)
-        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=3) is not None
+        for level in (1, 2, 3):
+            assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=level) is not None
 
         assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=2) is None
         assert _stored(db)["escalation_level"] == 3
+
+    def test_a_level_cannot_be_skipped(self, db: StandardDatabase) -> None:
+        """#3135: only the next level — a run holding an old read cannot jump a level another run claimed."""
+        repo = ArangoNotificationRepository(db)
+
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=2) is None
+        assert _stored(db)["escalation_level"] == 0
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1) is not None
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=3) is None
+        assert _stored(db)["escalation_level"] == 1
+
+    @pytest.mark.parametrize("stored", ["absent", None])
+    def test_a_row_without_a_level_claims_level_one(self, db: StandardDatabase, stored: object) -> None:
+        """A legacy row without the field (or with null) is at level 0, not stranded (#3135)."""
+        if stored == "absent":
+            doc = _stored(db)
+            del doc["escalation_level"]
+            db.collection(col.NOTIFICATIONS).replace(doc)
+            assert "escalation_level" not in _stored(db)
+        else:
+            db.collection(col.NOTIFICATIONS).update({"_key": KEY, "escalation_level": None}, keep_none=True)
+            assert _stored(db)["escalation_level"] is None
+
+        claimed = ArangoNotificationRepository(db).claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1)
+
+        assert claimed is not None
+        assert _stored(db)["escalation_level"] == 1
+
+
+class TestTheRefreshLeavesTheLevelAlone:
+    """#3135: the full-model refresh never writes ``escalation_level``; only claim and reset move it."""
+
+    def test_a_claim_between_the_refreshs_read_and_write_survives(self, db: StandardDatabase) -> None:
+        repo = ArangoNotificationRepository(db)
+        stale = repo.get(KEY)
+        assert stale is not None and stale.escalation_level == 0
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1) is not None
+
+        stale.title = "refreshed"
+        repo.update(KEY, stale)
+
+        stored = _stored(db)
+        assert stored["title"] == "refreshed"
+        assert stored["escalation_level"] == 1
+
+    def test_the_reset_is_its_own_tenant_scoped_write(self, db: StandardDatabase) -> None:
+        repo = ArangoNotificationRepository(db)
+        repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1)
+
+        assert repo.reset_escalation_level(KEY, tenant_key=OTHER_TENANT) is False
+        assert repo.reset_escalation_level(KEY, tenant_key="") is False
+        assert _stored(db)["escalation_level"] == 1
+        assert repo.reset_escalation_level(KEY, tenant_key=TENANT) is True
+        stored = _stored(db)
+        assert stored["escalation_level"] == 0
+        assert stored["read_at"] == READ_AT
+        assert repo.reset_escalation_level(KEY, tenant_key=TENANT) is False
 
     def test_another_tenant_claims_nothing(self, db: StandardDatabase) -> None:
         repo = ArangoNotificationRepository(db)

@@ -9,7 +9,13 @@ from arango.database import StandardDatabase
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.domain.interfaces.notification_repository import INotificationRepository
-from app.domain.models.notification import WATERING_REMINDER_TYPE, Notification, NotificationStatus
+from app.domain.models.notification import (
+    DUE_DATE_SHAPE,
+    WATERING_REMINDER_GROUP_PREFIX,
+    WATERING_REMINDER_TYPE,
+    Notification,
+    NotificationStatus,
+)
 
 # Collection constants
 NOTIFICATIONS = "notifications"
@@ -67,6 +73,20 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
 
     def get(self, key: str) -> Notification | None:
         return super().get_by_key(key)
+
+    def update(self, key: str, model: Notification) -> Notification:
+        """Rewrite a notification from a full model — except its ``escalation_level`` (#3135).
+
+        The level is owned by two conditional statements, :meth:`claim_escalation_level`
+        and :meth:`reset_escalation_level`. The one full-model writer
+        (``NotificationPropagationService._update_single``) read the row before it
+        writes and compares no ``_rev``; writing the level it read would undo a claim
+        that landed in between, and the level would be sent a second time. Left out
+        of the write, the stored level stays as it is at write time.
+        """
+        if self._verify_references_on_update:
+            self._verify_changed_owned_references(key, model)
+        return cast(Notification, self._wrap(self._update_doc(key, model, untouched=("escalation_level",))))
 
     # ── Queries ───────────────────────────────────────────────────────
 
@@ -171,20 +191,24 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         return self._to_notification(doc)
 
     def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
-        """Raise ``escalation_level`` atomically, only for the tenant's row and only upwards (ADR-008 F-8).
+        """Raise ``escalation_level`` by exactly one step, atomically, only for the tenant's row (ADR-008 F-8).
 
         One AQL statement — filter and update are evaluated in the same write, so
         two overlapping escalation runs cannot both claim the same level (a
         read-then-update could, because :meth:`update` compares no ``_rev``). The
-        ``UPDATE … WITH`` is partial: ``read_at``/``acted_at`` and every other field
-        stay as stored. An empty ``tenant_key`` claims nothing.
+        stored level must be exactly ``escalation_level - 1`` (#3135): a run that
+        read the row at an older level cannot jump it over a level another run has
+        claimed meanwhile. A row stored without a level counts as level 0, the
+        model's default, as in :meth:`find_overdue_watering`. The ``UPDATE … WITH``
+        is partial: ``read_at``/``acted_at`` and every other field stay as stored.
+        An empty ``tenant_key`` claims nothing.
         """
         if not tenant_key or not key:
             return None
         query = (
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc._key == @key AND doc.tenant_key == @tenant_key "
-            f"AND (doc.escalation_level == null OR doc.escalation_level < @level) "
+            f"AND NOT_NULL(doc.escalation_level, 0) == @previous_level "
             f"UPDATE doc WITH {{ escalation_level: @level, updated_at: @now }} IN {NOTIFICATIONS} "
             f"RETURN NEW"
         )
@@ -192,6 +216,7 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             "key": key,
             "tenant_key": tenant_key,
             "level": escalation_level,
+            "previous_level": escalation_level - 1,
             "now": datetime.now(UTC).isoformat(),
         }
         cursor = cast(Cursor, self._db.aql.execute(query, bind_vars=bind_vars))
@@ -207,22 +232,27 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
         *,
         tenant_key: str,
     ) -> list[Notification]:
-        """Find the tenant's watering reminders overdue since ``overdue_since`` at ``escalation_level``.
+        """Find the tenant's watering reminders due before ``overdue_since`` at ``escalation_level``.
 
-        Matches (#3135 — the predicate :func:`~app.domain.models.notification.announced_due_date`
-        describes, and ``tests/support/overdue_watering_cases.py`` pins for both this
-        statement and the unit fake):
+        Matches (#3135 — the reading :func:`~app.domain.models.notification.announced_due_date`
+        describes, held for this statement and the unit fake by one case table,
+        ``tests/support/overdue_watering_cases.py``):
 
         - ``tenant_key`` == the given tenant (an empty tenant matches nothing)
         - ``notification_type`` == ``care.watering`` exactly — the escalation rows
           (``care.watering.escalation``) it sends are never candidates themselves
+        - ``group_key`` starts with ``care.watering:`` — the plant's one reminder row,
+          the one the propagation owner keeps in step with the task and a watering
+          closes; the due-care dispatch's per-day rows are delivery, not a reminder
         - ``acted_at`` IS NULL
-        - the **announced due date** ``data.due_date`` lies before the cutoff,
-          compared as instants. Not ``created_at``: the care row is reused across
-          occurrences and keeps its creation time, so its age said nothing about
-          whether the occurrence it now announces is due. A row without a readable
-          due date is not proven overdue and is not selected.
-        - ``escalation_level`` == the given level (to avoid re-escalating)
+        - the **announced due date** ``data.due_date`` is a string of
+          :data:`~app.domain.models.notification.DUE_DATE_SHAPE` naming a real
+          calendar date, and lies before the cutoff, compared as instants. Not
+          ``created_at``: the row is reused across occurrences and keeps its
+          creation time. Anything else is not proven overdue and not selected; the
+          shape test runs first, so ``DATE_TIMESTAMP`` never sees an unreadable
+          string (no warning, whatever ``failOnWarning`` the server runs with).
+        - ``escalation_level`` == the given level, a row without one counting as 0
         """
         if not tenant_key:
             return []
@@ -230,23 +260,53 @@ class ArangoNotificationRepository(BaseArangoRepository[Notification], INotifica
             f"FOR doc IN {NOTIFICATIONS} "
             f"FILTER doc.tenant_key == @tenant_key "
             f"AND doc.notification_type == @notification_type "
+            f"AND STARTS_WITH(doc.group_key, @group_prefix) "
             f"AND doc.acted_at == null "
+            f"AND NOT_NULL(doc.escalation_level, 0) == @level "
             f"AND IS_STRING(doc.data.due_date) "
-            f"AND DATE_TIMESTAMP(doc.data.due_date) != null "
+            f"AND REGEX_TEST(doc.data.due_date, @due_shape) "
+            f"AND LEFT(DATE_ISO8601(LEFT(doc.data.due_date, 10)), 10) == LEFT(doc.data.due_date, 10) "
             f"AND DATE_TIMESTAMP(doc.data.due_date) < DATE_TIMESTAMP(@cutoff) "
-            f"AND doc.escalation_level == @level "
             f"RETURN doc"
         )
         cursor = self._db.aql.execute(
             query,
             bind_vars={
                 "cutoff": overdue_since.isoformat(),
+                "due_shape": DUE_DATE_SHAPE,
+                "group_prefix": WATERING_REMINDER_GROUP_PREFIX,
                 "level": escalation_level,
                 "notification_type": WATERING_REMINDER_TYPE,
                 "tenant_key": tenant_key,
             },
         )
         return [self._to_notification(doc) for doc in cursor]
+
+    def reset_escalation_level(self, key: str, *, tenant_key: str) -> bool:
+        """Start a new escalation cycle on the tenant's row: ``escalation_level`` back to 0 (#3135).
+
+        Its own conditional statement, not part of :meth:`update`: the full write
+        of a reminder refresh leaves the level alone (it may hold a level a
+        concurrent claim raised after the refresh read the row). Only a new
+        occurrence resets it, and only here. Returns whether a row was reset.
+        """
+        if not tenant_key or not key:
+            return False
+        query = (
+            f"FOR doc IN {NOTIFICATIONS} "
+            f"FILTER doc._key == @key AND doc.tenant_key == @tenant_key "
+            f"AND NOT_NULL(doc.escalation_level, 0) != 0 "
+            f"UPDATE doc WITH {{ escalation_level: 0, updated_at: @now }} IN {NOTIFICATIONS} "
+            f"RETURN 1"
+        )
+        cursor = cast(
+            Cursor,
+            self._db.aql.execute(
+                query,
+                bind_vars={"key": key, "tenant_key": tenant_key, "now": datetime.now(UTC).isoformat()},
+            ),
+        )
+        return next(cursor, None) is not None
 
     def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:
         """Return whether the tenant has any notification carrying ``group_key``.

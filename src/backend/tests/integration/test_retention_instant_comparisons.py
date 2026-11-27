@@ -689,6 +689,7 @@ SELECTORS: tuple[Selector, ...] = (
             "tenant_key": TENANT,
             "user_key": USER,
             "notification_type": "care.watering",
+            "group_key": "care.watering:p1",  # the plant's reminder row (#3135)
             "title": "t",
             "body": "b",
             "escalation_level": 1,
