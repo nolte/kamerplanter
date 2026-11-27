@@ -525,7 +525,8 @@ nicht als Anbau (nicht Teil dieser Fälle).
 - Liegt die Zwiebel in Beet 8, trägt die Belegung die Warnung „dauerhafter Bodenerreger" **ohne**
   Jahresangabe
 - Liegt die Buschbohne in Beet 9, zeigt die Belegung keine Warnung „dauerhafter Bodenerreger";
-  die Sklerotinia erscheint nur als schlechtere Bewertung beim Schädlingsdruck
+  die Sklerotinia erscheint nur als schlechtere Bewertung beim Schädlingsdruck (vorläufig: Fabaceae ist
+  Sklerotinia-Wirt nur mit 2/3, Betreiberentscheid P4 offen — `project/features/soil-hazard-knowledge.md`)
 
 **Nachbedingungen**:
 - Vorschlag ohne Ausschluss wegen Bodengefahr
