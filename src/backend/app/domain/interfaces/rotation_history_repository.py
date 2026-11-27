@@ -20,6 +20,9 @@ class PlantedRow:
 
     ``termination_type`` / ``termination_cause`` say how a removed plant ended (REQ-003 E5); the replant of a failed
     slot reads them (REQ-053 §11.3 "ausgefallen", #2888). ``None`` for a plant that still stands or ended unrecorded.
+    ``failure_cause_class`` and the pathogen fields are the cause class of a ``died`` loss (REQ-003 E5 v2.23/v2.24):
+    the residual hint of a replant follows the class (REQ-053 §11.3a Nr. 4, #2888 F-21); ``None`` for a loss without
+    a class (legacy data, "Beet räumen").
     """
 
     plant_key: str
@@ -29,6 +32,11 @@ class PlantedRow:
     plan_role: str = "main_crop"
     termination_type: str | None = None
     termination_cause: str | None = None
+    #: The plant's cultivar: its ``days_to_maturity`` bounds the cultivation window of a replant (§11.3a Nr. 3).
+    cultivar_key: str | None = None
+    failure_cause_class: str | None = None
+    failure_pathogen: str | None = None
+    failure_pathogen_confirmed: bool | None = None
 
 
 @dataclass(frozen=True)

@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Form from '@/components/form/Form';
 import FormActions from '@/components/form/FormActions';
+import FormDateField from '@/components/form/FormDateField';
 import FormMultiSelectField from '@/components/form/FormMultiSelectField';
 import FormNumberField from '@/components/form/FormNumberField';
 import FormRow from '@/components/form/FormRow';
@@ -287,6 +288,12 @@ export default function SoilProfileForm({ bedKey, profile, canEdit, onSaved }: S
             inputMode="decimal"
           />
         </FormRow>
+        <FormDateField
+          name="substrate_replaced_on"
+          control={control}
+          label={t('pages.bed.soil.substrateReplacedOn')}
+          helperText={t('pages.bed.soil.substrateReplacedOnHelper')}
+        />
         <FormTextField name="notes" control={control} label={t('pages.bed.soil.notes')} multiline minRows={2} />
 
         {canEdit && (

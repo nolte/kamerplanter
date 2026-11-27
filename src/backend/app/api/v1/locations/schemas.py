@@ -104,6 +104,8 @@ class SoilProfileSchema(BaseModel):
     last_analysis_at: datetime | None = None
     #: Substrate change: the crop-rotation history starts on this day (GP-FR-131).
     rotation_reset_at: date | None = None
+    #: Substrate renewed on this day (REQ-053 §11.3a Nr. 7): soil hazards confirmed before it no longer warn.
+    substrate_replaced_on: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
 
     @model_validator(mode="after")
@@ -1051,6 +1053,18 @@ class RotationFindingResponse(BaseModel):
     pest_risk: dict[str, Any] | None = None
     #: The cause of the loss a replant follows; only on `rotation.replant_*` findings (#2888).
     termination_cause: str | None = None
+    #: The cause class of that loss, when it was recorded with one (REQ-053 §11.3a Nr. 4, #2888 F-21).
+    failure_cause_class: str | None = None
+    #: `soil_hazard.*` findings only (REQ-053 §11.3a Nr. 6, #2888 F-21): the bed's hazard key and its confirmation.
+    hazard: str | None = None
+    hazard_confirmed_at: date | None = None
+    #: `pause` (evidenced pause not over), `no_evidenced_pause` or `residual` (after the pause).
+    hazard_stage: Literal["pause", "no_evidenced_pause", "residual"] | None = None
+    #: End of the pause or of the evidenced residual risk; `null` = no time statement (only 3/3 values carry one).
+    hazard_until: date | None = None
+    #: The host entry of the knowledge table the species matched (finest level: species, genus, family).
+    host_level: Literal["species", "genus", "family"] | None = None
+    host_name: str | None = None
 
 
 class NeighbourHintResponse(BaseModel):

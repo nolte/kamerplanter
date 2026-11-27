@@ -193,6 +193,44 @@ class TestPlantings:
         assert (rows["lost"].termination_type, rows["lost"].termination_cause) == ("died", "disease")
         assert (rows["standing"].termination_type, rows["standing"].termination_cause) == (None, None)
 
+    def test_a_row_carries_the_cause_class_and_the_cultivar_of_a_loss(self, db, repo) -> None:
+        """The replant reads the class (§11.3a Nr. 4) and the cultivar (window, Nr. 3) of the loss (#2888 F-21)."""
+        db.collection(col.SLOTS).insert({"_key": "s1", "location_key": "bed"})
+        _plant(
+            db,
+            "lost",
+            slot="s1",
+            removed="2025-06-01",
+            termination_type="died",
+            termination_cause="disease",
+            failure_cause_class="disease_soil",
+            failure_pathogen="clubroot",
+            failure_pathogen_confirmed=True,
+            cultivar_key="cv_kale",
+        )
+        _plant(db, "standing", slot="s1")
+
+        rows = {r.plant_key: r for r in repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key=TENANT)}
+
+        lost = rows["lost"]
+        assert (
+            lost.failure_cause_class,
+            lost.failure_pathogen,
+            lost.failure_pathogen_confirmed,
+            lost.cultivar_key,
+        ) == (
+            "disease_soil",
+            "clubroot",
+            True,
+            "cv_kale",
+        )
+        standing = rows["standing"]
+        assert (standing.failure_cause_class, standing.failure_pathogen_confirmed, standing.cultivar_key) == (
+            None,
+            None,
+            None,
+        )
+
     def test_an_empty_tenant_is_refused(self, repo) -> None:
         with pytest.raises(ValueError, match="tenant_key"):
             repo.list_plantings("bed", since=date(2020, 1, 1), tenant_key="")

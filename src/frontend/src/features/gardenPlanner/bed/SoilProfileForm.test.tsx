@@ -1,6 +1,6 @@
 /** The soil form keeps the user's edits when the summary behind it reloads (REQ-053 GP-FR-120). */
 import { useState } from 'react';
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -76,5 +76,31 @@ describe('SoilProfileForm EC method (U-002, WP 8.8)', () => {
     await user.click(screen.getByTestId('form-submit-button'));
     expect(await screen.findByText(/Choose how the EC was measured/)).toBeInTheDocument();
     expect(patched).toBe(false);
+  });
+});
+
+describe('SoilProfileForm substrate renewal (REQ-053 §11.3a Nr. 7, #2888 F-21)', () => {
+  it('sends the day the substrate was renewed with the profile', async () => {
+    let sent: Record<string, unknown> | null = null;
+    server.use(
+      http.patch('/api/v1/t/:tenant/locations/:key', async ({ request }) => {
+        sent = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ key: 'loc_b03', bed_status: 'active', plan_revision: 1 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <SoilProfileForm bedKey="loc_b03" profile={bedSummary().soil_profile!} canEdit onSaved={() => undefined} />,
+    );
+    const field = within(await screen.findByTestId('form-field-substrate_replaced_on')).getByLabelText(
+      /Substrate renewed on/,
+    );
+    expect(screen.getByText(/no longer warn/)).toBeInTheDocument();
+    await user.type(field, '2025-03-15');
+    await user.click(screen.getByTestId('form-submit-button'));
+    await waitFor(() => expect(sent).not.toBeNull());
+    expect((sent as unknown as { soil_profile: { substrate_replaced_on: string } }).soil_profile.substrate_replaced_on).toBe(
+      '2025-03-15',
+    );
   });
 });

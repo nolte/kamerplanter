@@ -60,6 +60,17 @@ export interface RotationFinding {
   plan_role?: string | null;
   /** The cause of the loss a replant follows; only on `rotation.replant_*` findings (#2888). */
   termination_cause?: string | null;
+  /** The cause class of that loss, when it was recorded with one (REQ-053 §11.3a Nr. 4, #2888 F-21). */
+  failure_cause_class?: string | null;
+  /** `soil_hazard.*` findings only (REQ-053 §11.3a Nr. 6): the bed's soil hazard and its confirmation day. */
+  hazard?: string | null;
+  hazard_confirmed_at?: string | null;
+  hazard_stage?: 'pause' | 'no_evidenced_pause' | 'residual' | null;
+  /** End of the pause or of the evidenced residual risk; `null` = no time statement. */
+  hazard_until?: string | null;
+  /** The host entry the species matched (finest level). */
+  host_level?: 'species' | 'genus' | 'family' | null;
+  host_name?: string | null;
 }
 
 export interface NeighbourHint {

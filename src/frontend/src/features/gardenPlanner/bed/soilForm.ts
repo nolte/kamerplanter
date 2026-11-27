@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { TFunction } from 'i18next';
 import type { Substrate } from '@/api/types';
+import { toUtcIsoDate } from '@/utils/calendarDay';
 import {
   EC_METHODS,
   GROWING_MEDIUM_KINDS,
@@ -30,6 +31,8 @@ export const soilFormSchema = z.object({
   ec_method: z.string(),
   humus_percent: z.number().min(0).max(100).nullable(),
   target_ph: z.number().min(0).max(14).nullable(),
+  /** `''` = never renewed; else an ISO day, not after today (UTC) - the server refuses a later one. */
+  substrate_replaced_on: z.string(),
   notes: z.string().max(4000),
 });
 
@@ -41,6 +44,13 @@ export function buildSoilFormSchema(t: TFunction) {
   return soilFormSchema.superRefine((data, ctx) => {
     if (data.ec_ms_cm !== null && !(EC_METHODS as readonly string[]).includes(data.ec_method)) {
       ctx.addIssue({ code: 'custom', path: ['ec_method'], message: t('pages.bed.soil.ecMethodRequired') });
+    }
+    if (data.substrate_replaced_on !== '' && data.substrate_replaced_on > toUtcIsoDate()) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['substrate_replaced_on'],
+        message: t('pages.bed.soil.substrateReplacedOnFuture'),
+      });
     }
   });
 }
@@ -60,6 +70,7 @@ export const EMPTY_SOIL_FORM: SoilFormData = {
   ec_method: '',
   humus_percent: null,
   target_ph: null,
+  substrate_replaced_on: '',
   notes: '',
 };
 
@@ -85,6 +96,7 @@ export function soilToForm(profile: SoilProfile | null | undefined): SoilFormDat
     ec_method: profile.ec_method ?? '',
     humus_percent: profile.humus_percent ?? null,
     target_ph: profile.target_ph ?? null,
+    substrate_replaced_on: profile.substrate_replaced_on ?? '',
     notes: profile.notes ?? '',
   };
 }
@@ -118,6 +130,7 @@ export function formToSoil(form: SoilFormData, stored?: SoilProfile | null): Soi
     ec_method: form.ec_ms_cm === null ? null : (oneOf<EcMethod>(EC_METHODS, form.ec_method) ?? null),
     humus_percent: form.humus_percent,
     target_ph: form.target_ph,
+    substrate_replaced_on: form.substrate_replaced_on === '' ? null : form.substrate_replaced_on,
     notes: form.notes.trim() === '' ? null : form.notes.trim(),
   };
 }

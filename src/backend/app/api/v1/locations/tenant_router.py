@@ -859,6 +859,16 @@ def validate_planting(
     previous crop for this check. Replanting its family adds `rotation.replant_after_biotic_failure` (`WARNING`,
     cause disease or pest) or `rotation.replant_cause_unknown` (`INFO`, no or unknown cause); an abiotic loss adds
     nothing. Any other key (another bed's, another tenant's, a harvested plant, an earlier year) is ignored.
+    The replaced plant is left out entirely when the replant lies inside its cultivation window (`planted_on` plus the
+    species' `days_to_maturity`), else for the year of its loss only; a loss with a cause class follows the class
+    (`rotation.replant_foliar_disease` `INFO`, `rotation.replant_soil_borne` `WARNING`, REQ-053 §11.3a Nr. 3-4).
+
+    **Soil hazards** (REQ-053 §11.3a Nr. 6, GP-FR-193, #2888 F-21): for every soil hazard of the bed whose host the
+    species is, `soil_hazard.pause` (`WARNING` with `hazard_until`), `soil_hazard.no_evidenced_pause` (`WARNING`
+    without a time statement), `soil_hazard.residual` (`INFO`), or for a soft hazard / a host below 3/3
+    `soil_hazard.soft` / `soil_hazard.uncertain_host` (`INFO`). Also on beds whose rotation check is off; never for
+    planters, tents, shelves, container groups or hydroponics; none for a hazard confirmed before
+    `soil_profile.substrate_replaced_on`. Never a blocker (D-09).
     """
     result = service.validate_planting(
         key,
