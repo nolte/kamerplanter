@@ -335,7 +335,48 @@ class TerminationCause(StrEnum):
     WATERLOGGING = "waterlogging"
     NEGLECT = "neglect"
     MECHANICAL = "mechanical"
+    #: Premature bolting (REQ-003 E5 v2.23, #2888): a physiological reaction to day length, cold, heat or drought,
+    #: no disease - abiotic, no replant hint. Pre-filled when the plant went into a premature bolting phase (E6).
+    BOLTING = "bolting"
     UNKNOWN = "unknown"
+
+
+class FailureCauseClass(StrEnum):
+    """Where the cause of an unplanned loss sat (REQ-003 E5 v2.23, REQ-053 §11.3a, #2888).
+
+    ``termination_cause`` stays what the gardener observed; the class is derived from it or
+    refined by the gardener (table ``FAILURE_CAUSE_TABLE`` in ``app/domain/models/failure_cause.py``)
+    and will be read by the replant hint (F-21) and the soil hazards (F-20); today no rule reads it.
+    Only set when ``termination_type='died'``.
+    """
+
+    ABIOTIC = "abiotic"
+    PEST_FOLIAR = "pest_foliar"
+    PEST_SOIL = "pest_soil"
+    DISEASE_SOIL = "disease_soil"
+    DISEASE_FOLIAR = "disease_foliar"
+    MECHANICAL = "mechanical"
+    UNKNOWN = "unknown"
+
+
+class WiltFollowUp(StrEnum):
+    """When the termination dialog asks the wilt follow-up question for a cause (REQ-053 §11.3a Nr. 1, #2888)."""
+
+    NEVER = "never"
+    ALWAYS = "always"
+    WILT_PRONE_FAMILY = "wilt_prone_family"
+
+
+class PathogenConfirmationSource(StrEnum):
+    """Who confirmed the pathogen of a soil-borne loss (REQ-053 §11.3a Nr. 5, research §5, #2888).
+
+    A category, not a free-text name: the three ways the research names (lab result, advice,
+    an unmistakable symptom such as clubroot galls) without storing who the person was.
+    """
+
+    LAB_TEST = "lab_test"
+    ADVISORY_SERVICE = "advisory_service"
+    CLEAR_SYMPTOMS = "clear_symptoms"
 
 
 class SoilHazard(StrEnum):

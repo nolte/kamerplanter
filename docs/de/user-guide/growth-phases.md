@@ -230,7 +230,7 @@ Das Stickstoff-Phosphor-Kalium-Verhältnis ändert sich über die Phasen:
 
 Jede Phase hat außerdem einen hinterlegten Ziel-pH-Wert für die Nährlösung. Der pH-Wert beeinflusst, wie gut einzelne Mikronährstoffe (Eisen, Mangan, Zink, Kupfer, Bor) von der Pflanze aufgenommen werden können: Außerhalb eines optimalen Fensters von pH 6,0–6,5 sperren sich diese Mikronährstoffe zunehmend aus (Chlorose-Risiko — helle, gelbliche Blattadern), während sich Molybdän gegenläufig verhält und bei steigendem pH besser verfügbar wird. Liegt der Ziel-pH einer Phase außerhalb dieses Fensters, zeigt Kamerplanter das in der Nährstoff-Ansicht der Phase (Tab **Wachstumsphasen** → Phase anklicken) als Warnung „**Spurennährstoffe blockiert (pH-Sperre)**" mit einer laienverständlichen Erklärung an. <!-- REQ-003 E8 -->
 
-### Geplantes und vorzeitiges Schossen unterscheiden
+### Geplantes und vorzeitiges Schossen unterscheiden {#vorzeitiges-schossen}
 
 Bei manchen zweijährigen Kulturen (z. B. Blattgemüse wie Spinat oder Salat) kann Hitze- oder Langtag-Stress dazu führen, dass eine Pflanze deutlich früher als geplant Richtung Blüte „schießt" und dadurch ihr Erntefenster verliert. Kamerplanter unterscheidet einen solchen stressbedingten, vorzeitigen Übergang von einem planmäßigen Schossen — etwa der regulären Blüteinleitung im zweiten Standjahr bei zweijährigen Kulturen mit Kälteperiode.
 
@@ -346,7 +346,35 @@ Wählst du **Verlust (eingegangen)**, musst du zusätzlich eine Verlustursache a
 | Staunässe | Substrat dauerhaft zu nass |
 | Vernachlässigung | Längere Abwesenheit ohne Vertretung |
 | Mechanischer Schaden | Abgebrochen, umgeknickt |
+| Schossen | Salat oder Spinat ist vorzeitig in die Blüte gegangen |
 | Unbekannt | Ursache lässt sich nicht mehr bestimmen |
+
+Ist die Pflanze vorzeitig geschossen (siehe [Geplantes und vorzeitiges Schossen unterscheiden](#vorzeitiges-schossen)), ist **Schossen** schon vorbelegt. <!-- REQ-003 E6 -->
+
+### Schritt 4a: Angeben, wo die Ursache saß
+
+Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im Boden. Diese Angabe wird künftig bestimmen, ob du an derselben Stelle bedenkenlos nachpflanzen kannst. <!-- REQ-003 E5, REQ-053 §11.3a -->
+
+| Ursache | Was der Dialog tut |
+|---------|--------------------|
+| Frost, Vernachlässigung, Schossen | Belegt **Abiotisch** vor — keine weitere Frage |
+| Mechanischer Schaden | Belegt **Mechanischer Schaden** vor |
+| Hitze, Trockenheit, Staunässe | Belegt **Abiotisch** vor und stellt die Welke-Frage (siehe unten) |
+| Krankheit | Du wählst Pflicht **Blattkrankheit** oder **Bodenbürtige Krankheit** |
+| Schädlingsbefall | Du wählst Pflicht **Schädling an Blatt oder Spross** oder **Bodenschädling** |
+| Unbekannt | Belegt **Unbekannt** vor; du kannst jede Klasse wählen |
+
+**Die Welke-Frage:** Bei Hitze, Trockenheit und Staunässe — und bei „Unbekannt“ an Nachtschattengewächsen, Kreuzblütlern, Kürbis- und Rosengewächsen — fragt der Dialog: „Welkte die Pflanze trotz feuchter Erde, waren Gefäße im Stängel oder die Wurzeln braun?“ Antwortest du mit **Ja**, erfasst Kamerplanter eine **bodenbürtige Krankheit**, denn hinter einem solchen Bild kann zum Beispiel die Verticillium-Welke stecken.
+
+**Erreger nennen (optional):** Bei einem Bodenschädling oder einer bodenbürtigen Krankheit kannst du den Erreger aus der Liste der Bodengefahren wählen — etwa Kohlhernie, Zystennematoden oder Verticillium-Welke. Weißt du es sicher, setzt du **Der Erreger ist bestätigt** und wählst, wer ihn bestätigt hat: **Laborbefund**, **Pflanzenschutz-Beratung** oder **Eindeutiges Schadbild** (zum Beispiel die Wucherungen der Kohlhernie).
+
+!!! info "Noch keine Bodengefahr am Beet"
+    Ein genannter Erreger wird an der Pflanze gespeichert. Eine Bodengefahr am Beet entsteht dadurch nicht von selbst.
+
+!!! warning "Noch nicht implementiert"
+    Der Nachpflanz-Hinweis wird künftig der Ursachenklasse folgen und bei einer bodenbürtigen Ursache gezielt warnen. Bis dahin richtet er sich allein nach der Verlustursache: Pflanzt du dieselbe Pflanzenfamilie an derselben Stelle nach, warnt dich Kamerplanter nach Krankheit oder Schädlingsbefall — egal ob du Blatt oder Boden gewählt hast —, nach Schossen und den anderen abiotischen Ursachen nicht.
+
+Pflanzen, die vor dieser Erweiterung entfernt wurden, und Pflanzen, die du über **Beet räumen** beendest, haben keine Klasse; für sie gilt weiter allein die Verlustursache.
 
 !!! note "Die aktuelle Wachstumsphase wird eingefroren"
     Klassifizierst du eine Pflanze als „Verlust", friert Kamerplanter ihre aktuelle Wachstumsphase ein: Der offene Phasenhistorie-Eintrag wird geschlossen, aber es findet **kein** automatischer Übergang in eine Blattfall-/Seneszenz-Phase statt. So bleibt erkennbar, in welcher Phase der Verlust tatsächlich aufgetreten ist — eine wichtige Grundlage für die [Verlustursachen-Auswertung](#ueberlebensrate-verlustursachen) weiter unten.

@@ -1555,14 +1555,19 @@ def remove_plant(
     plant_key: str,
     termination_type: str,
     termination_cause: str | None = None,
+    failure_cause_class: str | None = None,
 ) -> dict:
     """``POST /plant-instances/{key}/remove`` with *termination_type* (``died``, ``senesced``, ...), REQ-003 E5.
 
-    *termination_cause* (``disease``, ``pest``, ``frost``, ...) is only valid with ``died``.
+    *termination_cause* (``disease``, ``pest``, ``frost``, ...) is only valid with ``died``. Since #2888 (F-19) a
+    ``disease`` or ``pest`` loss must name *failure_cause_class* (``disease_soil``, ``pest_foliar``, ...); an abiotic
+    cause takes its pre-fill when it is left out.
     """
     body: dict[str, str] = {"termination_type": termination_type}
     if termination_cause is not None:
         body["termination_cause"] = termination_cause
+    if failure_cause_class is not None:
+        body["failure_cause_class"] = failure_cause_class
     removed = _tenant_post(base_url, seed, f"/plant-instances/{plant_key}/remove", body)
     if (
         removed.get("termination_type") != termination_type

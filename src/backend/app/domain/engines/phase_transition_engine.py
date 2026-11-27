@@ -7,6 +7,7 @@ from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.interfaces.phase_repository import IPhaseRepository
 from app.domain.interfaces.phase_sequence_repository import IPhaseSequenceRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
+from app.domain.models.failure_cause import FailureRecord
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 
@@ -251,6 +252,7 @@ class PhaseTransitionEngine:
         termination_type: TerminationType,
         *,
         termination_cause: TerminationCause | None = None,
+        failure: FailureRecord | None = None,
         on_date: date | None = None,
     ) -> PlantInstance:
         """E5: end a plant's lifecycle, distinguishing planned end from unplanned loss.
@@ -259,13 +261,17 @@ class PhaseTransitionEngine:
         entry is closed at the time of death and NO transition to ``senescence`` happens,
         so failure analytics can attribute the loss to the phase it occurred in.
         ``harvested``/``senesced`` are the planned ends; ``cancelled`` is a user abort.
-        ``termination_cause`` is only meaningful for ``died``.
+        ``termination_cause`` and the cause-class fields of ``failure`` (REQ-003 E5 v2.23, #2888) are only
+        meaningful for ``died``; ``failure`` is stored as given — the caller resolved and checked it.
         """
         plant = self._plant_repo.get_by_key(plant_key)
         if plant is None:
             raise PhaseTransitionError(f"Plant '{plant_key}' not found")
         if termination_cause is not None and termination_type != TerminationType.DIED:
             raise PhaseTransitionError("termination_cause is only valid for termination_type='died'")
+        record = failure or FailureRecord()
+        if record != FailureRecord() and termination_type != TerminationType.DIED:
+            raise PhaseTransitionError("failure_cause_class is only valid for termination_type='died'")
 
         now = datetime.now(UTC)
         # Freeze the current phase: close the open phase-history entry, no new transition.
@@ -289,5 +295,9 @@ class PhaseTransitionEngine:
 
         plant.termination_type = termination_type
         plant.termination_cause = termination_cause
+        plant.failure_cause_class = record.failure_cause_class
+        plant.failure_pathogen = record.failure_pathogen
+        plant.failure_pathogen_confirmed = record.failure_pathogen_confirmed
+        plant.failure_pathogen_source = record.failure_pathogen_source
         plant.removed_on = on_date or now.date()
         return self._plant_repo.update(plant_key, plant)

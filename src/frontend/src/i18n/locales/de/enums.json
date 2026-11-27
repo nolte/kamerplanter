@@ -1049,6 +1049,7 @@
       "waterlogging": "Staunässe",
       "neglect": "Vernachlässigung",
       "mechanical": "Mechanischer Schaden",
+      "bolting": "Schossen",
       "unknown": "Unbekannt"
     },
     "weatherSource": {
@@ -1355,6 +1356,30 @@
       "afternoon": "Nachmittags",
       "evening": "Abends",
       "lights_off": "Nach Licht-aus"
+    },
+    "failureCauseClass": {
+      "abiotic": "Abiotisch (Wetter, Wasser, Pflege)",
+      "pest_foliar": "Schädling an Blatt oder Spross",
+      "pest_soil": "Bodenschädling",
+      "disease_soil": "Bodenbürtige Krankheit",
+      "disease_foliar": "Blattkrankheit",
+      "mechanical": "Mechanischer Schaden",
+      "unknown": "Unbekannt"
+    },
+    "soilHazard": {
+      "clubroot": "Kohlhernie",
+      "cyst_nematode": "Zystennematoden",
+      "root_knot_nematode": "Wurzelgallennematoden",
+      "white_rot": "Mehlkrankheit (Weißfäule an Zwiebeln)",
+      "pea_root_rot": "Erbsen-Fußkrankheit",
+      "sclerotinia": "Sklerotinia-Fäule",
+      "verticillium": "Verticillium-Welke",
+      "juglone": "Juglon (Walnuss)"
+    },
+    "pathogenConfirmationSource": {
+      "lab_test": "Laborbefund",
+      "advisory_service": "Pflanzenschutz-Beratung",
+      "clear_symptoms": "Eindeutiges Schadbild"
     }
   }
 }

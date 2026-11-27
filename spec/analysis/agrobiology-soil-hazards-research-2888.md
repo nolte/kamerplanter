@@ -7,6 +7,7 @@
 | Methode | E-10: je Wert drei voneinander unabhängige Quellen (Fachliteratur, Landesanstalten/Kammern/JKI, RHS, AHDB, UC IPM, US-Extension-Services, Reviews). Wo weniger als drei unabhängige Quellen gefunden wurden, steht der Wert als **„nicht belegt (n/3)“**. |
 | Nachtrag | 2026-11-17, GitHub #3005: Nachrecherche der in §6.3 offenen Werte, Ergebnisse in §7 |
 | Korrektur | 2026-11-26, F-18 (#2888): Betreiberentscheidungen vom 2026-11-22 zu §7.12 Punkt 1 (Spannen zählen als 3/3) und Punkt 5 (`soil_persistence_years` = Anbaupause) eingearbeitet; R-001.2, §6.1, §7.2, §7.11 korrigiert. Die Werte stehen in der Wissenstabelle `src/backend/app/migrations/seed_data/soil_hazards.yaml` (REQ-054 §5.2a). |
+| Korrektur | 2026-11-27, F-19 (#2888): §5 trennt `unknown` (Vorbelegung `unknown`) von einer leeren Ursache, aus der keine Klasse entsteht — so verlangt es der Grundsatz in §5 („Ist die Klasse leer (Altdaten), gilt das heutige Verhalten“) und so steht es in REQ-003 E5 v2.25. |
 | Status | Recherche, keine Entscheidung. Planungswerte sind **Vorschläge** für den Betreiber und das REQ-001-Folge-Issue (`soil_persistence_years`, `pathogen_hosts`). |
 
 ## 0. Lesehinweise zur Methode
@@ -287,8 +288,9 @@ Wertebereich wie beauftragt: `abiotic | pest_foliar | pest_soil | disease_soil |
 | `mechanical` | `mechanical` | — | keiner |
 | `pest` | **keine** Vorbelegung, Pflichtauswahl | `pest_foliar` / `pest_soil` | `pest_foliar`: keiner · `pest_soil`: `WARNING` (überstimmbar) |
 | `disease` | **keine** Vorbelegung, Pflichtauswahl | `disease_foliar` / `disease_soil` | `disease_foliar`: `INFO` „Pflanzenreste entfernen, nicht kompostieren“ · `disease_soil`: `WARNING`; bei bestätigtem Erreger der Liste Angebot „als Bodengefahr des Beets übernehmen“ → `soil_hazards[]` |
-| `unknown` / leer | `unknown` | jede Klasse | `INFO` (heutiges Verhalten); bei Familien mit Welke-Risiko (Solanaceae, Brassicaceae, Cucurbitaceae, Rosaceae) die Welke-Rückfrage |
+| `unknown` (**Korrektur 2026-11-27 (F-19):** vorher „`unknown` / leer“) | `unknown` | jede Klasse | `INFO` (heutiges Verhalten); bei Familien mit Welke-Risiko (Solanaceae, Brassicaceae, Cucurbitaceae, Rosaceae) die Welke-Rückfrage |
 | *(neu, R-004)* `bolting` | `abiotic` | — | keiner |
+| leer (keine Ursache; **Korrektur 2026-11-27 (F-19)**) | keine — es entsteht keine Klasse (Altdaten, „Beet räumen“) | jede Klasse, nur wenn ausdrücklich angegeben | heutiges Verhalten aus `termination_cause` |
 
 **Wann wird aus `disease_soil` ein `soil_hazards[]`-Eintrag?** Nur mit benanntem Erreger aus der Hazard-Liste und `confirmed = true` (Laborbefund, Beratung oder eindeutiges Schadbild wie Kohlhernie-Wucherungen oder Mehlkrankheit-Myzel mit Sklerotien). `source` hält fest, wer bestätigt hat. Ein unbestätigtes `disease_soil` bleibt eine überstimmbare Warnung am Nachpflanz-Vorgang und erzeugt keine Sperre (D-09 aus REQ-053 bleibt gewahrt). Hydrokultur: kein Eintrag (R-004.3).
 

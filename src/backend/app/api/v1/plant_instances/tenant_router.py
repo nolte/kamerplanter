@@ -8,6 +8,7 @@ from app.api.v1.plant_instances.schemas import (
     ActiveChannelResponse,
     AssignNutrientPlanRequest,
     AssignNutrientPlanStatusResponse,
+    FailureCauseRuleResponse,
     PlantCreate,
     PlantInstanceInPhaseResponse,
     PlantInstancesInPhaseResponse,
@@ -16,6 +17,7 @@ from app.api.v1.plant_instances.schemas import (
     PlantRunSummaryResponse,
     RemovePlantRequest,
     SurvivalStatsResponse,
+    TerminationOptionsResponse,
     ValidatePlantingRequest,
     ValidatePlantingResponse,
 )
@@ -24,6 +26,7 @@ from app.common.dependencies import get_nutrient_plan_service, get_plant_instanc
 from app.common.openapi_responses import NOT_FOUND_RESPONSE
 from app.common.pagination import CursorPaginationParams, get_cursor_pagination
 from app.core.permissions import Action, ResourceType
+from app.domain.models.failure_cause import TerminationOptions
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.tenant_context import TenantContext
 from app.domain.services.nutrient_plan_service import NutrientPlanService
@@ -65,6 +68,27 @@ def _to_response(
         species=labels.species(p.species_key),
         cultivar=labels.cultivar(p.cultivar_key),
         planting_runs=planting_runs,
+    )
+
+
+def termination_options_response(options: TerminationOptions) -> TerminationOptionsResponse:
+    """Map the dialog options of one plant onto the response (shared with the frontend-fixture contract test)."""
+    return TerminationOptionsResponse(
+        suggested_cause=options.suggested_cause,
+        wilt_prone_family=options.wilt_prone_family,
+        rules=[
+            FailureCauseRuleResponse(
+                termination_cause=rule.termination_cause,
+                prefill=rule.prefill,
+                choices=list(rule.choices),
+                asks_wilt_follow_up=rule.asks_wilt_follow_up,
+            )
+            for rule in options.rules
+        ],
+        wilt_follow_up_class=options.wilt_follow_up_class,
+        pathogen_classes=list(options.pathogen_classes),
+        pathogens=list(options.pathogens),
+        confirmation_sources=list(options.confirmation_sources),
     )
 
 
@@ -249,9 +273,28 @@ def remove_plant(
         key,
         termination_type=body.termination_type if body else None,
         termination_cause=body.termination_cause if body else None,
+        failure_cause_class=body.failure_cause_class if body else None,
+        failure_pathogen=body.failure_pathogen if body else None,
+        failure_pathogen_confirmed=body.failure_pathogen_confirmed if body else None,
+        failure_pathogen_source=body.failure_pathogen_source if body else None,
         tenant_key=ctx.tenant_key,
     )
     return _to_response(removed, service, ctx.tenant_key)
+
+
+@router.get("/{key}/termination-options", response_model=TerminationOptionsResponse)
+def get_termination_options(
+    key: Annotated[str, Path(description="Document key of the plant instance.")],
+    ctx: TenantContext = Depends(get_current_tenant),
+    service: PlantInstanceService = Depends(get_plant_instance_service),
+) -> TerminationOptionsResponse:
+    """What the termination dialog offers for this plant (REQ-003 E5/E6, REQ-053 §11.3a, #2888).
+
+    The cause-class pre-fill table resolved for the plant: the suggested cause (``bolting`` after a premature
+    bolt) and, per cause, the pre-filled class, the allowed classes and whether the wilt follow-up is asked.
+    A plant of another tenant answers 404.
+    """
+    return termination_options_response(service.get_termination_options(key, tenant_key=ctx.tenant_key))
 
 
 @router.post("/slots/{slot_key}/validate-planting", response_model=ValidatePlantingResponse)

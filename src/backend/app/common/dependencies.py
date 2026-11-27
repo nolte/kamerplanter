@@ -752,6 +752,8 @@ def get_plant_instance_service() -> PlantInstanceService:
         species_service=get_species_service(),
         # REQ-053 GP-UX-071 (#2913): a reserved position refuses a single plant (409 `slot.already_planned`).
         reservation_repo=get_planting_reservation_repo(),
+        # REQ-053 §11.3a Nr. 1 (#2888 F-19): the family decides the wilt follow-up of an ``unknown`` loss.
+        family_repo=get_family_repo(),
     )
 
 
