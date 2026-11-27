@@ -91,8 +91,10 @@ describe('initial bundle exclusions (#3023)', () => {
   });
 
   it('the static German core holds no page-level namespace (#3018)', () => {
-    // Every key below is read only by a lazily loaded page or dialog, and `initI18n` awaits `pages.json` before
-    // the app mounts, so moving them out of the eager core changes nothing a user sees.
+    // These keys are read by lazily loaded pages and dialogs — and one by the eager shell: the breadcrumb of
+    // `/diagnose` (`diagnose.title`, `routes/breadcrumbs.ts`). None is read before the app mounts, and `initI18n`
+    // awaits `pages.json` before the mount, so every reader finds its key; only if that load fails does the
+    // breadcrumb show its key text (`defaultValue`) — like every page string in that case.
     const PAGE_LEVEL = ['dashboard', 'storageSettings', 'print', 'diagnose', 'tankAlerts', 'haPublish', 'ai', 'components'];
     const deCore = JSON.parse(DE_CATALOGUE['/src/i18n/locales/de/core.json']) as Record<string, unknown>;
     const dePages = JSON.parse(DE_CATALOGUE['/src/i18n/locales/de/pages.json']) as Record<string, unknown>;
