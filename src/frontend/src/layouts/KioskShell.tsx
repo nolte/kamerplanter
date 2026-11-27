@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import KioskAppBar from '@/components/kiosk/KioskAppBar';
+import GlobalStyles from '@mui/material/GlobalStyles';
+import type { Theme } from '@mui/material/styles';
+import KioskAppBar, { KIOSK_APP_BAR_MIN_HEIGHT } from '@/components/kiosk/KioskAppBar';
 import KioskTimeoutOverlay from '@/components/kiosk/KioskTimeoutOverlay';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
 import RouteAnnouncer from '@/components/layout/RouteAnnouncer';
@@ -43,6 +45,18 @@ interface KioskShellProps {
   takeFocus?: boolean;
 }
 
+/**
+ * The sticky kiosk bar's height as the root's `scroll-padding-top` (WCAG 2.2 SC 2.4.11): what the browser scrolls
+ * into view in the kiosk shell — a settings heading, a control reached with Shift+Tab — comes to rest below the bar.
+ * The standard shell sets the same for its app bar in `MainLayout`; the kiosk bar is higher and has its own value.
+ */
+const kioskBarClearance = (theme: Theme) => ({
+  ':root': {
+    scrollPaddingTop: KIOSK_APP_BAR_MIN_HEIGHT.xs,
+    [theme.breakpoints.up('sm')]: { scrollPaddingTop: KIOSK_APP_BAR_MIN_HEIGHT.sm },
+  },
+});
+
 export default function KioskShell({ children, takeFocus = false }: KioskShellProps) {
   const navigate = useNavigate();
   const tapDebounce = useTapDebounce();
@@ -82,6 +96,7 @@ export default function KioskShell({ children, takeFocus = false }: KioskShellPr
       }}
       data-testid="kiosk-shell"
     >
+      <GlobalStyles styles={kioskBarClearance} />
       <SkipLink targetId={MAIN_ID} />
       <KioskAppBar
         indicators={

@@ -16,6 +16,12 @@ import { KIOSK_LONG_PRESS_MS } from '@/kiosk/longPress';
 import { useKiosk } from '@/kiosk/KioskProvider';
 import { KIOSK_START_PATH } from '@/kiosk/kioskStartPath';
 
+/**
+ * The kiosk bar's height below and from `sm` (R-009: 72 px touch row, 80 px with the wider gap). One value for the
+ * bar's toolbar and for the root's `scroll-padding-top` in `KioskShell`, so the two cannot drift.
+ */
+export const KIOSK_APP_BAR_MIN_HEIGHT = { xs: 72, sm: 80 } as const;
+
 /** Below `sm` a control shows its icon only; the label text is its accessible name. */
 const wideOnlySx = { display: { xs: 'none', sm: 'inline' } } as const;
 const compactButtonSx = {
@@ -66,7 +72,7 @@ export default function KioskAppBar({ indicators }: KioskAppBarProps) {
       <Toolbar
         sx={{
           gap: { xs: 2, sm: 3 },
-          minHeight: { xs: 72, sm: 80 },
+          minHeight: KIOSK_APP_BAR_MIN_HEIGHT,
           flexWrap: 'nowrap',
           px: { xs: 1, sm: 2 },
           py: 1,
