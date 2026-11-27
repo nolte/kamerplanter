@@ -28,6 +28,7 @@ import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
 import { toStepUpBody } from '@/utils/stepUp';
 import { useStepUpResume } from '@/hooks/useStepUpReauth';
+import { useTabUrl } from '@/hooks/useTabUrl';
 import { useAppSelector } from '@/store/hooks';
 
 interface ConsentItem {
@@ -79,6 +80,7 @@ const RESTRICTION_REASONS = [
 type RestrictionReason = (typeof RESTRICTION_REASONS)[number];
 
 const TAB_KEYS = ['consents', 'export', 'erasure', 'restrict'] as const;
+const ERASURE_TAB_INDEX = TAB_KEYS.indexOf('erasure');
 
 export default function PrivacySettingsPage() {
   const { t } = useTranslation();
@@ -86,7 +88,19 @@ export default function PrivacySettingsPage() {
   // #1815 — back from the fresh sign-in at the identity provider: open the
   // erasure tab and reopen its step-up dialog, which then sends the token.
   const resumeErasure = useStepUpResume('privacy-erasure');
-  const [tabIndex, setTabIndex] = useState(() => (resumeErasure ? TAB_KEYS.indexOf('erasure') : 0));
+  // #3018 (audit N-19, UI-NFR-005 R-001) — the tab is part of the URL (`/privacy#export`), the app's tab
+  // pattern: a reload and Back/Forward restore it, and `/privacy` without a fragment opens the consents.
+  const [urlTabIndex, setTabIndex] = useTabUrl(TAB_KEYS);
+  // The resume opens the erasure tab on the first render already; the effect below then writes it into the
+  // URL, after which the URL alone decides again.
+  const [resumeTabPending, setResumeTabPending] = useState(resumeErasure);
+  const tabIndex = resumeTabPending ? ERASURE_TAB_INDEX : urlTabIndex;
+  useEffect(() => {
+    if (!resumeTabPending) return;
+    setTabIndex(ERASURE_TAB_INDEX);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot hand-over from the resume to the URL
+    setResumeTabPending(false);
+  }, [resumeTabPending, setTabIndex]);
 
   // ── Consents tab state ────────────────────────────────────────────
   const [consents, setConsents] = useState<ConsentItem[]>([]);
