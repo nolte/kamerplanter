@@ -1,7 +1,7 @@
 ---
 id: F-20
 title: Bodengefahren am Beet
-status: ready
+status: in_progress
 roadmap_item: R-20
 sprint: 4
 created: 2026-11-17
@@ -54,21 +54,21 @@ reisen mit Gartenplan- und Mandanten-Export.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Ein Beet zeigt seine Bodengefahren mit Erreger, gefährdeten Pflanzen, Bestätigungsdatum und Quelle.
-- [ ] **acceptance-2** Gärtner tragen eine Bodengefahr ein, nur die Leitung entfernt sie (API und Oberfläche); Gefäße (Kübel, Zelt, Regal) haben keine Bodengefahren.
-- [ ] **acceptance-3** Nach dem Erfassen eines bestätigten bodenbürtigen Ausfalls mit Erreger aus der Liste bietet die App die Übernahme ins Beet an; ein unbestätigter Ausfall erzeugt nie einen Eintrag.
-- [ ] **acceptance-4** Ein bodenbürtiger Ausfall an einem Hydrokultur-Standort erzeugt keine Bodengefahr, sondern den Hinweis „System reinigen und desinfizieren“.
-- [ ] **acceptance-5** Bodengefahren eines fremden Mandanten sind weder lesbar noch änderbar.
-- [ ] **acceptance-6** Bodengefahren sind Teil von Export und Import des Gartenplans und des Mandanten-Exports.
+- [x] **acceptance-1** Ein Beet zeigt seine Bodengefahren mit Erreger, gefährdeten Pflanzen, Bestätigungsdatum und Quelle.
+- [x] **acceptance-2** Gärtner tragen eine Bodengefahr ein, nur die Leitung entfernt sie (API und Oberfläche); Gefäße (Kübel, Zelt, Regal) haben keine Bodengefahren.
+- [x] **acceptance-3** Nach dem Erfassen eines bestätigten bodenbürtigen Ausfalls mit Erreger aus der Liste bietet die App die Übernahme ins Beet an; ein unbestätigter Ausfall erzeugt nie einen Eintrag.
+- [x] **acceptance-4** Ein bodenbürtiger Ausfall an einem Hydrokultur-Standort erzeugt keine Bodengefahr, sondern den Hinweis „System reinigen und desinfizieren“.
+- [x] **acceptance-5** Bodengefahren eines fremden Mandanten sind weder lesbar noch änderbar.
+- [x] **acceptance-6** Bodengefahren sind Teil von Export und Import des Gartenplans und des Mandanten-Exports.
 
 ## Test hooks
 
-- **acceptance-1** — API test: GET location returns `soil_hazards[]` with resolved hosts — pending
-- **acceptance-2** — router tests: POST as grower 201, DELETE as grower 403 / lead 204; container types refused — pending
-- **acceptance-3** — service test of the promotion offer (confirmed + listed pathogen only) + vitest of the offer — pending
-- **acceptance-4** — service test with `irrigation_system = HYDRO` — pending
-- **acceptance-5** — cross-tenant negative test via `resolve_owned_location` — pending
-- **acceptance-6** — plan export/import roundtrip + tenant export roundtrip include `soil_hazards` — pending
+- **acceptance-1** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestABedShowsItsSoilHazards` (GET location and bed summary carry `soil_hazards[]` with hosts resolved from the table; the stored entry holds the key only), `src/backend/tests/unit/domain/engines/test_bed_soil_hazard_engine.py::TestTheTableResolvesTheHosts`, `src/frontend/src/features/gardenPlanner/bed/BedView.test.tsx` ("shows each hazard with its pathogen, …") — green
+- **acceptance-2** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestGrowersAddOnlyTheLeadRemoves` (grower POST 201, viewer 403, grower DELETE 403, lead DELETE 204, planter/tent/shelf 422 `soil_hazard.container`), `src/backend/tests/unit/domain/engines/test_bed_soil_hazard_engine.py::TestWhereASoilHazardMayStand`, `src/backend/tests/integration/test_bed_soil_hazard_repository.py::TestAnEditKeepsThem`, UI: `src/frontend/src/features/gardenPlanner/bed/BedView.test.tsx` (viewer/grower/lead, vessels and hydroponics) — green
+- **acceptance-3** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestTheOfferAfterALoss` (offer in the remove answer, nothing written until `plant_key` is posted, unconfirmed and juglone refused by the service), `src/backend/tests/unit/domain/engines/test_bed_soil_hazard_engine.py::TestALossBecomesAnEntryOnlyWhenConfirmed` / `TestWhatALossProposes`, `src/backend/tests/integration/test_bed_soil_hazard_repository.py::TestTheServiceOverTheRealRepositories`, vitest `src/frontend/src/features/gardenPlanner/bed/SoilHazardFollowUpDialog.test.tsx` and `src/frontend/src/test/pages/PlantInstanceDetailPageRemove.test.tsx` — green
+- **acceptance-4** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestHydroponics` (`irrigation_system = nft`: `clean_system`, no entry, manual entry 422), `src/backend/tests/unit/domain/engines/test_bed_soil_hazard_engine.py` (hydro, nft, ebb_flow; also unconfirmed and in a tent) — green
+- **acceptance-5** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestAnotherTenantsHazards` (read, summary, record, take-over, remove: same 404 as an unknown bed; a foreign plant key at an own bed), `src/backend/tests/integration/test_garden_plan_tenant_isolation.py` (cases `record_soil_hazard`, `take_over_soil_hazard`, `remove_soil_hazard`, `get_location`; real `resolve_owned_location` against ArangoDB, falsified by the unscoped stub), `src/backend/tests/integration/test_bed_soil_hazard_repository.py` (foreign and absent bed, concurrent write) — green
+- **acceptance-6** — `src/backend/tests/unit/domain/services/test_garden_plan_import_service.py::TestSoilHazardsInTheBackup2888` (plan export/import roundtrip, old file, unknown key refused, vessel/non-bed dropped with `no_soil`, foreign site refused), `src/backend/tests/integration/test_tenant_export_roundtrip.py::test_roundtrip_export_import_export_differs_only_in_keys` (tenant archive), `src/backend/tests/unit/domain/models/test_garden_plan_export.py` (Art. 15 manifest lists the field) — green
 
 ## Consistency notes
 
