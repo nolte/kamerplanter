@@ -1,22 +1,22 @@
-"""The covering-blind click fallbacks are recorded, not yet refused (#3157, step 1).
+"""A covered control fails the guarded click; everything else is recorded (#3157).
 
 `BasePage.scroll_and_click` falls back to a JavaScript activation when the driver
 refuses the native click, and a JS click reaches the element whatever covers it.
-Before that fallback is made to fail, the next nightly has to measure how many
-tests rely on it. These pin the measurement against the real helper and the fake
-driver:
+Step 1 recorded every such fallback; the measuring nightly found each of them on
+a covered control. Step 2 refuses those. These pin, against the real helper and
+the fake driver:
 
-* a refused click on a **covered** target records ``covered: true`` and names the
-  covering element;
-* a refused click whose centre hits the target or a **descendant** records
-  ``covered: false``;
-* a probe that **fails** records ``probe_failed`` -- and the click still happens;
+* a refused click on a **covered** target raises, naming the covering element,
+  the target locator, both boxes and the viewport -- and sends **no** click;
+* a refused click whose centre hits the target or a **descendant** still takes
+  the JS fallback, recorded as ``js_fallback``;
+* the **opt-out** ``covered_ok="<reason>"`` clicks and records the reason;
+* a probe that **fails** keeps the fallback and records ``probe_failed``;
 * a click the driver **accepts** records nothing;
+* the notification drawer is closed by its button, never by ``Escape``;
+* snackbars over a control are closed with their own button before the click;
 * the reporter turns the drained events into one JSON Lines file per profile and
-  a summary line, on the controller only.
-
-And in every case the fallback still activates the element exactly once: this
-step changes what is *known*, not which clicks happen.
+  a summary line that counts the raised clicks, on the controller only.
 """
 
 from __future__ import annotations
@@ -77,20 +77,39 @@ def page_for(driver: FakeDriver) -> BasePage:
     return page
 
 
+BOTTOM_NAV_RECT = {"x": 0.0, "y": 796.0, "width": 393.0, "height": 56.0}
+
+
 class TestAnInterceptedClick:
-    def test_a_covered_target_records_covered_and_names_the_cover(self) -> None:
+    @pytest.mark.parametrize("relation", ["other", "ancestor"])
+    def test_a_covered_target_raises_naming_the_cover_and_sends_no_click(
+        self, relation: str
+    ) -> None:
         driver = FakeDriver(
             {SAVE},
             intercepts={SAVE},
-            cover_probe={SAVE: {"relation": "other", "hit": BOTTOM_NAV}},
+            cover_probe={
+                SAVE: {"relation": relation, "hit": BOTTOM_NAV, "hit_rect": BOTTOM_NAV_RECT}
+            },
         )
 
-        page_for(driver).wait_and_click(SAVE_LOCATOR)
+        with pytest.raises(AssertionError) as raised:
+            page_for(driver).wait_and_click(SAVE_LOCATOR)
 
+        message = str(raised.value)
+        assert "button[data-testid='bottom-nav-plants']" in message, "the cover is named"
+        assert "MuiBottomNavigationAction-root" in message, "with its class"
+        assert f"css selector: {SAVE}" in message, "the target locator is named"
+        assert "Control box x=150 y=790 w=92 h=44" in message
+        assert "covering box x=0 y=796 w=393 h=56" in message
+        assert "viewport 393x852" in message
+        assert "covered_ok=" in message, "the message names the opt-out"
+        assert driver.clicked == [], "a covered control must not be clicked through"
         [event] = _click_fallback.drain()
-        assert event["covered"] is True
-        assert event["relation"] == "other"
+        assert event["outcome"] == "raised" and "covered_ok" not in event
+        assert event["covered"] is True and event["relation"] == relation
         assert event["hit"]["testid"] == "bottom-nav-plants", "the record must name the cover"
+        assert event["hit_rect"] == BOTTOM_NAV_RECT
         assert event["probe"] == "ok"
         assert event["kind"] == "fallback"
         assert event["helper"] == "BasePage.scroll_and_click"
@@ -101,7 +120,37 @@ class TestAnInterceptedClick:
         assert event["viewport"] == {"width": 393, "height": 852}
         assert event["rect"]["height"] == 44.0
         assert event["caller"] and "test_click_fallback_record.py" in event["caller"]
-        assert driver.clicked == [SAVE], "the JS fallback must still activate it, once"
+
+    def test_the_opt_out_clicks_a_covered_target_and_records_the_reason(self) -> None:
+        driver = FakeDriver(
+            {SAVE}, intercepts={SAVE}, cover_probe={SAVE: {"relation": "other", "hit": BOTTOM_NAV}}
+        )
+        reason = "the bar is translucent here and a user taps through it"
+
+        page_for(driver).wait_and_click(SAVE_LOCATOR, covered_ok=reason)
+
+        [event] = _click_fallback.drain()
+        assert event["outcome"] == "covered_ok"
+        assert event["covered_ok"] == reason
+        assert event["covered"] is True
+        assert driver.clicked == [SAVE], "the opt-out activates it, once"
+
+    @pytest.mark.parametrize("reason", ["", "   "])
+    def test_an_opt_out_without_a_reason_is_refused(self, reason: str) -> None:
+        driver = FakeDriver({SAVE})
+
+        with pytest.raises(ValueError, match="needs a reason"):
+            page_for(driver).wait_and_click(SAVE_LOCATOR, covered_ok=reason)
+        assert driver.clicked == []
+
+    def test_the_opt_out_is_not_recorded_where_nothing_covers(self) -> None:
+        driver = FakeDriver({SAVE}, intercepts={SAVE})
+
+        page_for(driver).wait_and_click(SAVE_LOCATOR, covered_ok="expected cover")
+
+        [event] = _click_fallback.drain()
+        assert event["outcome"] == "js_fallback" and "covered_ok" not in event
+        assert driver.clicked == [SAVE]
 
     @pytest.mark.parametrize("relation", ["self", "descendant"])
     def test_a_centre_that_hits_the_target_records_not_covered(self, relation: str) -> None:
@@ -117,7 +166,20 @@ class TestAnInterceptedClick:
         [event] = _click_fallback.drain()
         assert event["covered"] is False
         assert event["relation"] == relation
+        assert event["outcome"] == "js_fallback"
         assert event["locator"] is None, "a raw element without a locator records none"
+        assert driver.clicked == [SAVE], "an uncovered control still gets the JS click"
+
+    @pytest.mark.parametrize("relation", ["outside_viewport", "detached"])
+    def test_no_verdict_keeps_the_fallback(self, relation: str) -> None:
+        driver = FakeDriver(
+            {SAVE}, intercepts={SAVE}, cover_probe={SAVE: {"relation": relation, "hit": None}}
+        )
+
+        page_for(driver).wait_and_click(SAVE_LOCATOR)
+
+        [event] = _click_fallback.drain()
+        assert event["covered"] is None and event["outcome"] == "js_fallback"
         assert driver.clicked == [SAVE]
 
     def test_a_failing_probe_records_probe_failed_and_the_click_still_happens(self) -> None:
@@ -136,6 +198,7 @@ class TestAnInterceptedClick:
         assert event["probe"] == "probe_failed"
         assert "elementFromPoint is not a function" in event["probe_error"]
         assert "covered" not in event, "no verdict may be invented for a failed probe"
+        assert event["outcome"] == "js_fallback"
         assert driver.clicked == [SAVE], "the fallback click must survive a failed probe"
 
     def test_an_open_prompt_gets_no_probe_script(self) -> None:
@@ -164,6 +227,22 @@ class TestAnInterceptedClick:
         [event] = _click_fallback.drain()
         assert event["activation"] == "js_mousedown"
         assert len(dispatched) == 1
+
+    def test_a_covered_mui_select_trigger_raises_without_the_mousedown_pair(self) -> None:
+        driver = FakeDriver(
+            {SAVE}, intercepts={SAVE}, cover_probe={SAVE: {"relation": "other", "hit": BOTTOM_NAV}}
+        )
+        page = page_for(driver)
+        page.opens_on_mousedown = lambda element: True  # type: ignore[method-assign]
+        dispatched: list[object] = []
+        page.dispatch_menu_trigger_open = dispatched.append  # type: ignore[method-assign]
+
+        with pytest.raises(AssertionError, match="bottom-nav-plants"):
+            page.wait_and_click(SAVE_LOCATOR)
+
+        [event] = _click_fallback.drain()
+        assert event["activation"] == "js_mousedown" and event["outcome"] == "raised"
+        assert dispatched == [], "no mousedown may reach a covered trigger"
 
 
 @pytest.fixture
@@ -310,7 +389,9 @@ class TestAnAcceptedClick:
         assert driver.clicked == [SAVE]
 
 
-class TestTheNotificationDrawerEscape:
+class TestTheNotificationDrawerClose:
+    """`close_drawer` clicks the button like a user; no `Escape` stands in for it any more."""
+
     CLOSE = "[data-testid='notification-drawer-close']"
 
     def _page(self, driver: FakeDriver, *, closes: bool) -> NotificationCenterPage:
@@ -318,41 +399,46 @@ class TestTheNotificationDrawerEscape:
         page.wait_for_element_clickable = (  # type: ignore[method-assign]
             lambda locator, timeout=0: driver.find_element(*locator)
         )
-        calls: list[int] = []
 
         def hidden(locator: object, timeout: int = 0) -> None:
-            calls.append(1)
-            if not closes and len(calls) == 1:
+            if not closes:
                 raise TimeoutException("drawer still visible")
 
         page.wait_for_element_hidden = hidden  # type: ignore[method-assign]
         return page
 
-    def test_an_intercepted_close_records_the_escape_fallback(self) -> None:
-        driver = FakeDriver(
-            {self.CLOSE},
-            intercepts={self.CLOSE},
-            cover_probe={self.CLOSE: {"relation": "other", "hit": {"tag": "div", "testid": "a"}}},
-        )
+    def test_the_close_button_is_clicked_natively(self) -> None:
+        driver = FakeDriver({self.CLOSE})
 
         self._page(driver, closes=True).close_drawer()
 
-        [event] = _click_fallback.drain()
-        assert event["helper"] == "NotificationCenterPage.close_drawer"
-        assert event["activation"] == "escape_key"
-        assert event["covered"] is True
-        assert driver.keys_sent == [("<active-element>", "")], "Escape still goes out once"
+        assert driver.clicked == [self.CLOSE]
+        assert driver.keys_sent == [], "no Escape"
+        assert _click_fallback.drain() == []
 
-    def test_a_native_close_that_leaves_the_drawer_open_records_the_second_escape(self) -> None:
+    def test_a_covered_close_button_fails_naming_the_cover_and_sends_no_escape(self) -> None:
+        avatar = {"tag": "div", "testid": None, "id": None, "cls": "MuiAvatar-root"}
+        driver = FakeDriver(
+            {self.CLOSE},
+            intercepts={self.CLOSE},
+            cover_probe={self.CLOSE: {"relation": "other", "hit": avatar}},
+        )
+
+        with pytest.raises(AssertionError, match="MuiAvatar-root"):
+            self._page(driver, closes=True).close_drawer()
+
+        assert driver.clicked == [] and driver.keys_sent == []
+        [event] = _click_fallback.drain()
+        assert event["outcome"] == "raised"
+
+    def test_a_drawer_that_stays_open_fails_instead_of_pressing_escape(self) -> None:
         driver = FakeDriver({self.CLOSE})
 
-        self._page(driver, closes=False).close_drawer()
+        with pytest.raises(AssertionError, match="stayed open"):
+            self._page(driver, closes=False).close_drawer()
 
-        [event] = _click_fallback.drain()
-        assert event["trigger"] == "drawer_still_open"
-        assert event["covered"] is False
         assert driver.clicked == [self.CLOSE]
-        assert len(driver.keys_sent) == 1
+        assert driver.keys_sent == []
 
 
 def _event(nodeid: str, *, covered: bool | None, testid: str = "bottom-nav-plants") -> dict:
@@ -432,15 +518,38 @@ class TestTheReporter:
 
         assert lines[0] == (
             f"{SUMMARY_TAG} profile=mobile fallbacks=5 tests=4 covered=3 covered_tests=2 "
-            "uncovered=1 no_verdict=0 probe_failed=1 file=x/click-fallbacks-mobile.jsonl"
+            "uncovered=1 no_verdict=0 probe_failed=1 raised=0 covered_ok=0 "
+            "file=x/click-fallbacks-mobile.jsonl"
         )
         covering = lines[lines.index("top covering elements (of 3 covered fallbacks):") + 1]
         assert covering.split() == ["2x", "button[data-testid='bottom-nav-plants']", "(other)"]
 
+    def test_the_fallback_line_counts_raised_clicks_and_lists_the_opt_outs(self) -> None:
+        events = [
+            {**_event("t1", covered=True), "outcome": "raised"},
+            {**_event("t2", covered=True), "outcome": "raised"},
+            {
+                **_event("t3", covered=True),
+                "outcome": "covered_ok",
+                "covered_ok": "a reason",
+                "caller": "pages/x.py:1 X.y",
+            },
+            {**_event("t4", covered=False), "outcome": "js_fallback"},
+        ]
+
+        lines = summarize(events, "full", None)
+
+        assert lines[0] == (
+            f"{SUMMARY_TAG} profile=full fallbacks=4 tests=4 covered=3 covered_tests=3 "
+            "uncovered=1 no_verdict=0 probe_failed=0 raised=2 covered_ok=1 file=-"
+        )
+        opt_outs = lines[lines.index("covered_ok opt-outs (of 1 fallbacks):") + 1]
+        assert opt_outs.split(None, 1) == ["1x", "pages/x.py:1 X.y: a reason"]
+
     def test_a_run_without_fallbacks_still_prints_both_lines(self) -> None:
         assert summarize([], "light", None) == [
             f"{SUMMARY_TAG} profile=light fallbacks=0 tests=0 covered=0 covered_tests=0 "
-            "uncovered=0 no_verdict=0 probe_failed=0 file=-",
+            "uncovered=0 no_verdict=0 probe_failed=0 raised=0 covered_ok=0 file=-",
             f"{DIRECT_TAG} profile=light clicks=0 tests=0 covered=0 covered_tests=0 "
             "uncovered=0 outside_viewport=0 no_verdict=0 probe_failed=0",
         ]

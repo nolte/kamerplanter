@@ -16,7 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from . import _click_fallback
 from .base_page import DEFAULT_TIMEOUT, BasePage
 
 
@@ -50,71 +49,28 @@ class NotificationCenterPage(BasePage):
         return self
 
     def close_drawer(self) -> None:
-        """Close the drawer and wait for it to hide.
+        """Click the drawer's close button like a user and wait for the drawer to hide.
 
-        The close button sits in the top-right of the drawer header, where the
-        AppBar user avatar overlaps its hit-point, so a plain ``.click()`` can be
-        intercepted. Fall back to the keyboard: a MUI temporary Drawer closes on
-        ``Escape``. This keeps the close robust without touching the layout.
+        Until #3157 this fell back to ``Escape`` whenever the click was
+        intercepted -- and it always was on the full profiles: the drawer's
+        header lay under the app bar (the bar is stacked above every drawer), so
+        the press landed on the bar's toolbar or the account avatar and the
+        keyboard closed a drawer a pointer user could not close (nightly
+        46027854891: four tests x three profiles). The app now starts the drawer
+        below the bar (``NotificationDrawer.tsx``, ``belowAppBar``), so the
+        button is clicked through the guarded helper, which fails naming the
+        cover should anything lie on it again. A drawer that stays open after
+        the click is a failure, not a reason to press ``Escape``.
         """
-        from selenium.common.exceptions import (
-            ElementClickInterceptedException,
-            TimeoutException,
-        )
-        from selenium.webdriver.common.keys import Keys
+        from selenium.common.exceptions import TimeoutException
 
-        # Both Escape fallbacks close the drawer whatever covers its close button,
-        # so each is recorded before it is sent (#3157, step 1: measure only).
-        close: WebElement | None = None
-        try:
-            close = self.wait_for_element_clickable(self.DRAWER_CLOSE)
-            close.click()
-        except (ElementClickInterceptedException, TimeoutException) as refused:
-            self._record_close_fallback(close, refused)
-            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
+        self.wait_and_click(self.DRAWER_CLOSE)
         try:
             self.wait_for_element_hidden(self.DRAWER)
-        except TimeoutException:
-            # A late-arriving interception may have swallowed the first attempt —
-            # send Escape once more and require the drawer to be gone.
-            self._record_close_fallback(close, "drawer_still_open")
-            self.driver.switch_to.active_element.send_keys(Keys.ESCAPE)
-            self.wait_for_element_hidden(self.DRAWER)
-
-    def _record_close_fallback(
-        self, close: WebElement | None, trigger: BaseException | str
-    ) -> None:
-        """Record that :meth:`close_drawer` falls back to ``Escape`` (#3157); never raises.
-
-        The probe target is the close button: the one the wait resolved, else
-        whichever is in the DOM now (the wait may have timed out before handing
-        one over). With no button at all there is nothing to hit-test, and the
-        event says so instead of being dropped.
-        """
-        try:
-            target = (
-                close
-                if close is not None
-                else next(iter(self.driver.find_elements(*self.DRAWER_CLOSE)), None)
-            )
-        except Exception:  # noqa: BLE001 -- a lookup for the record must not fail the close
-            target = None
-        if target is not None:
-            self._record_click_fallback(
-                target,
-                helper="NotificationCenterPage.close_drawer",
-                activation="escape_key",
-                trigger=trigger,
-                locator=self.DRAWER_CLOSE,
-            )
-            return
-        _click_fallback.record_fallback(
-            helper="NotificationCenterPage.close_drawer",
-            activation="escape_key",
-            trigger=trigger,
-            locator=self.DRAWER_CLOSE,
-            probe={"probe": "probe_failed", "probe_error": "no close button in the DOM"},
-        )
+        except TimeoutException as exc:
+            raise AssertionError(
+                "the notification drawer's close button was clicked but the drawer stayed open"
+            ) from exc
 
     def is_drawer_open(self) -> bool:
         """Return True if the notification drawer is currently visible."""

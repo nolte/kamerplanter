@@ -265,7 +265,20 @@ class BedCareTab(BasePage):
             raise AssertionError(f"{what}: the task {task_key} is still listed as open") from exc
 
     def open_completion(self, task_key: str) -> CompletionDialog:
-        self.wait_and_click(_tid(f"care-done-{task_key}"))
+        """ "Erledigt" on the task row *task_key*; returns once the completion dialog is open.
+
+        The row's action sits at the right end of the row, and the open list is the
+        end of the bed page: on a 1920x937 desktop the last row's "Erledigt" comes
+        to rest at y 861-909 because the document scrolls only ~60 px further,
+        exactly where the bottom-right confirmation snackbar of the step before
+        lies ("Aufgabe für das Beet angelegt.", 5 s; the previous completion's undo
+        offer, 8 s -- nightly 46027854891, TC-053-020 and TC-053-064, light and
+        full). A user closes that snackbar or waits; the click goes through
+        :meth:`click_clear_of_snackbars` instead of through the snackbar (#3157).
+        """
+        self.click_clear_of_snackbars(
+            _tid(f"care-done-{task_key}"), f"'Erledigt' of task {task_key}"
+        )
         dialog = CompletionDialog(self.driver, self.base_url)
         dialog.wait_for_element(dialog.DIALOG)
         return dialog

@@ -262,7 +262,7 @@ class SpeciesDetailPage(BasePage):
                 By.CSS_SELECTOR, "[data-testid='delete-species-button-menu-item']"
             )
         )
-        self.close_mui_dropdown()
+        self.close_header_overflow()
         return found
 
     def wait_for_detail_content(self, timeout: int = DEFAULT_TIMEOUT) -> None:
