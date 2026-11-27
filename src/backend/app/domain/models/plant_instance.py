@@ -2,7 +2,15 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
+from app.common.enums import (
+    CycleType,
+    FailureCauseClass,
+    PathogenConfirmationSource,
+    SoilHazard,
+    SubstrateType,
+    TerminationCause,
+    TerminationType,
+)
 from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 
 
@@ -32,6 +40,26 @@ class PlantInstance(BaseModel):
     termination_cause: TerminationCause | None = Field(
         default=None,
         description="Cause of an unplanned loss — only set when termination_type='died'.",
+    )
+    # ── Cause class of the loss (REQ-003 E5 v2.23, REQ-053 §11.3a, #2888 F-19) ──
+    # All four stay None on legacy documents and on plants ended by "clear bed": such a plant
+    # behaves as before, only termination_cause counts (acceptance-5). No migration.
+    failure_cause_class: FailureCauseClass | None = Field(
+        default=None,
+        description="Where the cause of a 'died' loss sat, derived from termination_cause or refined by the "
+        "gardener. None = no class (legacy data, bulk clear).",
+    )
+    failure_pathogen: SoilHazard | None = Field(
+        default=None,
+        description="Pathogen of a soil-borne loss (pest_soil/disease_soil), limited to the soil-hazard list.",
+    )
+    failure_pathogen_confirmed: bool | None = Field(
+        default=None,
+        description="Whether the named pathogen was confirmed; None when no pathogen is named.",
+    )
+    failure_pathogen_source: PathogenConfirmationSource | None = Field(
+        default=None,
+        description="Who confirmed the pathogen (lab test, advisory service, clear symptoms); only when confirmed.",
     )
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None

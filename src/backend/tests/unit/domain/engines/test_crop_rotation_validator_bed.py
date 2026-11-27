@@ -497,6 +497,17 @@ class TestReplantOfAFailedPlant:
         assert not [c for c in self._codes(result) if c.startswith("rotation.replant_")]
         assert result.severity in {"OK", "INFO"}
 
+    def test_a_bolting_loss_is_abiotic_and_leaves_no_residual_hint(self, world) -> None:
+        """REQ-053 §11.3a Nr. 2 (#2888 F-19): premature bolting sits in the weather, not in the soil."""
+        validator, _plan, history, *_ = world
+        replaced = self._died(history, cause="bolting")
+
+        result = check(validator, replant_of_plant_key=replaced)
+
+        assert not [c for c in self._codes(result) if c.startswith("rotation.replant_")]
+        assert "rotation.pause_not_elapsed" not in self._codes(result)
+        assert result.severity in {"OK", "INFO"}
+
     @pytest.mark.parametrize("cause", ["disease", "pest"])
     def test_a_biotic_loss_leaves_a_warning_that_is_never_critical(self, world, cause) -> None:
         validator, _plan, history, *_ = world

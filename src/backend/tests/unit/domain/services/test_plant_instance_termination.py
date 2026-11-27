@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from app.common.enums import TaskCategory, TerminationCause, TerminationType
+from app.common.enums import FailureCauseClass, TaskCategory, TerminationCause, TerminationType
 from app.common.exceptions import NotFoundError, ValidationError
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
@@ -89,11 +89,13 @@ class TestTermination:
             "plant-1",
             termination_type=TerminationType.DIED,
             termination_cause=TerminationCause.DISEASE,
+            failure_cause_class=FailureCauseClass.DISEASE_FOLIAR,
             tenant_key="tenant-a",
         )
 
         assert result.termination_type == TerminationType.DIED
         assert result.termination_cause == TerminationCause.DISEASE
+        assert result.failure_cause_class == FailureCauseClass.DISEASE_FOLIAR
         assert result.removed_on is not None
         # Phase frozen: the open history entry is closed in place (no new phase).
         self.phase_repo.update_phase_history.assert_called_once()

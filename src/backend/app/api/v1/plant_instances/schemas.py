@@ -1,9 +1,18 @@
 from datetime import date, datetime
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.common.enums import CycleType, SubstrateType, TerminationCause, TerminationType
+from app.common.enums import (
+    CycleType,
+    FailureCauseClass,
+    PathogenConfirmationSource,
+    SoilHazard,
+    SubstrateType,
+    TerminationCause,
+    TerminationType,
+)
+from app.domain.engines.failure_cause_engine import find_failure_cause_violations
 from app.domain.models.site import MAX_CONTAINER_VOLUME_L
 
 #: A caller-supplied document key. ``min_length=1`` because ``""`` is not a key:
@@ -97,10 +106,69 @@ class RemovePlantRequest(BaseModel):
 
     Backward compatible: an empty body keeps the previous plain-removal behaviour.
     ``termination_cause`` is only valid together with ``termination_type='died'``.
+
+    The cause class (REQ-003 E5 v2.23, #2888) follows the pre-fill table: an abiotic cause may omit it (it is
+    derived), ``disease``/``pest`` must name foliar or soil. A pathogen is only valid for a soil-borne class;
+    ``failure_pathogen_source`` only for a confirmed pathogen, which needs one. Violations answer 422 here,
+    from the same rule the service applies.
     """
 
     termination_type: TerminationType | None = None
     termination_cause: TerminationCause | None = None
+    failure_cause_class: FailureCauseClass | None = Field(
+        default=None,
+        description=(
+            "Where the cause sat (died only). Omit to take the pre-fill of the cause; required for disease "
+            "(disease_foliar/disease_soil) and pest (pest_foliar/pest_soil)."
+        ),
+        examples=["disease_soil"],
+    )
+    failure_pathogen: SoilHazard | None = Field(
+        default=None,
+        description="Pathogen of a soil-borne loss (pest_soil/disease_soil), one of the soil-hazard list.",
+        examples=["verticillium"],
+    )
+    failure_pathogen_confirmed: bool | None = Field(
+        default=None,
+        description="Whether the named pathogen was confirmed; defaults to false when a pathogen is named.",
+        examples=[True],
+    )
+    failure_pathogen_source: PathogenConfirmationSource | None = Field(
+        default=None,
+        description="Who confirmed the pathogen; required when failure_pathogen_confirmed is true.",
+        examples=["lab_test"],
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"termination_type": "died", "termination_cause": "frost"},
+                {
+                    "termination_type": "died",
+                    "termination_cause": "heat",
+                    "failure_cause_class": "disease_soil",
+                    "failure_pathogen": "verticillium",
+                    "failure_pathogen_confirmed": True,
+                    "failure_pathogen_source": "lab_test",
+                },
+            ]
+        }
+    )
+
+    @model_validator(mode="after")
+    def _failure_cause_fits(self) -> Self:
+        """The rule of the pre-fill table, read from its one home (BACKEND.md §5.4)."""
+        violations = find_failure_cause_violations(
+            termination_type=self.termination_type,
+            termination_cause=self.termination_cause,
+            failure_cause_class=self.failure_cause_class,
+            failure_pathogen=self.failure_pathogen,
+            failure_pathogen_confirmed=self.failure_pathogen_confirmed,
+            failure_pathogen_source=self.failure_pathogen_source,
+        )
+        if violations:
+            raise ValueError("; ".join(violations))
+        return self
 
 
 class SpeciesSummary(BaseModel):
@@ -141,6 +209,26 @@ class PlantResponse(BaseModel):
     removed_on: date | None
     termination_type: TerminationType | None = None
     termination_cause: TerminationCause | None = None
+    failure_cause_class: FailureCauseClass | None = Field(
+        default=None,
+        description="Where the cause of a died loss sat (#2888). null = no class: legacy data or a bulk bed clear.",
+        examples=["pest_soil"],
+    )
+    failure_pathogen: SoilHazard | None = Field(
+        default=None,
+        description="Pathogen named for a soil-borne loss, one of the soil-hazard list; null when none was named.",
+        examples=["clubroot"],
+    )
+    failure_pathogen_confirmed: bool | None = Field(
+        default=None,
+        description="Whether the named pathogen was confirmed; null when no pathogen was named.",
+        examples=[False],
+    )
+    failure_pathogen_source: PathogenConfirmationSource | None = Field(
+        default=None,
+        description="Who confirmed the pathogen; null unless it was confirmed.",
+        examples=["clear_symptoms"],
+    )
     current_phase: str = ""
     current_phase_key: str | None = None
     current_phase_started_at: datetime | None = None
@@ -162,6 +250,83 @@ class PlantResponse(BaseModel):
     )
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class FailureCauseRuleResponse(BaseModel):
+    """One row of the cause-class pre-fill table, resolved for the plant (REQ-003 E5, research §5)."""
+
+    termination_cause: TerminationCause = Field(description="The observed cause this row is for.", examples=["heat"])
+    prefill: FailureCauseClass | None = Field(
+        description="Class pre-filled for the cause; null = the gardener must choose (disease, pest).",
+        examples=["abiotic"],
+    )
+    choices: list[FailureCauseClass] = Field(
+        description="Every class that may be recorded for the cause, the pre-fill included.",
+        examples=[["abiotic", "disease_soil"]],
+    )
+    asks_wilt_follow_up: bool = Field(
+        description=(
+            "Whether the dialog asks if the plant wilted on moist soil or had brown vessels or roots; a yes "
+            "records wilt_follow_up_class. Always for heat, drought and waterlogging, for unknown only on a "
+            "wilt-prone family."
+        ),
+        examples=[True],
+    )
+
+
+class TerminationOptionsResponse(BaseModel):
+    """What the termination dialog offers for one plant (REQ-003 E5/E6, REQ-053 §11.3a, #2888 F-19)."""
+
+    suggested_cause: TerminationCause | None = Field(
+        description="Cause to pre-fill: bolting when the plant stands in a premature bolting phase, else null.",
+        examples=["bolting"],
+    )
+    wilt_prone_family: bool = Field(
+        description="Whether the plant's family is wilt-prone (Solanaceae, Brassicaceae, Cucurbitaceae, Rosaceae).",
+        examples=[True],
+    )
+    rules: list[FailureCauseRuleResponse] = Field(
+        description="One row per termination cause, in display order.",
+    )
+    wilt_follow_up_class: FailureCauseClass = Field(
+        description="Class a yes to the wilt follow-up records.",
+        examples=["disease_soil"],
+    )
+    pathogen_classes: list[FailureCauseClass] = Field(
+        description="Classes for which a pathogen may be named.",
+        examples=[["pest_soil", "disease_soil"]],
+    )
+    pathogens: list[SoilHazard] = Field(
+        description="The pathogens that may be named: the soil-hazard list.",
+        examples=[["clubroot", "verticillium"]],
+    )
+    confirmation_sources: list[PathogenConfirmationSource] = Field(
+        description="Who may have confirmed a pathogen.",
+        examples=[["lab_test", "advisory_service", "clear_symptoms"]],
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "suggested_cause": None,
+                    "wilt_prone_family": True,
+                    "rules": [
+                        {
+                            "termination_cause": "heat",
+                            "prefill": "abiotic",
+                            "choices": ["abiotic", "disease_soil"],
+                            "asks_wilt_follow_up": True,
+                        }
+                    ],
+                    "wilt_follow_up_class": "disease_soil",
+                    "pathogen_classes": ["pest_soil", "disease_soil"],
+                    "pathogens": ["clubroot", "verticillium"],
+                    "confirmation_sources": ["lab_test", "advisory_service", "clear_symptoms"],
+                }
+            ]
+        }
+    )
 
 
 class TerminationTypeCountResponse(BaseModel):

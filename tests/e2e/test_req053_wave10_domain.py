@@ -373,7 +373,15 @@ def test_tc_053_111_failed_slot_offers_a_replant_with_the_same_crop(
     )
     (died_slot,) = lettuce_planted.point_slots
     (senesced_slot,) = carrot_planted.point_slots
-    remove_plant(base_url, e2e_seed_data, lettuce_planted.plant_on(died_slot), "died", "disease")
+    # The class is required for a disease loss since #2888 (F-19); soil-borne keeps the residual WARNING the case expects.
+    remove_plant(
+        base_url,
+        e2e_seed_data,
+        lettuce_planted.plant_on(died_slot),
+        "died",
+        "disease",
+        failure_cause_class="disease_soil",
+    )
     remove_plant(base_url, e2e_seed_data, carrot_planted.plant_on(senesced_slot), "senesced")
 
     bed_view.open(bed, "planting")

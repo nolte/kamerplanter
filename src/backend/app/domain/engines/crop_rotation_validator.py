@@ -56,9 +56,11 @@ SEASON_ORDER: dict[str | None, int] = {"spring": 0, "main": 1, None: 1, "autumn"
 
 #: A replant of the same family after a loss to one of these causes: the cause may sit in the soil (#2888).
 BIOTIC_TERMINATION_CAUSES: frozenset[str] = frozenset({TerminationCause.DISEASE.value, TerminationCause.PEST.value})
-#: Losses with no soil-borne link: frost, heat, drought, waterlogging, neglect, mechanical damage - no residual hint.
+#: Losses with no soil-borne link: frost, heat, drought, waterlogging, neglect, mechanical damage and premature
+#: bolting (REQ-053 §11.3a Nr. 2, #2888 F-19) - no residual hint.
 ABIOTIC_TERMINATION_CAUSES: frozenset[str] = frozenset(
     {
+        TerminationCause.BOLTING.value,
         TerminationCause.FROST.value,
         TerminationCause.HEAT.value,
         TerminationCause.DROUGHT.value,
@@ -246,8 +248,8 @@ def _replant_finding(replaced: PlantedRow, family_key: str, family_name: str | N
     """The residual hint of replanting the same family after ``replaced`` died this year (#2888).
 
     Disease or pest: a ``WARNING`` - if the cause sits in the soil, the new plant can fail the same way. No cause or
-    ``unknown`` (or a cause this rule does not know yet): an ``INFO``. A frost, heat, drought, waterlogging, neglect
-    or mechanical loss leaves nothing in the soil: no finding. Never ``CRITICAL`` - a hint, not a block (D-09).
+    ``unknown`` (or a cause this rule does not know yet): an ``INFO``. A frost, heat, drought, waterlogging, neglect,
+    mechanical or bolting loss leaves nothing in the soil: no finding. Never ``CRITICAL`` - a hint, not a block (D-09).
     """
     cause = replaced.termination_cause
     if cause in ABIOTIC_TERMINATION_CAUSES:

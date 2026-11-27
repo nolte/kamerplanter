@@ -9,6 +9,9 @@ import structlog
 
 from app.common.datetimes import today_utc
 from app.common.enums import (
+    FailureCauseClass,
+    PathogenConfirmationSource,
+    SoilHazard,
     TerminationCause,
     TerminationType,
     TransitionTrigger,
@@ -19,8 +22,9 @@ from app.common.tenant_guard import verify_tenant_ownership
 from app.common.types import PlantID, SlotKey, SpeciesKey
 from app.data_access.arango.base_repository import get_all_pages
 from app.domain.engines.companion_planting_engine import CompanionPlantingEngine
-from app.domain.engines.crop_rotation_validator import CropRotationValidator
+from app.domain.engines.crop_rotation_validator import CropRotationValidator, FamilySource
 from app.domain.engines.cyclic_lifecycle_engine import CyclicLifecycleEngine
+from app.domain.engines.failure_cause_engine import FailureCauseEngine, find_failure_cause_violations
 from app.domain.engines.frost_exposure_resolver import resolve_frost_exposure
 from app.domain.engines.phase_key_resolver import PhaseKeyResolver
 from app.domain.engines.phase_transition_engine import PhaseTransitionEngine
@@ -32,6 +36,7 @@ from app.domain.interfaces.planting_run_repository import IPlantingRunRepository
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.species_repository import ISpeciesRepository
 from app.domain.interfaces.task_repository import ITaskRepository
+from app.domain.models.failure_cause import TerminationOptions
 from app.domain.models.phase import PhaseHistory
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.propagation import PropagationEvent
@@ -77,8 +82,13 @@ class PlantInstanceService:
         substrate_service: SubstrateService | None = None,
         species_service: SpeciesService | None = None,
         reservation_repo: IPlantingReservationRepository | None = None,
+        family_repo: FamilySource | None = None,
     ) -> None:
         self._repo = plant_repo
+        # REQ-053 §11.3a Nr. 1 (#2888 F-19): the plant's botanical family decides whether an ``unknown`` loss
+        # gets the wilt follow-up. Optional like the other catalogue reads; without it no family is wilt-prone.
+        self._family_repo = family_repo
+        self._failure_cause = FailureCauseEngine()
         # REQ-053 GP-UX-071 (#2913): a position a live run reserves takes no single plant. Optional so the service
         # stays constructible in pure-domain contexts; wired in production (`get_plant_instance_service`).
         self._reservation_repo = reservation_repo
@@ -1081,9 +1091,18 @@ class PlantInstanceService:
         *,
         termination_type: TerminationType | None = None,
         termination_cause: TerminationCause | None = None,
+        failure_cause_class: FailureCauseClass | None = None,
+        failure_pathogen: SoilHazard | None = None,
+        failure_pathogen_confirmed: bool | None = None,
+        failure_pathogen_source: PathogenConfirmationSource | None = None,
         tenant_key: str,
     ) -> PlantInstance:
         """Soft-remove a plant, optionally classifying how its lifecycle ended (E5).
+
+        A ``died`` loss with a cause also records where the cause sat (REQ-003 E5 v2.23, #2888): the class is
+        pre-filled from the cause or checked against it, and a soil-borne class may name a pathogen with
+        whether and by whom it was confirmed (``find_failure_cause_violations`` — the same rule the request
+        schema applies). A loss without cause and class keeps no class (bulk clear, acceptance-5).
 
         Backward compatible: with no ``termination_type`` the plant is simply marked
         ``removed_on`` (the previous behaviour). When ``termination_type='died'`` the
@@ -1102,6 +1121,23 @@ class PlantInstanceService:
         # E5: a cause only makes sense for an unplanned death.
         if termination_cause is not None and termination_type != TerminationType.DIED:
             raise ValidationError("termination_cause is only valid for termination_type='died'")
+        violations = find_failure_cause_violations(
+            termination_type=termination_type,
+            termination_cause=termination_cause,
+            failure_cause_class=failure_cause_class,
+            failure_pathogen=failure_pathogen,
+            failure_pathogen_confirmed=failure_pathogen_confirmed,
+            failure_pathogen_source=failure_pathogen_source,
+        )
+        if violations:
+            raise ValidationError("; ".join(violations))
+        failure = self._failure_cause.resolve(
+            termination_cause=termination_cause if termination_type == TerminationType.DIED else None,
+            failure_cause_class=failure_cause_class,
+            failure_pathogen=failure_pathogen,
+            failure_pathogen_confirmed=failure_pathogen_confirmed,
+            failure_pathogen_source=failure_pathogen_source,
+        )
 
         # REQ-034 §2.1 / AC-08 — hard-delete the gallery photos before the
         # instance is removed so no orphan storage bytes remain.
@@ -1120,10 +1156,14 @@ class PlantInstanceService:
         if termination_type == TerminationType.DIED and self._phase_repo is not None:
             # Freeze the current phase and record the unplanned loss (no senescence).
             engine = PhaseTransitionEngine(self._phase_repo, self._repo, self._phase_seq_repo)
-            updated = engine.terminate(key, TerminationType.DIED, termination_cause=termination_cause)
+            updated = engine.terminate(key, TerminationType.DIED, termination_cause=termination_cause, failure=failure)
         else:
             plant.termination_type = termination_type
             plant.termination_cause = termination_cause
+            plant.failure_cause_class = failure.failure_cause_class
+            plant.failure_pathogen = failure.failure_pathogen
+            plant.failure_pathogen_confirmed = failure.failure_pathogen_confirmed
+            plant.failure_pathogen_source = failure.failure_pathogen_source
             # The sibling path above records the loss through the transition
             # engine, which stamps ``datetime.now(UTC)``; this one must not use
             # a different clock for the same event (§12a).
@@ -1145,6 +1185,36 @@ class PlantInstanceService:
             self._release_slot(plant.slot_key, tenant_key=plant.tenant_key, leaving=key)
 
         return updated
+
+    def get_termination_options(self, key: PlantID, *, tenant_key: str) -> TerminationOptions:
+        """What the termination dialog of this plant offers (REQ-003 E5/E6, REQ-053 §11.3a Nr. 1-2, #2888 F-19).
+
+        The pre-fill table resolved for the plant: ``bolting`` is suggested when its open phase is a premature
+        bolting phase, and an ``unknown`` loss asks the wilt follow-up when its family is wilt-prone. Read-only;
+        the ownership check runs here, not in the router.
+        """
+        plant = self._get_owned_plant(key, tenant_key)
+        return self._failure_cause.options(
+            open_phase=self._open_phase(key),
+            family_name=self._family_name(plant.species_key),
+        )
+
+    def _open_phase(self, key: PlantID) -> PhaseHistory | None:
+        """The phase the plant stands in (the history entry not exited yet), or ``None``."""
+        if self._phase_repo is None:
+            return None
+        history: list[PhaseHistory] = self._phase_repo.get_phase_history(key)
+        return next((entry for entry in history if entry.exited_at is None), None)
+
+    def _family_name(self, species_key: SpeciesKey) -> str | None:
+        """The botanical family name of the species, or ``None`` when species or family are unknown."""
+        if self._species_repo is None or self._family_repo is None:
+            return None
+        species: Species | None = self._species_repo.get_by_key(species_key)
+        if species is None or not species.family_key:
+            return None
+        family = self._family_repo.get_by_key(species.family_key)
+        return family.name if family is not None else None
 
     # Tasks that are still actionable when a plant is removed.
     _OPEN_TASK_STATUSES = ("pending", "in_progress", "dormant")
