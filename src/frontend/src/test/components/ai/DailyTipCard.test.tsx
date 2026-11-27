@@ -207,9 +207,10 @@ describe('DailyTipCard', () => {
     expect(screen.queryByTestId('daily-tip-empty')).toBeNull();
   });
 
-  it('waits for the AI status probe and asks once it reports AI as on', async () => {
+  it('waits while the AI status probe is in flight and asks once it reports AI as on', async () => {
     getDailyTip.mockResolvedValue(makeTip());
     const store = createRoleStore('grower');
+    store.dispatch(fetchAiStatus.pending('probe'));
     renderWithProviders(<DailyTipCard />, { store });
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -218,6 +219,16 @@ describe('DailyTipCard', () => {
     act(() => {
       withAiStatus(store, true);
     });
+    expect(await screen.findByTestId('daily-tip-card')).toBeTruthy();
+    expect(getDailyTip).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks after a failed AI status probe: unknown is not "off"', async () => {
+    getDailyTip.mockResolvedValue(makeTip());
+    const store = createRoleStore('grower');
+    store.dispatch(fetchAiStatus.rejected(new Error('network'), 'probe'));
+    renderWithProviders(<DailyTipCard />, { store });
+
     expect(await screen.findByTestId('daily-tip-card')).toBeTruthy();
     expect(getDailyTip).toHaveBeenCalledTimes(1);
   });

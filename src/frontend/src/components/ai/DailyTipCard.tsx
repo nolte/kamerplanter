@@ -86,13 +86,15 @@ export default function DailyTipCard() {
   const [dismissed, setDismissed] = useState(() => readDismissed(dismissStorageKey));
   // #3025 L-16 — the tenant AI routes answer 404 while the operator has AI switched off (REQ-031 §1.3, "as if
   // they did not exist"), so asking for the tip there was a failed request — and a console error — on every
-  // dashboard load. The ungated `GET /ai/status` probe (MainLayout) says whether AI is on; the card asks only
-  // once it is known to be. Unknown (probe pending or failed) asks nothing: the card is optional, and a failed
-  // read hid it anyway.
-  const aiAvailable = useAppSelector((s) => s.aiStatus?.available ?? null);
+  // dashboard load. The ungated `GET /ai/status` probe (MainLayout) says whether AI is on. The card skips the
+  // request while the probe is in flight and when it reports AI as off; after a failed probe the status is
+  // unknown, which is not "off" (aiStatusSlice), so the card asks as it always did.
+  const aiOff = useAppSelector((s) => s.aiStatus?.available === false);
+  const aiProbing = useAppSelector((s) => s.aiStatus?.loading === true);
+  const mayAsk = !aiOff && !aiProbing;
 
   useEffect(() => {
-    if (aiAvailable !== true) return;
+    if (!mayAsk) return;
     if (readDismissed(dismissStorageKey)) return;
     let active = true;
     aiApi
@@ -113,7 +115,7 @@ export default function DailyTipCard() {
     return () => {
       active = false;
     };
-  }, [dismissStorageKey, aiAvailable]);
+  }, [dismissStorageKey, mayAsk]);
 
   const handleDismiss = useCallback(() => {
     setDismissed(true);
