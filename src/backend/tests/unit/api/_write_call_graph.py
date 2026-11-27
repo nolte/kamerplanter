@@ -66,6 +66,12 @@ than it says:
   matters most — a call whose *name* belongs to the repository write vocabulary —
   an untyped receiver falls back to every definition of that name, which
   over-reports rather than missing.
+* **A typed receiver whose type lacks the method.** A parameter annotated with a
+  class of this tree — a structural ``Protocol``, a facade delegating through
+  ``__getattr__`` — that does not define the called name neither resolves nor
+  falls back by name: the fallback is for UNTYPED receivers only. That holds for
+  a top-level parameter, a nested ``def``'s and a lambda's alike (#3144 review);
+  the call is counted as a genuine unresolved one, never hidden.
 * **Anything outside the ``app`` package.** A write performed by a library on the
   application's behalf is invisible.
 
@@ -88,6 +94,7 @@ types are written down.
 """
 
 import ast
+import builtins
 import pathlib
 import re
 from collections import defaultdict, deque
@@ -209,6 +216,10 @@ _CALLABLE_ARGUMENT_SINKS = frozenset({"add_task", "to_thread"})
 #: method from a library: an `I*Repository(ABC)` lacking a method is an interface
 #: that does not declare it — an annotation gap, not an external call (#3144).
 _METHODLESS_BASES = frozenset({"object", "ABC", "Protocol", "Generic"})
+
+#: Builtin names an annotation can denote: a `dict`, a `str`, a `BaseException`
+#: are known types from outside the tree, not names nobody defined (#3144 F1).
+_BUILTIN_NAMES = frozenset(name for name in dir(builtins) if not name.startswith("_")) | {"None"}
 
 _MAX_TYPE_DEPTH = 6
 
@@ -586,6 +597,10 @@ class CallGraph:
         self.fallback_edges: set[tuple[str, str]] = set()
         self._writers: set[str] | None = None
         self._resolving: set[int] = set()
+        #: Every parsed module, kept alive with the graph: `FunctionNode`'s
+        #: parameter bindings are keyed by `id()` of AST nodes, and an id is only
+        #: unique while its node exists (#3144 F5).
+        self._trees: list[ast.Module] = []
 
     # ── parsing ────────────────────────────────────────────────────────────
 
@@ -594,7 +609,9 @@ class CallGraph:
             relative = path.relative_to(root)
             module = "app." + str(relative).removesuffix(".py").replace("/", ".")
             module = module.removesuffix(".__init__")
-            self._parse_module(module, ast.parse(path.read_text(encoding="utf-8")))
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            self._trees.append(tree)
+            self._parse_module(module, tree)
             self.modules_parsed += 1
 
     def _parse_module(self, module: str, tree: ast.Module) -> None:
@@ -734,10 +751,10 @@ class CallGraph:
 
     def _types_of_inner(self, expression: ast.expr, scope: FunctionNode, depth: int) -> set[str]:
         if isinstance(expression, ast.Name):
-            bound = scope._parameter_bindings.get(id(expression))
+            bound = self._nested_parameter_annotation(expression, scope)
             if bound is not None:
-                # A parameter of a nested `def`, typed by its annotation exactly
-                # as a parameter of this function is (#3144).
+                # A parameter of a nested `def`, typed by its annotation — only
+                # where that annotation names something KNOWN (#3144 F1).
                 return _base_names(bound)
             if id(expression) in scope._lambda_bindings:
                 typed = self._lambda_parameter_types(expression, scope, depth + 1)
@@ -898,7 +915,7 @@ class CallGraph:
     def _annotations_of(self, expression: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
         """The annotations WRITTEN for an expression: a parameter, a `self.X`, a call's return type."""
         if isinstance(expression, ast.Name):
-            written = scope._parameter_bindings.get(id(expression)) or scope._annotations.get(expression.id)
+            written = self._nested_parameter_annotation(expression, scope) or scope._annotations.get(expression.id)
             return [written] if written is not None else []
         if isinstance(expression, ast.Attribute):
             found: list[ast.expr] = []
@@ -1119,7 +1136,7 @@ class CallGraph:
         if depth > _MAX_TYPE_DEPTH:
             return False
         if isinstance(expression, ast.Name):
-            if id(expression) in scope._parameter_bindings:
+            if self._nested_parameter_annotation(expression, scope) is not None:
                 return self._types_are_external(expression, scope)
             if id(expression) in scope._lambda_bindings and self._lambda_parameter_types(expression, scope):
                 return self._types_are_external(expression, scope)
@@ -1233,6 +1250,41 @@ class CallGraph:
                 return False
         return True
 
+    def _nested_parameter_annotation(self, name: ast.Name, scope: FunctionNode) -> ast.expr | None:
+        """The annotation a nested-`def` parameter occurrence is typed by, or `None` (#3144 F1).
+
+        Only an annotation every leaf of which is KNOWN binds: a class of this
+        tree, a builtin, or a name imported from outside the tree (``re.Match``
+        through its imported root). ``Any``, ``object``, a ``TypeVar`` and a name
+        nobody defines bind nothing: typing the receiver by them would type it as
+        nothing in particular and still switch off the name fallback that
+        ``link()`` keeps for untyped receivers — a write behind
+        ``def write(repo: Any): repo.create(...)`` would disappear.
+        """
+        bound = scope._parameter_bindings.get(id(name))
+        if bound is None or not self._annotation_is_known(bound, scope.module):
+            return None
+        return bound
+
+    def _annotation_is_known(self, annotation: ast.expr, module: str) -> bool:
+        leaves = _annotation_leaves(annotation)
+        if not leaves:
+            return False
+        external = self.external_names.get(module, set())
+        for leaf in leaves:
+            if isinstance(leaf, ast.Name):
+                if leaf.id in {"Any", "object"}:
+                    return False
+                if not (leaf.id in self.classes or leaf.id in _BUILTIN_NAMES or leaf.id in external):
+                    return False
+            else:
+                root: ast.expr = leaf
+                while isinstance(root, ast.Attribute):
+                    root = root.value
+                if not (leaf.attr in self.classes or (isinstance(root, ast.Name) and root.id in external)):
+                    return False
+        return True
+
     def _lambda_parameter_types(self, name: ast.Name, scope: FunctionNode, depth: int = 0) -> set[str]:
         """The class a lambda parameter is, if the callee's annotation says so (#3144).
 
@@ -1248,32 +1300,55 @@ class CallGraph:
         gate certify a call it never saw.
         """
         call, position, keyword, index = scope._lambda_bindings[id(name)]
+        targets = self._call_targets(call, scope, depth + 1)
         found: set[str] = set()
-        for target in self._call_targets(call, scope, depth + 1):
-            parameters = target._parameters
-            if (
-                isinstance(call.func, ast.Attribute)
-                and target.owner
-                and parameters
-                and parameters[0] in {"self", "cls"}
-            ):
-                parameters = parameters[1:]
-            if keyword is not None:
-                parameter = keyword
-            elif position is not None and position < len(parameters):
-                parameter = parameters[position]
-            else:
-                continue
-            annotation = target._annotations.get(parameter)
-            if annotation is None:
-                continue
-            for alternative in _alternatives(annotation):
-                head, parts = _subscript_parts(alternative)
-                if head != "Callable" or len(parts) != 2 or not isinstance(parts[0], ast.List):
-                    continue
-                arguments = parts[0].elts
-                if index < len(arguments):
-                    found |= _base_names(arguments[index]) & set(self.classes)
+        for target in targets:
+            # Every target must say so (F2): `IRunner.go(self, action)` without an
+            # annotation is as much a callee of `r.go(...)` as the implementor that
+            # annotates it, and a union over the annotated ones alone would type
+            # the lambda by the one that happens to write something down.
+            typed = self._lambda_parameter_types_on(target, call, position, keyword, index)
+            if not typed:
+                return set()
+            found |= typed
+        return found
+
+    def _lambda_parameter_types_on(
+        self, target: FunctionNode, call: ast.Call, position: int | None, keyword: str | None, index: int
+    ) -> set[str]:
+        parameters = target._parameters
+        if isinstance(call.func, ast.Attribute) and target.owner and parameters and parameters[0] in {"self", "cls"}:
+            receiver = call.func.value
+            named = receiver.id if isinstance(receiver, ast.Name) else getattr(receiver, "attr", None)
+            if parameters[0] == "self" and named == target.owner:
+                # `Runner.run(r, lambda p: ...)`: unbound, `self` is passed
+                # explicitly, so the positions do not shift (F4 i). Not bound.
+                return set()
+            parameters = parameters[1:]
+        if keyword is not None:
+            parameter = keyword
+        elif position is not None and position < len(parameters):
+            parameter = parameters[position]
+        else:
+            return set()
+        annotation = target._annotations.get(parameter)
+        if annotation is None:
+            return set()
+        found: set[str] = set()
+        for alternative in _alternatives(annotation):
+            head, parts = _subscript_parts(alternative)
+            if head != "Callable" or len(parts) != 2 or not isinstance(parts[0], ast.List):
+                return set()
+            arguments = parts[0].elts
+            if index >= len(arguments):
+                return set()
+            # A plain class or `X | None`, nothing looked through (F4 iii):
+            # `Callable[[list[Model]], R]` hands the lambda a LIST, and
+            # `_base_names` would read it as a `Model`.
+            for member in _alternatives(arguments[index]):
+                if not isinstance(member, ast.Name | ast.Attribute):
+                    return set()
+                found |= _base_names(member) & set(self.classes)
         return found
 
     def _write_vocabulary(self) -> frozenset[str]:
@@ -1449,6 +1524,10 @@ def _bind_inner_parameters(node: ast.FunctionDef | ast.AsyncFunctionDef, fn: Fun
     for inner in ast.walk(node):
         if isinstance(inner, ast.Call):
             for position, argument in enumerate(inner.args):
+                if isinstance(argument, ast.Starred):
+                    # `run(*xs, lambda p: ...)`: the lambda's position is not
+                    # known from here on (#3144 F4 ii).
+                    break
                 if isinstance(argument, ast.Lambda):
                     call_sites[id(argument)] = (inner, position, None)
             for word in inner.keywords:
@@ -1469,10 +1548,50 @@ def _bind_inner_parameters(node: ast.FunctionDef | ast.AsyncFunctionDef, fn: Fun
                     fn._lambda_bindings[id(occurrence)] = (*site, index)
             continue
         for argument in arguments:
-            if argument.annotation is None:
+            if argument.annotation is None or _is_rebound(body, argument.arg):
+                # `repo = other` in the body: the annotation no longer says what
+                # the name holds (#3144 F1).
                 continue
             for occurrence in _occurrences(body, argument.arg):
                 fn._parameter_bindings[id(occurrence)] = argument.annotation
+
+
+def _annotation_leaves(annotation: ast.expr | None, depth: int = 0) -> list[ast.Name | ast.Attribute]:
+    """The `Name`/`Attribute` nodes :func:`_base_names` reads its names from, in the same walk."""
+    if annotation is None or depth > _MAX_TYPE_DEPTH:
+        return []
+    if isinstance(annotation, ast.Name | ast.Attribute):
+        return [annotation]
+    if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+        try:
+            return _annotation_leaves(ast.parse(annotation.value, mode="eval").body, depth + 1)
+        except SyntaxError:  # pragma: no cover - defensive
+            return []
+    if isinstance(annotation, ast.Constant) and annotation.value is None:
+        return [ast.Name(id="None", ctx=ast.Load())]
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        return _annotation_leaves(annotation.left, depth + 1) + _annotation_leaves(annotation.right, depth + 1)
+    if isinstance(annotation, ast.Subscript):
+        head = _base_names(annotation.value, depth + 1)
+        if head & _TRANSPARENT_GENERICS:
+            inner = annotation.slice
+            parts = inner.elts if isinstance(inner, ast.Tuple) else [inner]
+            return [leaf for part in parts for leaf in _annotation_leaves(part, depth + 1)]
+        return _annotation_leaves(annotation.value, depth + 1)
+    return []
+
+
+def _is_rebound(body: list[ast.AST], name: str) -> bool:
+    """Does `body` store to `name` anywhere outside a nested scope that rebinds it itself?"""
+    pending: list[ast.AST] = list(body)
+    while pending:
+        current = pending.pop()
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda | ast.ClassDef):
+            continue
+        if isinstance(current, ast.Name) and current.id == name and isinstance(current.ctx, ast.Store | ast.Del):
+            return True
+        pending.extend(ast.iter_child_nodes(current))
+    return False
 
 
 def _occurrences(body: list[ast.AST], name: str) -> list[ast.Name]:
