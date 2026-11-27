@@ -189,7 +189,7 @@ export default function BatchPhaseTransitionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>{t('common.cancel')}</Button>
-        <RequiresConnectivity offline={!online}>
+        <RequiresConnectivity offline={!online} showReason>
           <Button
             variant="contained"
             onClick={handleTransition}

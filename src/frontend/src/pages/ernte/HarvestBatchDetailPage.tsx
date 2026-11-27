@@ -433,7 +433,7 @@ export default function HarvestBatchDetailPage() {
               </Alert>
             ) : (
               // UI-NFR-012 R-020a/R-020b: completing the harvest is a phase change the server validates.
-              <RequiresConnectivity offline={!online}>
+              <RequiresConnectivity offline={!online} showReason>
                 <Button
                   variant="outlined"
                   color="warning"

@@ -67,7 +67,7 @@ function stateLabel(t: TFunction, state: string | null): string {
 export default function EnvironmentControlPage() {
   const { t } = useTranslation();
   const notification = useNotification();
-  const { actuators, loading, reload } = useActuators();
+  const { actuators, loading, loaded, reload } = useActuators();
   // UI-NFR-012 R-020c/R-020e: an actuator command must reach Home Assistant/MQTT in real time; offline on/off is
   // locked. The emergency stop is not (REQ-018, see below).
   const online = useOnlineStatus();
@@ -178,7 +178,10 @@ export default function EnvironmentControlPage() {
               // REQ-018: the stop is never locked by connectivity — `navigator.onLine` can say "offline" while
               // the backend is reachable (backend on localhost, kiosk host without uplink). The request goes;
               // a failure surfaces as an error toast. An offline warning below says the connection may be down.
-              disabled: actuators.length === 0 || emergencyLoading,
+              // The server picks the devices of the scenario itself (POST /emergency-stop takes no list), so the
+              // stop is disabled only when the list was read and is really empty — not while it is loading or
+              // could not be read (opened offline).
+              disabled: (loaded && actuators.length === 0) || emergencyLoading,
               testId: 'emergency-stop-button',
               onClick: () => setEmergencyOpen(true),
             }}

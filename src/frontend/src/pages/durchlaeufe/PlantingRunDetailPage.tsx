@@ -683,7 +683,7 @@ export default function PlantingRunDetailPage() {
                 {t('pages.plantingRuns.runTransition')}
               </Button>
               {/* UI-NFR-012 R-020a/R-020b: moving the run's plants into harvest is validated on the server. */}
-              <RequiresConnectivity offline={!online}>
+              <RequiresConnectivity offline={!online} showReason>
                 <Button
                   variant="outlined"
                   color="warning"

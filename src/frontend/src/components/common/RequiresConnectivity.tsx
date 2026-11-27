@@ -18,6 +18,11 @@ export interface RequiresConnectivityProps {
   offline: boolean;
   /** The action button. Do NOT add `!online` to its `disabled`: this wrapper locks it. */
   children: ReactElement<LockableButtonProps>;
+  /**
+   * Offline, also show the reason as a visible line under the button. A tooltip needs hover or focus; a tap on
+   * a tablet shows nothing, so actions that are used on touch devices name the reason in plain sight.
+   */
+  showReason?: boolean;
 }
 
 /** Looks disabled without being `disabled` (which would drop it from the tab order and blur it). */
@@ -47,7 +52,7 @@ function sxList(sx: SxProps<Theme> | undefined): ReadonlyArray<SxProps<Theme>> {
  * The element structure is the same online and offline (wrapper, tooltip, button, reason element), so a change
  * of connectivity does not remount the button and a focused button keeps its focus.
  */
-export default function RequiresConnectivity({ offline, children }: RequiresConnectivityProps) {
+export default function RequiresConnectivity({ offline, children, showReason = false }: RequiresConnectivityProps) {
   const { t } = useTranslation();
   const reasonId = useId();
   const reason = t('common.pwa.requiresConnectivity');
@@ -75,14 +80,24 @@ export default function RequiresConnectivity({ offline, children }: RequiresConn
   return (
     <Box
       component="span"
-      sx={{ display: 'inline-flex' }}
+      sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start' }}
       data-testid="requires-connectivity"
       data-offline={offline ? 'true' : 'false'}
     >
       <Tooltip title={offline ? reason : ''} describeChild>
         {button}
       </Tooltip>
-      <Box component="span" id={reasonId} sx={visuallyHidden}>
+      {/* The same element online and offline; only its content and look change. */}
+      <Box
+        component="span"
+        id={reasonId}
+        data-testid="requires-connectivity-reason"
+        sx={
+          offline && showReason
+            ? { typography: 'caption', color: 'warning.main', mt: 0.5 }
+            : visuallyHidden
+        }
+      >
         {offline ? reason : ''}
       </Box>
     </Box>

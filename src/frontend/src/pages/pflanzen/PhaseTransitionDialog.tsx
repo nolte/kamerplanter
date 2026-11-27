@@ -165,7 +165,7 @@ export default function PhaseTransitionDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} data-testid="transition-cancel">{t('common.cancel')}</Button>
-        <RequiresConnectivity offline={!online}>
+        <RequiresConnectivity offline={!online} showReason>
           <Button
             variant="contained"
             onClick={handleTransition}

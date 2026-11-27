@@ -14,11 +14,19 @@ import { useOnlineStatus } from '@/hooks/useOnlineStatus';
  *
  * Renders nothing.
  */
-export default function ConnectivityNotices() {
+export interface ConnectivityNoticesProps {
+  /**
+   * Announce the state at mount as a change. Set when this chunk could only be fetched because the connection
+   * came back: that reconnect happened before the component existed and would otherwise go unannounced.
+   */
+  announceCurrentState?: boolean;
+}
+
+export default function ConnectivityNotices({ announceCurrentState = false }: ConnectivityNoticesProps) {
   const { t } = useTranslation();
   const notification = useNotification();
   const online = useOnlineStatus();
-  const previous = useRef(online);
+  const previous = useRef(announceCurrentState ? !online : online);
 
   useEffect(() => {
     if (previous.current === online) return;

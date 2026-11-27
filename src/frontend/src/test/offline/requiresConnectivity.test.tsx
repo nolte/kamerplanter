@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import ConnectivityIndicator from '@/components/layout/ConnectivityIndicator';
@@ -11,6 +12,7 @@ import BatchPhaseTransitionDialog from '@/pages/durchlaeufe/BatchPhaseTransition
 import EnvironmentControlPage from '@/pages/environment/EnvironmentControlPage';
 import { createStoreWithSmartHome, renderWithProviders } from '../helpers';
 import { server } from '../mocks/server';
+import { setActiveTenantSlug } from '@/api/client';
 
 /**
  * #3025 N-39 — UI-NFR-012 outside the garden planner.
@@ -101,6 +103,9 @@ describe('connectivity-locked actions (UI-NFR-012 R-020a–R-020e)', () => {
 
     const submit = await screen.findByTestId('form-submit-button');
     expectLocked(submit, /anlegen|erstellen/i);
+    // A tap on a tablet shows no tooltip: the reason is visible as well.
+    expect(screen.getByTestId('requires-connectivity-reason')).toBeVisible();
+    expect(screen.getByTestId('requires-connectivity-reason')).toHaveTextContent(HINT_DE);
     submit.focus();
     expect(submit).toHaveFocus();
     fireEvent.click(submit);
@@ -112,6 +117,34 @@ describe('connectivity-locked actions (UI-NFR-012 R-020a–R-020e)', () => {
     expect(screen.getByTestId('form-submit-button')).toBe(submit);
     expect(submit).toHaveFocus();
     expectUnlocked(submit);
+    expect(screen.getByTestId('requires-connectivity-reason')).toHaveTextContent('');
+
+    // Positive control: the same form, online, does create — so "nothing sent" above is the guard's doing.
+    fireEvent.click(submit);
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not submit the harvest form on Enter in a text field while offline (R-020b)', async () => {
+    const created = vi.fn();
+    server.use(
+      http.post('/api/v1/t/:tenant/harvest/plants/:plantKey/batches', () => {
+        created();
+        return HttpResponse.json({});
+      }),
+    );
+    setOnline(false);
+    renderWithProviders(<HarvestCreateDialog open onClose={vi.fn()} onCreated={vi.fn()} plantKey="plant-1" />);
+    await screen.findByTestId('form-submit-button');
+    const user = userEvent.setup();
+    const batchInput = within(screen.getByTestId('form-field-batch_id')).getByRole('textbox');
+    await user.type(batchInput, 'HB-OFFLINE{Enter}');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(created).not.toHaveBeenCalled();
+
+    // Control: the same keystroke online submits.
+    switchTo(true);
+    await user.type(batchInput, '{Enter}');
+    await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
   });
 
   it('keeps an ordinary form save unlocked offline', () => {
@@ -120,36 +153,113 @@ describe('connectivity-locked actions (UI-NFR-012 R-020a–R-020e)', () => {
     const submit = screen.getByTestId('form-submit-button');
     expect(submit).toBeEnabled();
     expectUnlocked(submit);
+    // No wrapper, tooltip or reason element for a form that did not ask for the lock.
+    expect(screen.queryByTestId('requires-connectivity')).toBeNull();
   });
 
-  it('locks the plant phase change offline (R-020a)', async () => {
-    setOnline(false);
-    renderWithProviders(
-      <PhaseTransitionDialog plantKey="plant-1" lifecycleKey={null} open onClose={vi.fn()} onTransitioned={vi.fn()} />,
+  it('locks the plant phase change offline with a target chosen (R-020a)', async () => {
+    const transitions = vi.fn();
+    server.use(
+      http.get('/api/v1/growth-phases', () =>
+        HttpResponse.json([
+          {
+            key: 'ph-veg',
+            name: 'vegetative',
+            display_name: 'Vegetativ',
+            description: '',
+            lifecycle_key: 'lc-1',
+            typical_duration_days: 30,
+            sequence_order: 2,
+            is_terminal: false,
+            allows_harvest: false,
+            stress_tolerance: 'medium',
+            watering_interval_days: null,
+            created_at: null,
+            updated_at: null,
+          },
+        ]),
+      ),
+      http.post('/api/v1/plant-instances/:key/phases/transition', () => {
+        transitions();
+        return HttpResponse.json({ key: 'plant-1' });
+      }),
     );
-    const confirm = await screen.findByTestId('transition-confirm');
-    expect(confirm).toHaveAttribute('aria-disabled', 'true');
-    expect(confirm).toHaveAccessibleDescription(HINT_DE);
+    renderWithProviders(
+      <PhaseTransitionDialog plantKey="plant-1" lifecycleKey="lc-1" open onClose={vi.fn()} onTransitioned={vi.fn()} />,
+    );
+    // Choose a target, so the button is not natively disabled and the guard itself is what is tested.
+    const select = within(screen.getByTestId('target-phase-select')).getByRole('combobox');
+    await waitFor(() => expect(select).not.toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.mouseDown(select);
+    fireEvent.click(await screen.findByRole('option', { name: /Vegetativ/ }));
+    const confirm = screen.getByTestId('transition-confirm');
+    expect(confirm).toBeEnabled();
+
+    switchTo(false);
+    expectLocked(confirm, /bestätigen/i);
+    expect(screen.getByTestId('requires-connectivity-reason')).toHaveTextContent(HINT_DE);
+    fireEvent.click(confirm);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transitions).not.toHaveBeenCalled();
 
     switchTo(true);
-    expectUnlocked(screen.getByTestId('transition-confirm'));
+    expectUnlocked(confirm);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(transitions).toHaveBeenCalledTimes(1));
   });
 
-  it('locks the run phase change offline (R-020a)', async () => {
-    setOnline(false);
+  it('locks the run phase change offline with a target chosen (R-020a)', async () => {
+    setActiveTenantSlug('t1');
+    const transitions = vi.fn();
+    server.use(
+      http.get('/api/v1/species/:key/phase-sequence', () =>
+        HttpResponse.json({
+          key: 'seq-1',
+          entries: [
+            {
+              key: 'e-flower',
+              phase_definition: { name: 'flowering', display_name: 'Blüte', typical_duration_days: 50 },
+              override_duration_days: null,
+              sequence_order: 2,
+              is_terminal: false,
+              allows_harvest: false,
+              created_at: null,
+              updated_at: null,
+            },
+          ],
+        }),
+      ),
+      http.post('/api/v1/t/:tenant/planting-runs/:key/transition', () => {
+        transitions();
+        return HttpResponse.json({ transitioned_count: 0, skipped_count: 0, failed_count: 0, results: [] });
+      }),
+    );
     renderWithProviders(
       <BatchPhaseTransitionDialog
         open
         runKey="run-1"
-        entries={[]}
+        entries={[{ key: 'en-1', species_key: 'sp-1' }] as never}
         plants={[]}
         onClose={vi.fn()}
         onTransitioned={vi.fn()}
       />,
     );
-    const confirm = await screen.findByTestId('batch-transition-confirm');
-    expect(confirm).toHaveAttribute('aria-disabled', 'true');
-    expect(confirm).toHaveAccessibleDescription(HINT_DE);
+    const dialog = await screen.findByRole('dialog');
+    // The select appears once the phases are loaded.
+    fireEvent.mouseDown(await within(dialog).findByRole('combobox'));
+    fireEvent.click(await screen.findByRole('option', { name: /Blüte/ }));
+    const confirm = screen.getByTestId('batch-transition-confirm');
+    expect(confirm).toBeEnabled();
+
+    switchTo(false);
+    expectLocked(confirm, /bestätigen/i);
+    fireEvent.click(confirm);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(transitions).not.toHaveBeenCalled();
+
+    switchTo(true);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(transitions).toHaveBeenCalledTimes(1));
   });
 
   it('locks the confirm of an already open dialog when the connection drops', () => {
@@ -225,6 +335,43 @@ describe('connectivity-locked actions (UI-NFR-012 R-020a–R-020e)', () => {
     fireEvent.click(stop);
     fireEvent.click(await screen.findByTestId('confirm-dialog-confirm'));
     await waitFor(() => expect(stops).toHaveLength(1));
+  });
+});
+
+describe('emergency stop with an unknown actuator list (REQ-018)', () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('de');
+    setOnline(true);
+  });
+
+  afterEach(() => {
+    setOnline(true);
+  });
+
+  it('stays clickable and sends when the page opened offline and the list failed to load', async () => {
+    const stops: unknown[] = [];
+    server.use(
+      http.get('/api/v1/t/:tenant/actuators', () => HttpResponse.error()),
+      http.post('/api/v1/t/:tenant/emergency-stop', async ({ request }) => {
+        stops.push(await request.json());
+        return HttpResponse.json({ stopped: [], failed: [] });
+      }),
+    );
+    setOnline(false);
+    renderWithProviders(<EnvironmentControlPage />, { store: createStoreWithSmartHome() });
+
+    const stop = await screen.findByTestId('emergency-stop-button');
+    await waitFor(() => expect(screen.queryByTestId('loading-skeleton')).toBeNull());
+    expect(stop).toBeEnabled();
+    fireEvent.click(stop);
+    fireEvent.click(await screen.findByTestId('confirm-dialog-confirm'));
+    await waitFor(() => expect(stops).toHaveLength(1));
+  });
+
+  it('stays disabled when the list was read and is really empty', async () => {
+    server.use(http.get('/api/v1/t/:tenant/actuators', () => HttpResponse.json([])));
+    renderWithProviders(<EnvironmentControlPage />, { store: createStoreWithSmartHome() });
+    await waitFor(() => expect(screen.getByTestId('emergency-stop-button')).toBeDisabled());
   });
 });
 
