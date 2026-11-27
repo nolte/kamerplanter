@@ -9,6 +9,11 @@
 #      where the sources give ranges (evidence.kind: range).
 #   2. soil_persistence_years is the CULTIVATION PAUSE after a confirmed
 #      infestation, not the rotation length and not the maximum survival.
+# and the operator decisions of 2026-11-27 (P1-P7 in
+# project/features/soil-hazard-knowledge.md), which keep every value below:
+# a value stays 3/3 when a fourth source disagrees (P1), lower_bound vs.
+# contradictory is judged per hazard (P2), the sclerotinia pause is 5 years
+# (P6), Allium stays 1/3 for root_knot_nematode (P7).
 #
 # evidence.status: evidenced = 3/3 independent full-text sources; insufficient =
 # fewer; contradictory = sources disagree; not_found = no value researched or the
@@ -179,7 +184,7 @@ hazards:
     notes:
       - "In Central European open ground practically only M. hapla; M. incognita in greenhouses (LfL)."
       - "Soft hazard: nearly all dicotyledonous vegetables are hosts, a block would hit almost every bed (R-001 open point 3)."
-      - "Asymmetry pending operator question P7: generic statements (CDFA 'nearly all temperate vegetables', LfL 'sehr grosser Wirtspflanzenkreis') count as evidence for the eight host families (3/3 with UC IPM's crop table), but not for Allium, which rests on the JKI onion flyer alone (1/3)."
+      - "Asymmetry kept by operator decision P7 (2026-11-27): generic statements (CDFA 'nearly all temperate vegetables', LfL 'sehr grosser Wirtspflanzenkreis') count as evidence for the eight host families (3/3 with UC IPM's crop table), but not for Allium, which rests on the JKI onion flyer alone (1/3)."
 
   - hazard: white_rot
     pathogens: [Stromatinia cepivora]
@@ -288,7 +293,7 @@ hazards:
         status: evidenced
         sources: 3
         kind: range
-        basis: "Rotation read as rotation length (pause = rotation - 1, as for cyst_nematode): AGES at least 4-year (better 6-year) rotation = pause 3 (better 5) y; PNW 3-8 y with non-hosts; Manitoba 'crop rotation of 5 years between susceptible crops' is read as a 5-year PAUSE because 'between susceptible crops' names the time between two hosts (under the strict N-1 rule it would be 4 y and 5 would no longer lie in all three statements; value unchanged pending operator decision P6); the review PMC8417578 gives shorter pauses"
+        basis: "Rotation read as rotation length (pause = rotation - 1, as for cyst_nematode): AGES at least 4-year (better 6-year) rotation = pause 3 (better 5) y; PNW 3-8 y with non-hosts; Manitoba 'crop rotation of 5 years between susceptible crops' is read as a 5-year PAUSE because 'between susceptible crops' names the time between two hosts (under the strict N-1 rule it would be 4 y and 5 would no longer lie in all three statements; the 5-year pause is confirmed by operator decision P6, 2026-11-27); the review PMC8417578 gives shorter pauses"
         ref: "§7.6"
     max_survival_years:
       years: 10
