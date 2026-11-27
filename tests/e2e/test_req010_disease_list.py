@@ -22,6 +22,7 @@ import uuid
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from .pages._click_fallback import CoveredControlError
 from .pages.disease_list_page import DiseaseListPage
 
 
@@ -267,13 +268,19 @@ class TestDiseaseCreateDialog:
         disease_list.fill_common_name(f"E2E-Testkrankheit {unique}")
         try:
             disease_list.select_pathogen_type("Pilzlich")
+        except CoveredControlError:
+            raise
         except Exception:
             try:
                 disease_list.select_pathogen_type("fungal")
+            except CoveredControlError:
+                raise
             except Exception:
                 pass  # Pathogen type may not be required
         try:
             disease_list.fill_incubation_period_days(3)
+        except CoveredControlError:
+            raise
         except Exception:
             pass  # May not be visible or required
         try:

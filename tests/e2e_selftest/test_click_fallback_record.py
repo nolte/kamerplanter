@@ -93,7 +93,7 @@ class TestAnInterceptedClick:
             },
         )
 
-        with pytest.raises(AssertionError) as raised:
+        with pytest.raises(_click_fallback.CoveredControlError) as raised:
             page_for(driver).wait_and_click(SAVE_LOCATOR)
 
         message = str(raised.value)
@@ -454,6 +454,24 @@ def _event(nodeid: str, *, covered: bool | None, testid: str = "bottom-nav-plant
     }
 
 
+class TestTheSelectRetry:
+    def test_a_refusal_on_the_select_is_not_retried_away(self) -> None:
+        """`choose_select_value` retries a popover race once; a covered select is not that race."""
+        page = BasePage(SimpleNamespace(), "http://app.invalid")  # type: ignore[arg-type]
+        opened: list[str] = []
+
+        def covered(field_name: str) -> None:
+            opened.append(field_name)
+            raise _click_fallback.CoveredControlError("covered")
+
+        page.open_select = covered  # type: ignore[method-assign]
+
+        with pytest.raises(_click_fallback.CoveredControlError):
+            page.choose_select_value("status", "done")
+
+        assert opened == ["status"], "one attempt, no second one that could pass by luck"
+
+
 class TestTheReporter:
     def _config(self, tmp_path: Path | None, *, worker: bool = False) -> Any:
         options = {"--app-mode": "light", "--device": "mobile"}
@@ -483,6 +501,49 @@ class TestTheReporter:
 
         assert [e["helper"] for e in getattr(report, REPORT_ATTRIBUTE)] == ["h"]
         assert _click_fallback.drain() == [], "drained, so the next phase starts empty"
+
+    def _phase(self, report: Any, outcome: str | None) -> None:
+        reporter = ClickFallbackReporter(self._config(None, worker=True))
+        hook = reporter.pytest_runtest_makereport(item=None)  # type: ignore[arg-type]
+        next(hook)
+        _click_fallback.record_fallback(
+            helper="scroll_and_click", activation="js_click", trigger="t", outcome=outcome
+        )
+        with pytest.raises(StopIteration):
+            hook.send(SimpleNamespace(get_result=lambda: report))
+
+    def test_a_skip_after_a_refused_click_becomes_a_failure(self) -> None:
+        """`except Exception: pytest.skip(...)` around a step must not hide a covered control."""
+        report = SimpleNamespace(
+            skipped=True,
+            outcome="skipped",
+            longrepr=("tests/e2e/test_x.py", 12, "Skipped: no plants"),
+        )
+
+        self._phase(report, _click_fallback.OUTCOME_RAISED)
+
+        assert report.outcome == "failed"
+        assert "tests/e2e/test_x.py:12: Skipped: no plants" in report.longrepr
+        assert "skipped after a guarded click was refused" in report.longrepr
+        assert "scroll_and_click()" in report.longrepr
+
+    def test_a_skip_without_a_refusal_stays_a_skip(self) -> None:
+        report = SimpleNamespace(skipped=True, outcome="skipped", longrepr="skip reason")
+
+        self._phase(report, "js_fallback")
+
+        assert (report.outcome, report.longrepr) == ("skipped", "skip reason")
+
+    def test_an_expected_failure_after_a_refusal_stays_expected(self) -> None:
+        report = SimpleNamespace(skipped=True, outcome="skipped", longrepr="x", wasxfail="known")
+
+        self._phase(report, _click_fallback.OUTCOME_RAISED)
+
+        assert report.outcome == "skipped"
+
+    def test_the_refusal_is_its_own_assertion_error(self) -> None:
+        """Its own class so a tolerant handler can let it through; still an AssertionError."""
+        assert issubclass(_click_fallback.CoveredControlError, AssertionError)
 
     def test_the_controller_writes_one_jsonl_per_profile_and_the_worker_does_not(
         self, tmp_path: Path

@@ -16,6 +16,7 @@ import uuid
 import pytest
 from selenium.webdriver.remote.webdriver import WebDriver
 
+from .pages._click_fallback import CoveredControlError
 from .pages import (
     BotanicalFamilyListPage,
     CompanionPlantingPage,
@@ -92,6 +93,8 @@ class TestCompleteWorkflow:
         # Try to select the newly created family
         try:
             species_list.select_option("family_key", family_name)
+        except CoveredControlError:
+            raise
         except Exception:
             pass  # Family might not be in dropdown yet — continue
         species_list.submit_form()
