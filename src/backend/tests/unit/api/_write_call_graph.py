@@ -31,7 +31,10 @@ POSITION in a fixed-arity ``tuple[...]`` element (``enumerate``, ``zip`` and
 annotated ``__enter__`` (an unannotated one types nothing); a class
 named directly through itself; ``a or b`` / ``a if c else b`` through both
 operands, in a body and in an ``__init__`` assignment alike; an attribute that is
-a ``@property`` through the property's return annotation. A method found on a type is then
+a ``@property`` through the property's return annotation; a parameter of a nested
+``def`` through its annotation, and a lambda parameter through the
+``Callable[[T, ...], R]`` annotation of the in-tree callee the lambda is passed to
+directly (#3144). A method found on a type is then
 looked up across that type's bases **and** its subclasses — the services here are
 annotated against ``I*Repository`` interfaces whose bodies are ``...``, so
 ignoring implementors would miss every write in the application.
@@ -55,7 +58,11 @@ than it says:
   process, under the same request, once the response body is on the wire.
 * **Writes through a receiver this module could not type.** Every one of those is
   counted and exposed as :func:`unresolved_call_count`; the sweep asserts a
-  ceiling on it, so the blind spot cannot grow silently. For the subset that
+  ceiling on its *genuine* part, so the blind spot cannot grow silently. A call
+  of a method a class of this tree inherits from a library base
+  (``model_validate``/``model_dump`` on a Pydantic model) is counted as
+  *external*, not genuine: the receiver is typed, and no annotation can resolve
+  it (#3144, :meth:`CallGraph._inherited_from_outside`). For the subset that
   matters most — a call whose *name* belongs to the repository write vocabulary —
   an untyped receiver falls back to every definition of that name, which
   over-reports rather than missing.
@@ -197,6 +204,12 @@ _BUILTIN_CONTAINER_FACTORIES = frozenset(
 #: this edge `AttachmentService.delete_if_unreferenced` stopped reading as a writer).
 _CALLABLE_ARGUMENT_SINKS = frozenset({"add_task", "to_thread"})
 
+#: External bases that carry no method an instance of this tree calls. A class
+#: whose only way out of the tree is one of these has NOT inherited its missing
+#: method from a library: an `I*Repository(ABC)` lacking a method is an interface
+#: that does not declare it — an annotation gap, not an external call (#3144).
+_METHODLESS_BASES = frozenset({"object", "ABC", "Protocol", "Generic"})
+
 _MAX_TYPE_DEPTH = 6
 
 
@@ -218,6 +231,9 @@ class FunctionNode:
         "_context_bindings",
         "context_manager",
         "_annotations",
+        "_parameters",
+        "_parameter_bindings",
+        "_lambda_bindings",
         "_return_annotation",
         "callees",
         "unresolved",
@@ -249,6 +265,19 @@ class FunctionNode:
         #: returns.
         self.context_manager = False
         self._annotations: dict[str, ast.expr] = {}
+        #: The positional parameters in declaration order, `self`/`cls` included:
+        #: what a lambda passed as the n-th argument binds to (#3144).
+        self._parameters: list[str] = []
+        #: `id(Name)` of every occurrence, in a NESTED `def` of this body, of a
+        #: parameter that `def` annotates — mapped to that annotation (#3144). The
+        #: walk of this body records the nested calls too, and this scope does
+        #: not otherwise know the nested parameters; keyed by occurrence, not by
+        #: name, so a parameter never retypes a namesake of the enclosing scope.
+        self._parameter_bindings: dict[int, ast.expr] = {}
+        #: `id(Name)` of every occurrence of a LAMBDA parameter -> `(call, position,
+        #: keyword, index)`: the call the lambda is passed to directly, where it
+        #: sits in it, and which lambda parameter the name is (#3144).
+        self._lambda_bindings: dict[int, tuple[ast.Call, int | None, str | None, int]] = {}
         self._return_annotation: ast.expr | None = None
         self.callees: list[FunctionNode] = []
         self.unresolved: list[str] = []
@@ -284,7 +313,7 @@ class FunctionNode:
 class ClassNode:
     """One `class` in the app tree: its bases, its methods and its attribute types."""
 
-    __slots__ = ("module", "name", "bases", "methods", "attributes", "explicit_attributes")
+    __slots__ = ("module", "name", "bases", "methods", "attributes", "explicit_attributes", "assigned_attributes")
 
     def __init__(self, module: str, name: str) -> None:
         self.module = module
@@ -296,6 +325,10 @@ class ClassNode:
         #: annotation, a property's return type. A bare `self.X = value` in any
         #: method only adds to the others; an explicit annotation is not widened.
         self.explicit_attributes: set[str] = set()
+        #: Every name a method assigns as `self.X = …`, typed or not. A call of
+        #: such an attribute is a callable the class holds, never a method it
+        #: inherited from a library base (#3144).
+        self.assigned_attributes: set[str] = set()
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostics only
         return f"<ClassNode {self.module}.{self.name}>"
@@ -637,9 +670,11 @@ class CallGraph:
         query_write_globals: set[str],
     ) -> None:
         fn._return_annotation = node.returns
+        fn._parameters = [argument.arg for argument in [*node.args.posonlyargs, *node.args.args]]
         for argument in [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]:
             if argument.annotation is not None:
                 fn._annotations[argument.arg] = argument.annotation
+        _bind_inner_parameters(node, fn)
         for inner in ast.walk(node):
             if isinstance(inner, ast.AnnAssign) and isinstance(inner.target, ast.Name):
                 fn._annotations.setdefault(inner.target.id, inner.annotation)
@@ -699,6 +734,15 @@ class CallGraph:
 
     def _types_of_inner(self, expression: ast.expr, scope: FunctionNode, depth: int) -> set[str]:
         if isinstance(expression, ast.Name):
+            bound = scope._parameter_bindings.get(id(expression))
+            if bound is not None:
+                # A parameter of a nested `def`, typed by its annotation exactly
+                # as a parameter of this function is (#3144).
+                return _base_names(bound)
+            if id(expression) in scope._lambda_bindings:
+                typed = self._lambda_parameter_types(expression, scope, depth + 1)
+                if typed:
+                    return typed
             if expression.id in {"self", "cls"} and scope.owner:
                 return {scope.owner}
             if expression.id in scope._annotations:
@@ -854,7 +898,7 @@ class CallGraph:
     def _annotations_of(self, expression: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
         """The annotations WRITTEN for an expression: a parameter, a `self.X`, a call's return type."""
         if isinstance(expression, ast.Name):
-            written = scope._annotations.get(expression.id)
+            written = scope._parameter_bindings.get(id(expression)) or scope._annotations.get(expression.id)
             return [written] if written is not None else []
         if isinstance(expression, ast.Attribute):
             found: list[ast.expr] = []
@@ -1035,7 +1079,7 @@ class CallGraph:
                 targets = self._call_targets(call, fn)
                 if not targets and isinstance(call.func, ast.Attribute):
                     self.unresolved_calls += 1
-                    if self._is_external_receiver(call.func.value, fn):
+                    if self._is_external_call(call, fn):
                         self.external_unresolved_calls += 1
                     else:
                         self.genuine_unresolved_calls += 1
@@ -1075,6 +1119,10 @@ class CallGraph:
         if depth > _MAX_TYPE_DEPTH:
             return False
         if isinstance(expression, ast.Name):
+            if id(expression) in scope._parameter_bindings:
+                return self._types_are_external(expression, scope)
+            if id(expression) in scope._lambda_bindings and self._lambda_parameter_types(expression, scope):
+                return self._types_are_external(expression, scope)
             if expression.id in scope._annotations or expression.id in {"self", "cls"}:
                 return self._types_are_external(expression, scope)
             local = scope._assignments.get(expression.id)
@@ -1120,6 +1168,113 @@ class CallGraph:
     def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
         found = self._types_of(expression, scope)
         return bool(found) and not (found & set(self.classes)) and not (found <= {"Any", "object"})
+
+    def _is_external_call(self, call: ast.Call, scope: FunctionNode) -> bool:
+        """Is this unresolved attribute call owned by something outside the tree? (#2039, #3144)
+
+        Either the receiver is (:meth:`_is_external_receiver`), or the receiver
+        is a class of THIS tree and the method is one it inherits from a library
+        base (:meth:`_inherited_from_outside`).
+        """
+        if not isinstance(call.func, ast.Attribute):  # pragma: no cover - link() counts attribute calls only
+            return False
+        return self._is_external_receiver(call.func.value, scope) or self._inherited_from_outside(call.func, scope)
+
+    def _inherited_from_outside(self, callee: ast.Attribute, scope: FunctionNode) -> bool:
+        """`Model.model_validate(...)`, `instance.model_dump()` on a Pydantic model of this tree (#3144).
+
+        The receiver's type is KNOWN and is a class of this tree, so the call is
+        not an annotation gap; the method is simply not written in the tree,
+        because the class inherits it from a base outside it (`BaseModel`,
+        `StrEnum`, `Exception`). Counting those as genuine gaps let the ceiling
+        of ``test_the_unresolved_receiver_count_does_not_grow`` fill up with the
+        natural Pydantic API — 50 ``model_validate`` calls alone.
+
+        Every condition below keeps a real gap genuine:
+
+        * every type the receiver can denote is a class of this tree — no
+          ``Any``/``object`` (the annotation saying "unknown") and no untyped
+          alternative;
+        * the name is neither a method nor an attribute — declared or merely
+          assigned as ``self.X = …`` — anywhere in that class's in-tree
+          ancestors or implementors: a callable the class HOLDS is the class's
+          own attribute, not a library method;
+        * no class of this tree defines a method of that name at all — a name the
+          tree does write somewhere may be a receiver annotated too narrowly,
+          and that is exactly the gap the ceiling exists for;
+        * the in-tree ancestors really leave the tree through a base that carries
+          methods. A class whose bases are all in the tree — or leave it only
+          through ``ABC``/``Protocol``/``Generic`` — and simply lacks the method
+          stays as it was: an interface that does not declare what its callers
+          use is the annotation gap, not an external call.
+
+        Resolution is untouched: the receiver is typed either way, so the name
+        fallback (untyped receivers only) is neither gained nor lost here — the
+        rule moves a count, never an edge.
+        """
+        types = self._types_of(callee.value, scope)
+        if not types or not types <= set(self.classes):
+            return False
+        if any(defined.owner for defined in self.by_name.get(callee.attr, ())):
+            return False
+        for name in types:
+            for klass in self._related_classes(name):
+                if (
+                    callee.attr in klass.methods
+                    or callee.attr in klass.attributes
+                    or callee.attr in klass.assigned_attributes
+                ):
+                    return False
+            if not any(
+                base not in self.classes and base not in _METHODLESS_BASES
+                for klass in self._ancestors(name)
+                for base in klass.bases
+            ):
+                return False
+        return True
+
+    def _lambda_parameter_types(self, name: ast.Name, scope: FunctionNode, depth: int = 0) -> set[str]:
+        """The class a lambda parameter is, if the callee's annotation says so (#3144).
+
+        One shape and nothing else: the lambda is passed DIRECTLY to a function or
+        method of this tree, and that callee annotates the parameter it lands in
+        as ``Callable[[T, ...], R]`` with ``T`` a class of this tree. Then the
+        lambda's n-th parameter is a ``T`` — ``self._propagate(lambda p:
+        p.on_care_confirmed(...))`` with ``_propagate(self, action:
+        Callable[[NotificationPropagationService], None])`` links to
+        ``NotificationPropagationService.on_care_confirmed``. A lambda stored in a
+        variable, returned, or passed to a callee that annotates nothing types
+        nothing: that would be inference, and a type this module invents lets a
+        gate certify a call it never saw.
+        """
+        call, position, keyword, index = scope._lambda_bindings[id(name)]
+        found: set[str] = set()
+        for target in self._call_targets(call, scope, depth + 1):
+            parameters = target._parameters
+            if (
+                isinstance(call.func, ast.Attribute)
+                and target.owner
+                and parameters
+                and parameters[0] in {"self", "cls"}
+            ):
+                parameters = parameters[1:]
+            if keyword is not None:
+                parameter = keyword
+            elif position is not None and position < len(parameters):
+                parameter = parameters[position]
+            else:
+                continue
+            annotation = target._annotations.get(parameter)
+            if annotation is None:
+                continue
+            for alternative in _alternatives(annotation):
+                head, parts = _subscript_parts(alternative)
+                if head != "Callable" or len(parts) != 2 or not isinstance(parts[0], ast.List):
+                    continue
+                arguments = parts[0].elts
+                if index < len(arguments):
+                    found |= _base_names(arguments[index]) & set(self.classes)
+        return found
 
     def _write_vocabulary(self) -> frozenset[str]:
         """Method names on repository classes that reach a direct write.
@@ -1259,6 +1414,7 @@ def _harvest_self_attributes(node: ast.FunctionDef | ast.AsyncFunctionDef, klass
     for inner in ast.walk(node):
         if isinstance(inner, ast.AnnAssign) and isinstance(inner.target, ast.Attribute):
             if isinstance(inner.target.value, ast.Name) and inner.target.value.id == "self":
+                klass.assigned_attributes.add(inner.target.attr)
                 _record_attribute(klass, inner.target.attr, inner.annotation, explicit=True)
         elif isinstance(inner, ast.Assign):
             for target in inner.targets:
@@ -1266,9 +1422,93 @@ def _harvest_self_attributes(node: ast.FunctionDef | ast.AsyncFunctionDef, klass
                     continue
                 if target.value.id != "self":
                     continue
+                klass.assigned_attributes.add(target.attr)
                 annotation = _attribute_annotation(inner.value, parameters)
                 if annotation is not None:
                     _record_attribute(klass, target.attr, annotation, explicit=False)
+
+
+def _bind_inner_parameters(node: ast.FunctionDef | ast.AsyncFunctionDef, fn: FunctionNode) -> None:
+    """Type the parameters of the nested `def`s and lambdas inside `node`'s body (#3144).
+
+    The walk of a function body records the calls of its nested functions and
+    lambdas as its own, but nothing told this scope what their parameters are, so
+    `def keys(entry: Dosage) -> ...: entry.get(...)` nested in a method was an
+    untyped receiver there. Each OCCURRENCE of such a parameter is bound by
+    identity, never by name: a nested `entry` must not retype an `entry` of the
+    enclosing body.
+
+    A nested `def` binds a parameter it annotates to that annotation. A lambda
+    binds its parameters to the call it is passed to directly — resolved later by
+    :meth:`CallGraph._lambda_parameter_types`, which needs the graph. A lambda not
+    passed to a call binds nothing. Occurrences under a nested scope that rebinds
+    the same name (a deeper `def`/lambda, which binds its own, or a comprehension
+    target) are left alone.
+    """
+    call_sites: dict[int, tuple[ast.Call, int | None, str | None]] = {}
+    for inner in ast.walk(node):
+        if isinstance(inner, ast.Call):
+            for position, argument in enumerate(inner.args):
+                if isinstance(argument, ast.Lambda):
+                    call_sites[id(argument)] = (inner, position, None)
+            for word in inner.keywords:
+                if isinstance(word.value, ast.Lambda) and word.arg is not None:
+                    call_sites[id(word.value)] = (inner, None, word.arg)
+    for inner in ast.walk(node):
+        if inner is node or not isinstance(inner, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            continue
+        arguments = [*inner.args.posonlyargs, *inner.args.args, *inner.args.kwonlyargs]
+        body: list[ast.AST] = list(inner.body) if isinstance(inner.body, list) else [inner.body]
+        if isinstance(inner, ast.Lambda):
+            site = call_sites.get(id(inner))
+            if site is None:
+                continue
+            positional = [*inner.args.posonlyargs, *inner.args.args]
+            for index, argument in enumerate(positional):
+                for occurrence in _occurrences(body, argument.arg):
+                    fn._lambda_bindings[id(occurrence)] = (*site, index)
+            continue
+        for argument in arguments:
+            if argument.annotation is None:
+                continue
+            for occurrence in _occurrences(body, argument.arg):
+                fn._parameter_bindings[id(occurrence)] = argument.annotation
+
+
+def _occurrences(body: list[ast.AST], name: str) -> list[ast.Name]:
+    """Every `Name` reading `name` in `body`, not descending into a scope that rebinds it.
+
+    A comprehension that binds the name anywhere in its targets is skipped whole
+    — which of its parts see the outer binding is not worth deciding here.
+    """
+    found: list[ast.Name] = []
+    pending: list[ast.AST] = list(body)
+    while pending:
+        current = pending.pop()
+        if isinstance(current, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            rebound = {
+                argument.arg
+                for argument in [
+                    *current.args.posonlyargs,
+                    *current.args.args,
+                    *current.args.kwonlyargs,
+                    *([current.args.vararg] if current.args.vararg else []),
+                    *([current.args.kwarg] if current.args.kwarg else []),
+                ]
+            }
+            if name in rebound:
+                continue
+        elif isinstance(current, ast.ListComp | ast.SetComp | ast.DictComp | ast.GeneratorExp):
+            if any(
+                isinstance(bound, ast.Name) and bound.id == name
+                for generator in current.generators
+                for bound in ast.walk(generator.target)
+            ):
+                continue
+        elif isinstance(current, ast.Name) and current.id == name and isinstance(current.ctx, ast.Load):
+            found.append(current)
+        pending.extend(ast.iter_child_nodes(current))
+    return found
 
 
 def _attribute_annotation(source: ast.expr, parameters: dict[str, ast.expr]) -> ast.expr | None:

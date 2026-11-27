@@ -2503,8 +2503,8 @@ def control_dict_loop(repos: dict[str, InventedRepository]):
 }
 
 
-#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039); baseline 2743.
-_GENUINE_UNRESOLVED_CEILING = 2804
+#: The genuine-gap ceiling of `test_the_unresolved_receiver_count_does_not_grow` (#2039, #3144); baseline 2226.
+_GENUINE_UNRESOLVED_CEILING = 2287
 
 
 class TestTheDetectorTypesWhatIsWrittenDown:
@@ -2570,6 +2570,216 @@ class TestTheDetectorTypesWhatIsWrittenDown:
         assert any(edge[0] == caller.id for edge in graph.fallback_edges), (
             f"{function_name}: an untyped write-vocabulary call no longer falls back by name"
         )
+
+
+#: Two shapes #3144 measured as *genuine* annotation gaps although no annotation
+#: can close them, plus the controls that keep the repair from over-reaching.
+_INHERITED_AND_NESTED_TREE = {
+    **_SYNTHETIC_TREE,
+    "domain/inherited_and_nested.py": """
+from abc import ABC
+from collections.abc import Callable
+
+from pydantic import BaseModel
+
+from app.data_access.invented_repository import InventedRepository
+
+
+class Reading(BaseModel):
+    value: float
+    factory: Callable[[], int]
+
+
+class Plain:
+    def own(self) -> None:
+        return None
+
+
+class IThing(ABC):
+    def declared(self) -> None: ...
+
+
+class Exporter:
+    def export(self) -> None:
+        return None
+
+
+class Runner:
+    def run(self, action: Callable[[InventedRepository], object]) -> None:
+        action(InventedRepository(None))
+
+
+class LooseRunner:
+    def run(self, action) -> None:
+        action(InventedRepository(None))
+
+
+class DictRunner:
+    def run(self, action: Callable[[dict], object]) -> None:
+        action({})
+
+
+def external_inherited(raw: dict, reading: Reading) -> dict:
+    Reading.model_validate(raw)
+    return reading.model_dump()
+
+
+def genuine_missing_on_in_tree_class(plain: Plain):
+    plain.model_dump()
+
+
+def genuine_missing_on_an_interface(thing: IThing):
+    thing.model_dump()
+
+
+def genuine_named_elsewhere_in_the_tree(reading: Reading):
+    reading.export()
+
+
+def genuine_held_attribute(reading: Reading):
+    reading.factory()
+
+
+def run_nested_def(key: str):
+    def write(repo: InventedRepository) -> None:
+        repo.create({"key": key})
+
+    return write
+
+
+def control_nested_namesake(repo):
+    def write(repo: Plain) -> None:
+        repo.own()
+
+    repo.create({})
+    return write
+
+
+def run_lambda(runner: Runner):
+    runner.run(lambda repo: repo.create({}))
+
+
+def run_lambda_keyword(runner: Runner):
+    runner.run(action=lambda repo: repo.create({}))
+
+
+def control_lambda_unannotated_callee(runner: LooseRunner):
+    runner.run(lambda repo: repo.create({}))
+
+
+def control_lambda_external_parameter(runner: DictRunner):
+    runner.run(lambda repo: repo.create({}))
+
+
+def control_lambda_in_a_variable(runner: Runner):
+    action = lambda repo: repo.create({})  # noqa: E731
+    runner.run(action)
+""",
+}
+
+_INVENTED_CREATE = "app.data_access.invented_repository::InventedRepository.create"
+
+
+class TestTheCountSeesInheritedMethodsAndNestedParameters:
+    """#3144: what the genuine-gap ceiling counted that no annotation can close.
+
+    * ``Reading.model_validate(...)`` / ``reading.model_dump()`` on a Pydantic
+      model of this tree: the receiver IS typed, the method is inherited from
+      ``BaseModel``. It is an *external* unresolved call, like a ``dict.get``.
+    * A parameter of a nested ``def`` and of a lambda: the enclosing function's
+      walk records the nested calls as its own, and nothing told it what those
+      parameters are — even an annotated one. A nested ``def`` is now typed by its
+      annotation, a lambda by the ``Callable[[T], …]`` annotation of the in-tree
+      callee it is passed to directly.
+
+    The controls are the half that matters more: a class whose bases stay in the
+    tree (or leave it only through ``ABC``) and lacks the method, a name the tree
+    defines on an unrelated class, and a callable the model HOLDS stay genuine
+    gaps; a nested parameter does not retype a namesake of the enclosing body; and
+    a lambda whose callee annotates nothing, annotates a non-tree type, or that is
+    not passed directly stays untyped and keeps its name fallback.
+    """
+
+    @pytest.fixture
+    def graph(self, tmp_path: pathlib.Path) -> CallGraph:
+        root = tmp_path
+        for relative, source in _INHERITED_AND_NESTED_TREE.items():
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
+        graph = CallGraph()
+        graph.parse_tree(root)
+        graph.link()
+        return graph
+
+    @staticmethod
+    def _function(graph: CallGraph, name: str):
+        return graph.by_id[f"app.domain.inherited_and_nested::{name}"]
+
+    def _split(self, graph: CallGraph, name: str) -> tuple[int, int]:
+        """`(external, genuine)` unresolved attribute calls of one function, as `link()` counts them."""
+        function = self._function(graph, name)
+        unresolved = [
+            call
+            for call in function._call_nodes
+            if isinstance(call.func, ast.Attribute) and not graph._call_targets(call, function)
+        ]
+        external = sum(1 for call in unresolved if graph._is_external_call(call, function))
+        return external, len(unresolved) - external
+
+    def _typed_callees(self, graph: CallGraph, name: str) -> set[str]:
+        caller = self._function(graph, name)
+        return {callee.id for callee in caller.callees if (caller.id, callee.id) not in graph.fallback_edges}
+
+    def _fell_back(self, graph: CallGraph, name: str) -> bool:
+        caller = self._function(graph, name)
+        return any(edge[0] == caller.id for edge in graph.fallback_edges)
+
+    def test_a_method_inherited_from_an_external_base_is_external(self, graph: CallGraph) -> None:
+        assert self._split(graph, "external_inherited") == (2, 0)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "genuine_missing_on_in_tree_class",
+            "genuine_missing_on_an_interface",
+            "genuine_named_elsewhere_in_the_tree",
+            "genuine_held_attribute",
+        ],
+    )
+    def test_a_method_the_tree_could_still_owe_stays_genuine(self, graph: CallGraph, name: str) -> None:
+        """The over-reach guard: each of these is a gap an annotation or a declaration can close."""
+        assert self._split(graph, name) == (0, 1), name
+
+    def test_an_annotated_nested_parameter_resolves_by_its_type(self, graph: CallGraph) -> None:
+        assert _INVENTED_CREATE in self._typed_callees(graph, "run_nested_def")
+        assert not self._fell_back(graph, "run_nested_def")
+        assert "create" not in self._function(graph, "run_nested_def").unresolved
+
+    def test_a_nested_parameter_does_not_retype_a_namesake_of_the_enclosing_body(self, graph: CallGraph) -> None:
+        """`repo: Plain` of the nested `def` types ITS occurrences, never the outer untyped `repo`."""
+        caller = self._function(graph, "control_nested_namesake")
+
+        assert "app.domain.inherited_and_nested::Plain.own" in self._typed_callees(graph, "control_nested_namesake")
+        assert "create" in caller.unresolved
+        assert self._fell_back(graph, "control_nested_namesake")
+
+    @pytest.mark.parametrize("name", ["run_lambda", "run_lambda_keyword"])
+    def test_a_lambda_parameter_is_typed_by_the_callees_callable_annotation(self, graph: CallGraph, name: str) -> None:
+        assert _INVENTED_CREATE in self._typed_callees(graph, name)
+        assert not self._fell_back(graph, name), f"{name}: still linked by the name fallback"
+        assert graph.by_id[f"app.domain.inherited_and_nested::{name}"].id in graph.writers()
+
+    @pytest.mark.parametrize(
+        "name",
+        ["control_lambda_unannotated_callee", "control_lambda_external_parameter", "control_lambda_in_a_variable"],
+    )
+    def test_a_lambda_the_source_does_not_type_stays_untyped(self, graph: CallGraph, name: str) -> None:
+        caller = self._function(graph, name)
+
+        assert _INVENTED_CREATE not in self._typed_callees(graph, name), f"{name} was typed by a guess"
+        assert "create" in caller.unresolved, f"{name}: {caller.unresolved}"
+        assert self._fell_back(graph, name), f"{name}: an untyped write-vocabulary call lost its fallback"
 
 
 class TestPersistingReadsAreSweptLikeWrites:
@@ -3046,10 +3256,36 @@ class TestPersistingReadsAreSweptLikeWrites:
         previous ceiling had over 2839), not a quality target: a refactor that
         un-annotates a layer shows up here instead of as a quietly shrinking set
         of findings.
+
+        Re-baselined 2026-11-27 on develop 14d1c1a28 (#3144), after that headroom
+        had run out: the tree measured 2803 against the ceiling of 2804, and two
+        branches had already bent their code around the guard. 577 of those 2803
+        were not gaps an annotation can close. 555 are calls of a method a class
+        of this tree inherits from a library base — 376 Pydantic methods
+        (``model_dump`` 274, ``model_copy`` 49, ``model_validate`` 48,
+        ``model_dump_json`` 4, ``model_construct`` 1) and 179 ``append``/``extend``
+        on a ``list[Model]`` receiver, which the detector types by its element —
+        and now count as external (``CallGraph._inherited_from_outside``). 14
+        receivers are parameters of a nested ``def`` whose annotation names a type
+        from outside the tree (``dict``, ``str``, ``re.Match``, an exception, a
+        future) and moved to external with it. 8 calls newly resolve to a class of
+        this tree: two calls on the nested ``def`` parameter ``reads:
+        ReservationReads`` in ``PlantingReservationService.reserve_slots``, two
+        lambdas passed to
+        ``WeatherSourceService._ha_entities``, and the four lambdas passed to
+        ``CareReminderService._propagate``, whose ``action`` is now annotated.
+        Measured result: 14346 unresolved = 2803 genuine + 11543 external before,
+        14338 = 2226 genuine + 12112 external after (the 8 resolutions are the
+        difference in total). No call lost a target, no edge and no name-fallback
+        edge (2545 before and after) disappeared, no function stopped reading as a
+        writer; one newly does — ``_propagate_care_reschedule``, which really
+        upserts the care notification — and seven write routes reach the
+        notification writes behind it. The ceiling is the new genuine baseline
+        plus the same 61 of headroom.
         """
         assert genuine_unresolved_call_count() < _GENUINE_UNRESOLVED_CEILING, (
             f"{genuine_unresolved_call_count()} attribute calls resolve to no receiver type and no external "
-            "owner, up from the 2743 measured on 2026-10-04. The detector is guessing on more of the tree "
+            "owner, up from the 2226 measured on 2026-11-27. The detector is guessing on more of the tree "
             "than it was; check what stopped carrying annotations before trusting a green run."
         )
         assert genuine_unresolved_call_count() + external_unresolved_call_count() == unresolved_call_count()

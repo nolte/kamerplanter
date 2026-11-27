@@ -664,11 +664,14 @@ class CareReminderService:
                 time.sleep(_RACE_REREAD_INTERVAL_SECONDS)
         return None
 
-    def _propagate(self, action) -> None:  # noqa: ANN001 — Callable[[NotificationPropagationService], None]
+    def _propagate(self, action: Callable[[NotificationPropagationService], object]) -> None:
         """Run a notification-propagation ``action`` when the coupling is wired.
 
         Best-effort (NFR-007): a notification-centre failure is logged and swallowed
-        so it can never abort the underlying care mutation.
+        so it can never abort the underlying care mutation. What ``action`` returns
+        is ignored (``object``, so ``catch_up_care_notification``'s ``bool`` fits).
+        The annotation is also what lets the write-route call graph type the
+        lambdas passed here and link them to the propagation service (#3144).
         """
         if self._notifications is None:
             return
