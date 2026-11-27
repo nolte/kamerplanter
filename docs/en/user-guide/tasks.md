@@ -219,7 +219,7 @@ The task overview provides these filters:
     When you remove a plant, its still-open tasks (pending, in progress, dormant) are automatically removed from the queue. Tasks that were already completed, skipped, or failed are kept as history. Removed plants also no longer generate new automatic care reminders.
 
 ??? question "Does Kamerplanter automatically escalate overdue tasks?"
-    Only for **watering reminders**: if a watering reminder remains unconfirmed, the system raises the notification urgency to "High" after 2 days and to "Critical" after 4 days; a final warning follows after 7 days. There is no automatic escalation for other task types — the red overdue marking is purely a visual indicator there.
+    Only for **watering reminders**: if a watering reminder remains unconfirmed, the system raises the notification urgency to "High" 2 days after the due day and to "Critical" after 4 days; a final warning follows after 7 days. There is no automatic escalation for other task types — the red overdue marking is purely a visual indicator there.
 
 ??? question "Can I create recurring tasks?"
     Yes, directly when creating a task via the **Recurrence** field (daily/weekly/biweekly/monthly) — visible from the "Intermediate" experience level onward. As soon as you complete a recurring task, Kamerplanter automatically creates the next instance.

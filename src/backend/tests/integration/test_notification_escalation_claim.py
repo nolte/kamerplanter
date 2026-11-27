@@ -36,6 +36,7 @@ TENANT = "tenant-claim"
 OTHER_TENANT = "tenant-other"
 KEY = "notif-claim-1"
 READ_AT = "2026-11-20T08:00:00+00:00"
+DUE = "2026-11-10T00:00:00+00:00"
 
 pytestmark = pytest.mark.usefixtures("arango_db")
 
@@ -69,6 +70,7 @@ def db(database: StandardDatabase) -> StandardDatabase:
             "read_at": READ_AT,
             "acted_at": None,
             "legacy_attr": "kept",
+            "data": {"due_date": DUE},
             "created_at": "2026-11-01T00:00:00+00:00",
         }
     )
@@ -83,8 +85,8 @@ class TestTheRepositoryClaim:
     def test_raises_the_level_once_and_touches_nothing_else(self, db: StandardDatabase) -> None:
         repo = ArangoNotificationRepository(db)
 
-        first = repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1)
-        second = repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1)
+        first = repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE)
+        second = repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE)
 
         assert first is not None
         assert first.escalation_level == 1
@@ -96,23 +98,114 @@ class TestTheRepositoryClaim:
 
     def test_never_lowers_a_level(self, db: StandardDatabase) -> None:
         repo = ArangoNotificationRepository(db)
-        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=3) is not None
+        for level in (1, 2, 3):
+            assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=level, due_date=DUE) is not None
 
-        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=2) is None
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=2, due_date=DUE) is None
         assert _stored(db)["escalation_level"] == 3
+
+    def test_a_level_cannot_be_skipped(self, db: StandardDatabase) -> None:
+        """#3135: only the next level — a run holding an old read cannot jump a level another run claimed."""
+        repo = ArangoNotificationRepository(db)
+
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=2, due_date=DUE) is None
+        assert _stored(db)["escalation_level"] == 0
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE) is not None
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=3, due_date=DUE) is None
+        assert _stored(db)["escalation_level"] == 1
+
+    @pytest.mark.parametrize("stored", ["absent", None])
+    def test_a_row_without_a_level_claims_level_one(self, db: StandardDatabase, stored: object) -> None:
+        """A legacy row without the field (or with null) is at level 0, not stranded (#3135)."""
+        if stored == "absent":
+            doc = _stored(db)
+            del doc["escalation_level"]
+            db.collection(col.NOTIFICATIONS).replace(doc)
+            assert "escalation_level" not in _stored(db)
+        else:
+            db.collection(col.NOTIFICATIONS).update({"_key": KEY, "escalation_level": None}, keep_none=True)
+            assert _stored(db)["escalation_level"] is None
+
+        repo = ArangoNotificationRepository(db)
+        claimed = repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE)
+
+        assert claimed is not None
+        assert _stored(db)["escalation_level"] == 1
+
+
+class TestTheClaimIsForTheSelectedOccurrence:
+    """#3135: between the overdue read and the claim the row can be watered or move on."""
+
+    def test_a_row_watered_meanwhile_claims_nothing(self, db: StandardDatabase) -> None:
+        db.collection(col.NOTIFICATIONS).update({"_key": KEY, "acted_at": "2026-11-20T09:00:00+00:00"})
+
+        assert (
+            ArangoNotificationRepository(db).claim_escalation_level(
+                KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE
+            )
+            is None
+        )
+        assert _stored(db)["escalation_level"] == 0
+
+    def test_a_row_announcing_another_occurrence_claims_nothing(self, db: StandardDatabase) -> None:
+        db.collection(col.NOTIFICATIONS).update({"_key": KEY, "data": {"due_date": "2026-11-27T00:00:00+00:00"}})
+
+        assert (
+            ArangoNotificationRepository(db).claim_escalation_level(
+                KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE
+            )
+            is None
+        )
+        assert _stored(db)["escalation_level"] == 0
+
+    def test_an_empty_due_date_claims_nothing(self, db: StandardDatabase) -> None:
+        assert (
+            ArangoNotificationRepository(db).claim_escalation_level(
+                KEY, tenant_key=TENANT, escalation_level=1, due_date=""
+            )
+            is None
+        )
+
+
+class TestTheRefreshLeavesTheLevelAlone:
+    """#3135: the full-model refresh never writes ``escalation_level``; only claim and reset move it."""
+
+    def test_a_claim_between_the_refreshs_read_and_write_survives(self, db: StandardDatabase) -> None:
+        repo = ArangoNotificationRepository(db)
+        stale = repo.get(KEY)
+        assert stale is not None and stale.escalation_level == 0
+        assert repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE) is not None
+
+        stale.title = "refreshed"
+        repo.update(KEY, stale)
+
+        stored = _stored(db)
+        assert stored["title"] == "refreshed"
+        assert stored["escalation_level"] == 1
+
+    def test_the_reset_is_its_own_tenant_scoped_write(self, db: StandardDatabase) -> None:
+        repo = ArangoNotificationRepository(db)
+        repo.claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE)
+
+        assert repo.reset_escalation_level(KEY, tenant_key=OTHER_TENANT) is False
+        assert repo.reset_escalation_level(KEY, tenant_key="") is False
+        assert _stored(db)["escalation_level"] == 1
+        assert repo.reset_escalation_level(KEY, tenant_key=TENANT) is True
+        stored = _stored(db)
+        assert stored["escalation_level"] == 0
+        assert stored["read_at"] == READ_AT
+        assert repo.reset_escalation_level(KEY, tenant_key=TENANT) is False
 
     def test_another_tenant_claims_nothing(self, db: StandardDatabase) -> None:
         repo = ArangoNotificationRepository(db)
 
-        assert repo.claim_escalation_level(KEY, tenant_key=OTHER_TENANT, escalation_level=1) is None
-        assert repo.claim_escalation_level(KEY, tenant_key="", escalation_level=1) is None
+        assert repo.claim_escalation_level(KEY, tenant_key=OTHER_TENANT, escalation_level=1, due_date=DUE) is None
+        assert repo.claim_escalation_level(KEY, tenant_key="", escalation_level=1, due_date=DUE) is None
         assert _stored(db)["escalation_level"] == 0
 
     def test_an_unknown_key_claims_nothing(self, db: StandardDatabase) -> None:
-        assert (
-            ArangoNotificationRepository(db).claim_escalation_level("nope", tenant_key=TENANT, escalation_level=1)
-            is None
-        )
+        repo = ArangoNotificationRepository(db)
+        assert repo.claim_escalation_level("nope", tenant_key=TENANT, escalation_level=1, due_date=DUE) is None
 
 
 class _RendezvousRepo(ArangoNotificationRepository):
@@ -126,9 +219,13 @@ class _RendezvousRepo(ArangoNotificationRepository):
         self._barrier.wait(timeout=10)
         return super().get(key)
 
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+    def claim_escalation_level(
+        self, key: str, *, tenant_key: str, escalation_level: int, due_date: str
+    ) -> Notification | None:
         self._barrier.wait(timeout=10)
-        return super().claim_escalation_level(key, tenant_key=tenant_key, escalation_level=escalation_level)
+        return super().claim_escalation_level(
+            key, tenant_key=tenant_key, escalation_level=escalation_level, due_date=due_date
+        )
 
 
 def test_two_overlapping_escalation_runs_claim_the_level_exactly_once(db: StandardDatabase) -> None:
@@ -151,5 +248,5 @@ def test_two_overlapping_escalation_runs_claim_the_level_exactly_once(db: Standa
 
 def test_the_claim_stamps_updated_at(db: StandardDatabase) -> None:
     before = datetime.now(UTC).isoformat()
-    ArangoNotificationRepository(db).claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1)
+    ArangoNotificationRepository(db).claim_escalation_level(KEY, tenant_key=TENANT, escalation_level=1, due_date=DUE)
     assert _stored(db)["updated_at"] >= before

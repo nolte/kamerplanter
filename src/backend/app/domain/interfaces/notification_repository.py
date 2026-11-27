@@ -63,13 +63,27 @@ class INotificationRepository(ABC):
     def mark_acted(self, key: str, acted_at: datetime) -> Notification | None: ...
 
     @abstractmethod
-    def claim_escalation_level(self, key: str, *, tenant_key: str, escalation_level: int) -> Notification | None:
+    def claim_escalation_level(
+        self, key: str, *, tenant_key: str, escalation_level: int, due_date: str
+    ) -> Notification | None:
         """Raise the row's ``escalation_level`` to ``escalation_level`` in ONE conditional write.
 
-        Writes only when the row exists, belongs to ``tenant_key`` and is still
-        below the level; returns the updated row, else ``None``. A partial update —
-        no other field is touched. Two concurrent callers cannot both get a row back
-        for the same level: that is the escalation claim (ADR-008 F-8).
+        Writes only when the row exists, belongs to ``tenant_key``, stands at
+        exactly ``escalation_level - 1`` (a missing level counts as 0, #3135), is
+        not acted on and still announces ``due_date`` — the occurrence the caller
+        selected (#3135);
+        returns the updated row, else ``None``. A partial update — no other field
+        is touched. Two concurrent callers cannot both get a row back for the same
+        level: that is the escalation claim (ADR-008 F-8).
+        """
+        ...
+
+    @abstractmethod
+    def reset_escalation_level(self, key: str, *, tenant_key: str) -> bool:
+        """Set the tenant's row back to ``escalation_level`` 0 in ONE conditional write (#3135).
+
+        A new occurrence starts a new escalation cycle. :meth:`update` never writes the
+        level, so this is the only way it goes down. ``True`` when a row was reset.
         """
         ...
 
@@ -80,7 +94,14 @@ class INotificationRepository(ABC):
         escalation_level: int,
         *,
         tenant_key: str,
-    ) -> list[Notification]: ...
+    ) -> list[Notification]:
+        """The tenant's unacted watering reminder rows at ``escalation_level`` whose announced
+        due date (:func:`~app.domain.models.notification.announced_due_date`) is before
+        ``overdue_since`` (#3135). Only the plant's reminder row (``care.watering`` in a
+        ``care.watering:<plant>`` group) is returned — never an escalation row, never a
+        due-care dispatch row; an empty tenant returns nothing.
+        """
+        ...
 
     @abstractmethod
     def exists_by_group_key(self, group_key: str, *, tenant_key: str) -> bool:

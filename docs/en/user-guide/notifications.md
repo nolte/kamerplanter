@@ -172,13 +172,15 @@ Enabling **Daily summary** additionally sends you a once-daily overview of all p
 
 ### Escalation for Overdue Watering
 
-If a watering reminder remains unconfirmed, Kamerplanter repeats it with increasing urgency:
+If a watering reminder remains unconfirmed, Kamerplanter repeats it with increasing urgency. The days count as calendar days (UTC) from the day the watering is due — not from the day the reminder arrived, and not from the time of day:
 
 | Time | Urgency |
 |------|---------|
 | +2 days overdue | High |
 | +4 days overdue | Critical |
 | +7 days overdue | Critical (final reminder) |
+
+A reminder rises by at most one level per day. Every new watering starts over, and nothing escalates after the plant was watered. Only the plant's watering reminder escalates, not the morning due notice as well. If only the date moves, for example through dormancy, levels already sent are not sent again, and the remaining ones follow the new date.
 
 These escalation days are fixed and currently not individually configurable; you can, however, turn escalation for watering reminders on or off entirely. There is no escalation for other reminder types (fertilizing, repotting, pest check).
 

@@ -40,6 +40,8 @@ from datetime import UTC, date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from freezegun import freeze_time
+
 from app.common.enums import (
     ConfirmAction,
     ReminderType,
@@ -512,7 +514,8 @@ def test_after_the_close_the_escalation_finds_nothing_to_escalate() -> None:
 
     for level in range(3):
         assert repo.find_overdue_watering(datetime.now(UTC), level, tenant_key=TENANT) == []
-    assert asyncio.run(_escalation_engine(repo).escalate_overdue(TENANT)) == {"escalated": 0}
+    engine = _escalation_engine(repo)
+    assert asyncio.run(engine.escalate_overdue(TENANT, is_active_member=lambda u, t: True)) == {"escalated": 0}
     assert repo.escalations() == []
 
 
@@ -584,3 +587,34 @@ def test_leaving_dormancy_without_watering_creates_the_next_task_and_its_note() 
     # A further spring/growing evaluation creates no second task.
     world.transition(SeasonPhase.GROWING)
     assert len(world.task_repo.created) == 1
+
+
+# ── #3135: a note retimed into the future is not "overdue" ──────────────────
+
+
+def test_a_note_retimed_into_dormancy_is_not_escalated_while_it_is_not_due() -> None:
+    """The retimed note keeps its old ``created_at``; the escalation reads its due date (#3135).
+
+    Before #3135 the overdue query keyed on ``created_at``: the note was as old as
+    the occurrence it first announced, so after the switch to ``minimal`` (due in
+    38 days) it still escalated as "Overdue" two days later.
+    """
+    frozen = NORMAL_DUE + timedelta(days=9, hours=12)  # nine days overdue at the beat
+    with freeze_time(frozen):
+        world = _overdue_note_world(dormant=False, task_due=NORMAL_DUE)
+        repo = world.notification_repo
+        assert isinstance(repo, EscalationNotificationRepo)
+        world.note().created_at = NORMAL_DUE  # born with the occurrence it announced
+        # Not vacuous: before the transition the note is due for escalation.
+        assert repo.find_overdue_watering(frozen - timedelta(days=2), 0, tenant_key=TENANT) != []
+
+        world.transition(SeasonPhase.WINTER_DORMANCY)
+
+        assert world.note().data["due_date"] == DORMANT_DUE.isoformat()
+        assert world.note().created_at == NORMAL_DUE, "premise: the retimed note keeps its creation time"
+        engine = _escalation_engine(repo)
+        assert asyncio.run(engine.escalate_overdue(TENANT, is_active_member=lambda u, t: True)) == {"escalated": 0}
+        assert repo.escalations() == []
+
+    with freeze_time(DORMANT_DUE + timedelta(days=2, hours=12)):
+        assert asyncio.run(engine.escalate_overdue(TENANT, is_active_member=lambda u, t: True)) == {"escalated": 1}

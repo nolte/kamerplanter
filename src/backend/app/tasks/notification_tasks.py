@@ -238,17 +238,21 @@ def escalate_overdue_notifications() -> dict:
     """Escalate overdue watering reminders.
 
     Runs daily at 12:00 UTC. Checks for unacted watering notifications
-    and sends escalation notifications with increasing urgency.
+    and sends escalation notifications with increasing urgency — only to a
+    recipient who is still an active member of the tenant (#2114, #3135).
 
-    Escalation levels:
+    Escalation levels, counted from the announced due date (#3135):
     - Day +2: urgency -> HIGH
     - Day +4: urgency -> CRITICAL
     - Day +7: final warning
     """
-    from app.common.dependencies import get_notification_service, get_tenant_repo
+    from app.common.dependencies import get_membership_repo, get_notification_service, get_tenant_repo
 
     service = get_notification_service()
     tenant_repo = get_tenant_repo()
+    # #2114 — the recipient of an overdue reminder must still be an active member, the
+    # rule the due-care dispatch applies to the same reminders (#3135).
+    is_active_member = _ActiveMembers(get_membership_repo(), tenant_repo)
 
     # Get all tenants
     tenants = [_as_doc(t) for t in get_all_pages(tenant_repo)]
@@ -265,7 +269,7 @@ def escalate_overdue_notifications() -> dict:
             continue
 
         try:
-            result = asyncio.run(service._engine.escalate_overdue(tenant_key))
+            result = asyncio.run(service._engine.escalate_overdue(tenant_key, is_active_member=is_active_member))
             escalated = result.get("escalated", 0)
             total_escalated += escalated
             tenants_processed += 1
@@ -427,6 +431,7 @@ def send_email_digests(self) -> dict:
     from datetime import timedelta
 
     from app.common.dependencies import (
+        get_membership_repo,
         get_notification_preference_repo,
         get_notification_service,
         get_tenant_repo,
@@ -434,8 +439,10 @@ def send_email_digests(self) -> dict:
 
     preference_repo = get_notification_preference_repo()
     service = get_notification_service()
-    # REQ-056 §5.2 — what was notified about a tenant that is no longer active is not delivered.
-    tenant_is_active = ActiveTenants(get_tenant_repo())
+    # REQ-056 §5.2 — what was notified about a tenant that is no longer active is not delivered —
+    # and #2114: nor about a tenant the recipient is no longer an active member of. The digest reads
+    # the user's rows of every tenant; one created the day the user left would otherwise be mailed after.
+    is_active_member = _ActiveMembers(get_membership_repo(), get_tenant_repo())
 
     since = datetime.now(UTC) - timedelta(hours=24)
     candidates = preference_repo.list_users_with_digest_enabled()
@@ -450,8 +457,11 @@ def send_email_digests(self) -> dict:
         if not user_key:
             continue
 
+        def recipient_may_see(tenant_key: str, user_key: str = user_key) -> bool:
+            return is_active_member(user_key, tenant_key)
+
         try:
-            result = asyncio.run(service.send_email_digest(user_key, since, tenant_is_active=tenant_is_active))
+            result = asyncio.run(service.send_email_digest(user_key, since, tenant_is_active=recipient_may_see))
         except Exception:
             logger.exception("email_digest_user_failed", subject=log_subject(user_key))
             digests_failed += 1

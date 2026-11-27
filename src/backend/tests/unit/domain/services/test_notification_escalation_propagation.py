@@ -47,6 +47,11 @@ OTHER_TENANT = "tenant-B"
 USER = "user-a"
 
 
+def _member(user_key: str, tenant_key: str) -> bool:
+    """Every recipient is an active member here; the membership rule has its own tests."""
+    return bool(user_key and tenant_key)
+
+
 def _seed(repo: EscalationNotificationRepo, *, tenant_key: str = TENANT, days_old: int = 3) -> str:
     return repo.seed_overdue_care_row(tenant_key=tenant_key, user_key=USER, days_old=days_old)
 
@@ -80,8 +85,8 @@ class TestEscalationRunIsIdempotent:
         original_key = _seed(repo)
         engine = _engine(repo)
 
-        first = asyncio.run(engine.escalate_overdue(TENANT))
-        second = asyncio.run(engine.escalate_overdue(TENANT))
+        first = asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member))
+        second = asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member))
 
         assert first == {"escalated": 1}
         assert second == {"escalated": 0}
@@ -99,12 +104,12 @@ class TestEscalationRunIsIdempotent:
             level: repo.find_overdue_watering(datetime.now(UTC), level, tenant_key=TENANT) for level in range(3)
         }
         engine = _engine(repo)
-        asyncio.run(engine.escalate_overdue(TENANT))
+        asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member))
 
         repo.find_overdue_watering = lambda overdue_since, escalation_level, *, tenant_key: [  # type: ignore[method-assign]
             row.model_copy(deep=True) for row in snapshot.get(escalation_level, [])
         ]
-        second = asyncio.run(engine.escalate_overdue(TENANT))
+        second = asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member))
 
         assert second == {"escalated": 0}
         assert len(repo.escalations()) == 1
@@ -117,7 +122,7 @@ class TestEscalationRunIsIdempotent:
         read_at = datetime.now(UTC) - timedelta(hours=1)
         repo.mark_read(original_key, read_at)
 
-        asyncio.run(_engine(repo).escalate_overdue(TENANT))
+        asyncio.run(_engine(repo).escalate_overdue(TENANT, is_active_member=_member))
 
         stored = repo.get(original_key)
         assert stored.escalation_level == 1
@@ -132,7 +137,7 @@ class TestEscalationRunFailsClosedPerTenant:
         _seed(repo)
         rows_before = len(repo.all_rows())
 
-        result = asyncio.run(_engine(repo).escalate_overdue(""))
+        result = asyncio.run(_engine(repo).escalate_overdue("", is_active_member=_member))
 
         assert result == {"escalated": 0}
         assert repo.claims == []
@@ -142,7 +147,7 @@ class TestEscalationRunFailsClosedPerTenant:
         repo = EscalationNotificationRepo()
         _seed(repo, tenant_key="")
 
-        result = asyncio.run(_engine(repo).escalate_overdue(TENANT))
+        result = asyncio.run(_engine(repo).escalate_overdue(TENANT, is_active_member=_member))
 
         assert result == {"escalated": 0}
         assert repo.claims == []
@@ -153,13 +158,13 @@ class TestEscalationRunFailsClosedPerTenant:
         foreign_key = _seed(repo, tenant_key=OTHER_TENANT)
         engine = _engine(repo)
 
-        assert asyncio.run(engine.escalate_overdue(TENANT)) == {"escalated": 0}
+        assert asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member)) == {"escalated": 0}
         assert repo.claims == []
         assert repo.escalations() == []
         # Never read either: the preferences of the foreign row's user are not loaded.
         engine._preference_repo.get_by_user.assert_not_called()
 
-        assert asyncio.run(engine.escalate_overdue(OTHER_TENANT)) == {"escalated": 1}
+        assert asyncio.run(engine.escalate_overdue(OTHER_TENANT, is_active_member=_member)) == {"escalated": 1}
         assert repo.claims == [(foreign_key, 1)]
         assert [row.tenant_key for row in repo.escalations()] == [OTHER_TENANT]
 
@@ -183,7 +188,7 @@ class TestOneFailingRowDoesNotAbortTheRun:
 
         engine.notify = AsyncMock(side_effect=notify)  # type: ignore[method-assign]
 
-        result = asyncio.run(engine.escalate_overdue(TENANT))
+        result = asyncio.run(engine.escalate_overdue(TENANT, is_active_member=_member))
 
         assert sorted(calls) == sorted([first_key, second_key])
         assert result == {"escalated": 1}

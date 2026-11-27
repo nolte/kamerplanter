@@ -43,7 +43,7 @@ def _wire(deps, *, profiles, plants_with_schedule=None):
     care_service._repo.get_last_confirmation.return_value = None
     # Default: never generate a reminder unless a test overrides it.
     care_service._engine.should_generate_reminder.return_value = False
-    care_service.ensure_next_watering_task.return_value = None
+    care_service.ensure_and_announce_next_watering_task.return_value = None
     deps.get_care_reminder_service.return_value = care_service
 
     run_repo = MagicMock()
@@ -92,7 +92,7 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 0}
-        service.ensure_next_watering_task.assert_not_called()
+        service.ensure_and_announce_next_watering_task.assert_not_called()
 
     def test_skips_removed_plant(self, _mock_dependencies):
         """A removed plant's care profile must not spawn any tasks."""
@@ -113,7 +113,7 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 1}
-        service.ensure_next_watering_task.assert_not_called()
+        service.ensure_and_announce_next_watering_task.assert_not_called()
         service._engine.should_generate_reminder.assert_not_called()
 
     def test_skips_when_plant_missing(self, _mock_dependencies):
@@ -126,12 +126,12 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 1}
-        service.ensure_next_watering_task.assert_not_called()
+        service.ensure_and_announce_next_watering_task.assert_not_called()
 
     def test_creates_auto_watering_task_when_no_active_plan(self, _mock_dependencies):
         service = _wire(_mock_dependencies, profiles=[SimpleNamespace(plant_key="plant_1")])
         created_task = SimpleNamespace(due_date="2026-06-15")
-        service.ensure_next_watering_task.return_value = created_task
+        service.ensure_and_announce_next_watering_task.return_value = created_task
 
         from app.tasks.care_tasks import generate_due_care_reminders
 
@@ -140,7 +140,7 @@ class TestGenerateDueCareReminders:
         assert result == {"created": 1, "skipped": 0}
         # Verify the profile and the phase-interval keyword are forwarded, not
         # just that the method was called — guards against a dropped argument.
-        call = service.ensure_next_watering_task.call_args
+        call = service.ensure_and_announce_next_watering_task.call_args
         assert call.args[0].plant_key == "plant_1"
         assert call.kwargs["phase_watering_interval"] is None
         # The periodic producer closes no task itself, so it keeps the #509 recency
@@ -164,7 +164,7 @@ class TestGenerateDueCareReminders:
 
         generate_due_care_reminders()
 
-        call = service.ensure_next_watering_task.call_args
+        call = service.ensure_and_announce_next_watering_task.call_args
         assert call.kwargs.get("include_completed_today", True) is True
         # ...and it is not smuggled in positionally either.
         assert len(call.args) == 1
@@ -193,7 +193,7 @@ class TestGenerateDueCareReminders:
         generate_due_care_reminders()
 
         # The resolved interval is forwarded to the service.
-        _, kwargs = service.ensure_next_watering_task.call_args
+        _, kwargs = service.ensure_and_announce_next_watering_task.call_args
         assert kwargs["phase_watering_interval"] == 5
 
     def test_falls_back_to_lifecycle_interval(self, _mock_dependencies):
@@ -219,7 +219,7 @@ class TestGenerateDueCareReminders:
 
         generate_due_care_reminders()
 
-        _, kwargs = service.ensure_next_watering_task.call_args
+        _, kwargs = service.ensure_and_announce_next_watering_task.call_args
         assert kwargs["phase_watering_interval"] == 9
 
     def test_skips_auto_watering_when_run_has_schedule(self, _mock_dependencies):
@@ -234,7 +234,7 @@ class TestGenerateDueCareReminders:
         result = generate_due_care_reminders()
 
         assert result == {"created": 0, "skipped": 0}
-        service.ensure_next_watering_task.assert_not_called()
+        service.ensure_and_announce_next_watering_task.assert_not_called()
 
     def test_creates_reminder_task_when_due_today(self, _mock_dependencies):
         from app.common.enums import ReminderType
@@ -438,7 +438,7 @@ class TestTenantScope:
         care_service._engine.should_generate_reminder.return_value = False
         # Every considered plant yields exactly one watering task, so the
         # created-count equals the number of plants the run actually reached.
-        care_service.ensure_next_watering_task.side_effect = lambda profile, **kw: SimpleNamespace(
+        care_service.ensure_and_announce_next_watering_task.side_effect = lambda profile, **kw: SimpleNamespace(
             due_date="2026-08-22"
         )
         deps.get_care_reminder_service.return_value = care_service
@@ -468,7 +468,7 @@ class TestTenantScope:
 
         generate_due_care_reminders(tenant_key="tenant_a")
 
-        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        reached = [call.args[0].plant_key for call in service.ensure_and_announce_next_watering_task.call_args_list]
         assert reached == ["plant_a"]
 
     def test_the_returned_counts_describe_only_the_callers_tenant(self, _mock_dependencies):
@@ -504,7 +504,7 @@ class TestTenantScope:
 
         generate_due_care_reminders(tenant_key="tenant_a")
 
-        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        reached = [call.args[0].plant_key for call in service.ensure_and_announce_next_watering_task.call_args_list]
         assert reached == ["plant_a"]
 
     def test_the_unscoped_sweep_still_covers_every_tenant(self, _mock_dependencies):
@@ -515,7 +515,7 @@ class TestTenantScope:
 
         result = generate_due_care_reminders()
 
-        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        reached = [call.args[0].plant_key for call in service.ensure_and_announce_next_watering_task.call_args_list]
         assert reached == ["plant_a", "plant_b"]
         assert result == {"created": 2, "skipped": 0}
 
@@ -527,5 +527,5 @@ class TestTenantScope:
 
         generate_due_care_reminders()
 
-        reached = [call.args[0].plant_key for call in service.ensure_next_watering_task.call_args_list]
+        reached = [call.args[0].plant_key for call in service.ensure_and_announce_next_watering_task.call_args_list]
         assert reached == ["plant_a", "plant_b"]

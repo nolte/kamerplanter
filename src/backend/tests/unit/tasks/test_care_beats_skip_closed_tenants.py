@@ -100,7 +100,7 @@ def _wire_care(deps: ModuleType, tenants: _Tenants, plants: dict[str, str | None
     care_service._repo.get_all_profiles.return_value = [SimpleNamespace(plant_key=key) for key in plants]
     care_service._repo.count_plants_without_profile.return_value = 0
     care_service._engine.should_generate_reminder.return_value = False
-    care_service.ensure_next_watering_task.return_value = SimpleNamespace(due_date="2026-10-10")
+    care_service.ensure_and_announce_next_watering_task.return_value = SimpleNamespace(due_date="2026-10-10")
     deps.get_care_reminder_service.return_value = care_service
     deps.get_planting_run_repo.return_value.get_plant_keys_with_active_schedule.return_value = set()
     deps.get_plant_repo.return_value.get_by_key.side_effect = lambda key: SimpleNamespace(
@@ -120,7 +120,7 @@ def _wire_care(deps: ModuleType, tenants: _Tenants, plants: dict[str, str | None
 
 
 def _watered(care_service: MagicMock) -> list[str]:
-    return [call.args[0].plant_key for call in care_service.ensure_next_watering_task.call_args_list]
+    return [call.args[0].plant_key for call in care_service.ensure_and_announce_next_watering_task.call_args_list]
 
 
 @pytest.mark.parametrize("status", CLOSED_STATES)
@@ -196,7 +196,8 @@ class _Notifier:
     async def send_notification(self, **kwargs) -> None:  # noqa: ANN003
         self.summaries.append(kwargs["tenant_key"])
 
-    async def _escalate(self, tenant_key: str) -> dict:
+    async def _escalate(self, tenant_key: str, *, is_active_member) -> dict:  # noqa: ANN001 - the engine's contract
+        assert callable(is_active_member), "the beat hands the engine its membership check (#3135)"
         self.escalated.append(tenant_key)
         return {"escalated": 1}
 

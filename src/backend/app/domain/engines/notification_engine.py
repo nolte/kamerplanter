@@ -1,10 +1,12 @@
 """Notification engine — orchestrates delivery across channels."""
 
-from datetime import UTC, datetime, time, timedelta
+from collections.abc import Callable
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import structlog
 
+from app.common.datetimes import today_utc
 from app.common.log_privacy import log_subject, log_tenant, loggable_error, mask_url_paths
 from app.domain.engines.notification_channel_registry import NotificationChannelRegistry
 from app.domain.interfaces.notification_preference_repository import (
@@ -14,6 +16,7 @@ from app.domain.interfaces.notification_repository import INotificationRepositor
 from app.domain.interfaces.user_repository import IUserRepository
 from app.domain.models.notification import (
     EMAIL_RECIPIENT_KEYS,
+    WATERING_ESCALATION_TYPE,
     ChannelPreference,
     ChannelResult,
     EscalationPreference,
@@ -38,6 +41,18 @@ _DEDUP_TTL_SECONDS: int = 86400
 
 # Redis key prefix for dedup
 _DEDUP_PREFIX: str = "kp:notif:dedup:"
+
+
+def overdue_cutoff(today: date, days: int) -> datetime:
+    """The instant a reminder must be due before to be ``days`` days overdue on ``today`` (#3135).
+
+    Calendar days in UTC: a reminder due on day D reaches ``days`` days overdue on
+    day D + ``days``, whatever time of day it is due and whatever time the beat
+    runs — everything due before the start of the UTC day ``today - days + 1``.
+    Measuring 48 h from the due instant instead would put a reminder due after the
+    beat's hour on day +3.
+    """
+    return datetime.combine(today - timedelta(days=days - 1), time.min, tzinfo=UTC)
 
 
 class NotificationEngine:
@@ -104,7 +119,7 @@ class NotificationEngine:
         dedup_key = self._build_dedup_key(
             user_key,
             notification.notification_type,
-            notification.group_key,
+            self._dedup_group(notification),
         )
         if await self._is_duplicate(dedup_key):
             # Not the dedup key: it embeds the account key (#1830, NFR-011 §3.4 L-1).
@@ -264,10 +279,12 @@ class NotificationEngine:
 
         return {"status": "batch_complete", "sent": total_sent, "failed": total_failed}
 
-    async def escalate_overdue(self, tenant_key: str) -> dict:
+    async def escalate_overdue(self, tenant_key: str, *, is_active_member: Callable[[str, str], bool]) -> dict:
         """Escalate the tenant's overdue watering reminders.
 
-        Escalation levels:
+        Escalation levels, counted in UTC calendar days from the due date the
+        reminder announces (REQ-030 §1.2, "Tag 0 = fällig"; never from the row's
+        ``created_at``, #3135):
         - Day +2: urgency -> HIGH
         - Day +4: urgency -> CRITICAL
         - Day +7: final warning
@@ -275,6 +292,25 @@ class NotificationEngine:
         Only the run's own tenant is read (the overdue query is tenant-scoped; an
         empty tenant escalates nothing). One row that fails is logged and skipped —
         it does not abort the tenant's remaining rows.
+
+        A row moves **one level per run**: a reminder first seen long overdue (after
+        an outage, or a due date set in the past) is not walked through every level
+        in one go — the later levels would hit the 24 h dedup and be recorded as
+        reached without ever being sent, the final warning included.
+
+        Args:
+            is_active_member: ``(user_key, tenant_key) -> bool`` — whether the row's
+                recipient is still an active member of the tenant (#2114). A row of a
+                former or deactivated member is neither claimed nor sent. Required on
+                purpose: the beat passes the same membership check the due-care
+                dispatch uses, and no caller can forget it.
+
+        Returns:
+            ``{"escalated": n}`` — the escalation notifications actually written
+            (delivered, failed on every channel, queued for quiet hours or kept in-app
+            without a channel — each is a row in the user's centre). A claimed level
+            whose send the dedup suppressed is not counted, nor one whose send raised;
+            either stays claimed (at most once per level, decision 2026-11-27).
         """
         if not tenant_key:
             return {"escalated": 0}
@@ -283,10 +319,11 @@ class NotificationEngine:
         escalation_days = escalation_config.escalation_days  # [2, 4, 7]
 
         escalated_count = 0
-        now = datetime.now(UTC)
+        moved_this_run: set[str] = set()
+        today = today_utc()
 
         for level, days in enumerate(escalation_days):
-            cutoff = now - timedelta(days=days)
+            cutoff = overdue_cutoff(today, days)
             overdue = self._notification_repo.find_overdue_watering(
                 overdue_since=cutoff,
                 escalation_level=level,
@@ -294,8 +331,10 @@ class NotificationEngine:
             )
 
             for notif in overdue:
+                if notif.key in moved_this_run:
+                    continue
                 try:
-                    if await self._escalate_one(notif, level, tenant_key):
+                    if await self._escalate_one(notif, level, tenant_key, is_active_member):
                         escalated_count += 1
                 except Exception as exc:  # noqa: BLE001 — one row must not abort the tenant's run
                     logger.warning(
@@ -305,6 +344,9 @@ class NotificationEngine:
                         escalation_level=level + 1,
                         error=loggable_error(exc),
                     )
+                finally:
+                    if notif.key:
+                        moved_this_run.add(notif.key)
 
         logger.info(
             "escalation_complete",
@@ -314,8 +356,18 @@ class NotificationEngine:
 
         return {"escalated": escalated_count}
 
-    async def _escalate_one(self, notif: Notification, level: int, tenant_key: str) -> bool:
-        """Escalate one overdue row by one level; ``True`` when the escalation was sent."""
+    async def _escalate_one(
+        self,
+        notif: Notification,
+        level: int,
+        tenant_key: str,
+        is_active_member: Callable[[str, str], bool],
+    ) -> bool:
+        """Escalate one overdue row by one level; ``True`` when an escalation notification was written."""
+        # #2114 — only an active member of the row's tenant is told about its plants.
+        if not is_active_member(notif.user_key, tenant_key):
+            return False
+
         # Check user preferences for watering escalation
         prefs = self._load_preferences(notif.user_key)
         if not prefs.escalation.watering_enabled:
@@ -326,7 +378,7 @@ class NotificationEngine:
         escalation_notif = Notification(
             tenant_key=notif.tenant_key,
             user_key=notif.user_key,
-            notification_type="care.watering.escalation",
+            notification_type=WATERING_ESCALATION_TYPE,
             title=notif.title,
             body=f"Overdue: {notif.body}",
             urgency=new_urgency,
@@ -355,12 +407,13 @@ class NotificationEngine:
         if not claimed:
             return False
 
-        await self.notify(
+        result = await self.notify(
             user_key=notif.user_key,
             tenant_key=notif.tenant_key,
             notification=escalation_notif,
         )
-        return True
+        # A deduplicated send wrote and sent nothing (#3135: it was counted as escalated).
+        return bool(result.get("notification_key"))
 
     # ── Channel resolution ────────────────────────────────────────────
 
@@ -564,6 +617,21 @@ class NotificationEngine:
             if address is not None:
                 config["email"] = address
         return config
+
+    @staticmethod
+    def _dedup_group(notification: Notification) -> str | None:
+        """The group part of the dedup key; an escalation's names its level and occurrence (#3135).
+
+        An escalation shares its reminder's ``group_key``, and the beat moves a row
+        one level per day. With the plain group, level n+1 met the still-live 24 h
+        key of level n whenever the run reached the row earlier than the day before:
+        the level was claimed and never sent — the final warning included. Each
+        level of each announced occurrence is its own event, so the key says which.
+        """
+        if notification.escalation_level <= 0:
+            return notification.group_key
+        due = notification.data.get("due_date") if isinstance(notification.data, dict) else None
+        return f"{notification.group_key or 'default'}:escalation:{notification.escalation_level}:{due or ''}"
 
     def _build_dedup_key(
         self,

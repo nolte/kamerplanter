@@ -2190,6 +2190,72 @@ class CareReminderService:
         )
         return create_care_reminder_task(self._task_repo, task, reminder_type=ReminderType.WATERING)
 
+    def ensure_and_announce_next_watering_task(
+        self,
+        profile: CareProfile,
+        *,
+        phase_watering_interval: int | None,
+        tenant_key: str,
+    ) -> Task | None:
+        """:meth:`ensure_next_watering_task` for the daily producer, announced like every other creator (#3135).
+
+        The beat used to create the plant's next watering task without telling the
+        plant's care reminder row, so the row kept announcing the previous
+        occurrence — open, at its old escalation level — while the new task had no
+        reminder at all. The created task now goes through the same propagation as
+        the confirmation, the watering log and the season paths: the row is reused
+        as a **new** occurrence (read state cleared, escalation cycle restarted).
+        There is no acting user, so a plant without a reminder row gets none
+        invented (``sync_care_notification`` never addresses nobody).
+
+        **Catch-up.** When the task is already open, an earlier run may have created
+        it and lost the announcement (propagation failed, worker died). The open
+        task is then announced on a row that still names another task
+        (:meth:`NotificationPropagationService.catch_up_care_notification`); a row
+        already on it is not written.
+        """
+        created = self.ensure_next_watering_task(
+            profile,
+            phase_watering_interval=phase_watering_interval,
+            tenant_key=tenant_key,
+        )
+        if created is not None:
+            self._propagate_care_reschedule(
+                profile,
+                ReminderType.WATERING,
+                tenant_key,
+                "",
+                created.due_date,
+                created.key,
+                announces_new_task=True,
+            )
+            return created
+        if self._task_repo is None or self._notifications is None or not tenant_key:
+            return None
+        open_task = self._task_repo.find_open_care_task(
+            profile.plant_key, ReminderType.WATERING, tenant_key, include_completed_today=False
+        )
+        if open_task is not None and open_task.key:
+            plant_label = self._resolve_plant_label(profile.plant_key)
+            # Called on the typed attribute, not through ``_propagate``'s lambda: the
+            # write-route call graph resolves this receiver, and a lambda parameter
+            # it cannot (``test_the_unresolved_receiver_count_does_not_grow``).
+            # Best-effort like ``_propagate`` (NFR-007).
+            try:
+                self._notifications.catch_up_care_notification(
+                    tenant_key=tenant_key,
+                    plant_key=profile.plant_key,
+                    plant_label=plant_label,
+                    reminder_type=ReminderType.WATERING,
+                    due_date=open_task.due_date,
+                    task_key=open_task.key,
+                )
+            except Exception:  # pragma: no cover - defensive; propagation is best-effort
+                import structlog
+
+                structlog.get_logger().warning("care_notification_propagation_failed")
+        return None
+
     def _next_watering_due_date(
         self,
         profile: CareProfile,
