@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Navigation, Routing, URL-Design
 Technologie: React, TypeScript, React Router, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.4
+Version: 1.5
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-28
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
@@ -83,7 +83,7 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-023 | Auf Viewports ≤ 768px MUSS eine fixierte Bottom-Navigation (`MuiBottomNavigation`) angezeigt werden. Die Desktop-Sidebar MUSS auf diesem Breakpoint ausgeblendet sein. | MUSS |
+| R-023 | Auf Viewports < 768px (unterhalb des Breakpoints `md`) MUSS eine fixierte Bottom-Navigation (`MuiBottomNavigation`) angezeigt werden. Die Desktop-Sidebar MUSS auf diesem Breakpoint ausgeblendet sein. | MUSS |
 | R-024 | Die Bottom-Navigation MUSS für **alle Erfahrungsstufen gleich** sein: vier feste Ziele plus „Mehr“. Sie ist NICHT erfahrungsstufenabhängig (Betreiberentscheidung 2026-11-22, #3018; ersetzt die Stufen-Tabs aus Version 1.3 — siehe Hinweis unter der Tabelle). | MUSS |
 | R-025 | Die vier festen Ziele sind in dieser Reihenfolge: Start (Dashboard), Pflanzen (Instanzen-Liste), Aufgaben (Task-Queue), Kalender. | MUSS |
 | R-026 | Der fünfte Eintrag „Mehr“ MUSS die Seitenleiste als Drawer öffnen. Sie enthält alle weiteren Bereiche in derselben Auswahl wie die Desktop-Sidebar (Erfahrungsstufe und Modul-Sichtbarkeit wirken dort, nicht in der Bottom-Navigation). „Mehr“ ist kein Navigationsziel und wird nicht als aktiver Tab hervorgehoben. | MUSS |
@@ -95,6 +95,10 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 !!! note "Abweichung von Version 1.3 (Betreiberentscheidung 2026-11-22, #3018)"
     Bis Version 1.3 verlangten R-024 bis R-026 eigene Tabs je Erfahrungsstufe (Einsteiger: Start, Pflanzen, Aufgaben, Einstellungen; Fortgeschritten: vier Tabs plus Overflow; Experte: Start, Pflanzen, Aufgaben, Düngung, Mehr). Der Betreiber hat am 2026-11-22 entschieden, dass die Bottom-Navigation für alle Stufen dieselben vier Ziele plus „Mehr“ zeigt: Die Leiste bleibt beim Wechsel der Stufe an ihrem Platz, und jeder weitere Bereich ist über „Mehr“ erreichbar. Die Einstellungen und die Düngung liegen damit hinter „Mehr“.
+
+!!! note "Beabsichtigt — nicht „reparieren“ (Review #3018)"
+    - Die vier festen Ziele ignorieren Erfahrungsstufe **und** Modul-Sichtbarkeit (R-024, R-026). Ist das Modul eines Ziels ausgeblendet, führt der Tap trotzdem auf die Seite, und dort erscheint der Hinweis zum Wiedereinblenden des Moduls (`ModuleGuard`); das Ziel verschwindet nicht aus der Leiste.
+    - Die Leiste erscheint auf jeder Seite der Hauptoberfläche (R-010), auch im Onboarding-Assistenten. Sie fehlt nur dort, wo die Oberfläche keine Navigation hat: Anmelde- und Registrierungsseiten sowie der Kiosk-Modus, dessen eigene Leiste sie nicht verdoppelt.
 
 ### 2.4 Breadcrumb-Navigation
 
@@ -218,8 +222,8 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
     - [ ] Navigationsstruktur ist konsistent
     - [ ] Alle Navigations-Links rendern native `<a>`-Elemente (Ctrl+Klick, Mittelklick, Rechtsklick → neuer Tab funktionieren)
 - [ ] **Bottom-Navigation (Mobile)**
-    - [ ] Bottom-Navigation ist auf Viewports ≤ 768px sichtbar und fixiert
-    - [ ] Desktop-Sidebar ist auf ≤ 768px ausgeblendet
+    - [ ] Bottom-Navigation ist auf Viewports < 768px sichtbar und fixiert
+    - [ ] Desktop-Sidebar ist auf < 768px ausgeblendet
     - [ ] Alle Erfahrungsstufen: dieselben 4 Ziele (Start, Pflanzen, Aufgaben, Kalender) plus „Mehr“
     - [ ] „Mehr“ öffnet die Seitenleiste als Drawer und ist nie der aktive Tab
     - [ ] Touch-Targets ≥ 48×48px
@@ -258,8 +262,12 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 **Dokumenten-Ende**
 
-**Version**: 1.3
+**Version**: 1.5
 **Status**: Entwurf
-**Letzte Aktualisierung**: 2026-02-28
+**Letzte Aktualisierung**: 2026-11-27
+**Changelog**:
+- 1.5 (2026-11-27): Wortlaut korrigiert: R-023 und die Checkliste nennen „< 768px“ statt „≤ 768px“ — der Breakpoint `md` liegt bei 768px, bei genau 768px gilt wie für die Seitenleiste das Desktop-Layout. Hinweis ergänzt, dass die festen Ziele Modul-Sichtbarkeit ignorieren und die Leiste auch im Onboarding erscheint (Review #3018). Inhaltlich keine neue Anforderung.
+- 1.4 (2026-11-26): R-024 bis R-026 auf vier feste Ziele plus „Mehr“ für alle Erfahrungsstufen umgestellt (Betreiberentscheidung 2026-11-22, #3018).
+- 1.3 (2026-02-28): Vorherige Fassung.
 **Review**: Pending
 **Genehmigung**: Pending
