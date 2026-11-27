@@ -15,6 +15,7 @@ import { careTask, useCareBackend } from '../care/careTestKit';
 import { careItem, FABACEAE, SOLANACEAE, timeline, useHistoryBackend, year } from '../history/historyTestKit';
 import { bedSummary } from './bedTestKit';
 import { soilAnalyses } from './soilAnalysisTestKit';
+import type { BedSoilHazard } from './soilHazardTypes';
 import type { BedSummary } from './types';
 
 const BASE = '/api/v1/t/:tenant';
@@ -776,5 +777,159 @@ describe('bed label (GP-FR-052, GP-UX-028, #2899)', () => {
     expect(dialog).toHaveTextContent(bedSummary().name);
     await userEvent.click(within(dialog).getByTestId('bed-view-label-cancel'));
     await waitFor(() => expect(screen.queryByTestId('bed-view-label-dialog')).toBeNull());
+  });
+});
+
+describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
+  const CLUBROOT: BedSoilHazard = {
+    hazard: 'clubroot',
+    confirmed_at: '2025-06-01',
+    source: 'lab_test',
+    pathogens: ['Plasmodiophora brassicae'],
+    soft: false,
+    hosts: [{ level: 'family', name: 'Brassicaceae', evidence_status: 'evidenced' }],
+    non_hosts: [],
+  };
+  const SCLEROTINIA: BedSoilHazard = {
+    hazard: 'sclerotinia',
+    confirmed_at: '2024-08-01',
+    source: 'advisory_service',
+    pathogens: ['Sclerotinia sclerotiorum'],
+    soft: true,
+    hosts: [{ level: 'family', name: 'Fabaceae', evidence_status: 'insufficient' }],
+    non_hosts: [{ level: 'family', name: 'Poaceae', evidence_status: 'insufficient' }],
+  };
+
+  it('shows each hazard with its pathogen, the endangered plants with their evidence, the date and the source', async () => {
+    useBackend();
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT, SCLEROTINIA] }), '/standorte/locations/loc_b03#soil', 'viewer');
+
+    const row = await screen.findByTestId('soil-hazard-row-clubroot');
+    expect(within(row).getByRole('heading', { name: 'Clubroot' })).toBeInTheDocument();
+    expect(row).toHaveTextContent('Plasmodiophora brassicae');
+    expect(within(row).getByTestId('soil-hazard-confirmed-clubroot')).toHaveTextContent('Lab test');
+    expect(within(row).getByTestId('soil-hazard-confirmed-clubroot')).toHaveTextContent('2025');
+    expect(within(row).getByLabelText('Brassicaceae, family, evidenced')).toBeInTheDocument();
+    // A 2/3 host is shown as data with its status - not left out, not judged (P4 is open).
+    const soft = screen.getByTestId('soil-hazard-row-sclerotinia');
+    expect(within(soft).getByLabelText('Fabaceae, family, insufficient evidence')).toBeInTheDocument();
+    expect(soft).toHaveTextContent('Not affected: Poaceae');
+    expect(soft).toHaveTextContent('only kept as a hint');
+    // No "{sources}/3" anywhere: only the evidence status is shown.
+    expect(screen.getByTestId('soil-hazards-section')).not.toHaveTextContent('/3');
+  });
+
+  it('lets a viewer read only: no add and no remove', async () => {
+    useBackend();
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT] }), '/standorte/locations/loc_b03#soil', 'viewer');
+
+    await screen.findByTestId('soil-hazard-row-clubroot');
+    expect(screen.queryByTestId('soil-hazards-add')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('soil-hazard-remove-clubroot')).not.toBeInTheDocument();
+  });
+
+  it('lets a grower add but not remove', async () => {
+    useBackend();
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT] }), '/standorte/locations/loc_b03#soil', 'grower');
+
+    expect(await screen.findByTestId('soil-hazards-add')).toBeInTheDocument();
+    expect(screen.queryByTestId('soil-hazard-remove-clubroot')).not.toBeInTheDocument();
+  });
+
+  it('lets the lead remove one after confirming, and reloads the bed', async () => {
+    const removed: string[] = [];
+    useBackend([
+      http.delete(`${BASE}/locations/:key/soil-hazards/:hazard`, ({ params }) => {
+        removed.push(`${String(params.key)}/${String(params.hazard)}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    ]);
+    const user = userEvent.setup();
+    let reloaded = 0;
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT] }), '/standorte/locations/loc_b03#soil', 'lead', () => {
+      reloaded += 1;
+    });
+
+    await user.click(await screen.findByTestId('soil-hazard-remove-clubroot'));
+    const dialog = await screen.findByTestId('confirm-dialog');
+    expect(dialog).toHaveTextContent('Clubroot will be removed from the bed “Raised bed 3”');
+    await user.click(within(dialog).getByTestId('confirm-dialog-confirm'));
+
+    await waitFor(() => expect(removed).toEqual(['loc_b03/clubroot']));
+    await waitFor(() => expect(reloaded).toBe(1));
+  });
+
+  it('records a hazard by hand with exactly hazard, date and source', async () => {
+    const bodies: unknown[] = [];
+    useBackend([
+      http.post(`${BASE}/locations/:key/soil-hazards`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ location_key: 'loc_b03', soil_hazards: [] }, { status: 201 });
+      }),
+    ]);
+    const user = userEvent.setup();
+    let reloaded = 0;
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower', () => {
+      reloaded += 1;
+    });
+
+    await user.click(await screen.findByTestId('soil-hazards-add'));
+    const dialog = await screen.findByTestId('soil-hazard-dialog');
+    await user.click(within(within(dialog).getByTestId('form-field-hazard')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Verticillium wilt' }));
+    const date = within(within(dialog).getByTestId('form-field-confirmed-at')).getByLabelText(/Confirmed on/);
+    await user.clear(date);
+    await user.type(date, '2026-07-01');
+    await user.click(within(within(dialog).getByTestId('form-field-source')).getByRole('combobox'));
+    await user.click(await screen.findByRole('option', { name: 'Lab test' }));
+    await user.click(within(dialog).getByTestId('soil-hazard-dialog-save'));
+
+    await waitFor(() =>
+      expect(bodies).toEqual([{ hazard: 'verticillium', confirmed_at: '2026-07-01', source: 'lab_test' }]),
+    );
+    await waitFor(() => expect(reloaded).toBe(1));
+  });
+
+  it('sends nothing until hazard and source are chosen', async () => {
+    const bodies: unknown[] = [];
+    useBackend([
+      http.post(`${BASE}/locations/:key/soil-hazards`, async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ location_key: 'loc_b03', soil_hazards: [] }, { status: 201 });
+      }),
+    ]);
+    const user = userEvent.setup();
+    renderBed(bedSummary(), '/standorte/locations/loc_b03#soil', 'grower');
+
+    await user.click(await screen.findByTestId('soil-hazards-add'));
+    const dialog = await screen.findByTestId('soil-hazard-dialog');
+    await user.click(within(dialog).getByTestId('soil-hazard-dialog-save'));
+
+    expect(await within(dialog).findByText('Choose the soil hazard.')).toBeInTheDocument();
+    expect(within(dialog).getByText('Choose how the infestation was confirmed.')).toBeInTheDocument();
+    expect(bodies).toEqual([]);
+  });
+
+  it.each([
+    ['planter', 'manual', 'container'],
+    ['raised_bed', 'nft', 'hydroponic'],
+  ] as const)('offers no soil hazard on a %s with %s irrigation and says why', async (type, irrigation, reason) => {
+    useBackend();
+    renderBed(
+      bedSummary({ location_type_key: type, irrigation_system: irrigation }),
+      '/standorte/locations/loc_b03#soil',
+      'lead',
+    );
+
+    expect(await screen.findByTestId(`soil-hazards-unavailable-${reason}`)).toBeInTheDocument();
+    expect(screen.queryByTestId('soil-hazards-add')).not.toBeInTheDocument();
+  });
+
+  it('has no axe violations', async () => {
+    useBackend();
+    renderBed(bedSummary({ soil_hazards: [CLUBROOT, SCLEROTINIA] }), '/standorte/locations/loc_b03#soil', 'lead');
+
+    const section = await screen.findByTestId('soil-hazards-section');
+    await expectNoA11yViolations(section);
   });
 });

@@ -8614,7 +8614,67 @@
           "dataError_other": "{{count}} short-day plants are flowering, but their phase profiles state {{groups}}. That is above their critical day length, and short-day plants only flower when days are short. Most likely the light duration in the phase profile or the photoperiod type of the species is entered wrongly. Check both. For an autoflower variety (day-neutral) the value can be right. The plants are not counted when the light durations are compared."
         }
       },
-      "siteLoadFailed": "The site data could not be loaded. Until then, the defaults for a garden apply – for an indoor site, weather and frost hints and the grid are then wrong."
+      "siteLoadFailed": "The site data could not be loaded. Until then, the defaults for a garden apply – for an indoor site, weather and frost hints and the grid are then wrong.",
+      "soilHazards": {
+        "title": "Soil hazards",
+        "intro": "A confirmed soil pathogen stays in the soil for years – whatever grows in the bed right now. Here you see which plants it endangers.",
+        "empty": "No soil hazard is recorded for this bed.",
+        "unavailable": {
+          "container": "In a planter, tent or shelf you replace the substrate – so there are no soil hazards here.",
+          "hydroponic": "Hydroponics has no soil and therefore no soil hazards. After a soil-borne loss, clean and disinfect the system."
+        },
+        "confirmed": "Confirmed on {{date}} · {{source}}",
+        "hosts": "Endangered plants",
+        "nonHosts": "Not affected: {{names}}",
+        "soft": "The pathogen attacks almost every vegetable – so it is only kept as a hint.",
+        "evidenceNote": "“evidenced” means three independent sources agree. Hosts with weaker evidence are shown for your information.",
+        "evidence": {
+          "evidenced": "evidenced",
+          "insufficient": "insufficient evidence",
+          "contradictory": "contradictory",
+          "not_found": "no evidence"
+        },
+        "level": {
+          "family": "family",
+          "genus": "genus",
+          "species": "species"
+        },
+        "add": "Record soil hazard",
+        "remove": "Remove soil hazard {{hazard}}",
+        "removeTitle": "Remove soil hazard?",
+        "removeMessage": "{{hazard}} will be removed from the bed “{{bed}}”. Only remove it if the infestation is gone or was recorded by mistake.",
+        "removeConfirm": "Remove",
+        "removed": "{{hazard}} was removed from the bed.",
+        "recorded": "{{hazard}} is now recorded as a soil hazard.",
+        "dialogTitle": "Record a soil hazard for “{{name}}”",
+        "dialogIntro": "Only record a confirmed infestation – by a lab test, plant protection advice or unmistakable symptoms.",
+        "hazard": "Soil hazard",
+        "hazardHelper": "Which pathogen was confirmed in the bed?",
+        "hazardMissing": "Choose the soil hazard.",
+        "confirmedAt": "Confirmed on",
+        "confirmedAtHelper": "The day the infestation was confirmed.",
+        "confirmedAtJuglone": "For juglone: the day the walnut tree was felled. If it still stands, use today's date.",
+        "confirmedAtInvalid": "Enter a date that is not in the future.",
+        "source": "Confirmed by",
+        "sourceHelper": "How was the infestation confirmed? No person is stored.",
+        "sourceMissing": "Choose how the infestation was confirmed.",
+        "save": "Record",
+        "refusal": {
+          "container": "A planter, tent or shelf has no soil hazards.",
+          "not_a_bed": "Only a bed can carry a soil hazard.",
+          "hydroponic": "A hydroponic location has no soil and therefore no soil hazards.",
+          "confirmed_in_future": "The date lies in the future. Enter the day of the confirmation."
+        },
+        "followUp": {
+          "offerTitle": "Take the soil hazard into the bed?",
+          "offerMessage": "{{plant}} died of {{hazard}}, confirmed by {{source}}. Should the bed carry this soil hazard from {{date}}? It then applies for years – whatever grows there later.",
+          "offerConfirm": "Take into the bed",
+          "accepted": "{{hazard}} is now recorded as a soil hazard of the bed.",
+          "cleanTitle": "Clean and disinfect the system",
+          "cleanMessage": "{{plant}} died of a soil-borne cause. Hydroponics has no soil hazard – clean and disinfect the system before you replant.",
+          "cleanOk": "Got it"
+        }
+      }
     },
     "rotationMatrix": {
       "title": "Crop rotation matrix",

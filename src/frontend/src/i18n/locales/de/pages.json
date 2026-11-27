@@ -8614,7 +8614,67 @@
           "dataError_other": "{{count}} Kurztagpflanzen stehen in der Blüte, ihre Phasenprofile nennen aber {{groups}}. Das liegt über ihrer kritischen Tageslänge, und Kurztagpflanzen blühen nur bei kurzen Tagen. Wahrscheinlich ist die Lichtdauer im Phasenprofil oder der Photoperioden-Typ der Art falsch eingetragen. Prüfe beides. Bei einer Autoflower-Sorte (tagneutral) kann der Wert stimmen. Beim Vergleich der Lichtdauern zählen die Pflanzen nicht mit."
         }
       },
-      "siteLoadFailed": "Die Standortdaten konnten nicht geladen werden. Bis dahin gelten die Vorgaben für einen Garten – bei einem Innenraum stimmen Wetter-, Frosthinweise und Raster dann nicht."
+      "siteLoadFailed": "Die Standortdaten konnten nicht geladen werden. Bis dahin gelten die Vorgaben für einen Garten – bei einem Innenraum stimmen Wetter-, Frosthinweise und Raster dann nicht.",
+      "soilHazards": {
+        "title": "Bodengefahren",
+        "intro": "Ein bestätigter Bodenerreger bleibt über Jahre im Boden – unabhängig davon, was gerade im Beet steht. Hier siehst du, welche Pflanzen er gefährdet.",
+        "empty": "Für dieses Beet ist keine Bodengefahr eingetragen.",
+        "unavailable": {
+          "container": "In einem Kübel, Zelt oder Regal tauschst du das Substrat aus – deshalb gibt es hier keine Bodengefahren.",
+          "hydroponic": "Hydrokultur hat keinen Boden und deshalb keine Bodengefahren. Nach einem bodenbürtigen Ausfall reinigst und desinfizierst du das System."
+        },
+        "confirmed": "Bestätigt am {{date}} · {{source}}",
+        "hosts": "Gefährdete Pflanzen",
+        "nonHosts": "Nicht betroffen: {{names}}",
+        "soft": "Der Erreger befällt fast jedes Gemüse – er wird deshalb nur als Hinweis geführt.",
+        "evidenceNote": "„belegt“ heißt: drei unabhängige Quellen stimmen überein. Wirte mit schwächerem Beleg siehst du hier zur Information.",
+        "evidence": {
+          "evidenced": "belegt",
+          "insufficient": "nicht ausreichend belegt",
+          "contradictory": "widersprüchlich",
+          "not_found": "nicht belegt"
+        },
+        "level": {
+          "family": "Familie",
+          "genus": "Gattung",
+          "species": "Art"
+        },
+        "add": "Bodengefahr eintragen",
+        "remove": "Bodengefahr {{hazard}} entfernen",
+        "removeTitle": "Bodengefahr entfernen?",
+        "removeMessage": "{{hazard}} wird aus dem Beet „{{bed}}“ entfernt. Entferne sie nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde.",
+        "removeConfirm": "Entfernen",
+        "removed": "{{hazard}} wurde aus dem Beet entfernt.",
+        "recorded": "{{hazard}} ist jetzt als Bodengefahr eingetragen.",
+        "dialogTitle": "Bodengefahr für „{{name}}“ eintragen",
+        "dialogIntro": "Trage nur einen bestätigten Befall ein – durch einen Laborbefund, eine Pflanzenschutz-Beratung oder ein eindeutiges Schadbild.",
+        "hazard": "Bodengefahr",
+        "hazardHelper": "Welcher Erreger wurde im Beet bestätigt?",
+        "hazardMissing": "Wähle die Bodengefahr aus.",
+        "confirmedAt": "Bestätigt am",
+        "confirmedAtHelper": "Der Tag, an dem der Befall bestätigt wurde.",
+        "confirmedAtJuglone": "Bei Juglon: der Tag, an dem der Walnussbaum gefällt wurde. Steht er noch, nimm das heutige Datum.",
+        "confirmedAtInvalid": "Gib ein Datum an, das nicht in der Zukunft liegt.",
+        "source": "Bestätigt durch",
+        "sourceHelper": "Wie wurde der Befall bestätigt? Es wird keine Person gespeichert.",
+        "sourceMissing": "Wähle aus, wie der Befall bestätigt wurde.",
+        "save": "Eintragen",
+        "refusal": {
+          "container": "Ein Kübel, Zelt oder Regal hat keine Bodengefahren.",
+          "not_a_bed": "Nur ein Beet kann eine Bodengefahr tragen.",
+          "hydroponic": "Ein Hydrokultur-Standort hat keinen Boden und deshalb keine Bodengefahren.",
+          "confirmed_in_future": "Das Datum liegt in der Zukunft. Gib den Tag der Bestätigung an."
+        },
+        "followUp": {
+          "offerTitle": "Bodengefahr ins Beet übernehmen?",
+          "offerMessage": "{{plant}} ist an {{hazard}} eingegangen, bestätigt durch {{source}}. Soll das Beet diese Bodengefahr ab dem {{date}} tragen? Die Gefahr gilt dann über Jahre – unabhängig davon, was später dort wächst.",
+          "offerConfirm": "Ins Beet übernehmen",
+          "accepted": "{{hazard}} ist jetzt als Bodengefahr des Beets eingetragen.",
+          "cleanTitle": "System reinigen und desinfizieren",
+          "cleanMessage": "{{plant}} ist an einer bodenbürtigen Ursache eingegangen. In Hydrokultur gibt es keine Bodengefahr – reinige und desinfiziere das System, bevor du nachpflanzt.",
+          "cleanOk": "Verstanden"
+        }
+      }
     },
     "rotationMatrix": {
       "title": "Fruchtfolge-Matrix",

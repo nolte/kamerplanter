@@ -5,6 +5,7 @@ import type {
   PlantInstanceCreate,
   PlantInstancesInPhase,
   RemovePlantRequest,
+  RemovedPlantInstance,
   SurvivalStats,
   ValidatePlantingResponse,
 } from '../types';
@@ -77,11 +78,16 @@ export async function updatePlantInstance(
   return data;
 }
 
+/**
+ * End a plant (REQ-003 E5). After a soil-borne loss the answer carries `soil_hazard_follow_up` (#2888 F-20): the
+ * offer to take a confirmed pathogen over into the bed, or the clean-system hint at hydroponics. Nothing is written
+ * to the bed by this call.
+ */
 export async function removePlantInstance(
   key: string,
   body?: RemovePlantRequest,
-): Promise<PlantInstance> {
-  const { data } = await client.post<PlantInstance>(`${BASE}/${key}/remove`, body ?? {});
+): Promise<RemovedPlantInstance> {
+  const { data } = await client.post<RemovedPlantInstance>(`${BASE}/${key}/remove`, body ?? {});
   return data;
 }
 
