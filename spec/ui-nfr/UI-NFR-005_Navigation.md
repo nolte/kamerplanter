@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Navigation, Routing, URL-Design
 Technologie: React, TypeScript, React Router, Flutter
 Status: Entwurf
 Priorität: Hoch
-Version: 1.5
+Version: 1.6
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-28
 Tags: [navigation, routing, breadcrumb, deep-linking, browser-history, url-design]
@@ -114,7 +114,7 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 | # | Regel | Stufe |
 |---|-------|-------|
-| R-018 | Ungültige URLs MÜSSEN eine 404-Fehlerseite anzeigen mit Navigation zur Startseite und Suchfunktion. | MUSS |
+| R-018 | Ungültige URLs MÜSSEN eine 404-Fehlerseite anzeigen mit Navigation zur Startseite. Eine Suchfunktion gehört nicht dazu: Die Anwendung hat keine globale Suche (Betreiberentscheidung 2026-11-27, #3150). | MUSS |
 | R-019 | Die 404-Seite MUSS dem Design-System der Anwendung entsprechen (keine generische Browser-Fehlerseite). | MUSS |
 
 ### 2.6 Seitentitel
@@ -190,14 +190,14 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 │  Logo   Navigation              👤  │
 ├──────────────────────────────────────┤
 │                                      │
-│              🔍                      │
+│              ❓                      │
 │                                      │
 │     Seite nicht gefunden (404)       │
 │                                      │
 │  Die angeforderte Seite existiert    │
 │  nicht oder wurde verschoben.        │
 │                                      │
-│  [ Zur Startseite ]  [ Suche ]       │
+│        [ Zur Startseite ]            │
 │                                      │
 └──────────────────────────────────────┘
 ```
@@ -262,10 +262,11 @@ Navigation ist die Grundlage jeder Anwendung. Fehlerhafte oder unvorhersehbare N
 
 **Dokumenten-Ende**
 
-**Version**: 1.5
+**Version**: 1.6
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-11-27
 **Changelog**:
+- 1.6 (2026-11-27): R-018 verlangt auf der 404-Seite keine Suchfunktion mehr; die Anwendung hat keine globale Suche, und eine Suche nur für die Fehlerseite steht in keinem Verhältnis (Betreiberentscheidung 2026-11-27, #3150). Wireframe in §3.3 angepasst.
 - 1.5 (2026-11-27): Wortlaut korrigiert: R-023 und die Checkliste nennen „< 768px“ statt „≤ 768px“ — der Breakpoint `md` liegt bei 768px, bei genau 768px gilt wie für die Seitenleiste das Desktop-Layout. Hinweis ergänzt, dass die festen Ziele Modul-Sichtbarkeit ignorieren und die Leiste auch im Onboarding erscheint (Review #3018). Inhaltlich keine neue Anforderung.
 - 1.4 (2026-11-26): R-024 bis R-026 auf vier feste Ziele plus „Mehr“ für alle Erfahrungsstufen umgestellt (Betreiberentscheidung 2026-11-22, #3018).
 - 1.3 (2026-02-28): Vorherige Fassung.
