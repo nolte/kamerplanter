@@ -45,7 +45,7 @@ So öffnest du den Datenschutz-Bereich:
 1. Oben rechts auf dein Profilbild oder deine Initialen klicken
 2. Im Menü auf **Datenschutz** klicken
 
-Der Datenschutz-Bereich hat vier Tabs: **Einwilligungen**, **Datenexport**, **Konto löschen** und **Verarbeitungseinschränkung**.
+Der Datenschutz-Bereich hat vier Tabs: **Einwilligungen**, **Datenexport**, **Konto löschen** und **Verarbeitungseinschränkung**. Der gewählte Tab steht in der Adresse (z. B. `/privacy#export`), sodass Neuladen und der Zurück-Knopf ihn wieder öffnen; `/privacy` ohne Zusatz zeigt die Einwilligungen. <!-- Issue #3018 -->
 
 !!! note "Nur im Voll-Modus"
     Der Menüpunkt **Datenschutz** erscheint nur im **Voll-Modus** mit registriertem Konto. Im anonymen [Light-Modus](light-mode.md) gibt es kein Benutzerkonto und damit keinen Datenschutz-Bereich.

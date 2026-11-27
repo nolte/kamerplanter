@@ -45,7 +45,7 @@ Here's how to open the privacy area:
 1. Click your profile picture or initials in the top right
 2. Click **Privacy** in the menu
 
-The privacy area has four tabs: **Consents**, **Data Export**, **Delete Account** and **Restrict Processing**.
+The privacy area has four tabs: **Consents**, **Data Export**, **Delete Account** and **Restrict Processing**. The chosen tab is part of the address (for example `/privacy#export`), so a reload and the Back button open it again; `/privacy` without a suffix shows the consents. <!-- Issue #3018 -->
 
 !!! note "Full mode only"
     The **Privacy** menu item only appears in **Full mode** with a registered account. In anonymous [Light mode](light-mode.md) there is no user account, and therefore no privacy area.
