@@ -249,3 +249,5 @@ F-29 ist auf das agrarbiologische Review der folgenden 15 Parameter und die Best
 13. Rückfall „Faustregel + gemessener 24-h-Regen“: Die 24 h überlappen Vortag und heute; Doppelzählung mit der Tagesprognose.
 14. Prognosehorizont der Vorausrechnung und wie vorhergesagter Regen künftige Tage füllt.
 15. Schwelle „starke Abweichung“ zwischen Messung und Prognose (F-31 acceptance-4).
+
+**Aus Issue #3002, in keinem Kriterium:** Das Issue verlangt ein agrarbiologisches Review der Regel für den effektiven Niederschlag, wenn der Regen gemessen statt vorhergesagt ist. Hier steht es nur als Parameter 5 der Liste oben. Vor `ready` wird daraus ein eigenes Abnahmekriterium oder Teil von acceptance-1.
