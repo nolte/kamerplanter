@@ -353,7 +353,7 @@ Ist die Pflanze vorzeitig geschossen (siehe [Geplantes und vorzeitiges Schossen 
 
 ### Schritt 4a: Angeben, wo die Ursache saß
 
-Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im Boden. Das entscheidet später, ob du an derselben Stelle bedenkenlos nachpflanzen kannst. <!-- REQ-003 E5, REQ-053 §11.3a -->
+Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im Boden. Diese Angabe wird künftig bestimmen, ob du an derselben Stelle bedenkenlos nachpflanzen kannst. <!-- REQ-003 E5, REQ-053 §11.3a -->
 
 | Ursache | Was der Dialog tut |
 |---------|--------------------|
@@ -371,8 +371,8 @@ Zur Ursache erfasst der Dialog, **wo** sie saß — an Blatt und Spross oder im 
 !!! info "Noch keine Bodengefahr am Beet"
     Ein genannter Erreger wird an der Pflanze gespeichert. Eine Bodengefahr am Beet entsteht dadurch nicht von selbst.
 
-!!! tip "Unsicher, ob Blatt oder Boden?"
-    Wähle im Zweifel den Boden. Dann warnt dich Kamerplanter, wenn du dieselbe Pflanzenfamilie an derselben Stelle nachpflanzt.
+!!! warning "Noch nicht implementiert"
+    Der Nachpflanz-Hinweis wird künftig der Ursachenklasse folgen und bei einer bodenbürtigen Ursache gezielt warnen. Bis dahin richtet er sich allein nach der Verlustursache: Pflanzt du dieselbe Pflanzenfamilie an derselben Stelle nach, warnt dich Kamerplanter nach Krankheit oder Schädlingsbefall — egal ob du Blatt oder Boden gewählt hast —, nach Schossen und den anderen abiotischen Ursachen nicht.
 
 Pflanzen, die vor dieser Erweiterung entfernt wurden, und Pflanzen, die du über **Beet räumen** beendest, haben keine Klasse; für sie gilt weiter allein die Verlustursache.
 

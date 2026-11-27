@@ -353,7 +353,7 @@ If the plant bolted prematurely (see [Distinguishing planned and premature bolti
 
 ### Step 4a: Say where the cause sat
 
-Along with the cause, the dialog records **where** it sat — on the leaves and shoots or in the soil. That later decides whether you can safely replant in the same spot. <!-- REQ-003 E5, REQ-053 §11.3a -->
+Along with the cause, the dialog records **where** it sat — on the leaves and shoots or in the soil. This will in future decide whether you can safely replant in the same spot. <!-- REQ-003 E5, REQ-053 §11.3a -->
 
 | Cause | What the dialog does |
 |-------|----------------------|
@@ -364,15 +364,15 @@ Along with the cause, the dialog records **where** it sat — on the leaves and 
 | Pest infestation | You must choose **Pest on leaves or shoots** or **Soil pest** |
 | Unknown | Pre-fills **Unknown**; you can choose any class |
 
-**The wilt question:** For heat, drought and waterlogging — and for "Unknown" on nightshades, brassicas, cucurbits and roses — the dialog asks: "Did the plant wilt despite moist soil, or were the vessels in the stem or the roots brown?" If you answer **Yes**, Kamerplanter records a **soil-borne disease**, because Verticillium wilt, for example, can be behind such a picture.
+**The wilt question:** For heat, drought and waterlogging — and for "Unknown" on nightshades, brassicas, cucurbits and the rose family — the dialog asks: "Did the plant wilt despite moist soil, or were the vessels in the stem or the roots brown?" If you answer **Yes**, Kamerplanter records a **soil-borne disease**, because Verticillium wilt, for example, can be behind such a picture.
 
 **Naming the pathogen (optional):** For a soil pest or a soil-borne disease you can pick the pathogen from the soil-hazard list — for example clubroot, cyst nematodes or Verticillium wilt. If you know for sure, tick **The pathogen is confirmed** and choose who confirmed it: **Lab test**, **Plant protection advice** or **Unmistakable symptoms** (such as clubroot galls).
 
 !!! info "No soil hazard on the bed yet"
     A named pathogen is stored on the plant. It does not add a soil hazard to the bed by itself.
 
-!!! tip "Not sure whether leaves or soil?"
-    If in doubt, choose the soil. Kamerplanter then warns you when you replant the same plant family in the same spot.
+!!! warning "Not yet implemented"
+    The replant hint will in future follow the cause class and warn specifically about a soil-borne cause. Until then it follows the loss cause only: when you replant the same plant family in the same spot, Kamerplanter warns you after a disease or pest loss — whether you chose leaves or soil — and not after bolting or the other abiotic causes.
 
 Plants removed before this extension and plants you end with **Clear bed** have no class; for them only the loss cause counts, as before.
 
