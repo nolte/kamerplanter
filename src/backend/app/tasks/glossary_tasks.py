@@ -78,7 +78,7 @@ def _redis_client_or_none() -> _DecodedRedis | None:
         return None
 
 
-def _acquire_run_lock() -> tuple[object | None, bool]:
+def _acquire_run_lock() -> tuple[_DecodedRedis | None, bool]:
     """Take the single-run lock, or report that another run holds it.
 
     Returns ``(client, acquired)``. A missing or broken Redis yields
@@ -99,11 +99,11 @@ def _acquire_run_lock() -> tuple[object | None, bool]:
     return client, acquired
 
 
-def _release_run_lock(client: object | None) -> None:
+def _release_run_lock(client: _DecodedRedis | None) -> None:
     if client is None:
         return
     try:
-        client.delete(_RUN_LOCK_KEY)  # type: ignore[attr-defined]
+        client.delete(_RUN_LOCK_KEY)
     except Exception:  # noqa: BLE001 — the TTL releases it anyway.
         logger.debug("glossary_warm_cache_unlock_failed")
 

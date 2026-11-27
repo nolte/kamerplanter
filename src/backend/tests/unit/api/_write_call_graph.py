@@ -8,7 +8,10 @@ is the detector that replaces the convention with a measurement.
 **How it decides.** Every module under the imported ``app`` package is parsed
 **once** and cached for the session. Within that tree it finds the *direct*
 persistence writes — a call to a python-arango collection primitive
-(``insert``/``update``/``replace``/``delete``/…) on a collection receiver, or a
+(``insert``/``update``/``replace``/``delete``/…) on a collection receiver — one
+spelled ``collection``/``col``, or one TYPED as python-arango's
+``StandardCollection``/``VertexCollection``/``EdgeCollection`` whatever its name
+(#3148 review S2) — or a
 query string whose shape is an ``INSERT``/``UPDATE``/``REPLACE``/``REMOVE``/
 ``UPSERT`` (AQL) or an ``INSERT INTO``/``DELETE FROM``/``CREATE TABLE`` (the
 TimescaleDB migrations). A query literal counts whether it is spelled out in the
@@ -71,7 +74,34 @@ than it says:
   ``__getattr__`` — that does not define the called name neither resolves nor
   falls back by name: the fallback is for UNTYPED receivers only. That holds for
   a top-level parameter, a nested ``def``'s and a lambda's alike (#3144 review);
-  the call is counted as a genuine unresolved one, never hidden.
+  the call is counted as a genuine unresolved one, never hidden. ``Any`` and
+  ``object`` are not such a type: they say "unknown", and a receiver whose
+  annotation has them as an alternative — ``Any``, ``Saver | Any``,
+  ``Optional[Any]`` — is untyped for the fallback, at the top level, on an
+  attribute and in a nested ``def`` alike (#3148).
+* **Where "unknown" is still read as a type** (#3148 review N1), stated so a
+  green run is not read as covering them:
+
+  - an ``Any`` INSIDE a container is the element's type, not the receiver's:
+    ``filters: list[tuple[str, Any]]`` is a list. And a subscript of a
+    container is typed as the container — ``rows: dict[str, Any]`` makes
+    ``rows["x"].create(...)`` a ``dict`` receiver: external, no fallback;
+  - ``from typing import Any as Unknown`` — only the names ``Any`` and
+    ``object`` say "unknown"; an alias of them is a name nobody defines, typed
+    and external at the top level;
+  - a ``TypeVar`` (or a PEP 695 type parameter): a top-level parameter
+    ``repo: T`` is typed as ``T``, a name no class defines, and so counts as
+    external without a fallback, while a NESTED ``def``'s ``repo: T`` binds
+    nothing and falls back. Unifying them needs the type parameters of each
+    scope (module ``TypeVar``s, a function's and its class's ``[T]``), which
+    this module does not collect.
+* **Valkey/Redis writes.** A ``set``/``delete`` on a Redis client is a library
+  write and out of scope when the receiver is typed (``redis.Redis``, the
+  in-tree ``_DecodedRedis`` protocol): it is external or resolves to a
+  protocol stub, and no sink is reported. An UNTYPED Redis receiver is worse
+  than invisible — its ``delete`` falls back by name and chains to every
+  unrelated repository ``delete`` of the tree (#3148 review N3 removed two:
+  ``RedisOAuthStateStore.get_and_delete`` and ``McpSessionStore.terminate``).
 * **Anything outside the ``app`` package.** A write performed by a library on the
   application's behalf is invisible.
 
@@ -153,6 +183,14 @@ _COLLECTION_MUTATORS = frozenset(
 #: — the reason a bare mutator-name rule cannot work — does not.
 _COLLECTION_RECEIVER = re.compile(r"\bcollection\b|\bcol\b")
 
+#: python-arango's collection classes, as an annotation names them. A mutator on
+#: a receiver TYPED as one of these is a direct write whatever the receiver is
+#: called: ``self._meta.insert(...)`` on a ``@property`` returning
+#: ``StandardCollection`` matches no spelling of :data:`_COLLECTION_RECEIVER`
+#: (#3148 review S2). The base class ``Collection`` is left out on purpose: it is
+#: also ``collections.abc.Collection``, which the tree annotates with.
+_ARANGO_COLLECTION_TYPES = frozenset({"StandardCollection", "VertexCollection", "EdgeCollection"})
+
 #: Type constructors to look *through* when reading an annotation: the interesting
 #: name is the element, not the container.
 _TRANSPARENT_GENERICS = frozenset(
@@ -175,6 +213,10 @@ _TRANSPARENT_GENERICS = frozenset(
         "AsyncIterator",
     }
 )
+
+#: The transparent heads that state alternatives of ONE value rather than a
+#: container of elements: `Any` inside them is the value's own type (#3148).
+_UNION_GENERICS = frozenset({"Optional", "Union", "Annotated", "Final", "ClassVar"})
 
 #: Return types of the few library calls whose result is then used as a receiver
 #: in this tree. `api/mapping.to_response` — which every read route funnels
@@ -216,6 +258,17 @@ _CALLABLE_ARGUMENT_SINKS = frozenset({"add_task", "to_thread"})
 #: method from a library: an `I*Repository(ABC)` lacking a method is an interface
 #: that does not declare it — an annotation gap, not an external call (#3144).
 _METHODLESS_BASES = frozenset({"object", "ABC", "Protocol", "Generic"})
+
+#: The annotations that say "unknown" instead of naming a type. A receiver that
+#: CAN be one of these — `Any`, `object`, and also `Saver | Any` — is UNTYPED for
+#: the rules of this module: it falls back by name in `link()`, it is a genuine
+#: gap and not an external one, and it never inherits a library method. "Could
+#: be anything" includes a repository, whatever else the union names. One set,
+#: read through :meth:`CallGraph._known_types_of`, because two copies of this
+#: rule had drifted: a nested parameter annotated `Any` fell back by name, a
+#: top-level one did not, and five functions that write — `ActuatorService.
+#: _create_fallback_task` among them — did not read as writers (#3148).
+_UNKNOWN_TYPE_NAMES = frozenset({"Any", "object"})
 
 #: Builtin names an annotation can denote: a `dict`, a `str`, a `BaseException`
 #: are known types from outside the tree, not names nobody defined (#3144 F1).
@@ -368,6 +421,14 @@ def _base_names(annotation: ast.expr | None, depth: int = 0) -> set[str]:
             found: set[str] = set()
             for part in parts:
                 found |= _base_names(part, depth + 1)
+            if not head & _UNION_GENERICS:
+                # An element of unknown type does not make the CONTAINER unknown:
+                # `filters: list[tuple[str, str, Any]]` is a list, and reading it as
+                # "could be anything" would send its `.insert(...)` down the name
+                # fallback (#3148 review S1, measured: 28 such receivers). `Any` as
+                # an alternative of the annotation itself — `Saver | Any`,
+                # `Optional[Any]` — is kept, and makes the receiver unknown.
+                found -= _UNKNOWN_TYPE_NAMES
             return (head - _TRANSPARENT_GENERICS) | found
         # A generic repository (`BaseArangoRepository[Activity]`) — the head is
         # the type that carries the methods.
@@ -773,7 +834,13 @@ class CallGraph:
                 # in this tree is taken: an unparameterised `list` or a `dict`
                 # (whose iteration yields KEYS) must leave the variable untyped,
                 # so a write-vocabulary call on it still falls back by name.
-                found |= {name for name in self._types_of(iterable, scope, depth + 1) if name in self.classes}
+                # `Any`/`object` are kept: `list[Repo | Any]` yields "unknown",
+                # not a `Repo` (#3148 review S1).
+                found |= {
+                    name
+                    for name in self._types_of(iterable, scope, depth + 1)
+                    if name in self.classes or name in _UNKNOWN_TYPE_NAMES
+                }
             for iterable, path in scope._unpacked_iterations.get(expression.id, ()):
                 found |= self._unpacked_types(iterable, path, scope, depth + 1)
             for manager in scope._context_bindings.get(expression.id, ()):
@@ -876,9 +943,9 @@ class CallGraph:
                 found |= _base_names(annotation)
         # Taken UNFILTERED, unlike a single-name loop: the position is known, so a
         # `str` or a `StandardDatabase` is a fact and keeps a non-repository value
-        # out of the name fallback. `Any`/`object` are the annotation saying
-        # "unknown" and must not block it.
-        return found - {"Any", "object"}
+        # out of the name fallback. `Any`/`object` stay in the set: they are the
+        # annotation saying "unknown", and `_known_types_of` reads them as such.
+        return found
 
     def _yielded_annotations(self, iterable: ast.expr, scope: FunctionNode, depth: int) -> list[ast.expr]:
         """Annotations of the value one iteration over `iterable` yields, as far as written down."""
@@ -1089,6 +1156,9 @@ class CallGraph:
 
     def link(self) -> None:
         """Resolve every call site once, and record the ones no type could resolve."""
+        # Before the vocabulary: a repository method that writes through a typed
+        # collection handle is a repository write method like any other.
+        self._mark_typed_collection_writes()
         vocabulary = self._write_vocabulary()
         for fn in self.functions:
             seen: set[int] = set()
@@ -1106,12 +1176,20 @@ class CallGraph:
                     # spot: `params: dict[str, Any]` calling `.update(...)` is a
                     # dict merge, and letting it match the repository vocabulary
                     # was measured turning `api.mapping.to_response` into a
-                    # writer and 181 read routes into hits.
+                    # writer and 181 read routes into hits. A receiver annotated
+                    # `Any` or `object` IS untyped — the annotation says "could
+                    # be anything", which includes a repository (#3148): it
+                    # falls back exactly like one nothing annotates, at the top
+                    # level and in a nested `def` alike.
                     receiver_source = ast.unparse(call.func.value)
-                    is_primitive = call.func.attr in _COLLECTION_MUTATORS and _COLLECTION_RECEIVER.search(
-                        receiver_source
+                    is_primitive = call.func.attr in _COLLECTION_MUTATORS and (
+                        _COLLECTION_RECEIVER.search(receiver_source) or self._is_typed_collection(call.func.value, fn)
                     )
-                    if not is_primitive and call.func.attr in vocabulary and not self._types_of(call.func.value, fn):
+                    if (
+                        not is_primitive
+                        and call.func.attr in vocabulary
+                        and not self._known_types_of(call.func.value, fn)
+                    ):
                         # Conservative fallback, bounded to the repository write
                         # vocabulary: over-report rather than miss a write behind
                         # a receiver nothing annotates.
@@ -1122,6 +1200,32 @@ class CallGraph:
                     if id(target) not in seen:
                         seen.add(id(target))
                         fn.callees.append(target)
+
+    def _is_typed_collection(self, receiver: ast.expr, scope: FunctionNode) -> bool:
+        return bool(self._types_of(receiver, scope) & _ARANGO_COLLECTION_TYPES)
+
+    def _mark_typed_collection_writes(self) -> None:
+        """A mutator on a receiver typed as a python-arango collection is a direct write (#3148 review S2).
+
+        The parse-time scan knows no types, so it recognises a collection handle
+        by its SPELLING only (:data:`_COLLECTION_RECEIVER`). This pass adds the
+        type: ``self._meta.insert(...)`` where ``_meta`` is a property annotated
+        ``-> StandardCollection`` is the same write as ``col.insert(...)``. A
+        function the scan already marked keeps its (first) sink.
+        """
+        for fn in self.functions:
+            if fn.direct_write:
+                continue
+            for call in fn._call_nodes:
+                callee = call.func
+                if (
+                    isinstance(callee, ast.Attribute)
+                    and callee.attr in _COLLECTION_MUTATORS
+                    and self._is_typed_collection(callee.value, fn)
+                ):
+                    fn.direct_write = f"{ast.unparse(callee.value)}.{callee.attr}() in {fn.id}"
+                    fn.direct_write_lineno = call.lineno
+                    break
 
     def _is_external_receiver(self, expression: ast.expr, scope: FunctionNode, depth: int = 0) -> bool:
         """Is this receiver typed as, or rooted in, something outside the tree? (#2039)
@@ -1182,9 +1286,23 @@ class CallGraph:
             return self._is_external_receiver(expression.value, scope, depth + 1)
         return self._types_are_external(expression, scope)
 
-    def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
+    def _known_types_of(self, expression: ast.expr, scope: FunctionNode) -> set[str]:
+        """The types `expression` can denote, without the annotations that say "unknown" (#3148).
+
+        Empty means UNTYPED: nothing annotates the receiver, or `Any`/`object`
+        is among what does — `Saver | Any` included (#3148 review S1): a union
+        with "could be anything" could be a repository, and before the rule was
+        one a nested `def inner(repo: Saver | Any)` fell back while a top-level
+        one did not. :meth:`link` falls back by name on exactly that, and
+        :meth:`_types_are_external` refuses to call it external on exactly that —
+        one reading of `Any`, not one per rule.
+        """
         found = self._types_of(expression, scope)
-        return bool(found) and not (found & set(self.classes)) and not (found <= {"Any", "object"})
+        return set() if found & _UNKNOWN_TYPE_NAMES else found
+
+    def _types_are_external(self, expression: ast.expr, scope: FunctionNode) -> bool:
+        found = self._known_types_of(expression, scope)
+        return bool(found) and not (found & set(self.classes))
 
     def _is_external_call(self, call: ast.Call, scope: FunctionNode) -> bool:
         """Is this unresolved attribute call owned by something outside the tree? (#2039, #3144)
@@ -1254,12 +1372,18 @@ class CallGraph:
         """The annotation a nested-`def` parameter occurrence is typed by, or `None` (#3144 F1).
 
         Only an annotation every leaf of which is KNOWN binds: a class of this
-        tree, a builtin, or a name imported from outside the tree (``re.Match``
-        through its imported root). ``Any``, ``object``, a ``TypeVar`` and a name
-        nobody defines bind nothing: typing the receiver by them would type it as
-        nothing in particular and still switch off the name fallback that
-        ``link()`` keeps for untyped receivers — a write behind
-        ``def write(repo: Any): repo.create(...)`` would disappear.
+        tree, a builtin, a name imported from outside the tree (``re.Match``
+        through its imported root), or ``Any``/``object``. A ``TypeVar`` and a
+        name nobody defines bind nothing: typing the receiver by them would type
+        it as something in particular that it is not, and switch off the name
+        fallback ``link()`` keeps for untyped receivers — a write behind
+        ``def write(repo: T): repo.create(...)`` would disappear.
+
+        ``Any``/``object`` bind since #3148, alone or in a union, as what they say: "unknown". The
+        fallback reads them through :meth:`_known_types_of`, the same rule as for
+        a top-level ``repo: Any``, so ``def write(repo: Any): repo.create(...)``
+        still falls back — and the occurrence is no longer looked up by NAME in
+        the enclosing body, where a namesake could type it.
         """
         bound = scope._parameter_bindings.get(id(name))
         if bound is None or not self._annotation_is_known(bound, scope.module):
@@ -1273,8 +1397,8 @@ class CallGraph:
         external = self.external_names.get(module, set())
         for leaf in leaves:
             if isinstance(leaf, ast.Name):
-                if leaf.id in {"Any", "object"}:
-                    return False
+                if leaf.id in _UNKNOWN_TYPE_NAMES:
+                    continue
                 if not (leaf.id in self.classes or leaf.id in _BUILTIN_NAMES or leaf.id in external):
                     return False
             else:
@@ -1348,7 +1472,8 @@ class CallGraph:
             for member in _alternatives(arguments[index]):
                 if not isinstance(member, ast.Name | ast.Attribute):
                     return set()
-                found |= _base_names(member) & set(self.classes)
+                # `Any`/`object` kept as "unknown" for `_known_types_of` (#3148 review S1).
+                found |= _base_names(member) & (set(self.classes) | _UNKNOWN_TYPE_NAMES)
         return found
 
     def _write_vocabulary(self) -> frozenset[str]:

@@ -20,10 +20,14 @@ cannot be replayed by a different key.
 from __future__ import annotations
 
 import secrets
+from typing import TYPE_CHECKING
 
 import structlog
 
 from app.common.log_privacy import loggable_error
+
+if TYPE_CHECKING:
+    from app.common.dependencies import _DecodedRedis
 
 logger = structlog.get_logger(__name__)
 
@@ -37,7 +41,7 @@ _KEY_PREFIX = "mcp_session:"
 class McpSessionStore:
     """Redis-backed store for Streamable-HTTP session ids."""
 
-    def __init__(self, redis_client) -> None:  # noqa: ANN001 - redis client is duck-typed
+    def __init__(self, redis_client: _DecodedRedis) -> None:
         self._redis = redis_client
 
     def create(self, *, account_key: str) -> str | None:

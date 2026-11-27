@@ -43,6 +43,7 @@ from app.domain.engines.actuator_control_engine import (
     derive_actuator_command,
 )
 from app.domain.interfaces.site_repository import ISiteRepository
+from app.domain.interfaces.task_repository import ITaskRepository
 from app.domain.models.actuator import (
     Actuator,
     ControlEvent,
@@ -70,7 +71,7 @@ class ActuatorService:
         self,
         repo: ArangoActuatorRepository,
         ha_client_factory: Callable[[], Any] | None = None,
-        task_repo: Any | None = None,
+        task_repo: ITaskRepository | None = None,
         engine: ControlEngine | None = None,
         mapper: HomeAssistantCommandMapper | None = None,
         site_repo: ISiteRepository | None = None,

@@ -27,6 +27,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 
 import structlog
+from redis import Redis
 from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import RedisError
 
@@ -49,7 +50,7 @@ class LatchedRedis:
     bypassing the latch.
     """
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: Redis) -> None:
         self._client = client
         self._lock = threading.Lock()
         self._down = False
