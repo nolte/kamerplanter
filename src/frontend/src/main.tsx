@@ -8,6 +8,8 @@ import './styles/print.css';
 import { registerServiceWorker } from '@/lib/serviceWorkerRegistration';
 import { purgeExpiredPlanCache } from '@/features/gardenPlanner/offline/planCache';
 import { captureHandledError } from '@/observability/errorTracking';
+import { bindConsentToAuth } from '@/observability/consentAuthBridge';
+import { store } from '@/store/store';
 
 function mount() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -47,11 +49,14 @@ function mount() {
   // decides whether the buffer exists at all, so the purge waits for `runtime-config.js` — the page's `load`
   // when the script has not run yet. The sync host purges again after sign-in.
   const purgeWriteQueue = () =>
-    void import('@/features/gardenPlanner/offline/queue').then((queue) => queue.purgeExpiredEntries()).catch((err: unknown) => {
-      // Housekeeping only: expired offline entries are purged on the next start.
-      captureHandledError(err, { source: 'main.purgeExpiredEntries' });
-    });
-  if (window.__RUNTIME_CONFIG__ !== undefined || document.readyState === 'complete') purgeWriteQueue();
+    void import('@/features/gardenPlanner/offline/queue')
+      .then((queue) => queue.purgeExpiredEntries())
+      .catch((err: unknown) => {
+        // Housekeeping only: expired offline entries are purged on the next start.
+        captureHandledError(err, { source: 'main.purgeExpiredEntries' });
+      });
+  if (window.__RUNTIME_CONFIG__ !== undefined || document.readyState === 'complete')
+    purgeWriteQueue();
   else window.addEventListener('load', purgeWriteQueue, { once: true });
 }
 
@@ -66,6 +71,10 @@ function mount() {
 // SDK's global handlers are installed before the first component renders. It
 // resolves immediately, loading nothing, when no DSN is configured — which is
 // the default everywhere except a deployment that opts in.
+// UI-NFR-013 CP-008 (#3025): the consent store learns who is signed in from the
+// auth slice. Bound before the tracker starts, so the first decision already sees
+// "sign-in unknown" (= do not send) rather than "nobody".
+bindConsentToAuth(store);
 Promise.all([initI18n().catch(() => undefined), initErrorTracking().catch(() => false)]).finally(
   mount,
 );

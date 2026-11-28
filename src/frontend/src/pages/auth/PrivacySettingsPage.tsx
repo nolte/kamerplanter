@@ -23,6 +23,8 @@ import { revokeConsent } from '@/api/endpoints/privacy';
 import type { AccountErasureRequest } from '@/api/types';
 import ErasurePreviewNotice from '@/components/privacy/ErasurePreviewNotice';
 import BrowserConsentSettings from '@/components/privacy/BrowserConsentSettings';
+import { BROWSER_ERROR_REPORTS } from '@/observability/consent';
+import { isBrowserConsentManaged } from '@/observability/errorTracking';
 import { useErasurePreview } from '@/hooks/useErasurePreview';
 import StepUpConfirmDialog from '@/components/common/StepUpConfirmDialog';
 import type { StepUpConfirmation } from '@/components/common/StepUpConfirmDialog';
@@ -40,6 +42,21 @@ interface ConsentItem {
   granted: boolean;
   granted_at: string | null;
   revoked_at: string | null;
+  /** REQ-025 v1.41 — the text version the record refers to; `null` without a record. */
+  consent_version?: string | null;
+  /** The purpose's current text version. */
+  purpose_version?: string;
+}
+
+/** A grant given to an older text of the purpose (UI-NFR-013 §4.2). */
+function grantedForEarlierText(c: ConsentItem): boolean {
+  return (
+    c.granted &&
+    !c.required &&
+    c.consent_version != null &&
+    c.purpose_version != null &&
+    c.consent_version !== c.purpose_version
+  );
 }
 
 interface ExportItem {
@@ -336,71 +353,88 @@ export default function PrivacySettingsPage() {
                     {t('pages.privacy.consentsEmpty')}
                   </Typography>
                 )}
-                {consents.map((c) => (
-                  <ListItem
-                    key={c.purpose}
-                    disableGutters
-                    secondaryAction={
-                      <Chip
-                        label={
-                          c.granted
-                            ? t('pages.privacy.consentGranted')
-                            : t('pages.privacy.consentRevoked')
-                        }
-                        color={c.granted ? 'success' : 'default'}
-                        size="small"
-                      />
-                    }
-                  >
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          {c.label || t('pages.privacy.consentPurposeUnnamed')}
-                          {/* Clarifies why no revoke action is offered here: required
+                {consents
+                  // #3025: where the browser switch above manages this purpose, it is not
+                  // offered a second time here — one control per purpose.
+                  .filter(
+                    (c) => !(c.purpose === BROWSER_ERROR_REPORTS && isBrowserConsentManaged()),
+                  )
+                  .map((c) => (
+                    <ListItem
+                      key={c.purpose}
+                      disableGutters
+                      secondaryAction={
+                        <Chip
+                          label={
+                            c.granted
+                              ? t('pages.privacy.consentGranted')
+                              : t('pages.privacy.consentRevoked')
+                          }
+                          color={c.granted ? 'success' : 'default'}
+                          size="small"
+                        />
+                      }
+                    >
+                      <ListItemText
+                        primary={
+                          <Box
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}
+                          >
+                            {c.label || t('pages.privacy.consentPurposeUnnamed')}
+                            {/* Clarifies why no revoke action is offered here: required
                               consents are tied to core functionality (REQ-025) and
                               cannot be revoked without deleting the account. */}
-                          {c.required && (
-                            <Chip
-                              label={t('pages.privacy.consentRequired')}
-                              size="small"
-                              variant="outlined"
-                              data-testid={`consent-required-${c.purpose}`}
-                            />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <>
-                          {c.description}
-                          {c.granted && !c.required && (
-                            <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
-                              <Button
+                            {c.required && (
+                              <Chip
+                                label={t('pages.privacy.consentRequired')}
                                 size="small"
                                 variant="outlined"
-                                color="inherit"
-                                onClick={() => void handleRevokeConsent(c.purpose)}
-                                aria-disabled={revokingPurpose !== null || undefined}
-                                aria-busy={revokingPurpose === c.purpose || undefined}
-                                aria-label={t('pages.privacy.consentRevokeAria', {
-                                  label: c.label || t('pages.privacy.consentPurposeUnnamed'),
-                                })}
-                                startIcon={
-                                  revokingPurpose === c.purpose ? (
-                                    <CircularProgress size={14} />
-                                  ) : undefined
-                                }
-                                sx={{ minHeight: 44 }}
-                                data-testid={`consent-revoke-${c.purpose}`}
-                              >
-                                {t('pages.privacy.consentRevoke')}
-                              </Button>
-                            </Box>
-                          )}
-                        </>
-                      }
-                    />
-                  </ListItem>
-                ))}
+                                data-testid={`consent-required-${c.purpose}`}
+                              />
+                            )}
+                            {grantedForEarlierText(c) && (
+                              <Chip
+                                label={t('pages.privacy.consentOutdatedVersion')}
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                data-testid={`consent-outdated-${c.purpose}`}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
+                          <>
+                            {c.description}
+                            {c.granted && !c.required && (
+                              <Box component="span" sx={{ display: 'block', mt: 0.5 }}>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="inherit"
+                                  onClick={() => void handleRevokeConsent(c.purpose)}
+                                  aria-disabled={revokingPurpose !== null || undefined}
+                                  aria-busy={revokingPurpose === c.purpose || undefined}
+                                  aria-label={t('pages.privacy.consentRevokeAria', {
+                                    label: c.label || t('pages.privacy.consentPurposeUnnamed'),
+                                  })}
+                                  startIcon={
+                                    revokingPurpose === c.purpose ? (
+                                      <CircularProgress size={14} />
+                                    ) : undefined
+                                  }
+                                  sx={{ minHeight: 44 }}
+                                  data-testid={`consent-revoke-${c.purpose}`}
+                                >
+                                  {t('pages.privacy.consentRevoke')}
+                                </Button>
+                              </Box>
+                            )}
+                          </>
+                        }
+                      />
+                    </ListItem>
+                  ))}
               </List>
             )}
           </CardContent>

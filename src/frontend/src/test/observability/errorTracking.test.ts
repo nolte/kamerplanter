@@ -15,7 +15,11 @@ import {
 import {
   CONSENT_STORAGE_KEY,
   INITIAL_CONSENT_STATE,
+  accountEpoch,
+  recordAccountDecision,
   resetConsentStoreForTests,
+  setAccountConsent,
+  setAuthStatus,
   writeConsent,
 } from '@/observability/consent';
 
@@ -63,7 +67,10 @@ vi.mock('@/config/mode', () => ({
  * the optionality contract (no DSN => the SDK chunk is never even fetched) and
  * the scrubbing rules (nothing personal leaves the browser).
  *
- * #2159 adds the third: the user's `error_tracking` consent gates the SDK.
+ * #2159 adds the third: the consent gates the SDK — since #3025 the purpose
+ * `browser_error_reports`, decided over device, sign-in state and account
+ * (UI-NFR-013 §5.4). Unless a test says otherwise the person is signed out, so
+ * the device decision is the one that counts.
  */
 const DSN = 'https://key@tracker.example/1';
 
@@ -73,8 +80,7 @@ function storeDecision(errorTracking: boolean | null): void {
     CONSENT_STORAGE_KEY,
     JSON.stringify({
       ...INITIAL_CONSENT_STATE,
-      error_tracking: errorTracking,
-      external_services: false,
+      browser_error_reports: errorTracking,
     }),
   );
 }
@@ -83,8 +89,7 @@ function storeDecision(errorTracking: boolean | null): void {
 function decideNow(errorTracking: boolean): void {
   writeConsent({
     ...INITIAL_CONSENT_STATE,
-    error_tracking: errorTracking,
-    external_services: false,
+    browser_error_reports: errorTracking,
     timestamp: new Date().toISOString(),
   });
 }
@@ -106,6 +111,7 @@ describe('errorTracking', () => {
   beforeEach(() => {
     resetErrorTrackingForTests();
     resetConsentStoreForTests();
+    setAuthStatus({ kind: 'signed_out' });
     window.localStorage.removeItem(CONSENT_STORAGE_KEY);
     delete window.__RUNTIME_CONFIG__;
   });
@@ -169,6 +175,60 @@ describe('errorTracking', () => {
 
       expect(sentryStub.init).not.toHaveBeenCalled();
       expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    // #3025 B-2: before the auth bootstrap it is unknown who is signed in — nothing starts.
+    it('initialises nothing before the sign-in state is known, even with a device grant', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      resetConsentStoreForTests(); // back to "sign-in unknown"
+      storeDecision(true);
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+      expect(sentryStub.init).not.toHaveBeenCalled();
+
+      setAuthStatus({ kind: 'signed_out' });
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+    });
+
+    // #3025 B-1: signed in, a device grant is not the person's consent.
+    it('stops on sign-in with only a device grant and starts with the account grant', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      expect(isErrorTrackingActive()).toBe(true);
+
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      expect(isErrorTrackingActive()).toBe(false);
+      expect(sentryStub.clientOptions.enabled).toBe(false);
+
+      setAccountConsent('user-a', { kind: 'granted', confirmedAt: Date.now() }, accountEpoch());
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+    });
+
+    // #3025 operator decision 3: a device decline holds against the account grant.
+    it('never starts with an account grant when this device declined', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(false);
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      recordAccountDecision('user-a', { kind: 'granted', confirmedAt: Date.now() });
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+      expect(sentryStub.init).not.toHaveBeenCalled();
+    });
+
+    // CP-006/CP-011: a grant not re-read for 30 minutes stops events at `beforeSend`.
+    it('drops events once the account grant is older than 30 minutes', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      const confirmedAt = Date.now();
+      recordAccountDecision('user-a', { kind: 'granted', confirmedAt });
+      await initErrorTracking();
+      const beforeSend = sentryStub.init.mock.calls[0]![0].beforeSend as (e: object) => unknown;
+      expect(beforeSend({ message: 'x' })).not.toBeNull();
+
+      vi.spyOn(Date, 'now').mockReturnValue(confirmedAt + 30 * 60_000 + 1);
+
+      expect(beforeSend({ message: 'x' })).toBeNull();
     });
 
     it('initialises once consent is true and reports handled errors', async () => {

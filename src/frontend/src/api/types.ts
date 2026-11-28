@@ -5985,6 +5985,10 @@ export interface ConsentRecord {
   granted: boolean;
   granted_at: string | null;
   revoked_at: string | null;
+  /** Text version the record was granted or revoked under (REQ-025 v1.41); `null` without a record. */
+  consent_version: string | null;
+  /** Current text version of the purpose; a grant counts only when both are equal. */
+  purpose_version: string;
 }
 
 // REQ-025 Art. 16 — e-mail change (#1841, #1848)

@@ -17,10 +17,13 @@
  *    payload, at +1.5 KB gzip (345.5 -> 347.0 KB, budget 400). That is why
  *    `init` is async and awaited before the app mounts rather than imported at
  *    the top.
- * 3. **Consent-gated** (UI-NFR-013 CI-001/CI-002/CW-003, #2159). A DSN is the
- *    operator's opt-in; the user's own `error_tracking` consent is the second,
- *    independent gate. The SDK chunk is neither fetched nor initialised until
- *    that consent is `true` — undecided (`null`) counts as no. A decision made
+ * 3. **Consent-gated** (UI-NFR-013 CI-001/CI-002/CW-003, #2159, #3025). A DSN is
+ *    the operator's opt-in; the consent `browser_error_reports` is the second,
+ *    independent gate, decided by `browserReportsPermitted` over the device
+ *    decision, the sign-in state and the account consent (UI-NFR-013 §5.4). The
+ *    SDK chunk is neither fetched nor initialised until that says yes — unknown
+ *    and undecided count as no, and so does "the auth bootstrap has not finished
+ *    yet", so nothing is sent before it is known who is signed in. A decision made
  *    after boot takes effect without a reload: a later grant initialises, a
  *    revoke disables the client synchronously and then closes it. Light mode
  *    (REQ-027) never tracks in the browser, whatever is stored.
@@ -33,7 +36,11 @@
 
 import { runtimeConfig } from '@/config/runtimeConfig';
 import { isLightMode } from '@/config/mode';
-import { hasConsent, subscribeConsent } from '@/observability/consent';
+import {
+  browserReportsPermitted,
+  readConsentSnapshot,
+  subscribeConsent,
+} from '@/observability/consent';
 
 type SentryModule = typeof import('@sentry/react');
 
@@ -250,19 +257,36 @@ function configuredDsn(): string {
 }
 
 /**
- * Whether the operator configured a DSN. The consent banner only asks for an
- * `error_tracking` decision when there is something for it to switch on.
+ * Whether the operator configured a DSN. The consent banner only asks for a
+ * `browser_error_reports` decision when there is something for it to switch on.
  */
 export function isErrorTrackingConfigured(): boolean {
   return configuredDsn() !== '';
 }
 
 /**
+ * Whether this deployment asks for and reconciles the `browser_error_reports`
+ * consent at all: a DSN is configured and it is not Light mode (UI-NFR-013 §5.3).
+ */
+export function isBrowserConsentManaged(): boolean {
+  return !isLightMode && isErrorTrackingConfigured();
+}
+
+/** The host error reports go to, for the consent text (CK-004); `null` when the DSN does not parse. */
+export function errorTrackerHost(): string | null {
+  try {
+    return new URL(configuredDsn()).host || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Wire error tracking to the DSN and the user's consent.
  *
  * With no DSN nothing happens — no subscription, no chunk, no init. With one,
- * the module subscribes to consent changes (once) and starts the SDK only if
- * `error_tracking` consent is already `true`.
+ * the module subscribes to consent changes (once) and starts the SDK only if the
+ * consent decision (`trackingPermitted`) already says yes.
  *
  * @returns `true` when tracking is active, `false` when it stayed off. Callers
  *   ignore this; it exists so the behaviour is directly testable.
@@ -278,12 +302,14 @@ export async function initErrorTracking(): Promise<boolean> {
 }
 
 /**
- * Whether the browser may track right now: the user's explicit grant, and never
- * in Light mode — there is no banner there (household exemption), so a grant
- * left over from before a full -> light switch must not start the SDK.
+ * Whether the browser may track right now: the consent decision of UI-NFR-013
+ * §5.4, evaluated at this moment (an account grant ages out after 30 minutes
+ * without a re-read), and never in Light mode — there is no banner there
+ * (household exemption), so a grant left over from before a full -> light
+ * switch must not start the SDK.
  */
 function trackingPermitted(): boolean {
-  return !isLightMode && hasConsent('error_tracking');
+  return !isLightMode && browserReportsPermitted(readConsentSnapshot(), Date.now());
 }
 
 /** Start or stop the SDK to match the current consent. */

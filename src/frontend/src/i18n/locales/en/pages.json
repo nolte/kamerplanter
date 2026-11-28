@@ -765,7 +765,8 @@
       "consentRevokeAria": "Revoke consent “{{label}}”",
       "consentRevokeFailed": "The consent could not be revoked. Please try again.",
       "consentRevokedStatus": "Consent revoked.",
-      "consentPurposeUnnamed": "Processing purpose without a name"
+      "consentPurposeUnnamed": "Processing purpose without a name",
+      "consentOutdatedVersion": "Granted for an earlier version"
     },
     "activities": {
       "title": "Activities",
@@ -9377,6 +9378,44 @@
           "label": "Decline"
         }
       }
+    }
+  },
+  "consent": {
+    "banner": {
+      "aria_label": "Consent: error reports from the browser",
+      "title": "Error reports from the browser?",
+      "intro": "Necessary storage for sign-in, language and garden selection is always active. Optionally your browser may send a report to the operator's error tracker when an error occurs.",
+      "scope_device": "You are not signed in: your decision applies to this browser only. A grant does not apply to an account – after you sign in we ask you there once more. A decline applies here to everyone who signs in to this browser.",
+      "scope_account": "Your decision is stored in your account and applies in every browser you are signed in to – except a browser in which sending was declined.",
+      "change_hint": "You can change it at any time under Privacy → Consents.",
+      "settings": "Settings",
+      "necessary": "Necessary only",
+      "accept_all": "Accept all",
+      "save": "Save selection",
+      "retry": "Try again",
+      "grant_failed": "Your consent could not be stored in your account. Until that works, this browser sends no error reports.",
+      "revoke_pending": "Your decline applies in this browser at once but is not stored in your account yet. We will try again on the next sync.",
+      "category": {
+        "browser_error_reports": {
+          "label": "Error reports from the browser",
+          "description": "When an error occurs in your browser, it sends a report to the error tracker the operator of this installation has set up ({{host}}). The report contains the error message with its stack trace, the page you were on without confidential address parameters, browser, operating system and app version, and the steps before it (clicks on controls, page changes, console messages, address and status of requests to the server). It contains no form input, no request contents, no cookies, no e-mail address and no pseudonym of your account. On receipt the tracker sees the IP address of your connection.",
+          "host_unknown": "address from the operator's configuration"
+        }
+      }
+    },
+    "settings": {
+      "heading": "Error reports from the browser",
+      "account_switch": "Allow for my account",
+      "status_sending": "This browser is currently sending error reports.",
+      "status_not_sending": "This browser is currently not sending error reports.",
+      "loading": "Your setting is being synced with the server …",
+      "device_granted": "Without sign-in, this browser was allowed to send. That grant does not apply to your account.",
+      "device_denied": "Sending was declined in this browser. As long as that holds, it sends no reports – not even with your consent in the account.",
+      "device_reset": "Reset this browser's decision",
+      "sync_failed": "Your setting could not be synced with the server. Until that works, this browser sends no error reports.",
+      "revoke_pending": "Your revocation applies in this browser but has not reached the server yet. It will be sent on the next sync.",
+      "write_failed": "The change could not be saved. Please try again.",
+      "retry": "Try again"
     }
   }
 }
