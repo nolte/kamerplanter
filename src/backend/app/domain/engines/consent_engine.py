@@ -107,8 +107,9 @@ class ConsentEngine:
                 "Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält "
                 "keine Formulareingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein "
                 "Pseudonym deines Kontos. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses. "
-                "Die Einwilligung gilt in jedem Browser, in dem du angemeldet bist — außer in einem Browser, in "
-                "dem das Senden abgelehnt wurde. Jederzeit widerrufbar; der Widerruf wirkt sofort."
+                "Die Einwilligung gilt für den Browser, in dem du sie erteilst; auf jedem weiteren Gerät fragen "
+                "wir dich einmal, ob es auch von dort senden darf. Wurde das Senden in einem Browser abgelehnt, "
+                "sendet er nicht. Jederzeit widerrufbar; der Widerruf wirkt sofort."
             ),
             description_en=(
                 "When the operator has switched error tracking on and an error occurs in your browser, the "
@@ -119,8 +120,9 @@ class ConsentEngine:
                 "system and app version, and the steps before it (clicks on controls, page changes, console "
                 "messages, address and status of requests to the server). It contains no form input, no "
                 "request contents, no cookies, no e-mail address and no pseudonym of your account. On receipt "
-                "the tracker sees the IP address of your connection. The consent applies in every browser you "
-                "are signed in to — except a browser in which sending was declined. Revocable at any time; "
+                "the tracker sees the IP address of your connection. The consent applies to the browser in which "
+                "you give it; on every further device we ask you once whether it may send from there too. A "
+                "browser in which sending was declined does not send. Revocable at any time; "
                 "revocation takes effect immediately."
             ),
             # Chosen as the conservative variant while implementing (REQ-025 v1.41), to be

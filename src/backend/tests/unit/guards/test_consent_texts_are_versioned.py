@@ -36,7 +36,7 @@ from tests.support.repo_scripts import find_repo_root
 PINNED: dict[str, tuple[str, str]] = {
     "core_functionality": ("1.0", "acdf2cba390a6a49d4e08fab1e0b33a7db1e625bc1c5ce86c38243e0144e798a"),
     "error_tracking": ("1.0", "e9ef5f78d0fec983e5df5ebf5bd569c94765de89f07930cdc47ebacfddd02457"),
-    "browser_error_reports": ("1.0", "fde3e8a46bd57f36ed807bdc023aa05e0d0df909b29c081e9213237b6124c309"),
+    "browser_error_reports": ("1.0", "9b91f6ba09b2a2bfde66703c2b64f16014f7332a244f70b762d547ca1603e847"),
     "plant_identification": ("1.0", "b56bf10882abfd9dff17b47029b38ee553da3810f97c5c8984b61ae671fd0011"),
     "pest_detection_cloud": ("1.0", "02eb9b8935cc13f35e027ee5519813aadd3b2af4f3885f4accadaad4ce3ff34a"),
     "ai_tenant_data_access": ("1.0", "51e3778d820777fcf7524565e5961de78fed585a063a89415df74b5f91f76ead"),
@@ -49,7 +49,7 @@ PINNED: dict[str, tuple[str, str]] = {
 }
 
 #: The browser's text of ``browser_error_reports``: ``(version, sha256)``.
-FRONTEND_PINNED: tuple[str, str] = ("1.0", "fb09081222bcfa4bf3192b2b9b115cb4b881d0420f8daac381f18adaa7ce8d13")
+FRONTEND_PINNED: tuple[str, str] = ("1.0", "3261ab461ecb813fa4b3865aff6c72adf8b62fbf670d7b0c589e07d51a1c2196")
 
 #: The keys under ``consent.banner`` that form the consent text the browser shows.
 FRONTEND_TEXT_KEYS = (
@@ -58,6 +58,8 @@ FRONTEND_TEXT_KEYS = (
     "summary",
     "scope_device",
     "scope_account",
+    "confirm_title",
+    "confirm_body",
     "category.browser_error_reports.label",
     "category.browser_error_reports.description",
 )
@@ -120,10 +122,12 @@ def test_the_digest_sees_every_part() -> None:
                     "summary": "s",
                     "scope_device": "d",
                     "scope_account": "a",
+                    "confirm_title": "ct",
+                    "confirm_body": "cb",
                     "category": {"browser_error_reports": {"label": "l", "description": "x"}},
                 }
             }
         }
         for locale in ("de", "en")
     }
-    assert frontend_texts(pages) == ["t", "i", "s", "d", "a", "l", "x"] * 2
+    assert frontend_texts(pages) == ["t", "i", "s", "d", "a", "ct", "cb", "l", "x"] * 2
