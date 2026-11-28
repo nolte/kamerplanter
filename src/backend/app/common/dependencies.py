@@ -588,6 +588,8 @@ def _bed_rotation_validator() -> CropRotationValidator:
         site_repo=get_site_repo(),
         family_repo=get_family_repo(),
         history_repo=ArangoRotationHistoryRepository(get_db()),
+        # The soil hazards of the bed (REQ-053 §11.3a Nr. 6, #2888 F-21): the table read once per process.
+        soil_hazards=get_soil_hazard_knowledge_source(),
     )
 
 

@@ -322,8 +322,8 @@ describe('hints with a strength (GP-FR-132, GP-ACC-047)', () => {
       });
 
     it.each([
-      ['disease', 'died from a disease this year. If the pathogen sits in the soil'],
-      ['pest', 'died from pests this year. If the pests live in the soil'],
+      ['disease', 'died from a disease this season. If the pathogen sits in the soil'],
+      ['pest', 'died from pests this season. If the pests live in the soil'],
     ])('words the residual %s hint as a warning that asks for a reason, never as a block', async (cause, text) => {
       usePlantingBackend({
         species: [TOMATO],

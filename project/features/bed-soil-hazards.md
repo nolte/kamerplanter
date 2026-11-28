@@ -1,11 +1,11 @@
 ---
 id: F-20
 title: Bodengefahren am Beet
-status: in_progress
+status: done
 roadmap_item: R-20
 sprint: 4
 created: 2026-11-17
-ended: null
+ended: 2026-11-27
 verifies_sprint_value: null
 consistency_check:
   performed_at: 2026-11-17
@@ -104,20 +104,26 @@ with plan export/import and the tenant export (R-19).
 
 ## Offene Betreiberentscheidungen (F-20)
 
-Beim Bauen von F-20 und aus dem Review 2026-11-27. Der Code verhält sich heute wie unter „heute“ beschrieben; die Spec-Stellen sind als *vorläufig* markiert und verweisen hierher. Rules: REQ-054 v1.5 (AP-API-012, §5.2), REQ-053 v1.57 §11.3a Nr. 5, REQ-003 E5 v2.26.
+Beim Bauen von F-20 und aus dem Review 2026-11-27. **Alle sechs Punkte hat der Betreiber am 2026-11-27 entschieden** (je Punkt unten). O1, O2 und O4 bestätigen das heutige Verhalten; O3, O5 und O6 ändern es und werden in einem eigenen Folge-PR umgesetzt — bis dahin verhält sich der Code wie unter „heute“ beschrieben und die Spec-Stellen zu O3/O5 tragen ihren Vorbehalt weiter. Rules: REQ-054 v1.5 (AP-API-012, §5.2), REQ-053 v1.57 §11.3a Nr. 5, REQ-003 E5 v2.26.
 
 - **O1 — Was bewirkt eine erneute Bestätigung derselben Bodengefahr?** Regel: AP-API-012, `merged_entries` in `bed_soil_hazard_engine.py`.
   - „Spätere ersetzt, frühere ändert nichts“ (heute): Ein Gärtner kann `confirmed_at` wiederholt nach vorn schieben und damit jede Frist verlängern, die F-21 daraus rechnet; ein zu spät vertipptes Datum korrigiert nur die Leitung (entfernen und neu eintragen). Ein früheres Datum antwortet `200` mit `changed: false` und einem Hinweis in der Oberfläche.
   - „Eine erneute Bestätigung ändert das Datum nie“: Fristen laufen ab dem ersten Befund; ein neuer Befall nach Jahren verlängert nichts, bis die Leitung den Eintrag erneuert.
   - „Nur die Leitung verschiebt das Datum“: Gärtner tragen nur neue Gefahren ein; jede Datumsänderung braucht die Leitung. Code: Rollenprüfung im Service.
+  - **Entschieden 2026-11-27: „Spätere ersetzt, frühere ändert nichts“** (Stand heute) — keine Codeänderung.
 - **O2 — Datum bei Juglon, solange der Baum steht.** Regel: REQ-054 §5.2a („solange er steht, gilt die Gefahr unbefristet“), P5 offen. Heute ist der Hilfetext neutral: gefällter Baum → Datum der Fällung, stehender Baum → der Tag, an dem du es festgestellt hast; über die Folgen des Datums sagt er nichts. Optionen: so lassen / eigenes Feld „Baum steht noch“ (Code) / jährliche Bestätigung (mit O1 „spätere ersetzt“ heißt das: jährlich neu eintragen).
+  - **Entschieden 2026-11-27: so lassen** — Juglon unverändert; mit P5 („unbefristet, bis die Leitung entfernt“) meldet Juglon ohnehin ohne Ende.
 - **O3 — Wo darf eine Bodengefahr stehen?** Regel: AP-API-012, REQ-053 §11.3a Nr. 5. Heute nur an Beettypen (`is_bed`), nie an Gefäßen (`planter`, `tent`, `shelf`, `container`).
   - „Nur Beete“ (heute): Juglon an Flächentypen (`garden`, `zone`, ein Gewächshaus mit gewachsenem Boden ohne `greenhouse_bed`, mandanteneigene Typen wie Obstwiese oder Acker mit `is_bed = false`) lässt sich nicht erfassen.
   - „Juglon auch an Flächentypen“: Juglon an jedem Nicht-Gefäß, die übrigen Gefahren nur an Beeten. Code: Regel in `soil_hazard_refusal_for_type`, Oberfläche an der Standortseite.
   - „Jede Gefahr an jedem Nicht-Gefäß“: auch Kohlhernie im Gewächshausboden; Oberfläche außerhalb der Beetansicht nötig.
+  - **Entschieden 2026-11-27: „Juglon auch an Flächentypen“** — Umsetzung (Regel in `soil_hazard_refusal_for_type`, Oberfläche an der Standortseite) in einem eigenen Folge-PR, nicht mit F-21.
 - **O4 — Juglon nie aus einem Ausfall.** Regel: REQ-003 E5 v2.26, REQ-053 §11.3a Nr. 5. Heute bietet der Ausfall-Dialog Juglon nicht an, ein neuer Ausfall mit Juglon wird abgelehnt (`422`), ältere bleiben lesbar und werden nie übernommen. Bitte bestätigen; sonst müsste der Ausfall ein Fälldatum tragen.
+  - **Entschieden 2026-11-27: bestätigt** — Juglon entsteht nie aus einem Ausfall; keine Codeänderung.
 - **O5 — Hydrokultur.** Regel: REQ-053 §11.3a Nr. 5. Heute: kein Eintrag von Hand an einem Hydrokultur-Standort; der Reinigungs-Hinweis kommt nach jedem bodenbürtigen Ausfall, auch unbestätigt; er hängt allein an `irrigation_system` des eigenen Standorts der Pflanze — ein Regal oder Zelt ohne eigenen Wert unter einem Hydro-Raum bekommt weder Hinweis noch Angebot. Optionen: so lassen / Hinweis nur bei bestätigtem Erreger / `irrigation_system` vom Eltern-Standort erben (Code) / Eintrag von Hand auch an Hydrokultur erlauben.
+  - **Entschieden 2026-11-27: `irrigation_system` vom Eltern-Standort erben** — Umsetzung in einem eigenen Folge-PR, nicht mit F-21.
 - **O6 — Protokoll beim Entfernen.** Heute schreibt das Entfernen durch die Leitung nur eine Logzeile, keinen Eintrag ins Änderungsprotokoll. Optionen: so lassen / Eintrag im Plan-Änderungsprotokoll (`garden_plan_audit`) / Pflegeeintrag am Beet. Das Protokoll nennt Personen (Zurechnung, `spec/privacy/05-access-and-visibility.md` Gruppe M).
+  - **Entschieden 2026-11-27: Eintrag im Plan-Änderungsprotokoll (`garden_plan_audit`)** — Umsetzung in einem eigenen Folge-PR, nicht mit F-21.
 
 ## Risks
 

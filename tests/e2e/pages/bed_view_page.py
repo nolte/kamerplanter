@@ -1000,6 +1000,27 @@ class PlantingDialog(BasePage):
             " ".join((hint.get_attribute("textContent") or "").split()),
         )
 
+    def hint_lines(self, species_key: str) -> list[tuple[str, str, str | None]]:
+        """The lines of *species_key*'s hint block as ``(code, severity, hazard stage)``, in the order shown.
+
+        Read after :meth:`wait_for_hint` anchored the block: the lines render with it from the one server answer
+        (``data-code`` / ``data-severity`` / ``data-hazard-stage`` on each ``li``, #2888 F-21), so the list is complete.
+        """
+        block = self.wait_for_element(_tid(f"planting-hint-{species_key}"))
+        return [
+            (
+                line.get_attribute("data-code") or "",
+                line.get_attribute("data-severity") or "",
+                line.get_attribute("data-hazard-stage"),
+            )
+            for line in block.find_elements(By.CSS_SELECTOR, "li[data-code]")
+        ]
+
+    def offers_plant_anyway(self) -> bool:
+        """Whether "Trotzdem pflanzen" is offered; read after :meth:`wait_for_hint` anchored the hints."""
+        self.wait_for_element(self.HINTS)
+        return self.is_present(self.OVERRIDE_CHECK)
+
     def site_axis_hints(self, species_key: str) -> dict[str, tuple[str, str]]:
         """The frost / wind / waterlogging hints of *species_key* (GP-FR-161): axis -> (severity class, text).
 

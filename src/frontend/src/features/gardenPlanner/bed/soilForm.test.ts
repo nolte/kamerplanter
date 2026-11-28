@@ -34,8 +34,27 @@ describe('soil profile form mapping (GP-FR-120/121)', () => {
       ec_method: null,
       humus_percent: null,
       target_ph: null,
+      substrate_replaced_on: null,
       notes: null,
     });
+  });
+
+  it('carries the day the substrate was renewed and clears it when emptied (REQ-053 §11.3a Nr. 7)', () => {
+    const stored = { ...bedSummary().soil_profile!, substrate_replaced_on: '2025-03-15' };
+    expect(soilToForm(stored).substrate_replaced_on).toBe('2025-03-15');
+    expect(formToSoil(soilToForm(stored), stored).substrate_replaced_on).toBe('2025-03-15');
+    expect(formToSoil({ ...soilToForm(stored), substrate_replaced_on: '' }, stored).substrate_replaced_on).toBeNull();
+  });
+
+  it('refuses a renewal day after today, as the server does', () => {
+    const schema = buildSoilFormSchema(((key: string) => key) as unknown as TFunction);
+    const future = schema.safeParse({ ...EMPTY_SOIL_FORM, substrate_replaced_on: '2999-01-01' });
+    expect(future.success).toBe(false);
+    expect(future.error?.issues[0]).toMatchObject({
+      path: ['substrate_replaced_on'],
+      message: 'pages.bed.soil.substrateReplacedOnFuture',
+    });
+    expect(schema.safeParse({ ...EMPTY_SOIL_FORM, substrate_replaced_on: '2020-01-01' }).success).toBe(true);
   });
 
   it('sends back what the form does not show, so saving never erases what a soil analysis wrote (WP 8.8)', () => {

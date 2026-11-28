@@ -57,7 +57,11 @@ class ArangoRotationHistoryRepository(IRotationHistoryRepository):
                         removed_on: p.removed_on,
                         plan_role: run != null AND run.plan_role != null ? run.plan_role : "main_crop",
                         termination_type: p.termination_type,
-                        termination_cause: p.termination_cause
+                        termination_cause: p.termination_cause,
+                        cultivar_key: p.cultivar_key,
+                        failure_cause_class: p.failure_cause_class,
+                        failure_pathogen: p.failure_pathogen,
+                        failure_pathogen_confirmed: p.failure_pathogen_confirmed
                     }
                 """,
                 bind_vars={
@@ -178,6 +182,10 @@ def _planted(row: dict[str, Any]) -> PlantedRow:
         plan_role=row["plan_role"],
         termination_type=row.get("termination_type"),
         termination_cause=row.get("termination_cause"),
+        cultivar_key=row.get("cultivar_key"),
+        failure_cause_class=row.get("failure_cause_class"),
+        failure_pathogen=row.get("failure_pathogen"),
+        failure_pathogen_confirmed=row.get("failure_pathogen_confirmed"),
     )
 
 

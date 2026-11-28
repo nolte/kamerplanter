@@ -17,7 +17,7 @@ from app.domain.interfaces.rotation_history_repository import (
     PlantedRow,
 )
 from app.domain.models.botanical_family import BotanicalFamily
-from app.domain.models.species import Species
+from app.domain.models.species import Cultivar, Species
 from tests.support.care_event_fakes import FakeCareEventRepo
 
 
@@ -35,6 +35,15 @@ class FakeSpecies:
     def __init__(self, *species: Species) -> None:
         self.by_key = {s.key: s for s in species}
         self.grants: set[tuple[str, str]] = set()
+        #: cultivars by key, and the ``(cultivar_key, tenant_key)`` grants (#1090)
+        self.cultivars: dict[str, Cultivar] = {}
+        self.cultivar_grants: set[tuple[str, str]] = set()
+
+    def get_cultivar_by_key(self, key):
+        return self.cultivars.get(key)
+
+    def is_cultivar_granted_to(self, cultivar_key, tenant_key):
+        return (cultivar_key, tenant_key) in self.cultivar_grants
 
     def get_by_key(self, key):
         return self.by_key.get(key)
@@ -106,6 +115,10 @@ class FakeRotationHistory(IRotationHistoryRepository):
         tenant: str = "ten_own",
         termination_type: str | None = None,
         termination_cause: str | None = None,
+        cultivar_key: str | None = None,
+        failure_cause_class: str | None = None,
+        failure_pathogen: str | None = None,
+        failure_pathogen_confirmed: bool | None = None,
     ) -> str:
         """Record a plant of ``tenant`` in the bed; returns its key (``pi_<n>``)."""
         row = PlantedRow(
@@ -116,6 +129,10 @@ class FakeRotationHistory(IRotationHistoryRepository):
             plan_role,
             termination_type=termination_type,
             termination_cause=termination_cause,
+            cultivar_key=cultivar_key,
+            failure_cause_class=failure_cause_class,
+            failure_pathogen=failure_pathogen,
+            failure_pathogen_confirmed=failure_pathogen_confirmed,
         )
         self.plants.append((tenant, location_key, row))
         return row.plant_key

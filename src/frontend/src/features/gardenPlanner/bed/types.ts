@@ -106,6 +106,8 @@ export interface SoilProfile {
   /** Server-owned: the `performed_at` of the newest analysis in the profile; sent back as received. */
   last_analysis_at?: string | null;
   rotation_reset_at?: string | null;
+  /** Day the substrate was renewed (REQ-053 §11.3a Nr. 7): soil hazards confirmed before it no longer warn. */
+  substrate_replaced_on?: string | null;
   notes?: string | null;
 }
 

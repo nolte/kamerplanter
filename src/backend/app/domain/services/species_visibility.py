@@ -11,7 +11,7 @@ explicitly granted (#1092) — kept in one place so the readers cannot drift apa
 from __future__ import annotations
 
 from app.domain.interfaces.species_repository import ISpeciesRepository
-from app.domain.models.species import Species
+from app.domain.models.species import Cultivar, Species
 
 
 def readable_species(species_repo: ISpeciesRepository, species_key: str, tenant_key: str) -> Species | None:
@@ -26,3 +26,15 @@ def readable_species(species_repo: ISpeciesRepository, species_key: str, tenant_
     if species.tenant_key not in ("", tenant_key) and not species_repo.is_granted_to(species_key, tenant_key):
         return None
     return species
+
+
+def readable_cultivar(species_repo: ISpeciesRepository, cultivar_key: str, tenant_key: str) -> Cultivar | None:
+    """The cultivar when ``tenant_key`` may read it (global, own or granted), else ``None`` - the rule above."""
+    cultivar = species_repo.get_cultivar_by_key(cultivar_key)
+    if cultivar is None:
+        return None
+    if cultivar.tenant_key not in ("", tenant_key) and not species_repo.is_cultivar_granted_to(
+        cultivar_key, tenant_key
+    ):
+        return None
+    return cultivar

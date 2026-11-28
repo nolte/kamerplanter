@@ -5,6 +5,7 @@ from typing import Annotated, Any, Literal, Self
 
 from pydantic import AllowInfNan, BaseModel, Field, field_validator, model_validator
 
+from app.common.datetimes import today_utc
 from app.common.enums import (
     INDOOR_PLAN_SITE_TYPES,
     AccessSide,
@@ -302,6 +303,10 @@ class SoilProfile(BaseModel):
     hand_values: dict[AnalysisField, SoilHandValue] | None = None
     #: A substrate change resets the crop-rotation history: plantings before this day do not count (GP-FR-131).
     rotation_reset_at: date | None = None
+    #: The day the bed's substrate was renewed (REQ-053 §11.3a Nr. 7, #2888 F-21): a soil hazard confirmed before
+    #: this day no longer warns, and the soil-borne residual hint of a loss before it is lifted. As stated by the
+    #: grower; never derived, and never after today (UTC).
+    substrate_replaced_on: date | None = None
     notes: str | None = Field(default=None, max_length=4000)
 
     @field_validator("conditions")
@@ -309,6 +314,14 @@ class SoilProfile(BaseModel):
     def validate_conditions_unique(cls, value: list[SoilConditionFlag]) -> list[SoilConditionFlag]:
         if len(set(value)) != len(value):
             raise ValueError("conditions must not repeat a flag")
+        return value
+
+    @field_validator("substrate_replaced_on")
+    @classmethod
+    def _substrate_not_renewed_in_the_future(cls, value: date | None) -> date | None:
+        """A renewal after today would lift every soil hazard in advance."""
+        if value is not None and value > today_utc():
+            raise ValueError("substrate_replaced_on cannot lie after today")
         return value
 
     @model_validator(mode="after")

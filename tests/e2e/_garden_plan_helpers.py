@@ -1710,3 +1710,28 @@ def plant_feeding_events(base_url: str, seed: dict, plant_key: str) -> list[dict
     if not isinstance(body, list):
         raise AssertionError(f"the feeding events of {plant_key!r} are not a list: {body!r}")
     return body
+
+
+def record_soil_hazard(
+    base_url: str,
+    seed: dict,
+    bed_key: str,
+    *,
+    hazard: str,
+    confirmed_at: date,
+    source: str = "lab_test",
+) -> dict:
+    """``POST /locations/{key}/soil-hazards`` by hand (REQ-054 AP-API-012, #2888 F-20); loud on anything but 201/200."""
+    return _tenant_post(
+        base_url,
+        seed,
+        f"/locations/{bed_key}/soil-hazards",
+        {"hazard": hazard, "confirmed_at": confirmed_at.isoformat(), "source": source},
+    )
+
+
+def validate_planting(base_url: str, seed: dict, bed_key: str, species_key: str) -> dict:
+    """The planting check the dialog reads (``POST /locations/{key}/validate-planting``, GP-API-025)."""
+    return _tenant_post(
+        base_url, seed, f"/locations/{bed_key}/validate-planting", {"species_key": species_key}
+    )

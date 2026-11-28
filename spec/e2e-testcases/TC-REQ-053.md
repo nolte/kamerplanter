@@ -28,7 +28,7 @@ coverage_areas:
   - Welle 10 Teil A — Editor-Arbeitsfläche (Tabs mit URL-Zustand, Seitenpanel, drei Breiten), Objekteigenschaften, Indoor-Plan (Leerzustand, Fenster-Vorschlag, Pflanzplätze)
   - Welle 10 Teil B — Saatzustand und Vereinzeln, Nachpflanzen, Aufgaben an Gartenobjekten, Rankhilfe-Hinweis, Zelt-Photoperiode, Bodenverbesserung im Pflegeeintrag
 generated: "2026-10-11"
-version: "1.27"
+version: "1.28"
 ---
 
 # Testfälle REQ-053: Grafische Garten- und Beetplanung
@@ -142,6 +142,12 @@ Verlassen-Dialog (AC-8) in TC-053-007, die Hervorhebung aus der Beetliste (AC-7)
 Touch-Fälle (AC-9) in TC-053-032 und TC-053-033, der ursprüngliche Indoor-Grundriss in TC-053-044. Die Zuordnung je
 Kriterium steht am Anfang von Abschnitt 14, die Abdeckungs-Matrix ist um die abgeleiteten Zeilen ergänzt, nicht
 abgedeckte Teile stehen am Dokumentende unter „Nicht abgedeckte Welle-10-Teile“.
+
+**Version 1.28 (2026-11-28, #2888 F-21)** — TC-053-111: Der Resthinweis folgt der Ursachenklasse (REQ-053 v1.59
+§11.3a Nr. 4): ein unbestätigter Ausfall „Boden“ ergibt die Warnung „… an einer Krankheit aus dem Boden eingegangen …“.
+Neuer zweiter Teil: Ein Beet mit bestätigter Kohlhernie zeigt beim Bepflanzen mit einem Kreuzblütler die
+Bodengefahren-Warnung mit Jahr, und Code, Stärke und Stufe jeder Zeile stimmen mit der Antwort der Fruchtfolgeprüfung
+überein (acceptance-6). `test_count` unverändert.
 
 **Version 1.27 (2026-11-20, #3034)** — TC-053-102 auf den Drawer bei 820 × 1180 umgestellt (REQ-053 v1.54,
 Betreiberentscheidung 2026-11-20): Das Panel öffnet über dem rechten Rand der Zeichenfläche, die ihre Breite behält
@@ -3666,9 +3672,17 @@ Beobachtungen des Nutzers (Anzahl stehen gebliebener Pflanzen, Menge Kompost).
 - Der Bepflanzen-Dialog öffnet mit dem Salat als Art und dem Steckbrief-Abstand des Salats als Pflanzabstand
 - Der Dialog zeigt **keinen** Fruchtfolge-Hinweis „… steht in diesem Jahr schon in diesem Beet …“: der ersetzte
   Salat zählt für die Nachpflanzung nicht als Vorkultur (#2888)
-- Stattdessen zeigt er als Warnung den Resthinweis, dass die Pflanze hier in diesem Jahr an einer Krankheit eingegangen
-  ist und die neue Pflanze auf dieselbe Weise ausfallen kann, wenn die Ursache im Boden sitzt
+- Stattdessen zeigt er als Warnung den Resthinweis, dass die Pflanze an einer Krankheit aus dem Boden eingegangen ist
+  (Ursachenklasse `disease_soil`, Erreger nicht bestätigt) und die neue Pflanze derselben Familie genauso ausfallen kann
 - Nach dem Bepflanzen sind 2 Salat-Positionen geplant
+
+**Zweiter Teil — Bodengefahr im Bepflanzen-Dialog** (REQ-053 §11.3a Nr. 6, GP-FR-193, #2888 F-21):
+- Vorbedingung: ein eigenes „Beet 2“ mit der bestätigten Bodengefahr Kohlhernie (Laborbefund, vor einem Jahr)
+- Nutzer öffnet „Bepflanzen“ und wählt einen Kreuzblütler (Brokkoli)
+- Der Dialog zeigt eine Warnung, die Kohlhernie, die Wirtsfamilie Brassicaceae und das Jahr nennt, bis zu dem
+  Wirtspflanzen nicht in das Beet sollen, und bietet „Trotzdem pflanzen“ an
+- Code, Stärke und Stufe jeder Hinweiszeile des Dialogs stimmen in Reihenfolge mit der Antwort der Fruchtfolgeprüfung
+  (`validate-planting`) für dieselbe Art überein; der Kopf des Hinweises trägt deren Gesamtstärke
 
 **Hinweis**: „Ausgefallen“ ist seit Spec v1.17 (§11.3) nur `termination_type = died`; `senesced` ist das natürliche
 Ende einer Kultur und gilt als abgeschlossen (Zustand „historisch“). Das Nachpflanz-Angebot (`thinningLogic.ts`,

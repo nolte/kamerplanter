@@ -7,6 +7,9 @@
  * `site_fit`, no reason needed to plant.
  * A species that needs a support (`support_required`, W-005) names the trellises drawn in the bed, or says there is
  * none (`SupportHint`, WP 10.10) - information only.
+ * Soil hazards of the bed (REQ-053 §11.3a Nr. 6, #2888 F-21) come from the same server answer as the rotation hints
+ * (`soil_hazard.*` codes) and are worded here only - nothing is computed in the client. They hang on the soil, not on
+ * the rotation: a bed whose rotation check is off still lists them.
  */
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +31,7 @@ import type { SiteAxisHint } from '../model/siteFit';
 import type { SunExposure } from '../model/types';
 import type { SiteFlag } from '../bed/types';
 import { siteFlagsLine } from '../bed/bedFormat';
+import { formatDate } from '@/utils/formatting';
 import { needsOverrideReason } from './plantingLogic';
 import type { NeighbourHint, RotationFinding, RotationSeverity } from './plantingTypes';
 import PlannerGlossary, { type PlannerGlossaryTerm } from '../glossary/PlannerGlossary';
@@ -87,10 +91,53 @@ interface HintsPanelProps {
   overridable?: boolean;
 }
 
+/** The host a soil-hazard finding names: "Familie Brassicaceae", "Gattung Allium", "Art Solanum lycopersicum". */
+function hostText(finding: RotationFinding, t: Translate): string {
+  const name = finding.host_name?.trim() ?? '';
+  if (!name || !finding.host_level) return t('pages.bed.planting.hints.soilHazard.hostUnnamed');
+  return t(`pages.bed.planting.hints.soilHazard.host.${finding.host_level}`, { name });
+}
+
+/** The year a stage ends; only set where a 3/3-evidenced duration carries a time statement. */
+function untilYear(finding: RotationFinding): string {
+  return finding.hazard_until ? finding.hazard_until.slice(0, 4) : '';
+}
+
+/** A soil-hazard finding in words (REQ-053 §11.3a Nr. 6); `null` for a code this panel does not know. */
+function soilHazardText(finding: RotationFinding, t: Translate): string | null {
+  const values = {
+    hazard: finding.hazard ? t(`enums.soilHazard.${finding.hazard}`) : t('pages.bed.planting.hints.soilHazard.unnamed'),
+    confirmed: formatDate(finding.hazard_confirmed_at),
+    host: hostText(finding, t),
+    year: untilYear(finding),
+  };
+  switch (finding.code) {
+    case 'soil_hazard.pause':
+      return t('pages.bed.planting.hints.soilHazard.pause', values);
+    case 'soil_hazard.no_evidenced_pause':
+      return t('pages.bed.planting.hints.soilHazard.noEvidencedPause', values);
+    case 'soil_hazard.residual':
+      return t(
+        finding.hazard_until
+          ? 'pages.bed.planting.hints.soilHazard.residualUntil'
+          : 'pages.bed.planting.hints.soilHazard.residualOpen',
+        values,
+      );
+    case 'soil_hazard.soft':
+      return t('pages.bed.planting.hints.soilHazard.soft', values);
+    case 'soil_hazard.uncertain_host':
+      return t('pages.bed.planting.hints.soilHazard.uncertainHost', values);
+    default:
+      return null;
+  }
+}
+
 function findingText(
   finding: RotationFinding,
   t: Translate,
 ): string {
+  const soil = soilHazardText(finding, t);
+  if (soil !== null) return soil;
   // The server names the family (`family_name`). A family without a name is left out of the sentence: the database
   // key is never shown to the grower as if it were a name.
   const family = finding.family_name?.trim() ?? '';
@@ -115,6 +162,15 @@ function findingText(
       );
     case 'rotation.replant_cause_unknown':
       return t('pages.bed.planting.hints.replantCauseUnknown');
+    case 'rotation.replant_foliar_disease':
+      return t('pages.bed.planting.hints.replantFoliarDisease');
+    case 'rotation.replant_soil_borne':
+      // The class says where the cause sat (`pest_soil` / `disease_soil`); the cause alone may not (#2888 F-21).
+      return t(
+        finding.failure_cause_class === 'pest_soil'
+          ? 'pages.bed.planting.hints.replantSoilBornePest'
+          : 'pages.bed.planting.hints.replantSoilBorneDisease',
+      );
     case 'rotation.no_family':
       return t('pages.bed.planting.hints.noFamily');
     case 'rotation.no_history':
@@ -176,7 +232,8 @@ export default function HintsPanel({
       );
     }
     const { data } = state;
-    if (!data.rotation_applicable) {
+    // Off for the rotation, the bed may still carry soil hazards (REQ-053 §11.3a Nr. 6): those come as findings.
+    if (!data.rotation_applicable && data.rotation.length === 0) {
       return (
         <Alert key={key} severity="info" data-testid={`planting-hint-${key}`}>
           {t('pages.bed.planting.hints.notApplicable', { name })}
@@ -185,13 +242,17 @@ export default function HintsPanel({
     }
     const lines = [
       ...data.rotation.map((finding) => ({
-        id: `${finding.code}-${finding.family_key ?? ''}`,
+        id: `${finding.code}-${finding.hazard ?? finding.family_key ?? ''}`,
+        code: finding.code,
         severity: finding.severity,
+        stage: finding.hazard_stage ?? null,
         text: findingText(finding, t),
       })),
       ...data.neighbours.map((hint) => ({
         id: `${hint.code}-${hint.species_key}`,
+        code: hint.code,
         severity: hint.severity,
+        stage: null,
         text: neighbourText(hint, speciesNames, t),
       })),
     ];
@@ -210,9 +271,21 @@ export default function HintsPanel({
             strength: t(SEVERITY_HEADING_KEY[data.severity]),
           })}
         </Typography>
+        {!data.rotation_applicable ? (
+          <Typography variant="body2" data-testid={`planting-hint-${key}-rotation-off`}>
+            {t('pages.bed.planting.hints.notApplicableSoilStill')}
+          </Typography>
+        ) : null}
         <Box component="ul" sx={{ m: 0, pl: 2 }}>
           {lines.map((line) => (
-            <li key={line.id}>
+            // The server's code, strength and stage on each line: a browser test compares them with the route's
+            // answer (acceptance-6, #2888 F-21) instead of parsing the worded text.
+            <li
+              key={line.id}
+              data-code={line.code}
+              data-severity={line.severity}
+              {...(line.stage ? { 'data-hazard-stage': line.stage } : {})}
+            >
               {line.text}
               {line.severity !== data.severity ? (
                 <Typography component="span" variant="caption" color="text.secondary">

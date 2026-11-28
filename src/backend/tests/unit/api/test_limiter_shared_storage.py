@@ -26,6 +26,7 @@ connections and never answers.
 
 from __future__ import annotations
 
+import gc
 import os
 import socket
 import subprocess
@@ -419,6 +420,26 @@ class TestProbeSchedule:
 )
 class TestHangingStorage:
     """A storage that accepts the connection and never answers (#2045 review, SEC-001/SEC-002)."""
+
+    @pytest.fixture(autouse=True)
+    def no_collection_inside_the_measurement(self) -> Iterator[None]:
+        """Keep the cyclic garbage collector out of the timed requests.
+
+        These tests bound a request by one socket timeout plus 0.3 s of slack. In
+        the full unit run the heap holds about 2.4 million tracked objects, and a
+        full collection on the CI runner takes 1.1 s -- measured inside the
+        concurrent test, where it stopped all four requests before they reached
+        the limiter. When it strikes depends only on the allocation count so far,
+        so a branch that merely adds tests can move it into this class and turn
+        the bound red on every run. Collect once up front, then pause the
+        collector for the test.
+        """
+        gc.collect()
+        gc.disable()
+        try:
+            yield
+        finally:
+            gc.enable()
 
     def test_first_request_waits_at_most_one_socket_timeout(self, blackhole_port: int) -> None:
         client = _client(_build(f"redis://127.0.0.1:{blackhole_port}/0"))

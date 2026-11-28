@@ -258,18 +258,37 @@ Im Tab **Pflanzung** der Beetansicht gilt für Reihen und Flächen, die du direk
 !!! note "Teilweise verfügbar: Säen"
     Gesäte Reihen und Flächen erscheinen im Tab **Pflanzung**, im Pflanzenzustand und in der Legende, aber noch nicht als Linie oder Fläche auf der Zeichenfläche und nicht im PDF oder in der SVG. <!-- REQ-053 W-015 -->
 
-**Fruchtfolge-Hinweis beim Nachpflanzen.** Der Dialog weiß, welche Pflanze du ersetzt, und hält dir deren Familie nicht als „stand dieses Jahr schon hier" vor. Stattdessen richtet sich ein Resthinweis nach der Ursache, die du beim Entfernen erfasst hast:
+**Fruchtfolge-Hinweis beim Nachpflanzen.** Der Dialog weiß, welche Pflanze du ersetzt, und hält sie dir nicht als Vorkultur vor, solange du in ihrer Saison nachpflanzt. Die Saison ist das Anbaufenster der ersetzten Pflanze: ihr Pflanzdatum plus die Kulturdauer ihrer Sorte (Tage bis zur Reife). So zählt ein im Herbst gesteckter Knoblauch, den du im März ersetzt, weder für dieses noch für das letzte Jahr. Hat die Pflanze keine Sorte mit Kulturdauer, gilt das Kalenderjahr ihres Ausfalls. Stand sie länger als ihr Anbaufenster – eine mehrjährige Kultur wie Erdbeeren –, zählt nur das Jahr des Ausfalls nicht; die Jahre davor zählen weiter. Pflanzt du erst nach dem Anbaufenster nach, zählt die ersetzte Pflanze wie jede andere Vorkultur.
+
+Pflanzt du dieselbe Familie nach, richtet sich ein Resthinweis danach, wo die Ursache saß, die du beim Entfernen erfasst hast (siehe [Ursachenklasse beim Entfernen](growth-phases.md#ursache-wo)):
 
 | Erfasste Ursache | Hinweis im Dialog |
 |------------------|-------------------|
-| Krankheit oder Schädlinge | Warnung: Sitzt der Erreger oder Schädling im Boden, kann die neue Pflanze derselben Familie genauso ausfallen. **Trotzdem pflanzen** verlangt einen kurzen Grund; gesperrt wird nie. |
-| Ursache unbekannt oder nicht erfasst | Leiser Info-Hinweis mit derselben Überlegung. |
-| Frost, Hitze, Trockenheit, Staunässe, Vernachlässigung oder mechanischer Schaden | Kein Hinweis. |
+| Krankheit oder Schädlinge im Boden, Erreger nicht bestätigt | Warnung: Die neue Pflanze derselben Familie kann genauso ausfallen. **Trotzdem pflanzen** verlangt einen kurzen Grund; gesperrt wird nie. |
+| Krankheit oder Schädlinge im Boden, Erreger bestätigt und als Bodengefahr im Beet | Kein eigener Hinweis – die Bodengefahr meldet sich selbst (siehe unten). |
+| Blattkrankheit | Hinweis: Nimm die Reste der Pflanze aus dem Beet und gib sie nicht auf den Gartenkompost; nur eine heiße Rotte tötet den Erreger sicher ab. |
+| Blattschädlinge, abiotische Ursache (Frost, Hitze, Trockenheit, Staunässe, Vernachlässigung, Schossen) oder mechanischer Schaden | Kein Hinweis. |
+| Ursache unbekannt | Leiser Hinweis. |
 
-Andere Pflanzen im Beet und frühere Jahre zählen wie bisher. Hast du am Beet einen Bodenwechsel erfasst, entfällt der Hinweis ganz.
+Bei einer Pflanze, die vor der Ursachenklasse erfasst wurde oder mit **Beet räumen** endete, zählt wie bisher nur die Ursache: Krankheit oder Schädlinge ergeben die Warnung, keine oder eine unbekannte Ursache einen leisen Hinweis. Hast du am Beet einen Bodenwechsel nach dem Ausfall erfasst oder das Substrat nach dem Ausfall erneuert (Feld **Substrat erneuert am** im [Bodenprofil](locations-substrates.md#bodenprofil-pflegen)), entfällt die Warnung. Andere Pflanzen im Beet, die Rotationsmatrix und der Zeitstrahl bleiben unverändert.
 
 !!! tip "Tipp"
-    Erfasse die Ursache, wenn du eine Pflanze als „eingegangen“ markierst. Ohne Ursache siehst du den Info-Hinweis, obwohl vielleicht Frost der Grund war. <!-- REQ-053 §11.3, GP-FR-131, #2888 -->
+    Erfasse die Ursache, wenn du eine Pflanze als „eingegangen“ markierst. Ohne Ursache siehst du den Info-Hinweis, obwohl vielleicht Frost der Grund war. <!-- REQ-053 §11.3, §11.3a Nr. 3–4, GP-FR-131, #2888 -->
+
+### Bodengefahren beim Bepflanzen {#bodengefahren-beim-bepflanzen}
+
+Hat das Beet eine bestätigte [Bodengefahr](locations-substrates.md#bodengefahren-am-beet) – etwa Kohlhernie – und ist die Art, die du pflanzen willst, ein Wirt dieses Erregers, zeigt der Bepflanzen-Dialog das in den Hinweisen. Wie stark, hängt davon ab, wie lange der Erreger laut Fachquellen im Boden bleibt:
+
+| Lage | Hinweis im Dialog |
+|------|-------------------|
+| Innerhalb der empfohlenen Anbaupause | Warnung mit Jahr („Wirtspflanzen bis 2029 nicht in dieses Beet“). **Trotzdem pflanzen** verlangt einen kurzen Grund. |
+| Keine Anbaupause sicher belegt | Warnung ohne Jahresangabe – bis zur belegten längsten Überdauerung, sonst so lange, bis die Leitung die Bodengefahr am Beet entfernt. |
+| Nach der Anbaupause | Leiser Hinweis auf das Restrisiko, mit Jahr, wenn die Überdauerung belegt ist, sonst ohne Ende. |
+| Nach der belegten längsten Überdauerung | Nichts mehr. |
+
+Eine Zeitangabe nennt Kamerplanter nur, wenn drei unabhängige Quellen den Wert tragen. **Wurzelgallennematoden** und **Sklerotinia** befallen fast jedes Gemüse; sie ergeben deshalb immer nur einen leisen Hinweis. Ebenso bleibt es beim Hinweis, wenn nicht sicher belegt ist, dass der Erreger deine Art befällt (etwa Tomaten bei Verticillium-Welke). Gesperrt wird nie.
+
+Die Prüfung hängt am Boden, nicht an der Fruchtfolge: Sie läuft auch bei Dauerkulturen und bei Beeten, deren Fruchtfolge-Prüfung ausgeschaltet ist. Kübel, Zelte, Regale, Topfgruppen und Hydrokultur prüft sie nicht. Hast du im Bodenprofil **Substrat erneuert am** mit einem Tag nach der Bestätigung eingetragen, warnt die Bodengefahr nicht mehr. Der Bepflanzen-Dialog und der Dialog **Pflanze setzen** zeigen dasselbe Ergebnis, denn beide fragen dieselbe Prüfung ab. <!-- REQ-053 §11.3a Nr. 6–7, GP-FR-193, #2888 -->
 
 ## Beetliste im Gartenplan {#beetliste-im-gartenplan}
 
