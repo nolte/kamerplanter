@@ -131,6 +131,14 @@ Beim Bauen von F-20 und aus dem Review 2026-11-27. **Alle sechs Punkte hat der B
 - **O5** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestHydroponicsFromTheParent`, `src/backend/tests/unit/domain/engines/test_bed_soil_hazard_engine.py::TestTheIrrigationSystemComesFromTheParents`, `src/backend/tests/unit/domain/services/test_location_ancestry.py` (Site-Grenze, Zyklus, Tiefe, fremde Altzeile), `TestTheSoilAboveTheBed::test_a_bed_left_at_manual_under_a_hydroponic_room_is_not_checked`, vitest `BedView.test.tsx` („the server calls hydroponic“)
 - **O6** — `src/backend/tests/api/test_bed_soil_hazards_api.py::TestTheRemovalIsInThePlanChangeLog`, `src/backend/tests/integration/test_bed_soil_hazard_repository.py::TestTheRemovalAndItsAuditRow` (ArangoDB, läuft in CI), `test_bed_rotation_validator_wiring.py::test_the_wired_soil_hazard_service_writes_the_removal_with_its_audit_row`, vitest `BedView.test.tsx` („lets the lead remove one …“)
 
+## Offene Betreiberfrage (Confirm-Review 2026-11-28)
+
+- **N-e — Geerbtes Juglon über einem Hydro-Gewächshaus.** Regel heute (REQ-053 v1.61 §11.3a Nr. 5): Erbt ein Beet Hydrokultur, prüft der Pflanzdialog dort nur seine eigenen Bodengefahren, nicht die geerbten. Szenario: Garten „Obstwiese“ mit Juglon (Walnuss, 2019) → darin ein Gewächshaus mit `irrigation_system = hydro` wegen einer NFT-Rinne → darin ein `greenhouse_bed` auf `manual` mit gewachsenem Boden. Pflanzt man dort Tomaten, warnt der Dialog nicht vor Juglon, obwohl die Wurzeln des Walnussbaums unter dem Gewächshaus liegen können. Optionen: so lassen (Hydrokultur trennt den Boden ab) / geerbte Gefahren an einem Erdbeet unter Hydrokultur trotzdem prüfen (nur die Hydro-Ebene selbst trägt keine) / nur geerbtes `juglone` prüfen (es kommt aus dem Untergrund, nicht aus dem Substrat).
+
+## Known limits
+
+- **Fläche ohne Beettyp unter Hydrokultur (N-d).** Der Standort-Kopf meldet für eine Zone oder Fläche auf `manual` unter einem Hydro-Raum `soil_hazard_scope = hydroponic` und nimmt keinen Eintrag an. Hält sie aus der Zeit davor schon einen eigenen Eintrag, prüft der Pflanzdialog ihn trotzdem: Der Validator kennt den Beettyp nicht (kein `ILocationTypeRepository`), deshalb verwirft er eigene Einträge nur bei einem eigenen Hydro-Wert. Das betrifft nur Altdaten und meldet in der sicheren Richtung (eine Warnung zu viel, keine zu wenig); für Kinder darunter gilt ohnehin, dass geerbte Gefahren unter Hydrokultur nicht geprüft werden.
+
 ## Risks
 
 - Containers are excluded by type; a raised bed filled with bought soil still counts as a bed — `substrate_replaced_on` (F-21) covers it.
