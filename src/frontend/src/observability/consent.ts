@@ -83,8 +83,12 @@ export interface ConsentSnapshot {
   readonly pendingRevoke: boolean;
 }
 
-/** Which form of the banner to show, if any. */
-export type ConsentPrompt = 'device' | 'account' | null;
+/**
+ * Which form of the banner to show, if any: `device` (signed out), `account` (no
+ * account decision) or `confirm` (the account granted, this browser has not
+ * decided — UI-NFR-013 v1.5 CP-014).
+ */
+export type ConsentPrompt = 'device' | 'account' | 'confirm' | null;
 
 const UNKNOWN_AUTH: AuthStatus = Object.freeze({ kind: 'unknown' });
 const SIGNED_OUT: AuthStatus = Object.freeze({ kind: 'signed_out' });
@@ -102,8 +106,10 @@ export function browserReportsPermitted(snapshot: ConsentSnapshot, now: number):
   const { auth, account } = snapshot;
   if (auth.kind === 'unknown') return false; // CP-008
   if (auth.kind === 'signed_out') return device === true;
-  // Signed in: only the person's own account consent counts (CP-003, CP-006).
+  // Signed in: the person's own account consent AND this device's own grant
+  // (CP-003, CP-006; operator decision 2026-11-28, v1.5 — confirmed once per browser).
   if (snapshot.pendingRevoke) return false; // CP-009
+  if (device !== true) return false; // CP-014
   return account.kind === 'granted' && now - account.confirmedAt <= ACCOUNT_GRANT_MAX_AGE_MS;
 }
 
@@ -120,7 +126,9 @@ export function consentPrompt(snapshot: ConsentSnapshot): ConsentPrompt {
   if (auth.kind === 'unknown') return null;
   if (auth.kind === 'signed_out') return device === null ? 'device' : null;
   if (snapshot.pendingRevoke) return null;
-  return snapshot.account.kind === 'undecided' ? 'account' : null;
+  if (snapshot.account.kind === 'undecided') return 'account';
+  // CP-014: the account granted, this browser has not decided — confirm it once.
+  return snapshot.account.kind === 'granted' && device === null ? 'confirm' : null;
 }
 
 // ── Device decision ───────────────────────────────────────────────

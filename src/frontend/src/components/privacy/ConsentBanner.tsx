@@ -105,6 +105,60 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
     errorTrackerHost() ?? t('consent.banner.category.browser_error_reports.host_unknown');
   const busyProps = { 'aria-disabled': busy || undefined, 'aria-busy': busy || undefined };
 
+  if (prompt === 'confirm' && !outdated) {
+    // CP-014 (operator decision 2026-11-28): the account agreed, this browser has not — ask it
+    // once. Both answers write only this device; the account stays as it is.
+    const confirm = (granted: boolean) => {
+      onChoice?.(granted, granted ? 'all' : 'necessary');
+      decideOnDevice(granted);
+    };
+    return (
+      <Paper
+        elevation={6}
+        role="region"
+        aria-label={t('consent.banner.aria_label')}
+        data-testid="consent-banner"
+        data-consent-form="confirm"
+        sx={BANNER_SX}
+      >
+        <Stack spacing={1.5}>
+          <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
+            {t('consent.banner.confirm_title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" data-testid="consent-banner-summary">
+            {t('consent.banner.confirm_body')} {t('consent.banner.summary', { host })}
+          </Typography>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              gap: 1,
+              justifyContent: 'flex-end',
+            }}
+          >
+            {/* Equal weight, as CB-003 asks of every pair of answers. */}
+            <Button
+              variant="contained"
+              data-testid="consent-banner-confirm-no"
+              onClick={() => confirm(false)}
+              sx={TOUCH_TARGET}
+            >
+              {t('consent.banner.confirm_no')}
+            </Button>
+            <Button
+              variant="contained"
+              data-testid="consent-banner-confirm-yes"
+              onClick={() => confirm(true)}
+              sx={TOUCH_TARGET}
+            >
+              {t('consent.banner.confirm_yes')}
+            </Button>
+          </Box>
+        </Stack>
+      </Paper>
+    );
+  }
+
   if (outdated) {
     // CP-013: the server holds a newer text than this page — no decision until it is reloaded.
     return (

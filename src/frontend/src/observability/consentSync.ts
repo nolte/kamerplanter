@@ -16,6 +16,7 @@ import {
   BROWSER_ERROR_REPORTS,
   BROWSER_ERROR_REPORTS_VERSION,
   accountEpoch,
+  decideOnDevice,
   hasPendingRevoke,
   readConsentSnapshot,
   recordAccountDecision,
@@ -170,6 +171,9 @@ export async function decideAccountConsent(granted: boolean): Promise<AccountWri
   if (next.kind !== 'granted') return 'failed';
   setPendingRevoke(account, false);
   if (!recordAccountDecision(account, next)) return 'failed';
+  // CP-015: granting the account in this browser confirms this browser — one click, not two
+  // questions. A decline of this device stays: lifting it is the device switch's job (CP-007).
+  if (readConsentSnapshot().device.browser_error_reports !== false) decideOnDevice(true);
   signalAccountChange(false);
   return 'confirmed';
 }

@@ -9,6 +9,7 @@ import {
   CONSENT_STORAGE_KEY,
   browserReportsPermitted,
   consentPrompt,
+  decideOnDevice,
   hasPendingRevoke,
   readConsentSnapshot,
   resetConsentStoreForTests,
@@ -230,15 +231,42 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     expect(consentPrompt(readConsentSnapshot())).toBe('account');
   });
 
-  it('an account grant from another device counts in a browser without a decision', async () => {
+  // Operator decision 2026-11-28 (UI-NFR-013 v1.5 CP-014): confirmed once per browser.
+  it('an account grant from another device does not send from an undecided browser until it is confirmed', async () => {
     records['user-a'] = { granted: true, consent_version: '1.0', revoked_at: null };
     const store = boot();
 
     signIn(store, 'user-a');
     await accountSettles('granted');
 
+    expect(sends()).toBe(false);
+    expect(consentPrompt(readConsentSnapshot())).toBe('confirm');
+
+    // "Ja, von diesem Gerät": the device decision only — no new account record.
+    calls = [];
+    decideOnDevice(true);
     expect(sends()).toBe(true);
     expect(consentPrompt(readConsentSnapshot())).toBeNull();
+    expect(calls).toEqual([]);
+  });
+
+  it('"not from this device" declines the device only; the account consent stays', async () => {
+    records['user-a'] = { granted: true, consent_version: '1.0', revoked_at: null };
+    const store = boot();
+    signIn(store, 'user-a');
+    await accountSettles('granted');
+    calls = [];
+
+    decideOnDevice(false);
+
+    expect(sends()).toBe(false);
+    expect(consentPrompt(readConsentSnapshot())).toBeNull();
+    expect(calls).toEqual([]);
+    expect(records['user-a']!.granted).toBe(true);
+
+    // Resetting the device leads back to the question (N-6).
+    decideOnDevice(null);
+    expect(consentPrompt(readConsentSnapshot())).toBe('confirm');
   });
 
   // Operator decision 3: a signed-out decline holds for this device and revokes nothing.
@@ -285,6 +313,10 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
   it('a failed read is no consent and no question; the network coming back reads again (CP-012)', async () => {
     records['user-a'] = { granted: true, consent_version: '1.0', revoked_at: null };
     failGet = true;
+    window.localStorage.setItem(
+      CONSENT_STORAGE_KEY,
+      JSON.stringify({ necessary: true, browser_error_reports: true, version: '1.0' }),
+    );
     const store = boot();
 
     signIn(store, 'user-a');
@@ -304,6 +336,8 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     await accountSettles('undecided');
 
     await expect(decideAccountConsent(true)).resolves.toBe('confirmed');
+    // CP-015: one click confirms the account and this browser.
+    expect(readConsentSnapshot().device.browser_error_reports).toBe(true);
 
     expect(records['user-a']).toEqual({ granted: true, consent_version: '1.0', revoked_at: null });
     expect(sends()).toBe(true);
@@ -429,11 +463,15 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     const store = boot();
     signIn(store, 'user-a');
     await accountSettles('granted');
+    decideOnDevice(true);
     expect(sends()).toBe(true);
 
     signOut(store);
-
     expect(readConsentSnapshot().account.kind).toBe('unknown');
+    // Signed out, only this device's grant counts.
+    expect(sends()).toBe(true);
+
+    decideOnDevice(null);
     expect(sends()).toBe(false);
     expect(consentPrompt(readConsentSnapshot())).toBe('device');
   });

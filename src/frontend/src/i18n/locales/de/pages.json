@@ -9386,7 +9386,7 @@
       "title": "Fehlerberichte aus dem Browser?",
       "intro": "Notwendige Speicherungen für Anmeldung, Sprache und Gartenauswahl sind immer aktiv. Optional darf dein Browser bei einem Fehler einen Bericht an den Fehler-Tracker des Betreibers senden.",
       "scope_device": "Du bist nicht angemeldet: Deine Entscheidung gilt nur für diesen Browser. Eine Zustimmung gilt nicht für ein Konto – nach der Anmeldung fragen wir dich dort noch einmal. Eine Ablehnung gilt hier für jede Person, die sich in diesem Browser anmeldet.",
-      "scope_account": "Deine Entscheidung wird in deinem Konto gespeichert und gilt in jedem Browser, in dem du angemeldet bist – außer in einem Browser, in dem das Senden abgelehnt wurde.",
+      "scope_account": "Deine Zustimmung wird in deinem Konto gespeichert und gilt für diesen Browser. Auf jedem weiteren Gerät fragen wir dich einmal, ob es auch von dort senden darf.",
       "settings": "Einstellungen",
       "necessary": "Nur Notwendige",
       "accept_all": "Alle akzeptieren",
@@ -9405,7 +9405,11 @@
       "change_hint_device": "Ändern kannst du sie jederzeit über „Entscheidung dieses Browsers zu Fehlerberichten ändern“ unten auf der Anmeldeseite.",
       "change_hint_account": "Du kannst sie jederzeit unter Datenschutz → Einwilligungen ändern.",
       "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
-      "reload": "Seite neu laden"
+      "reload": "Seite neu laden",
+      "confirm_title": "Fehlerberichte auch von diesem Gerät?",
+      "confirm_body": "Du hast Fehlerberichten in deinem Konto zugestimmt. Sollen sie auch von diesem Gerät gesendet werden?",
+      "confirm_yes": "Ja, von diesem Gerät",
+      "confirm_no": "Nein, nicht von diesem Gerät"
     },
     "settings": {
       "heading": "Fehlerberichte aus dem Browser",
@@ -9413,15 +9417,17 @@
       "status_sending": "Dieser Browser sendet zurzeit Fehlerberichte.",
       "status_not_sending": "Dieser Browser sendet zurzeit keine Fehlerberichte.",
       "loading": "Dein Stand wird mit dem Server abgeglichen …",
-      "device_granted": "Ohne Anmeldung wurde in diesem Browser zugestimmt. Diese Zustimmung gilt nicht für dein Konto.",
-      "device_denied": "In diesem Browser wurde das Senden abgelehnt. Solange das gilt, sendet er keine Berichte – auch nicht mit deiner Zustimmung im Konto.",
+      "device_granted": "Dieser Browser hat zugestimmt. Gesendet wird nur, wenn auch dein Konto zugestimmt hat.",
+      "device_denied": "Dieser Browser hat abgelehnt. Er sendet keine Berichte, auch nicht mit deiner Zustimmung im Konto.",
       "device_reset": "Entscheidung dieses Browsers zurücksetzen",
       "sync_failed": "Dein Stand konnte nicht mit dem Server abgeglichen werden. Bis das gelingt, sendet dieser Browser keine Fehlerberichte.",
       "revoke_pending": "Dein Widerruf gilt in diesem Browser, ist aber noch nicht beim Server angekommen. Er wird beim nächsten Abgleich nachgeholt.",
       "write_failed": "Die Änderung konnte nicht gespeichert werden. Bitte versuche es erneut.",
       "retry": "Erneut versuchen",
       "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
-      "reload": "Seite neu laden"
+      "reload": "Seite neu laden",
+      "device_switch": "Von diesem Browser senden",
+      "device_undecided": "Dieser Browser hat noch nicht entschieden. Mit deiner Zustimmung im Konto fragen wir hier einmal nach."
     }
   }
 }

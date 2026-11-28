@@ -9386,7 +9386,7 @@
       "title": "Error reports from the browser?",
       "intro": "Necessary storage for sign-in, language and garden selection is always active. Optionally your browser may send a report to the operator's error tracker when an error occurs.",
       "scope_device": "You are not signed in: your decision applies to this browser only. A grant does not apply to an account – after you sign in we ask you there once more. A decline applies here to everyone who signs in to this browser.",
-      "scope_account": "Your decision is stored in your account and applies in every browser you are signed in to – except a browser in which sending was declined.",
+      "scope_account": "Your consent is stored in your account and applies to this browser. On every further device we ask you once whether it may send from there too.",
       "settings": "Settings",
       "necessary": "Necessary only",
       "accept_all": "Accept all",
@@ -9405,7 +9405,11 @@
       "change_hint_device": "You can change it at any time with “Change this browser's decision on error reports” at the bottom of the sign-in page.",
       "change_hint_account": "You can change it at any time under Privacy → Consents.",
       "text_outdated": "The text of this consent has changed. Please reload the page and decide then.",
-      "reload": "Reload page"
+      "reload": "Reload page",
+      "confirm_title": "Error reports from this device too?",
+      "confirm_body": "You agreed to error reports in your account. Should they be sent from this device too?",
+      "confirm_yes": "Yes, from this device",
+      "confirm_no": "No, not from this device"
     },
     "settings": {
       "heading": "Error reports from the browser",
@@ -9413,15 +9417,17 @@
       "status_sending": "This browser is currently sending error reports.",
       "status_not_sending": "This browser is currently not sending error reports.",
       "loading": "Your setting is being synced with the server …",
-      "device_granted": "Without sign-in, this browser was allowed to send. That grant does not apply to your account.",
-      "device_denied": "Sending was declined in this browser. As long as that holds, it sends no reports – not even with your consent in the account.",
+      "device_granted": "This browser agreed. Reports are only sent if your account agreed as well.",
+      "device_denied": "This browser declined. It sends no reports, not even with your consent in the account.",
       "device_reset": "Reset this browser's decision",
       "sync_failed": "Your setting could not be synced with the server. Until that works, this browser sends no error reports.",
       "revoke_pending": "Your revocation applies in this browser but has not reached the server yet. It will be sent on the next sync.",
       "write_failed": "The change could not be saved. Please try again.",
       "retry": "Try again",
       "text_outdated": "The text of this consent has changed. Please reload the page and decide then.",
-      "reload": "Reload page"
+      "reload": "Reload page",
+      "device_switch": "Send from this browser",
+      "device_undecided": "This browser has not decided yet. With your consent in the account we ask here once."
     }
   }
 }

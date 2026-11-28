@@ -227,6 +227,56 @@ describe('UI-NFR-013 ConsentBanner', () => {
     });
   });
 
+  // Operator decision 2026-11-28 (UI-NFR-013 v1.5 CP-014): confirmed once per browser.
+  describe('confirmation form (signed in, account granted, this browser undecided)', () => {
+    function accountGranted(): void {
+      act(() => {
+        setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+        setAccountConsent('user-a', { kind: 'granted', confirmedAt: Date.now() }, accountEpoch());
+      });
+    }
+
+    it.each([
+      ['consent-banner-confirm-yes', true],
+      ['consent-banner-confirm-no', false],
+    ])('%s writes only this device and sends no request', (testId, decision) => {
+      const posted = vi.fn();
+      server.use(
+        http.post('/api/v1/privacy/consents', () => {
+          posted();
+          return HttpResponse.json({}, { status: 201 });
+        }),
+        http.delete('/api/v1/privacy/consents/:purpose', () => {
+          posted();
+          return HttpResponse.json({});
+        }),
+      );
+      accountGranted();
+      renderWithProviders(<ConsentBanner />);
+      const banner = screen.getByTestId('consent-banner');
+      expect(banner).toHaveAttribute('data-consent-form', 'confirm');
+      expect(banner).toHaveTextContent(
+        /in deinem Konto zugestimmt|agreed to error reports in your account/,
+      );
+      expect(screen.getByTestId('consent-banner-summary')).toHaveTextContent(
+        'glitchtip.example.org',
+      );
+      expect(screen.getByTestId('consent-banner-confirm-yes').className).toContain(
+        'MuiButton-contained',
+      );
+      expect(screen.getByTestId('consent-banner-confirm-no').className).toContain(
+        'MuiButton-contained',
+      );
+
+      fireEvent.click(screen.getByTestId(testId));
+
+      expect(readConsent().browser_error_reports).toBe(decision);
+      expect(readConsentSnapshot().account.kind).toBe('granted');
+      expect(posted).not.toHaveBeenCalled();
+      expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
+    });
+  });
+
   describe('account form (signed in, no account decision)', () => {
     it('does not render while the account is not read yet (no flash on a new device)', () => {
       setAuthStatus({ kind: 'signed_in', account: 'user-a' });
@@ -255,8 +305,8 @@ describe('UI-NFR-013 ConsentBanner', () => {
         purpose: 'browser_error_reports',
         purpose_version: '1.0',
       });
-      // The device decision is untouched: the click was the account's.
-      expect(readConsent().browser_error_reports).toBeNull();
+      // CP-015: the click confirms this browser too — one click, not two questions.
+      expect(readConsent().browser_error_reports).toBe(true);
       expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
     });
 

@@ -224,6 +224,7 @@ describe('errorTracking', () => {
     // CP-006/CP-011: a grant not re-read for 30 minutes stops events at `beforeSend`.
     it('drops events once the account grant is older than 30 minutes', async () => {
       window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true); // v1.5: this device confirmed
       setAuthStatus({ kind: 'signed_in', account: 'user-a' });
       const confirmedAt = Date.now();
       recordAccountDecision('user-a', { kind: 'granted', confirmedAt });

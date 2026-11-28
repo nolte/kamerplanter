@@ -8,6 +8,7 @@ const CONSENT_TEXT_KEYS = [
   'consent.banner.summary',
   'consent.banner.accept_all',
   'consent.banner.necessary',
+  'consent.banner.confirm_body',
   'consent.banner.category.browser_error_reports.description',
 ] as const;
 

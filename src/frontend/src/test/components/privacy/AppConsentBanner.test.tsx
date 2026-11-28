@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, fireEvent, act } from '@testing-library/react';
+import { screen, fireEvent, act, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '../../helpers';
 import { server } from '../../mocks/server';
 import {
   CONSENT_STORAGE_KEY,
   readConsent,
+  consentPrompt,
   readConsentSnapshot,
   resetConsentStoreForTests,
   setAuthStatus,
@@ -149,7 +150,9 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
 
     it('the switch is the account consent and shows only what the server confirmed', async () => {
       await renderSettings();
-      const toggle = await screen.findByRole('switch');
+      const toggle = within(await screen.findByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
       await vi.waitFor(() => expect(readConsentSnapshot().account.kind).toBe('undecided'));
       expect(toggle).not.toBeChecked();
       expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
@@ -168,7 +171,9 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
       serverState = { granted: true, revoked: false };
       failDelete = true;
       await renderSettings();
-      const toggle = await screen.findByRole('switch');
+      const toggle = within(await screen.findByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
       await vi.waitFor(() => expect(toggle).toBeChecked());
 
       fireEvent.click(toggle);
@@ -197,11 +202,17 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
       await renderSettings();
 
       expect(await screen.findByTestId('browser-consent-sync-failed')).toBeInTheDocument();
-      expect(screen.getByRole('switch')).not.toBeChecked();
+      expect(
+        within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+      ).not.toBeChecked();
 
       failGet = false;
       fireEvent.click(screen.getByRole('button', { name: /Erneut versuchen|Try again/ }));
-      await vi.waitFor(() => expect(screen.getByRole('switch')).toBeChecked());
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+        ).toBeChecked(),
+      );
     });
 
     it('shows a pending revoke left from an earlier page view', async () => {
@@ -218,7 +229,11 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
         JSON.stringify({ necessary: true, browser_error_reports: false, version: '1.0' }),
       );
       await renderSettings();
-      await vi.waitFor(() => expect(screen.getByRole('switch')).toBeChecked());
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+        ).toBeChecked(),
+      );
       expect(screen.getByTestId('browser-consent-device')).toHaveTextContent(/abgelehnt|declined/);
       expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
         'data-sending',
@@ -227,8 +242,45 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
 
       fireEvent.click(screen.getByTestId('browser-consent-device-reset'));
 
+      // v1.5: reset is "undecided" — the account alone does not send, this device is asked again.
       expect(readConsent().browser_error_reports).toBeNull();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+      expect(screen.getByTestId('browser-consent-device')).toHaveTextContent(
+        /noch nicht entschieden|not decided/,
+      );
+      expect(consentPrompt(readConsentSnapshot())).toBe('confirm');
+      expect(serverState.granted).toBe(true);
+    });
+
+    // N-6 (v1.5): "not from this device, otherwise yes".
+    it('the device switch turns this browser off while the account stays granted', async () => {
+      serverState = { granted: true, revoked: false };
+      window.localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({ necessary: true, browser_error_reports: true, version: '1.0' }),
+      );
+      await renderSettings();
+      const account = within(screen.getByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
+      const device = within(screen.getByTestId('browser-consent-device-switch')).getByRole(
+        'switch',
+      );
+      await vi.waitFor(() => expect(account).toBeChecked());
+      expect(device).toBeChecked();
       expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute('data-sending', 'true');
+
+      fireEvent.click(device);
+
+      expect(readConsent().browser_error_reports).toBe(false);
+      expect(account).toBeChecked();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
       expect(serverState.granted).toBe(true);
     });
   });

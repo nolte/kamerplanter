@@ -181,11 +181,36 @@ export default function BrowserConsentSettings() {
         </Alert>
       )}
 
-      {device !== null && (
-        <Box data-testid="browser-consent-device">
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {t(device ? 'consent.settings.device_granted' : 'consent.settings.device_denied')}
-          </Typography>
+      {/* v1.5 (operator decision 2026-11-28): this device's own decision, next to the
+          account's — "not from this device, otherwise yes" is the device switch off. */}
+      <Box data-testid="browser-consent-device">
+        <FormControlLabel
+          control={
+            <Switch
+              checked={device === true}
+              onChange={(_, checked) => decideOnDevice(checked)}
+              slotProps={{ input: { 'aria-describedby': 'browser-consent-device-desc' } }}
+            />
+          }
+          sx={TOUCH_TARGET}
+          label={t('consent.settings.device_switch')}
+          data-testid="browser-consent-device-switch"
+        />
+        <Typography
+          id="browser-consent-device-desc"
+          variant="body2"
+          color="text.secondary"
+          sx={{ mb: 0.5 }}
+        >
+          {t(
+            device === null
+              ? 'consent.settings.device_undecided'
+              : device
+                ? 'consent.settings.device_granted'
+                : 'consent.settings.device_denied',
+          )}
+        </Typography>
+        {device !== null && (
           <Button
             variant="outlined"
             size="small"
@@ -195,8 +220,8 @@ export default function BrowserConsentSettings() {
           >
             {t('consent.settings.device_reset')}
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
     </Box>
   );
 }

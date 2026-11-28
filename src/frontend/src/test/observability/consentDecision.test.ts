@@ -80,8 +80,9 @@ const TABLE: [
   ['denied', 'signed_in', 'granted', false, false, null],
   ['denied', 'signed_in', 'denied', false, false, null],
   ['denied', 'signed_in', 'none', false, false, null],
-  // Signed in, device undecided: the account consent counts in every browser without a decline.
-  ['undecided', 'signed_in', 'granted', false, true, null],
+  // Signed in, device undecided: the account consent alone does not send — this browser is
+  // asked once (operator decision 2026-11-28, UI-NFR-013 v1.5 CP-014).
+  ['undecided', 'signed_in', 'granted', false, false, 'confirm'],
   ['undecided', 'signed_in', 'denied', false, false, null],
   ['undecided', 'signed_in', 'none', false, false, 'account'],
   // Not read yet / read failed: no report, no question (CP-012).
@@ -93,7 +94,8 @@ const TABLE: [
   ['undecided', 'signed_in', 'outdated', false, false, null],
   ['granted', 'signed_in', 'outdated', false, false, null],
   // A confirmation older than 30 minutes no longer counts (CP-006, CP-011).
-  ['undecided', 'signed_in', 'stale', false, false, null],
+  ['undecided', 'signed_in', 'stale', false, false, 'confirm'],
+  ['granted', 'signed_in', 'stale', false, false, null],
   // A pending revoke wins over everything the server still says (CP-009).
   ['undecided', 'signed_in', 'granted', true, false, null],
   ['granted', 'signed_in', 'none', true, false, null],

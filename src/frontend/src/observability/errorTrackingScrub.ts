@@ -138,7 +138,11 @@ export function maskPath(path: string): string {
     (parts[0] === 'api' ? null : maskFrontendRoute(parts)) ??
     parts.map((segment, i) => {
       const previous = i > 0 ? parts[i - 1]! : undefined;
-      if (previous !== undefined && segment !== '' && Object.prototype.hasOwnProperty.call(NEXT_SEGMENT_PARAM, previous)) {
+      if (
+        previous !== undefined &&
+        segment !== '' &&
+        Object.prototype.hasOwnProperty.call(NEXT_SEGMENT_PARAM, previous)
+      ) {
         return NEXT_SEGMENT_PARAM[previous]!;
       }
       return segment !== '' && looksLikeKey(segment) ? ':id' : segment;
