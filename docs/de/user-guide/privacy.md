@@ -32,7 +32,7 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
 | `POST /api/v1/privacy/object` | Widerspruch einlegen (Art. 21) |
 | `GET /api/v1/privacy/consents` | Einwilligungen auflisten (Art. 7) |
-| `POST /api/v1/privacy/consents` | Einwilligung erteilen |
+| `POST /api/v1/privacy/consents` | Einwilligung erteilen; `purpose_version` nennt die Fassung des Texts, die du gesehen hast (Pflicht bei `browser_error_reports`, sonst geprüft, wenn gesetzt). Ist der Text inzwischen ein anderer, antwortet der Server `409 CONSENT_TEXT_OUTDATED` und speichert nichts. |
 | `DELETE /api/v1/privacy/consents/{purpose}` | Einwilligung widerrufen |
 | `GET /api/v1/privacy/policy` | Datenschutzerklärung abrufen (kein Login nötig) |
 
@@ -187,17 +187,18 @@ Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die 
 
 Ob dein Browser bei einem Fehler einen Bericht an den Fehler-Tracker des Betreibers schickt, ist eine eigene Einwilligung — getrennt von der Zuordnung oben. Der Hinweis dazu erscheint nur, wenn der Betreiber Fehler-Tracking eingeschaltet hat, und unten am Bildschirmrand mit **Alle akzeptieren**, **Nur Notwendige** und **Einstellungen**.
 
-**Was ein Bericht enthält:** die Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne vertrauliche Adressparameter, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). **Was er nicht enthält:** Formulareingaben, Anfrage-Inhalte, Cookies, deine E-Mail-Adresse und ein Pseudonym deines Kontos. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses. Der Hinweis nennt die Adresse des Trackers.
+**Was ein Bericht enthält:** die Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne vertrauliche Adressparameter, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). **Was er nicht enthält:** Kennungen in Adressen (der Kurzname deines Gartens, Schlüssel von Datensätzen und Links aus E-Mails werden vor dem Senden durch Platzhalter ersetzt), Formulareingaben, Anfrage-Inhalte, Cookies, deine E-Mail-Adresse und ein Pseudonym deines Kontos. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses. Der Hinweis nennt die Adresse des Trackers.
 
 **Wo deine Entscheidung gilt:**
 
 - **Nicht angemeldet:** Deine Entscheidung gilt nur für diesen Browser.
 - **Angemeldet:** Deine Entscheidung wird in deinem Konto gespeichert und gilt in jedem Browser, in dem du angemeldet bist. Eine Zustimmung, die du vorher ohne Anmeldung gegeben hast, übernimmt Kamerplanter **nicht** in dein Konto — es fragt dich nach der Anmeldung noch einmal.
 - **Ohne Anmeldung abgelehnt:** Hat jemand in diesem Browser ohne Anmeldung **Nur Notwendige** gewählt, sendet dieser Browser keine Berichte, auch wenn du in deinem Konto zugestimmt hast. Deine Konto-Einwilligung bleibt dabei unverändert. Aufheben kannst du die Ablehnung im Tab **Einwilligungen** mit **Entscheidung dieses Browsers zurücksetzen**.
+- **Ohne Anmeldung ändern:** Unten auf der Anmelde- und der Registrierungsseite steht **Entscheidung dieses Browsers zu Fehlerberichten ändern**, sobald dieser Browser entschieden hat. Ein Klick setzt die Entscheidung zurück, und der Hinweis fragt neu.
 
 Hast du vor dieser Änderung nur im Browser zugestimmt, fragt Kamerplanter dich einmal neu. Eine frühere Ablehnung bleibt bestehen.
 
-**Ändern** kannst du deine Entscheidung im Tab **Einwilligungen** im Abschnitt **Fehlerberichte aus dem Browser** mit dem Schalter **Für mein Konto erlauben**. Darunter steht, ob dieser Browser gerade Berichte sendet. Ein Widerruf wirkt sofort, auch in anderen offenen Tabs. Kann Kamerplanter deinen Stand nicht mit dem Server abgleichen, sendet der Browser keine Berichte, und der Abschnitt zeigt das mit **Erneut versuchen**. Erreicht ein Widerruf den Server nicht, gilt er in diesem Browser trotzdem sofort und wird beim nächsten Abgleich nachgeholt. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
+**Ändern** kannst du deine Entscheidung im Tab **Einwilligungen** im Abschnitt **Fehlerberichte aus dem Browser** mit dem Schalter **Für mein Konto erlauben**. Darunter steht, ob dieser Browser gerade Berichte sendet. Ein Widerruf wirkt sofort, auch in anderen offenen Tabs. Kann Kamerplanter deinen Stand nicht mit dem Server abgleichen, sendet der Browser keine Berichte, und der Abschnitt zeigt das mit **Erneut versuchen**. Erreicht ein Widerruf den Server nicht, gilt er in diesem Browser trotzdem sofort und wird beim nächsten Abgleich nachgeholt. Hat sich der Text der Einwilligung geändert, während deine Seite noch die alte Fassung zeigt, speichert Kamerplanter deine Zustimmung nicht und bittet dich, die Seite neu zu laden. Dein Browser sendet nur Fehlerberichte, keine Meldungen über Seitenaufrufe oder Sitzungen. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
 
 !!! info "Erteilt für eine frühere Fassung"
     Ändert sich der Text einer Einwilligung, steht bei einer älteren Zustimmung in der Liste **Für eine frühere Fassung erteilt**. Für Fehlerberichte aus dem Browser fragt Kamerplanter dich dann neu.

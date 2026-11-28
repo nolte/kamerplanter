@@ -32,7 +32,7 @@ This section is aimed at technical users and self-hosters. All GDPR features des
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Lift a restriction |
 | `POST /api/v1/privacy/object` | File an objection (Art. 21) |
 | `GET /api/v1/privacy/consents` | List consents (Art. 7) |
-| `POST /api/v1/privacy/consents` | Grant consent |
+| `POST /api/v1/privacy/consents` | Grant consent; `purpose_version` names the version of the text you saw (required for `browser_error_reports`, otherwise checked when set). If the text has changed meanwhile, the server answers `409 CONSENT_TEXT_OUTDATED` and stores nothing. |
 | `DELETE /api/v1/privacy/consents/{purpose}` | Revoke consent |
 | `GET /api/v1/privacy/policy` | Retrieve the privacy policy (no login needed) |
 
@@ -187,17 +187,18 @@ A password check against known breaches and a consent for external master-data e
 
 Whether your browser sends a report to the operator's error tracker when an error occurs is a consent of its own — separate from the attribution above. The notice for it appears only when the operator has switched error tracking on, at the bottom of the screen with **Accept all**, **Necessary only** and **Settings**.
 
-**What a report contains:** the error message with its stack trace, the page you were on without confidential address parameters, browser, operating system and app version, and the steps before it (clicks on controls, page changes, console messages, address and status of requests to the server). **What it does not contain:** form input, request contents, cookies, your email address and a pseudonym of your account. On receipt the tracker sees the IP address of your connection. The notice names the tracker's address.
+**What a report contains:** the error message with its stack trace, the page you were on without confidential address parameters, browser, operating system and app version, and the steps before it (clicks on controls, page changes, console messages, address and status of requests to the server). **What it does not contain:** identifiers in addresses (your garden's short name, record keys and links from emails are replaced by placeholders before sending), form input, request contents, cookies, your email address and a pseudonym of your account. On receipt the tracker sees the IP address of your connection. The notice names the tracker's address.
 
 **Where your decision applies:**
 
 - **Not signed in:** your decision applies to this browser only.
 - **Signed in:** your decision is stored in your account and applies in every browser you are signed in to. A grant you gave before signing in is **not** taken over into your account — Kamerplanter asks you once more after you sign in.
 - **Declined without signing in:** if someone chose **Necessary only** in this browser without signing in, this browser sends no reports, even if you consented in your account. Your account consent stays as it is. You can lift the decline in the **Consents** tab with **Reset this browser's decision**.
+- **Change it without signing in:** at the bottom of the sign-in and registration pages there is **Change this browser's decision on error reports** once this browser has decided. One click resets the decision and the notice asks again.
 
 If you had only consented in the browser before this change, Kamerplanter asks you once more. An earlier decline stays in place.
 
-**Change** your decision in the **Consents** tab, section **Error reports from the browser**, with the switch **Allow for my account**. Below it you see whether this browser is sending reports right now. A revocation applies at once, also in other open tabs. If Kamerplanter cannot sync your setting with the server, the browser sends no reports and the section says so with **Try again**. If a revocation does not reach the server, it still applies in this browser at once and is sent on the next sync. In Light mode the notice does not appear and your browser reports no errors.
+**Change** your decision in the **Consents** tab, section **Error reports from the browser**, with the switch **Allow for my account**. Below it you see whether this browser is sending reports right now. A revocation applies at once, also in other open tabs. If Kamerplanter cannot sync your setting with the server, the browser sends no reports and the section says so with **Try again**. If a revocation does not reach the server, it still applies in this browser at once and is sent on the next sync. If the text of the consent changed while your page still shows the old version, Kamerplanter does not store your grant and asks you to reload the page. Your browser sends error reports only, no messages about page views or sessions. In Light mode the notice does not appear and your browser reports no errors.
 
 !!! info "Granted for an earlier version"
     When the text of a consent changes, an older grant is marked **Granted for an earlier version** in the list. For error reports from the browser, Kamerplanter then asks you again.
