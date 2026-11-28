@@ -1,8 +1,10 @@
 """The rules of a bed's soil hazards (REQ-054 §5.2, REQ-053 §11.3a Nr. 5, #2888 F-20).
 
-Where a soil hazard may stand (acceptance-2: no vessel), what a recorded loss proposes (acceptance-3: an offer only for
-a confirmed, listed pathogen; acceptance-4: the clean-system hint at hydroponics), how entries merge, and what the
-knowledge table says about an entry (acceptance-1: hosts with their evidence status, read from the shipped table).
+Where a soil hazard may stand (acceptance-2: no vessel; O3: juglone at an area too), what a recorded loss proposes
+(acceptance-3: an offer only for a confirmed, listed pathogen; acceptance-4: the clean-system hint at hydroponics, O5:
+also inherited from a parent), what the soil under a location carries (its own and its parent chain's entries, REQ-053
+§11.3a Nr. 5 v1.60), how entries merge, and what the knowledge table says about an entry (acceptance-1: hosts with
+their evidence status, read from the shipped table).
 
 Every loss below is one the F-19 rule accepts (:func:`_loss` checks it with ``find_failure_cause_violations``), so no
 test reasons about a plant the API could never have stored.
@@ -23,18 +25,23 @@ from app.common.enums import (
     SoilHazard,
     SoilHazardFollowUpKind,
     SoilHazardRefusal,
+    SoilHazardScope,
     TerminationCause,
     TerminationType,
 )
 from app.data_access.knowledge.soil_hazard_knowledge_source import YamlSoilHazardKnowledgeSource
 from app.domain.engines.bed_soil_hazard_engine import (
     LossNotPromotableError,
+    effective_irrigation_system,
+    effective_soil_hazards,
     entry_from_loss,
     follow_up_for_loss,
+    is_hydroponic,
     merged_entries,
     resolve_entries,
     soil_hazard_refusal,
     soil_hazard_refusal_for_type,
+    soil_hazard_scope,
 )
 from app.domain.engines.crop_rotation_validator import ROTATION_OFF_LOCATION_TYPES
 from app.domain.engines.failure_cause_engine import find_failure_cause_violations
@@ -104,27 +111,68 @@ def _loss(
     )
 
 
+def _refusal(
+    location: Location,
+    *,
+    is_bed: bool,
+    hazard: SoilHazard | None = SoilHazard.CLUBROOT,
+    ancestors: tuple[Location, ...] = (),
+) -> SoilHazardRefusal | None:
+    return soil_hazard_refusal(location, is_bed=is_bed, hazard=hazard, ancestors=ancestors)
+
+
+def _area(key: str, *, type_key: str = "garden", parent: str | None = None, **kw) -> Location:
+    return _bed(key, type_key=type_key, parent_location_key=parent, **kw)
+
+
+JUGLONE_2019 = BedSoilHazard(
+    hazard=SoilHazard.JUGLONE, confirmed_at=date(2019, 3, 1), source=PathogenConfirmationSource.CLEAR_SYMPTOMS
+)
+CLUBROOT_2024 = BedSoilHazard(
+    hazard=SoilHazard.CLUBROOT, confirmed_at=date(2024, 6, 1), source=PathogenConfirmationSource.LAB_TEST
+)
+
+
 class TestWhereASoilHazardMayStand:
     @pytest.mark.parametrize("type_key", ["planter", "tent", "shelf"])
     def test_a_vessel_carries_none(self, type_key: str) -> None:
         # ``planter`` is a bed type and still refused: the vessel rule comes first.
-        assert soil_hazard_refusal(_bed(type_key=type_key), is_bed=True) is SoilHazardRefusal.CONTAINER
+        assert _refusal(_bed(type_key=type_key), is_bed=True) is SoilHazardRefusal.CONTAINER
 
-    def test_a_location_that_is_no_bed_carries_none(self) -> None:
-        assert soil_hazard_refusal(_bed(type_key="greenhouse"), is_bed=False) is SoilHazardRefusal.NOT_A_BED
+    @pytest.mark.parametrize("type_key", ["planter", "tent", "shelf", "container"])
+    def test_a_vessel_carries_no_juglone_either(self, type_key: str) -> None:
+        assert _refusal(_bed(type_key=type_key), is_bed=False, hazard=SoilHazard.JUGLONE) is SoilHazardRefusal.CONTAINER
+
+    def test_a_location_that_is_no_bed_carries_no_pathogen(self) -> None:
+        assert _refusal(_bed(type_key="greenhouse"), is_bed=False) is SoilHazardRefusal.NOT_A_BED
+
+    @pytest.mark.parametrize("type_key", ["garden", "zone", "greenhouse", "orchard_meadow", ""])
+    def test_an_area_that_is_no_bed_carries_juglone(self, type_key: str) -> None:
+        """O3 (2026-11-27): juglone at every location that is no vessel - also a tenant's own type, also no type."""
+        assert _refusal(_bed(type_key=type_key), is_bed=False, hazard=SoilHazard.JUGLONE) is None
+
+    def test_a_loss_whose_pathogen_is_not_known_yet_is_held_to_the_bed_rule(self) -> None:
+        assert _refusal(_bed(type_key="garden"), is_bed=False, hazard=None) is SoilHazardRefusal.NOT_A_BED
+        assert _refusal(_bed(), is_bed=True, hazard=None) is None
 
     @pytest.mark.parametrize("system", [IrrigationSystem.HYDRO, IrrigationSystem.NFT, IrrigationSystem.EBB_FLOW])
     def test_a_hydroponic_bed_has_no_soil(self, system: IrrigationSystem) -> None:
-        assert soil_hazard_refusal(_bed(irrigation=system), is_bed=True) is SoilHazardRefusal.HYDROPONIC
+        assert _refusal(_bed(irrigation=system), is_bed=True) is SoilHazardRefusal.HYDROPONIC
+
+    def test_juglone_at_a_hydroponic_area_is_refused_as_hydroponic(self) -> None:
+        area = _bed(type_key="greenhouse", irrigation=IrrigationSystem.HYDRO)
+        assert _refusal(area, is_bed=False, hazard=SoilHazard.JUGLONE) is SoilHazardRefusal.HYDROPONIC
 
     @pytest.mark.parametrize("system", [IrrigationSystem.MANUAL, IrrigationSystem.DRIP, IrrigationSystem.MIST])
     def test_a_bed_with_soil_may_carry_one(self, system: IrrigationSystem) -> None:
-        assert soil_hazard_refusal(_bed(type_key="raised_bed", irrigation=system), is_bed=True) is None
+        assert _refusal(_bed(type_key="raised_bed", irrigation=system), is_bed=True) is None
 
     def test_the_type_rule_alone_is_what_the_import_applies(self) -> None:
-        assert soil_hazard_refusal_for_type("tent", is_bed=False) is SoilHazardRefusal.CONTAINER
-        assert soil_hazard_refusal_for_type("", is_bed=False) is SoilHazardRefusal.NOT_A_BED
-        assert soil_hazard_refusal_for_type("bed", is_bed=True) is None
+        clubroot, juglone = SoilHazard.CLUBROOT, SoilHazard.JUGLONE
+        assert soil_hazard_refusal_for_type("tent", is_bed=False, hazard=juglone) is SoilHazardRefusal.CONTAINER
+        assert soil_hazard_refusal_for_type("", is_bed=False, hazard=clubroot) is SoilHazardRefusal.NOT_A_BED
+        assert soil_hazard_refusal_for_type("garden", is_bed=False, hazard=juglone) is None
+        assert soil_hazard_refusal_for_type("bed", is_bed=True, hazard=clubroot) is None
 
     def test_the_vessels_are_the_types_the_rotation_check_skips(self) -> None:
         assert ROTATION_OFF_LOCATION_TYPES == CONTAINER_LOCATION_TYPES == {"planter", "tent", "shelf"}
@@ -197,7 +245,7 @@ class TestEntriesMerge:
 
 class TestWhatALossProposes:
     def test_a_confirmed_loss_in_a_bed_offers_the_entry(self) -> None:
-        follow_up = follow_up_for_loss(_loss(), _bed(), is_bed=True)
+        follow_up = follow_up_for_loss(_loss(), _bed(), is_bed=True, ancestors=())
 
         assert follow_up is not None
         assert follow_up.kind is SoilHazardFollowUpKind.OFFER
@@ -209,18 +257,21 @@ class TestWhatALossProposes:
         )
 
     def test_an_unconfirmed_loss_proposes_nothing(self) -> None:
-        assert follow_up_for_loss(_loss(confirmed=False, source=None), _bed(), is_bed=True) is None
+        assert follow_up_for_loss(_loss(confirmed=False, source=None), _bed(), is_bed=True, ancestors=()) is None
 
     def test_a_juglone_loss_proposes_nothing(self) -> None:
-        assert follow_up_for_loss(_loss(pathogen=SoilHazard.JUGLONE, legacy=True), _bed(), is_bed=True) is None
+        assert (
+            follow_up_for_loss(_loss(pathogen=SoilHazard.JUGLONE, legacy=True), _bed(), is_bed=True, ancestors=())
+            is None
+        )
 
     @pytest.mark.parametrize("type_key", ["planter", "shelf"])
     def test_a_vessel_proposes_nothing(self, type_key: str) -> None:
-        assert follow_up_for_loss(_loss(), _bed(type_key=type_key), is_bed=type_key == "planter") is None
+        assert follow_up_for_loss(_loss(), _bed(type_key=type_key), is_bed=type_key == "planter", ancestors=()) is None
 
     @pytest.mark.parametrize("system", [IrrigationSystem.HYDRO, IrrigationSystem.NFT, IrrigationSystem.EBB_FLOW])
     def test_a_soil_borne_loss_at_hydroponics_is_the_clean_system_hint(self, system: IrrigationSystem) -> None:
-        follow_up = follow_up_for_loss(_loss(), _bed(irrigation=system), is_bed=True)
+        follow_up = follow_up_for_loss(_loss(), _bed(irrigation=system), is_bed=True, ancestors=())
 
         assert follow_up is not None
         assert follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
@@ -230,7 +281,7 @@ class TestWhatALossProposes:
         tent = _bed("tent_1", type_key="tent", irrigation=IrrigationSystem.NFT)
         plant = _loss(pathogen=None, confirmed=None, source=None, location_key="tent_1")
 
-        follow_up = follow_up_for_loss(plant, tent, is_bed=False)
+        follow_up = follow_up_for_loss(plant, tent, is_bed=False, ancestors=())
 
         assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
 
@@ -238,23 +289,23 @@ class TestWhatALossProposes:
         plant = _loss(
             cls=FailureCauseClass.ABIOTIC, cause=TerminationCause.FROST, pathogen=None, confirmed=None, source=None
         )
-        assert follow_up_for_loss(plant, _bed(irrigation=IrrigationSystem.HYDRO), is_bed=True) is None
+        assert follow_up_for_loss(plant, _bed(irrigation=IrrigationSystem.HYDRO), is_bed=True, ancestors=()) is None
 
     def test_a_bed_that_holds_the_hazard_as_late_is_not_offered_it_again(self) -> None:
         held = BedSoilHazard(
             hazard=SoilHazard.CLUBROOT, confirmed_at=LOSS_DAY, source=PathogenConfirmationSource.ADVISORY_SERVICE
         )
-        assert follow_up_for_loss(_loss(), _bed(soil_hazards=[held]), is_bed=True) is None
+        assert follow_up_for_loss(_loss(), _bed(soil_hazards=[held]), is_bed=True, ancestors=()) is None
 
     def test_a_bed_that_holds_an_older_confirmation_is_offered_the_newer_one(self) -> None:
         held = BedSoilHazard(
             hazard=SoilHazard.CLUBROOT, confirmed_at=date(2023, 5, 1), source=PathogenConfirmationSource.LAB_TEST
         )
-        follow_up = follow_up_for_loss(_loss(), _bed(soil_hazards=[held]), is_bed=True)
+        follow_up = follow_up_for_loss(_loss(), _bed(soil_hazards=[held]), is_bed=True, ancestors=())
         assert follow_up is not None and follow_up.confirmed_at == LOSS_DAY
 
     def test_a_plant_without_a_location_proposes_nothing(self) -> None:
-        assert follow_up_for_loss(_loss(location_key=None), None, is_bed=False) is None
+        assert follow_up_for_loss(_loss(location_key=None), None, is_bed=False, ancestors=()) is None
 
 
 class TestTheTableResolvesTheHosts:
@@ -333,5 +384,127 @@ class TestTheConfirmationDate:
             )
 
     def test_a_container_group_is_refused_like_a_vessel_but_keeps_its_rotation(self) -> None:
-        assert soil_hazard_refusal_for_type("container", is_bed=False) is SoilHazardRefusal.CONTAINER
+        assert (
+            soil_hazard_refusal_for_type("container", is_bed=False, hazard=SoilHazard.CLUBROOT)
+            is SoilHazardRefusal.CONTAINER
+        )
         assert "container" not in ROTATION_OFF_LOCATION_TYPES
+
+
+class TestTheIrrigationSystemComesFromTheParents:
+    """O5 (2026-11-27): ``manual`` is "nothing entered" - the nearest parent with another value decides."""
+
+    def test_a_shelf_left_at_manual_under_a_hydroponic_room_is_hydroponic(self) -> None:
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.NFT)
+        shelf = _bed("shelf", type_key="shelf", parent_location_key="room")
+
+        assert effective_irrigation_system(shelf, [room]) is IrrigationSystem.NFT
+        assert is_hydroponic(shelf, [room]) is True
+
+    def test_the_nearest_parent_with_a_value_decides(self) -> None:
+        tent = _bed("tent", type_key="tent", irrigation=IrrigationSystem.DRIP)
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
+        shelf = _bed("shelf", type_key="shelf")
+
+        assert effective_irrigation_system(shelf, [tent, room]) is IrrigationSystem.DRIP
+        assert is_hydroponic(shelf, [tent, room]) is False
+
+    def test_an_own_value_other_than_manual_wins_over_the_parents(self) -> None:
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
+        bed = _bed("bed", irrigation=IrrigationSystem.MIST)
+
+        assert is_hydroponic(bed, [room]) is False
+
+    def test_without_a_value_anywhere_it_stays_manual(self) -> None:
+        assert effective_irrigation_system(_bed(), [_area("garden")]) is IrrigationSystem.MANUAL
+
+    def test_an_inherited_hydroponic_system_refuses_the_manual_entry(self) -> None:
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.EBB_FLOW)
+        assert _refusal(_bed(), is_bed=True, ancestors=(room,)) is SoilHazardRefusal.HYDROPONIC
+
+    def test_an_inherited_hydroponic_system_is_the_clean_system_hint_after_a_loss(self) -> None:
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
+        shelf = _bed("shelf_1", type_key="shelf")
+        plant = _loss(pathogen=None, confirmed=None, source=None, location_key="shelf_1")
+
+        follow_up = follow_up_for_loss(plant, shelf, is_bed=False, ancestors=[room])
+
+        assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
+        assert follow_up_for_loss(plant, shelf, is_bed=False, ancestors=[]) is None
+
+    def test_an_inherited_hydroponic_system_offers_no_take_over(self) -> None:
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
+
+        follow_up = follow_up_for_loss(_loss(), _bed(), is_bed=True, ancestors=[room])
+
+        assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
+
+
+class TestWhatTheSoilUnderALocationCarries:
+    """REQ-053 §11.3a Nr. 5 v1.60: a location's soil hazards reach the locations below it."""
+
+    def test_a_bed_carries_the_juglone_of_the_garden_it_lies_in(self) -> None:
+        garden = _area("garden", soil_hazards=[JUGLONE_2019])
+        bed = _bed(parent_location_key="garden", soil_hazards=[CLUBROOT_2024])
+
+        assert effective_soil_hazards(bed, [garden]) == [CLUBROOT_2024, JUGLONE_2019]
+
+    def test_the_whole_parent_chain_counts(self) -> None:
+        garden = _area("garden", soil_hazards=[JUGLONE_2019])
+        zone = _area("zone", type_key="zone", parent="garden")
+        bed = _bed(parent_location_key="zone")
+
+        assert effective_soil_hazards(bed, [zone, garden]) == [JUGLONE_2019]
+
+    def test_a_hazard_held_at_two_levels_counts_once_with_the_later_confirmation(self) -> None:
+        later = JUGLONE_2019.model_copy(update={"confirmed_at": date(2025, 1, 1)})
+        garden = _area("garden", soil_hazards=[later])
+        bed = _bed(parent_location_key="garden", soil_hazards=[JUGLONE_2019])
+
+        assert effective_soil_hazards(bed, [garden]) == [later]
+        assert effective_soil_hazards(_bed(soil_hazards=[later]), [_area("g", soil_hazards=[JUGLONE_2019])]) == [later]
+
+    @pytest.mark.parametrize("type_key", ["planter", "tent", "shelf", "container"])
+    def test_a_vessel_carries_none_of_its_parents(self, type_key: str) -> None:
+        garden = _area("garden", soil_hazards=[JUGLONE_2019])
+        assert effective_soil_hazards(_bed(type_key=type_key), [garden]) == []
+
+    def test_a_vessel_in_the_chain_ends_it(self) -> None:
+        garden = _area("garden", soil_hazards=[JUGLONE_2019])
+        tent = _bed("tent", type_key="tent", parent_location_key="garden")
+        bed = _bed(parent_location_key="tent")
+
+        assert effective_soil_hazards(bed, [tent, garden]) == []
+
+    def test_a_hydroponic_location_carries_none_also_inherited_hydroponics(self) -> None:
+        garden = _area("garden", soil_hazards=[JUGLONE_2019], irrigation=IrrigationSystem.HYDRO)
+        bed = _bed(parent_location_key="garden", soil_hazards=[CLUBROOT_2024])
+
+        assert effective_soil_hazards(bed, [garden]) == []
+
+    def test_without_parents_it_is_the_own_list(self) -> None:
+        assert effective_soil_hazards(_bed(soil_hazards=[CLUBROOT_2024]), []) == [CLUBROOT_2024]
+
+
+class TestWhatALocationTakes:
+    """The scope the form offers: the rule the write applies, shown before."""
+
+    @pytest.mark.parametrize(
+        ("location", "is_bed", "ancestors", "scope"),
+        [
+            (_bed(), True, (), SoilHazardScope.ALL),
+            (_bed("garden", type_key="garden"), False, (), SoilHazardScope.JUGLONE_ONLY),
+            (_bed("planter", type_key="planter"), True, (), SoilHazardScope.CONTAINER),
+            (_bed("pots", type_key="container"), False, (), SoilHazardScope.CONTAINER),
+            (_bed(irrigation=IrrigationSystem.NFT), True, (), SoilHazardScope.HYDROPONIC),
+            (
+                _bed(),
+                True,
+                (_bed("room", type_key="room", irrigation=IrrigationSystem.HYDRO),),
+                SoilHazardScope.HYDROPONIC,
+            ),
+        ],
+        ids=["bed", "area", "planter", "container_group", "own_hydro", "inherited_hydro"],
+    )
+    def test_the_scope(self, location, is_bed, ancestors, scope) -> None:
+        assert soil_hazard_scope(location, is_bed=is_bed, ancestors=ancestors) is scope

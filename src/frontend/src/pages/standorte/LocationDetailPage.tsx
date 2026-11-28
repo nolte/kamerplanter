@@ -74,6 +74,9 @@ import { formatDate, formatDateTime } from '@/utils/formatting';
 
 // The bed view (REQ-053 WP 3.5) and its renderer only load for a bed.
 const BedView = lazy(() => import('@/features/gardenPlanner/bed/BedView'));
+// The soil hazards of an area that is no bed (#2888 O3: juglone at a garden, zone or greenhouse soil); a bed shows them
+// in its soil tab. Loaded only where the section appears.
+const SoilHazardsSection = lazy(() => import('@/features/gardenPlanner/bed/SoilHazardsSection'));
 
 const runStatusColor: Record<PlantingRunStatus, ChipProps['color']> = {
   planned: 'default',
@@ -601,6 +604,25 @@ export default function LocationDetailPage() {
           onSaved={() => void loadBedSummary()}
         />
       )}
+
+      {/* #2888 O3 (REQ-053 §11.3a Nr. 5 v1.60): an area that is no bed takes juglone, and its entry counts for the beds
+          in it. Shown where the server says the location takes it, or where one is recorded already. */}
+      {key && bedSummary && !bedSummary.is_bed &&
+        (bedSummary.soil_hazard_scope === 'juglone_only' || (bedSummary.soil_hazards?.length ?? 0) > 0) && (
+          <Box sx={{ maxWidth: 1280 }} data-testid="location-soil-hazards">
+            <Suspense fallback={<LoadingSkeleton variant="card" />}>
+              <SoilHazardsSection
+                bedKey={key}
+                bedName={bedSummary.name}
+                scope={bedSummary.soil_hazard_scope}
+                hazards={bedSummary.soil_hazards ?? []}
+                canEdit={canEdit && online && summaryCachedAt === null}
+                canDelete={canDelete}
+                onChanged={loadBedSummary}
+              />
+            </Suspense>
+          </Box>
+        )}
 
       {/* Assigned Tank */}
       <Box sx={{ mt: 3, maxWidth: 600 }}>

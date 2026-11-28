@@ -12,13 +12,19 @@ The service built by :func:`soil_hazard_service` is the real ``BedSoilHazardServ
 
 from __future__ import annotations
 
+from datetime import datetime
+
+from app.common.enums import SoilHazard
 from app.common.exceptions import NotFoundError
 from app.data_access.knowledge.soil_hazard_knowledge_source import YamlSoilHazardKnowledgeSource
 from app.domain.interfaces.bed_soil_hazard_repository import (
     IBedSoilHazardRepository,
     SoilHazardChange,
+    SoilHazardRemoval,
     SoilHazardWrite,
 )
+from app.domain.models.bed_soil_hazard import AUDIT_ENTITY_SOIL_HAZARD, removal_audit_summary
+from app.domain.models.garden_plan import PlanAuditRecord
 from app.domain.models.location_type import LocationType
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.services.bed_soil_hazard_service import BedSoilHazardService
@@ -69,13 +75,21 @@ class FakeBedSoilHazardRepo(IBedSoilHazardRepository):
         self._repo = repo
         #: Every write that reached the store: ``(location_key, entries)``.
         self.writes: list[tuple[str, tuple]] = []
+        #: The ``garden_plan_audit`` rows the removals wrote (O6), as ``ArangoBedSoilHazardRepository`` builds them.
+        self.audit_rows: list[PlanAuditRecord] = []
+
+    def _owned(self, location_key: str, tenant_key: str):  # type: ignore[no-untyped-def]
+        location = self._repo.locations.get(location_key)
+        site = self._repo._sites.get_site_by_key(location.site_key) if location is not None else None
+        if location is None or site is None or site.tenant_key != tenant_key:
+            return None, None
+        return location, site
 
     def change_soil_hazards(self, location_key: str, *, tenant_key: str, change: SoilHazardChange) -> SoilHazardWrite:
         if not tenant_key:
             raise ValueError("change_soil_hazards needs a tenant_key")
-        location = self._repo.locations.get(location_key)
-        site = self._repo._sites.get_site_by_key(location.site_key) if location is not None else None
-        if location is None or site is None or site.tenant_key != tenant_key:
+        location, _site = self._owned(location_key, tenant_key)
+        if location is None:
             return SoilHazardWrite("location_not_found")
         stored = tuple(location.soil_hazards)
         changed = change(stored)
@@ -84,6 +98,36 @@ class FakeBedSoilHazardRepo(IBedSoilHazardRepository):
         self._repo.locations[location_key] = location.model_copy(update={"soil_hazards": list(changed)})
         self.writes.append((location_key, changed))
         return SoilHazardWrite("written", changed)
+
+    def remove_soil_hazard(
+        self, location_key: str, hazard: SoilHazard, *, tenant_key: str, user_key: str, at: datetime
+    ) -> SoilHazardRemoval:
+        if not tenant_key:
+            raise ValueError("remove_soil_hazard needs a tenant_key")
+        location, site = self._owned(location_key, tenant_key)
+        if location is None:
+            return SoilHazardRemoval("location_not_found")
+        removed = next((entry for entry in location.soil_hazards if entry.hazard is hazard), None)
+        if removed is None:
+            return SoilHazardRemoval("not_held")
+        kept = tuple(entry for entry in location.soil_hazards if entry.hazard is not hazard)
+        self._repo.locations[location_key] = location.model_copy(update={"soil_hazards": list(kept)})
+        self.writes.append((location_key, kept))
+        revision = site.plan.plan_revision if site.plan is not None else 0
+        self.audit_rows.append(
+            PlanAuditRecord(
+                tenant_key=tenant_key,
+                site_key=site.key or "",
+                revision=revision,
+                user_key=user_key,
+                op="delete",
+                entity=AUDIT_ENTITY_SOIL_HAZARD,
+                key=location_key,
+                summary=removal_audit_summary(removed),
+                at=at,
+            )
+        )
+        return SoilHazardRemoval("removed", removed)
 
 
 def soil_hazard_service(

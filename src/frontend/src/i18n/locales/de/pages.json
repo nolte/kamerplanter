@@ -8640,6 +8640,9 @@
       "soilHazards": {
         "title": "Bodengefahren",
         "intro": "Ein bestätigter Bodenerreger bleibt über Jahre im Boden – unabhängig davon, was gerade im Beet steht. Hier siehst du, welche Pflanzen er gefährdet.",
+        "introArea": "An einer Fläche, die kein Beet ist – Garten, Zone, Obstwiese oder Gewächshausboden –, trägst du Juglon ein: Ein Walnussbaum gibt den Stoff über Wurzeln und Laub in den Boden ab. Der Eintrag gilt auch für alle Beete auf dieser Fläche, der Pflanzdialog dort warnt dann für empfindliche Pflanzen wie Tomate oder Kartoffel.",
+        "emptyArea": "Für diese Fläche ist keine Bodengefahr eingetragen.",
+        "hazardHelperArea": "An einer Fläche, die kein Beet ist, gibt es nur Juglon (Walnussbaum). Bodenerreger trägst du am Beet ein.",
         "empty": "Für dieses Beet ist keine Bodengefahr eingetragen.",
         "unavailable": {
           "container": "In einem Kübel, Zelt, Regal oder einer Topfgruppe tauschst du das Substrat aus – deshalb gibt es hier keine Bodengefahren.",
@@ -8664,9 +8667,9 @@
         "add": "Bodengefahr eintragen",
         "remove": "Bodengefahr {{hazard}} entfernen",
         "removeTitle": "Bodengefahr entfernen?",
-        "removeMessage": "{{hazard}} wird aus dem Beet „{{bed}}“ entfernt. Entferne sie nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde.",
+        "removeMessage": "{{hazard}} wird aus „{{bed}}“ entfernt. Entferne sie nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde. Das Änderungsprotokoll des Gartenplans hält fest, dass du sie entfernt hast, mit Datum und dem Bestätigungsdatum der Gefahr.",
         "removeConfirm": "Entfernen",
-        "removed": "{{hazard}} wurde aus dem Beet entfernt.",
+        "removed": "{{hazard}} wurde entfernt.",
         "recorded": "{{hazard}} ist jetzt als Bodengefahr eingetragen.",
         "dialogTitle": "Bodengefahr für „{{name}}“ eintragen",
         "dialogIntro": "Trage nur einen bestätigten Befall ein – durch einen Laborbefund, eine Pflanzenschutz-Beratung oder ein eindeutiges Schadbild.",
@@ -8683,7 +8686,7 @@
         "save": "Eintragen",
         "refusal": {
           "container": "Ein Kübel, Zelt, Regal oder eine Topfgruppe hat keine Bodengefahren.",
-          "not_a_bed": "Nur ein Beet kann eine Bodengefahr tragen.",
+          "not_a_bed": "An einer Fläche, die kein Beet ist, kannst du nur Juglon eintragen. Bodenerreger trägst du am Beet ein.",
           "hydroponic": "Ein Hydrokultur-Standort hat keinen Boden und deshalb keine Bodengefahren.",
           "confirmed_in_future": "Das Datum liegt in der Zukunft. Gib den Tag der Bestätigung an.",
           "confirmed_too_early": "Das Datum liegt vor 1900. Gib den Tag der Bestätigung an."

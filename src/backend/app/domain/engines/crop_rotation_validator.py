@@ -12,6 +12,7 @@ from app.config.constants import (
     MAX_ROTATION_WINDOW_YEARS,
     MIN_ROTATION_TIMELINE_YEARS,
 )
+from app.domain.engines.bed_soil_hazard_engine import effective_soil_hazards
 from app.domain.engines.soil_hazard_planting_engine import PlantedSpecies, SoilHazardVerdict, judge_soil_hazards
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -19,16 +20,12 @@ from app.domain.interfaces.rotation_history_repository import IRotationHistoryRe
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.soil_hazard_knowledge_source import ISoilHazardKnowledgeSource
 from app.domain.interfaces.species_repository import ISpeciesRepository
-from app.domain.models.bed_soil_hazard import (
-    CONTAINER_LOCATION_TYPES,
-    HYDROPONIC_IRRIGATION_SYSTEMS,
-    NON_BED_VESSEL_LOCATION_TYPES,
-    BedSoilHazard,
-)
+from app.domain.models.bed_soil_hazard import CONTAINER_LOCATION_TYPES, BedSoilHazard
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.failure_cause import SOIL_BORNE_CLASSES
 from app.domain.models.site import Location
 from app.domain.models.species import Species
+from app.domain.services.location_ancestry import location_ancestors
 from app.domain.services.location_ownership import find_owned_location, read_slot, resolve_owned_location
 from app.domain.services.species_visibility import readable_cultivar, readable_species
 
@@ -91,9 +88,6 @@ NO_HINT_FAILURE_CLASSES: frozenset[str] = frozenset(
     {FailureCauseClass.ABIOTIC.value, FailureCauseClass.MECHANICAL.value, FailureCauseClass.PEST_FOLIAR.value}
 )
 _SOIL_BORNE_CLASS_VALUES: frozenset[str] = frozenset(cls.value for cls in SOIL_BORNE_CLASSES)
-
-#: Locations whose soil is never checked for soil hazards (REQ-053 §11.3a Nr. 5-6): vessels carry none.
-NO_SOIL_LOCATION_TYPES: frozenset[str] = CONTAINER_LOCATION_TYPES | NON_BED_VESSEL_LOCATION_TYPES
 
 
 def _substrate_replaced_on(location: Location) -> date | None:
@@ -860,7 +854,10 @@ class CropRotationValidator:
         family_name = _name_or_none(family.name if family is not None else None)
         # The soil hazards hang on the soil, not on the rotation: checked before the rotation switch (GP-FR-137,
         # REQ-053 §11.3a Nr. 6) - a rotation_exempt bed or one switched off still reports them.
-        hazards = self._soil_hazard_findings(location, species, family_name)
+        # The soil's hazards: the bed's own and its parent chain's (a walnut's juglone at the garden above), none in
+        # a vessel or where the bed inherits hydroponics (REQ-053 §11.3a Nr. 5 v1.60) - one read for both uses below.
+        bed_hazards = effective_soil_hazards(location, location_ancestors(sites, location))
+        hazards = self._soil_hazard_findings(location, bed_hazards, species, family_name)
 
         reason = not_applicable_reason(location)
         if reason is not None:
@@ -889,7 +886,7 @@ class CropRotationValidator:
                 replaced[0],
                 species.family_key,
                 family_name,
-                bed_hazards=frozenset(entry.hazard.value for entry in self._bed_soil_hazards(location)),
+                bed_hazards=frozenset(entry.hazard.value for entry in bed_hazards),
                 substrate_replaced_on=_substrate_replaced_on(location),
             )
             if residual is not None:
@@ -912,20 +909,13 @@ class CropRotationValidator:
             location_key, species_key, reason is None, reason, severity, ordered, rotation_window_years, reset_at
         )
 
-    @staticmethod
-    def _bed_soil_hazards(location: Location) -> list[BedSoilHazard]:
-        """The soil hazards the bed's soil carries: none in a vessel or a hydroponic location (§11.3a Nr. 5)."""
-        if location.location_type_key in NO_SOIL_LOCATION_TYPES:
-            return []
-        if location.irrigation_system in HYDROPONIC_IRRIGATION_SYSTEMS:
-            return []
-        return list(location.soil_hazards)
-
     def _soil_hazard_findings(
-        self, location: Location, species: Species, family_name: str | None
+        self, location: Location, entries: list[BedSoilHazard], species: Species, family_name: str | None
     ) -> list[RotationFinding]:
-        """One finding per soil hazard of the bed whose host the species is (REQ-053 §11.3a Nr. 6, GP-FR-193)."""
-        entries = self._bed_soil_hazards(location)
+        """One finding per soil hazard of the bed whose host the species is (REQ-053 §11.3a Nr. 6, GP-FR-193).
+
+        ``entries`` are the hazards the bed's soil carries (``bed_soil_hazard_engine.effective_soil_hazards``).
+        """
         if not entries or self._soil_hazards is None:
             return []
         planted = PlantedSpecies(species.scientific_name, species.genus, family_name)

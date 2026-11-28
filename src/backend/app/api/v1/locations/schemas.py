@@ -28,6 +28,7 @@ from app.common.enums import (
     SoilConditionFlag,
     SoilDrainage,
     SoilHazard,
+    SoilHazardScope,
     SoilTexture,
     StoneContentClass,
     SunExposure,
@@ -617,6 +618,15 @@ class BedSummaryResponse(LocationResponse):
             "table at read time; empty for every location without one."
         ),
         examples=[[]],
+    )
+    soil_hazard_scope: SoilHazardScope = Field(
+        default=SoilHazardScope.ALL,
+        description=(
+            "Which soil hazards the location takes (AP-API-012, REQ-053 §11.3a Nr. 5): `all` a bed, `juglone_only` "
+            "an area that is no bed (garden, zone, greenhouse), `container` a vessel, `hydroponic` a location whose "
+            "own or inherited irrigation system has no soil."
+        ),
+        examples=["all"],
     )
 
 

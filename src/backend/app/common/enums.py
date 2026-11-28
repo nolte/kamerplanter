@@ -404,6 +404,19 @@ class SoilHazardRefusal(StrEnum):
     HYDROPONIC = "soil_hazard.hydroponic"
 
 
+class SoilHazardScope(StrEnum):
+    """Which soil hazards a location takes (AP-API-012, REQ-053 §11.3a Nr. 5 v1.60, #2888 O3/O5).
+
+    ``all`` a bed with soil, ``juglone_only`` an area that is no bed and no vessel (garden, zone, greenhouse on grown
+    soil), ``container`` a vessel, ``hydroponic`` a location whose effective irrigation system has no soil.
+    """
+
+    ALL = "all"
+    JUGLONE_ONLY = "juglone_only"
+    CONTAINER = "container"
+    HYDROPONIC = "hydroponic"
+
+
 class SoilHazardFollowUpKind(StrEnum):
     """What the app proposes after a soil-borne loss (REQ-053 §11.3a Nr. 5, #2888 F-20)."""
 

@@ -8640,6 +8640,9 @@
       "soilHazards": {
         "title": "Soil hazards",
         "intro": "A confirmed soil pathogen stays in the soil for years – whatever grows in the bed right now. Here you see which plants it endangers.",
+        "introArea": "On an area that is no bed – a garden, zone, orchard meadow or greenhouse soil – you record juglone: a walnut tree releases it into the soil through its roots and leaves. The entry also counts for every bed on this area; the planting dialog there then warns for sensitive plants such as tomato or potato.",
+        "emptyArea": "No soil hazard is recorded for this area.",
+        "hazardHelperArea": "An area that is no bed only takes juglone (walnut tree). Record soil pathogens at the bed.",
         "empty": "No soil hazard is recorded for this bed.",
         "unavailable": {
           "container": "In a planter, tent, shelf or container group you replace the substrate – so there are no soil hazards here.",
@@ -8664,9 +8667,9 @@
         "add": "Record soil hazard",
         "remove": "Remove soil hazard {{hazard}}",
         "removeTitle": "Remove soil hazard?",
-        "removeMessage": "{{hazard}} will be removed from the bed “{{bed}}”. Only remove it if the infestation is gone or was recorded by mistake.",
+        "removeMessage": "{{hazard}} will be removed from “{{bed}}”. Only remove it if the infestation is gone or was recorded by mistake. The garden plan's change log records that you removed it, with the date and the hazard's confirmation date.",
         "removeConfirm": "Remove",
-        "removed": "{{hazard}} was removed from the bed.",
+        "removed": "{{hazard}} was removed.",
         "recorded": "{{hazard}} is now recorded as a soil hazard.",
         "dialogTitle": "Record a soil hazard for “{{name}}”",
         "dialogIntro": "Only record a confirmed infestation – by a lab test, plant protection advice or unmistakable symptoms.",
@@ -8683,7 +8686,7 @@
         "save": "Record",
         "refusal": {
           "container": "A planter, tent, shelf or container group has no soil hazards.",
-          "not_a_bed": "Only a bed can carry a soil hazard.",
+          "not_a_bed": "An area that is no bed only takes juglone. Record soil pathogens at the bed.",
           "hydroponic": "A hydroponic location has no soil and therefore no soil hazards.",
           "confirmed_in_future": "The date lies in the future. Enter the day of the confirmation.",
           "confirmed_too_early": "The date lies before 1900. Enter the day of the confirmation."

@@ -28,7 +28,16 @@ from pydantic import (
     model_validator,
 )
 
-from app.common.enums import BedStatus, GardenObjectType, GeometrySource, SiteType, SlotRole, SunExposure, SunWindow
+from app.common.enums import (
+    BedStatus,
+    GardenObjectType,
+    GeometrySource,
+    SiteType,
+    SlotRole,
+    SoilHazardScope,
+    SunExposure,
+    SunWindow,
+)
 from app.domain.calculators.sun_calculator import SunDirections
 from app.domain.models.care_event import CareEvent
 from app.domain.models.garden_object import GardenObject
@@ -614,6 +623,9 @@ class BedSummaryView:
     supports_layout: bool = False
     #: W-016.6 (V-23): the light-schedule hints of a tent or shelf level; empty for every other location.
     tent_hints: list[TentHint] = field(default_factory=list)
+    #: Which soil hazards the location takes (AP-API-012, REQ-053 §11.3a Nr. 5 v1.60, #2888 O3/O5), derived with
+    #: its parent chain (``bed_soil_hazard_engine.soil_hazard_scope``).
+    soil_hazard_scope: SoilHazardScope = SoilHazardScope.ALL
 
 
 # ── Read model (GP-API-001) ───────────────────────────────────────────────────
@@ -632,8 +644,9 @@ class PlanAuditRecord(BaseModel):
     user_key: str
     #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4).
     op: str
-    #: ``location``, ``garden_object``, ``site``, ``care_event`` (a redaction) or ``irrigation_zone`` (a zone delete,
-    #: REQ-053 WP 7.1).
+    #: ``location``, ``garden_object``, ``site``, ``care_event`` (a redaction), ``irrigation_zone`` (a zone delete,
+    #: REQ-053 WP 7.1) or ``soil_hazard`` (the lead removed a soil hazard of the bed ``key``; ``summary`` is the hazard
+    #: key and its confirmation day, #2888 O6).
     entity: str
     key: str
     summary: str = Field(default="", max_length=200)

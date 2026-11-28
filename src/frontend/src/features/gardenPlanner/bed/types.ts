@@ -2,7 +2,7 @@
  * Bed read model (REQ-053 WP 3.5): the bed list row (GP-API-011), the summary that heads the bed view
  * (GP-API-012) and the soil profile (GP-FR-120/121). Derived from `app/api/v1/locations/schemas.py`.
  */
-import type { BedSoilHazard } from './soilHazardTypes';
+import type { BedSoilHazard, SoilHazardScope } from './soilHazardTypes';
 import type {
   BedStatus,
   FrostRisk,
@@ -251,6 +251,11 @@ export interface BedSummary extends BedListItem {
   lighting?: LocationLighting | null;
   /** REQ-054 §5.2 (#2888): confirmed soil hazards, newest first, hosts from the knowledge table. Absent before. */
   soil_hazards?: BedSoilHazard[];
+  /**
+   * Which soil hazards the location takes (#2888 O3/O5), decided on the server: `all`, `juglone_only`, `container`,
+   * `hydroponic`. Absent from an older backend or an older cached summary; the soil tab then offers none.
+   */
+  soil_hazard_scope?: SoilHazardScope;
 }
 
 export type TentHintCode =

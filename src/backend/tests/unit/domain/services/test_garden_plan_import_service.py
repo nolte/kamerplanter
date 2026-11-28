@@ -1241,6 +1241,34 @@ class TestSoilHazardsInTheBackup2888:
         assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards", "no_soil")]
         assert all(loc.soil_hazards == [] for loc in repo.locations.values())
 
+    def test_an_area_keeps_its_juglone_and_drops_only_the_pathogen(self, rig, repo) -> None:
+        """#2888 O3: juglone stands at an area that is no bed; any other hazard there is dropped and reported."""
+        document = rig.file()
+        document["locations"][0] |= {
+            "location_type_key": "greenhouse",
+            "soil_hazards": [
+                {"hazard": "clubroot", "confirmed_at": "2025-06-01", "source": "lab_test"},
+                {"hazard": "juglone", "confirmed_at": "2019-03-01", "source": "clear_symptoms"},
+            ],
+        }
+
+        report = rig.run(document)
+
+        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards", "no_soil")]
+        (area,) = [loc for loc in repo.locations.values() if loc.soil_hazards]
+        assert [entry.hazard for entry in area.soil_hazards] == [SoilHazard.JUGLONE]
+
+    def test_juglone_alone_at_an_area_imports_without_a_report(self, rig, repo) -> None:
+        document = rig.file()
+        document["locations"][0] |= {
+            "location_type_key": "greenhouse",
+            "soil_hazards": [{"hazard": "juglone", "confirmed_at": "2019-03-01", "source": "clear_symptoms"}],
+        }
+
+        report = rig.run(document)
+
+        assert report.dropped_references == []
+
     def test_they_are_never_written_into_another_tenants_site(self, rig, repo) -> None:
         self._seed(repo)
         document = rig.file()

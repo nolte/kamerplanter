@@ -571,3 +571,77 @@ class TestTheResidualHintFollowsTheCauseClass:
         result = check(validator, "cabbage", replant_of_plant_key=self._died(history, None, "pest"))
 
         assert self._residual(result) == [("rotation.replant_after_biotic_failure", "WARNING", None)]
+
+
+class TestTheSoilAboveTheBed:
+    """REQ-053 §11.3a Nr. 5 v1.60 (#2888 O3/O5): the parent chain's hazards and irrigation system reach the bed."""
+
+    @staticmethod
+    def _juglone() -> list[BedSoilHazard]:
+        return [_hazard(SoilHazard.JUGLONE, date(2019, 3, 1))]
+
+    def test_the_juglone_of_the_garden_warns_in_a_bed_in_it(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location("bed", parent_location_key="garden")
+
+        (finding,) = hazard_findings(check(validator, "tomato"))
+
+        assert (finding.hazard, finding.host_level, finding.host_name) == (
+            "juglone",
+            "species",
+            "Solanum lycopersicum",
+        )
+        assert finding.severity == "WARNING"
+
+    def test_it_reaches_through_a_zone_and_also_a_bed_whose_rotation_is_off(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["zone"] = make_location("zone", location_type_key="zone", parent_location_key="garden")
+        plan.locations["bed"] = make_location("bed", parent_location_key="zone", rotation_exempt=True)
+
+        assert [f.hazard for f in hazard_findings(check(validator, "tomato"))] == ["juglone"]
+
+    def test_a_tent_in_between_ends_the_chain(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["tent"] = make_location("tent", location_type_key="tent", parent_location_key="garden")
+        plan.locations["bed"] = make_location("bed", parent_location_key="tent")
+
+        assert hazard_findings(check(validator, "tomato")) == []
+
+    def test_a_planter_in_the_garden_carries_none_of_it(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location("bed", location_type_key="planter", parent_location_key="garden")
+
+        assert hazard_findings(check(validator, "tomato")) == []
+
+    def test_fresh_substrate_of_the_bed_lifts_the_inherited_hazard_too(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location(
+            "bed", parent_location_key="garden", soil_profile=SoilProfile(substrate_replaced_on=date(2024, 4, 1))
+        )
+
+        assert hazard_findings(check(validator, "tomato")) == []
+
+    def test_a_bed_left_at_manual_under_a_hydroponic_room_is_not_checked(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["room"] = make_location(
+            "room", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+        )
+        plan.locations["bed"] = make_location("bed", parent_location_key="room", soil_hazards=_clubroot())
+
+        assert hazard_findings(check(validator, "cabbage")) == []
+
+    def test_a_drip_bed_under_the_room_keeps_its_check(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["room"] = make_location(
+            "room", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+        )
+        plan.locations["bed"] = make_location(
+            "bed", parent_location_key="room", irrigation_system=IrrigationSystem.DRIP, soil_hazards=_clubroot()
+        )
+
+        assert [f.code for f in hazard_findings(check(validator, "cabbage"))] == ["soil_hazard.pause"]

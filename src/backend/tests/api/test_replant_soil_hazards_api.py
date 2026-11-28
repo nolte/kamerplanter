@@ -7,6 +7,8 @@
 * acceptance-1 — the hazard reaches the wire also on a bed whose rotation check is off; never a 4xx.
 * acceptance-5 — ``soil_profile.substrate_replaced_on`` written through ``PATCH /locations/{key}`` lifts it; a day
   after today is a 422 before anything is written.
+* REQ-053 §11.3a Nr. 5 v1.60 (#2888 O3/O5) — a juglone recorded at the garden reaches the planting check of a bed in
+  it; a bed left at ``manual`` under a hydroponic room is not checked, not even for what it holds itself.
 
 Dates are relative to today (UTC) instead of a frozen clock: the app's routes are built lazily, under a frozen clock
 FastAPI cannot build a ``date`` parameter (a local tooling limit of the other API tests of this area).
@@ -25,7 +27,7 @@ from fastapi.testclient import TestClient
 from app.common.auth import get_current_user
 from app.common.datetimes import today_utc
 from app.common.dependencies import get_bed_rotation_service, get_garden_resource_service, get_tenant_service
-from app.common.enums import PathogenConfirmationSource, SoilHazard, TenantRole
+from app.common.enums import IrrigationSystem, PathogenConfirmationSource, SoilHazard, TenantRole
 from app.common.exceptions import NotFoundError
 from app.data_access.knowledge.soil_hazard_knowledge_source import YamlSoilHazardKnowledgeSource
 from app.domain.engines.crop_rotation_validator import CropRotationValidator
@@ -94,6 +96,15 @@ def world() -> SimpleNamespace:
     confirmed = today - timedelta(days=365)
     plan.locations["bed"] = make_location("bed", soil_hazards=_clubroot(confirmed))
     plan.locations["perennial"] = make_location("perennial", rotation_exempt=True, soil_hazards=_clubroot(confirmed))
+    juglone = BedSoilHazard(
+        hazard=SoilHazard.JUGLONE, confirmed_at=confirmed, source=PathogenConfirmationSource.CLEAR_SYMPTOMS
+    )
+    plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=[juglone])
+    plan.locations["under_walnut"] = make_location("under_walnut", parent_location_key="garden")
+    plan.locations["room"] = make_location(
+        "room", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+    )
+    plan.locations["in_room"] = make_location("in_room", parent_location_key="room", soil_hazards=_clubroot(confirmed))
     species = FakeSpecies(
         Species(_key="cabbage", scientific_name="Brassica oleracea", genus="Brassica", family_key="fam_brassica"),
         Species(_key="tomato", scientific_name="Solanum lycopersicum", genus="Solanum", family_key="fam_solanum"),
@@ -223,3 +234,27 @@ class TestFreshSubstrateOnTheWire:
         assert response.status_code == 422, response.text
         assert world.plan.locations["bed"].soil_profile is None
         assert [f["code"] for f in _hints(client, "bed")["rotation"]][0] == "soil_hazard.pause"
+
+
+class TestTheParentChainOnTheWire:
+    """REQ-053 §11.3a Nr. 5 v1.60: the soil under a bed carries the hazards above it; hydroponics is inherited."""
+
+    def test_the_gardens_juglone_reaches_the_planting_check_of_a_bed_in_it(self, client, world) -> None:
+        expected = world.validator.validate_planting_in_location("under_walnut", "tomato", tenant_key=TENANT)
+
+        body = _hints(client, "under_walnut", "tomato")
+
+        juglone = [f for f in body["rotation"] if f.get("hazard") == "juglone"]
+        assert len(juglone) == 1 and juglone[0]["code"].startswith("soil_hazard.")
+        assert juglone[0]["host_name"] == "Solanum lycopersicum"
+        assert body["rotation"] == [_wire(finding) for finding in expected.findings]
+
+    def test_a_bed_outside_the_garden_hears_nothing_of_it(self, client) -> None:
+        body = _hints(client, "bed", "tomato")
+
+        assert not [f for f in body["rotation"] if f.get("hazard") == "juglone"]
+
+    def test_a_bed_under_a_hydroponic_room_is_not_checked(self, client) -> None:
+        body = _hints(client, "in_room", "cabbage")
+
+        assert not [f for f in body["rotation"] if f["code"].startswith("soil_hazard.")]

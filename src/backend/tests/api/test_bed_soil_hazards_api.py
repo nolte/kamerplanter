@@ -143,11 +143,25 @@ class World:
         for type_key in ("planter", "tent", "shelf"):
             self.repo.locations[type_key] = make_location(type_key, type_key, location_type_key=type_key)
         self.repo.locations["greenhouse"] = make_location("greenhouse", "Haus", location_type_key="greenhouse")
+        # O3/O5 (#2888, 2026-11-27): an area with a bed in it, and a hydroponic room with a shelf and a bed left at
+        # ``manual`` (the default = nothing entered).
+        self.repo.locations["garden"] = make_location("garden", "Obstwiese", location_type_key="garden")
+        self.repo.locations["bed_in_garden"] = make_location("bed_in_garden", "Beet", parent_location_key="garden")
+        self.repo.locations["room"] = make_location(
+            "room", "Hydro-Raum", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+        )
+        self.repo.locations["shelf_in_room"] = make_location(
+            "shelf_in_room", "Regal", location_type_key="shelf", parent_location_key="room"
+        )
+        self.repo.locations["bed_in_room"] = make_location("bed_in_room", "Rinne", parent_location_key="room")
         self.plants = _PlantStore(
             _standing("kohl", "bed"),
             _standing("kohl_bed2", "bed2"),
             _standing("kohl_hydro", "hydro"),
             _standing("kohl_foreign", "bed", tenant=OTHER_TENANT),
+            _standing("kohl_shelf", "shelf_in_room"),
+            _standing("kohl_room_bed", "bed_in_room"),
+            _standing("kohl_garden", "garden"),
         )
         self.hazard_repo = FakeBedSoilHazardRepo(self.repo)
         # The plant store the plant service writes, so an accepted offer reads the loss the remove call stored.
@@ -571,3 +585,156 @@ class TestTheFollowUpNeverFailsTheRemoval:
         assert response.status_code == 200
         assert response.json()["removed_on"] is not None and response.json()["soil_hazard_follow_up"] is None
         assert world.plants.rows["kohl"].termination_type == "died"
+
+
+JUGLONE_2019 = BedSoilHazard(
+    hazard=SoilHazard.JUGLONE, confirmed_at=date(2019, 3, 1), source=PathogenConfirmationSource.CLEAR_SYMPTOMS
+)
+
+
+class TestJugloneAtAnArea:
+    """O3 (2026-11-27): juglone at every location that is no vessel, every other hazard only at a bed."""
+
+    def test_a_grower_records_juglone_at_an_area_that_is_no_bed(self, client, world) -> None:
+        response = client().post(f"{_BASE}/locations/garden/soil-hazards", json=_manual("juglone", "2019-03-01"))
+
+        assert response.status_code == 201, response.text
+        assert [e.hazard for e in world.entries("garden")] == [SoilHazard.JUGLONE]
+
+    def test_another_hazard_at_the_area_stays_refused(self, client, world) -> None:
+        response = client().post(f"{_BASE}/locations/garden/soil-hazards", json=_manual("clubroot"))
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.not_a_bed"]
+        assert world.entries("garden") == []
+
+    @pytest.mark.parametrize("vessel", ["planter", "tent", "shelf"])
+    def test_a_vessel_takes_no_juglone_either(self, client, world, vessel: str) -> None:
+        response = client().post(f"{_BASE}/locations/{vessel}/soil-hazards", json=_manual("juglone", "2019-03-01"))
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.container"]
+        assert world.entries(vessel) == []
+
+    def test_a_confirmed_loss_on_the_area_is_neither_offered_nor_taken_over(self, client, world) -> None:
+        """A loss names a pathogen, never juglone - so the area keeps the bed rule for it (``hazard = None``)."""
+        removed = client().post(f"{_BASE}/plant-instances/kohl_garden/remove", json=CONFIRMED_LOSS)
+        assert removed.status_code == 200 and removed.json()["soil_hazard_follow_up"] is None
+
+        taken = client(TenantRole.LEAD).post(
+            f"{_BASE}/locations/garden/soil-hazards", json={"plant_key": "kohl_garden"}
+        )
+
+        assert taken.status_code == 422 and _codes(taken) == ["soil_hazard.not_a_bed"]
+        assert world.entries("garden") == []
+
+    @pytest.mark.parametrize(
+        ("location", "scope"),
+        [
+            ("bed", "all"),
+            ("garden", "juglone_only"),
+            ("greenhouse", "juglone_only"),
+            ("tent", "container"),
+            ("planter", "container"),
+            ("hydro", "hydroponic"),
+            ("bed_in_room", "hydroponic"),
+            ("bed_in_garden", "all"),
+        ],
+    )
+    def test_the_summary_says_what_the_location_takes(self, client, location: str, scope: str) -> None:
+        response = client(TenantRole.VIEWER).get(f"{_BASE}/locations/{location}/summary")
+
+        assert response.status_code == 200 and response.json()["soil_hazard_scope"] == scope
+
+    def test_the_areas_juglone_is_listed_with_the_area(self, client, world) -> None:
+        world.seed("garden", JUGLONE_2019)
+
+        body = client(TenantRole.VIEWER).get(f"{_BASE}/locations/garden/summary").json()
+
+        assert [entry["hazard"] for entry in body["soil_hazards"]] == ["juglone"]
+
+
+class TestHydroponicsFromTheParent:
+    """O5 (2026-11-27): a location left at ``manual`` under a hydroponic room counts as hydroponic everywhere."""
+
+    def test_a_loss_on_a_shelf_under_a_hydroponic_room_is_the_clean_system_hint(self, client, world) -> None:
+        response = client().post(f"{_BASE}/plant-instances/kohl_shelf/remove", json=SUSPECTED_LOSS)
+
+        assert response.status_code == 200
+        assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
+        assert response.json()["soil_hazard_follow_up"]["location_key"] == "shelf_in_room"
+
+    def test_a_confirmed_loss_in_a_bed_under_it_is_the_hint_not_an_offer(self, client, world) -> None:
+        response = client().post(f"{_BASE}/plant-instances/kohl_room_bed/remove", json=CONFIRMED_LOSS)
+
+        assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
+        assert world.entries("bed_in_room") == []
+
+    def test_neither_the_take_over_nor_a_hand_entry_is_accepted_there(self, client, world) -> None:
+        client().post(f"{_BASE}/plant-instances/kohl_room_bed/remove", json=CONFIRMED_LOSS)
+
+        taken = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json={"plant_key": "kohl_room_bed"})
+        by_hand = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json=_manual())
+
+        assert _codes(taken) == _codes(by_hand) == ["soil_hazard.hydroponic"]
+        assert world.entries("bed_in_room") == [] and world.hazard_repo.writes == []
+
+    def test_a_drip_bed_under_the_room_keeps_its_soil(self, client, world) -> None:
+        world.repo.locations["bed_in_room"] = world.repo.locations["bed_in_room"].model_copy(
+            update={"irrigation_system": IrrigationSystem.DRIP}
+        )
+
+        response = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json=_manual())
+
+        assert response.status_code == 201, response.text
+
+
+class TestTheRemovalIsInThePlanChangeLog:
+    """O6 (2026-11-27): the lead's removal writes a ``garden_plan_audit`` row - who, when, which bed and hazard."""
+
+    def test_the_lead_removes_and_the_row_names_bed_hazard_and_its_confirmation(self, client, world) -> None:
+        world.seed("bed", CLUBROOT_2025)
+        before = datetime.now(UTC)
+
+        response = client(TenantRole.LEAD).delete(f"{_BASE}/locations/bed/soil-hazards/clubroot")
+
+        assert response.status_code == 204
+        (row,) = world.hazard_repo.audit_rows
+        assert (row.tenant_key, row.site_key, row.user_key, row.op, row.entity, row.key, row.summary) == (
+            TENANT,
+            "site_1",
+            ME,
+            "delete",
+            "soil_hazard",
+            "bed",
+            "clubroot confirmed 2025-06-01",
+        )
+        assert before <= row.at <= datetime.now(UTC)
+
+    def test_the_row_carries_no_free_text_and_no_source(self, client, world) -> None:
+        world.seed("bed", CLUBROOT_2025)
+
+        client(TenantRole.LEAD).delete(f"{_BASE}/locations/bed/soil-hazards/clubroot")
+
+        (row,) = world.hazard_repo.audit_rows
+        assert "Kohlbeet" not in row.summary and "clear_symptoms" not in row.summary
+        assert row.snapshot is None
+
+    @pytest.mark.parametrize(
+        ("role", "path", "status"),
+        [
+            (TenantRole.GROWER, "/locations/bed/soil-hazards/clubroot", 403),
+            (TenantRole.LEAD, "/locations/bed/soil-hazards/white_rot", 404),
+            (TenantRole.LEAD, "/locations/gone/soil-hazards/clubroot", 404),
+        ],
+        ids=["grower", "not_held", "unknown_bed"],
+    )
+    def test_a_refused_removal_writes_no_row(self, client, world, role, path, status) -> None:
+        world.seed("bed", CLUBROOT_2025)
+
+        assert client(role).delete(_BASE + path).status_code == status
+        assert world.hazard_repo.audit_rows == [] and world.entries() == [CLUBROOT_2025]
+
+    def test_a_foreign_tenants_removal_writes_no_row(self, client, world) -> None:
+        world.seed("bed", CLUBROOT_2025)
+
+        assert client(TenantRole.LEAD).delete(f"{_FOREIGN}/locations/bed/soil-hazards/clubroot").status_code == 404
+        assert world.hazard_repo.audit_rows == []

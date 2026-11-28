@@ -54,6 +54,7 @@ from app.domain.engines.bed_list_csv_engine import (
     COLUMN_NEAREST_WATER_SOURCE,
     COLUMN_TYPE,
 )
+from app.domain.engines.bed_soil_hazard_engine import soil_hazard_scope
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
@@ -100,6 +101,7 @@ from app.domain.models.tent_hint import TentHint
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.location_ancestry import location_ancestors
 from app.domain.services.location_ownership import (
     require_owned_site,
     resolve_owned_location,
@@ -439,6 +441,11 @@ class GardenResourceService:
             path_access=access,
             supports_layout=supports_layout,
             tent_hints=tent_hints,
+            # #2888 O3/O5: what the soil-hazard form offers - the write's rule, with the irrigation system the
+            # location inherits from its parents (read within its site, ``location_ancestry``).
+            soil_hazard_scope=soil_hazard_scope(
+                location, is_bed=is_bed, ancestors=location_ancestors(self._sites, location)
+            ),
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────

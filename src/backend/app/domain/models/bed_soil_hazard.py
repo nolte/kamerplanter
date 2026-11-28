@@ -62,6 +62,19 @@ def confirmation_date_violation(confirmed_at: date) -> str | None:
     return None
 
 
+#: ``garden_plan_audit.entity`` of the row the removal of a soil hazard writes (REQ-053 §20.13 SR-011, O6).
+AUDIT_ENTITY_SOIL_HAZARD = "soil_hazard"
+
+
+def removal_audit_summary(entry: BedSoilHazard) -> str:
+    """``garden_plan_audit.summary`` of a removed entry: its hazard key and confirmation day - no free text, no person.
+
+    ``"clubroot confirmed 2025-06-01"``: both parts are machine values (an enum key and an ISO date), so the row needs
+    no redaction and discloses nothing beyond the entry it records.
+    """
+    return f"{entry.hazard.value} confirmed {entry.confirmed_at.isoformat()}"
+
+
 #: Hazards a loss can hand over to its bed: exactly the pathogens a loss may name (``failure_cause.LOSS_PATHOGENS``,
 #: the one definition - ``juglone`` is entered by hand only).
 LOSS_SOIL_HAZARDS: frozenset[SoilHazard] = frozenset(LOSS_PATHOGENS)

@@ -800,12 +800,15 @@ class GardenPlanImportService:
                 )
                 soil.substrate_key = None
 
-        soil_hazards = list(item.soil_hazards)
-        if soil_hazards and soil_hazard_refusal_for_type(type_key, is_bed=flags.get(type_key, False)) is not None:
-            # A vessel or a location that is no bed carries no soil hazard (REQ-053 §11.3a Nr. 5): the file may
-            # not put one there either. Dropped and reported, the rest of the bed imports.
+        # A vessel carries no soil hazard, an area that is no bed only juglone (REQ-053 §11.3a Nr. 5, O3): the file
+        # may not put another one there either. Dropped and reported once, the rest of the location imports.
+        soil_hazards = [
+            entry
+            for entry in item.soil_hazards
+            if soil_hazard_refusal_for_type(type_key, is_bed=flags.get(type_key, False), hazard=entry.hazard) is None
+        ]
+        if len(soil_hazards) != len(item.soil_hazards):
             prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="soil_hazards", reason="no_soil"))
-            soil_hazards = []
 
         fields: dict[str, Any] = {
             "name": item.name,
