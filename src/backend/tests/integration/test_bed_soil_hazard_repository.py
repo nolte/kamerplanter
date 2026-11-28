@@ -215,6 +215,11 @@ class TestTheServiceOverTheRealRepositories:
         locations.insert({**_bed("garden_a", "site_a"), "location_type_key": "garden"})
         locations.insert({**_bed("room_a", "site_a"), "location_type_key": "greenhouse", "irrigation_system": "hydro"})
         locations.insert({**_bed("bed_in_room", "site_a"), "parent_location_key": "room_a"})
+        # Review S1 (REQ-053 v1.61): a location without a bed type ("zone" is no seeded bed type here) under the
+        # hydroponic room is refused; a soil bed (type "bed", own irrigation ``manual``) under it takes an entry.
+        locations.insert(
+            {**_bed("zone_in_room", "site_a"), "location_type_key": "zone", "parent_location_key": "room_a"}
+        )
         # A corrupt parent key into another tenant's site: the chain ends there instead of reading it.
         locations.insert({**_bed("bed_foreign_parent", "site_a"), "parent_location_key": "room_b"})
         locations.insert({**_bed("room_b", "site_b"), "location_type_key": "greenhouse", "irrigation_system": "nft"})
@@ -230,13 +235,20 @@ class TestTheServiceOverTheRealRepositories:
         assert recorded.changed is True
         with pytest.raises(PlanError) as refused:
             service.record(
-                "bed_in_room",
+                "zone_in_room",
                 tenant_key=A,
-                hazard=SoilHazard.CLUBROOT,
-                confirmed_at=date(2026, 7, 1),
-                source=PathogenConfirmationSource.LAB_TEST,
+                hazard=SoilHazard.JUGLONE,
+                confirmed_at=date(2019, 3, 1),
+                source=PathogenConfirmationSource.CLEAR_SYMPTOMS,
             )
         assert refused.value.error_code == "soil_hazard.hydroponic"
+        assert service.record(
+            "bed_in_room",
+            tenant_key=A,
+            hazard=SoilHazard.CLUBROOT,
+            confirmed_at=date(2026, 7, 1),
+            source=PathogenConfirmationSource.LAB_TEST,
+        ).changed
         assert service.record(
             "bed_foreign_parent",
             tenant_key=A,

@@ -154,21 +154,22 @@ class LocatedSoilHazard:
 def effective_soil_hazards(location: Location, ancestors: Sequence[Location]) -> list[LocatedSoilHazard]:
     """The soil hazards the soil at ``location`` carries: its own and those of its parent chain (REQ-053 §11.3a Nr. 5).
 
-    None in a vessel or where the location's **own** irrigation system is hydroponic. Its own entries stay when it only
-    inherits hydroponics (a soil bed in a hydroponic room, v1.61); the entries of its parents do not count then.
-    Walking up, a vessel ends the chain - whatever stands in it has its own substrate. A hazard held at several levels
-    counts once, with the latest confirmation (as :func:`merged_entries`), and names the location that holds it.
+    None in a vessel or where the location's **own** irrigation system is hydroponic. A soil bed that only inherits
+    hydroponics keeps its own entries and those of its parents (operator decision N-e 2026-11-28, REQ-053 v1.63: "a
+    soil bed inherits the hazard"). Walking up, a vessel ends the chain - whatever stands in it has its own substrate; a
+    hydroponic parent does not end it, it only adds no entries of its own (it has no soil). A hazard held at several
+    levels counts once, with the latest confirmation (as :func:`merged_entries`), and names the location that holds it.
     """
     if is_vessel_type(location.location_type_key) or has_own_hydroponics(location):
         return []
     found: dict[SoilHazard, LocatedSoilHazard] = {
         entry.hazard: LocatedSoilHazard(entry) for entry in location.soil_hazards
     }
-    if is_hydroponic(location, ancestors):
-        return list(found.values())
     for ancestor in ancestors:
         if is_vessel_type(ancestor.location_type_key):
             break
+        if has_own_hydroponics(ancestor):
+            continue
         for entry in ancestor.soil_hazards:
             held = found.get(entry.hazard)
             if held is None or entry.confirmed_at > held.entry.confirmed_at:

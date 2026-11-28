@@ -516,12 +516,29 @@ class TestWhatTheSoilUnderALocationCarries:
 
         assert effective_soil_hazards(bed, [tent, garden]) == []
 
-    def test_under_inherited_hydroponics_the_own_entries_stay_and_the_inherited_go(self) -> None:
-        """Review S1: a greenhouse on ``hydro`` for its NFT channel keeps the clubroot of its soil bed."""
+    def test_a_hydroponic_parent_adds_no_entries_of_its_own(self) -> None:
+        """Review S1: a greenhouse on ``hydro`` for its NFT channel keeps the clubroot of its soil bed; the greenhouse
+        itself has no soil, so a (legacy) entry of its own does not pass down."""
         greenhouse = _area("greenhouse", soil_hazards=[JUGLONE_2019], irrigation=IrrigationSystem.HYDRO)
         bed = _bed(parent_location_key="greenhouse", soil_hazards=[CLUBROOT_2024])
 
         assert _hazards(effective_soil_hazards(bed, [greenhouse])) == [CLUBROOT_2024]
+
+    def test_a_soil_bed_inherits_across_a_hydroponic_parent(self) -> None:
+        """N-e (2026-11-28): garden (juglone) -> greenhouse (hydro) -> soil bed (manual): the juglone counts."""
+        garden = _area("garden", soil_hazards=[JUGLONE_2019])
+        greenhouse = _area("greenhouse", parent="garden", irrigation=IrrigationSystem.HYDRO)
+        bed = _bed(parent_location_key="greenhouse", soil_hazards=[CLUBROOT_2024])
+
+        located = effective_soil_hazards(bed, [greenhouse, garden])
+
+        assert [(item.entry, item.origin.key if item.origin else None) for item in located] == [
+            (CLUBROOT_2024, None),
+            (JUGLONE_2019, "garden"),
+        ]
+        shelf = _bed("shelf", type_key="shelf", parent_location_key="greenhouse")
+        assert effective_soil_hazards(shelf, [greenhouse, garden]) == []
+        assert effective_soil_hazards(_bed(irrigation=IrrigationSystem.NFT), [greenhouse, garden]) == []
 
     def test_an_own_hydroponic_value_carries_none(self) -> None:
         bed = _bed(irrigation=IrrigationSystem.NFT, soil_hazards=[CLUBROOT_2024])

@@ -708,7 +708,9 @@ class TestTheSoilAboveTheBed:
 
         assert [f.code for f in hazard_findings(check(validator, "cabbage"))] == ["soil_hazard.pause"]
 
-    def test_under_a_hydroponic_room_the_hazards_from_above_are_not_checked(self, world) -> None:
+    def test_a_soil_bed_under_a_hydroponic_greenhouse_inherits_the_gardens_juglone(self, world) -> None:
+        """N-e (2026-11-28, REQ-053 v1.63): flipped - the warning comes and names the garden; an own ``nft`` and a
+        shelf under the greenhouse are not checked."""
         validator, plan, _ = world
         plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
         plan.locations["room"] = make_location(
@@ -717,9 +719,17 @@ class TestTheSoilAboveTheBed:
             irrigation_system=IrrigationSystem.HYDRO,
             parent_location_key="garden",
         )
-        plan.locations["bed"] = make_location("bed", parent_location_key="room")
+        plan.locations["bed"] = make_location("bed", "Gewächshausbeet", parent_location_key="room")
+        plan.locations["own_nft"] = make_location(
+            "own_nft", parent_location_key="room", irrigation_system=IrrigationSystem.NFT
+        )
+        plan.locations["shelf"] = make_location("shelf", location_type_key="shelf", parent_location_key="room")
 
-        assert hazard_findings(check(validator, "tomato")) == []
+        (finding,) = hazard_findings(check(validator, "tomato"))
+
+        assert (finding.severity, finding.hazard, finding.hazard_location_key) == ("WARNING", "juglone", "garden")
+        assert hazard_findings(check(validator, "tomato", "own_nft")) == []
+        assert hazard_findings(check(validator, "tomato", "shelf")) == []
 
     def test_a_drip_bed_under_the_room_keeps_its_check(self, world) -> None:
         validator, plan, _ = world
