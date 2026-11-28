@@ -2,11 +2,11 @@
 
 ID: UI-NFR-013
 Titel: Einwilligungsmanagement (Consent)
-Kategorie: UI-Verhalten Unterkategorie: Datenschutz, Einwilligung, TTDSG
+Kategorie: UI-Verhalten Unterkategorie: Datenschutz, Einwilligung, TDDDG
 Technologie: React, TypeScript, MUI 9
 Status: Entwurf
 Priorität: Hoch
-Version: 1.3 (#3025 N-40: eigener Zweck `browser_error_reports` für Browser-Fehlerberichte, Gerät/Konto-Abgleich mit Fälle-Tabelle §5.4, Kategorie „Externe Dienste“ gestrichen — Betreiberentscheidungen 2026-11-27); 1.2 (#2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion — §5.3; 1.1 #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter)
+Version: 1.4 (#3025 Review-Nacharbeit: keine Sitzungs-/Client-Reports, Textversion beim Erteilen mitgesendet, Texte vor der Entscheidung sichtbar, Zurücknehmen ohne Anmeldung, Adressen maskiert; offene Frage Gerät/Konto, bekannte Grenzen); 1.3 (#3025 N-40: eigener Zweck `browser_error_reports` für Browser-Fehlerberichte, Gerät/Konto-Abgleich mit Fälle-Tabelle §5.4, Kategorie „Externe Dienste“ gestrichen — Betreiberentscheidungen 2026-11-27); 1.2 (#2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion — §5.3; 1.1 #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [consent, cookie-banner, ttdsg, dsgvo, privacy, sentry, tracking, einwilligung]
@@ -22,6 +22,7 @@ Betroffene Module: [Frontend]
 
 | Version | Datum | Änderung |
 |---|---|---|
+| 1.4 | 2026-11-28 | **#3025, Nacharbeit aus dem Privacy-Review.** (1) CI-005: Das SDK sendet nur Fehlerereignisse — die Sitzungs-Integration (`BrowserSession`) ist abgeschaltet, Client-Reports sind aus; alle Default-Integrationen von `@sentry/browser` 11.16 sind in §5.3 einzeln bewertet. (2) CP-013: Beim Erteilen sendet der Browser die Textversion mit, die er angezeigt hat; der Server lehnt eine Abweichung mit `409 CONSENT_TEXT_OUTDATED` ab und schreibt nichts, die Oberfläche bittet um Neuladen (REQ-025 v1.42). Ein Guard nagelt Textversion und Hash der Texte (Backend und Frontend) fest. (3) CB-007: Entscheidungselemente erscheinen nur, wenn die Texte geladen sind. (4) CB-008/§4.1: Empfänger (Host), Inhalt und IP-Hinweis stehen im sichtbaren Bannertext. (5) CW-006: Eine Geräte-Entscheidung lässt sich ohne Anmeldung auf den öffentlichen Seiten zurücknehmen. (6) CI-006: Mandanten-Kurzname, Datensatzschlüssel und Token in Adressen werden vor dem Senden maskiert. (7) TTDSG → TDDDG. (8) §5.5 offene Frage (Gerät unentschieden + Konto erteilt) und bekannte Grenzen. Die Textversion bleibt 1.0: v1.3 war nicht veröffentlicht, kein Datensatz trägt eine Zustimmung zum älteren Wortlaut. |
 | 1.3 | 2026-11-28 | **#3025 N-40, Betreiberentscheidungen 2026-11-27.** (1) Browser-Fehlerberichte haben einen **eigenen** Einwilligungszweck `browser_error_reports` (REQ-025 v1.41 §3.6); der Server-Zweck `error_tracking` (Zuordnung von Backend-Ereignissen zum Konto) bleibt in Name und Text unverändert, bestehende Konto-Einwilligungen behalten ihre Bedeutung. (2) Eine nur im Browser gespeicherte Zustimmung — auch eine aus der Zeit vor dieser Version oder von vor der Anmeldung — wird **nie** als Konto-Einwilligung verbucht; nach der Umstellung fragt die App einmal neu (CP-005). (3) Eine Ablehnung ohne Anmeldung gilt für dieses Gerät und wird durch keine Zustimmung überstimmt; sie widerruft keine Konto-Einwilligung (CP-007). (4) Die Kategorie „Externe Dienste“ (`external_services`) ist gestrichen: Es gibt keine Verarbeitung dahinter (CK-003, CW-004 entfallen; §1.2, §2.1, §4.2, §5.1, DoD angepasst). Neu: Zusammenspiel Gerät/Konto als Fälle-Tabelle (§5.4), Kontowechsel, mehrere Tabs, lang offene Tabs und fehlgeschlagener Abgleich (CP-008…CP-012). Session Replay bleibt nicht aktiviert und bräuchte einen eigenen Zweck. |
 | 1.2 | 2026-10-09 | #2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion (§5.3). |
 | 1.1 | 2026-10-09 | #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter. |
@@ -40,18 +41,18 @@ Betroffene Module: [Frontend]
 
 **Als** Betreiber der Anwendung
 **möchte ich** dass die Einwilligungsverwaltung rechtssicher umgesetzt ist
-**um** die Anforderungen des TTDSG § 25 und der DSGVO Art. 7 zu erfüllen.
+**um** die Anforderungen des TDDDG § 25 und der DSGVO Art. 7 zu erfüllen.
 
 ### 1.2 Geschäftliche Motivation
 
-Das Telemediengesetz (TTDSG) § 25 regelt die Speicherung von und den Zugriff auf Informationen auf Endgeräten. Die DSGVO Art. 7 stellt Anforderungen an die Einwilligung. Kamerplanter verwendet mehrere Technologien, die unter diese Regelungen fallen:
+Das Telekommunikation-Digitale-Dienste-Datenschutz-Gesetz (TDDDG, bis 2024 TTDSG) § 25 regelt die Speicherung von und den Zugriff auf Informationen auf Endgeräten. Die DSGVO Art. 7 stellt Anforderungen an die Einwilligung. Kamerplanter verwendet mehrere Technologien, die unter diese Regelungen fallen:
 
 1. **Fehlerberichte aus dem Browser** (Sentry-Protokoll, Referenzprofil GlitchTip) — überträgt bei einem Fehler im Browser einen Bericht an den Fehler-Tracker, den der Betreiber eingerichtet hat (gegebenenfalls ein externer Dienst, potenziell außerhalb der EU)
 2. **Session Replay** — würde Nutzerinteraktionen aufzeichnen; **nicht aktiviert**, bräuchte einen eigenen Zweck
 
 Eine HaveIBeenPwned-Prüfung gibt es nicht, und die Stammdatenanreicherung (REQ-011) ist ein Katalog-Job ohne Personenbezug (REQ-025 v1.31, #2136); beide brauchen keine Einwilligung. Die frühere Kategorie „Externe Dienste“ ist deshalb seit v1.3 gestrichen.
 
-Ohne rechtskonformes Einwilligungsmanagement drohen Bußgelder nach DSGVO Art. 83 (bis 4 % des Jahresumsatzes) und Abmahnungen nach TTDSG.
+Ohne rechtskonformes Einwilligungsmanagement drohen Bußgelder nach DSGVO Art. 83 (bis 4 % des Jahresumsatzes) und Abmahnungen nach TDDDG.
 
 ---
 
@@ -63,12 +64,12 @@ Ohne rechtskonformes Einwilligungsmanagement drohen Bußgelder nach DSGVO Art. 8
 
 | Speicherung | Zweck | Rechtsgrundlage |
 |-------------|-------|----------------|
-| Refresh-Token Cookie (`HttpOnly`, `Secure`, `SameSite=Lax`) | Authentifizierung (REQ-023) | TTDSG § 25 Abs. 2 Nr. 2 — unbedingt erforderlich |
-| CSRF-Cookie (Double-Submit, REQ-023 v1.2) | Sicherheit | TTDSG § 25 Abs. 2 Nr. 2 |
-| `localStorage`: Sprache (`i18nextLng`) | Spracheinstellung (UI-NFR-007) | TTDSG § 25 Abs. 2 Nr. 2 |
-| `localStorage`: Theme (`theme-mode`) | Light/Dark-Modus | TTDSG § 25 Abs. 2 Nr. 2 |
-| `localStorage`: Tenant-Auswahl (`active-tenant`) | Mandantenkontext (REQ-024) | TTDSG § 25 Abs. 2 Nr. 2 |
-| `localStorage`: Kiosk-Modus-Präferenz (UI-NFR-019) | Betriebsmodus | TTDSG § 25 Abs. 2 Nr. 2 |
+| Refresh-Token Cookie (`HttpOnly`, `Secure`, `SameSite=Lax`) | Authentifizierung (REQ-023) | TDDDG § 25 Abs. 2 Nr. 2 — unbedingt erforderlich |
+| CSRF-Cookie (Double-Submit, REQ-023 v1.2) | Sicherheit | TDDDG § 25 Abs. 2 Nr. 2 |
+| `localStorage`: Sprache (`i18nextLng`) | Spracheinstellung (UI-NFR-007) | TDDDG § 25 Abs. 2 Nr. 2 |
+| `localStorage`: Theme (`theme-mode`) | Light/Dark-Modus | TDDDG § 25 Abs. 2 Nr. 2 |
+| `localStorage`: Tenant-Auswahl (`active-tenant`) | Mandantenkontext (REQ-024) | TDDDG § 25 Abs. 2 Nr. 2 |
+| `localStorage`: Kiosk-Modus-Präferenz (UI-NFR-019) | Betriebsmodus | TDDDG § 25 Abs. 2 Nr. 2 |
 | Session-State (Redux, In-Memory) | Anwendungsbetrieb | Kein Endgerätzugriff |
 
 **Einwilligung erforderlich:**
@@ -94,6 +95,8 @@ Nicht hier geregelt, weil kein Browser-Speicherzugriff: Der Server-Zweck `error_
 | CB-004 | Das Banner MUSS eine Schaltfläche „Einstellungen" anbieten, die die Kategorie-Auswahl öffnet. | MUSS |
 | CB-005 | Die Anwendung MUSS ohne Einwilligung in optionale Kategorien voll funktionsfähig bleiben. Kein Feature DARF von optionaler Einwilligung abhängig sein, es sei denn, es ist ein reines Analyse-/Tracking-Feature. | MUSS |
 | CB-006 | Das Banner DARF NICHT erneut erscheinen, wenn der Nutzer bereits eine Auswahl getroffen hat (bis zum Widerruf oder Ablauf). | MUSS |
+| CB-007 | Banner und Schalter zeigen Entscheidungselemente nur, wenn die Texte, zu denen entschieden wird, geladen sind; fehlen sie (nachgeladener Sprach-Chunk nicht verfügbar), erscheint nichts, und das Laden wird wiederholt. Nie wird eine Entscheidung zu einem nicht angezeigten Text angenommen. | MUSS |
+| CB-008 | Der **sichtbare** Bannertext nennt ohne Aufklappen den Empfänger (Host aus der DSN), in einem Satz den Inhalt eines Berichts und dass der Empfänger die IP-Adresse sieht. Die ausführliche Beschreibung (CK-004) steht unter „Einstellungen“. | MUSS |
 
 ### 3.2 Consent-Kategorien
 
@@ -121,6 +124,7 @@ Zwei Speicherorte, zwei Urheber: Die **Geräte-Entscheidung** liegt im `localSto
 | CP-009 | **Kontowechsel / Abmelden:** Beim Wechsel der Person verwirft der Tab die gelesene Konto-Entscheidung sofort und liest die der neuen Person; bis dahin wird nicht gesendet. Ein noch nicht übertragener Widerruf bleibt je Konto erhalten (`kamerplanter:consent:pending-revoke:<konto-hash>` — ein gerätelokaler Hash des Kontoschlüssels, nicht der Schlüssel selbst, weil der Eintrag das Abmelden überdauern muss, 07 PRIV-512; gelöscht, sobald der Widerruf übertragen ist) und wird beim nächsten Abgleich dieses Kontos zuerst gesendet; solange er aussteht, sendet der Browser für dieses Konto nicht. | MUSS |
 | CP-010 | **Mehrere Tabs:** Eine Geräte-Entscheidung erreicht alle Tabs über das `storage`-Ereignis. Eine Konto-Entscheidung in einem Tab meldet sich bei den anderen (`kamerplanter:consent:account-signal`): Ein Widerruf stoppt dort sofort, danach lesen sie neu. Eine Serverantwort, die vor einer neueren Entscheidung (eigene, aus einem anderen Tab, Kontowechsel) angefordert wurde, wird verworfen und neu gelesen — eine veraltete Antwort überschreibt nie einen frischeren Stand. | MUSS |
 | CP-011 | **Lang offene Tabs:** Ein angemeldeter Tab liest die Konto-Entscheidung neu, wenn er sichtbar wird (höchstens einmal je Minute), wenn das Netz zurückkommt (`online`) und alle 10 Minuten, solange er sichtbar ist. Eine Bestätigung älter als 30 Minuten zählt nicht mehr (CP-006), so endet ein Widerruf auf einem anderen Gerät spätestens nach dieser Zeit auch hier. | MUSS |
+| CP-013 | **Textversion beim Erteilen:** Der Browser sendet mit `POST /api/v1/privacy/consents` die Textversion (`purpose_version`), die er angezeigt hat. Weicht sie von der aktuellen Version des Servers ab, antwortet der Server `409 CONSENT_TEXT_OUTDATED` und schreibt nichts; die Oberfläche sagt „Der Text hat sich geändert, bitte lade die Seite neu“. Liefert der Server beim Lesen eine andere Version als die angezeigte, gilt die Konto-Entscheidung als „veraltet“: kein Bericht, kein Banner, derselbe Hinweis in den Einstellungen. | MUSS |
 | CP-012 | **Fehlgeschlagener Abgleich:** Ein fehlgeschlagenes Lesen zählt als „keine gültige Einwilligung“ (kein Bericht, kein Banner) und wird beim nächsten Auslöser nach CP-011 wiederholt. Ein fehlgeschlagenes Erteilen ändert nichts und zeigt am Ort der Handlung einen Fehler mit „Erneut versuchen“. Ein fehlgeschlagener Widerruf stoppt die Berichte sofort trotzdem, bleibt als ausstehend gespeichert (CP-009) und wird angezeigt. Die Datenschutz-Einstellungen zeigen „nicht abgeglichen“ und „Widerruf ausstehend“ jeweils mit „Erneut versuchen“. Nie wirkt ein Fehlschlag als Zustimmung. | MUSS |
 
 ### 3.4 Consent-Widerruf
@@ -131,6 +135,7 @@ Zwei Speicherorte, zwei Urheber: Die **Geräte-Entscheidung** liegt im `localSto
 | CW-002 | Der Widerruf MUSS genauso einfach sein wie die Erteilung (Art. 7 Abs. 3 DSGVO). | MUSS |
 | CW-003 | Bei Widerruf von „Fehlerberichte aus dem Browser" MUSS Sentry **sofort** deaktiviert werden (kein Nachladen, kein Tracking bis zur nächsten Initialisierung) — auch wenn die Übertragung an den Server fehlschlägt (CP-012). | MUSS |
 | CW-004 | *Entfallen (v1.3)* mit CK-003. | — |
+| CW-006 | **Ohne Anmeldung zurücknehmen:** Auf den öffentlichen Seiten (Anmeldung, Registrierung, Passwort und E-Mail bestätigen) steht, wenn eine DSN gesetzt ist und eine Geräte-Entscheidung existiert, der Link „Entscheidung dieses Browsers ändern“; er setzt die Geräte-Entscheidung zurück, und das Banner fragt erneut. Die Gerätefassung des Banners nennt diesen Weg. Der Text liegt im Initial-Chunk, damit der Weg nie an einem nachgeladenen Text hängt. | MUSS |
 | CW-005 | Der Widerruf einer angemeldeten Person MUSS über `DELETE /api/v1/privacy/consents/browser_error_reports` (REQ-025) an das Backend propagiert werden; schlägt das fehl, gilt CP-009/CP-012. | MUSS |
 
 ### 3.5 Consent-gesteuerte Initialisierung
@@ -140,6 +145,8 @@ Zwei Speicherorte, zwei Urheber: Die **Geräte-Entscheidung** liegt im `localSto
 | CI-001 | Sentry (`@sentry/react`) DARF ERST initialisiert werden (`Sentry.init()`), wenn die Entscheidungsfunktion aus §5.4 „senden“ ergibt; das gilt auch vor dem ersten Render (CP-008). | MUSS |
 | CI-002 | Vor Einwilligung DARF KEIN Sentry-SDK-Code geladen werden, der Daten erhebt oder überträgt. | MUSS |
 | CI-003 | Die Anwendung MUSS einen **ConsentProvider** (React Context) bereitstellen, der den aktuellen Consent-Status hält und als Gate für optionale Features dient. | MUSS |
+| CI-005 | Das SDK DARF nur Fehlerereignisse senden, die `beforeSend` durchlaufen: keine Sitzungen (Integration `BrowserSession` entfernt), keine Client-Reports (`sendClientReports: false`), kein Tracing (`tracesSampleRate: 0`), keine Logs/Metriken. Ein Test prüft die tatsächlichen Init-Optionen. | MUSS |
+| CI-006 | Adressen in Ereignis und Breadcrumbs (`request.url`, Referer, `transaction`, Fetch-/XHR-/Navigations-Breadcrumbs, URLs in Fehlermeldungs- und Konsolentexten) tragen keinen Mandanten-Kurznamen, keinen Datensatzschlüssel und kein Token: `/api/v1/t/:tenant/…`, Segmente nach den Parametern der Frontend-Routen und nach `tenants`/`invitations` als `:id` bzw. `:tenant`/`:token`, übrige Segmente mit Ziffer, UUID-Form oder ab 16 Zeichen als `:id`. Die Maskierung liegt im nachgeladenen Tracker-Teil. | MUSS |
 | CI-004 | Hooks wie `useConsent()` MÜSSEN verfügbar sein, damit Komponenten consent-abhängig rendern können. | SOLL |
 
 ---
@@ -233,6 +240,7 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 ### 5.3 Umsetzungsstand (#2159 2026-10-09, #3025 N-40 2026-11-28)
 
 - **CI-001/CI-002/CW-003 umgesetzt:** `src/frontend/src/observability/errorTracking.ts` lädt `@sentry/react` (ein einziger dynamischer Import je Seite) und ruft `Sentry.init()` nur, wenn `browserReportsPermitted()` (§5.4) wahr ist und nicht der Light-Modus läuft. Das Modul abonniert den Consent-Speicher einmal: eine spätere Zustimmung startet das SDK ohne Neuladen. Ein Widerruf (auch aus einem anderen Tab, `storage`-Ereignis) setzt den Client **synchron** auf `enabled = false`, leert die Breadcrumbs von Isolation- und Current-Scope (`Scope#clear()` gibt es in SDK 11 nicht mehr) und ruft danach `Sentry.close(2000)`; `beforeSend` und `beforeBreadcrumb` prüfen die Entscheidungsfunktion zuerst (mit der aktuellen Uhrzeit, so greift auch das 30-Minuten-Alter aus CP-006) und verwerfen sonst (`null`). Grund (gemessen in `@sentry/core` 11.4.0, `client.js`): `close(timeout)` wartet erst `flush(timeout)` ab und setzt `enabled = false` danach, und `_isClientDoneProcessing` behandelt `0` als unbegrenzt (`while (!timeout || ticked < timeout)`); `addBreadcrumb` prüft nur, ob ein Client existiert (`breadcrumbs.js`). Ohne DSN abonniert das Modul nichts und lädt nichts.
+- **CI-005 (v1.4), gemessen an `@sentry/browser` 11.16.0 (`build/npm/esm/prod/sdk.js`, `getDefaultIntegrations`):** `eventFiltersIntegration`, `functionToStringIntegration`, `conversationIdIntegration`, `dedupeIntegration`, `linkedErrorsIntegration`, `httpContextIntegration`, `cultureContextIntegration` senden nichts selbst (Filter bzw. Anreicherung eines Ereignisses, das `beforeSend` durchläuft); `breadcrumbsIntegration` und `consoleIntegration` legen nur Breadcrumbs an (`beforeBreadcrumb`); `globalHandlersIntegration` und `browserApiErrorsIntegration` erzeugen Ereignisse über `captureEvent` (`beforeSend`); **`browserSessionIntegration` sendet außerhalb von `beforeSend`** (`startSession` + `captureSession` nach jedem Init, bei Leerlauf oder Verbergen des Tabs) — entfernt. Der `BrowserClient` sendet zusätzlich **Client-Reports** (`_flushOutcomes` beim Verbergen des Tabs, Default `sendClientReports: true`) außerhalb von `beforeSend` — abgeschaltet. Ohne Sitzung entfallen auch die Sitzungs-Updates, die ein Fehlerereignis sonst auslöst.
 - **CI-003 abweichend, CI-004 umgesetzt:** Statt eines React-Context hält ein React-freies Modul (`src/frontend/src/observability/consent.ts`) Geräte-Entscheidung, Anmeldezustand, Konto-Entscheidung und ausstehenden Widerruf, weil das Sentry-Gate vor dem ersten Render entscheiden muss. `useConsent()` (`src/frontend/src/hooks/useConsent.ts`, `useSyncExternalStore`) liefert den Schnappschuss.
 - **CP-008:** `src/frontend/src/observability/consentAuthBridge.ts` meldet den Redux-Anmeldezustand an den Consent-Speicher (`store.subscribe`, aufgerufen in `main.tsx`, Initial-Chunk). Vor `auth.initialized` gilt „unbekannt“.
 - **CP-001/CP-003/CP-009…CP-012:** `src/frontend/src/observability/consentSync.ts` (eigener Chunk, geladen bei der ersten Anmeldung im Seitenaufruf) liest `GET /api/v1/privacy/consents`, schreibt `POST`/`DELETE` und hält den Abgleich (Epoche je Entscheidung gegen veraltete Antworten, Signal an andere Tabs, Auslöser nach CP-011). Lädt der Chunk nicht, bleibt die Konto-Entscheidung „unbekannt“: kein Bericht, kein Banner; die Einstellungsseite lädt das Modul selbst und zeigt den Zustand.
@@ -267,7 +275,18 @@ Voraussetzung in jeder Zeile: `SENTRY_DSN` gesetzt, Full-Modus. Sonst: nie sende
 | beliebig | angemeldet | noch nicht gelesen / Lesen fehlgeschlagen | nein | nein; Einstellungen zeigen „nicht abgeglichen“ | — |
 | beliebig | angemeldet | Widerruf ausstehend (CP-009) | nein | nein; Einstellungen zeigen „ausstehend“ | `pending-revoke:<konto-hash>` im Gerät bis zur Übertragung |
 
-Eine alte Browser-Zustimmung aus der Zeit vor v1.3 ist „unentschieden“ (CP-005), eine alte Ablehnung „abgelehnt“.
+Eine alte Browser-Zustimmung aus der Zeit vor v1.3 ist „unentschieden“ (CP-005), eine alte Ablehnung „abgelehnt“. Eine Konto-Entscheidung zu einer anderen Textversion als der angezeigten verhält sich wie „Lesen fehlgeschlagen“ (CP-013).
+
+### 5.5 Offene Frage und bekannte Grenzen
+
+**Offene Frage (Betreiber, DSB-Briefing #2517): Gerät unentschieden + Konto erteilt → sendet dieser Browser?** Umgesetzt ist „ja“ (§5.4). *Dafür:* Die Einwilligung ist die Erklärung der angemeldeten Person, ihr Text sagt, dass sie in jedem Browser gilt, in dem sie angemeldet ist; ein „nein“ hieße, dieselbe Person je Gerät erneut zu fragen. *Dagegen:* § 25 TDDDG knüpft am Zugriff auf das **Endgerät** an; meldet sich die Person an einem fremden oder geteilten Gerät an (Bibliothek, Gemeinschaftsgarten-Tablet), greift das SDK auf ein Gerät zu, dessen Nutzer dort nie gefragt wurde. Die Alternative wäre: angemeldet nur mit Konto-Einwilligung **und** Geräte-Zustimmung zu senden (Banner fragt dann je Gerät einmal). Bis zur Entscheidung bleibt das Verhalten wie umgesetzt.
+
+**Bekannte Grenzen (bewusst nicht umgebaut):**
+
+- **N-1 — nachgesendeter Widerruf ohne Zeitpunkt:** Ein ausstehender Widerruf (CP-009) trägt keinen Zeitstempel und wird beim nächsten Abgleich des Kontos gesendet. *Szenario:* Person A widerruft auf Tablet T offline; danach erteilt sie auf Laptop L neu; kommt T wieder online, hebt der nachgesendete Widerruf die spätere Erteilung von L auf. Die Wirkung ist datenschutzfreundlich (Berichte aus, A wird nicht erneut gefragt, weil der Server „abgelehnt“ hält); A muss auf L erneut einschalten.
+- **N-6 — angemeldet „auf diesem Gerät nicht, sonst ja“:** Angemeldet gibt es keinen Schalter, der nur dieses Gerät ausnimmt; der Kontoschalter wirkt für alle Browser. Ein Geräte-Ausschluss entsteht nur über „Nur Notwendige“ ohne Anmeldung (CP-007). *Szenario:* A möchte Berichte vom Laptop, aber nicht vom geteilten Familien-Tablet; dazu muss sie sich auf dem Tablet abmelden, „Nur Notwendige“ wählen und sich wieder anmelden.
+- **Freitext in Fehlermeldungen:** Die Maskierung (CI-006) betrifft Adressen. Eine Fehlermeldung, die einen vom Nutzer eingegebenen Namen wiedergibt (etwa einer Pflanze), wird nicht erkannt; der Zwecktext nennt deshalb „die Fehlermeldung“ als Inhalt.
+- **API-Adressen ohne Routentabelle:** Für Backend-Pfade hat der Browser keine Routenmuster; außerhalb von `/t/:tenant`, `tenants` und `invitations` werden Schlüssel an ihrer Form erkannt (Ziffer, UUID, Länge). Ein Schlüssel aus reinen Kleinbuchstaben unter 16 Zeichen bliebe stehen; die Schlüssel personenbezogener Datensätze vergibt ArangoDB numerisch.
 
 ---
 
@@ -324,7 +343,7 @@ Eine alte Browser-Zustimmung aus der Zeit vor v1.3 ist „unentschieden“ (CP-0
 
 **Dokumenten-Ende**
 
-**Version**: 1.3
+**Version**: 1.4
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-11-28
 **Review**: Pending
