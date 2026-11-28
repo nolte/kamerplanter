@@ -524,9 +524,20 @@ Zu jeder Bodengefahr siehst du:
 
 **Eintragen** darfst du ab der Rolle „grower": Mit **Bodengefahr eintragen** wählst du die Bodengefahr, das Datum und wie sie bestätigt wurde. Das Datum liegt zwischen 1900 und heute. Bei **Juglon** (Walnuss) nimmst du bei einem gefällten Baum das Datum der Fällung, bei einem stehenden den Tag, an dem du es festgestellt hast. Juglon trägst du immer hier von Hand ein, denn der Walnussbaum ist kein Erreger einer Pflanze. Trägst du eine Bodengefahr ein, die das Beet schon hat, zählt die spätere Bestätigung. Ein früheres oder dasselbe Datum ändert nichts, und Kamerplanter sagt dir das; ein zu spät eingetragenes Datum korrigiert die Leitung, indem sie die Bodengefahr entfernt und neu einträgt.
 
-**Entfernen** darf nur die Leitung (Rolle „lead"), über das Papierkorb-Symbol an der Bodengefahr. Entferne eine Bodengefahr nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde.
+**Entfernen** darf nur die Leitung (Rolle „lead"), über das Papierkorb-Symbol an der Bodengefahr. Entferne eine Bodengefahr nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde. Das Entfernen steht danach im Änderungsprotokoll des Gartenplans: wer die Bodengefahr entfernt hat, wann, an welchem Beet, welche Gefahr und mit welchem Bestätigungsdatum. Das Protokoll gehört zum Garten und wird nach einem Jahr gelöscht. <!-- REQ-053 §11.3a Nr. 5, §20.13 SR-011 -->
+
+!!! warning "Noch nicht implementiert"
+    Eine Ansicht des Änderungsprotokolls wird die App erst später bieten; die Einträge entstehen schon jetzt. <!-- REQ-053 GP-API-008 -->
 
 **Kübel, Zelte, Regale und Topfgruppen** haben keine Bodengefahren – dort tauschst du das Substrat aus. Auch ein Standort mit **Hydrokultur** (Bewässerung „Hydro“, „NFT“ oder „Ebbe-Flut“) hat keinen Boden. In beiden Fällen bietet der Tab das Eintragen nicht an und sagt dir, warum.
+
+**Hydrokultur vom übergeordneten Standort:** Steht bei einem Standort die Bewässerung auf „Manuell“ – dem Wert, mit dem jeder Standort angelegt wird –, gilt die Bewässerung des nächsten übergeordneten Standorts mit einem anderen Wert. Ein Regal oder Zelt in einem Raum mit Hydrokultur zählt also als Hydrokultur, auch wenn du bei ihm selbst nichts eingestellt hast: Nach einem bodenbürtigen Ausfall bekommst du den Hinweis, das System zu reinigen, und es gibt dort keine Bodengefahren. Steht in so einem Raum ein Beet mit echter Erde, stell bei ihm die Bewässerung auf „Tropf“ oder „Nebel“, damit es als Boden zählt. <!-- REQ-053 §11.3a Nr. 5 -->
+
+### Juglon an einer Fläche {#juglon-an-einer-flaeche}
+
+Ein Walnussbaum gibt Juglon über Wurzeln und Laub in den Boden ab – oft weit über das Beet hinaus. Deshalb kannst du **Juglon** auch an einem Standort eintragen, der kein Beet ist: an einem Garten, einer Zone, einem Gewächshaus mit gewachsenem Boden oder einem eigenen Standorttyp wie Obstwiese oder Acker. Auf der Seite des Standorts erscheint dafür der Bereich **Bodengefahren**; dort trägst du Juglon mit Datum und Bestätigung ein wie am Beet. Andere Bodengefahren wie die Kohlhernie gehören weiter an das Beet, in dem der Befall festgestellt wurde. <!-- REQ-053 §11.3a Nr. 5, Betreiberentscheid O3 -->
+
+Eine Bodengefahr an einer Fläche gilt auch für jedes Beet darunter – auch über eine Zone dazwischen hinweg. Pflanzt du in so ein Beet eine empfindliche Art wie Tomate oder Kartoffel, warnt der Bepflanzen-Dialog, obwohl das Beet selbst im Tab **Boden** keinen eigenen Eintrag zeigt. Kübel, Zelte, Regale und Topfgruppen auf der Fläche haben ihr eigenes Substrat; für sie und alles, was in ihnen steht, gilt die Gefahr der Fläche nicht.
 
 **Nach einem Ausfall:** Erfasst du eine eingegangene Pflanze mit einem bodenbürtigen Erreger, den eine der drei Stellen bestätigt hat (siehe [Ursachenklasse beim Entfernen](growth-phases.md#ursache-wo)), fragt Kamerplanter dich anschließend, ob das Beet diese Bodengefahr übernehmen soll. Erst wenn du **Ins Beet übernehmen** wählst, wird sie eingetragen – mit dem Tag des Ausfalls als Bestätigungsdatum. Ein unbestätigter Verdacht wird nie zu einer Bodengefahr. Stand die Pflanze in Hydrokultur, bekommst du stattdessen den Hinweis, das System zu reinigen und zu desinfizieren, bevor du nachpflanzt. <!-- REQ-053 §11.3a Nr. 5 -->
 

@@ -516,9 +516,20 @@ For each soil hazard you see:
 
 **Recording** is open from the role "grower": **Record soil hazard** asks for the hazard, the date and how it was confirmed. The date lies between 1900 and today. For **juglone** (walnut), use the felling date of a felled tree, and for a standing tree the day you noticed it. You always record juglone here by hand, because the walnut tree is no pathogen of a plant. If you record a hazard the bed already has, the later confirmation counts. An earlier or the same date changes nothing, and Kamerplanter tells you so; a date entered too late is corrected by the lead, who removes the soil hazard and records it again.
 
-**Removing** is for the lead only (role "lead"), with the bin icon at the soil hazard. Only remove a soil hazard if the infestation is gone or was recorded by mistake.
+**Removing** is for the lead only (role "lead"), with the bin icon at the soil hazard. Only remove a soil hazard if the infestation is gone or was recorded by mistake. The removal then stands in the garden plan's change log: who removed the soil hazard, when, at which bed, which hazard and with which confirmation date. The log belongs to the garden and is deleted after one year. <!-- REQ-053 §11.3a Nr. 5, §20.13 SR-011 -->
+
+!!! warning "Not yet implemented"
+    The app will offer a view of the change log later; the entries are written already. <!-- REQ-053 GP-API-008 -->
 
 **Planters, tents, shelves and container groups** have no soil hazards - there you replace the substrate. A **hydroponic** location (irrigation "Hydro", "NFT" or "Ebb & Flow") has no soil either. In both cases the tab does not offer recording and tells you why.
+
+**Hydroponics from the parent location:** if a location's irrigation is "Manual" - the value every location is created with - the irrigation of the nearest parent location with another value applies. A shelf or tent in a hydroponic room therefore counts as hydroponic even if you set nothing on it: after a soil-borne loss you get the hint to clean the system, and there are no soil hazards there. If such a room holds a bed with real soil, set its irrigation to "Drip" or "Mist" so it counts as soil. <!-- REQ-053 §11.3a Nr. 5 -->
+
+### Juglone on an area {#juglone-on-an-area}
+
+A walnut tree releases juglone into the soil through its roots and leaves - often far beyond a single bed. So you can also record **juglone** at a location that is no bed: a garden, a zone, a greenhouse on grown soil or a location type of your own such as an orchard meadow or a field. The location's page then shows the **Soil hazards** section, where you record juglone with its date and confirmation just like at a bed. Other soil hazards such as clubroot still belong to the bed in which the infestation was found. <!-- REQ-053 §11.3a Nr. 5, operator decision O3 -->
+
+A soil hazard on an area also counts for every bed below it - also across a zone in between. If you plant a sensitive species such as tomato or potato in such a bed, the planting dialog warns, even though the bed itself shows no entry of its own in the **Soil** tab. Planters, tents, shelves and container groups on the area have their own substrate; the area's hazard does not count for them or for anything standing in them.
 
 **After a loss:** when you record a died plant with a soil-borne pathogen that one of the three sources confirmed (see [cause class when removing](growth-phases.md#ursache-wo)), Kamerplanter then asks whether the bed should take over this soil hazard. Only **Take into the bed** records it - with the day of the loss as the confirmation date. An unconfirmed suspicion never becomes a soil hazard. If the plant stood in hydroponics, you get the hint to clean and disinfect the system before you replant instead. <!-- REQ-053 §11.3a Nr. 5 -->
 

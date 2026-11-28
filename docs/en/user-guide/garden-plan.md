@@ -288,7 +288,7 @@ If the bed has a confirmed [soil hazard](locations-substrates.md#soil-hazards-of
 
 Kamerplanter only names a time if three independent sources back the value. **Root-knot nematodes** and **Sclerotinia** attack almost every vegetable, so they always give only a soft hint. It also stays a hint when it is not reliably known that the pathogen attacks your species (tomatoes with Verticillium wilt, for example). Nothing is ever blocked.
 
-The check belongs to the soil, not to the crop rotation: it also runs for perennial crops and for beds whose crop rotation check is switched off. It does not check planters, tents, shelves, container groups or hydroponics. If you entered **Substrate renewed on** in the soil profile with a day after the confirmation, the soil hazard no longer warns. The planting dialog and the **Set a plant** dialog show the same result, because both ask the same check. <!-- REQ-053 §11.3a Nr. 6–7, GP-FR-193, #2888 -->
+The check belongs to the soil, not to the crop rotation: it also runs for perennial crops and for beds whose crop rotation check is switched off. It also counts the soil hazards of the areas the bed lies in - [juglone on an area](locations-substrates.md#juglone-on-an-area) with a walnut tree, for example. It does not check planters, tents, shelves, container groups or hydroponics - nor a bed that inherits hydroponics from its parent location. If you entered **Substrate renewed on** in the soil profile with a day after the confirmation, the soil hazard no longer warns. The planting dialog and the **Set a plant** dialog show the same result, because both ask the same check. <!-- REQ-053 §11.3a Nr. 6–7, GP-FR-193, #2888 -->
 
 ## Bed List on the Garden Plan {#bed-list-on-the-garden-plan}
 
