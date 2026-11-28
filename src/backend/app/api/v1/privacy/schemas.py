@@ -306,6 +306,37 @@ class ConsentResponse(BaseModel):
     granted: bool
     granted_at: datetime | None = None
     revoked_at: datetime | None = None
+    consent_version: str | None = Field(
+        default=None,
+        description=(
+            "Text version of the purpose the stored record was granted or revoked under (REQ-025 v1.41); "
+            "null when no record exists. A grant counts for the current text only if it equals purpose_version."
+        ),
+        examples=["1.0"],
+    )
+    purpose_version: str = Field(
+        description="Current text version of the purpose.",
+        examples=["1.0"],
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "purpose": "browser_error_reports",
+                    "label": "Send error reports from the browser",
+                    "description": "When the operator has switched error tracking on ...",
+                    "legal_basis": "Art. 6(1)(a) GDPR — consent; § 25(1) TDDDG",
+                    "required": False,
+                    "granted": True,
+                    "granted_at": "2026-11-28T09:30:00Z",
+                    "revoked_at": None,
+                    "consent_version": "1.0",
+                    "purpose_version": "1.0",
+                }
+            ]
+        }
+    )
 
 
 # ── Privacy policy ─────────────────────────────────────────────────

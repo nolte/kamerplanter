@@ -315,6 +315,12 @@ class ConsentPurpose(BaseModel):
     description_en: str
     legal_basis: str
     required: bool = False
+    #: Version of this purpose's text (REQ-025 v1.41). Stamped on every grant and
+    #: revoke as ``ConsentRecord.consent_version``; raise it with every change of
+    #: the text, so a grant given to an older wording is recognisable as such.
+    #: ``"1.0"`` is the wording every purpose had when versions were introduced,
+    #: which is also what records written before that carry.
+    version: str = "1.0"
 
 
 class ConsentWithPurpose(BaseModel):
@@ -328,6 +334,10 @@ class ConsentWithPurpose(BaseModel):
     granted: bool
     granted_at: datetime | None = None
     revoked_at: datetime | None = None
+    #: Text version the stored record was granted or revoked under; ``None`` without a record.
+    consent_version: str | None = None
+    #: The purpose's current text version.
+    purpose_version: str
 
 
 class PersonalTenantHop(BaseModel):

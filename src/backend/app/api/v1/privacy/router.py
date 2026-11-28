@@ -105,6 +105,7 @@ def _to_consent_response_from_record(
     description: str,
     legal_basis: str,
     required: bool,
+    purpose_version: str,
 ) -> ConsentResponse:
     return ConsentResponse(
         purpose=record.purpose,
@@ -115,6 +116,8 @@ def _to_consent_response_from_record(
         granted=record.granted,
         granted_at=record.granted_at,
         revoked_at=record.revoked_at,
+        consent_version=record.consent_version,
+        purpose_version=purpose_version,
     )
 
 
@@ -398,6 +401,8 @@ def list_consents(
             granted=c.granted,
             granted_at=c.granted_at,
             revoked_at=c.revoked_at,
+            consent_version=c.consent_version,
+            purpose_version=c.purpose_version,
         )
         for c in consents
     ]
@@ -424,7 +429,8 @@ def grant_consent(
     description = purpose.description_en if purpose else ""
     legal_basis = purpose.legal_basis if purpose else ""
     required = purpose.required if purpose else False
-    return _to_consent_response_from_record(record, label, description, legal_basis, required)
+    version = purpose.version if purpose else record.consent_version
+    return _to_consent_response_from_record(record, label, description, legal_basis, required, version)
 
 
 @router.delete("/consents/{purpose}", response_model=ConsentResponse)
@@ -440,7 +446,8 @@ def revoke_consent(
     description = purpose_def.description_en if purpose_def else ""
     legal_basis = purpose_def.legal_basis if purpose_def else ""
     required = purpose_def.required if purpose_def else False
-    return _to_consent_response_from_record(record, label, description, legal_basis, required)
+    version = purpose_def.version if purpose_def else record.consent_version
+    return _to_consent_response_from_record(record, label, description, legal_basis, required, version)
 
 
 # ── Privacy policy (public) ───────────────────────────────────────
