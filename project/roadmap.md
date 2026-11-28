@@ -202,7 +202,7 @@ detail: fine
 outcomes: [O-2, O-1]
 target_sprint: 4
 mvp: true
-status: active
+status: done
 ```
 
 **MVP-Flip (Operator-Entscheid 2026-11-22):** `mvp: false → true`, damit Sprint 0004 starten kann. Erlaubt, weil `mvp_status` (mission.md) noch `in_progress` ist; gleiches Vorgehen wie bei R-14, R-17 und R-18.
