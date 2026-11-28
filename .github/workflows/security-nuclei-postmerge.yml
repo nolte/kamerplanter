@@ -563,14 +563,14 @@ jobs:
       # NFR-018 §1 catalogues.
       - name: Upload SARIF (HTTP scan) to Code Scanning
         if: always() && hashFiles('results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           sarif_file: results.sarif
           category: nuclei-pr-http
 
       - name: Upload SARIF (OpenAPI scan) to Code Scanning
         if: always() && hashFiles('openapi-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        uses: github/codeql-action/upload-sarif@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           sarif_file: openapi-results.sarif
           category: nuclei-pr-openapi
