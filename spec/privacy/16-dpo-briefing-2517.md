@@ -903,7 +903,9 @@ OpenWeatherMap, Bright Sky und NASA POWER (USA) (`data_access/external/open_mete
 **Fehlertracking:** ohne `SENTRY_DSN` kein Betrieb (`observability/error_tracking.py:647–648`; Helm `SENTRY_DSN: ""`,
 `values.yaml:832`); `send_default_pii=False` (`:675`); `before_send=scrub_event` (`:523–560`, `:685`) bereinigt
 Request-Daten, verwirft den SDK-`user` und setzt nur das Pseudonym bei Einwilligung `error_tracking`; Frontend-Init nur
-nach Einwilligung. LIA-4 ist in `06` §4.4 nur ein Verweis. Region und Frist des Trackers sind außerhalb des Repos
+nach Einwilligung `browser_error_reports` (seit #3025 ein eigener Zweck; Rechtsgrundlage dort beim Umsetzen konservativ
+als Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1 TDDDG festgelegt — zu bestätigen, ebenso ob der
+Einwilligungsnachweis wie bei jedem Zweck nach NFR-011 R-04 aufbewahrt wird). LIA-4 ist in `06` §4.4 nur ein Verweis. Region und Frist des Trackers sind außerhalb des Repos
 (Q-OP-01, Q-OP-09 in `12`).
 
 **Ausgelieferter Default.** Exakte Koordinaten an den konfigurierten Wetterdienst; Fehlertracking aus.

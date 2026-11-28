@@ -2,6 +2,7 @@
 
 ```
 Paket: spec/privacy · Version 1.2 · 2026-11-22 · Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
+Nachtrag #3025 (2026-11-28): Zweck `browser_error_reports` für Browser-Fehlerberichte (UI-NFR-013 v1.3, REQ-025 v1.41)
 (v1.1: develop 24d1c2988; Nachtrag #2839 develop 343afbb97)
 Anforderungs-IDs: PRIV-400 … PRIV-449
 Hängt ab von: NFR-011 (Aufbewahrungsregeln R-nn), REQ-025 §3, 02 (Inventar), 03/04 (Verhalten),
@@ -205,7 +206,7 @@ eine Drittlandprüfung (Art. 44 ff.) gibt es für keinen Dienst. Das maschinenle
 | NASA POWER | `nasa_power_weather_adapter.py` | `nasa_power_climate_enabled` | exakte Koordinaten | Betreiber | Empfänger | **USA** | nein |
 | Web-Push-Dienste (FCM, Mozilla, Apple) | `pwa_notification_channel.py` | VAPID-Keys | Push-Endpunkt, Metadaten; Payload Ende-zu-Ende verschlüsselt (`:214–218`) | Nutzer (Abo) | eigener Verantwortlicher des Browseranbieters | USA | nein (Opt-in je Gerät) |
 | Apprise-Ziele (Telegram, Slack, Discord …) | `apprise_notification_channel.py` | vom Nutzer oder Mandanten konfiguriert | Titel und Text der Benachrichtigung im Klartext | Mandant/Nutzer | vom Mandanten/Nutzer gewählter Empfänger | je Dienst | nein; SSRF-Filter (`url_safety`) |
-| Sentry / GlitchTip | `observability/error_tracking.py` | `SENTRY_DSN` (Helm-Default `""`, `values.yaml:832`) | bereinigte Ereignisse, Pseudonym bei Einwilligung | Betreiber | Unter-AV bzw. AV | je Hosting | Zuordnung ja (`error_tracking`) |
+| Sentry / GlitchTip | `observability/error_tracking.py` | `SENTRY_DSN` (Helm-Default `""`, `values.yaml:832`) | bereinigte Ereignisse, Pseudonym bei Einwilligung | Betreiber | Unter-AV bzw. AV | je Hosting | Zuordnung ja (`error_tracking`); Browser-Ereignisse ja (`browser_error_reports`, #3025) |
 | S3-Backup | `helm/kamerplanter/values.yaml:593` | `backup.enabled` | Vollkopie | Betreiber | Unter-AV | je Anbieter | — |
 | OAuth-Provider (Google, GitHub, Apple, OIDC) | Authlib | Konfiguration | Identität beim Login | Betreiber | eigener Verantwortlicher | USA (Google, GitHub, Apple) | nein (funktional) |
 | Home Assistant | REQ-005/REQ-018 | Betreiber-Token | Sensorwerte | Betreiber | Teil der eigenen Infrastruktur | — | — |
@@ -387,7 +388,7 @@ ohne `SENTRY_DSN` kein Betrieb (`observability/error_tracking.py:647–648`, Hel
 `send_default_pii=False` (`:675`); `before_send=scrub_event` (`:685`, `:523–560`) bereinigt Request-Daten, verwirft den
 SDK-`user`, setzt nur das Pseudonym bei Einwilligung `error_tracking` (`:113`), redigiert `extra/tags/contexts`, Routen,
 Frames und Texte; `scrub_breadcrumb`; `traces_sample_rate=0.0`; gleiches Modul in Knowledge- und Inference-Service;
-Frontend `Sentry.init` nur nach Einwilligung, `beforeSend` nach Widerruf `null`
+Frontend `Sentry.init` nur nach Einwilligung `browser_error_reports` (seit #3025 ein eigener Zweck, Entscheidung UI-NFR-013 §5.4; Rechtsgrundlage Einwilligung beim Umsetzen konservativ festgelegt, Bestätigung #2517), `beforeSend` nach Widerruf `null`
 (`src/frontend/src/test/observability/errorTracking.test.ts:308–315`). Restrisiko: Freitext in Exception-Meldungen, den
 die musterbasierte Redaktion nicht erkennt. Fehlend: ausformulierte LIA (Zweck, Erforderlichkeit, Abwägung,
 Maßnahmen), Registereintrag mit Region (§2.3), Aufbewahrungsfrist beim Tracker (R-52). Bei Sentry SaaS gelten Art. 28 und
