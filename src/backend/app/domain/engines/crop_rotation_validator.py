@@ -12,7 +12,7 @@ from app.config.constants import (
     MAX_ROTATION_WINDOW_YEARS,
     MIN_ROTATION_TIMELINE_YEARS,
 )
-from app.domain.engines.bed_soil_hazard_engine import effective_soil_hazards
+from app.domain.engines.bed_soil_hazard_engine import LocatedSoilHazard, effective_soil_hazards
 from app.domain.engines.soil_hazard_planting_engine import PlantedSpecies, SoilHazardVerdict, judge_soil_hazards
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -95,6 +95,20 @@ def _substrate_replaced_on(location: Location) -> date | None:
     return location.soil_profile.substrate_replaced_on if location.soil_profile is not None else None
 
 
+#: The longest stay that is still "one season" for the replant rule (REQ-053 v1.61 §11.3a Nr. 3, D-S4).
+MAX_ONE_SEASON_DAYS = 365
+
+
+def _stood_one_season(planted_on: date, removed_on: date) -> bool:
+    """Whether a plant stood one season at most: planted in the calendar year of its loss or the one before (UTC days)
+    and at most :data:`MAX_ONE_SEASON_DAYS` before it.
+
+    The operator decision names the calendar years; the day bound keeps its own example apart - April 2024 to
+    September 2025 lies in "the year before" too, yet stood through two summers and must count (D-S4, 2026-11-28).
+    """
+    return planted_on.year >= removed_on.year - 1 and (removed_on - planted_on).days <= MAX_ONE_SEASON_DAYS
+
+
 class FamilySource(Protocol):
     """The one read the bed-level check needs of the botanical-family catalogue (a global catalogue)."""
 
@@ -132,6 +146,10 @@ class RotationFinding:
     hazard_until: date | None = None
     host_level: str | None = None
     host_name: str | None = None
+    #: A hazard inherited from a location above the bed (REQ-053 v1.61 §11.3a Nr. 6): that location's key and name,
+    #: read from the bed's own checked parent chain; both ``None`` for a hazard of the bed itself.
+    hazard_location_key: str | None = None
+    hazard_location_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -386,7 +404,7 @@ def _family_phrase(family_name: str | None) -> str:
     return f"Family '{family_name}'" if family_name else "The same family"
 
 
-def _hazard_message(verdict: SoilHazardVerdict) -> str:
+def _hazard_message(verdict: SoilHazardVerdict, origin_name: str | None = None) -> str:
     """The English text of a soil-hazard finding; the UI words it from the code and the fields."""
     hazard = verdict.hazard.value
     confirmed = verdict.confirmed_at.isoformat()
@@ -398,15 +416,21 @@ def _hazard_message(verdict: SoilHazardVerdict) -> str:
         stage = f"the pause is over, a residual risk remains until {verdict.until.year}"
     else:
         stage = "the pause is over, a residual risk remains"
-    return f"This species is a host of {hazard}, confirmed in this bed on {confirmed}; {stage}."
+    where = f"at '{origin_name}' above this bed" if origin_name is not None else "in this bed"
+    return f"This species is a host of {hazard}, confirmed {where} on {confirmed}; {stage}."
 
 
-def soil_hazard_finding(verdict: SoilHazardVerdict, species_key: str) -> RotationFinding:
-    """A verdict of :func:`judge_soil_hazards` as a finding of the planting check (REQ-053 §11.3a Nr. 6)."""
+def soil_hazard_finding(
+    verdict: SoilHazardVerdict, species_key: str, origin: Location | None = None
+) -> RotationFinding:
+    """A verdict of :func:`judge_soil_hazards` as a finding of the planting check (REQ-053 §11.3a Nr. 6).
+
+    ``origin`` is the location above the bed that holds an inherited hazard (``None`` for the bed's own).
+    """
     return RotationFinding(
         verdict.severity,
         verdict.code,
-        _hazard_message(verdict),
+        _hazard_message(verdict, origin.name if origin is not None else None),
         species_key=species_key,
         hazard=verdict.hazard.value,
         hazard_confirmed_at=verdict.confirmed_at,
@@ -414,6 +438,8 @@ def soil_hazard_finding(verdict: SoilHazardVerdict, species_key: str) -> Rotatio
         hazard_until=verdict.until,
         host_level=verdict.host.level.value,
         host_name=verdict.host.name,
+        hazard_location_key=origin.key if origin is not None else None,
+        hazard_location_name=origin.name if origin is not None else None,
     )
 
 
@@ -736,8 +762,11 @@ class CropRotationValidator:
         """Whether a replant today falls into the season of the died ``plant`` (REQ-053 §11.3a Nr. 3, #2888 F-21).
 
         ``True``: inside its cultivation window (``planted_on + days_to_maturity`` of the plant's cultivar - the only
-        culture duration the catalogue keeps) - the plant is no previous crop at all, so an autumn garlic replaced in
-        March does not count for last year either. ``False``: the calendar-year rule - only the year of the loss is
+        culture duration the catalogue keeps) **and** it stood one season at most (:func:`_stood_one_season`, operator
+        decision D-S4 2026-11-28) - the plant is no previous crop at all, so an autumn garlic replaced in March does
+        not count for last year either. A plant inside its window that stood longer leaves out only the year of its
+        loss (``False``): a 1000-day cultivar planted in April 2024 and lost in September 2025 counts for 2024.
+        ``False``: the calendar-year rule - only the year of the loss is
         left out, earlier years still count; it applies to a plant without a cultivar or a cultivar without
         ``days_to_maturity`` (or one the tenant may not read), and to a plant that stood past its window (a perennial
         crop). ``None``: outside the season - the plant counts as a previous crop.
@@ -750,7 +779,9 @@ class CropRotationValidator:
         window_end = plant.planted_on + timedelta(days=days) if days is not None else None
         if window_end is None or removed > window_end:
             return False if removed.year == today.year else None
-        return True if today <= window_end else None
+        if today > window_end:
+            return None
+        return _stood_one_season(plant.planted_on, removed)
 
     def _bed_history(
         self,
@@ -886,7 +917,7 @@ class CropRotationValidator:
                 replaced[0],
                 species.family_key,
                 family_name,
-                bed_hazards=frozenset(entry.hazard.value for entry in bed_hazards),
+                bed_hazards=frozenset(located.entry.hazard.value for located in bed_hazards),
                 substrate_replaced_on=_substrate_replaced_on(location),
             )
             if residual is not None:
@@ -910,12 +941,15 @@ class CropRotationValidator:
         )
 
     def _soil_hazard_findings(
-        self, location: Location, entries: list[BedSoilHazard], species: Species, family_name: str | None
+        self, location: Location, located: list[LocatedSoilHazard], species: Species, family_name: str | None
     ) -> list[RotationFinding]:
         """One finding per soil hazard of the bed whose host the species is (REQ-053 §11.3a Nr. 6, GP-FR-193).
 
-        ``entries`` are the hazards the bed's soil carries (``bed_soil_hazard_engine.effective_soil_hazards``).
+        ``located`` are the hazards the bed's soil carries (``bed_soil_hazard_engine.effective_soil_hazards``), each
+        with the location above the bed that holds it, if inherited - one per hazard key.
         """
+        entries: list[BedSoilHazard] = [item.entry for item in located]
+        origins = {item.entry.hazard: item.origin for item in located}
         if not entries or self._soil_hazards is None:
             return []
         planted = PlantedSpecies(species.scientific_name, species.genus, family_name)
@@ -926,7 +960,7 @@ class CropRotationValidator:
             today=today_utc(),
             substrate_replaced_on=_substrate_replaced_on(location),
         )
-        return [soil_hazard_finding(verdict, species.key or "") for verdict in verdicts]
+        return [soil_hazard_finding(verdict, species.key or "", origins.get(verdict.hazard)) for verdict in verdicts]
 
     def _rotation_findings(
         self,

@@ -194,13 +194,18 @@ def judge_soil_hazards(
     """One verdict per soil hazard of the bed whose host ``species`` is, warnings first, then by hazard key.
 
     An entry whose substrate was renewed after its confirmation (``substrate_replaced_on > confirmed_at``) says
-    nothing: the pathogen left with the old soil (§11.3a Nr. 7, research R-004.3 a/b).
+    nothing: the pathogen left with the old soil (§11.3a Nr. 7, research R-004.3 a/b). Never ``juglone``: it comes
+    from the walnut's roots and leaves, which keep releasing it into the new soil (REQ-053 v1.61 §11.3a Nr. 7).
     """
     engine = knowledge or SoilHazardKnowledgeEngine()
     rows = {row.hazard: row for row in table.hazards}
     verdicts: list[SoilHazardVerdict] = []
     for entry in entries:
-        if substrate_replaced_on is not None and substrate_replaced_on > entry.confirmed_at:
+        if (
+            entry.hazard is not SoilHazard.JUGLONE
+            and substrate_replaced_on is not None
+            and substrate_replaced_on > entry.confirmed_at
+        ):
             continue
         row = rows[entry.hazard]
         host = match_host(row, species)

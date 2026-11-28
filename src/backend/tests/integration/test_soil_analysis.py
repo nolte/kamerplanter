@@ -669,7 +669,9 @@ class TestThePatchGoesThroughTheDerivation:
 
         ArangoCareEventRepository(db).insert(_analysis(NOW, [_measure("ph", 6.9, "pH")]), tenant_key="t1")
         before = _profile(db)
-        edit = SoilProfileEdit(tenant_key="t1", profile={"drainage": "good", "ph": 6.0, "ph_method": "h2o"})
+        edit = SoilProfileEdit(
+            tenant_key="t1", user_key="u1", profile={"drainage": "good", "ph": 6.0, "ph_method": "h2o"}
+        )
         with stream_transaction(
             db, write=SOIL_ANALYSIS_WRITE_COLLECTIONS, read=SOIL_PROFILE_READ_COLLECTIONS, entity="care_event"
         ) as insert:
@@ -693,7 +695,7 @@ class TestThePatchGoesThroughTheDerivation:
         )
 
         self._plan_repo(db).update_location_fields(
-            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={"ph": 6.4, "drainage": "poor"})
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", user_key="u1", profile={"ph": 6.4, "drainage": "poor"})
         )
         patched = _profile(db)
         repo.void(only.key or "", tenant_key="t1", voided_by="u1", reason="typo", at=NOW)
@@ -714,7 +716,7 @@ class TestThePatchGoesThroughTheDerivation:
         )
 
         self._plan_repo(db).update_location_fields(
-            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={"ph": 6.0, "drainage": "poor"})
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", user_key="u1", profile={"ph": 6.0, "drainage": "poor"})
         )
 
         profile = _profile(db)
@@ -735,7 +737,7 @@ class TestThePatchGoesThroughTheDerivation:
 
         sent = {k: v for k, v in _profile(db).items() if k not in ("hand_values", "last_analysis_at")}
         self._plan_repo(db).update_location_fields(
-            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", profile={**sent, "ph": 6.6})
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", user_key="u1", profile={**sent, "ph": 6.6})
         )
 
         profile = _profile(db)
@@ -756,3 +758,40 @@ class TestThePatchGoesThroughTheDerivation:
         assert refused.value.status_code == 422 and refused.value.error_code == "soil_profile.derivation_invalid"
         assert "1.2" not in str(refused.value.details)  # names the field, never a value
         assert db.collection(col.CARE_EVENTS).get(analysis.key).get("voided_at") is None  # the void was rolled back
+
+
+class TestTheSubstrateDateIsAudited:
+    """D-S3 (2026-11-28, REQ-053 v1.61 §20.13): a change of ``substrate_replaced_on`` writes its audit row in the
+    PATCH transaction - the real ``update_location_fields`` with the real derivation."""
+
+    @staticmethod
+    def _rows(db) -> list[dict]:  # type: ignore[no-untyped-def]
+        return list(db.collection(col.GARDEN_PLAN_AUDIT).all())
+
+    @staticmethod
+    def _patch(db, profile, user_key: str = "u1") -> None:  # type: ignore[no-untyped-def]
+        from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        ArangoGardenPlanRepository(db).update_location_fields(
+            "L1", {}, soil=SoilProfileEdit(tenant_key="t1", user_key=user_key, profile=profile)
+        )
+
+    def test_set_change_and_clear_each_write_one_row_and_a_repeat_none(self, db) -> None:  # type: ignore[no-untyped-def]
+        self._patch(db, {"drainage": "good", "substrate_replaced_on": "2026-04-01"})
+        self._patch(db, {"drainage": "good", "substrate_replaced_on": "2026-04-01"})
+        self._patch(db, {"drainage": "poor", "substrate_replaced_on": "2026-05-01"}, user_key="u2")
+        self._patch(db, None)
+
+        rows = sorted(self._rows(db), key=lambda row: row["at"])
+        assert [(r["op"], r["entity"], r["key"], r["site_key"], r["user_key"], r["summary"]) for r in rows] == [
+            ("update", "substrate_replaced_on", "L1", "S1", "u1", "none -> 2026-04-01"),
+            ("update", "substrate_replaced_on", "L1", "S1", "u2", "2026-04-01 -> 2026-05-01"),
+            ("update", "substrate_replaced_on", "L1", "S1", "u1", "2026-05-01 -> none"),
+        ]
+        assert all(r["tenant_key"] == "t1" for r in rows)
+
+    def test_an_edit_of_another_soil_field_writes_no_row(self, db) -> None:  # type: ignore[no-untyped-def]
+        self._patch(db, {"drainage": "poor"})
+
+        assert self._rows(db) == []

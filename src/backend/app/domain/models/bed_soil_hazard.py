@@ -13,7 +13,9 @@ no verdict.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -73,6 +75,29 @@ def removal_audit_summary(entry: BedSoilHazard) -> str:
     no redaction and discloses nothing beyond the entry it records.
     """
     return f"{entry.hazard.value} confirmed {entry.confirmed_at.isoformat()}"
+
+
+#: ``garden_plan_audit.entity`` of the row a change of ``soil_profile.substrate_replaced_on`` writes (REQ-053 v1.61
+#: §20.13 SR-011, operator decision D-S3 2026-11-28): the date lifts soil hazards, so who moved it is on record.
+AUDIT_ENTITY_SUBSTRATE_REPLACED_ON = "substrate_replaced_on"
+
+
+def substrate_replaced_on_change(stored: Mapping[str, Any] | None, sent: Mapping[str, Any] | None) -> str | None:
+    """``garden_plan_audit.summary`` when a soil edit changes ``substrate_replaced_on``, else ``None``.
+
+    ``stored`` / ``sent`` are the profiles as JSON (``None`` = no profile, so no date). ``"2024-04-01 -> none"``: the
+    old and the new ISO day or ``none`` - machine values, no free text. Setting, changing and clearing count; sending
+    the stored day again does not (D-S3: only a real change).
+    """
+
+    def day(profile: Mapping[str, Any] | None) -> str | None:
+        value = profile.get("substrate_replaced_on") if profile else None
+        return value.isoformat() if isinstance(value, date) else (str(value) if value else None)
+
+    old, new = day(stored), day(sent)
+    if old == new:
+        return None
+    return f"{old or 'none'} -> {new or 'none'}"
 
 
 #: Hazards a loss can hand over to its bed: exactly the pathogens a loss may name (``failure_cause.LOSS_PATHOGENS``,

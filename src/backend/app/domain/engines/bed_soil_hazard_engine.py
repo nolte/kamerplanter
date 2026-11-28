@@ -23,6 +23,7 @@ Pure logic, no data access. Five answers:
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from app.common.enums import (
     IrrigationSystem,
@@ -91,12 +92,30 @@ def effective_irrigation_system(location: Location, ancestors: Sequence[Location
 
 
 def is_hydroponic(location: Location, ancestors: Sequence[Location]) -> bool:
-    """Whether the roots at ``location`` grow in a solution, not in soil (:func:`effective_irrigation_system`).
+    """Whether the effective irrigation system at ``location`` is hydroponic (:func:`effective_irrigation_system`).
 
-    The one answer for every reader of this decision: the clean-system hint after a loss, the offer, the manual entry
-    and the soil-hazard check of the planting dialog (REQ-053 §11.3a Nr. 5 and Nr. 6).
+    Own or inherited. What it decides depends on the location (:func:`lacks_soil`): it switches a location without a
+    bed type off entirely, at a bed type only the hazards inherited from above (REQ-053 v1.61 §11.3a Nr. 5).
     """
     return effective_irrigation_system(location, ancestors) in HYDROPONIC_IRRIGATION_SYSTEMS
+
+
+def has_own_hydroponics(location: Location) -> bool:
+    """The location's own ``irrigation_system`` is hydroponic - nothing inherited."""
+    return location.irrigation_system in HYDROPONIC_IRRIGATION_SYSTEMS
+
+
+def lacks_soil(location: Location, ancestors: Sequence[Location], *, is_bed: bool) -> bool:
+    """Whether ``location`` has no soil of its own: no entry, no offer, the clean-system hint after a loss.
+
+    Its own hydroponic value always; an inherited one only at a location without a bed type (a shelf or tent left at
+    ``manual`` under a hydroponic room). A bed type left at ``manual`` stays a soil bed under such a room - a
+    ``greenhouse_bed`` in a greenhouse set to ``hydro`` for its NFT channel keeps its confirmed clubroot (REQ-053 v1.61
+    §11.3a Nr. 5, the review's safe direction: no confirmed hazard of a bed is dropped silently).
+    """
+    if has_own_hydroponics(location):
+        return True
+    return not is_bed and is_hydroponic(location, ancestors)
 
 
 def soil_hazard_refusal(
@@ -106,7 +125,7 @@ def soil_hazard_refusal(
     refusal = soil_hazard_refusal_for_type(location.location_type_key, is_bed=is_bed, hazard=hazard)
     if refusal is not None:
         return refusal
-    if is_hydroponic(location, ancestors):
+    if lacks_soil(location, ancestors, is_bed=is_bed):
         return SoilHazardRefusal.HYDROPONIC
     return None
 
@@ -115,26 +134,44 @@ def soil_hazard_scope(location: Location, *, is_bed: bool, ancestors: Sequence[L
     """Which soil hazards ``location`` takes, for the form that records them (the server's rule, shown before)."""
     if is_vessel_type(location.location_type_key):
         return SoilHazardScope.CONTAINER
-    if is_hydroponic(location, ancestors):
+    if lacks_soil(location, ancestors, is_bed=is_bed):
         return SoilHazardScope.HYDROPONIC
     return SoilHazardScope.ALL if is_bed else SoilHazardScope.JUGLONE_ONLY
 
 
-def effective_soil_hazards(location: Location, ancestors: Sequence[Location]) -> list[BedSoilHazard]:
+@dataclass(frozen=True)
+class LocatedSoilHazard:
+    """A soil hazard the soil at a location carries, with where it is recorded (REQ-053 v1.61 §11.3a Nr. 6)."""
+
+    entry: BedSoilHazard
+    #: The parent location the entry is recorded at - one of the caller's checked parent chain; ``None`` = the
+    #: location itself.
+    origin: Location | None = None
+
+
+def effective_soil_hazards(location: Location, ancestors: Sequence[Location]) -> list[LocatedSoilHazard]:
     """The soil hazards the soil at ``location`` carries: its own and those of its parent chain (REQ-053 §11.3a Nr. 5).
 
-    None in a vessel or at a hydroponic location. Walking up, a vessel ends the chain - whatever stands in it has its
-    own substrate. A hazard held at several levels counts once, with the latest confirmation (:func:`merged_entries`).
+    None in a vessel or where the location's **own** irrigation system is hydroponic. Its own entries stay when it only
+    inherits hydroponics (a soil bed in a hydroponic room, v1.61); the entries of its parents do not count then.
+    Walking up, a vessel ends the chain - whatever stands in it has its own substrate. A hazard held at several levels
+    counts once, with the latest confirmation (as :func:`merged_entries`), and names the location that holds it.
     """
-    if is_vessel_type(location.location_type_key) or is_hydroponic(location, ancestors):
+    if is_vessel_type(location.location_type_key) or has_own_hydroponics(location):
         return []
-    entries = list(location.soil_hazards)
+    found: dict[SoilHazard, LocatedSoilHazard] = {
+        entry.hazard: LocatedSoilHazard(entry) for entry in location.soil_hazards
+    }
+    if is_hydroponic(location, ancestors):
+        return list(found.values())
     for ancestor in ancestors:
         if is_vessel_type(ancestor.location_type_key):
             break
         for entry in ancestor.soil_hazards:
-            entries = merged_entries(entries, entry)
-    return entries
+            held = found.get(entry.hazard)
+            if held is None or entry.confirmed_at > held.entry.confirmed_at:
+                found[entry.hazard] = LocatedSoilHazard(entry, ancestor)
+    return list(found.values())
 
 
 def is_soil_borne_loss(plant: PlantInstance) -> bool:
@@ -182,14 +219,15 @@ def follow_up_for_loss(
 ) -> SoilHazardFollowUp | None:
     """What the app proposes after recording ``plant``'s loss at ``location``; ``None`` = nothing.
 
-    Hydroponics first: a soil-borne loss there - confirmed or not - is the hint to clean the system (REQ-053 §11.3a
-    Nr. 5, research R-004.3 d), also in a tent and also when the location inherits hydroponics from its parents
-    (``ancestors``, nearest first). Otherwise only a promotable loss at a location that may carry a soil hazard is
-    offered, and only when the bed does not hold that hazard already as late or later.
+    No soil first (:func:`lacks_soil`): a soil-borne loss there - confirmed or not - is the hint to clean the system
+    (REQ-053 §11.3a Nr. 5, research R-004.3 d), also in a tent and at a location without a bed type that inherits
+    hydroponics from its parents (``ancestors``, nearest first); a bed type left at ``manual`` is soil.
+    Otherwise only a promotable loss at a location that may carry a soil hazard is offered, and only when the bed does
+    not hold that hazard already as late or later.
     """
     if location is None or location.key is None or not is_soil_borne_loss(plant):
         return None
-    if is_hydroponic(location, ancestors):
+    if lacks_soil(location, ancestors, is_bed=is_bed):
         return SoilHazardFollowUp(kind=SoilHazardFollowUpKind.CLEAN_SYSTEM, location_key=location.key)
     try:
         entry = entry_from_loss(plant)

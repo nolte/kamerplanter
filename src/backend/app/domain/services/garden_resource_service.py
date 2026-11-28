@@ -485,7 +485,7 @@ class GardenResourceService:
             else None
         )
         fields = self._field_changes(location, patch, north_angle_deg=north_angle_deg)
-        soil = self._soil_edit(patch, tenant_key=tenant_key)
+        soil = self._soil_edit(patch, tenant_key=tenant_key, user_key=user_key)
         self._refuse_stale_soil(location, soil)
         operations = self._structure_operations(location, patch)
         if target_status is not None:
@@ -627,7 +627,7 @@ class GardenResourceService:
         provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     @staticmethod
-    def _soil_edit(patch: LocationPatch, *, tenant_key: str) -> SoilProfileEdit | None:
+    def _soil_edit(patch: LocationPatch, *, tenant_key: str, user_key: str) -> SoilProfileEdit | None:
         """The ``soil_profile`` of the PATCH as an edit the repository writes through the derivation (#2706).
 
         The service writes no derived soil field itself: the repository records the hand entries of the edited
@@ -638,9 +638,10 @@ class GardenResourceService:
             return None
         sent = patch.soil_profile
         if sent is None:
-            return SoilProfileEdit(tenant_key=tenant_key, profile=None)
+            return SoilProfileEdit(tenant_key=tenant_key, profile=None, user_key=user_key)
         return SoilProfileEdit(
             tenant_key=tenant_key,
+            user_key=user_key,
             profile=_dump(sent, mode="json"),
             check_last_analysis_at="last_analysis_at" in sent.model_fields_set,
             expected_last_analysis_at=sent.last_analysis_at,

@@ -114,6 +114,25 @@ describe('a host of a soil hazard of the bed (acceptance-1)', () => {
     expect(line).toHaveAttribute('data-hazard-stage', 'pause');
   });
 
+  it('names the location above the bed that holds an inherited hazard (review S3)', async () => {
+    usePlantingBackend(
+      answer(
+        [
+          soilFinding('soil_hazard.no_evidenced_pause', 'WARNING', {
+            hazard: 'juglone',
+            hazard_stage: 'no_evidenced_pause',
+            hazard_location_key: 'loc_garden',
+            hazard_location_name: 'Obstwiese',
+          }),
+        ],
+        'WARNING',
+      ),
+    );
+    const panel = await openPanel();
+    expect(panel).toHaveTextContent('was confirmed at “Obstwiese” above this bed on');
+    expect(panel).not.toHaveTextContent('confirmed in this bed');
+  });
+
   it('shows the hazard on a bed whose rotation check is off, with a note why it still applies', async () => {
     usePlantingBackend(
       answer(

@@ -45,7 +45,12 @@ from app.domain.engines.bed_soil_hazard_engine import (
 )
 from app.domain.engines.crop_rotation_validator import ROTATION_OFF_LOCATION_TYPES
 from app.domain.engines.failure_cause_engine import find_failure_cause_violations
-from app.domain.models.bed_soil_hazard import CONTAINER_LOCATION_TYPES, LOSS_SOIL_HAZARDS, BedSoilHazard
+from app.domain.models.bed_soil_hazard import (
+    CONTAINER_LOCATION_TYPES,
+    LOSS_SOIL_HAZARDS,
+    BedSoilHazard,
+    substrate_replaced_on_change,
+)
 from app.domain.models.plant_instance import PlantInstance
 from app.domain.models.site import Location
 
@@ -418,9 +423,22 @@ class TestTheIrrigationSystemComesFromTheParents:
     def test_without_a_value_anywhere_it_stays_manual(self) -> None:
         assert effective_irrigation_system(_bed(), [_area("garden")]) is IrrigationSystem.MANUAL
 
-    def test_an_inherited_hydroponic_system_refuses_the_manual_entry(self) -> None:
+    def test_an_inherited_hydroponic_system_refuses_the_entry_at_a_location_without_a_bed_type(self) -> None:
         room = _area("room", type_key="room", irrigation=IrrigationSystem.EBB_FLOW)
-        assert _refusal(_bed(), is_bed=True, ancestors=(room,)) is SoilHazardRefusal.HYDROPONIC
+        area = _area("zone", type_key="zone", parent="room")
+
+        refusal = _refusal(area, is_bed=False, hazard=SoilHazard.JUGLONE, ancestors=(room,))
+
+        assert refusal is SoilHazardRefusal.HYDROPONIC
+
+    def test_a_soil_bed_under_a_hydroponic_room_takes_an_entry(self) -> None:
+        """Review S1 (REQ-053 v1.61): a bed type left at ``manual`` stays a soil bed; only its own value counts."""
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.EBB_FLOW)
+
+        assert _refusal(_bed(), is_bed=True, ancestors=(room,)) is None
+        assert (
+            _refusal(_bed(irrigation=IrrigationSystem.NFT), is_bed=True, ancestors=()) is SoilHazardRefusal.HYDROPONIC
+        )
 
     def test_an_inherited_hydroponic_system_is_the_clean_system_hint_after_a_loss(self) -> None:
         room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
@@ -432,37 +450,48 @@ class TestTheIrrigationSystemComesFromTheParents:
         assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
         assert follow_up_for_loss(plant, shelf, is_bed=False, ancestors=[]) is None
 
-    def test_an_inherited_hydroponic_system_offers_no_take_over(self) -> None:
+    def test_a_soil_bed_under_a_hydroponic_room_is_offered_the_take_over(self) -> None:
         room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
 
         follow_up = follow_up_for_loss(_loss(), _bed(), is_bed=True, ancestors=[room])
 
-        assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
+        assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.OFFER
+
+
+def _hazards(located) -> list[BedSoilHazard]:
+    return [item.entry for item in located]
 
 
 class TestWhatTheSoilUnderALocationCarries:
-    """REQ-053 §11.3a Nr. 5 v1.60: a location's soil hazards reach the locations below it."""
+    """REQ-053 §11.3a Nr. 5 v1.60/v1.61: a location's soil hazards reach the locations below it, with their origin."""
 
     def test_a_bed_carries_the_juglone_of_the_garden_it_lies_in(self) -> None:
         garden = _area("garden", soil_hazards=[JUGLONE_2019])
         bed = _bed(parent_location_key="garden", soil_hazards=[CLUBROOT_2024])
 
-        assert effective_soil_hazards(bed, [garden]) == [CLUBROOT_2024, JUGLONE_2019]
+        located = effective_soil_hazards(bed, [garden])
+
+        assert _hazards(located) == [CLUBROOT_2024, JUGLONE_2019]
+        assert [item.origin.key if item.origin else None for item in located] == [None, "garden"]
 
     def test_the_whole_parent_chain_counts(self) -> None:
         garden = _area("garden", soil_hazards=[JUGLONE_2019])
         zone = _area("zone", type_key="zone", parent="garden")
         bed = _bed(parent_location_key="zone")
 
-        assert effective_soil_hazards(bed, [zone, garden]) == [JUGLONE_2019]
+        (item,) = effective_soil_hazards(bed, [zone, garden])
+
+        assert (item.entry, item.origin) == (JUGLONE_2019, garden)
 
     def test_a_hazard_held_at_two_levels_counts_once_with_the_later_confirmation(self) -> None:
         later = JUGLONE_2019.model_copy(update={"confirmed_at": date(2025, 1, 1)})
         garden = _area("garden", soil_hazards=[later])
         bed = _bed(parent_location_key="garden", soil_hazards=[JUGLONE_2019])
 
-        assert effective_soil_hazards(bed, [garden]) == [later]
-        assert effective_soil_hazards(_bed(soil_hazards=[later]), [_area("g", soil_hazards=[JUGLONE_2019])]) == [later]
+        (item,) = effective_soil_hazards(bed, [garden])
+        assert (item.entry, item.origin) == (later, garden)
+        (own,) = effective_soil_hazards(_bed(soil_hazards=[later]), [_area("g", soil_hazards=[JUGLONE_2019])])
+        assert (own.entry, own.origin) == (later, None)
 
     @pytest.mark.parametrize("type_key", ["planter", "tent", "shelf", "container"])
     def test_a_vessel_carries_none_of_its_parents(self, type_key: str) -> None:
@@ -476,14 +505,20 @@ class TestWhatTheSoilUnderALocationCarries:
 
         assert effective_soil_hazards(bed, [tent, garden]) == []
 
-    def test_a_hydroponic_location_carries_none_also_inherited_hydroponics(self) -> None:
-        garden = _area("garden", soil_hazards=[JUGLONE_2019], irrigation=IrrigationSystem.HYDRO)
-        bed = _bed(parent_location_key="garden", soil_hazards=[CLUBROOT_2024])
+    def test_under_inherited_hydroponics_the_own_entries_stay_and_the_inherited_go(self) -> None:
+        """Review S1: a greenhouse on ``hydro`` for its NFT channel keeps the clubroot of its soil bed."""
+        greenhouse = _area("greenhouse", soil_hazards=[JUGLONE_2019], irrigation=IrrigationSystem.HYDRO)
+        bed = _bed(parent_location_key="greenhouse", soil_hazards=[CLUBROOT_2024])
 
-        assert effective_soil_hazards(bed, [garden]) == []
+        assert _hazards(effective_soil_hazards(bed, [greenhouse])) == [CLUBROOT_2024]
+
+    def test_an_own_hydroponic_value_carries_none(self) -> None:
+        bed = _bed(irrigation=IrrigationSystem.NFT, soil_hazards=[CLUBROOT_2024])
+
+        assert effective_soil_hazards(bed, [_area("garden", soil_hazards=[JUGLONE_2019])]) == []
 
     def test_without_parents_it_is_the_own_list(self) -> None:
-        assert effective_soil_hazards(_bed(soil_hazards=[CLUBROOT_2024]), []) == [CLUBROOT_2024]
+        assert _hazards(effective_soil_hazards(_bed(soil_hazards=[CLUBROOT_2024]), [])) == [CLUBROOT_2024]
 
 
 class TestWhatALocationTakes:
@@ -497,14 +532,39 @@ class TestWhatALocationTakes:
             (_bed("planter", type_key="planter"), True, (), SoilHazardScope.CONTAINER),
             (_bed("pots", type_key="container"), False, (), SoilHazardScope.CONTAINER),
             (_bed(irrigation=IrrigationSystem.NFT), True, (), SoilHazardScope.HYDROPONIC),
+            (_bed(), True, (_bed("room", type_key="room", irrigation=IrrigationSystem.HYDRO),), SoilHazardScope.ALL),
             (
-                _bed(),
-                True,
+                _bed("zone", type_key="zone"),
+                False,
                 (_bed("room", type_key="room", irrigation=IrrigationSystem.HYDRO),),
                 SoilHazardScope.HYDROPONIC,
             ),
         ],
-        ids=["bed", "area", "planter", "container_group", "own_hydro", "inherited_hydro"],
+        ids=["bed", "area", "planter", "container_group", "own_hydro", "soil_bed_in_hydro_room", "area_in_hydro_room"],
     )
     def test_the_scope(self, location, is_bed, ancestors, scope) -> None:
         assert soil_hazard_scope(location, is_bed=is_bed, ancestors=ancestors) is scope
+
+
+class TestTheSubstrateDateChange:
+    """D-S3: the summary of the audit row - old and new ISO day, ``none`` for no day; nothing without a change."""
+
+    @pytest.mark.parametrize(
+        ("stored", "sent", "summary"),
+        [
+            (None, {"substrate_replaced_on": "2026-04-01"}, "none -> 2026-04-01"),
+            (
+                {"substrate_replaced_on": "2026-04-01"},
+                {"substrate_replaced_on": "2026-05-01"},
+                "2026-04-01 -> 2026-05-01",
+            ),
+            ({"substrate_replaced_on": "2026-04-01"}, {"drainage": "poor"}, "2026-04-01 -> none"),
+            ({"substrate_replaced_on": "2026-04-01"}, None, "2026-04-01 -> none"),
+            ({"substrate_replaced_on": date(2026, 4, 1)}, {"substrate_replaced_on": "2026-04-01"}, None),
+            ({"drainage": "good"}, {"drainage": "poor"}, None),
+            (None, None, None),
+        ],
+        ids=["set", "change", "cleared_field", "cleared_profile", "same_day", "other_field", "nothing"],
+    )
+    def test_the_summary(self, stored, sent, summary) -> None:
+        assert substrate_replaced_on_change(stored, sent) == summary

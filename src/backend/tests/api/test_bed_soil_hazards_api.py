@@ -154,6 +154,9 @@ class World:
             "shelf_in_room", "Regal", location_type_key="shelf", parent_location_key="room"
         )
         self.repo.locations["bed_in_room"] = make_location("bed_in_room", "Rinne", parent_location_key="room")
+        self.repo.locations["zone_in_room"] = make_location(
+            "zone_in_room", "Zone", location_type_key="zone", parent_location_key="room"
+        )
         self.plants = _PlantStore(
             _standing("kohl", "bed"),
             _standing("kohl_bed2", "bed2"),
@@ -635,7 +638,9 @@ class TestJugloneAtAnArea:
             ("tent", "container"),
             ("planter", "container"),
             ("hydro", "hydroponic"),
-            ("bed_in_room", "hydroponic"),
+            ("bed_in_room", "all"),
+            ("shelf_in_room", "container"),
+            ("zone_in_room", "hydroponic"),
             ("bed_in_garden", "all"),
         ],
     )
@@ -653,7 +658,8 @@ class TestJugloneAtAnArea:
 
 
 class TestHydroponicsFromTheParent:
-    """O5 (2026-11-27): a location left at ``manual`` under a hydroponic room counts as hydroponic everywhere."""
+    """O5 (2026-11-27), REQ-053 v1.61: a location without a bed type left at ``manual`` under a hydroponic room is
+    hydroponic; a bed type left at ``manual`` stays a soil bed (review S1)."""
 
     def test_a_loss_on_a_shelf_under_a_hydroponic_room_is_the_clean_system_hint(self, client, world) -> None:
         response = client().post(f"{_BASE}/plant-instances/kohl_shelf/remove", json=SUSPECTED_LOSS)
@@ -662,20 +668,32 @@ class TestHydroponicsFromTheParent:
         assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
         assert response.json()["soil_hazard_follow_up"]["location_key"] == "shelf_in_room"
 
-    def test_a_confirmed_loss_in_a_bed_under_it_is_the_hint_not_an_offer(self, client, world) -> None:
+    def test_a_confirmed_loss_in_a_soil_bed_under_it_is_offered_and_taken_over(self, client, world) -> None:
         response = client().post(f"{_BASE}/plant-instances/kohl_room_bed/remove", json=CONFIRMED_LOSS)
-
-        assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
-        assert world.entries("bed_in_room") == []
-
-    def test_neither_the_take_over_nor_a_hand_entry_is_accepted_there(self, client, world) -> None:
-        client().post(f"{_BASE}/plant-instances/kohl_room_bed/remove", json=CONFIRMED_LOSS)
+        assert response.json()["soil_hazard_follow_up"]["kind"] == "offer"
 
         taken = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json={"plant_key": "kohl_room_bed"})
-        by_hand = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json=_manual())
 
-        assert _codes(taken) == _codes(by_hand) == ["soil_hazard.hydroponic"]
-        assert world.entries("bed_in_room") == [] and world.hazard_repo.writes == []
+        assert taken.status_code == 201, taken.text
+        assert [e.hazard for e in world.entries("bed_in_room")] == [SoilHazard.CLUBROOT]
+
+    def test_a_soil_bed_under_it_takes_a_hand_entry(self, client, world) -> None:
+        assert client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json=_manual()).status_code == 201
+
+    def test_an_area_without_a_bed_type_under_it_refuses_even_juglone(self, client, world) -> None:
+        response = client().post(f"{_BASE}/locations/zone_in_room/soil-hazards", json=_manual("juglone", "2019-03-01"))
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.hydroponic"]
+        assert world.entries("zone_in_room") == []
+
+    def test_an_own_hydroponic_value_of_a_bed_still_refuses(self, client, world) -> None:
+        world.repo.locations["bed_in_room"] = world.repo.locations["bed_in_room"].model_copy(
+            update={"irrigation_system": IrrigationSystem.NFT}
+        )
+
+        response = client().post(f"{_BASE}/locations/bed_in_room/soil-hazards", json=_manual())
+
+        assert response.status_code == 422 and _codes(response) == ["soil_hazard.hydroponic"]
 
     def test_a_drip_bed_under_the_room_keeps_its_soil(self, client, world) -> None:
         world.repo.locations["bed_in_room"] = world.repo.locations["bed_in_room"].model_copy(
@@ -738,3 +756,26 @@ class TestTheRemovalIsInThePlanChangeLog:
 
         assert client(TenantRole.LEAD).delete(f"{_FOREIGN}/locations/bed/soil-hazards/clubroot").status_code == 404
         assert world.hazard_repo.audit_rows == []
+
+
+class TestABrokenParentBlocksNoChild:
+    """Review N1 (REQ-053 v1.61): an unreadable parent of the same site ends the chain - no 409 for its children."""
+
+    @pytest.fixture
+    def broken_garden(self, world):  # type: ignore[no-untyped-def]
+        read = world.repo._sites.get_location_by_key
+
+        def get_location_by_key(key: str):  # type: ignore[no-untyped-def]
+            if key == "garden":
+                raise StoredDocumentInvalidError("Location", key, ["soil_hazards"], stored={"site_key": "site_1"})
+            return read(key)
+
+        world.repo._sites.get_location_by_key = get_location_by_key  # type: ignore[method-assign]
+
+    def test_the_summary_of_the_child_answers(self, client, world, broken_garden) -> None:
+        response = client(TenantRole.VIEWER).get(f"{_BASE}/locations/bed_in_garden/summary")
+
+        assert response.status_code == 200 and response.json()["soil_hazard_scope"] == "all"
+
+    def test_the_child_takes_an_entry(self, client, world, broken_garden) -> None:
+        assert client().post(f"{_BASE}/locations/bed_in_garden/soil-hazards", json=_manual()).status_code == 201

@@ -57,7 +57,10 @@ function DroppedRow({ dropped }: { dropped: DroppedReference }) {
       <ListItemText
         primary={t(`${PREFIX}.dropped.row`, {
           entity: t(`${PREFIX}.dropped.entities.${dropped.entity}`),
-          field: dropped.field,
+          // A dropped soil hazard names its hazard (`soil_hazards.<hazard>`, #2888 review N2).
+          field: dropped.field.startsWith('soil_hazards.')
+            ? t(`enums.soilHazard.${dropped.field.slice('soil_hazards.'.length)}`, { defaultValue: dropped.field })
+            : dropped.field,
           reason: t(`${PREFIX}.dropped.reasons.${dropped.reason}`, { defaultValue: dropped.reason }),
         })}
         secondary={dropped.key}

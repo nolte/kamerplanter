@@ -7,17 +7,22 @@ the beds in it). Both read this one walk, so a reader cannot follow a chain the 
 **Why the site bounds the chain.** ``Location`` carries no ``tenant_key`` (#2107); the site is the tenant anchor
 (``location_ownership``). The walk starts at a location the caller has already resolved under the tenant, and it
 follows a parent only while the parent stands in that same site - so it never reaches another tenant's location, even
-through a corrupt ``parent_location_key``. A stored parent that fails validation is decided the same way
-``location_ownership.read_slot`` decides it: the 409 is raised only for a row of the same site, anything else ends the
-chain like an absent parent (no existence oracle).
+through a corrupt ``parent_location_key``. A stored parent that fails validation ends the chain like an absent parent
+(REQ-053 v1.61 §11.3a Nr. 5): a 409 here would block the summary, the planting check and the soil-hazard entry of
+every location below it, and for a row of another site it would also tell that the key exists. A broken parent of the
+same site is logged (keys only), one of another site is not (it is no row of this tenant).
 
 **Why it terminates.** A key seen before (a cycle) and :data:`MAX_LOCATION_ANCESTORS` levels end it.
 """
 
 from typing import Protocol
 
+import structlog
+
 from app.common.exceptions import StoredDocumentInvalidError
 from app.domain.models.site import Location
+
+logger = structlog.get_logger(__name__)
 
 #: The deepest parent chain walked. A stored hierarchy is a handful of levels (site area, room, tent, bed); the cap only
 #: bounds a corrupt chain the cycle check cannot see (each parent another key).
@@ -31,12 +36,12 @@ class LocationSource(Protocol):
 
 
 def _parent(source: LocationSource, key: str, site_key: str) -> Location | None:
-    """The parent ``key`` if it stands in ``site_key``; ``None`` when absent or another site's (legacy row too)."""
+    """The parent ``key`` if it stands in ``site_key``; ``None`` when absent, broken or another site's."""
     try:
         parent = source.get_location_by_key(key)
     except StoredDocumentInvalidError as exc:
         if exc.stored is not None and exc.stored.get("site_key") == site_key:
-            raise
+            logger.warning("location_ancestry_parent_unreadable", parent_location_key=key, site_key=site_key)
         return None
     if parent is None or parent.site_key != site_key:
         return None

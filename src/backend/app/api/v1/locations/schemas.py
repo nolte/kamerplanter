@@ -1075,6 +1075,10 @@ class RotationFindingResponse(BaseModel):
     #: The host entry of the knowledge table the species matched (finest level: species, genus, family).
     host_level: Literal["species", "genus", "family"] | None = None
     host_name: str | None = None
+    #: A hazard inherited from a location above the bed (REQ-053 v1.61 §11.3a Nr. 6, #2888): that location's key and
+    #: name; `null` for a hazard of the bed itself.
+    hazard_location_key: str | None = None
+    hazard_location_name: str | None = None
 
 
 class NeighbourHintResponse(BaseModel):

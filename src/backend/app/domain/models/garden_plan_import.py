@@ -39,9 +39,12 @@ type ImportTarget = Literal["same_site", "other_site", "other_tenant"]
 IMPORT_TARGETS: tuple[str, ...] = ("same_site", "other_site", "other_tenant")
 #: ``offset_m`` moves every geometry of a merge by at most this much per axis (the plan frame spans 1 000 m).
 MAX_OFFSET_M = 1000.0
-#: ``no_soil`` (#2888 F-20): soil hazards of a location that carries none - a vessel (planter, tent, shelf) or a type
-#: that is no bed in the importing installation.
-type DropReason = Literal["not_found", "not_in_site", "always_dropped", "outside_file", "invalid_parent", "no_soil"]
+#: ``container`` / ``not_a_bed`` (#2888, REQ-053 v1.61 §11.3a Nr. 5): one soil hazard of the file the target location
+#: does not take - a vessel (planter, tent, shelf, container group) takes none, a type that is no bed in the importing
+#: installation takes ``juglone`` only. The row's ``field`` names the hazard (``soil_hazards.<hazard>``).
+type DropReason = Literal[
+    "not_found", "not_in_site", "always_dropped", "outside_file", "invalid_parent", "container", "not_a_bed"
+]
 
 
 class ImportCounts(BaseModel):

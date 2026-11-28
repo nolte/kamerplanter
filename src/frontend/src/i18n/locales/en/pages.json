@@ -7042,7 +7042,9 @@
               "not_found": "not found",
               "not_in_site": "belongs to another site",
               "always_dropped": "links to devices are never carried over",
-              "outside_file": "is not in the file and may not be resolved here"
+              "outside_file": "is not in the file and may not be resolved here",
+              "container": "a planter, tent, shelf or container group carries no soil hazards",
+              "not_a_bed": "a location without a bed type only takes juglone"
             }
           },
           "mode": "How should the backup be restored?",
@@ -8395,17 +8397,19 @@
           "soilHazard": {
             "unnamed": "A soil pathogen",
             "hostUnnamed": "this plant",
+            "whereBed": "in this bed",
+            "whereAbove": "at “{{name}}” above this bed",
             "host": {
               "family": "family {{name}}",
               "genus": "genus {{name}}",
               "species": "species {{name}}"
             },
-            "pause": "{{hazard}} was confirmed in this bed on {{confirmed}}, and this plant is a host ({{host}}). The pathogen survives in the soil: expert sources advise keeping host plants out of this bed until {{year}}. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
-            "noEvidencedPause": "{{hazard}} was confirmed in this bed on {{confirmed}}, and this plant is a host ({{host}}). How long to pause with host plants is not reliably known – the pathogen can survive in the soil for a long time. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
-            "residualUntil": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. It is evidenced that the pathogen can survive in the soil at least until {{year}}; after that, Kamerplanter no longer reports it. Watch for first signs. You can plant without a reason.",
-            "residualOpen": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. How long the pathogen survives in the soil is not known – the residual risk stays until a lead removes the soil hazard from the bed. You can plant without a reason.",
-            "soft": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}. This pathogen attacks almost every vegetable, this one too ({{host}}). A warning would therefore hit almost every bed – watch for sick plants instead and remove them early. You can plant without a reason.",
-            "uncertainHost": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason."
+            "pause": "{{hazard}} was confirmed {{where}} on {{confirmed}}, and this plant is a host ({{host}}). The pathogen survives in the soil: expert sources advise keeping host plants out of this bed until {{year}}. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
+            "noEvidencedPause": "{{hazard}} was confirmed {{where}} on {{confirmed}}, and this plant is a host ({{host}}). How long to pause with host plants is not reliably known – the pathogen can survive in the soil for a long time. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
+            "residualUntil": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. It is evidenced that the pathogen can survive in the soil at least until {{year}}; after that, Kamerplanter no longer reports it. Watch for first signs. You can plant without a reason.",
+            "residualOpen": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. How long the pathogen survives in the soil is not known – the residual risk stays until a lead removes the soil hazard from the bed. You can plant without a reason.",
+            "soft": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. This pathogen attacks almost every vegetable, this one too ({{host}}). A warning would therefore hit almost every bed – watch for sick plants instead and remove them early. You can plant without a reason.",
+            "uncertainHost": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason."
           },
           "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
           "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",

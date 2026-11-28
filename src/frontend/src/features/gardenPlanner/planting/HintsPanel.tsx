@@ -110,6 +110,10 @@ function soilHazardText(finding: RotationFinding, t: Translate): string | null {
     confirmed: formatDate(finding.hazard_confirmed_at),
     host: hostText(finding, t),
     year: untilYear(finding),
+    // An inherited hazard names the location above the bed the server read it from (review S3, REQ-053 v1.61).
+    where: finding.hazard_location_name
+      ? t('pages.bed.planting.hints.soilHazard.whereAbove', { name: finding.hazard_location_name })
+      : t('pages.bed.planting.hints.soilHazard.whereBed'),
   };
   switch (finding.code) {
     case 'soil_hazard.pause':

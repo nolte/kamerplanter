@@ -20,6 +20,7 @@ from app.domain.models.garden_plan import (
     BedCounters,
     LocationOption,
     PlanAuditEntry,
+    PlanAuditRecord,
     PlanBatchOutcome,
     PlanBatchWrite,
     PlanSnapshotEntry,
@@ -178,6 +179,9 @@ class FakePlanRepo(IGardenPlanRepository):
         self.snapshot_rows: list[tuple[str, str, str, dict]] = []
         self.applied: list[PlanBatchWrite] = []
         self.audit: list[PlanAuditEntry] = []
+        #: The ``garden_plan_audit`` rows a soil edit wrote for a changed ``substrate_replaced_on`` (D-S3), as
+        #: ``write_soil_profile_edit`` builds them.
+        self.audit_rows: list[PlanAuditRecord] = []
         self.editor_name: str | None = "Sabine"
         self.task_counters: dict[str, TaskCounter] = {}
         self.object_task_counters: dict[str, TaskCounter] = {}
@@ -482,11 +486,39 @@ class FakePlanRepo(IGardenPlanRepository):
         location = self.locations[location_key]
         merged = {**location.model_dump(by_alias=True), **fields}
         if soil is not None:  # the repository's soil edit (#2706) for a bed without analyses
+            self._audit_substrate_change(location, soil)
             merged["soil_profile"] = _soil_edit(location, soil)
         if fields.get("site_conditions") is not None:  # the sent parts merged into the stored value (#2569)
             stored = location.site_conditions.model_dump(mode="json") if location.site_conditions else {}
             merged["site_conditions"] = _merge_dropping_none(stored, fields["site_conditions"])
         self.locations[location_key] = Location(**{k: v for k, v in merged.items() if v is not None})
+
+    def _audit_substrate_change(self, location, soil):  # type: ignore[no-untyped-def]
+        """What ``care_event_repository._audit_substrate_change`` writes (D-S3), with the same pure decision."""
+        from datetime import UTC, datetime
+
+        from app.domain.models.bed_soil_hazard import AUDIT_ENTITY_SUBSTRATE_REPLACED_ON, substrate_replaced_on_change
+
+        stored = location.soil_profile.model_dump(mode="json") if location.soil_profile else None
+        summary = substrate_replaced_on_change(stored, soil.profile)
+        if summary is None:
+            return
+        if not soil.user_key:
+            raise ValueError("A change of substrate_replaced_on needs the caller's user_key (D-S3).")
+        site = self._sites.get_site_by_key(location.site_key)
+        self.audit_rows.append(
+            PlanAuditRecord(
+                tenant_key=soil.tenant_key,
+                site_key=location.site_key,
+                revision=site.plan.plan_revision if site is not None and site.plan is not None else 0,
+                user_key=soil.user_key,
+                op="update",
+                entity=AUDIT_ENTITY_SUBSTRATE_REPLACED_ON,
+                key=location.key or "",
+                summary=summary,
+                at=datetime.now(UTC),
+            )
+        )
 
     def set_site_underlay(self, site_key, *, tenant_key, underlay):
         site = self._sites.get_site_by_key(site_key)

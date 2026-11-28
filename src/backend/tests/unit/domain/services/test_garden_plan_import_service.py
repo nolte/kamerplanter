@@ -1226,7 +1226,9 @@ class TestSoilHazardsInTheBackup2888:
         report = rig.run(document)
 
         assert report.applied
-        assert [(d.key, d.field, d.reason) for d in report.dropped_references] == [("b1", "soil_hazards", "no_soil")]
+        assert [(d.key, d.field, d.reason) for d in report.dropped_references] == [
+            ("b1", "soil_hazards.clubroot", "container")
+        ]
         assert TestReferencesAndFields._restored_beet_1(repo).soil_hazards == []
 
     def test_a_location_that_is_no_bed_imports_without_them(self, rig, repo) -> None:
@@ -1238,7 +1240,7 @@ class TestSoilHazardsInTheBackup2888:
 
         report = rig.run(document)
 
-        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards", "no_soil")]
+        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards.clubroot", "not_a_bed")]
         assert all(loc.soil_hazards == [] for loc in repo.locations.values())
 
     def test_an_area_keeps_its_juglone_and_drops_only_the_pathogen(self, rig, repo) -> None:
@@ -1254,7 +1256,8 @@ class TestSoilHazardsInTheBackup2888:
 
         report = rig.run(document)
 
-        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards", "no_soil")]
+        # Review N2: the report names the dropped hazard and why, one row per hazard.
+        assert [(d.field, d.reason) for d in report.dropped_references] == [("soil_hazards.clubroot", "not_a_bed")]
         (area,) = [loc for loc in repo.locations.values() if loc.soil_hazards]
         assert [entry.hazard for entry in area.soil_hazards] == [SoilHazard.JUGLONE]
 

@@ -7,7 +7,7 @@ another tenant's, possibly - must end the chain like an absent parent, and a cyc
 
 from __future__ import annotations
 
-import pytest
+import structlog.testing
 
 from app.common.exceptions import StoredDocumentInvalidError
 from app.domain.models.site import Location
@@ -84,9 +84,24 @@ def test_a_broken_parent_of_another_site_reads_as_absent_not_as_a_409() -> None:
     assert location_ancestors(store, store.rows["bed"]) == []
 
 
-def test_a_broken_parent_of_the_own_site_is_the_409() -> None:
+def test_a_broken_parent_of_the_own_site_ends_the_chain_and_is_logged() -> None:
+    """Review N1: a 409 here would block the summary, the planting check and the entry of every child."""
     store = _Store(_loc("bed", "own"))
     store.broken["own"] = {"_key": "own", "site_key": "site_own"}
 
-    with pytest.raises(StoredDocumentInvalidError):
-        location_ancestors(store, store.rows["bed"])
+    with structlog.testing.capture_logs() as logs:
+        assert location_ancestors(store, store.rows["bed"]) == []
+
+    assert [(e["event"], e["parent_location_key"], e["site_key"]) for e in logs] == [
+        ("location_ancestry_parent_unreadable", "own", "site_own")
+    ]
+
+
+def test_a_broken_parent_of_another_site_is_not_logged() -> None:
+    store = _Store(_loc("bed", "foreign"))
+    store.broken["foreign"] = {"_key": "foreign", "site_key": "site_foreign"}
+
+    with structlog.testing.capture_logs() as logs:
+        assert location_ancestors(store, store.rows["bed"]) == []
+
+    assert logs == []

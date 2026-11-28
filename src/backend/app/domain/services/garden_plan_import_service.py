@@ -36,7 +36,7 @@ from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import ErrorDetails
 
-from app.common.enums import GardenObjectType, TenantRole
+from app.common.enums import GardenObjectType, SoilHazardRefusal, TenantRole
 from app.common.exceptions import NotFoundError, PlanError, PlanValidationError
 from app.common.types import SiteKey
 from app.domain.calculators.geometry_calculator import area_m2, validate_geometry
@@ -801,14 +801,22 @@ class GardenPlanImportService:
                 soil.substrate_key = None
 
         # A vessel carries no soil hazard, an area that is no bed only juglone (REQ-053 §11.3a Nr. 5, O3): the file
-        # may not put another one there either. Dropped and reported once, the rest of the location imports.
-        soil_hazards = [
-            entry
-            for entry in item.soil_hazards
-            if soil_hazard_refusal_for_type(type_key, is_bed=flags.get(type_key, False), hazard=entry.hazard) is None
-        ]
-        if len(soil_hazards) != len(item.soil_hazards):
-            prepared.drop(DroppedReference(entity=_LOCATION, key=item.key, field="soil_hazards", reason="no_soil"))
+        # may not put another one there either. Each dropped hazard is reported with its key and the refusal
+        # (v1.61, review N2); the rest of the location imports.
+        soil_hazards = []
+        for entry in item.soil_hazards:
+            refusal = soil_hazard_refusal_for_type(type_key, is_bed=flags.get(type_key, False), hazard=entry.hazard)
+            if refusal is None:
+                soil_hazards.append(entry)
+                continue
+            prepared.drop(
+                DroppedReference(
+                    entity=_LOCATION,
+                    key=item.key,
+                    field=f"soil_hazards.{entry.hazard.value}",
+                    reason="container" if refusal is SoilHazardRefusal.CONTAINER else "not_a_bed",
+                )
+            )
 
         fields: dict[str, Any] = {
             "name": item.name,

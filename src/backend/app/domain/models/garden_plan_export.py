@@ -113,8 +113,10 @@ class ExportLocation(_ExportModel):
     #: The bed's confirmed soil hazards (REQ-054 §5.2, R19, #2888 F-20), additive inside ``schema_version "1"``: a file
     #: written before lacks the key, and the restored bed has none. Only the hazard key, the date and the source
     #: category travel - no person, and no host list (it resolves from the knowledge table of the importing
-    #: installation). A hazard key outside ``SoilHazard`` refuses the file; on a vessel or a location that is no bed
-    #: the import drops them and reports it (``dropped_references[]``, field ``soil_hazards``).
+    #: installation). A hazard key outside ``SoilHazard`` refuses the file. The import keeps what the target type takes
+    #: (REQ-053 v1.61 §11.3a Nr. 5): every hazard at a bed, ``juglone`` at a location that is no bed; it drops the rest
+    #: and reports each (``dropped_references[]``, field ``soil_hazards.<hazard>``, reason ``container`` or
+    #: ``not_a_bed``).
     soil_hazards: list[BedSoilHazard] = Field(default_factory=list, max_length=MAX_BED_SOIL_HAZARDS)
 
 

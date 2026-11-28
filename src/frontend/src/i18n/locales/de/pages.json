@@ -7042,7 +7042,9 @@
               "not_found": "nicht gefunden",
               "not_in_site": "gehört zu einem anderen Standort",
               "always_dropped": "Kopplungen an Technik werden nie übernommen",
-              "outside_file": "steht nicht in der Datei und darf hier nicht aufgelöst werden"
+              "outside_file": "steht nicht in der Datei und darf hier nicht aufgelöst werden",
+              "container": "ein Kübel, Zelt, Regal oder eine Topfgruppe trägt keine Bodengefahren",
+              "not_a_bed": "an einem Standort ohne Beettyp steht nur Juglon"
             }
           },
           "mode": "Wie soll die Sicherung eingespielt werden?",
@@ -8395,17 +8397,19 @@
           "soilHazard": {
             "unnamed": "Ein Bodenerreger",
             "hostUnnamed": "diese Pflanze",
+            "whereBed": "In diesem Beet",
+            "whereAbove": "An „{{name}}“ oberhalb dieses Beets",
             "host": {
               "family": "Familie {{name}}",
               "genus": "Gattung {{name}}",
               "species": "Art {{name}}"
             },
-            "pause": "In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Der Erreger überdauert im Boden: Fachquellen empfehlen, Wirtspflanzen bis {{year}} nicht in dieses Beet zu setzen. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
-            "noEvidencedPause": "In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Wie lange du mit Wirtspflanzen pausieren solltest, ist nicht sicher belegt – der Erreger kann lange im Boden überdauern. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
-            "residualUntil": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Belegt ist, dass der Erreger mindestens bis {{year}} im Boden überdauern kann; danach meldet Kamerplanter ihn nicht mehr. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
-            "residualOpen": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Wie lange der Erreger im Boden überdauert, ist nicht belegt – das Restrisiko bleibt, bis die Leitung die Bodengefahr am Beet entfernt. Du kannst ohne Grund pflanzen.",
-            "soft": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt. Dieser Erreger befällt fast alle Gemüsearten, auch diese ({{host}}). Eine Warnung träfe deshalb fast jedes Beet – achte stattdessen auf kranke Pflanzen und entferne sie früh. Du kannst ohne Grund pflanzen.",
-            "uncertainHost": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen."
+            "pause": "{{where}} wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Der Erreger überdauert im Boden: Fachquellen empfehlen, Wirtspflanzen bis {{year}} nicht in dieses Beet zu setzen. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "noEvidencedPause": "{{where}} wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Wie lange du mit Wirtspflanzen pausieren solltest, ist nicht sicher belegt – der Erreger kann lange im Boden überdauern. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "residualUntil": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Belegt ist, dass der Erreger mindestens bis {{year}} im Boden überdauern kann; danach meldet Kamerplanter ihn nicht mehr. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
+            "residualOpen": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Wie lange der Erreger im Boden überdauert, ist nicht belegt – das Restrisiko bleibt, bis die Leitung die Bodengefahr am Beet entfernt. Du kannst ohne Grund pflanzen.",
+            "soft": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Dieser Erreger befällt fast alle Gemüsearten, auch diese ({{host}}). Eine Warnung träfe deshalb fast jedes Beet – achte stattdessen auf kranke Pflanzen und entferne sie früh. Du kannst ohne Grund pflanzen.",
+            "uncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen."
           },
           "noFamily": "Für diese Art ist keine Familie hinterlegt. Die Fruchtfolge lässt sich nicht prüfen.",
           "noHistory": "Für dieses Beet ist keine Vorgeschichte erfasst. Die Fruchtfolge lässt sich nicht prüfen.",

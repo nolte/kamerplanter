@@ -46,6 +46,7 @@ from app.domain.interfaces.care_event_repository import (
     ICareEventRepository,
     PendingPhotos,
 )
+from app.domain.models.bed_soil_hazard import AUDIT_ENTITY_SUBSTRATE_REPLACED_ON, substrate_replaced_on_change
 from app.domain.models.care_event import (
     ACCOUNT_FIELDS,
     ANONYMIZED_MARKER,
@@ -510,6 +511,7 @@ def write_soil_profile_edit(
     location_key: str,
     *,
     tenant_key: str,
+    user_key: str,
     profile: dict[str, Any] | None,
     check_last_analysis_at: bool,
     expected_last_analysis_at: datetime | None,
@@ -522,11 +524,16 @@ def write_soil_profile_edit(
     get their hand entries from the legacy rule, never from the edit); then the edited measured fields become hand
     entries at now (unchanged ones none), the other soil fields are taken as sent, and the derivation computes the
     measured fields and ``last_analysis_at``. The derived fields are never written from the body.
+
+    A change of ``substrate_replaced_on`` (set, changed or cleared - also by clearing the whole profile) writes its
+    ``garden_plan_audit`` row under ``user_key`` in this transaction (REQ-053 v1.61 §20.13, D-S3); the caller declared
+    ``garden_plan_audit`` as written. Sending the stored day again writes no row.
     """
     location = _owned_location(txn, location_key, tenant_key)
     if location is None:
         raise NotFoundError("Location", location_key)
     current = _soil_of(location)
+    _audit_substrate_change(txn, location, current, profile, tenant_key=tenant_key, user_key=user_key)
     stored_last = read_instant(current.get("last_analysis_at"))
     expected = read_instant(expected_last_analysis_at)
     if check_last_analysis_at and stored_last != expected:
@@ -555,6 +562,45 @@ def write_soil_profile_edit(
     staged["hand_values"] = hand_values_after_edit(current, profile, datetime.now(UTC), as_read=as_read)
     _write_profile(txn, location_key, tenant_key, cast("dict[str, Any]", _json_value(staged)))
     rederive_soil_profile(txn, location_key, tenant_key=tenant_key)
+
+
+def _audit_substrate_change(
+    txn: StreamTransaction,
+    location: dict[str, Any],
+    current: dict[str, Any],
+    profile: dict[str, Any] | None,
+    *,
+    tenant_key: str,
+    user_key: str,
+) -> None:
+    """The ``garden_plan_audit`` row of a changed ``substrate_replaced_on`` (D-S3); nothing when it did not change."""
+    summary = substrate_replaced_on_change(current or None, profile)
+    if summary is None:
+        return
+    if not user_key:
+        raise ValueError("A change of substrate_replaced_on needs the caller's user_key for its audit row (D-S3).")
+    site_key = str(location.get("site_key") or "")
+    revision = next(
+        iter(
+            txn.aql.execute(
+                "RETURN DOCUMENT(CONCAT(@sites, @site_key)).plan.plan_revision || 0",
+                bind_vars={"sites": f"{col.SITES}/", "site_key": site_key},
+            )
+        ),
+        0,
+    )
+    audit = PlanAuditRecord(
+        tenant_key=tenant_key,
+        site_key=site_key,
+        revision=int(revision),
+        user_key=user_key,
+        op="update",
+        entity=AUDIT_ENTITY_SUBSTRATE_REPLACED_ON,
+        key=str(location.get("_key") or ""),
+        summary=summary,
+        at=datetime.now(UTC),
+    )
+    txn.collection(col.GARDEN_PLAN_AUDIT).insert(_dump(audit, mode="json"))
 
 
 def _json_value(value: Any) -> Any:

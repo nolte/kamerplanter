@@ -101,6 +101,20 @@ describe('ImportWizard', () => {
     expect((calls.bodies[0].document as { schema_version: string }).schema_version).toBe('1');
   });
 
+  it('names a dropped soil hazard and why it was dropped (#2888 review N2)', async () => {
+    useBackend(calls, () => report({ dropped_references_total: 1, dropped_references: [
+      { entity: 'location', key: 'zone_1', field: 'soil_hazards.clubroot', reason: 'not_a_bed' },
+    ] }));
+    const user = userEvent.setup();
+    renderWizard();
+    await choose(user);
+
+    const dropped = within(await screen.findByTestId('plan-import-report')).getByTestId('plan-import-dropped');
+    expect(dropped).toHaveTextContent('Clubroot');
+    expect(dropped).toHaveTextContent('a location without a bed type only takes juglone');
+    expect(dropped).not.toHaveTextContent('soil_hazards.clubroot');
+  });
+
   it('says how many bed photos a replace deletes with the beds', async () => {
     useBackend(calls, () => report({ would_delete: counts(4, 2, 12, 0, 3) }));
     const user = userEvent.setup();
