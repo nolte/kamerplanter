@@ -101,7 +101,8 @@ class ConsentEngine:
                 "Wenn der Betreiber Fehler-Tracking eingeschaltet hat und in deinem Browser ein Fehler auftritt, "
                 "sendet der Browser einen Fehlerbericht an den Fehler-Tracker, den der Betreiber dieser "
                 "Installation eingerichtet hat (zum Beispiel GlitchTip oder Sentry). Der Bericht enthält die "
-                "Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne vertrauliche Adressparameter, "
+                "Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne Kennungen (Garten, Datensätze) und "
+                "ohne vertrauliche Adressparameter, "
                 "Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente, "
                 "Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält "
                 "keine Formulareingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein "
@@ -113,7 +114,8 @@ class ConsentEngine:
                 "When the operator has switched error tracking on and an error occurs in your browser, the "
                 "browser sends an error report to the error tracker the operator of this installation has set "
                 "up (for example GlitchTip or Sentry). The report contains the error message with its stack "
-                "trace, the page you were on without confidential address parameters, browser, operating "
+                "trace, the page you were on without identifiers (garden, records) and without confidential "
+                "address parameters, browser, operating "
                 "system and app version, and the steps before it (clicks on controls, page changes, console "
                 "messages, address and status of requests to the server). It contains no form input, no "
                 "request contents, no cookies, no e-mail address and no pseudonym of your account. On receipt "
@@ -339,6 +341,14 @@ class ConsentEngine:
         """The current text version of a purpose, ``None`` if the purpose is unknown."""
         purpose = self.find_purpose(key)
         return purpose.version if purpose else None
+
+    def requires_shown_version(self, key: str) -> bool:
+        """Whether a grant of ``key`` must name the text version the page showed (REQ-025 v1.42).
+
+        True for the purposes the browser decides by version (``BROWSER_READ_PURPOSES``):
+        only there does a server-stamped version decide whether a grant takes effect.
+        """
+        return key in BROWSER_READ_PURPOSES
 
     def is_known_purpose(self, key: str) -> bool:
         """Return True if the given purpose is registered."""

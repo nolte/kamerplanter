@@ -19,6 +19,7 @@ from app.common.decoys import decoy_document_key, email_digest
 from app.common.enums import TenantRole
 from app.common.exceptions import (
     AccountBeingErasedError,
+    ConsentTextOutdatedError,
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
@@ -1919,10 +1920,17 @@ class PrivacyService:
         purpose: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        *,
+        shown_version: str | None = None,
     ) -> ConsentRecord:
         version = self._consent_engine.current_version(purpose)
         if version is None:
             raise ValidationError(f"Unknown processing purpose: '{purpose}'.")
+        # REQ-025 v1.42: the grant refers to the text the page showed. Required where the
+        # browser decides by the version (BROWSER_READ_PURPOSES), checked wherever it is sent.
+        checked = self._consent_engine.requires_shown_version(purpose) or shown_version is not None
+        if checked and shown_version != version:
+            raise ConsentTextOutdatedError(purpose, shown=shown_version, current=version)
 
         now = datetime.now(UTC)
         existing = self._consent_repo.get_by_user_and_purpose(user_key, purpose)

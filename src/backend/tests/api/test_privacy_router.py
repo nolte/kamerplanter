@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
+from app.common.exceptions import ConsentTextOutdatedError
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.models.privacy import (
     ConsentRecord,
@@ -209,6 +210,23 @@ class TestConsentEndpoints:
         body = response.json()
         assert body["purpose"] == "error_tracking"
         assert body["granted"] is True
+
+    def test_grant_passes_the_shown_version_and_answers_409_on_another_text(
+        self, client: TestClient, service: MagicMock
+    ) -> None:
+        """REQ-025 v1.42 — the shown version reaches the service; its refusal is a 409 with its own code."""
+        service.grant_consent.side_effect = ConsentTextOutdatedError(
+            "browser_error_reports", shown="1.0", current="1.1"
+        )
+
+        response = client.post(
+            "/api/v1/privacy/consents", json={"purpose": "browser_error_reports", "purpose_version": "1.0"}
+        )
+
+        assert response.status_code == 409
+        body = response.json()
+        assert body["error_code"] == "CONSENT_TEXT_OUTDATED"
+        assert service.grant_consent.call_args.kwargs["shown_version"] == "1.0"
 
     def test_revoke_consent(self, client: TestClient, service: MagicMock) -> None:
         service.revoke_consent.return_value = ConsentRecord(

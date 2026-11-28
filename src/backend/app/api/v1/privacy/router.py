@@ -31,7 +31,12 @@ from app.api.v1.privacy.schemas import (
 )
 from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import (
+    NOT_FOUND_RESPONSE,
+    STEP_UP_RESPONSES,
+    UNAUTHORIZED_RESPONSE,
+    ErrorResponse,
+)
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
@@ -408,7 +413,20 @@ def list_consents(
     ]
 
 
-@router.post("/consents", response_model=ConsentResponse, status_code=201)
+@router.post(
+    "/consents",
+    response_model=ConsentResponse,
+    status_code=201,
+    responses={
+        409: {
+            "model": ErrorResponse,
+            "description": (
+                "`CONSENT_TEXT_OUTDATED`: `purpose_version` is not the purpose's current text version "
+                "(or missing where it is required); nothing was written — reload and decide again."
+            ),
+        }
+    },
+)
 def grant_consent(
     body: ConsentGrantRequest,
     request: Request,
@@ -423,6 +441,7 @@ def grant_consent(
         body.purpose,
         ip_address=ip_address,
         user_agent=user_agent,
+        shown_version=body.purpose_version,
     )
     purpose = service._consent_engine.find_purpose(body.purpose)  # noqa: SLF001
     label = purpose.label_en if purpose else body.purpose

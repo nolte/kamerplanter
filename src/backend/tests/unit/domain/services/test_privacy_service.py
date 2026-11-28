@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.common.exceptions import (
+    ConsentTextOutdatedError,
     DuplicateError,
     InvalidTokenError,
     NotFoundError,
@@ -415,7 +416,7 @@ class TestConsent:
         purpose = engine.find_purpose("browser_error_reports")
         monkeypatch.setattr(purpose, "version", "2.3")
 
-        created = service.grant_consent(USER_KEY, "browser_error_reports")
+        created = service.grant_consent(USER_KEY, "browser_error_reports", shown_version="2.3")
         assert created.consent_version == "2.3"
 
         consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
@@ -425,8 +426,35 @@ class TestConsent:
             granted=False,
             consent_version="1.0",
         )
-        regranted = service.grant_consent(USER_KEY, "browser_error_reports")
+        regranted = service.grant_consent(USER_KEY, "browser_error_reports", shown_version="2.3")
         assert regranted.consent_version == "2.3"
+
+    @pytest.mark.parametrize("shown", [None, "1.0"])
+    def test_a_browser_purpose_grant_to_another_text_writes_nothing(self, service, consent_repo, monkeypatch, shown):
+        """REQ-025 v1.42 (#3025 F-2): the server must not stamp ITS version on a grant to the text the page showed.
+
+        An old bundle (service-worker cache) shows 1.0, the server is at 1.1: recording the grant
+        as 1.1 would let it take effect after the next bundle update for a text never shown.
+        """
+        purpose = service._consent_engine.find_purpose("browser_error_reports")  # noqa: SLF001
+        monkeypatch.setattr(purpose, "version", "1.1")
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="c", user_key=USER_KEY, purpose="browser_error_reports", granted=False
+        )
+
+        with pytest.raises(ConsentTextOutdatedError) as caught:
+            service.grant_consent(USER_KEY, "browser_error_reports", ip_address="198.51.100.9", shown_version=shown)
+
+        assert caught.value.status_code == 409
+        assert caught.value.error_code == "CONSENT_TEXT_OUTDATED"
+        consent_repo.create.assert_not_called()
+        consent_repo.update.assert_not_called()
+
+    def test_other_purposes_check_a_version_only_when_one_is_sent(self, service, consent_repo):
+        assert service.grant_consent(USER_KEY, "plant_identification").granted is True
+        with pytest.raises(ConsentTextOutdatedError):
+            service.grant_consent(USER_KEY, "plant_identification", shown_version="0.9")
+        assert service.grant_consent(USER_KEY, "plant_identification", shown_version="1.0").granted is True
 
     def test_revoke_stamps_the_current_text_version_also_on_a_stub(self, service, consent_repo, monkeypatch):
         purpose = service._consent_engine.find_purpose("browser_error_reports")  # noqa: SLF001

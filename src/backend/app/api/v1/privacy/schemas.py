@@ -295,6 +295,21 @@ class ObjectionRequest(BaseModel):
 
 class ConsentGrantRequest(BaseModel):
     purpose: str = Field(min_length=1, max_length=100)
+    purpose_version: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        description=(
+            "Text version of the purpose the page showed (REQ-025 v1.42). Required for purposes the browser "
+            "decides by version (browser_error_reports); checked whenever sent. A mismatch answers 409 "
+            "CONSENT_TEXT_OUTDATED and writes nothing."
+        ),
+        examples=["1.0"],
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"purpose": "browser_error_reports", "purpose_version": "1.0"}]}
+    )
 
 
 class ConsentResponse(BaseModel):
