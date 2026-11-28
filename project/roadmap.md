@@ -179,13 +179,13 @@ Export und Import eines Mandanten sind geliefert (#2267 ff.), stellen einen
 Garten aber noch nicht vollständig und nur bis rund 50 MiB wieder her.
 Künftig kommen Archive bis etwa 500 MiB durch (größere werden verständlich
 abgelehnt), die Sensor-Historie (Rohdaten, Stunden- und Tageswerte) wird beim
-Import mit wiederhergestellt, und der Plattform-Admin prüft ein Archiv vorab,
+Import im Rahmen der Aufbewahrungsfristen mit wiederhergestellt, und der Plattform-Admin prüft ein Archiv vorab,
 ordnet die Mitglieder per E-Mail des Zielkontos zu und sieht frühere Importe
 in einer Liste. Jeder Datensatz eines Archivs wird vor dem Import gegen das
 Datenmodell geprüft; ein verändertes Archiv mit ungültigen Werten wird
 abgelehnt statt eingespielt.
 
-Umsetzungsreihenfolge (Sprint 5, Betreiberentscheidung 2026-11-27):
+Umsetzungsreihenfolge (Sprint 5, Stand der Betreiberentscheidungen vom 2026-11-28):
 
 - [ ] F-15 — Archivgrößen bis ~500 MiB mit klarer Grenze (`tenant-archive-size-limits`)
 - [ ] F-32 — Dokumentprüfung beim Import gegen das Datenmodell (`tenant-import-document-validation`) — nach F-15

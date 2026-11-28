@@ -102,6 +102,13 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R18** is extended: fields of `tenant.json` that are missing or of the wrong type refuse the archive instead of being replaced by a default.
 - **R10** is made precise: the export refuses whatever the import's archive reader and object check would refuse, including a `manifest.json` above 1 MiB.
 
+### Revisit 2026-11-28, fourth round (operator decisions D and E, further measurements)
+
+- **R13** is replaced again (decision D): the import writes the archived hourly and daily values directly and then has exactly the imported periods recomputed, first `sensor_hourly` over the imported raw period, then `sensor_daily` over the imported hourly period. Measured against TimescaleDB 2.32.1-pg16: a directly inserted hourly row marks its day for the daily values of all tenants; a bounded refresh over a range in which every tenant still has its source rows leaves the others unchanged.
+- **R3/R4/R14** are layered by the target installation's retentions: raw readings older than the raw retention (90 days), hourly values older than the hourly retention (2 years) and daily values older than the daily retention (5 years) are not imported but counted; each cut lies on a day boundary inside the retention.
+- **R9** is made precise (decision E): the sprint value and the roundtrip speak of the sensor history "within the retention periods".
+- New: a restore into an installation whose aggregates were never fully refreshed keeps the imported values (F-34); the policies' behaviour there is not measured.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).

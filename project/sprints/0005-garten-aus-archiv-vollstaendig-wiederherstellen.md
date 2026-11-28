@@ -3,7 +3,7 @@ number: 5
 status: planned
 started: null
 ended: null
-value_statement: Plattform-Admins stellen einen Garten aus seinem Archiv vollständig wieder her – samt Sensor-Historie, nach einer Vorprüfung mit Mitgliederzuordnung per E-Mail und bis zu einer Archivgröße von etwa 500 MiB.
+value_statement: Plattform-Admins stellen einen Garten aus seinem Archiv vollständig wieder her – samt Sensor-Historie im Rahmen der Aufbewahrungsfristen, nach einer Vorprüfung mit Mitgliederzuordnung per E-Mail und bis zu einer Archivgröße von etwa 500 MiB.
 artifact_ref: null
 last_commit: null
 roadmap_items: [R-19]
@@ -19,9 +19,11 @@ einspielen, die spätere Lesezugriffe brechen. Nach diesem Sprint kommen
 Archive bis etwa 500 MiB durch (F-15), der Hintergrundprozess prüft jeden
 Datensatz gegen das Datenmodell (F-32), der Admin sieht vor dem Import eine
 Vorschau und ordnet die Mitglieder per E-Mail zu (F-17), findet frühere
-Importe in einer Liste (F-33), und die Sensor-Historie wird mit
-wiederhergestellt: Rohwerte (F-16) sowie Stunden- und Tageswerte (F-34)
-(R-19, Issue #3140).
+Importe in einer Liste (F-33), und die Sensor-Historie wird im Rahmen der
+Aufbewahrungsfristen der Installation mit wiederhergestellt: Rohwerte (F-16)
+sowie Stunden- und Tageswerte (F-34) (R-19, Issue #3140). Was älter ist als
+die Fristen (Rohwerte 90 Tage, Stundenwerte 2 Jahre, Tageswerte 5 Jahre),
+kommt nicht zurück; der Importbericht nennt die Zahl.
 
 Umsetzungsreihenfolge: **F-15 → F-32 → F-17 → F-33 → F-16 → F-34**, streng
 seriell; alle sechs ändern `tenant_export_service.py`. Begründung aus den
@@ -39,16 +41,18 @@ Abhängigkeiten der Feature-Dateien:
 - F-33 listet die Datensätze, die F-17 anlegt, und regelt ihren Ablauf; es
   kann nicht vor F-17 stehen.
 - F-16 braucht die Vorprüfung (eine falsche Prüfsumme des Messwert-Teils
-  scheitert dort) und die Liste aus F-33 für die Phase „Messwerte“.
-- F-34 schreibt mit der Sensor-Zuordnung aus F-16 die Stunden- und Tageswerte
-  und steht zuletzt; es trägt den Rundlauf.
+  scheitert dort) und die Liste aus F-33 für die Phase „Messwerte“. Es
+  schreibt die Rohwerte und lässt ihren Zeitraum neu berechnen.
+- F-34 schreibt mit der Sensor-Zuordnung aus F-16 die älteren Stunden- und
+  Tageswerte, lässt die Tageswerte ihres Zeitraums neu berechnen und steht
+  zuletzt; es trägt den Rundlauf.
 
 Der value-verifizierende Nachweis ist **F-34 `acceptance-6`**: Ein Garten mit
 Datensätzen, Fotos, Mitgliedern, Sensoren und Messwerten wird exportiert, das
 Archiv hochgeladen, vorgeprüft, die Mitglieder per E-Mail zugeordnet und aus
 der Vorprüfung importiert; der erneute Export des neuen Gartens enthält
-dieselben Daten einschließlich der Rohwerte innerhalb der Aufbewahrungsfrist
-und aller Stunden- und Tageswerte. Das Kriterium liegt im letzten Feature der
+dieselben Daten einschließlich der Sensor-Historie im Rahmen der
+Aufbewahrungsfristen. Das Kriterium liegt im letzten Feature der
 Kette und läuft durch alle sechs. Ein früheres Kriterium wiese die
 Vollständigkeit nicht nach, weil bis F-34 die Stunden- und Tageswerte fehlen.
 Nicht nachgewiesen wird damit die Größe von rund 500 MiB.
@@ -98,9 +102,8 @@ Betreiberentscheidungen vom 2026-11-28:
 - **Messwerte ohne zuordenbaren Sensor** werden ausgelassen und gezählt, auch
   die Stunden- und Tageswerte eines solchen Sensors (F-16, F-34).
 - **`/tmp` des Workers** liegt auch auf Disk (F-15).
-- **Archivierte Stunden- und Tageswerte werden direkt geschrieben,** nichts
-  wird neu berechnet; ein Neuberechnen über einen Zeitbereich träfe die Werte
-  anderer Mandanten (F-34).
+- **Archivierte Stunden- und Tageswerte werden direkt geschrieben** (F-34).
+  Der Zusatz „nichts wird neu berechnet“ ist durch D ersetzt.
 - **Sprintwert:** Der Satz bleibt, der Handlauf mit rund 500 MiB ist
   verpflichtend (oben).
 - **A — Teilung:** F-17 in „Vorprüfung und Start“ (F-17) und „Importliste und
@@ -112,12 +115,19 @@ Betreiberentscheidungen vom 2026-11-28:
   (höchstens eine Stunde) für dieses Archiv, über eine eigene Route nur zum
   Bestätigen (F-17).
 - **C — Audit für früh abgelehnte Uploads:** ja, als Teil von F-15.
+- **D — Der Import lässt am Ende gezielt neu berechnen:** genau die
+  eingespielten Zeiträume, erst Stunden-, dann Tageswerte (F-16, F-34).
+- **E — Sprintwert präzisiert:** „samt Sensor-Historie im Rahmen der
+  Aufbewahrungsfristen“; der Handlauf bleibt Pflicht.
 
-Vorgaben der Hauptsitzung vom 2026-11-28, nach ihrer Messung gegen
-TimescaleDB 2.32.1-pg16: Rohwerte älter als die Rohwert-Aufbewahrung der
-Zielinstallation werden nicht eingespielt, sondern gezählt (F-16); die
-Mandantentrennung wird nach Import und vollem Neuberechnen geprüft (F-34);
-ungültige Angaben in `tenant.json` werden abgelehnt statt ersetzt (F-32).
+Vorgaben der Hauptsitzung vom 2026-11-28, nach ihren Messungen gegen
+TimescaleDB 2.32.1-pg16: Was älter ist als die Aufbewahrungsfrist seiner
+Ebene (Rohwerte, Stundenwerte, Tageswerte), wird nicht eingespielt, sondern
+gezählt, mit Schnitt an einer Tagesgrenze (F-16, F-34); nach dem Import
+ändert ein volles Neuberechnen keinen Wert irgendeines Mandanten (F-16,
+F-34); die Wiederherstellung in eine neu aufgesetzte Installation ist ein
+eigenes Kriterium (F-34); ungültige Angaben in `tenant.json` werden abgelehnt
+statt ersetzt (F-32).
 
 Festlegungen der Planung vom 2026-11-28, nicht vom Betreiber entschieden und
 vor dem Start des jeweiligen Features widerrufbar (Einzelheiten unter „Offene
@@ -126,13 +136,17 @@ Bestätigen und Starten (F-17) und die Liste (F-33); die Mitgliedervorschau
 liegt am Import-Datensatz; eine Vorprüfung bleibt nach einem gescheiterten
 Lauf bis zu ihrem Ablauf startbar (F-17); jedes an eine Collection gebundene
 Modell muss einen Datensatz annehmen (F-32); eine falsche Prüfsumme des
-Messwert-Teils scheitert schon in der Vorprüfung (F-16); die Grenze von
-1 MiB für `manifest.json` bleibt, der Export lehnt ab (F-15).
+Messwert-Teils scheitert schon in der Vorprüfung (F-16); das Neuberechnen
+des Rohwert-Zeitraums liegt schon in F-16, abweichend von der Vorgabe der
+Hauptsitzung, damit zwischen F-16 und F-34 keine Vormerkung offen bleibt
+(F-16); die Grenze von 1 MiB für `manifest.json` bleibt, der Export lehnt
+ab (F-15).
 
-Offen für den Betreiber, ohne ein Feature zu blockieren: ob der Import am
-Ende den importierten Rohwert-Zeitraum neu berechnen soll, um vorgemerkte
-Bereiche abzubauen, und was für eine Wiederherstellung in eine frische
-Installation gilt (beides F-34, „Offene Punkte“).
+Aus dem Repository und den Messungen nicht belegt, durch einen
+Integrationstest zu klären: wie sich die Aggregat-Policies auf einer nie voll
+neu berechneten Installation gegenüber eingespielten Stunden- und Tageswerten
+verhalten (F-34 `acceptance-4`). Offen für den Betreiber, ohne ein Feature
+zu blockieren: ob die Grenze für `manifest.json` steigen soll (F-15).
 
 ## Features
 
@@ -148,7 +162,7 @@ Installation gilt (beides F-34, „Offene Punkte“).
 - R-27 (gemessener Regen und Bewässerung, F-28 bis F-31) — kommt in Sprint 6.
 - Kc-Tabelle (#3160) — danach.
 - Heben älterer Archive durch Migrationen (REQ-056 §8.4 Schritt 1) — hat keinen Besitzer; nach F-32 werden solche Archive abgelehnt statt fehlerhaft importiert.
-- Rohwerte, die älter sind als die Rohwert-Aufbewahrung der Zielinstallation — werden gezählt, nicht eingespielt.
+- Messwerte außerhalb der Aufbewahrungsfristen der Zielinstallation (Rohwerte 90 Tage, Stundenwerte 2 Jahre, Tageswerte 5 Jahre) — werden gezählt, nicht eingespielt.
 - Eine höhere Grenze für `manifest.json` (Gärten mit vielen Tausend Dateien).
 - Die Datenschutz-Befunde zum Archiv (Abgleich mit abgeschlossenen Löschungen, `anon_`-Pseudonyme, GPS-Genauigkeit) — eigene Lane.
 - Umzug eines Mandanten zwischen Installationen; es gibt nur eine Installation.
