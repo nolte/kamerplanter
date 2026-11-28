@@ -6,7 +6,7 @@ Kategorie: UI-Verhalten Unterkategorie: Datenschutz, Einwilligung, TDDDG
 Technologie: React, TypeScript, MUI 9
 Status: Entwurf
 Priorität: Hoch
-Version: 1.4 (#3025 Review-Nacharbeit: keine Sitzungs-/Client-Reports, Textversion beim Erteilen mitgesendet, Texte vor der Entscheidung sichtbar, Zurücknehmen ohne Anmeldung, Adressen maskiert; offene Frage Gerät/Konto, bekannte Grenzen); 1.3 (#3025 N-40: eigener Zweck `browser_error_reports` für Browser-Fehlerberichte, Gerät/Konto-Abgleich mit Fälle-Tabelle §5.4, Kategorie „Externe Dienste“ gestrichen — Betreiberentscheidungen 2026-11-27); 1.2 (#2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion — §5.3; 1.1 #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter)
+Version: 1.5 (Betreiberentscheidung 2026-11-28: angemeldet sendet ein Browser nur mit Konto-Einwilligung UND bestätigtem Gerät — einmal je Browser bestätigen); 1.4 (#3025 Review-Nacharbeit: keine Sitzungs-/Client-Reports, Textversion beim Erteilen mitgesendet, Texte vor der Entscheidung sichtbar, Zurücknehmen ohne Anmeldung, Adressen maskiert; offene Frage Gerät/Konto, bekannte Grenzen); 1.3 (#3025 N-40: eigener Zweck `browser_error_reports` für Browser-Fehlerberichte, Gerät/Konto-Abgleich mit Fälle-Tabelle §5.4, Kategorie „Externe Dienste“ gestrichen — Betreiberentscheidungen 2026-11-27); 1.2 (#2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion — §5.3; 1.1 #2159: Banner eingebunden, Sentry-Gate im Browser, `useConsent`, Widerrufsschalter)
 Autor: Business Analyst - Agrotech
 Datum: 2026-02-27
 Tags: [consent, cookie-banner, ttdsg, dsgvo, privacy, sentry, tracking, einwilligung]
@@ -22,6 +22,7 @@ Betroffene Module: [Frontend]
 
 | Version | Datum | Änderung |
 |---|---|---|
+| 1.5 | 2026-11-28 | **Betreiberentscheidung 2026-11-28 zur offenen Frage aus v1.4 §5.5: einmal je Browser bestätigen.** Angemeldet sendet ein Browser nur, wenn das Konto gültig erteilt hat **und** dieses Gerät zugestimmt hat (Geräte-Entscheidung „zugestimmt“ zur aktuellen Textversion). Ein Browser ohne eigene Entscheidung sendet nicht allein wegen der Konto-Einwilligung; das Banner fragt dort in einer kurzen Bestätigungsfassung (CP-014). Begründung: § 25 TDDDG knüpft am Endgerät an; auf einem fremden oder geteilten Gerät wird nichts gesendet, ohne dass dort jemand zugestimmt hat. Die Konto-Erteilung im Banner oder Schalter bestätigt zugleich das Gerät (CP-015). Die Einstellungen zeigen Konto- und Geräte-Entscheidung getrennt (N-6 damit teilweise erledigt). §5.4 vollständig neu, §5.5 Frage als entschieden. Zwecktext angepasst („gilt für den Browser, in dem du sie erteilst; auf jedem weiteren Gerät fragen wir einmal“); Textversion bleibt 1.0, weil v1.3/v1.4 unveröffentlicht sind und kein Datensatz eine Zustimmung zu einem älteren Wortlaut trägt. |
 | 1.4 | 2026-11-28 | **#3025, Nacharbeit aus dem Privacy-Review.** (1) CI-005: Das SDK sendet nur Fehlerereignisse — die Sitzungs-Integration (`BrowserSession`) ist abgeschaltet, Client-Reports sind aus; alle Default-Integrationen von `@sentry/browser` 11.16 sind in §5.3 einzeln bewertet. (2) CP-013: Beim Erteilen sendet der Browser die Textversion mit, die er angezeigt hat; der Server lehnt eine Abweichung mit `409 CONSENT_TEXT_OUTDATED` ab und schreibt nichts, die Oberfläche bittet um Neuladen (REQ-025 v1.42). Ein Guard nagelt Textversion und Hash der Texte (Backend und Frontend) fest. (3) CB-007: Entscheidungselemente erscheinen nur, wenn die Texte geladen sind. (4) CB-008/§4.1: Empfänger (Host), Inhalt und IP-Hinweis stehen im sichtbaren Bannertext. (5) CW-006: Eine Geräte-Entscheidung lässt sich ohne Anmeldung auf den öffentlichen Seiten zurücknehmen. (6) CI-006: Mandanten-Kurzname, Datensatzschlüssel und Token in Adressen werden vor dem Senden maskiert. (7) TTDSG → TDDDG. (8) §5.5 offene Frage (Gerät unentschieden + Konto erteilt) und bekannte Grenzen. Die Textversion bleibt 1.0: v1.3 war nicht veröffentlicht, kein Datensatz trägt eine Zustimmung zum älteren Wortlaut. |
 | 1.3 | 2026-11-28 | **#3025 N-40, Betreiberentscheidungen 2026-11-27.** (1) Browser-Fehlerberichte haben einen **eigenen** Einwilligungszweck `browser_error_reports` (REQ-025 v1.41 §3.6); der Server-Zweck `error_tracking` (Zuordnung von Backend-Ereignissen zum Konto) bleibt in Name und Text unverändert, bestehende Konto-Einwilligungen behalten ihre Bedeutung. (2) Eine nur im Browser gespeicherte Zustimmung — auch eine aus der Zeit vor dieser Version oder von vor der Anmeldung — wird **nie** als Konto-Einwilligung verbucht; nach der Umstellung fragt die App einmal neu (CP-005). (3) Eine Ablehnung ohne Anmeldung gilt für dieses Gerät und wird durch keine Zustimmung überstimmt; sie widerruft keine Konto-Einwilligung (CP-007). (4) Die Kategorie „Externe Dienste“ (`external_services`) ist gestrichen: Es gibt keine Verarbeitung dahinter (CK-003, CW-004 entfallen; §1.2, §2.1, §4.2, §5.1, DoD angepasst). Neu: Zusammenspiel Gerät/Konto als Fälle-Tabelle (§5.4), Kontowechsel, mehrere Tabs, lang offene Tabs und fehlgeschlagener Abgleich (CP-008…CP-012). Session Replay bleibt nicht aktiviert und bräuchte einen eigenen Zweck. |
 | 1.2 | 2026-10-09 | #2174/#2175: Widerruf serverseitiger Einwilligungen im Tab, Erteilung am Ort der Funktion (§5.3). |
@@ -118,7 +119,9 @@ Zwei Speicherorte, zwei Urheber: Die **Geräte-Entscheidung** liegt im `localSto
 | CP-003 | Beim Login wird **nichts** vom Browser zum Server übertragen. Eine Geräte-Zustimmung ist nie eine Konto-Einwilligung — sie kann von einer anderen Person am selben Gerät stammen und galt einem Text ohne Konto. Fehlt eine gültige Konto-Entscheidung, fragt die App die angemeldete Person (Banner in der Kontofassung). | MUSS |
 | CP-004 | Der Consent-Status MUSS mindestens enthalten: Kategorie, Entscheidung (granted/denied), Zeitstempel, Version der Consent-Texte. Eine Zustimmung gilt nur zur **aktuellen** Textversion; eine Ablehnung gilt auch zu einer älteren. | MUSS |
 | CP-005 | **Einmal-Neuabfrage nach der Umstellung:** Eine Zustimmung aus der Zeit vor v1.3 (Feld `error_tracking: true` im Browser) zählt als „nicht entschieden“; das Banner fragt einmal neu. Eine Ablehnung von damals (`error_tracking: false`) bleibt eine Ablehnung dieses Geräts. Server-Einwilligungen `error_tracking` werden nicht umgedeutet. | MUSS |
-| CP-006 | Ist eine Person angemeldet, sendet der Browser nur mit gültiger **Konto**-Einwilligung zur aktuellen Textversion, die in diesem Seitenaufruf vom Server gelesen oder bestätigt wurde und nicht älter als 30 Minuten ist — und nur, wenn auf diesem Gerät nicht abgelehnt wurde. Eine Geräte-Zustimmung allein genügt angemeldet nie. | MUSS |
+| CP-006 | Ist eine Person angemeldet, sendet der Browser nur mit gültiger **Konto**-Einwilligung zur aktuellen Textversion, die in diesem Seitenaufruf vom Server gelesen oder bestätigt wurde und nicht älter als 30 Minuten ist, **und** wenn dieses Gerät zur aktuellen Textversion zugestimmt hat (v1.5). Weder die Geräte-Zustimmung noch die Konto-Einwilligung genügt allein. | MUSS |
+| CP-014 | **Einmal je Browser bestätigen (v1.5):** Hat das Konto gültig erteilt und dieser Browser noch nicht entschieden, fragt das Banner in einer kurzen Fassung: „Du hast Fehlerberichten in deinem Konto zugestimmt. Sollen sie auch von diesem Gerät gesendet werden?“ mit „Ja, von diesem Gerät“ und „Nein, nicht von diesem Gerät“ (gleichwertig). Ja schreibt nur die Geräte-Zustimmung (kein neuer Konto-Eintrag), Nein die Geräte-Ablehnung; das Konto bleibt unverändert. | MUSS |
+| CP-015 | **Ein Klick:** Erteilt die angemeldete Person die Konto-Einwilligung im Banner (Kontofassung) oder mit dem Konto-Schalter, gilt das zugleich als Zustimmung dieses Geräts; es folgt keine zweite Frage. Ein Widerruf im Konto ändert die Geräte-Entscheidung nicht. | MUSS |
 | CP-007 | **Ablehnung am Gerät:** Eine Geräte-Ablehnung schaltet die Berichte dieses Browsers für jede Person ab, die sich hier anmeldet; die Konto-Einwilligung bleibt unverändert (kein Widerruf durch eine andere Person am Gerät). Aufheben kann sie nur eine Handlung am Gerät: „Entscheidung dieses Browsers zurücksetzen“ in den Datenschutz-Einstellungen. Eine frühere Zustimmung überstimmt eine Ablehnung nie. | MUSS |
 | CP-008 | **Vor Abschluss der Anmelde-Prüfung** (Auth-Bootstrap) ist unbekannt, wer angemeldet ist: Es wird nicht gesendet, das SDK wird nicht gestartet, und das Banner erscheint nicht. Erst nach dem Bootstrap gilt „abgemeldet“ oder „angemeldet als X“. Diese Meldung läuft im Initial-Chunk, nicht in einem nachgeladenen Modul. | MUSS |
 | CP-009 | **Kontowechsel / Abmelden:** Beim Wechsel der Person verwirft der Tab die gelesene Konto-Entscheidung sofort und liest die der neuen Person; bis dahin wird nicht gesendet. Ein noch nicht übertragener Widerruf bleibt je Konto erhalten (`kamerplanter:consent:pending-revoke:<konto-hash>` — ein gerätelokaler Hash des Kontoschlüssels, nicht der Schlüssel selbst, weil der Eintrag das Abmelden überdauern muss, 07 PRIV-512; gelöscht, sobald der Widerruf übertragen ist) und wird beim nächsten Abgleich dieses Kontos zuerst gesendet; solange er aussteht, sendet der Browser für dieses Konto nicht. | MUSS |
@@ -189,7 +192,7 @@ Zwei Speicherorte, zwei Urheber: Die **Geräte-Entscheidung** liegt im `localSto
 
 - Realisierung: „Einstellungen“ klappt die Auswahl im Banner auf (kein eigener Dialog); Toggles: MUI `Switch` mit Label und `aria-describedby` auf die Beschreibung.
 - „Externe Dienste“ erscheint nicht (CK-003 entfallen).
-- **Datenschutz → Einwilligungen** (nur angemeldet erreichbar) trägt im Abschnitt „Fehlerberichte aus dem Browser“: den Schalter der **Konto**-Einwilligung (zeigt den vom Server bestätigten Stand, nicht optimistisch; während der Übertragung `aria-busy`), die Zeile „Dieser Browser sendet gerade: ja/nein“, die Geräte-Entscheidung („Ohne Anmeldung: erlaubt/abgelehnt“) mit „Entscheidung dieses Browsers zurücksetzen“, sowie die Hinweise aus CP-012 mit „Erneut versuchen“. Die allgemeine Liste der Zwecke führt `browser_error_reports` dann nicht ein zweites Mal (eine Bedienung je Zweck).
+- **Datenschutz → Einwilligungen** (nur angemeldet erreichbar) trägt im Abschnitt „Fehlerberichte aus dem Browser“ (v1.5): den Schalter der **Konto**-Einwilligung, getrennt davon den Schalter **dieses Geräts** („Von diesem Browser senden“, schreibt die Geräte-Entscheidung) (zeigt den vom Server bestätigten Stand, nicht optimistisch; während der Übertragung `aria-busy`), die Zeile „Dieser Browser sendet gerade: ja/nein“, die Geräte-Entscheidung („Ohne Anmeldung: erlaubt/abgelehnt“) mit „Entscheidung dieses Browsers zurücksetzen“, sowie die Hinweise aus CP-012 mit „Erneut versuchen“. Die allgemeine Liste der Zwecke führt `browser_error_reports` dann nicht ein zweites Mal (eine Bedienung je Zweck).
 - In der allgemeinen Liste trägt eine Einwilligung, die zu einer älteren Textversion erteilt wurde (`consent_version` ≠ `purpose_version`), den Zusatz „für eine frühere Fassung erteilt“.
 - i18n: Texte in DE/EN (UI-NFR-007), Schlüssel `consent.*` im nachgeladenen Namensraum `pages.json` (nicht im Initial-Chunk).
 
@@ -255,9 +258,9 @@ function SentryGate({ children }: { children: React.ReactNode }) {
 
 ### 5.4 Fälle-Tabelle: sendet dieser Browser Berichte?
 
-Voraussetzung in jeder Zeile: `SENTRY_DSN` gesetzt, Full-Modus. Sonst: nie senden, kein Banner. „Konto gültig erteilt“ heißt: Erteilung zur aktuellen Textversion, in diesem Seitenaufruf gelesen oder bestätigt, höchstens 30 Minuten alt, kein ausstehender Widerruf für dieses Konto.
+Voraussetzung in jeder Zeile: `SENTRY_DSN` gesetzt, Full-Modus. Sonst: nie senden, kein Banner. „Gerät zugestimmt“ heißt: zur aktuellen Textversion. „Konto gültig erteilt“ heißt: Erteilung zur aktuellen Textversion, in diesem Seitenaufruf gelesen oder bestätigt, höchstens 30 Minuten alt, kein ausstehender Widerruf für dieses Konto.
 
-| Gerät (abgemeldet entschieden) | Anmeldung | Konto | Sendet? | Banner | Was wird wo gespeichert |
+| Gerät | Anmeldung | Konto | Sendet? | Banner | Was wird wo gespeichert |
 |---|---|---|---|---|---|
 | beliebig | unbekannt (Bootstrap läuft) | — | **nein** | nein | nichts |
 | zugestimmt | abgemeldet | — | **ja** | nein | Gerät |
@@ -265,26 +268,26 @@ Voraussetzung in jeder Zeile: `SENTRY_DSN` gesetzt, Full-Modus. Sonst: nie sende
 | unentschieden | abgemeldet | — | nein | **ja, Gerätefassung** | Klick → Gerät |
 | zugestimmt | angemeldet | gültig erteilt | **ja** | nein | — |
 | zugestimmt | angemeldet | abgelehnt/widerrufen | nein | nein | — |
-| zugestimmt | angemeldet | keine Angabe bzw. ältere Fassung | nein | **ja, Kontofassung** | Klick → Konto (Server, mit Textversion, IP, User-Agent); Gerät bleibt |
+| zugestimmt | angemeldet | keine Angabe bzw. ältere Fassung | nein | **ja, Kontofassung** | Ja → Konto (Server, mit Textversion, IP, User-Agent), Gerät bleibt zugestimmt; Nein → Konto-Ablehnung |
 | abgelehnt | angemeldet | gültig erteilt | **nein** (CP-007) | nein | Konto bleibt unverändert |
 | abgelehnt | angemeldet | abgelehnt | nein | nein | — |
 | abgelehnt | angemeldet | keine Angabe | nein | nein (eine Ablehnung wird nicht erneut angefragt) | — |
-| unentschieden | angemeldet | gültig erteilt | **ja** | nein | — (Konto gilt in jedem Browser ohne Ablehnung) |
+| unentschieden | angemeldet | gültig erteilt | **nein** (v1.5, CP-014) | **ja, Bestätigungsfassung** | Ja → Gerät zugestimmt; Nein → Gerät abgelehnt; Konto unverändert |
 | unentschieden | angemeldet | abgelehnt | nein | nein | — |
-| unentschieden | angemeldet | keine Angabe | nein | **ja, Kontofassung** | Klick → Konto |
-| beliebig | angemeldet | noch nicht gelesen / Lesen fehlgeschlagen | nein | nein; Einstellungen zeigen „nicht abgeglichen“ | — |
+| unentschieden | angemeldet | keine Angabe | nein | **ja, Kontofassung** | Ja → Konto **und** Gerät zugestimmt (CP-015); Nein → Konto-Ablehnung |
+| beliebig | angemeldet | noch nicht gelesen / Lesen fehlgeschlagen / andere Textversion | nein | nein; Einstellungen zeigen „nicht abgeglichen“ bzw. „bitte neu laden“ | — |
 | beliebig | angemeldet | Widerruf ausstehend (CP-009) | nein | nein; Einstellungen zeigen „ausstehend“ | `pending-revoke:<konto-hash>` im Gerät bis zur Übertragung |
 
 Eine alte Browser-Zustimmung aus der Zeit vor v1.3 ist „unentschieden“ (CP-005), eine alte Ablehnung „abgelehnt“. Eine Konto-Entscheidung zu einer anderen Textversion als der angezeigten verhält sich wie „Lesen fehlgeschlagen“ (CP-013).
 
 ### 5.5 Offene Frage und bekannte Grenzen
 
-**Offene Frage (Betreiber, DSB-Briefing #2517): Gerät unentschieden + Konto erteilt → sendet dieser Browser?** Umgesetzt ist „ja“ (§5.4). *Dafür:* Die Einwilligung ist die Erklärung der angemeldeten Person, ihr Text sagt, dass sie in jedem Browser gilt, in dem sie angemeldet ist; ein „nein“ hieße, dieselbe Person je Gerät erneut zu fragen. *Dagegen:* § 25 TDDDG knüpft am Zugriff auf das **Endgerät** an; meldet sich die Person an einem fremden oder geteilten Gerät an (Bibliothek, Gemeinschaftsgarten-Tablet), greift das SDK auf ein Gerät zu, dessen Nutzer dort nie gefragt wurde. Die Alternative wäre: angemeldet nur mit Konto-Einwilligung **und** Geräte-Zustimmung zu senden (Banner fragt dann je Gerät einmal). Bis zur Entscheidung bleibt das Verhalten wie umgesetzt.
+**Entschieden (Betreiber, 2026-11-28; vorher offene Frage in v1.4): Gerät unentschieden + Konto erteilt → sendet nicht, das Gerät wird einmal bestätigt (CP-014).** Erwogen war: *Dafür* „ja“ — die Erklärung der Person, keine Nachfrage je Gerät. *Dagegen* — § 25 TDDDG knüpft am Zugriff auf das Endgerät an; auf einem fremden oder geteilten Gerät (Bibliothek, Gemeinschaftsgarten-Tablet) würde das SDK auf ein Gerät zugreifen, dessen Nutzer dort nie gefragt wurde. Der Betreiber hat „dagegen“ gewählt.
 
 **Bekannte Grenzen (bewusst nicht umgebaut):**
 
 - **N-1 — nachgesendeter Widerruf ohne Zeitpunkt:** Ein ausstehender Widerruf (CP-009) trägt keinen Zeitstempel und wird beim nächsten Abgleich des Kontos gesendet. *Szenario:* Person A widerruft auf Tablet T offline; danach erteilt sie auf Laptop L neu; kommt T wieder online, hebt der nachgesendete Widerruf die spätere Erteilung von L auf. Die Wirkung ist datenschutzfreundlich (Berichte aus, A wird nicht erneut gefragt, weil der Server „abgelehnt“ hält); A muss auf L erneut einschalten.
-- **N-6 — angemeldet „auf diesem Gerät nicht, sonst ja“:** Angemeldet gibt es keinen Schalter, der nur dieses Gerät ausnimmt; der Kontoschalter wirkt für alle Browser. Ein Geräte-Ausschluss entsteht nur über „Nur Notwendige“ ohne Anmeldung (CP-007). *Szenario:* A möchte Berichte vom Laptop, aber nicht vom geteilten Familien-Tablet; dazu muss sie sich auf dem Tablet abmelden, „Nur Notwendige“ wählen und sich wieder anmelden.
+- **N-6 — angemeldet „auf diesem Gerät nicht, sonst ja“ (seit v1.5 möglich):** Die Einstellungen zeigen Konto-Schalter und Geräte-Schalter getrennt; „nur auf diesem Gerät nicht“ ist der Geräte-Schalter aus, das Konto bleibt erteilt. „Entscheidung dieses Browsers zurücksetzen“ führt danach wieder zur Bestätigungsfrage. Verbleibende Grenze: Eine Geräte-Entscheidung gilt für jede Person, die diesen Browser nutzt; personenbezogen je Gerät ist sie nicht.
 - **Freitext in Fehlermeldungen:** Die Maskierung (CI-006) betrifft Adressen. Eine Fehlermeldung, die einen vom Nutzer eingegebenen Namen wiedergibt (etwa einer Pflanze), wird nicht erkannt; der Zwecktext nennt deshalb „die Fehlermeldung“ als Inhalt.
 - **API-Adressen ohne Routentabelle:** Für Backend-Pfade hat der Browser keine Routenmuster; außerhalb von `/t/:tenant`, `tenants` und `invitations` werden Schlüssel an ihrer Form erkannt (Ziffer, UUID, Token-Länge). Ein Schlüssel aus Wörtern mit Bindestrich ohne Ziffer bliebe stehen; die Schlüssel personenbezogener Datensätze vergibt ArangoDB numerisch.
 
@@ -343,7 +346,7 @@ Eine alte Browser-Zustimmung aus der Zeit vor v1.3 ist „unentschieden“ (CP-0
 
 **Dokumenten-Ende**
 
-**Version**: 1.4
+**Version**: 1.5
 **Status**: Entwurf
 **Letzte Aktualisierung**: 2026-11-28
 **Review**: Pending

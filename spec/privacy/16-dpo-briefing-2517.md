@@ -905,10 +905,9 @@ OpenWeatherMap, Bright Sky und NASA POWER (USA) (`data_access/external/open_mete
 Request-Daten, verwirft den SDK-`user` und setzt nur das Pseudonym bei Einwilligung `error_tracking`; Frontend-Init nur
 nach Einwilligung `browser_error_reports` (seit #3025 ein eigener Zweck; Rechtsgrundlage dort beim Umsetzen konservativ
 als Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO und § 25 Abs. 1 TDDDG festgelegt — zu bestätigen, ebenso ob der
-Einwilligungsnachweis wie bei jedem Zweck nach NFR-011 R-04 aufbewahrt wird). **Offene Frage (UI-NFR-013 v1.4 §5.5):**
-Darf ein Browser, in dem ohne Anmeldung nie entschieden wurde, mit der Konto-Einwilligung der angemeldeten Person
-senden? Dafür: Erklärung der Person, Text nennt „jeder Browser, in dem du angemeldet bist“. Dagegen: § 25 TDDDG knüpft
-am Endgerät an; an einem fremden oder geteilten Gerät wurde dessen Nutzer nie gefragt. Umgesetzt ist „ja“. LIA-4 ist in `06` §4.4 nur ein Verweis. Region und Frist des Trackers sind außerhalb des Repos
+Einwilligungsnachweis wie bei jedem Zweck nach NFR-011 R-04 aufbewahrt wird). **Entschieden (Betreiber, 2026-11-28; UI-NFR-013 v1.5
+CP-014):** Ein Browser, in dem nie entschieden wurde, sendet nicht allein mit der Konto-Einwilligung; er wird einmal
+bestätigt (§ 25 TDDDG knüpft am Endgerät an). Nicht mehr offen. LIA-4 ist in `06` §4.4 nur ein Verweis. Region und Frist des Trackers sind außerhalb des Repos
 (Q-OP-01, Q-OP-09 in `12`).
 
 **Ausgelieferter Default.** Exakte Koordinaten an den konfigurierten Wetterdienst; Fehlertracking aus.
