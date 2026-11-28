@@ -166,7 +166,8 @@ No optional consent is needed for the core functions of the system. However, som
 | Purpose | Type | Revocable |
 |---------|------|:---------:|
 | **Core functions** (plant management, reminders) | Required | No |
-| **Attribute error reports to my account** (Sentry) | Optional | Yes |
+| **Attribute error reports to my account** (Sentry, server reports, `error_tracking`) | Optional | Yes |
+| **Send error reports from the browser** (`browser_error_reports`) | Optional | Yes |
 | **Photo identification** (Pl@ntNet) | Optional | Yes |
 | **Cloud-based pest detection** (Kindwise plant.health) | Optional | Yes |
 | **AI disease diagnosis** (image recognition for diseases/deficiencies) | Optional | Yes |
@@ -180,9 +181,26 @@ No optional consent is needed for the core functions of the system. However, som
 !!! info "What attributing error reports does"
     If the operator has switched error tracking on and an error occurs in one of your requests, an error report goes to the tracker — without request contents, without IP address and without the requested path. With your consent it additionally carries a pseudonym of your account and your garden, never name or email. This lets an error that affects you be traced specifically. If you revoke, this applies from your next request.
 
-**Error reports from your browser** are asked for separately: if the operator has switched error tracking on, a notice with **Accept all**, **Necessary only** and **Settings** appears at the bottom on your first visit. Only once you consent to error analysis does your browser report crashes to the tracker — without form contents, cookies or email address. The decision applies to this browser. You can change it in the **Consents** tab with the switch **Allow error analysis**; it takes effect immediately, without a reload. In Light mode the notice does not appear and your browser reports no errors.
-
 A password check against known breaches and a consent for external master-data enrichment are no longer in the list: the password check does not exist, and enriching species master data (GBIF, Perenual) sends species names only, no data about you. If you had granted either, the entry stays visible in your data export and is deleted with your account.
+
+### Error reports from the browser
+
+Whether your browser sends a report to the operator's error tracker when an error occurs is a consent of its own — separate from the attribution above. The notice for it appears only when the operator has switched error tracking on, at the bottom of the screen with **Accept all**, **Necessary only** and **Settings**.
+
+**What a report contains:** the error message with its stack trace, the page you were on without confidential address parameters, browser, operating system and app version, and the steps before it (clicks on controls, page changes, console messages, address and status of requests to the server). **What it does not contain:** form input, request contents, cookies, your email address and a pseudonym of your account. On receipt the tracker sees the IP address of your connection. The notice names the tracker's address.
+
+**Where your decision applies:**
+
+- **Not signed in:** your decision applies to this browser only.
+- **Signed in:** your decision is stored in your account and applies in every browser you are signed in to. A grant you gave before signing in is **not** taken over into your account — Kamerplanter asks you once more after you sign in.
+- **Declined without signing in:** if someone chose **Necessary only** in this browser without signing in, this browser sends no reports, even if you consented in your account. Your account consent stays as it is. You can lift the decline in the **Consents** tab with **Reset this browser's decision**.
+
+If you had only consented in the browser before this change, Kamerplanter asks you once more. An earlier decline stays in place.
+
+**Change** your decision in the **Consents** tab, section **Error reports from the browser**, with the switch **Allow for my account**. Below it you see whether this browser is sending reports right now. A revocation applies at once, also in other open tabs. If Kamerplanter cannot sync your setting with the server, the browser sends no reports and the section says so with **Try again**. If a revocation does not reach the server, it still applies in this browser at once and is sent on the next sync. In Light mode the notice does not appear and your browser reports no errors.
+
+!!! info "Granted for an earlier version"
+    When the text of a consent changes, an older grant is marked **Granted for an earlier version** in the list. For error reports from the browser, Kamerplanter then asks you again.
 
 ### Revoking Consent
 
@@ -192,9 +210,6 @@ Every granted optional consent has a **Revoke** button. One click revokes it imm
 
 !!! info "Granting happens where you use the feature"
     You don't grant a consent in the tab itself. That happens at the spot where the feature needs it: with the first photo of [plant recognition](plant-identification.md), with the first question on the [AI Assistant](ai-assistant.md) page, or with the **Use as recognition reference** switch when [creating a plant](plant-identification.md#assigning-the-photo-to-the-new-plant). For consents without such a spot, the API remains: `POST /api/v1/privacy/consents` grants, `DELETE /api/v1/privacy/consents/{purpose}` revokes with a timestamp. `GET /api/v1/privacy/consents` returns the same data the tab displays (see [For Technical Users / Self-Hosters](#for-technical-users-self-hosters)).
-
-!!! warning "Effects of revoking consent"
-    If you revoke consent for external master data enrichment, no new data will be fetched from GBIF or Perenual. Existing enriched data is retained.
 
 ### Photo Identification (plant_identification)
 
