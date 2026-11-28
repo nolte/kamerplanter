@@ -122,7 +122,7 @@ describe('UI-NFR-013 ConsentBanner', () => {
       expect(visible).toBeVisible();
       expect(visible).toHaveTextContent('glitchtip.example.org');
       expect(visible).toHaveTextContent(/IP-Adresse|IP address/);
-      expect(visible).toHaveTextContent(/keine Eingaben|no input/);
+      expect(visible).toHaveTextContent(/keine Formular- und Sucheingaben|no form or search input/);
     });
 
     it('names the public way to take the decision back (CW-006)', () => {
@@ -165,7 +165,7 @@ describe('UI-NFR-013 ConsentBanner', () => {
         name: /Fehlerberichte aus dem Browser|Error reports from the browser/,
       });
       expect(description).toHaveAccessibleDescription(/glitchtip\.example\.org/);
-      expect(description).toHaveAccessibleDescription(/Formulareingaben|form input/);
+      expect(description).toHaveAccessibleDescription(/Formular- und Sucheingaben|form or search input/);
     });
 
     it('offers no "Externe Dienste" category any more (CK-003)', () => {

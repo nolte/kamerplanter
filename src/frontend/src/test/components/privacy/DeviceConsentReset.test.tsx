@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { SnackbarProvider } from 'notistack';
@@ -89,6 +89,8 @@ describe('device consent reset on the public pages (CW-006)', () => {
     fireEvent.click(reset);
 
     expect(readConsent().browser_error_reports).toBeNull();
+    // N-d: the link is gone; the banner's heading takes the focus.
+    await vi.waitFor(() => expect(screen.getByTestId('consent-banner-heading')).toHaveFocus());
     expect(await screen.findByTestId('consent-banner')).toHaveAttribute(
       'data-consent-form',
       'device',

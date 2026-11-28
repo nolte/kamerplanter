@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Alert from '@mui/material/Alert';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -12,7 +12,11 @@ import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
 import { useConsent } from '@/hooks/useConsent';
 import { useConsentTexts } from '@/hooks/useConsentTexts';
-import { consentPrompt, decideOnDevice } from '@/observability/consent';
+import {
+  consentPrompt,
+  decideOnDevice,
+  takeConsentBannerFocusRequest,
+} from '@/observability/consent';
 import { decideAccountConsent } from '@/observability/consentSync';
 import { errorTrackerHost } from '@/observability/errorTracking';
 import { BOTTOM_NAV_OFFSET } from '@/components/layout/bottomNavOffset';
@@ -76,6 +80,12 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
   const errorId = useId();
 
   const prompt = consentPrompt(snapshot);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const visible = prompt !== null && textsReady;
+  // N-d: after the public reset link the link is gone; the banner that asks again takes the focus.
+  useEffect(() => {
+    if (visible && takeConsentBannerFocusRequest()) headingRef.current?.focus();
+  }, [visible, prompt]);
   // CB-007: never a decision to a text that is not on screen (the texts are a lazy bundle).
   if ((prompt === null && !outdated) || !textsReady) return null;
 
@@ -200,7 +210,14 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
       sx={BANNER_SX}
     >
       <Stack spacing={1.5}>
-        <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
+        <Typography
+          variant="subtitle1"
+          component="h2"
+          sx={{ fontWeight: 600 }}
+          ref={headingRef}
+          tabIndex={-1}
+          data-testid="consent-banner-heading"
+        >
           {t('consent.banner.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary" data-testid="consent-banner-summary">

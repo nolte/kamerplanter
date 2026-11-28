@@ -235,6 +235,10 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
         ).toBeChecked(),
       );
       expect(screen.getByTestId('browser-consent-device')).toHaveTextContent(/abgelehnt|declined/);
+      // N-b: a declined device is not told the account consent applies here.
+      expect(screen.getByTestId('browser-consent-settings')).not.toHaveTextContent(
+        /gilt für diesen Browser|applies to this browser/,
+      );
       expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
         'data-sending',
         'false',

@@ -50,6 +50,12 @@ export interface ConsentState {
   browser_error_reports: boolean | null;
   timestamp: string | null;
   version: string;
+  /**
+   * The grant was given while signed in (confirmation, account grant, device
+   * switch). It ends with the sign-out (UI-NFR-013 v1.6 CP-016); absent = given
+   * signed out, which the device form's text says holds for this browser.
+   */
+  granted_signed_in?: true;
 }
 
 export const INITIAL_CONSENT_STATE: ConsentState = Object.freeze({
@@ -185,6 +191,9 @@ function parse(raw: string | null): ConsentState {
       browser_error_reports: decision,
       timestamp: typeof parsed.timestamp === 'string' ? parsed.timestamp : null,
       version: version ?? BROWSER_ERROR_REPORTS_VERSION,
+      ...(decision === true && parsed.granted_signed_in === true
+        ? { granted_signed_in: true }
+        : {}),
     };
   } catch {
     // A corrupt entry must read as "not decided", never as consent.
@@ -210,6 +219,9 @@ export function writeConsent(state: ConsentState): void {
     browser_error_reports: state.browser_error_reports,
     timestamp: state.timestamp,
     version: BROWSER_ERROR_REPORTS_VERSION,
+    ...(state.browser_error_reports === true && state.granted_signed_in
+      ? { granted_signed_in: true }
+      : {}),
   };
   try {
     window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(next));
@@ -228,7 +240,34 @@ export function decideOnDevice(decision: boolean | null): void {
     ...INITIAL_CONSENT_STATE,
     browser_error_reports: decision,
     timestamp: decision === null ? null : new Date().toISOString(),
+    // CP-016: remember that the grant was given signed in, so the sign-out ends it.
+    ...(decision === true && auth.kind === 'signed_in' ? { granted_signed_in: true } : {}),
   });
+}
+
+/** The next banner that appears takes the focus (after the public reset link, N-d). */
+let bannerFocusRequested = false;
+
+/** Ask the consent banner to move focus to its heading when it appears next. */
+export function requestConsentBannerFocus(): void {
+  bannerFocusRequested = true;
+}
+
+/** Consume a pending focus request (the banner calls this once it is on screen). */
+export function takeConsentBannerFocusRequest(): boolean {
+  const requested = bannerFocusRequested;
+  bannerFocusRequested = false;
+  return requested;
+}
+
+/**
+ * CP-016: once this tab knows nobody is signed in — sign-out, expired session, a
+ * start without session — a device grant given while signed in is reset to
+ * undecided. A device grant given signed out and every decline stay.
+ */
+function endSignedInDeviceGrant(): void {
+  const device = readConsent();
+  if (device.browser_error_reports === true && device.granted_signed_in) decideOnDevice(null);
 }
 
 // ── Sign-in state and account consent ─────────────────────────────
@@ -257,6 +296,7 @@ export function setAuthStatus(next: AuthStatus): void {
   // CP-009: what was read for the previous person never counts for the next one.
   account = UNKNOWN_ACCOUNT;
   epoch += 1;
+  if (auth.kind === 'signed_out') endSignedInDeviceGrant();
   notify();
 }
 
@@ -457,4 +497,5 @@ export function resetConsentStoreForTests(): void {
   epoch += 1;
   resyncHandler = null;
   snapshot = null;
+  bannerFocusRequested = false;
 }

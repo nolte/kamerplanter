@@ -357,6 +357,9 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     expect(readConsentSnapshot().account.kind).toBe('outdated');
     expect(sends()).toBe(false);
     expect(consentPrompt(readConsentSnapshot())).toBeNull();
+    // S-4 b: the device was not written either.
+    expect(readConsentSnapshot().device.browser_error_reports).toBeNull();
+    expect(window.localStorage.getItem(CONSENT_STORAGE_KEY)).toBeNull();
   });
 
   it('a failed grant changes nothing (CP-012)', async () => {
@@ -369,6 +372,98 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
 
     expect(readConsentSnapshot().account.kind).toBe('undecided');
     expect(sends()).toBe(false);
+    // S-4 b: no device grant from a failed account grant.
+    expect(readConsentSnapshot().device.browser_error_reports).toBeNull();
+  });
+
+  // S-4 a: CP-015 — the account grant does not lift a decline of this device.
+  it('a declined device stays declined when the account is granted in this browser', async () => {
+    window.localStorage.setItem(
+      CONSENT_STORAGE_KEY,
+      JSON.stringify({ necessary: true, browser_error_reports: false, version: '1.0' }),
+    );
+    const store = boot();
+    signIn(store, 'user-a');
+    await accountSettles('undecided');
+
+    await expect(decideAccountConsent(true)).resolves.toBe('confirmed');
+
+    expect(records['user-a']!.granted).toBe(true);
+    expect(readConsentSnapshot().device.browser_error_reports).toBe(false);
+    expect(sends()).toBe(false);
+  });
+
+  // CP-016 (v1.6): a device grant given signed in ends with the sign-out.
+  describe('sign-out ends a signed-in device grant (CP-016)', () => {
+    it('scenario A: A confirms, signs out — the next person on the sign-in page is asked, nothing is sent', async () => {
+      records['user-a'] = { granted: true, consent_version: '1.0', revoked_at: null };
+      const store = boot();
+      signIn(store, 'user-a');
+      await accountSettles('granted');
+      decideOnDevice(true); // "Ja, von diesem Gerät"
+      expect(sends()).toBe(true);
+      expect(JSON.parse(window.localStorage.getItem(CONSENT_STORAGE_KEY)!).granted_signed_in).toBe(
+        true,
+      );
+
+      signOut(store);
+
+      expect(readConsentSnapshot().device.browser_error_reports).toBeNull();
+      expect(sends()).toBe(false);
+      expect(consentPrompt(readConsentSnapshot())).toBe('device');
+    });
+
+    it('scenario B: B signs in with an account grant — the confirmation is asked instead of sending', async () => {
+      records['user-a'] = { granted: true, consent_version: '1.0', revoked_at: null };
+      records['user-b'] = { granted: true, consent_version: '1.0', revoked_at: null };
+      const store = boot();
+      signIn(store, 'user-a');
+      await accountSettles('granted');
+      decideOnDevice(true);
+      signOut(store);
+
+      signIn(store, 'user-b');
+      await accountSettles('granted');
+
+      expect(sends()).toBe(false);
+      expect(consentPrompt(readConsentSnapshot())).toBe('confirm');
+    });
+
+    it('a grant given signed out, and any decline, survive the sign-out', async () => {
+      window.localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({ necessary: true, browser_error_reports: true, version: '1.0' }),
+      );
+      const store = boot();
+      signOut(store);
+      signIn(store, 'user-a');
+      await accountSettles('undecided');
+      signOut(store);
+      expect(readConsentSnapshot().device.browser_error_reports).toBe(true);
+
+      signIn(store, 'user-a');
+      await accountSettles('undecided');
+      decideOnDevice(false);
+      signOut(store);
+      expect(readConsentSnapshot().device.browser_error_reports).toBe(false);
+    });
+
+    it('a start without a session ends a signed-in grant left from before (expired session, closed tab)', () => {
+      window.localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({
+          necessary: true,
+          browser_error_reports: true,
+          version: '1.0',
+          granted_signed_in: true,
+        }),
+      );
+      const store = boot();
+      signOut(store); // the bootstrap ends without a session
+
+      expect(readConsentSnapshot().device.browser_error_reports).toBeNull();
+      expect(sends()).toBe(false);
+    });
   });
 
   it('a failed revoke stops at once, stays pending for that account across a switch, and is sent first (B-3)', async () => {
@@ -468,10 +563,8 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
 
     signOut(store);
     expect(readConsentSnapshot().account.kind).toBe('unknown');
-    // Signed out, only this device's grant counts.
-    expect(sends()).toBe(true);
-
-    decideOnDevice(null);
+    // CP-016: the grant was given signed in, so the sign-out ends it.
+    expect(readConsentSnapshot().device.browser_error_reports).toBeNull();
     expect(sends()).toBe(false);
     expect(consentPrompt(readConsentSnapshot())).toBe('device');
   });

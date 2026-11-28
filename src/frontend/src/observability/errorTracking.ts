@@ -115,8 +115,12 @@ let generation = 0;
 /** The consent subscription, registered once per page by `initErrorTracking`. */
 let unsubscribeConsent: (() => void) | null = null;
 
-/** Default integrations that send outside `beforeSend` (UI-NFR-013 §5.3 CI-005). */
-export const SENDING_INTEGRATIONS: readonly string[] = ['BrowserSession'];
+/**
+ * Default integrations taken out (UI-NFR-013 §5.3 CI-005): `BrowserSession` sends
+ * outside `beforeSend`; `CultureContext` attaches language and time zone, which no
+ * triage needs (v1.6 — less data is better).
+ */
+export const SENDING_INTEGRATIONS: readonly string[] = ['BrowserSession', 'CultureContext'];
 
 /** The SDK's integrations minus those that send on their own. */
 export function withoutSenders<T extends { name: string }>(defaults: T[]): T[] {

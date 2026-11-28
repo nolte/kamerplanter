@@ -468,7 +468,6 @@ describe('errorTracking', () => {
           'BrowserApiErrors',
           'Console',
           'ConversationId',
-          'CultureContext',
           'Dedupe',
           'EventFilters',
           'FunctionToString',
@@ -554,7 +553,7 @@ describe('errorTracking', () => {
       // history breadcrumb of stripping it records the old URL as `from`.
       const value = ['a1', 'b2', 'c3'].join('');
       expect(scrubUrl(`/auth/step-up/callback#step_up_token=${value}&action=account_erasure`)).toBe(
-        '/auth/step-up/callback#step_up_token=[redacted]&action=account_erasure',
+        '/auth/step-up/callback#step_up_token=[redacted]&action=[redacted]',
       );
       expect(scrubUrl(`/x?api_key=${value}#step_up_token=${value}`)).toBe(
         '/x?api_key=[redacted]#step_up_token=[redacted]',
@@ -563,6 +562,71 @@ describe('errorTracking', () => {
 
     it('leaves a plain tab fragment untouched', () => {
       expect(scrubUrl('/account#security')).toBe('/account#security');
+    });
+  });
+
+  // UI-NFR-013 v1.6 CI-006 b (S-1): every value but a positive list of paging/sorting parameters.
+  describe('query and fragment values (S-1)', () => {
+    it.each([
+      ['/pflanzen?q=max+mustermann', '/pflanzen?q=[redacted]'],
+      ['/standorte/sites/12/plan?bed=meinbeet', '/standorte/sites/:key/plan?bed=[redacted]'],
+      ['/x?name=Max&tenant=max-mustermann', '/x?name=[redacted]&tenant=[redacted]'],
+      ['/login?redirect=/standorte/sites/hochbeet', '/login?redirect=[redacted]'],
+      [
+        '/x?e-mail=a%40b.de&mail=a&user=max&code=123456',
+        '/x?e-mail=[redacted]&mail=[redacted]&user=[redacted]&code=[redacted]',
+      ],
+      [
+        '/pflanzen?page=2&pageSize=25&sort=name&dir=asc&tab=list',
+        '/pflanzen?page=2&pageSize=25&sort=name&dir=asc&tab=list',
+      ],
+      ['/kalender?year=2026&mode=month', '/kalender?year=2026&mode=month'],
+      ['/pflanzen?page=zwei&sort=name%20Max', '/pflanzen?page=[redacted]&sort=[redacted]'],
+      ['/x#q=geheim&tab=export', '/x#q=[redacted]&tab=export'],
+    ])('%s -> %s', (url, scrubbed) => {
+      expect(scrubUrl(url)).toBe(scrubbed);
+    });
+
+    it('applies to request.url, Referer, breadcrumbs and URLs in text', () => {
+      const event = scrubEvent({
+        request: {
+          url: 'https://kp.example/pflanzen?q=Tomate+Berta',
+          headers: { Referer: 'https://kp.example/ernte?q=Berta' },
+        },
+        exception: { values: [{ value: 'GET /api/v1/t/x/plants?q=Berta failed' }] },
+      });
+      expect(JSON.stringify(event)).not.toContain('Berta');
+      const crumb = scrubBreadcrumb({
+        category: 'navigation',
+        data: { from: '/a?q=Berta', to: '/b' },
+      })!;
+      expect(JSON.stringify(crumb)).not.toContain('Berta');
+    });
+  });
+
+  // N-e: origin credentials, nested values, frontend paths in free text.
+  describe('further address and value rules (N-e)', () => {
+    it('drops credentials from the origin', () => {
+      // Assembled at runtime: a URL-with-password literal trips the credential-shape guard.
+      const userInfo = ['max', 'geheim'].join(':');
+      expect(scrubUrl(`https://${userInfo}@kp.example/pflanzen`)).toBe(
+        'https://kp.example/pflanzen',
+      );
+    });
+
+    it('masks frontend paths inside free text (React Router message)', () => {
+      expect(
+        maskUrlsInText('No routes matched location "/standorte/sites/hochbeet-sued/plan"'),
+      ).toBe('No routes matched location "/standorte/sites/:key/plan"');
+    });
+
+    it('masks nested values and redacts sensitive names at any depth', () => {
+      const event = scrubEvent({
+        extra: { context: { url: '/api/v1/t/max-mustermann/x', inner: [{ token: 'abc' }] } },
+      });
+      expect(event.extra).toEqual({
+        context: { url: '/api/v1/t/:tenant/x', inner: [{ token: '[redacted]' }] },
+      });
     });
   });
 

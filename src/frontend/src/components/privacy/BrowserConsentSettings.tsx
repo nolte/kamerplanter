@@ -88,7 +88,8 @@ export default function BrowserConsentSettings() {
         sx={{ mb: 1 }}
       >
         {t('consent.banner.category.browser_error_reports.description', { host })}{' '}
-        {t('consent.banner.scope_account')}
+        {/* N-b: a declined device is not told the account consent applies here. */}
+        {device !== false && t('consent.banner.scope_account')}
       </Typography>
       <FormControlLabel
         control={

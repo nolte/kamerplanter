@@ -164,7 +164,25 @@ export function redactRecord(record: Record<string, unknown>): void {
   }
 }
 
-/** Redact the values of sensitive `name=value` pairs in a query string or fragment. */
+/**
+ * Query and fragment parameters whose values may stay (UI-NFR-013 v1.6 CI-006 b):
+ * the ones the app actually uses for paging, sorting and view state, and only
+ * with a number-like or enum-like value. Every other value — the table search
+ * `q`, a bed name, a redirect target, an e-mail — becomes `[redacted]`; the name
+ * stays, it is the useful part for triage.
+ */
+const NUMERIC_PARAMS = new Set(['page', 'pageSize', 'offset', 'limit', 'year', 'years']);
+const ENUM_PARAMS = new Set(['sort', 'dir', 'mode', 'tab', 'format', 'status', 'scope']);
+const NUMERIC_VALUE = /^\d{1,6}(?:,\d{1,6})*$/;
+const ENUM_VALUE = /^[A-Za-z0-9_.-]{1,32}$/;
+
+function keepsValue(name: string, value: string): boolean {
+  if (NUMERIC_PARAMS.has(name)) return NUMERIC_VALUE.test(value);
+  if (ENUM_PARAMS.has(name)) return ENUM_VALUE.test(value);
+  return false;
+}
+
+/** Redact every parameter value of a query string or fragment except the positive list. */
 function scrubParams(params: string): string {
   return params
     .split('&')
@@ -172,7 +190,9 @@ function scrubParams(params: string): string {
       const eq = pair.indexOf('=');
       if (eq < 0) return pair;
       const name = pair.slice(0, eq);
-      return isSensitiveName(name) ? `${name}=${REDACTED}` : pair;
+      const value = pair.slice(eq + 1);
+      if (value === '') return pair;
+      return keepsValue(name, value) ? pair : `${name}=${REDACTED}`;
     })
     .join('&');
 }
@@ -180,10 +200,9 @@ function scrubParams(params: string): string {
 const ORIGIN = /^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i;
 
 /**
- * Mask the path (`maskPath`) and redact the query string's and the fragment's
- * sensitive parameters. Origin and route shape survive — they are the grouping
- * signal; a `?token=…`, a `#step_up_token=…` (#1815), a tenant slug and a record
- * key do not.
+ * Mask the path (`maskPath`), drop credentials from the origin and redact the
+ * values of query string and fragment (`scrubParams`). Origin host and route
+ * shape survive — they are the grouping signal.
  */
 export function scrubUrl(url: string): string {
   const hashAt = url.indexOf('#');
@@ -192,26 +211,47 @@ export function scrubUrl(url: string): string {
   const queryAt = beforeHash.indexOf('?');
   const base = queryAt < 0 ? beforeHash : beforeHash.slice(0, queryAt);
   const query = queryAt < 0 ? null : beforeHash.slice(queryAt + 1);
-  const origin = ORIGIN.exec(base)?.[0] ?? '';
-  const path = base.slice(origin.length);
+  const rawOrigin = ORIGIN.exec(base)?.[0] ?? '';
+  // `https://user:secret@host` — the user info is a credential, not a location.
+  const origin = rawOrigin.replace(/\/\/[^/@]*@/, '//');
+  const path = base.slice(rawOrigin.length);
   let scrubbed = origin + (path ? maskPath(path) : '');
   if (query !== null) scrubbed += query ? `?${scrubParams(query)}` : '?';
   if (fragment !== null) scrubbed += `#${scrubParams(fragment)}`;
   return scrubbed;
 }
 
-/** URLs and API paths inside free text: an Axios message, a console line, a stack frame. */
+/**
+ * URLs and paths inside free text: an Axios message, a console line, React
+ * Router's `No routes matched location "/standorte/sites/…"`. Absolute URLs,
+ * `/api/vN/…` anywhere, and other paths when they start a quoted string, follow
+ * a space or open the text.
+ */
 const URL_IN_TEXT = /(?:[a-z][a-z0-9+.-]*:\/\/[^\s"'<>()]+|\/api\/v\d+\/[^\s"'<>()]+)/gi;
+const PATH_IN_TEXT = /(^|[\s"'(=])(\/[A-Za-z0-9][^\s"'<>()]*)/g;
 
-/** Apply {@link scrubUrl} to every URL inside a text. */
+/** Apply {@link scrubUrl} to every URL or path inside a text. */
 export function maskUrlsInText(text: string): string {
-  return text.replace(URL_IN_TEXT, (match) => scrubUrl(match));
+  return text
+    .replace(URL_IN_TEXT, (match) => scrubUrl(match))
+    .replace(PATH_IN_TEXT, (_match, before: string, path: string) => before + scrubUrl(path));
 }
 
-function maskStringsIn(record: Record<string, unknown>): void {
-  for (const [key, value] of Object.entries(record)) {
-    if (typeof value === 'string') record[key] = maskUrlsInText(value);
+const MAX_DEPTH = 5;
+
+/** Mask URLs in every string of a record, also in nested objects and arrays (depth ≤ 5). */
+function maskStringsIn(value: unknown, depth = 0): unknown {
+  if (typeof value === 'string') return maskUrlsInText(value);
+  if (depth >= MAX_DEPTH || value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i += 1) value[i] = maskStringsIn(value[i], depth + 1);
+    return value;
   }
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    record[key] = isSensitiveName(key) ? REDACTED : maskStringsIn(record[key], depth + 1);
+  }
+  return record;
 }
 
 /** `beforeSend`: strip personal data before the event leaves the browser. */
@@ -227,15 +267,13 @@ export function scrubEvent(event: Record<string, unknown>): Record<string, unkno
       request.query_string = scrubUrl(`?${request.query_string}`).slice(1);
     }
     const headers = request.headers as Record<string, unknown> | undefined;
-    if (headers) {
-      // The Referer is the previous page's full URL.
-      maskStringsIn(headers);
-      redactRecord(headers);
-    }
+    // The Referer is the previous page's full URL.
+    if (headers) maskStringsIn(headers);
   }
 
-  if (typeof event.transaction === 'string')
+  if (typeof event.transaction === 'string') {
     event.transaction = maskUrlsInText(maskPath(event.transaction));
+  }
   if (typeof event.message === 'string') event.message = maskUrlsInText(event.message);
 
   const exception = event.exception as { values?: Record<string, unknown>[] } | undefined;
@@ -252,32 +290,41 @@ export function scrubEvent(event: Record<string, unknown>): Record<string, unkno
 
   for (const section of ['extra', 'tags', 'contexts'] as const) {
     const value = event[section] as Record<string, unknown> | undefined;
-    if (value) {
-      maskStringsIn(value);
-      redactRecord(value);
-    }
+    if (value) maskStringsIn(value);
   }
 
   return event;
 }
 
+/** `[aria-label="Tomate Berta"]` → `[aria-label]`: the app puts plant and person names there. */
+const LABEL_ATTRIBUTE = /\[(aria-label|title|alt)="(?:[^"\\]|\\.)*"\]/g;
+
 /**
  * `beforeBreadcrumb`: the same rules for the trail leading up to the event.
  *
- * `ui.input` breadcrumbs are dropped wholesale. The SDK records only that an
- * input happened, not its value — but the trail of *which* fields a user
- * touched is itself context we have no reason to ship.
+ * - `ui.input` is dropped wholesale: which fields a user touched is context we
+ *   have no reason to ship.
+ * - `ui.click`: the SDK describes the target with its `aria-label`, `title` and
+ *   `alt` values (`htmlTreeAsString`, no masking option is passed by the
+ *   breadcrumbs integration in 11.16) — their values are removed here.
+ * - `console`: the SDK keeps the raw arguments in `data.arguments` next to the
+ *   formatted `message`; the arguments are dropped, the message is masked.
  */
 export function scrubBreadcrumb(crumb: Record<string, unknown>): Record<string, unknown> | null {
   if (crumb.category === 'ui.input') return null;
 
-  if (typeof crumb.message === 'string') crumb.message = maskUrlsInText(crumb.message);
+  if (typeof crumb.message === 'string') {
+    let message = crumb.message;
+    if (crumb.category === 'ui.click') message = message.replace(LABEL_ATTRIBUTE, '[$1]');
+    crumb.message = maskUrlsInText(message);
+  }
   const data = crumb.data as Record<string, unknown> | undefined;
   if (data) {
+    if (crumb.category === 'console') delete data.arguments;
     if (typeof data.url === 'string') data.url = scrubUrl(data.url);
     if (typeof data.from === 'string') data.from = scrubUrl(data.from);
     if (typeof data.to === 'string') data.to = scrubUrl(data.to);
-    redactRecord(data);
+    maskStringsIn(data);
   }
   return crumb;
 }

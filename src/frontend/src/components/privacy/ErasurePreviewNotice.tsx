@@ -49,7 +49,9 @@ export default function ErasurePreviewNotice({
         role="status"
         data-testid={`${testIdPrefix}-loading`}
       >
-        {admin ? t('pages.auth.adminErasurePreviewLoading') : t('pages.privacy.erasurePreviewLoading')}
+        {admin
+          ? t('pages.auth.adminErasurePreviewLoading')
+          : t('pages.privacy.erasurePreviewLoading')}
       </Box>
     );
   } else if (preview.status === 'error') {
@@ -63,13 +65,18 @@ export default function ErasurePreviewNotice({
         {admin ? t('pages.auth.adminErasurePreviewError') : t('pages.privacy.erasurePreviewError')}
       </Box>
     );
-  } else if (preview.status === 'ready' && (preview.tenants.length > 0 || preview.organizations.length > 0)) {
+  } else if (
+    preview.status === 'ready' &&
+    (preview.tenants.length > 0 || preview.organizations.length > 0)
+  ) {
     const anyShared = preview.tenants.some((tenant) => tenant.other_member_count > 0);
     content = (
       <Box component="span" sx={{ ...block, mt: 1 }} data-testid={testIdPrefix}>
         {preview.tenants.length > 0 && (
           <Box component="strong" sx={block}>
-            {admin ? t('pages.auth.adminErasurePreviewHeading') : t('pages.privacy.erasurePreviewHeading')}
+            {admin
+              ? t('pages.auth.adminErasurePreviewHeading')
+              : t('pages.privacy.erasurePreviewHeading')}
           </Box>
         )}
         {preview.tenants.map((tenant, index) => (
@@ -101,12 +108,16 @@ export default function ErasurePreviewNotice({
             sx={{ ...block, mt: 1 }}
             data-testid={`${testIdPrefix}-shared-hint`}
           >
-            {admin ? t('pages.auth.adminErasurePreviewSharedHint') : t('pages.privacy.erasurePreviewSharedHint')}
+            {admin
+              ? t('pages.auth.adminErasurePreviewSharedHint')
+              : t('pages.privacy.erasurePreviewSharedHint')}
           </Box>
         )}
         {preview.organizations.length > 0 && (
           <Box component="strong" sx={{ ...block, mt: preview.tenants.length > 0 ? 1 : 0 }}>
-            {admin ? t('pages.auth.adminErasurePreviewOrgHeading') : t('pages.privacy.erasurePreviewOrgHeading')}
+            {admin
+              ? t('pages.auth.adminErasurePreviewOrgHeading')
+              : t('pages.privacy.erasurePreviewOrgHeading')}
           </Box>
         )}
         {preview.organizations.map((org, index) => {
