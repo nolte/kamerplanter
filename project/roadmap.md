@@ -172,7 +172,7 @@ detail: fine
 outcomes: [O-5, O-4]
 target_sprint: 5
 mvp: true
-status: proposed
+status: active
 ```
 
 Export und Import eines Mandanten sind geliefert (#2267 ff.), stellen einen

@@ -1,7 +1,7 @@
 ---
 number: 5
-status: planned
-started: null
+status: active
+started: 2026-11-28
 ended: null
 value_statement: Plattform-Admins stellen einen Garten aus seinem Archiv vollständig wieder her – samt Sensor-Historie im Rahmen der Aufbewahrungsfristen, nach einer Vorprüfung mit Mitgliederzuordnung per E-Mail und bis zu einer Archivgröße von etwa 500 MiB.
 artifact_ref: null
@@ -166,7 +166,7 @@ ein Feature zu blockieren: ob die Grenze für `manifest.json` steigen soll
 
 ## Features
 
-- [F-15](../features/tenant-archive-size-limits.md) — status: ready
+- [F-15](../features/tenant-archive-size-limits.md) — status: in_progress
 - [F-32](../features/tenant-import-document-validation.md) — status: ready
 - [F-17](../features/tenant-import-preflight.md) — status: ready
 - [F-33](../features/tenant-import-list.md) — status: ready

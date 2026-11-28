@@ -1,7 +1,7 @@
 ---
 id: F-15
 title: Archivgrößen bis ~500 MiB mit klarer Grenze
-status: ready
+status: in_progress
 roadmap_item: R-19
 sprint: 5
 created: 2026-11-17
