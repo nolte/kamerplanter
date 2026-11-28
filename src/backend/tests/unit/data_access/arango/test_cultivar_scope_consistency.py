@@ -743,6 +743,10 @@ _DECLARED_CULTIVAR_READERS: dict[str, str] = {
     "domain/services/print_service.py": (
         "anchored dereference — renders the cultivar name of a plant already selected under the caller's tenant."
     ),
+    "domain/services/species_visibility.py": (
+        "scoped by its own predicate — ``readable_cultivar`` (F-21) reads by key and returns the cultivar only when it "
+        "is global, the tenant's own or granted to it; a foreign cultivar counts as none."
+    ),
     "domain/services/watering_service.py": (
         "anchored dereference — resolves ``plant.cultivar_key`` while building a watering plan for that plant."
     ),

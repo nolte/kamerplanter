@@ -25,6 +25,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
+from app.common.datetimes import replace_year
 from app.common.enums import EvidenceStatus, HostLevel, SoilHazard
 from app.domain.engines.soil_hazard_knowledge_engine import ResolvedSoilHazardDurations, SoilHazardKnowledgeEngine
 from app.domain.models.bed_soil_hazard import BedSoilHazard
@@ -83,10 +84,7 @@ class SoilHazardVerdict:
 
 def add_years(day: date, years: int) -> date:
     """``day`` moved by ``years`` calendar years; 29 February becomes 28 February in a common year."""
-    try:
-        return day.replace(year=day.year + years)
-    except ValueError:
-        return day.replace(year=day.year + years, day=28)
+    return replace_year(day, day.year + years)
 
 
 def _normalised(text: str | None) -> str:
