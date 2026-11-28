@@ -154,6 +154,9 @@ class World:
             "shelf_in_room", "Regal", location_type_key="shelf", parent_location_key="room"
         )
         self.repo.locations["bed_in_room"] = make_location("bed_in_room", "Rinne", parent_location_key="room")
+        self.repo.locations["planter_in_room"] = make_location(
+            "planter_in_room", "Kübel", location_type_key="planter", parent_location_key="room"
+        )
         self.repo.locations["zone_in_room"] = make_location(
             "zone_in_room", "Zone", location_type_key="zone", parent_location_key="room"
         )
@@ -165,6 +168,7 @@ class World:
             _standing("kohl_shelf", "shelf_in_room"),
             _standing("kohl_room_bed", "bed_in_room"),
             _standing("kohl_garden", "garden"),
+            _standing("kohl_planter", "planter_in_room"),
         )
         self.hazard_repo = FakeBedSoilHazardRepo(self.repo)
         # The plant store the plant service writes, so an accepted offer reads the loss the remove call stored.
@@ -667,6 +671,12 @@ class TestHydroponicsFromTheParent:
         assert response.status_code == 200
         assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
         assert response.json()["soil_hazard_follow_up"]["location_key"] == "shelf_in_room"
+
+    def test_a_loss_in_a_planter_under_it_is_the_clean_system_hint(self, client, world) -> None:
+        """Confirm review SF-1: ``planter`` is a bed type and a vessel - the hint, as for a shelf."""
+        response = client().post(f"{_BASE}/plant-instances/kohl_planter/remove", json=SUSPECTED_LOSS)
+
+        assert response.json()["soil_hazard_follow_up"]["kind"] == "clean_system"
 
     def test_a_confirmed_loss_in_a_soil_bed_under_it_is_offered_and_taken_over(self, client, world) -> None:
         response = client().post(f"{_BASE}/plant-instances/kohl_room_bed/remove", json=CONFIRMED_LOSS)

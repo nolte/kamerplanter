@@ -7739,7 +7739,7 @@
         "humus": "Humusgehalt",
         "humusHelper": "Anteil organischer Substanz in Prozent.",
         "substrateReplacedOn": "Substrat erneuert am",
-        "substrateReplacedOnHelper": "Der Tag, an dem du die Erde des Beets ausgetauscht hast (nicht nur aufgefüllt). Bodengefahren wie Kohlhernie, die vor diesem Tag bestätigt wurden, warnen danach nicht mehr – der Erreger ist mit der alten Erde gegangen. Leer lassen, wenn die Erde nie getauscht wurde.",
+        "substrateReplacedOnHelper": "Der Tag, an dem du die Erde des Beets ausgetauscht hast (nicht nur aufgefüllt). Bodengefahren wie Kohlhernie, die vor diesem Tag bestätigt wurden, warnen danach nicht mehr – der Erreger ist mit der alten Erde gegangen. Juglon (Walnuss) hebt das Datum nicht auf: Der Baum gibt es über seine Wurzeln auch in die neue Erde ab. Leer lassen, wenn die Erde nie getauscht wurde.",
         "substrateReplacedOnFuture": "Der Tag darf nicht in der Zukunft liegen.",
         "notes": "Notizen",
         "saved": "Bodenprofil gespeichert.",
@@ -8409,7 +8409,9 @@
             "residualUntil": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Belegt ist, dass der Erreger mindestens bis {{year}} im Boden überdauern kann; danach meldet Kamerplanter ihn nicht mehr. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
             "residualOpen": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Wie lange der Erreger im Boden überdauert, ist nicht belegt – das Restrisiko bleibt, bis die Leitung die Bodengefahr am Beet entfernt. Du kannst ohne Grund pflanzen.",
             "soft": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Dieser Erreger befällt fast alle Gemüsearten, auch diese ({{host}}). Eine Warnung träfe deshalb fast jedes Beet – achte stattdessen auf kranke Pflanzen und entferne sie früh. Du kannst ohne Grund pflanzen.",
-            "uncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen."
+            "uncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
+            "jugloneWarning": "{{where}} wurde am {{confirmed}} {{hazard}} eingetragen, und diese Pflanze reagiert empfindlich darauf ({{host}}). Juglon kommt aus den Wurzeln und dem Laub des Walnussbaums und gelangt immer wieder in den Boden – auch in frische Erde. Die Warnung bleibt, bis die Leitung den Eintrag entfernt. Wähle besser ein anderes Beet oder einen Platz außerhalb der Reichweite des Baums. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "jugloneUncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} eingetragen. Ob diese Pflanze ({{host}}) empfindlich auf Juglon aus den Wurzeln des Walnussbaums reagiert, ist nicht sicher belegt. Achte auf erste Anzeichen wie welkende Blätter. Du kannst ohne Grund pflanzen."
           },
           "noFamily": "Für diese Art ist keine Familie hinterlegt. Die Fruchtfolge lässt sich nicht prüfen.",
           "noHistory": "Für dieses Beet ist keine Vorgeschichte erfasst. Die Fruchtfolge lässt sich nicht prüfen.",

@@ -450,6 +450,17 @@ class TestTheIrrigationSystemComesFromTheParents:
         assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
         assert follow_up_for_loss(plant, shelf, is_bed=False, ancestors=[]) is None
 
+    @pytest.mark.parametrize(("type_key", "is_bed"), [("planter", True), ("shelf", False), ("container", False)])
+    def test_a_vessel_under_a_hydroponic_room_gets_the_clean_system_hint(self, type_key: str, is_bed: bool) -> None:
+        """Confirm review SF-1: ``planter`` is a vessel and a bed type - it gets the hint like a shelf."""
+        room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
+        vessel = _bed("pot_1", type_key=type_key, parent_location_key="room")
+
+        follow_up = follow_up_for_loss(_loss(location_key="pot_1"), vessel, is_bed=is_bed, ancestors=[room])
+
+        assert follow_up is not None and follow_up.kind is SoilHazardFollowUpKind.CLEAN_SYSTEM
+        assert soil_hazard_scope(vessel, is_bed=is_bed, ancestors=[room]) is SoilHazardScope.CONTAINER
+
     def test_a_soil_bed_under_a_hydroponic_room_is_offered_the_take_over(self) -> None:
         room = _area("room", type_key="room", irrigation=IrrigationSystem.HYDRO)
 
@@ -568,3 +579,23 @@ class TestTheSubstrateDateChange:
     )
     def test_the_summary(self, stored, sent, summary) -> None:
         assert substrate_replaced_on_change(stored, sent) == summary
+
+
+def test_a_substrate_change_without_an_account_is_refused_not_a_500() -> None:
+    """Confirm review N-a: the audit write raises the 403 domain error, before touching the transaction."""
+    from unittest.mock import MagicMock
+
+    from app.common.exceptions import ForbiddenError
+    from app.data_access.arango.care_event_repository import _audit_substrate_change
+
+    txn = MagicMock()
+    with pytest.raises(ForbiddenError):
+        _audit_substrate_change(
+            txn,
+            {"_key": "bed", "site_key": "site"},
+            {},
+            {"substrate_replaced_on": "2026-04-01"},
+            tenant_key="ten",
+            user_key="",
+        )
+    txn.collection.assert_not_called()

@@ -369,7 +369,8 @@ class TestTheCultivationWindow:
         assert "rotation.pause_not_elapsed" not in codes(result)
 
     def test_a_plant_inside_its_window_that_stood_longer_than_a_season_counts_for_its_earlier_years(self, world):
-        """D-S4 (2026-11-28): a 1000-day cultivar planted 2024-04, lost 2025-09, replanted 2026-05 -> 2024 counts."""
+        """D-S4 / REQ-053 v1.62: a 1000-day cultivar planted 2024-04, lost 2025-09, replanted 2026-05 counts in full -
+        exactly the perennial rule: a replant in a later year than the loss leaves no year out (confirm review SF-3)."""
         validator, _plan, history = world
         validator._species_repo.cultivars["cv_long"] = Cultivar(
             _key="cv_long", name="cv_long", species_key="cabbage", days_to_maturity=1000
@@ -388,7 +389,28 @@ class TestTheCultivationWindow:
             result = check(validator, "cabbage", replant_of_plant_key=long_one)
 
         (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
-        assert (pause.last_year, pause.years_since) == (2024, 2)
+        assert (pause.last_year, pause.years_since) == (2025, 1)
+
+    def test_a_long_stayed_plant_replanted_in_the_year_of_its_loss_leaves_out_only_that_year(self, world):
+        validator, _plan, history = world
+        validator._species_repo.cultivars["cv_long"] = Cultivar(
+            _key="cv_long", name="cv_long", species_key="cabbage", days_to_maturity=1000
+        )
+        long_one = history.add_plant(
+            "bed",
+            "cabbage",
+            date(2024, 4, 15),
+            removed_on=date(2025, 9, 10),
+            termination_type="died",
+            termination_cause="frost",
+            cultivar_key="cv_long",
+        )
+
+        with freeze_time("2025-10-01"):
+            result = check(validator, "cabbage", replant_of_plant_key=long_one)
+
+        (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
+        assert (pause.last_year, pause.years_since) == (2024, 1)
 
     def test_a_perennial_that_stood_past_its_window_leaves_out_only_the_year_of_its_loss(self, world) -> None:
         validator, _plan, history = world

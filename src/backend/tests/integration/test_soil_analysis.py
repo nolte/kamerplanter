@@ -795,3 +795,21 @@ class TestTheSubstrateDateIsAudited:
         self._patch(db, {"drainage": "poor"})
 
         assert self._rows(db) == []
+
+    def test_the_patch_that_also_changes_the_zone_writes_the_row_too(self, db) -> None:  # type: ignore[no-untyped-def]
+        """Confirm review N-f: the second PATCH transaction (``_update_location_fields_with_zone``) declares and
+        writes ``garden_plan_audit`` as well."""
+        from app.data_access.arango.garden_plan_repository import ArangoGardenPlanRepository
+        from app.domain.interfaces.garden_plan_repository import SoilProfileEdit
+
+        ArangoGardenPlanRepository(db).update_location_fields(
+            "L1",
+            {"irrigation_zone_key": None},
+            soil=SoilProfileEdit(
+                tenant_key="t1", user_key="u1", profile={"drainage": "good", "substrate_replaced_on": "2026-04-01"}
+            ),
+        )
+
+        assert [(r["entity"], r["summary"]) for r in self._rows(db)] == [
+            ("substrate_replaced_on", "none -> 2026-04-01")
+        ]

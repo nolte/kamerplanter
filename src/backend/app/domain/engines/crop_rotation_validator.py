@@ -100,13 +100,13 @@ MAX_ONE_SEASON_DAYS = 365
 
 
 def _stood_one_season(planted_on: date, removed_on: date) -> bool:
-    """Whether a plant stood one season at most: planted in the calendar year of its loss or the one before (UTC days)
-    and at most :data:`MAX_ONE_SEASON_DAYS` before it.
+    """Whether a plant stood one season at most: planted at most :data:`MAX_ONE_SEASON_DAYS` (UTC days) before its loss.
 
-    The operator decision names the calendar years; the day bound keeps its own example apart - April 2024 to
-    September 2025 lies in "the year before" too, yet stood through two summers and must count (D-S4, 2026-11-28).
+    The operator decision names "the same or the previous calendar year"; the day bound alone keeps its own example
+    apart - April 2024 to September 2025 lies in "the year before" too, yet stood through two summers and must count
+    (D-S4, REQ-053 v1.62 §11.3a Nr. 3). Within 365 days the calendar-year condition always holds.
     """
-    return planted_on.year >= removed_on.year - 1 and (removed_on - planted_on).days <= MAX_ONE_SEASON_DAYS
+    return (removed_on - planted_on).days <= MAX_ONE_SEASON_DAYS
 
 
 class FamilySource(Protocol):
@@ -781,7 +781,11 @@ class CropRotationValidator:
             return False if removed.year == today.year else None
         if today > window_end:
             return None
-        return _stood_one_season(plant.planted_on, removed)
+        if _stood_one_season(plant.planted_on, removed):
+            return True
+        # Longer than one season: exactly the perennial rule above (REQ-053 v1.62 §11.3a Nr. 3) - only the year of the
+        # loss stays out, and only for a replant in that year; in a later year the plant counts in full.
+        return False if removed.year == today.year else None
 
     def _bed_history(
         self,
@@ -886,7 +890,8 @@ class CropRotationValidator:
         # The soil hazards hang on the soil, not on the rotation: checked before the rotation switch (GP-FR-137,
         # REQ-053 §11.3a Nr. 6) - a rotation_exempt bed or one switched off still reports them.
         # The soil's hazards: the bed's own and its parent chain's (a walnut's juglone at the garden above), none in
-        # a vessel or where the bed inherits hydroponics (REQ-053 §11.3a Nr. 5 v1.60) - one read for both uses below.
+        # a vessel or at an own hydroponic value; under inherited hydroponics only its own (REQ-053 §11.3a Nr. 5
+        # v1.61) - one read for both uses below.
         bed_hazards = effective_soil_hazards(location, location_ancestors(sites, location))
         hazards = self._soil_hazard_findings(location, bed_hazards, species, family_name)
 

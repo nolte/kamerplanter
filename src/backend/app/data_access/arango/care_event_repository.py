@@ -26,7 +26,7 @@ from arango.database import StandardDatabase
 from pydantic import BaseModel
 from pydantic import ValidationError as PydanticValidationError
 
-from app.common.exceptions import DuplicateError, NotFoundError, PlanError, WriteConflictError
+from app.common.exceptions import DuplicateError, ForbiddenError, NotFoundError, PlanError, WriteConflictError
 from app.data_access.arango import collections as col
 from app.data_access.arango.base_repository import BaseArangoRepository
 from app.data_access.arango.transactions import StreamTransaction, TransactionAql, stream_transaction
@@ -578,7 +578,8 @@ def _audit_substrate_change(
     if summary is None:
         return
     if not user_key:
-        raise ValueError("A change of substrate_replaced_on needs the caller's user_key for its audit row (D-S3).")
+        # No account to put on the audit row: refused like any change without an actor, never a 500 (D-S3).
+        raise ForbiddenError("Changing the substrate renewal day needs a known account.")
     site_key = str(location.get("site_key") or "")
     revision = next(
         iter(

@@ -7739,7 +7739,7 @@
         "humus": "Humus content",
         "humusHelper": "Share of organic matter in percent.",
         "substrateReplacedOn": "Substrate renewed on",
-        "substrateReplacedOnHelper": "The day you replaced the soil of the bed (not just topped it up). Soil hazards such as clubroot confirmed before this day no longer warn – the pathogen left with the old soil. Leave empty if the soil was never replaced.",
+        "substrateReplacedOnHelper": "The day you replaced the soil of the bed (not just topped it up). Soil hazards such as clubroot confirmed before this day no longer warn – the pathogen left with the old soil. Juglone (walnut) is not lifted by this date: the tree keeps releasing it into the new soil through its roots. Leave empty if the soil was never replaced.",
         "substrateReplacedOnFuture": "The day cannot lie in the future.",
         "notes": "Notes",
         "saved": "Soil profile saved.",
@@ -8409,7 +8409,9 @@
             "residualUntil": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. It is evidenced that the pathogen can survive in the soil at least until {{year}}; after that, Kamerplanter no longer reports it. Watch for first signs. You can plant without a reason.",
             "residualOpen": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. How long the pathogen survives in the soil is not known – the residual risk stays until a lead removes the soil hazard from the bed. You can plant without a reason.",
             "soft": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. This pathogen attacks almost every vegetable, this one too ({{host}}). A warning would therefore hit almost every bed – watch for sick plants instead and remove them early. You can plant without a reason.",
-            "uncertainHost": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason."
+            "uncertainHost": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason.",
+            "jugloneWarning": "{{hazard}} was recorded {{where}} on {{confirmed}}, and this plant is sensitive to it ({{host}}). Juglone comes from the roots and leaves of the walnut tree and keeps reaching the soil – fresh soil too. The warning stays until a lead removes the entry. Better choose another bed or a spot out of the tree's reach. If you still want to plant, note the reason briefly.",
+            "jugloneUncertainHost": "Note: {{hazard}} was recorded {{where}} on {{confirmed}}. Whether this plant ({{host}}) is sensitive to juglone from the walnut tree's roots is not reliably known. Watch for first signs such as wilting leaves. You can plant without a reason."
           },
           "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
           "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",

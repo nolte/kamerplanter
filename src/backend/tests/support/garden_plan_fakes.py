@@ -504,7 +504,9 @@ class FakePlanRepo(IGardenPlanRepository):
         if summary is None:
             return
         if not soil.user_key:
-            raise ValueError("A change of substrate_replaced_on needs the caller's user_key (D-S3).")
+            from app.common.exceptions import ForbiddenError
+
+            raise ForbiddenError("Changing the substrate renewal day needs a known account.")
         site = self._sites.get_site_by_key(location.site_key)
         self.audit_rows.append(
             PlanAuditRecord(

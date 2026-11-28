@@ -642,11 +642,13 @@ class PlanAuditRecord(BaseModel):
     site_key: str
     revision: int
     user_key: str
-    #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4).
+    #: ``delete``, ``delete_cascade``, ``set_boundary``, ``retire`` or ``reactivate`` (a bed's lifecycle, §7.4),
+    #: ``redact`` (a care event) or ``update`` (a changed ``substrate_replaced_on``, #2888 D-S3).
     op: str
     #: ``location``, ``garden_object``, ``site``, ``care_event`` (a redaction), ``irrigation_zone`` (a zone delete,
-    #: REQ-053 WP 7.1) or ``soil_hazard`` (the lead removed a soil hazard of the bed ``key``; ``summary`` is the hazard
-    #: key and its confirmation day, #2888 O6).
+    #: REQ-053 WP 7.1), ``soil_hazard`` (the lead removed a soil hazard of the bed ``key``; ``summary`` is the hazard
+    #: key and its confirmation day, #2888 O6) or ``substrate_replaced_on`` (the soil profile's renewal day of the
+    #: location ``key`` changed; ``summary`` is ``"<old> -> <new>"``, ISO days or ``none``, #2888 D-S3).
     entity: str
     key: str
     summary: str = Field(default="", max_length=200)

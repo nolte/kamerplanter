@@ -129,8 +129,36 @@ describe('a host of a soil hazard of the bed (acceptance-1)', () => {
       ),
     );
     const panel = await openPanel();
-    expect(panel).toHaveTextContent('was confirmed at “Obstwiese” above this bed on');
+    expect(panel).toHaveTextContent('was recorded at “Obstwiese” above this bed on');
     expect(panel).not.toHaveTextContent('confirmed in this bed');
+  });
+
+  it('words juglone without a pathogen and without advice to renew the substrate (confirm review SF-2)', async () => {
+    usePlantingBackend(
+      answer(
+        [
+          soilFinding('soil_hazard.no_evidenced_pause', 'WARNING', {
+            hazard: 'juglone',
+            hazard_stage: 'no_evidenced_pause',
+            host_level: 'species',
+            host_name: 'Solanum lycopersicum',
+          }),
+          soilFinding('soil_hazard.uncertain_host', 'INFO', {
+            hazard: 'juglone',
+            hazard_stage: 'no_evidenced_pause',
+            host_level: 'genus',
+            host_name: 'Brassica',
+          }),
+        ],
+        'WARNING',
+      ),
+    );
+    const panel = await openPanel();
+    expect(panel).toHaveTextContent('Juglone comes from the roots and leaves of the walnut tree');
+    expect(panel).toHaveTextContent('The warning stays until a lead removes the entry');
+    expect(panel).toHaveTextContent("sensitive to juglone from the walnut tree's roots");
+    expect(panel).not.toHaveTextContent('renew the substrate');
+    expect(panel).not.toHaveTextContent('pathogen');
   });
 
   it('shows the hazard on a bed whose rotation check is off, with a note why it still applies', async () => {

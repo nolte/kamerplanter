@@ -108,14 +108,16 @@ def has_own_hydroponics(location: Location) -> bool:
 def lacks_soil(location: Location, ancestors: Sequence[Location], *, is_bed: bool) -> bool:
     """Whether ``location`` has no soil of its own: no entry, no offer, the clean-system hint after a loss.
 
-    Its own hydroponic value always; an inherited one only at a location without a bed type (a shelf or tent left at
-    ``manual`` under a hydroponic room). A bed type left at ``manual`` stays a soil bed under such a room - a
+    Its own hydroponic value always; an inherited one at a location without a bed type and at every vessel (a shelf,
+    tent, container group - and a ``planter``, which the catalogue lists as a bed type, REQ-053 v1.62) left at
+    ``manual`` under a hydroponic room. A soil bed type left at ``manual`` stays a soil bed under such a room - a
     ``greenhouse_bed`` in a greenhouse set to ``hydro`` for its NFT channel keeps its confirmed clubroot (REQ-053 v1.61
     §11.3a Nr. 5, the review's safe direction: no confirmed hazard of a bed is dropped silently).
     """
     if has_own_hydroponics(location):
         return True
-    return not is_bed and is_hydroponic(location, ancestors)
+    soil_bed = is_bed and not is_vessel_type(location.location_type_key)
+    return not soil_bed and is_hydroponic(location, ancestors)
 
 
 def soil_hazard_refusal(
