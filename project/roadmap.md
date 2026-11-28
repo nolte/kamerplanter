@@ -170,22 +170,37 @@ id: R-19
 title: Mandanten-Export/-Import vollständig und in realistischer Größe
 detail: fine
 outcomes: [O-5, O-4]
-target_sprint: null
+target_sprint: 5
 mvp: true
-status: proposed
+status: active
 ```
 
 Export und Import eines Mandanten sind geliefert (#2267 ff.), stellen einen
 Garten aber noch nicht vollständig und nur bis rund 50 MiB wieder her.
 Künftig kommen Archive bis etwa 500 MiB durch (größere werden verständlich
 abgelehnt), die Sensor-Historie (Rohdaten, Stunden- und Tageswerte) wird beim
-Import mit wiederhergestellt, und der Plattform-Admin prüft ein Archiv vorab,
+Import im Rahmen der Aufbewahrungsfristen mit wiederhergestellt, und der Plattform-Admin prüft ein Archiv vorab,
 ordnet die Mitglieder per E-Mail des Zielkontos zu und sieht frühere Importe
-in einer Liste.
+in einer Liste. Jeder Datensatz eines Archivs wird vor dem Import gegen das
+Datenmodell geprüft; ein verändertes Archiv mit ungültigen Werten wird
+abgelehnt statt eingespielt.
+
+Umsetzungsreihenfolge (Sprint 5, Stand der Betreiberentscheidungen vom 2026-11-28):
 
 - [ ] F-15 — Archivgrößen bis ~500 MiB mit klarer Grenze (`tenant-archive-size-limits`)
-- [ ] F-16 — Sensor-Historie beim Import wiederherstellen (`tenant-readings-import`)
-- [ ] F-17 — Import-Vorprüfung mit E-Mail-Zuordnung und Importliste (`tenant-import-preflight`) — nach F-15
+- [ ] F-32 — Dokumentprüfung beim Import gegen das Datenmodell (`tenant-import-document-validation`) — nach F-15
+- [ ] F-17 — Import-Vorprüfung mit E-Mail-Zuordnung und Start (`tenant-import-preflight`) — nach F-15
+- [ ] F-33 — Importliste und Ablauf vorgeprüfter Archive (`tenant-import-list`) — nach F-17, zeigt die Ergebnisse von F-32
+- [ ] F-16 — Rohwerte der Sensor-Historie beim Import wiederherstellen (`tenant-readings-import`) — nach F-17 und F-33
+- [ ] F-34 — Stunden- und Tageswerte der Sensor-Historie beim Import wiederherstellen (`tenant-readings-aggregates-import`) — nach F-16
+
+<!-- Sprint-Planung 2026-11-28 (sprint-plan): target_sprint 5, Sprint-Datei
+project/sprints/0005-garten-aus-archiv-vollstaendig-wiederherstellen.md. F-32 neu nach
+Betreiberentscheidung vom 2026-11-27 (Dokumentvalidierung nach REQ-056 §12.4 als eigenes
+Feature). F-33 und F-34 neu am 2026-11-28: Der Betreiber hat F-17 (Vorprüfung / Importliste)
+und F-16 (Rohwerte / Stunden- und Tageswerte) geteilt. status bleibt proposed, bis das erste
+Feature in_progress geht (sprint-execute).
+Issue #3140 führt den Rest von #2138. -->
 
 <!-- Herkunft: Issue #2138 (MT-042; issue-backlog-partition 2026-11-16 → requirements-elicit →
 roadmap-plan, 2026-11-17). Anforderungs-Gate erfüllt:

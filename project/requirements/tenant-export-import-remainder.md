@@ -74,6 +74,53 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R17** — REQ-056 (§8.2, §8.3, §13.5, §14) and the stale NFR-011 R-40 status SHALL be updated in the implementing features.
   - _dimension_: `acceptance_criteria` · _status_: `confirmed` · _source_: revisit, operator approval of all eight recommendations
 
+- **R18** — The import SHALL validate every document of an archive against its domain model in the background check (worker) before a tenant is founded; an archive with a document outside the model (for example an enum value out of range) SHALL be refused with the affected documents named, and nothing SHALL be written. The pre-check SHALL show the result (REQ-056 §12.4).
+  - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision 2026-11-27 (own small feature in R-19, F-32)
+
+### Revisit 2026-11-27 (operator decisions, recorded 2026-11-28)
+
+- **R12** is made precise (option B): synchronous stay role, size, step-up, "plan exists" and e-mail → account; everything else runs asynchronously in the worker; the refusal details are stored on the import record. The backend's `/tmp` moves to disk instead of growing in memory.
+- **R15** is limited (D2): the step-up confirmation of the pre-check is valid for one hour for the subsequent import and bound to the same admin; after that, or for another admin, a new step-up is required.
+- **R16** is limited (D1): archive errors appear as a failed pre-check in the import list; "audit-only" applies only to refusals before the upload is stored (role, size, step-up). The phase "writing readings" is delivered with the readings import (F-16), not with the list (F-17).
+- **R18** is new (see above). Sprint 5 contains only R-19; implementation order F-15 → F-32 → F-17 → F-16.
+- The bounded context's "restored or moved" is narrowed by the decision that there is only one installation: tenants are restored, not moved between installations.
+
+### Revisit 2026-11-28 (operator decisions)
+
+- **R13** is replaced: the import writes every archived `hourly` and `daily` bucket directly and recomputes nothing. A refresh runs over a time range, not per tenant; for an archive reaching back beyond the 90 days of raw retention it would rebuild, and so delete, other tenants' buckets. R3's "refresh the continuous aggregates for that window" falls with it.
+- **R14** is made precise: readings (raw, hourly, daily) of a sensor the archive does not hold are skipped and counted in the report.
+- **R1** is made precise: the worker's `/tmp` moves to disk like the backend's.
+- **R9** is made precise: the manual run with a ~500 MiB archive is mandatory for closing sprint 5; its test hook may only end `passing`.
+- **R10** is extended: the export also refuses what the import's read limits would refuse (rows, document bytes, unpacked size, entries, JSON values, compression ratio), not only the byte limit.
+
+### Revisit 2026-11-28, third round (operator decisions and a measurement)
+
+- **Split:** R5, R7 and R15 are carried by F-17 (pre-check and start), R6, R8 and R16 by F-33 (import list and expiry), R3 and R14 by F-16 (raw readings), R4 and R13 by F-34 (hourly and daily values); R9's roundtrip is F-34's value-verifying criterion.
+- **R15** is made precise (decision B): whoever starts the import acts (audit actor, fallback owner), the uploader stays on the record; every admin sees the member names only after a fresh confirmation of their own (at most one hour) for this archive, through a route that only confirms.
+- **R16** is made precise (decision C): refusals before the upload is stored (role, size, confirmation) are written to the audit by F-15; a 413 from proxy or middleware and an unauthenticated request know no account and are not audited.
+- **R3/R14** are limited (measurement against TimescaleDB 2.32.1-pg16, 2026-11-28): raw readings older than the target installation's raw retention are not imported but counted and named in the report. Writing raw rows marks their time range; the next refresh over it rebuilds the buckets of all tenants from raw rows and deletes those that have none left.
+- **R18** is extended: fields of `tenant.json` that are missing or of the wrong type refuse the archive instead of being replaced by a default.
+- **R10** is made precise: the export refuses whatever the import's archive reader and object check would refuse, including a `manifest.json` above 1 MiB.
+
+### Revisit 2026-11-28, fourth round (operator decisions D and E, further measurements)
+
+- **R13** is replaced again (decision D): the import writes the archived hourly and daily values directly and then has exactly the imported periods recomputed, first `sensor_hourly` over the imported raw period, then `sensor_daily` over the imported hourly period. Measured against TimescaleDB 2.32.1-pg16: a directly inserted hourly row marks its day for the daily values of all tenants; a bounded refresh over a range in which every tenant still has its source rows leaves the others unchanged.
+- **R3/R4/R14** are layered by the target installation's retentions: raw readings older than the raw retention (90 days), hourly values older than the hourly retention (2 years) and daily values older than the daily retention (5 years) are not imported but counted; each cut lies on a day boundary inside the retention.
+- **R9** is made precise (decision E): the sprint value and the roundtrip speak of the sensor history "within the retention periods".
+- New: a restore into an installation whose aggregates were never fully refreshed keeps the imported values (F-34); the policies' behaviour there is not measured.
+
+### Revisit 2026-11-28, fifth round (operator decision F, a further measurement)
+
+- **R19** — Every deletion of raw readings (sensor, tenant, rollback of an import, sweep of abandoned imports) SHALL have its period recomputed at once, hourly first, then daily, in one place of the data-access layer, so that no pending mark is left behind.
+  - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision F, 2026-11-28 (F-16)
+- **R4/R13** are made precise by a measurement against TimescaleDB 2.32.1-pg16: periods before an installation's first refresh count as never materialised, and a full refresh deletes directly written values there. The import therefore recomputes exactly the periods it is about to write before it writes them (F-34). Not measured: the bounded form of that recompute and an empty target installation. Measured later the same day: pending marks left by deletions before R19 are readable in TimescaleDB's catalogue; the import refuses before it writes when its target periods hold one that raw rows can no longer heal (F-34 acceptance-8). The meaning of single catalogue entries is still open.
+
+### Revisit 2026-11-28, sixth round (a fifth measurement)
+
+- Measured against TimescaleDB 2.32.1-pg16: the raw retention itself leaves pending marks, and a refresh of `sensor_hourly` beyond the raw retention deletes the hourly values of all tenants; refreshing only `sensor_daily` over a day on which every tenant's hourly values stand is harmless.
+- **R13/R19** are bounded accordingly: `sensor_hourly` is recomputed only inside the raw retention, `sensor_daily` only inside the hourly retention, by the import and by the deletion paths alike. The pre-write recompute and the refusal on an old pending mark, both recorded in the fifth round, are dropped.
+- The standing risk for every tenant (a refresh beyond the retention) is issue #3172 and outside this requirement set.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).
