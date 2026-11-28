@@ -110,7 +110,21 @@ function soilHazardText(finding: RotationFinding, t: Translate): string | null {
     confirmed: formatDate(finding.hazard_confirmed_at),
     host: hostText(finding, t),
     year: untilYear(finding),
+    // An inherited hazard names the location above the bed the server read it from (review S3, REQ-053 v1.61).
+    where: finding.hazard_location_name
+      ? t('pages.bed.planting.hints.soilHazard.whereAbove', { name: finding.hazard_location_name })
+      : t('pages.bed.planting.hints.soilHazard.whereBed'),
   };
+  // Juglone is no pathogen and fresh substrate never lifts it (REQ-053 v1.61 §11.3a Nr. 7): its own words, no advice
+  // to renew the substrate (confirm review SF-2). Only the server's code and hazard decide the text.
+  if (finding.hazard === 'juglone') {
+    if (finding.code === 'soil_hazard.pause' || finding.code === 'soil_hazard.no_evidenced_pause') {
+      return t('pages.bed.planting.hints.soilHazard.jugloneWarning', values);
+    }
+    if (finding.code === 'soil_hazard.uncertain_host') {
+      return t('pages.bed.planting.hints.soilHazard.jugloneUncertainHost', values);
+    }
+  }
   switch (finding.code) {
     case 'soil_hazard.pause':
       return t('pages.bed.planting.hints.soilHazard.pause', values);

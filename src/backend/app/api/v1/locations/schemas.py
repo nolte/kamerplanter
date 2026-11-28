@@ -28,6 +28,7 @@ from app.common.enums import (
     SoilConditionFlag,
     SoilDrainage,
     SoilHazard,
+    SoilHazardScope,
     SoilTexture,
     StoneContentClass,
     SunExposure,
@@ -618,6 +619,15 @@ class BedSummaryResponse(LocationResponse):
         ),
         examples=[[]],
     )
+    soil_hazard_scope: SoilHazardScope = Field(
+        default=SoilHazardScope.ALL,
+        description=(
+            "Which soil hazards the location takes (AP-API-012, REQ-053 §11.3a Nr. 5): `all` a bed, `juglone_only` "
+            "an area that is no bed (garden, zone, greenhouse), `container` a vessel, `hydroponic` a location whose "
+            "own or inherited irrigation system has no soil."
+        ),
+        examples=["all"],
+    )
 
 
 class LocationTreeNode(BaseModel):
@@ -1065,6 +1075,10 @@ class RotationFindingResponse(BaseModel):
     #: The host entry of the knowledge table the species matched (finest level: species, genus, family).
     host_level: Literal["species", "genus", "family"] | None = None
     host_name: str | None = None
+    #: A hazard inherited from a location above the bed (REQ-053 v1.61 §11.3a Nr. 6, #2888): that location's key and
+    #: name; `null` for a hazard of the bed itself.
+    hazard_location_key: str | None = None
+    hazard_location_name: str | None = None
 
 
 class NeighbourHintResponse(BaseModel):

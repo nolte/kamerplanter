@@ -31,6 +31,7 @@ export function bedSummary(overrides: Partial<BedSummary> = {}): BedSummary {
       ph: 6.5,
       ph_method: 'cacl2',
     },
+    soil_hazard_scope: 'all',
     ...overrides,
   };
 }

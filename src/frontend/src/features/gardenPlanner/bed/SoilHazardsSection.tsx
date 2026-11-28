@@ -3,7 +3,8 @@
  * its pathogen, the plants it endangers (from the knowledge table, each with its evidence status), the day it was
  * confirmed and how. A grower records one, only the lead removes one - the server is the gate, this section only
  * hides what the role cannot do. A vessel (planter, tent, shelf) and a hydroponic location carry none: no add button,
- * a sentence saying why.
+ * a sentence saying why. An area that is no bed (garden, zone, greenhouse on grown soil) takes juglone only, and its
+ * entry also counts for the beds in it (REQ-053 §11.3a Nr. 5 v1.60); the server's `soil_hazard_scope` says which.
  *
  * Shown as data, judged nowhere: which hosts warn and for how long is the planting dialog's (F-21) and depends on
  * open operator decisions, so no host is marked "gesperrt" here and no duration is printed.
@@ -27,7 +28,13 @@ import { useApiError } from '@/hooks/useApiError';
 import { useNotification } from '@/hooks/useNotification';
 import { formatDate } from '@/utils/formatting';
 import { removeSoilHazard } from './soilHazardApi';
-import { soilHazardsUnavailable, type BedSoilHazard, type SoilHazardHost } from './soilHazardTypes';
+import {
+  recordableSoilHazards,
+  soilHazardsUnavailable,
+  type BedSoilHazard,
+  type SoilHazardHost,
+  type SoilHazardScope,
+} from './soilHazardTypes';
 
 // The form loads when "Bodengefahr eintragen" is pressed.
 const SoilHazardDialog = lazy(() => import('./SoilHazardDialog'));
@@ -37,8 +44,8 @@ const PREFIX = 'pages.bed.soilHazards';
 interface SoilHazardsSectionProps {
   bedKey: string;
   bedName: string;
-  locationTypeKey: string;
-  irrigationSystem?: string | null;
+  /** `soil_hazard_scope` of the summary; absent (an older cached summary) offers nothing to add. */
+  scope?: SoilHazardScope;
   hazards: BedSoilHazard[];
   /** Grower and above, online and not reading a cached summary. */
   canEdit: boolean;
@@ -68,8 +75,7 @@ function HostChip({ host }: { host: SoilHazardHost }) {
 export default function SoilHazardsSection({
   bedKey,
   bedName,
-  locationTypeKey,
-  irrigationSystem,
+  scope,
   hazards,
   canEdit,
   canDelete,
@@ -81,8 +87,9 @@ export default function SoilHazardsSection({
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<SoilHazard | null>(null);
   const [busy, setBusy] = useState(false);
-  const unavailable = soilHazardsUnavailable(locationTypeKey, irrigationSystem);
-  const mayAdd = canEdit && unavailable === null;
+  const unavailable = scope ? soilHazardsUnavailable(scope) : null;
+  const allowed = scope ? recordableSoilHazards(scope) : [];
+  const mayAdd = canEdit && allowed.length > 0;
   const mayRemove = canEdit && canDelete;
 
   const confirmRemove = async () => {
@@ -111,7 +118,7 @@ export default function SoilHazardsSection({
         {t(`${PREFIX}.title`)}
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        {t(`${PREFIX}.intro`)}
+        {t(scope === 'juglone_only' ? `${PREFIX}.introArea` : `${PREFIX}.intro`)}
       </Typography>
 
       {unavailable !== null && (
@@ -122,7 +129,7 @@ export default function SoilHazardsSection({
 
       {hazards.length === 0 ? (
         <Typography variant="body2" data-testid="soil-hazards-empty">
-          {t(`${PREFIX}.empty`)}
+          {t(scope === 'juglone_only' ? `${PREFIX}.emptyArea` : `${PREFIX}.empty`)}
         </Typography>
       ) : (
         <Stack component="ul" spacing={1.5} sx={{ listStyle: 'none', p: 0, m: 0 }}>
@@ -235,6 +242,7 @@ export default function SoilHazardsSection({
           <SoilHazardDialog
             bedKey={bedKey}
             bedName={bedName}
+            hazards={allowed}
             onClose={() => setAdding(false)}
             onSaved={() => {
               setAdding(false);

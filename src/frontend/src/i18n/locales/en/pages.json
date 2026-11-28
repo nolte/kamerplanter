@@ -7042,7 +7042,9 @@
               "not_found": "not found",
               "not_in_site": "belongs to another site",
               "always_dropped": "links to devices are never carried over",
-              "outside_file": "is not in the file and may not be resolved here"
+              "outside_file": "is not in the file and may not be resolved here",
+              "container": "a planter, tent, shelf or container group carries no soil hazards",
+              "not_a_bed": "a location without a bed type only takes juglone"
             }
           },
           "mode": "How should the backup be restored?",
@@ -7737,7 +7739,7 @@
         "humus": "Humus content",
         "humusHelper": "Share of organic matter in percent.",
         "substrateReplacedOn": "Substrate renewed on",
-        "substrateReplacedOnHelper": "The day you replaced the soil of the bed (not just topped it up). Soil hazards such as clubroot confirmed before this day no longer warn – the pathogen left with the old soil. Leave empty if the soil was never replaced.",
+        "substrateReplacedOnHelper": "The day you replaced the soil of the bed (not just topped it up). Soil hazards such as clubroot confirmed before this day no longer warn – the pathogen left with the old soil. Juglone (walnut) is not lifted by this date: the tree keeps releasing it into the new soil through its roots. Leave empty if the soil was never replaced.",
         "substrateReplacedOnFuture": "The day cannot lie in the future.",
         "notes": "Notes",
         "saved": "Soil profile saved.",
@@ -8395,17 +8397,21 @@
           "soilHazard": {
             "unnamed": "A soil pathogen",
             "hostUnnamed": "this plant",
+            "whereBed": "in this bed",
+            "whereAbove": "at “{{name}}” above this bed",
             "host": {
               "family": "family {{name}}",
               "genus": "genus {{name}}",
               "species": "species {{name}}"
             },
-            "pause": "{{hazard}} was confirmed in this bed on {{confirmed}}, and this plant is a host ({{host}}). The pathogen survives in the soil: expert sources advise keeping host plants out of this bed until {{year}}. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
-            "noEvidencedPause": "{{hazard}} was confirmed in this bed on {{confirmed}}, and this plant is a host ({{host}}). How long to pause with host plants is not reliably known – the pathogen can survive in the soil for a long time. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
-            "residualUntil": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. It is evidenced that the pathogen can survive in the soil at least until {{year}}; after that, Kamerplanter no longer reports it. Watch for first signs. You can plant without a reason.",
-            "residualOpen": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. How long the pathogen survives in the soil is not known – the residual risk stays until a lead removes the soil hazard from the bed. You can plant without a reason.",
-            "soft": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}. This pathogen attacks almost every vegetable, this one too ({{host}}). A warning would therefore hit almost every bed – watch for sick plants instead and remove them early. You can plant without a reason.",
-            "uncertainHost": "Note: {{hazard}} was confirmed in this bed on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason."
+            "pause": "{{hazard}} was confirmed {{where}} on {{confirmed}}, and this plant is a host ({{host}}). The pathogen survives in the soil: expert sources advise keeping host plants out of this bed until {{year}}. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
+            "noEvidencedPause": "{{hazard}} was confirmed {{where}} on {{confirmed}}, and this plant is a host ({{host}}). How long to pause with host plants is not reliably known – the pathogen can survive in the soil for a long time. Better choose another bed or renew the substrate. If you still want to plant, note the reason briefly.",
+            "residualUntil": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. It is evidenced that the pathogen can survive in the soil at least until {{year}}; after that, Kamerplanter no longer reports it. Watch for first signs. You can plant without a reason.",
+            "residualOpen": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}; this plant is a host ({{host}}). The advised cultivation pause is over. How long the pathogen survives in the soil is not known – the residual risk stays until a lead removes the soil hazard from the bed. You can plant without a reason.",
+            "soft": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. This pathogen attacks almost every vegetable, this one too ({{host}}). A warning would therefore hit almost every bed – watch for sick plants instead and remove them early. You can plant without a reason.",
+            "uncertainHost": "Note: {{hazard}} was confirmed {{where}} on {{confirmed}}. Whether it attacks this plant ({{host}}) is not reliably known. Watch for first signs. You can plant without a reason.",
+            "jugloneWarning": "{{hazard}} was recorded {{where}} on {{confirmed}}, and this plant is sensitive to it ({{host}}). Juglone comes from the roots and leaves of the walnut tree and keeps reaching the soil – fresh soil too. The warning stays until a lead removes the entry. Better choose another bed or a spot out of the tree's reach. If you still want to plant, note the reason briefly.",
+            "jugloneUncertainHost": "Note: {{hazard}} was recorded {{where}} on {{confirmed}}. Whether this plant ({{host}}) is sensitive to juglone from the walnut tree's roots is not reliably known. Watch for first signs such as wilting leaves. You can plant without a reason."
           },
           "noFamily": "This species has no family on record. Crop rotation cannot be checked.",
           "noHistory": "No history is recorded for this bed. Crop rotation cannot be checked.",
@@ -8640,6 +8646,9 @@
       "soilHazards": {
         "title": "Soil hazards",
         "intro": "A confirmed soil pathogen stays in the soil for years – whatever grows in the bed right now. Here you see which plants it endangers.",
+        "introArea": "On an area that is no bed – a garden, zone, orchard meadow or greenhouse soil – you record juglone: a walnut tree releases it into the soil through its roots and leaves. The entry also counts for every bed on this area; the planting dialog there then warns for sensitive plants such as tomato or potato.",
+        "emptyArea": "No soil hazard is recorded for this area.",
+        "hazardHelperArea": "An area that is no bed only takes juglone (walnut tree). Record soil pathogens at the bed.",
         "empty": "No soil hazard is recorded for this bed.",
         "unavailable": {
           "container": "In a planter, tent, shelf or container group you replace the substrate – so there are no soil hazards here.",
@@ -8664,9 +8673,9 @@
         "add": "Record soil hazard",
         "remove": "Remove soil hazard {{hazard}}",
         "removeTitle": "Remove soil hazard?",
-        "removeMessage": "{{hazard}} will be removed from the bed “{{bed}}”. Only remove it if the infestation is gone or was recorded by mistake.",
+        "removeMessage": "{{hazard}} will be removed from “{{bed}}”. Only remove it if the infestation is gone or was recorded by mistake. The garden plan's change log records that you removed it, with the date and the hazard's confirmation date.",
         "removeConfirm": "Remove",
-        "removed": "{{hazard}} was removed from the bed.",
+        "removed": "{{hazard}} was removed.",
         "recorded": "{{hazard}} is now recorded as a soil hazard.",
         "dialogTitle": "Record a soil hazard for “{{name}}”",
         "dialogIntro": "Only record a confirmed infestation – by a lab test, plant protection advice or unmistakable symptoms.",
@@ -8683,7 +8692,7 @@
         "save": "Record",
         "refusal": {
           "container": "A planter, tent, shelf or container group has no soil hazards.",
-          "not_a_bed": "Only a bed can carry a soil hazard.",
+          "not_a_bed": "An area that is no bed only takes juglone. Record soil pathogens at the bed.",
           "hydroponic": "A hydroponic location has no soil and therefore no soil hazards.",
           "confirmed_in_future": "The date lies in the future. Enter the day of the confirmation.",
           "confirmed_too_early": "The date lies before 1900. Enter the day of the confirmation."

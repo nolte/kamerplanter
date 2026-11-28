@@ -858,7 +858,9 @@ describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
 
     await user.click(await screen.findByTestId('soil-hazard-remove-clubroot'));
     const dialog = await screen.findByTestId('confirm-dialog');
-    expect(dialog).toHaveTextContent('Clubroot will be removed from the bed “Raised bed 3”');
+    expect(dialog).toHaveTextContent('Clubroot will be removed from “Raised bed 3”');
+    // #2888 O6: the lead is told the removal is attributed in the plan's change log.
+    expect(dialog).toHaveTextContent("The garden plan's change log records that you removed it");
     await user.click(within(dialog).getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => expect(removed).toEqual(['loc_b03/clubroot']));
@@ -940,15 +942,25 @@ describe('soil hazards in the soil tab (#2888 F-20, AP-API-012)', () => {
   it.each([
     ['planter', 'manual', 'container'],
     ['raised_bed', 'nft', 'hydroponic'],
-  ] as const)('offers no soil hazard on a %s with %s irrigation and says why', async (type, irrigation, reason) => {
+    // #2888 O5: left at `manual` under a hydroponic room - the server's scope decides, not the own value.
+    ['raised_bed', 'manual', 'hydroponic'],
+  ] as const)('offers no soil hazard on a %s with %s irrigation the server calls %s', async (type, irrigation, reason) => {
     useBackend();
     renderBed(
-      bedSummary({ location_type_key: type, irrigation_system: irrigation }),
+      bedSummary({ location_type_key: type, irrigation_system: irrigation, soil_hazard_scope: reason }),
       '/standorte/locations/loc_b03#soil',
       'lead',
     );
 
     expect(await screen.findByTestId(`soil-hazards-unavailable-${reason}`)).toBeInTheDocument();
+    expect(screen.queryByTestId('soil-hazards-add')).not.toBeInTheDocument();
+  });
+
+  it('offers nothing to add from a cached summary that does not say what the location takes', async () => {
+    useBackend();
+    renderBed(bedSummary({ soil_hazard_scope: undefined }), '/standorte/locations/loc_b03#soil', 'lead');
+
+    expect(await screen.findByTestId('soil-hazards-section')).toBeInTheDocument();
     expect(screen.queryByTestId('soil-hazards-add')).not.toBeInTheDocument();
   });
 

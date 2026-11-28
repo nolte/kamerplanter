@@ -2,7 +2,8 @@
  * "Bodengefahr eintragen" (AP-API-012, REQ-054 §5.2, #2888 F-20): which soil hazard, since when, and how it was
  * confirmed - a lab result, plant-protection advice or an unmistakable symptom (a category, no name). For juglone the
  * date is the felling of a felled walnut, or the day the gardener noticed a standing one. A later confirmation of a hazard the bed
- * already carries replaces the stored date, an earlier one changes nothing (the server's rule).
+ * already carries replaces the stored date, an earlier one changes nothing (the server's rule). An area that is no bed
+ * takes juglone only (#2888 O3): the list then holds that one hazard, chosen already.
  *
  * The server validates it, so saving is locked offline and says why (UI-NFR-012 R-020a).
  */
@@ -46,12 +47,20 @@ const KNOWN_REFUSALS = new Set([
 interface SoilHazardDialogProps {
   bedKey: string;
   bedName: string;
+  /** The hazards this location takes (`recordableSoilHazards` of its scope); every hazard when not given. */
+  hazards?: readonly SoilHazard[];
   onClose: () => void;
   /** The hazard was stored; the section reloads the summary. */
   onSaved: () => void;
 }
 
-export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: SoilHazardDialogProps) {
+export default function SoilHazardDialog({
+  bedKey,
+  bedName,
+  hazards = SOIL_HAZARDS,
+  onClose,
+  onSaved,
+}: SoilHazardDialogProps) {
   const { t } = useTranslation();
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
@@ -60,7 +69,8 @@ export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: 
   const notification = useNotification();
   // The day the server calls "today" (UTC): it refuses a later confirmation.
   const today = useMemo(() => toUtcIsoDate(new Date()), []);
-  const [hazard, setHazard] = useState<SoilHazard | ''>('');
+  // A single choice (an area: juglone) is preset; the field still shows it, so the form reads the same everywhere.
+  const [hazard, setHazard] = useState<SoilHazard | ''>(hazards.length === 1 ? hazards[0] : '');
   const [confirmedAt, setConfirmedAt] = useState(today);
   const [source, setSource] = useState<PathogenConfirmationSource | ''>('');
   const [touched, setTouched] = useState(false);
@@ -128,12 +138,16 @@ export default function SoilHazardDialog({ bedKey, bedName, onClose, onSaved }: 
             value={hazard}
             onChange={(event) => setHazard(event.target.value as SoilHazard)}
             error={touched && missing.hazard}
-            helperText={touched && missing.hazard ? t(`${PREFIX}.hazardMissing`) : t(`${PREFIX}.hazardHelper`)}
+            helperText={
+              touched && missing.hazard
+                ? t(`${PREFIX}.hazardMissing`)
+                : t(hazards.length === 1 ? `${PREFIX}.hazardHelperArea` : `${PREFIX}.hazardHelper`)
+            }
             fullWidth
             sx={TOUCH}
             data-testid="form-field-hazard"
           >
-            {SOIL_HAZARDS.map((value) => (
+            {hazards.map((value) => (
               <MenuItem key={value} value={value}>
                 {t(`enums.soilHazard.${value}`)}
               </MenuItem>

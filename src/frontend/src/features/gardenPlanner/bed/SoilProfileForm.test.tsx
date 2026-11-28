@@ -96,6 +96,8 @@ describe('SoilProfileForm substrate renewal (REQ-053 §11.3a Nr. 7, #2888 F-21)'
       /Substrate renewed on/,
     );
     expect(screen.getByText(/no longer warn/)).toBeInTheDocument();
+    // Confirm review SF-2: the help says juglone is not lifted by the day.
+    expect(screen.getByText(/Juglone \(walnut\) is not lifted by this date/)).toBeInTheDocument();
     await user.type(field, '2025-03-15');
     await user.click(screen.getByTestId('form-submit-button'));
     await waitFor(() => expect(sent).not.toBeNull());

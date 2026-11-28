@@ -54,6 +54,7 @@ from app.domain.engines.bed_list_csv_engine import (
     COLUMN_NEAREST_WATER_SOURCE,
     COLUMN_TYPE,
 )
+from app.domain.engines.bed_soil_hazard_engine import soil_hazard_scope
 from app.domain.engines.frost_exposure_resolver import frost_exposed_from_risk
 from app.domain.engines.garden_plan_engine import (
     ERROR_INVALID_BED_TRANSITION,
@@ -100,6 +101,7 @@ from app.domain.models.tent_hint import TentHint
 from app.domain.services.adjacency_service import AdjacencyDispatch, request_adjacency_recompute
 from app.domain.services.bed_list_labels import bed_assignee_names, irrigation_zone_names, require_bed_list_size
 from app.domain.services.garden_plan_service import GardenPlanService
+from app.domain.services.location_ancestry import location_ancestors
 from app.domain.services.location_ownership import (
     require_owned_site,
     resolve_owned_location,
@@ -439,6 +441,11 @@ class GardenResourceService:
             path_access=access,
             supports_layout=supports_layout,
             tent_hints=tent_hints,
+            # #2888 O3/O5: what the soil-hazard form offers - the write's rule, with the irrigation system the
+            # location inherits from its parents (read within its site, ``location_ancestry``).
+            soil_hazard_scope=soil_hazard_scope(
+                location, is_bed=is_bed, ancestors=location_ancestors(self._sites, location)
+            ),
         )
 
     # ── GP-API-010: PATCH /locations/{key} ────────────────────────────────────
@@ -478,7 +485,7 @@ class GardenResourceService:
             else None
         )
         fields = self._field_changes(location, patch, north_angle_deg=north_angle_deg)
-        soil = self._soil_edit(patch, tenant_key=tenant_key)
+        soil = self._soil_edit(patch, tenant_key=tenant_key, user_key=user_key)
         self._refuse_stale_soil(location, soil)
         operations = self._structure_operations(location, patch)
         if target_status is not None:
@@ -620,7 +627,7 @@ class GardenResourceService:
         provided["frost_exposed"] = frost_exposed_from_risk(sent_risk)
 
     @staticmethod
-    def _soil_edit(patch: LocationPatch, *, tenant_key: str) -> SoilProfileEdit | None:
+    def _soil_edit(patch: LocationPatch, *, tenant_key: str, user_key: str) -> SoilProfileEdit | None:
         """The ``soil_profile`` of the PATCH as an edit the repository writes through the derivation (#2706).
 
         The service writes no derived soil field itself: the repository records the hand entries of the edited
@@ -631,9 +638,10 @@ class GardenResourceService:
             return None
         sent = patch.soil_profile
         if sent is None:
-            return SoilProfileEdit(tenant_key=tenant_key, profile=None)
+            return SoilProfileEdit(tenant_key=tenant_key, profile=None, user_key=user_key)
         return SoilProfileEdit(
             tenant_key=tenant_key,
+            user_key=user_key,
             profile=_dump(sent, mode="json"),
             check_last_analysis_at="last_analysis_at" in sent.model_fields_set,
             expected_last_analysis_at=sent.last_analysis_at,

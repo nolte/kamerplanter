@@ -368,6 +368,50 @@ class TestTheCultivationWindow:
 
         assert "rotation.pause_not_elapsed" not in codes(result)
 
+    def test_a_plant_inside_its_window_that_stood_longer_than_a_season_counts_for_its_earlier_years(self, world):
+        """D-S4 / REQ-053 v1.62: a 1000-day cultivar planted 2024-04, lost 2025-09, replanted 2026-05 counts in full -
+        exactly the perennial rule: a replant in a later year than the loss leaves no year out (confirm review SF-3)."""
+        validator, _plan, history = world
+        validator._species_repo.cultivars["cv_long"] = Cultivar(
+            _key="cv_long", name="cv_long", species_key="cabbage", days_to_maturity=1000
+        )
+        long_one = history.add_plant(
+            "bed",
+            "cabbage",
+            date(2024, 4, 15),
+            removed_on=date(2025, 9, 10),
+            termination_type="died",
+            termination_cause="frost",
+            cultivar_key="cv_long",
+        )
+
+        with freeze_time("2026-05-15"):
+            result = check(validator, "cabbage", replant_of_plant_key=long_one)
+
+        (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
+        assert (pause.last_year, pause.years_since) == (2025, 1)
+
+    def test_a_long_stayed_plant_replanted_in_the_year_of_its_loss_leaves_out_only_that_year(self, world):
+        validator, _plan, history = world
+        validator._species_repo.cultivars["cv_long"] = Cultivar(
+            _key="cv_long", name="cv_long", species_key="cabbage", days_to_maturity=1000
+        )
+        long_one = history.add_plant(
+            "bed",
+            "cabbage",
+            date(2024, 4, 15),
+            removed_on=date(2025, 9, 10),
+            termination_type="died",
+            termination_cause="frost",
+            cultivar_key="cv_long",
+        )
+
+        with freeze_time("2025-10-01"):
+            result = check(validator, "cabbage", replant_of_plant_key=long_one)
+
+        (pause,) = [f for f in result.findings if f.code == "rotation.pause_not_elapsed"]
+        assert (pause.last_year, pause.years_since) == (2024, 1)
+
     def test_a_perennial_that_stood_past_its_window_leaves_out_only_the_year_of_its_loss(self, world) -> None:
         validator, _plan, history = world
         strawberry = history.add_plant(
@@ -571,3 +615,129 @@ class TestTheResidualHintFollowsTheCauseClass:
         result = check(validator, "cabbage", replant_of_plant_key=self._died(history, None, "pest"))
 
         assert self._residual(result) == [("rotation.replant_after_biotic_failure", "WARNING", None)]
+
+
+class TestTheSoilAboveTheBed:
+    """REQ-053 §11.3a Nr. 5 v1.60 (#2888 O3/O5): the parent chain's hazards and irrigation system reach the bed."""
+
+    @staticmethod
+    def _juglone() -> list[BedSoilHazard]:
+        return [_hazard(SoilHazard.JUGLONE, date(2019, 3, 1))]
+
+    def test_the_juglone_of_the_garden_warns_in_a_bed_in_it(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location("bed", parent_location_key="garden")
+
+        (finding,) = hazard_findings(check(validator, "tomato"))
+
+        assert (finding.hazard, finding.host_level, finding.host_name) == (
+            "juglone",
+            "species",
+            "Solanum lycopersicum",
+        )
+        assert finding.severity == "WARNING"
+
+    def test_it_reaches_through_a_zone_and_also_a_bed_whose_rotation_is_off(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["zone"] = make_location("zone", location_type_key="zone", parent_location_key="garden")
+        plan.locations["bed"] = make_location("bed", parent_location_key="zone", rotation_exempt=True)
+
+        assert [f.hazard for f in hazard_findings(check(validator, "tomato"))] == ["juglone"]
+
+    def test_a_tent_in_between_ends_the_chain(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["tent"] = make_location("tent", location_type_key="tent", parent_location_key="garden")
+        plan.locations["bed"] = make_location("bed", parent_location_key="tent")
+
+        assert hazard_findings(check(validator, "tomato")) == []
+
+    def test_a_planter_in_the_garden_carries_none_of_it(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location("bed", location_type_key="planter", parent_location_key="garden")
+
+        assert hazard_findings(check(validator, "tomato")) == []
+
+    def test_fresh_substrate_of_the_bed_lifts_an_inherited_pathogen_too(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["outer"] = make_location("outer", soil_hazards=_clubroot())
+        plan.locations["bed"] = make_location(
+            "bed", parent_location_key="outer", soil_profile=SoilProfile(substrate_replaced_on=date(2024, 4, 1))
+        )
+
+        assert hazard_findings(check(validator, "cabbage")) == []
+
+    def test_fresh_substrate_never_lifts_juglone_inherited_or_own(self, world) -> None:
+        """Review S2 (REQ-053 v1.61 §11.3a Nr. 7): the walnut's roots keep releasing it into the new soil."""
+        validator, plan, _ = world
+        renewed = SoilProfile(substrate_replaced_on=date(2024, 4, 1))
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["bed"] = make_location("bed", parent_location_key="garden", soil_profile=renewed)
+        plan.locations["own"] = make_location("own", soil_profile=renewed, soil_hazards=self._juglone())
+
+        assert [f.hazard for f in hazard_findings(check(validator, "tomato"))] == ["juglone"]
+        assert [f.hazard for f in hazard_findings(check(validator, "tomato", "own"))] == ["juglone"]
+
+    def test_an_inherited_finding_names_the_location_that_holds_it(self, world) -> None:
+        """Review S3: "at 'Obstwiese' above this bed", not "in this bed"; the bed's own one names none."""
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location(
+            "garden", "Obstwiese", location_type_key="garden", soil_hazards=self._juglone()
+        )
+        plan.locations["bed"] = make_location("bed", parent_location_key="garden")
+        plan.locations["own"] = make_location("own", soil_hazards=self._juglone())
+
+        (inherited,) = hazard_findings(check(validator, "tomato"))
+        (own,) = hazard_findings(check(validator, "tomato", "own"))
+
+        assert (inherited.hazard_location_key, inherited.hazard_location_name) == ("garden", "Obstwiese")
+        assert "at 'Obstwiese' above this bed" in inherited.message
+        assert (own.hazard_location_key, own.hazard_location_name) == (None, None)
+        assert "in this bed" in own.message
+
+    def test_a_soil_bed_under_a_hydroponic_room_keeps_its_own_hazards(self, world) -> None:
+        """Review S1 (REQ-053 v1.61): a greenhouse on ``hydro`` for its NFT channel does not silence its soil bed."""
+        validator, plan, _ = world
+        plan.locations["room"] = make_location(
+            "room", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+        )
+        plan.locations["bed"] = make_location("bed", parent_location_key="room", soil_hazards=_clubroot())
+
+        assert [f.code for f in hazard_findings(check(validator, "cabbage"))] == ["soil_hazard.pause"]
+
+    def test_a_soil_bed_under_a_hydroponic_greenhouse_inherits_the_gardens_juglone(self, world) -> None:
+        """N-e (2026-11-28, REQ-053 v1.63): flipped - the warning comes and names the garden; an own ``nft`` and a
+        shelf under the greenhouse are not checked."""
+        validator, plan, _ = world
+        plan.locations["garden"] = make_location("garden", location_type_key="garden", soil_hazards=self._juglone())
+        plan.locations["room"] = make_location(
+            "room",
+            location_type_key="greenhouse",
+            irrigation_system=IrrigationSystem.HYDRO,
+            parent_location_key="garden",
+        )
+        plan.locations["bed"] = make_location("bed", "Gewächshausbeet", parent_location_key="room")
+        plan.locations["own_nft"] = make_location(
+            "own_nft", parent_location_key="room", irrigation_system=IrrigationSystem.NFT
+        )
+        plan.locations["shelf"] = make_location("shelf", location_type_key="shelf", parent_location_key="room")
+
+        (finding,) = hazard_findings(check(validator, "tomato"))
+
+        assert (finding.severity, finding.hazard, finding.hazard_location_key) == ("WARNING", "juglone", "garden")
+        assert hazard_findings(check(validator, "tomato", "own_nft")) == []
+        assert hazard_findings(check(validator, "tomato", "shelf")) == []
+
+    def test_a_drip_bed_under_the_room_keeps_its_check(self, world) -> None:
+        validator, plan, _ = world
+        plan.locations["room"] = make_location(
+            "room", location_type_key="greenhouse", irrigation_system=IrrigationSystem.HYDRO
+        )
+        plan.locations["bed"] = make_location(
+            "bed", parent_location_key="room", irrigation_system=IrrigationSystem.DRIP, soil_hazards=_clubroot()
+        )
+
+        assert [f.code for f in hazard_findings(check(validator, "cabbage"))] == ["soil_hazard.pause"]

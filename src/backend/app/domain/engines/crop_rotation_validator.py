@@ -12,6 +12,7 @@ from app.config.constants import (
     MAX_ROTATION_WINDOW_YEARS,
     MIN_ROTATION_TIMELINE_YEARS,
 )
+from app.domain.engines.bed_soil_hazard_engine import LocatedSoilHazard, effective_soil_hazards
 from app.domain.engines.soil_hazard_planting_engine import PlantedSpecies, SoilHazardVerdict, judge_soil_hazards
 from app.domain.interfaces.graph_repository import IGraphRepository
 from app.domain.interfaces.plant_instance_repository import IPlantInstanceRepository
@@ -19,16 +20,12 @@ from app.domain.interfaces.rotation_history_repository import IRotationHistoryRe
 from app.domain.interfaces.site_repository import ISiteRepository
 from app.domain.interfaces.soil_hazard_knowledge_source import ISoilHazardKnowledgeSource
 from app.domain.interfaces.species_repository import ISpeciesRepository
-from app.domain.models.bed_soil_hazard import (
-    CONTAINER_LOCATION_TYPES,
-    HYDROPONIC_IRRIGATION_SYSTEMS,
-    NON_BED_VESSEL_LOCATION_TYPES,
-    BedSoilHazard,
-)
+from app.domain.models.bed_soil_hazard import CONTAINER_LOCATION_TYPES, BedSoilHazard
 from app.domain.models.botanical_family import BotanicalFamily
 from app.domain.models.failure_cause import SOIL_BORNE_CLASSES
 from app.domain.models.site import Location
 from app.domain.models.species import Species
+from app.domain.services.location_ancestry import location_ancestors
 from app.domain.services.location_ownership import find_owned_location, read_slot, resolve_owned_location
 from app.domain.services.species_visibility import readable_cultivar, readable_species
 
@@ -92,13 +89,24 @@ NO_HINT_FAILURE_CLASSES: frozenset[str] = frozenset(
 )
 _SOIL_BORNE_CLASS_VALUES: frozenset[str] = frozenset(cls.value for cls in SOIL_BORNE_CLASSES)
 
-#: Locations whose soil is never checked for soil hazards (REQ-053 §11.3a Nr. 5-6): vessels carry none.
-NO_SOIL_LOCATION_TYPES: frozenset[str] = CONTAINER_LOCATION_TYPES | NON_BED_VESSEL_LOCATION_TYPES
-
 
 def _substrate_replaced_on(location: Location) -> date | None:
     """The day the bed's substrate was renewed (REQ-053 §11.3a Nr. 7), ``None`` when never."""
     return location.soil_profile.substrate_replaced_on if location.soil_profile is not None else None
+
+
+#: The longest stay that is still "one season" for the replant rule (REQ-053 v1.61 §11.3a Nr. 3, D-S4).
+MAX_ONE_SEASON_DAYS = 365
+
+
+def _stood_one_season(planted_on: date, removed_on: date) -> bool:
+    """Whether a plant stood one season at most: planted at most :data:`MAX_ONE_SEASON_DAYS` (UTC days) before its loss.
+
+    The operator decision names "the same or the previous calendar year"; the day bound alone keeps its own example
+    apart - April 2024 to September 2025 lies in "the year before" too, yet stood through two summers and must count
+    (D-S4, REQ-053 v1.62 §11.3a Nr. 3). Within 365 days the calendar-year condition always holds.
+    """
+    return (removed_on - planted_on).days <= MAX_ONE_SEASON_DAYS
 
 
 class FamilySource(Protocol):
@@ -138,6 +146,10 @@ class RotationFinding:
     hazard_until: date | None = None
     host_level: str | None = None
     host_name: str | None = None
+    #: A hazard inherited from a location above the bed (REQ-053 v1.61 §11.3a Nr. 6): that location's key and name,
+    #: read from the bed's own checked parent chain; both ``None`` for a hazard of the bed itself.
+    hazard_location_key: str | None = None
+    hazard_location_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -392,7 +404,7 @@ def _family_phrase(family_name: str | None) -> str:
     return f"Family '{family_name}'" if family_name else "The same family"
 
 
-def _hazard_message(verdict: SoilHazardVerdict) -> str:
+def _hazard_message(verdict: SoilHazardVerdict, origin_name: str | None = None) -> str:
     """The English text of a soil-hazard finding; the UI words it from the code and the fields."""
     hazard = verdict.hazard.value
     confirmed = verdict.confirmed_at.isoformat()
@@ -404,15 +416,21 @@ def _hazard_message(verdict: SoilHazardVerdict) -> str:
         stage = f"the pause is over, a residual risk remains until {verdict.until.year}"
     else:
         stage = "the pause is over, a residual risk remains"
-    return f"This species is a host of {hazard}, confirmed in this bed on {confirmed}; {stage}."
+    where = f"at '{origin_name}' above this bed" if origin_name is not None else "in this bed"
+    return f"This species is a host of {hazard}, confirmed {where} on {confirmed}; {stage}."
 
 
-def soil_hazard_finding(verdict: SoilHazardVerdict, species_key: str) -> RotationFinding:
-    """A verdict of :func:`judge_soil_hazards` as a finding of the planting check (REQ-053 §11.3a Nr. 6)."""
+def soil_hazard_finding(
+    verdict: SoilHazardVerdict, species_key: str, origin: Location | None = None
+) -> RotationFinding:
+    """A verdict of :func:`judge_soil_hazards` as a finding of the planting check (REQ-053 §11.3a Nr. 6).
+
+    ``origin`` is the location above the bed that holds an inherited hazard (``None`` for the bed's own).
+    """
     return RotationFinding(
         verdict.severity,
         verdict.code,
-        _hazard_message(verdict),
+        _hazard_message(verdict, origin.name if origin is not None else None),
         species_key=species_key,
         hazard=verdict.hazard.value,
         hazard_confirmed_at=verdict.confirmed_at,
@@ -420,6 +438,8 @@ def soil_hazard_finding(verdict: SoilHazardVerdict, species_key: str) -> Rotatio
         hazard_until=verdict.until,
         host_level=verdict.host.level.value,
         host_name=verdict.host.name,
+        hazard_location_key=origin.key if origin is not None else None,
+        hazard_location_name=origin.name if origin is not None else None,
     )
 
 
@@ -742,8 +762,11 @@ class CropRotationValidator:
         """Whether a replant today falls into the season of the died ``plant`` (REQ-053 §11.3a Nr. 3, #2888 F-21).
 
         ``True``: inside its cultivation window (``planted_on + days_to_maturity`` of the plant's cultivar - the only
-        culture duration the catalogue keeps) - the plant is no previous crop at all, so an autumn garlic replaced in
-        March does not count for last year either. ``False``: the calendar-year rule - only the year of the loss is
+        culture duration the catalogue keeps) **and** it stood one season at most (:func:`_stood_one_season`, operator
+        decision D-S4 2026-11-28) - the plant is no previous crop at all, so an autumn garlic replaced in March does
+        not count for last year either. A plant inside its window that stood longer leaves out only the year of its
+        loss (``False``): a 1000-day cultivar planted in April 2024 and lost in September 2025 counts for 2024.
+        ``False``: the calendar-year rule - only the year of the loss is
         left out, earlier years still count; it applies to a plant without a cultivar or a cultivar without
         ``days_to_maturity`` (or one the tenant may not read), and to a plant that stood past its window (a perennial
         crop). ``None``: outside the season - the plant counts as a previous crop.
@@ -756,7 +779,13 @@ class CropRotationValidator:
         window_end = plant.planted_on + timedelta(days=days) if days is not None else None
         if window_end is None or removed > window_end:
             return False if removed.year == today.year else None
-        return True if today <= window_end else None
+        if today > window_end:
+            return None
+        if _stood_one_season(plant.planted_on, removed):
+            return True
+        # Longer than one season: exactly the perennial rule above (REQ-053 v1.62 §11.3a Nr. 3) - only the year of the
+        # loss stays out, and only for a replant in that year; in a later year the plant counts in full.
+        return False if removed.year == today.year else None
 
     def _bed_history(
         self,
@@ -860,7 +889,11 @@ class CropRotationValidator:
         family_name = _name_or_none(family.name if family is not None else None)
         # The soil hazards hang on the soil, not on the rotation: checked before the rotation switch (GP-FR-137,
         # REQ-053 §11.3a Nr. 6) - a rotation_exempt bed or one switched off still reports them.
-        hazards = self._soil_hazard_findings(location, species, family_name)
+        # The soil's hazards: the bed's own and its parent chain's (a walnut's juglone at the garden above), none in
+        # a vessel or at an own hydroponic value; under inherited hydroponics only its own (REQ-053 §11.3a Nr. 5
+        # v1.61) - one read for both uses below.
+        bed_hazards = effective_soil_hazards(location, location_ancestors(sites, location))
+        hazards = self._soil_hazard_findings(location, bed_hazards, species, family_name)
 
         reason = not_applicable_reason(location)
         if reason is not None:
@@ -889,7 +922,7 @@ class CropRotationValidator:
                 replaced[0],
                 species.family_key,
                 family_name,
-                bed_hazards=frozenset(entry.hazard.value for entry in self._bed_soil_hazards(location)),
+                bed_hazards=frozenset(located.entry.hazard.value for located in bed_hazards),
                 substrate_replaced_on=_substrate_replaced_on(location),
             )
             if residual is not None:
@@ -912,20 +945,16 @@ class CropRotationValidator:
             location_key, species_key, reason is None, reason, severity, ordered, rotation_window_years, reset_at
         )
 
-    @staticmethod
-    def _bed_soil_hazards(location: Location) -> list[BedSoilHazard]:
-        """The soil hazards the bed's soil carries: none in a vessel or a hydroponic location (§11.3a Nr. 5)."""
-        if location.location_type_key in NO_SOIL_LOCATION_TYPES:
-            return []
-        if location.irrigation_system in HYDROPONIC_IRRIGATION_SYSTEMS:
-            return []
-        return list(location.soil_hazards)
-
     def _soil_hazard_findings(
-        self, location: Location, species: Species, family_name: str | None
+        self, location: Location, located: list[LocatedSoilHazard], species: Species, family_name: str | None
     ) -> list[RotationFinding]:
-        """One finding per soil hazard of the bed whose host the species is (REQ-053 §11.3a Nr. 6, GP-FR-193)."""
-        entries = self._bed_soil_hazards(location)
+        """One finding per soil hazard of the bed whose host the species is (REQ-053 §11.3a Nr. 6, GP-FR-193).
+
+        ``located`` are the hazards the bed's soil carries (``bed_soil_hazard_engine.effective_soil_hazards``), each
+        with the location above the bed that holds it, if inherited - one per hazard key.
+        """
+        entries: list[BedSoilHazard] = [item.entry for item in located]
+        origins = {item.entry.hazard: item.origin for item in located}
         if not entries or self._soil_hazards is None:
             return []
         planted = PlantedSpecies(species.scientific_name, species.genus, family_name)
@@ -936,7 +965,7 @@ class CropRotationValidator:
             today=today_utc(),
             substrate_replaced_on=_substrate_replaced_on(location),
         )
-        return [soil_hazard_finding(verdict, species.key or "") for verdict in verdicts]
+        return [soil_hazard_finding(verdict, species.key or "", origins.get(verdict.hazard)) for verdict in verdicts]
 
     def _rotation_findings(
         self,

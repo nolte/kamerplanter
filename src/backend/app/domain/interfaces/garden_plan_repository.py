@@ -58,10 +58,13 @@ class SoilProfileEdit:
 
     ``profile`` is the body's profile as JSON (``None`` stores ``null``). ``check_last_analysis_at`` says the body
     carried ``last_analysis_at``; then ``expected_last_analysis_at`` must equal the stored one (409 otherwise).
+    ``user_key`` is the caller: a change of ``substrate_replaced_on`` is written to ``garden_plan_audit`` under it, in
+    the same transaction (REQ-053 v1.61 §20.13, operator decision D-S3).
     """
 
     tenant_key: str
     profile: dict[str, Any] | None
+    user_key: str
     check_last_analysis_at: bool = False
     expected_last_analysis_at: datetime | None = None
 

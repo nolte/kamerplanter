@@ -75,21 +75,22 @@ export const CONFIRMATION_SOURCES: readonly PathogenConfirmationSource[] = [
   'clear_symptoms',
 ];
 
-/** Vessels carry no soil hazard: their substrate is replaced (REQ-053 §11.3a Nr. 5; the server refuses them). */
-export const CONTAINER_LOCATION_TYPES: ReadonlySet<string> = new Set(['planter', 'tent', 'shelf']);
-/** No bed type but a vessel all the same (pot/container group): the server answers it with the vessel refusal. */
-export const NON_BED_VESSEL_LOCATION_TYPES: ReadonlySet<string> = new Set(['container']);
-/** Irrigation systems without soil (`Location.irrigation_system` is authoritative). */
-export const HYDROPONIC_IRRIGATION_SYSTEMS: ReadonlySet<string> = new Set(['hydro', 'nft', 'ebb_flow']);
+/**
+ * Which soil hazards a location takes (`soil_hazard_scope` of the location summary, AP-API-012, REQ-053 §11.3a Nr. 5
+ * v1.60): `all` a bed, `juglone_only` an area that is no bed (garden, zone, greenhouse on grown soil), `container` a
+ * vessel, `hydroponic` a location whose own or inherited irrigation system has no soil. The server decides it - also
+ * the irrigation system a shelf inherits from a hydroponic room - so the page never recomputes the rule.
+ */
+export type SoilHazardScope = 'all' | 'juglone_only' | 'container' | 'hydroponic';
 
-/** Why a location carries no soil hazard - what the server would refuse it with - or `null` when it may. */
-export function soilHazardsUnavailable(
-  locationTypeKey: string,
-  irrigationSystem: string | null | undefined,
-): 'container' | 'hydroponic' | null {
-  if (CONTAINER_LOCATION_TYPES.has(locationTypeKey) || NON_BED_VESSEL_LOCATION_TYPES.has(locationTypeKey)) {
-    return 'container';
-  }
-  if (irrigationSystem && HYDROPONIC_IRRIGATION_SYSTEMS.has(irrigationSystem)) return 'hydroponic';
-  return null;
+/** Why a location takes no soil hazard at all - what the server would refuse it with - or `null` when it takes one. */
+export function soilHazardsUnavailable(scope: SoilHazardScope): 'container' | 'hydroponic' | null {
+  return scope === 'container' || scope === 'hydroponic' ? scope : null;
+}
+
+/** The hazards the form offers at a location of this scope (an area takes juglone only). */
+export function recordableSoilHazards(scope: SoilHazardScope): readonly SoilHazard[] {
+  if (scope === 'all') return SOIL_HAZARDS;
+  if (scope === 'juglone_only') return ['juglone'];
+  return [];
 }

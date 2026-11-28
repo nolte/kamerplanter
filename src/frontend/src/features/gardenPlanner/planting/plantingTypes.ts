@@ -68,6 +68,9 @@ export interface RotationFinding {
   hazard_stage?: 'pause' | 'no_evidenced_pause' | 'residual' | null;
   /** End of the pause or of the evidenced residual risk; `null` = no time statement. */
   hazard_until?: string | null;
+  /** An inherited hazard (REQ-053 v1.61 §11.3a Nr. 6): the location above the bed that holds it; `null` for the bed's own. */
+  hazard_location_key?: string | null;
+  hazard_location_name?: string | null;
   /** The host entry the species matched (finest level). */
   host_level?: 'species' | 'genus' | 'family' | null;
   host_name?: string | null;

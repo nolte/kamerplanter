@@ -7042,7 +7042,9 @@
               "not_found": "nicht gefunden",
               "not_in_site": "gehört zu einem anderen Standort",
               "always_dropped": "Kopplungen an Technik werden nie übernommen",
-              "outside_file": "steht nicht in der Datei und darf hier nicht aufgelöst werden"
+              "outside_file": "steht nicht in der Datei und darf hier nicht aufgelöst werden",
+              "container": "ein Kübel, Zelt, Regal oder eine Topfgruppe trägt keine Bodengefahren",
+              "not_a_bed": "an einem Standort ohne Beettyp steht nur Juglon"
             }
           },
           "mode": "Wie soll die Sicherung eingespielt werden?",
@@ -7737,7 +7739,7 @@
         "humus": "Humusgehalt",
         "humusHelper": "Anteil organischer Substanz in Prozent.",
         "substrateReplacedOn": "Substrat erneuert am",
-        "substrateReplacedOnHelper": "Der Tag, an dem du die Erde des Beets ausgetauscht hast (nicht nur aufgefüllt). Bodengefahren wie Kohlhernie, die vor diesem Tag bestätigt wurden, warnen danach nicht mehr – der Erreger ist mit der alten Erde gegangen. Leer lassen, wenn die Erde nie getauscht wurde.",
+        "substrateReplacedOnHelper": "Der Tag, an dem du die Erde des Beets ausgetauscht hast (nicht nur aufgefüllt). Bodengefahren wie Kohlhernie, die vor diesem Tag bestätigt wurden, warnen danach nicht mehr – der Erreger ist mit der alten Erde gegangen. Juglon (Walnuss) hebt das Datum nicht auf: Der Baum gibt es über seine Wurzeln auch in die neue Erde ab. Leer lassen, wenn die Erde nie getauscht wurde.",
         "substrateReplacedOnFuture": "Der Tag darf nicht in der Zukunft liegen.",
         "notes": "Notizen",
         "saved": "Bodenprofil gespeichert.",
@@ -8395,17 +8397,21 @@
           "soilHazard": {
             "unnamed": "Ein Bodenerreger",
             "hostUnnamed": "diese Pflanze",
+            "whereBed": "In diesem Beet",
+            "whereAbove": "An „{{name}}“ oberhalb dieses Beets",
             "host": {
               "family": "Familie {{name}}",
               "genus": "Gattung {{name}}",
               "species": "Art {{name}}"
             },
-            "pause": "In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Der Erreger überdauert im Boden: Fachquellen empfehlen, Wirtspflanzen bis {{year}} nicht in dieses Beet zu setzen. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
-            "noEvidencedPause": "In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Wie lange du mit Wirtspflanzen pausieren solltest, ist nicht sicher belegt – der Erreger kann lange im Boden überdauern. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
-            "residualUntil": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Belegt ist, dass der Erreger mindestens bis {{year}} im Boden überdauern kann; danach meldet Kamerplanter ihn nicht mehr. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
-            "residualOpen": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Wie lange der Erreger im Boden überdauert, ist nicht belegt – das Restrisiko bleibt, bis die Leitung die Bodengefahr am Beet entfernt. Du kannst ohne Grund pflanzen.",
-            "soft": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt. Dieser Erreger befällt fast alle Gemüsearten, auch diese ({{host}}). Eine Warnung träfe deshalb fast jedes Beet – achte stattdessen auf kranke Pflanzen und entferne sie früh. Du kannst ohne Grund pflanzen.",
-            "uncertainHost": "Hinweis: In diesem Beet wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen."
+            "pause": "{{where}} wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Der Erreger überdauert im Boden: Fachquellen empfehlen, Wirtspflanzen bis {{year}} nicht in dieses Beet zu setzen. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "noEvidencedPause": "{{where}} wurde am {{confirmed}} {{hazard}} bestätigt, und diese Pflanze ist ein Wirt ({{host}}). Wie lange du mit Wirtspflanzen pausieren solltest, ist nicht sicher belegt – der Erreger kann lange im Boden überdauern. Wähle besser ein anderes Beet oder erneuere das Substrat. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "residualUntil": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Belegt ist, dass der Erreger mindestens bis {{year}} im Boden überdauern kann; danach meldet Kamerplanter ihn nicht mehr. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
+            "residualOpen": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt; diese Pflanze ist ein Wirt ({{host}}). Die empfohlene Anbaupause ist vorbei. Wie lange der Erreger im Boden überdauert, ist nicht belegt – das Restrisiko bleibt, bis die Leitung die Bodengefahr am Beet entfernt. Du kannst ohne Grund pflanzen.",
+            "soft": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Dieser Erreger befällt fast alle Gemüsearten, auch diese ({{host}}). Eine Warnung träfe deshalb fast jedes Beet – achte stattdessen auf kranke Pflanzen und entferne sie früh. Du kannst ohne Grund pflanzen.",
+            "uncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} bestätigt. Ob er diese Pflanze ({{host}}) befällt, ist nicht sicher belegt. Achte auf erste Anzeichen. Du kannst ohne Grund pflanzen.",
+            "jugloneWarning": "{{where}} wurde am {{confirmed}} {{hazard}} eingetragen, und diese Pflanze reagiert empfindlich darauf ({{host}}). Juglon kommt aus den Wurzeln und dem Laub des Walnussbaums und gelangt immer wieder in den Boden – auch in frische Erde. Die Warnung bleibt, bis die Leitung den Eintrag entfernt. Wähle besser ein anderes Beet oder einen Platz außerhalb der Reichweite des Baums. Willst du trotzdem pflanzen, hinterlege kurz den Grund.",
+            "jugloneUncertainHost": "Hinweis: {{where}} wurde am {{confirmed}} {{hazard}} eingetragen. Ob diese Pflanze ({{host}}) empfindlich auf Juglon aus den Wurzeln des Walnussbaums reagiert, ist nicht sicher belegt. Achte auf erste Anzeichen wie welkende Blätter. Du kannst ohne Grund pflanzen."
           },
           "noFamily": "Für diese Art ist keine Familie hinterlegt. Die Fruchtfolge lässt sich nicht prüfen.",
           "noHistory": "Für dieses Beet ist keine Vorgeschichte erfasst. Die Fruchtfolge lässt sich nicht prüfen.",
@@ -8640,6 +8646,9 @@
       "soilHazards": {
         "title": "Bodengefahren",
         "intro": "Ein bestätigter Bodenerreger bleibt über Jahre im Boden – unabhängig davon, was gerade im Beet steht. Hier siehst du, welche Pflanzen er gefährdet.",
+        "introArea": "An einer Fläche, die kein Beet ist – Garten, Zone, Obstwiese oder Gewächshausboden –, trägst du Juglon ein: Ein Walnussbaum gibt den Stoff über Wurzeln und Laub in den Boden ab. Der Eintrag gilt auch für alle Beete auf dieser Fläche, der Pflanzdialog dort warnt dann für empfindliche Pflanzen wie Tomate oder Kartoffel.",
+        "emptyArea": "Für diese Fläche ist keine Bodengefahr eingetragen.",
+        "hazardHelperArea": "An einer Fläche, die kein Beet ist, gibt es nur Juglon (Walnussbaum). Bodenerreger trägst du am Beet ein.",
         "empty": "Für dieses Beet ist keine Bodengefahr eingetragen.",
         "unavailable": {
           "container": "In einem Kübel, Zelt, Regal oder einer Topfgruppe tauschst du das Substrat aus – deshalb gibt es hier keine Bodengefahren.",
@@ -8664,9 +8673,9 @@
         "add": "Bodengefahr eintragen",
         "remove": "Bodengefahr {{hazard}} entfernen",
         "removeTitle": "Bodengefahr entfernen?",
-        "removeMessage": "{{hazard}} wird aus dem Beet „{{bed}}“ entfernt. Entferne sie nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde.",
+        "removeMessage": "{{hazard}} wird aus „{{bed}}“ entfernt. Entferne sie nur, wenn der Befall nicht mehr besteht oder falsch eingetragen wurde. Das Änderungsprotokoll des Gartenplans hält fest, dass du sie entfernt hast, mit Datum und dem Bestätigungsdatum der Gefahr.",
         "removeConfirm": "Entfernen",
-        "removed": "{{hazard}} wurde aus dem Beet entfernt.",
+        "removed": "{{hazard}} wurde entfernt.",
         "recorded": "{{hazard}} ist jetzt als Bodengefahr eingetragen.",
         "dialogTitle": "Bodengefahr für „{{name}}“ eintragen",
         "dialogIntro": "Trage nur einen bestätigten Befall ein – durch einen Laborbefund, eine Pflanzenschutz-Beratung oder ein eindeutiges Schadbild.",
@@ -8683,7 +8692,7 @@
         "save": "Eintragen",
         "refusal": {
           "container": "Ein Kübel, Zelt, Regal oder eine Topfgruppe hat keine Bodengefahren.",
-          "not_a_bed": "Nur ein Beet kann eine Bodengefahr tragen.",
+          "not_a_bed": "An einer Fläche, die kein Beet ist, kannst du nur Juglon eintragen. Bodenerreger trägst du am Beet ein.",
           "hydroponic": "Ein Hydrokultur-Standort hat keinen Boden und deshalb keine Bodengefahren.",
           "confirmed_in_future": "Das Datum liegt in der Zukunft. Gib den Tag der Bestätigung an.",
           "confirmed_too_early": "Das Datum liegt vor 1900. Gib den Tag der Bestätigung an."

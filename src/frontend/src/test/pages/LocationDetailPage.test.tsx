@@ -720,6 +720,84 @@ describe('LocationDetailPage', () => {
       expect(screen.queryByTestId('tent-rules-section')).toBeNull();
     });
 
+    describe('soil hazards of an area that is no bed (#2888 O3)', () => {
+      const juglone = {
+        hazard: 'juglone',
+        confirmed_at: '2019-03-01',
+        source: 'clear_symptoms',
+        pathogens: ['Juglans nigra', 'Juglans regia'],
+        soft: false,
+        hosts: [{ level: 'species', name: 'Solanum lycopersicum', evidence_status: 'evidenced' }],
+        non_hosts: [],
+      };
+
+      it('lets the lead record juglone at a garden, preset as the only choice', async () => {
+        const user = userEvent.setup();
+        const bodies: unknown[] = [];
+        useFullLocation();
+        server.use(
+          http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+            HttpResponse.json({ ...summary, is_bed: false, location_type_key: 'garden', soil_hazard_scope: 'juglone_only' }),
+          ),
+          http.post('/api/v1/t/:tenant/locations/:key/soil-hazards', async ({ request }) => {
+            bodies.push(await request.json());
+            return HttpResponse.json({ location_key: 'loc-1', changed: true, soil_hazards: [juglone] }, { status: 201 });
+          }),
+        );
+        renderPage();
+
+        const section = await screen.findByTestId('soil-hazards-section');
+        expect(section).toHaveTextContent('Der Eintrag gilt auch für alle Beete auf dieser Fläche');
+        expect(within(section).getByTestId('soil-hazards-empty')).toHaveTextContent('Für diese Fläche');
+        await user.click(within(section).getByTestId('soil-hazards-add'));
+        const dialog = await screen.findByTestId('soil-hazard-dialog');
+        expect(within(dialog).getByTestId('form-field-hazard')).toHaveTextContent('Juglon (Walnuss)');
+        await user.click(within(within(dialog).getByTestId('form-field-hazard')).getByRole('combobox'));
+        const options = within(screen.getByRole('listbox')).getAllByRole('option');
+        expect(options.map((option) => option.textContent)).toEqual(['Juglon (Walnuss)']);
+        await user.click(options[0]);
+        await user.click(within(within(dialog).getByTestId('form-field-source')).getByRole('combobox'));
+        await user.click(await screen.findByRole('option', { name: 'Eindeutiges Schadbild' }));
+        await user.click(within(dialog).getByTestId('soil-hazard-dialog-save'));
+
+        await waitFor(() => expect(bodies).toHaveLength(1));
+        expect(bodies[0]).toMatchObject({ hazard: 'juglone', source: 'clear_symptoms' });
+      });
+
+      it('lists a recorded juglone with the plants it endangers', async () => {
+        useFullLocation();
+        server.use(
+          http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+            HttpResponse.json({
+              ...summary,
+              is_bed: false,
+              location_type_key: 'garden',
+              soil_hazard_scope: 'juglone_only',
+              soil_hazards: [juglone],
+            }),
+          ),
+        );
+        renderPage();
+
+        const row = await screen.findByTestId('soil-hazard-row-juglone');
+        expect(row).toHaveTextContent('Solanum lycopersicum');
+        expect(within(row).getByTestId('soil-hazard-remove-juglone')).toBeTruthy();
+      });
+
+      it.each(['container', 'hydroponic'] as const)('shows no soil hazards on a %s location', async (scope) => {
+        useFullLocation();
+        server.use(
+          http.get('/api/v1/t/:tenant/locations/:key/summary', () =>
+            HttpResponse.json({ ...summary, is_bed: false, location_type_key: 'tent', soil_hazard_scope: scope }),
+          ),
+        );
+        renderPage();
+
+        expect(await screen.findByText('Run Alpha')).toBeTruthy();
+        expect(screen.queryByTestId('location-soil-hazards')).toBeNull();
+      });
+    });
+
     it('opens a bed on its plan tab by default', async () => {
       useFullLocation();
       server.use(

@@ -241,6 +241,11 @@ def _soil_reads(soil: SoilProfileEdit | None, *, with_sites: bool = True) -> tup
     return (*SOIL_PROFILE_READ_COLLECTIONS, col.CARE_EVENTS) if with_sites else (col.CARE_EVENTS,)
 
 
+def _soil_writes(soil: SoilProfileEdit | None) -> tuple[str, ...]:
+    """What a soil edit writes besides the bed: the audit row of a changed ``substrate_replaced_on`` (D-S3)."""
+    return (col.GARDEN_PLAN_AUDIT,) if soil is not None else ()
+
+
 def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit | None) -> None:
     """The ``soil_profile`` of a PATCH, through the one derivation, in the column write's transaction (#2706)."""
     if soil is None:
@@ -249,6 +254,7 @@ def _write_soil(txn: StreamTransaction, location_key: str, soil: SoilProfileEdit
         txn,
         location_key,
         tenant_key=soil.tenant_key,
+        user_key=soil.user_key,
         profile=soil.profile,
         check_last_analysis_at=soil.check_last_analysis_at,
         expected_last_analysis_at=soil.expected_last_analysis_at,
@@ -1889,7 +1895,9 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         if "irrigation_zone_key" in fields:
             self._update_location_fields_with_zone(location_key, fields, soil)
             return
-        with stream_transaction(self._db, write=(col.LOCATIONS,), read=_soil_reads(soil), entity="location") as txn:
+        with stream_transaction(
+            self._db, write=(col.LOCATIONS, *_soil_writes(soil)), read=_soil_reads(soil), entity="location"
+        ) as txn:
             self._write_location_columns(txn.collection(col.LOCATIONS), location_key, fields, _now())
             _write_soil(txn, location_key, soil)
 
@@ -2008,7 +2016,7 @@ class ArangoGardenPlanRepository(IGardenPlanRepository):
         now = _now()
         with stream_transaction(
             self._db,
-            write=(col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS),
+            write=(col.IRRIGATION_ZONES, col.LOCATIONS, col.ZONE_COVERS, *_soil_writes(soil)),
             read=(col.SITES, *_soil_reads(soil, with_sites=False)),
             entity="location",
         ) as txn:

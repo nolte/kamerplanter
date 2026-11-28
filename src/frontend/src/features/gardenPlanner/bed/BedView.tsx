@@ -179,8 +179,7 @@ export default function BedView({ summary, details, onReload, cachedAt = null }:
             <SoilHazardsSection
               bedKey={summary.key}
               bedName={summary.name}
-              locationTypeKey={summary.location_type_key}
-              irrigationSystem={summary.irrigation_system}
+              scope={summary.soil_hazard_scope}
               hazards={summary.soil_hazards ?? []}
               canEdit={canEdit}
               canDelete={canDelete}

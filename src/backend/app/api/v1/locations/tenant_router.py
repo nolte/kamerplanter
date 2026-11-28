@@ -404,7 +404,9 @@ def get_location_summary(
     `tent.photoperiod_conflict` when their current phases ask for different photoperiods, `tent.photoperiod_unknown`
     when a phase names none, `tent.photoperiod_data_error` when a short-day plant's flowering profile states a long day.
     `soil_hazards` (REQ-054 §5.2, #2888) are the bed's confirmed soil hazards with hosts resolved from the knowledge
-    table, as on `GET /locations/{key}`.
+    table, as on `GET /locations/{key}`. `soil_hazard_scope` says which soil hazards the location takes (AP-API-012,
+    REQ-053 §11.3a Nr. 5): `all` (a bed), `juglone_only` (an area that is no bed: garden, zone, greenhouse),
+    `container` (a vessel) or `hydroponic` (its own or inherited irrigation system has no soil).
     Answers `Cache-Control: private, no-cache` (REQ-053 §32.6 Pkt. 13): the service worker keeps it offline.
     """
     view = service.get_summary(key, tenant_key=ctx.tenant_key)
@@ -427,6 +429,7 @@ def get_location_summary(
         supports_layout=view.supports_layout,
         tent_hints=[TentHintResponse.from_hint(hint) for hint in view.tent_hints],
         soil_hazards=soil_hazard_responses(resolve_entries(view.location.soil_hazards, knowledge.get_table())),
+        soil_hazard_scope=view.soil_hazard_scope,
     )
 
 
@@ -499,8 +502,10 @@ def record_soil_hazard(
     Either by hand (`hazard`, `confirmed_at`, `source`) or as the accepted offer after a loss (`plant_key` alone: the
     confirmed pathogen of that died plant of this bed, dated on the day of the loss; REQ-053 §11.3a Nr. 5). A bed holds
     each hazard once: a later confirmation replaces the stored one, an earlier one changes nothing - so recording never
-    shortens a hazard. 422 `soil_hazard.container` (planter, tent, shelf), `soil_hazard.not_a_bed`,
-    `soil_hazard.hydroponic` (no soil: clean the system instead), `soil_hazard.confirmed_in_future`,
+    shortens a hazard. `juglone` stands at every location that is no vessel (an area such as a garden or zone too),
+    every other hazard only at a bed. 422 `soil_hazard.container` (planter, tent, shelf, container group),
+    `soil_hazard.not_a_bed` (a hazard other than `juglone` at an area), `soil_hazard.hydroponic` (no soil - also a
+    location left at `manual` under a hydroponic parent: clean the system instead), `soil_hazard.confirmed_in_future`,
     `soil_hazard.plant_not_in_bed`, `soil_hazard.loss_not_confirmed` (no soil-borne loss, no listed or no confirmed
     pathogen, or `juglone`, which is entered by hand only), `soil_hazard.confirmed_too_early` (before 1900). When the
     bed already carries the hazard confirmed as late or later nothing is written: 200 with `changed: false` instead of
@@ -536,9 +541,11 @@ def remove_soil_hazard(
 ) -> None:
     """Remove a soil hazard from the bed (AP-API-012) - lead only.
 
-    404 when the bed does not hold that hazard, and for a bed of another tenant like for an unknown one.
+    Writes a row of the plan change log (`GET /sites/{key}/plan/audit`: `op` `delete`, `entity` `soil_hazard`, `key`
+    the bed, `summary` the hazard and its confirmation day) in the same transaction. 404 when the bed does not hold
+    that hazard, and for a bed of another tenant like for an unknown one.
     """
-    service.remove(key, hazard, tenant_key=ctx.tenant_key)
+    service.remove(key, hazard, tenant_key=ctx.tenant_key, user_key=ctx.user_key)
 
 
 # ── Bed photos (REQ-053 GP-FR-051, WP 8.18) ─────────────────────────────────────
