@@ -51,6 +51,10 @@ consistency_check:
       target: src/backend/app/data_access/timescale/migrations/003_retention_policies.sql:6
       resolution: proceed
       evidence: "Dritter Lauf, Messungen und Betreiberentscheidung D (2026-11-28): Der Import lässt am Ende gezielt neu berechnen. Für die Rohwerte heißt das: Stichtag auf einer Tagesgrenze (acceptance-2), danach sensor_hourly und sensor_daily über den eingespielten Rohwert-Zeitraum (acceptance-4), auch am Ende eines Rollbacks (acceptance-5). Der Bericht nennt bis F-34 die nicht eingespielten Stunden- und Tageswerte (acceptance-6)."
+    - kind: drift
+      target: src/backend/app/data_access/timescale/observation_repository.py:278
+      resolution: proceed
+      evidence: "Vierter Lauf und Betreiberentscheidung F (2026-11-28): Jedes Löschen von Rohwerten merkt seinen Zeitraum vor und lässt ihn liegen: delete_by_sensor (:278), delete_by_tenant (:300), der Rollback eines Imports (tenant_export_service.py:1354) und der Sweep abgebrochener Importe (_sweep_abandoned_import :1429-1460 → erase_abandoned_import, tenant_service.py:487). Neues Kriterium acceptance-9: Das Löschen berechnet seinen Zeitraum an einer Stelle im Datenzugriff gezielt neu; acceptance-5 nennt den Sweep-Pfad."
 ---
 
 ## Description
@@ -70,36 +74,43 @@ meldet, dass die Messwerte übersprungen wurden. Schlägt ein Import fehl,
 bleiben keine Messwerte zurück. Während die Messwerte geschrieben werden,
 zeigt die Importliste das als eigene Phase.
 
+Zugleich schließt das Feature eine Lücke beim Löschen von Messwerten: Wird ein
+Sensor oder ein Garten gelöscht oder ein Import zurückgerollt, bleiben danach
+keine Reste in der Zeitreihendatenbank vorgemerkt, die bei einem späteren
+Neuberechnen die Stunden- und Tageswerte anderer Gärten löschen könnten.
+
 Die älteren Stunden- und Tageswerte aus dem Archiv stellt F-34 wieder her; bis
 dahin sagt der Importbericht ausdrücklich, dass sie nicht eingespielt wurden.
 
 ## Acceptance criteria
 
 - [ ] **acceptance-1** Der Import stellt die Rohwerte des Archivs ab dem Stichtag wieder her, zugeordnet zu den Sensoren des neuen Mandanten, vollständig auch bei mehr als 1 000 000 Messwert-Zeilen; für Messwerte gilt nur die Größengrenze des Archivs.
-- [ ] **acceptance-2** Nicht eingespielt und im Importbericht je Grund gezählt werden Rohwerte eines Sensors, der nicht im Archiv steht, und Rohwerte vor dem Stichtag; der Stichtag ist die früheste Tagesgrenze, die nach dem ersten Rohwert des Archivs liegt und mindestens einen Tag jünger ist als die Rohwert-Aufbewahrung der Zielinstallation (heute 90 Tage).
+- [ ] **acceptance-2** Nicht eingespielt und im Importbericht je Grund gezählt werden Rohwerte eines Sensors, der nicht im Archiv steht, und Rohwerte vor dem Stichtag; der Stichtag ist die früheste Grenze eines Tageswerts (Tagesbeginn in UTC), die nach dem ersten Rohwert des Archivs liegt und mindestens einen Tag jünger ist als die Rohwert-Aufbewahrung der Zielinstallation (heute 90 Tage) — auch ein junger Garten verliert so die Rohwerte seines ersten, angebrochenen Tages.
 - [ ] **acceptance-3** Stimmt die Prüfsumme des Messwert-Teils nicht, scheitert schon die Hintergrundprüfung: Die Vorprüfung endet als fehlgeschlagen und lässt sich nicht starten.
 - [ ] **acceptance-4** Nach dem Ende des Imports liefert die Messwert-Abfrage für den eingespielten Rohwert-Zeitraum auch Stunden- und Tageswerte des neuen Mandanten, gebildet aus seinen Rohwerten, und es ist keine Vormerkung des Imports offen: Ein anschließendes Neuberechnen beider Aggregate über den ganzen Zeitraum ändert keinen Stunden- oder Tageswert irgendeines Mandanten.
-- [ ] **acceptance-5** Ein Import, der nach dem Schreiben von Rohwerten fehlschlägt, hinterlässt keinen Rohwert und keinen Stunden- oder Tageswert des neuen Mandanten und keine offene Vormerkung: Ein anschließendes Neuberechnen beider Aggregate über den ganzen Zeitraum ändert keinen Stunden- oder Tageswert irgendeines Mandanten.
+- [ ] **acceptance-5** Ein Import, der nach dem Schreiben von Rohwerten fehlschlägt — ob er sofort zurückgerollt oder als abgebrochener Import später vom stündlichen Aufräumlauf entfernt wird —, hinterlässt keinen Rohwert und keinen Stunden- oder Tageswert des neuen Mandanten und keine offene Vormerkung: Ein anschließendes Neuberechnen beider Aggregate über den ganzen Zeitraum ändert keinen Stunden- oder Tageswert irgendeines Mandanten.
 - [ ] **acceptance-6** Der Importbericht nennt die Zahl der importierten Rohwerte und sagt ausdrücklich, wie viele archivierte Stunden- und Tageswerte nicht eingespielt wurden; ohne Zeitreihendatenbank gelingt der Import und der Bericht sagt ausdrücklich, dass die Messwerte übersprungen wurden.
 - [ ] **acceptance-7** Während ein Import Messwerte schreibt oder ihre Stunden- und Tageswerte neu berechnen lässt, zeigt die Importliste die Phase „Messwerte“.
-- [ ] **acceptance-8** REQ-056 §8.3, §8.4, AK-47 und ein neues Abnahmekriterium in §16.4 sowie das Runbook (DE + EN) beschreiben den Import der Rohwerte, den Stichtag, die beiden Regeln für nicht eingespielte Rohwerte, das gezielte Neuberechnen und das Verhalten ohne Zeitreihendatenbank.
+- [ ] **acceptance-8** REQ-056 §8.3, §8.4, AK-47 und ein neues Abnahmekriterium in §16.4, REQ-005 (Löschen von Messwerten) sowie das Runbook (DE + EN) beschreiben den Import der Rohwerte, den Stichtag samt dem verlorenen ersten Tag, die beiden Regeln für nicht eingespielte Rohwerte, das gezielte Neuberechnen nach Import und Löschung und das Verhalten ohne Zeitreihendatenbank.
+- [ ] **acceptance-9** Wird ein Sensor oder ein Mandant gelöscht, sind danach seine Rohwerte, Stunden- und Tageswerte entfernt, die Stunden- und Tageswerte der anderen Mandanten im selben Zeitraum unverändert, und es ist keine Vormerkung offen: Ein anschließendes Neuberechnen beider Aggregate über den ganzen Zeitraum ändert keinen Stunden- oder Tageswert irgendeines Mandanten.
 
 ## Test hooks
 
 - **acceptance-1** — `src/backend/tests/integration/test_tenant_export_readings_timescale.py` (Timescale service of `.github/workflows/backend-guards.yml`): the seed gains sensor documents of the source tenant (today the readings hang on `SHARED_SENSOR` without one, `:49`, `:68-85`); raw rows from the cut-off day on arrive under the new sensor keys; an archive with more than `MAX_ROWS` reading rows (`tenant_export_engine.py:1012`) imports every such row, streamed from the stored archive — pending
-- **acceptance-2** — same module: raw rows of a `sensor_key` that is not a sensor of the archive, and raw rows before the cut-off day, are not written and counted separately in the report; the cut-off is a day boundary, lies after the archive's first raw row and at least one day inside the target's raw retention, which is read from the target's effective retention policy (`data_access/timescale/migrations/003_retention_policies.sql:3` sets 90 days; a test with a changed policy proves it is not hard-coded) — pending
+- **acceptance-2** — same module: raw rows of a `sensor_key` that is not a sensor of the archive, and raw rows before the cut-off, are not written and counted separately in the report; the cut-off is the start of a UTC day (a boundary of the daily bucket, `time_bucket('1 day', …)`, `data_access/timescale/migrations/002_continuous_aggregates.sql:26`), lies after the archive's first raw row and at least one day inside the target's raw retention, which is read from the target's effective retention policy (`003_retention_policies.sql:3` sets 90 days; a test with a changed policy proves it is not hard-coded); a garden whose first raw row is three days old loses the rows of that first partial day and the report counts them — pending
 - **acceptance-3** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py`: a readings part with a wrong SHA-256 ends the background check `failed`/`IMPORT_CHECKSUM_MISMATCH` (today the part is skipped before the comparison, `tenant_export_engine.py:1220-1228`) and a start is refused — pending
-- **acceptance-4** — `src/backend/tests/integration/test_tenant_export_readings_timescale.py`: the target's aggregates are refreshed once before the import (as the fixture does, `:86-87`); a second tenant has raw rows and buckets in the imported raw period and older buckets without raw rows; after the import `query_hourly` / `query_daily` (`observation_repository.py:196-228`) return the new tenant's buckets of the raw period with the `sample_count` of its raw rows; a snapshot of both materialisation tables before and after `CALL refresh_continuous_aggregate('sensor_hourly', NULL, NULL)` and `('sensor_daily', NULL, NULL)` is identical for every tenant — pending
-- **acceptance-5** — same module: induced failure after the raw rows were written → zero raw rows and zero buckets of the new tenant (rollback through `erase_abandoned_import`, `tenant_export_service.py:1354`; the raw delete marks its range like `delete_by_tenant` does, `observation_repository.py:300`), and the same before/after snapshot around a full refresh is identical for every tenant — pending
+- **acceptance-4** — `src/backend/tests/integration/test_tenant_export_readings_timescale.py`: the target's aggregates are refreshed once before the import (as the fixture does, `:86-87`); a second tenant has raw rows and buckets in the imported raw period and older buckets without raw rows; after the import `query_hourly` / `query_daily` (`observation_repository.py:196-228`) return the new tenant's buckets of the raw period with the `sample_count` of its raw rows; a snapshot of both materialisation tables before and after `CALL refresh_continuous_aggregate('sensor_hourly', NULL, NULL)` and `('sensor_daily', NULL, NULL)` is identical for every tenant. This test is also the measurement of the bounded refresh of the daily values, which so far is derived, not measured — pending
+- **acceptance-5** — same module, two scenarios: (a) induced failure after the raw rows were written → immediate rollback through `erase_abandoned_import` (`tenant_export_service.py:1354`); (b) the rollback is made to fail so the request stays `cleanup_pending` (`:1100-1106`), then the hourly sweep removes the half tenant (`_sweep_abandoned_import`, `:1429-1460`). In both: zero raw rows and zero buckets of the new tenant, and the before/after snapshot around a full refresh is identical for every tenant — pending
 - **acceptance-6** — unit test with `readings=None` (the wiring without TimescaleDB, `src/backend/app/common/dependencies.py:1789`): the report says skipped for lack of a time-series database; integration test: the report carries the raw count and names the archived hourly and daily rows as not imported with their counts (F-34 replaces that entry by the imported counts) — pending
 - **acceptance-7** — service test (phase on the record while readings are written and while the refresh runs) + vitest of the import list from F-33 (phase label DE/EN) — pending
-- **acceptance-8** — `mkdocs build --strict` + spec diff review — pending
+- **acceptance-8** — `mkdocs build --strict` + spec diff review (REQ-056, `spec/req/REQ-005_Hybrid-Sensorik.md`, runbook DE/EN) — pending
+- **acceptance-9** — new integration test against TimescaleDB next to the module above: `delete_by_sensor` and `delete_by_tenant` (`observation_repository.py:278`, `:300`) each recompute the period of the rows they deleted, hourly first, then daily, in one place of the data-access layer (not per caller); a second tenant has raw rows and buckets in the same period; afterwards the deleted tenant's or sensor's rows and buckets are gone, the second tenant's buckets equal their state before, and the before/after snapshot around a full refresh of both aggregates is identical for every tenant; a case with rows at the edge of the raw retention pins that the recompute never covers a range in which another tenant's raw rows have already been dropped — pending
 
 ## Consistency notes
 
 Manual pass performed by: Claude (Subagent der Planungssitzung vom 2026-11-28, im Auftrag des Betreibers nolte) — betrifft den Abschnitt „Re-run 2026-11-28“; die älteren Läufe stammen vom `feature-consistency-reviewer`.
 
-Geltend sind Beschreibung, Kriterien, Hooks und der jüngste Abschnitt dieser Notizen („Stand nach dem dritten Agentenlauf“). Alle älteren Abschnitte sind Verlauf: Ihre Kriteriennummern, Feature-Zuschnitte und Aussagen geben den Stand ihres Laufs wieder.
+Geltend sind Beschreibung, Kriterien, Hooks und der jüngste Abschnitt dieser Notizen („Stand nach dem vierten Agentenlauf“). Alle älteren Abschnitte sind Verlauf: Ihre Kriteriennummern, Feature-Zuschnitte und Aussagen geben den Stand ihres Laufs wieder.
 
 **REQ-056 §8.3 (drift, proceed).** Established:
 `REQ-056_Mandanten-Lebenszyklus-Kontingente.md:364` and the service docstring
@@ -366,12 +377,24 @@ Dritter Lauf des `feature-consistency-reviewer` (`feature-consistency-reviewer@u
 
 **Ergebnis:** eingearbeitet; F-16 ist `ready`, vorbehaltlich des nächsten Agentenlaufs. Acht Kriterien, eines über dem angestrebten Rahmen, weil das Neuberechnen des Rohwert-Zeitraums hier liegt.
 
+### Stand nach dem vierten Agentenlauf (2026-11-28)
+
+Vierter Lauf des `feature-consistency-reviewer` (`feature-consistency-reviewer@unknown`) am 2026-11-28 gegen `9c779f351`, von der Hauptsitzung gestartet; dazu eine weitere Messung der Hauptsitzung gegen TimescaleDB und die Betreiberentscheidung F. Die Einarbeitung stammt vom Subagenten der Planungssitzung; die zitierten Stellen wurden nachgelesen, ein eigener Test lief nicht.
+
+- **Löschlücke (drift, proceed; Betreiberentscheidung F).** Established: Das Löschen der Rohwerte eines Sensors oder Mandanten entfernt auch seine Buckets (`_purge_aggregates`, `observation_repository.py:242-276`), berechnet aber nichts neu; der Kommentar dort hält fest, dass die Vormerkung des gelöschten Bereichs liegen bleibt (`:259-262`). Gemessen (Hauptsitzung, 2026-11-28): Ein späteres Neuberechnen über einen solchen Bereich bildet die Buckets aller Mandanten aus den Rohwerten neu und löscht die, für die keine mehr da sind. Dieselbe Löschung nutzen der Rollback eines Imports (`tenant_export_service.py:1354`) und der Sweep abgebrochener Importe (`_sweep_abandoned_import`, `:1429-1460`; `erase_abandoned_import`, `tenant_service.py:487`). Entschieden: Jedes Löschen von Rohwerten berechnet seinen Zeitraum unmittelbar gezielt neu, erst Stunden-, dann Tageswerte, an einer Stelle im Datenzugriff. Das ist unschädlich, solange die Rohwerte der anderen Mandanten dort noch vorhanden sind (gemessen für Stundenwerte). acceptance-9 ist das eigene Kriterium; acceptance-5 nennt Rollback und Sweep ausdrücklich.
+- **Grenze der Frist.** Unestablished: ob am Rand der Rohwert-Aufbewahrung ein Mandant noch Rohwerte hat und ein anderer im selben Zeitraum nicht mehr; die Aufbewahrung entfernt Rohwerte nicht je Mandant, sondern je Zeitabschnitt der Tabelle, was dafür spricht, dass es nicht vorkommt. Der Hook zu acceptance-9 prüft den Randfall.
+- **Begrenztes Neuberechnen der Tageswerte ist hergeleitet, nicht gemessen.** Gemessen wurde das begrenzte Neuberechnen der Stundenwerte aus Rohwerten. F-16 wird vor F-34 gebaut und berechnet als erstes Feature auch Tageswerte begrenzt neu; der Hook zu acceptance-4 ist die Messung.
+- **Stichtag.** „Tagesgrenze“ heißt die Grenze des Tages-Buckets, also Tagesbeginn in UTC (`002_continuous_aggregates.sql:26`). Dass auch ein junger Garten die Rohwerte seines ersten, angebrochenen Tages verliert, ist gewollt: Sonst würde der Stunden- und Tageswert dieses Tages aus einem Teil der Rohwerte gebildet. Der Bericht zählt sie, das Runbook nennt es (acceptance-2, -8).
+
+**Ergebnis:** eingearbeitet; F-16 ist `ready`, vorbehaltlich des nächsten Agentenlaufs. Neun Kriterien; die Hauptsitzung hat bis zu zehn zugelassen, weil die Löschlücke hier mit behoben wird.
+
 ## Risks
 
-- **Neuberechnen über den Rohwert-Zeitraum.** Es bildet die Stunden- und Tageswerte aller Mandanten in diesem Zeitraum aus ihren Quelldaten neu. Das ist unschädlich, solange alle ihre Rohwerte dort noch haben (gemessen für Stundenwerte); der Stichtag mit Abstand zur Frist stellt das sicher. Ein Mandant, dessen Rohwerte innerhalb der Frist von Hand gelöscht, dessen Buckets aber behalten wurden, verlöre sie; einen solchen Zustand erzeugt die Anwendung nicht (`delete_by_sensor` und `delete_by_tenant` löschen die Buckets mit, `observation_repository.py:278-318`).
+- **Neuberechnen über den Rohwert-Zeitraum.** Es bildet die Stunden- und Tageswerte aller Mandanten in diesem Zeitraum aus ihren Quelldaten neu. Das ist unschädlich, solange alle ihre Rohwerte dort noch haben (gemessen für Stundenwerte, hergeleitet für Tageswerte); der Stichtag mit Abstand zur Frist stellt das sicher.
+- **Altlasten.** Vormerkungen aus Löschungen vor diesem Feature bleiben liegen; F-16 räumt sie nicht ab. Innerhalb der Rohwert-Aufbewahrung sind sie unschädlich, ältere betreffen das Vorab-Neuberechnen in F-34 (dort als Risiko und offener Punkt).
+- **Löschen wird langsamer.** Das Löschen eines Sensors oder Mandanten wartet künftig auf das Neuberechnen von bis zu 90 Tagen Stunden- und Tageswerten.
 - Ein Archiv, das kurz vor dem Import exportiert wurde, verliert kaum Rohwerte; liegt der Export länger zurück, fallen die ältesten Rohwerte vor den Stichtag und werden nur gezählt.
 - Große Messwert-Importe verlängern den Lauf; das Lebenszeichen muss während des Schreibens und des Neuberechnens gesetzt werden, sonst beendet der Stale-Sweep den Import nach sechs Stunden (`tenant_export_service.py:168`).
-- Ohne konfiguriertes Löschinventar bleibt ein fehlgeschlagener Import `cleanup_pending`, bis der stündliche Sweep den halben Mandanten samt Messwerten entfernt hat (`tenant_export_service.py:1324-1362`); acceptance-5 gilt für den Normalfall mit Löschinventar.
 - Zwischen F-16 und F-34 fehlen einem importierten Garten die Stunden- und Tageswerte vor dem Stichtag; der Bericht sagt es.
 
 ## References
@@ -404,6 +427,10 @@ Vierte Runde am selben Tag:
 - **E — Sprintwert:** „samt Sensor-Historie im Rahmen der Aufbewahrungsfristen“.
 - Vorgabe der Hauptsitzung: Schichtung nach den Aufbewahrungsfristen der Zielinstallation, Schnitt an einer Tagesgrenze mit Abstand zur Frist (acceptance-2).
 
+Fünfte Runde am selben Tag:
+
+- **F — Die Löschlücke wird in diesem Feature mit behoben.** Jedes Löschen von Rohwerten (Sensor, Mandant, Rückrollen eines Imports, Aufräumen abgebrochener Importe durch den Sweep) berechnet seinen Zeitraum unmittelbar gezielt neu, erst Stunden-, dann Tageswerte, solange die Rohwerte der anderen Mandanten dort noch vorhanden sind. Eine Stelle im Datenzugriff, nicht je Aufrufer (acceptance-5, acceptance-9).
+
 ## Offene Betreiberentscheidungen (Re-run 2026-11-27)
 
 Der Bericht nennt für F-16 keine blockierende Betreiberentscheidung. Eine Regel ist beim Hochstufen festzulegen:
@@ -417,6 +444,6 @@ Der Bericht nennt für F-16 keine blockierende Betreiberentscheidung. Eine Regel
 
 Keine offene Betreiberentscheidung blockiert F-16.
 
-- **Neuberechnen des Rohwert-Zeitraums in F-16 statt F-34** ist eine Festlegung der Planung, abweichend von der Vorgabe der Hauptsitzung und in den Consistency notes begründet. Blockiert niemanden; die Hauptsitzung kann sie zurücknehmen.
+- **Neuberechnen des Rohwert-Zeitraums in F-16 statt F-34** ist eine Festlegung der Planung, abweichend von der Vorgabe der Hauptsitzung aus der vierten Runde und in den Consistency notes begründet; mit der Entscheidung F liegt der Mechanismus ohnehin hier.
 - **Quelle der Aufbewahrungsfrist.** Der Import liest die wirksame Aufbewahrungs-Policy der Zeitreihendatenbank; ob es zusätzlich eine Einstellung gibt, ist nicht belegt.
-- **Wo die Prüfsumme scheitert** (in der Vorprüfung) und **die genaue Lage des Stichtags** sind Festlegungen der Planung, keine Betreiberentscheidungen.
+- **Wo die Prüfsumme scheitert** (in der Vorprüfung) ist eine Festlegung der Planung, keine Betreiberentscheidung.

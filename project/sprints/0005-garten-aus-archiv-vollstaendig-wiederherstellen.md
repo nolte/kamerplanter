@@ -42,7 +42,8 @@ Abhängigkeiten der Feature-Dateien:
   kann nicht vor F-17 stehen.
 - F-16 braucht die Vorprüfung (eine falsche Prüfsumme des Messwert-Teils
   scheitert dort) und die Liste aus F-33 für die Phase „Messwerte“. Es
-  schreibt die Rohwerte und lässt ihren Zeitraum neu berechnen.
+  schreibt die Rohwerte, lässt ihren Zeitraum neu berechnen und behebt die
+  Lücke beim Löschen von Messwerten (Entscheidung F).
 - F-34 schreibt mit der Sensor-Zuordnung aus F-16 die älteren Stunden- und
   Tageswerte, lässt die Tageswerte ihres Zeitraums neu berechnen und steht
   zuletzt; es trägt den Rundlauf.
@@ -57,8 +58,10 @@ Kette und läuft durch alle sechs. Ein früheres Kriterium wiese die
 Vollständigkeit nicht nach, weil bis F-34 die Stunden- und Tageswerte fehlen.
 Nicht nachgewiesen wird damit die Größe von rund 500 MiB.
 
-**Verpflichtender Handlauf (Betreiberentscheidung 2026-11-28).** Der Wertsatz
-bleibt, wie er ist; die Größe weist der Handlauf zu F-15 `acceptance-1` nach.
+**Verpflichtender Handlauf (Betreiberentscheidung 2026-11-28).** Der Teil
+„bis zu einer Archivgröße von etwa 500 MiB“ des Wertsatzes bleibt (der Satz
+ist durch E um die Aufbewahrungsfristen präzisiert); die Größe weist der
+Handlauf zu F-15 `acceptance-1` nach.
 Der Sprint schließt nicht ohne bestandenen Handlauf: Der Hook zu F-15
 `acceptance-1` darf nur mit `passing` enden, nie mit `skipped`. Der Betreiber
 (oder die Hauptsitzung in seinem Auftrag) startet dazu den
@@ -104,8 +107,8 @@ Betreiberentscheidungen vom 2026-11-28:
 - **`/tmp` des Workers** liegt auch auf Disk (F-15).
 - **Archivierte Stunden- und Tageswerte werden direkt geschrieben** (F-34).
   Der Zusatz „nichts wird neu berechnet“ ist durch D ersetzt.
-- **Sprintwert:** Der Satz bleibt, der Handlauf mit rund 500 MiB ist
-  verpflichtend (oben).
+- **Sprintwert:** Der 500-MiB-Teil des Satzes bleibt, der Handlauf mit rund
+  500 MiB ist verpflichtend (oben); präzisiert durch E.
 - **A — Teilung:** F-17 in „Vorprüfung und Start“ (F-17) und „Importliste und
   Ablauf“ (F-33); F-16 in „Rohwerte und Bericht“ (F-16) und „Stunden- und
   Tageswerte“ (F-34).
@@ -119,14 +122,20 @@ Betreiberentscheidungen vom 2026-11-28:
   eingespielten Zeiträume, erst Stunden-, dann Tageswerte (F-16, F-34).
 - **E — Sprintwert präzisiert:** „samt Sensor-Historie im Rahmen der
   Aufbewahrungsfristen“; der Handlauf bleibt Pflicht.
+- **F — Die Löschlücke wird in F-16 mit behoben:** Jedes Löschen von
+  Rohwerten (Sensor, Mandant, Rückrollen eines Imports, Aufräumen
+  abgebrochener Importe) berechnet seinen Zeitraum unmittelbar gezielt neu,
+  an einer Stelle im Datenzugriff.
 
 Vorgaben der Hauptsitzung vom 2026-11-28, nach ihren Messungen gegen
 TimescaleDB 2.32.1-pg16: Was älter ist als die Aufbewahrungsfrist seiner
 Ebene (Rohwerte, Stundenwerte, Tageswerte), wird nicht eingespielt, sondern
 gezählt, mit Schnitt an einer Tagesgrenze (F-16, F-34); nach dem Import
 ändert ein volles Neuberechnen keinen Wert irgendeines Mandanten (F-16,
-F-34); die Wiederherstellung in eine neu aufgesetzte Installation ist ein
-eigenes Kriterium (F-34); ungültige Angaben in `tenant.json` werden abgelehnt
+F-34); der Import berechnet vor dem Schreiben der Stunden- und Tageswerte
+genau die Zeiträume neu, die er beschreibt, damit die Werte auch in einer
+Installation erhalten bleiben, die bisher nur Policy-Läufe gesehen hat
+(F-34 `acceptance-4`); ungültige Angaben in `tenant.json` werden abgelehnt
 statt ersetzt (F-32).
 
 Festlegungen der Planung vom 2026-11-28, nicht vom Betreiber entschieden und
@@ -142,11 +151,15 @@ Hauptsitzung, damit zwischen F-16 und F-34 keine Vormerkung offen bleibt
 (F-16); die Grenze von 1 MiB für `manifest.json` bleibt, der Export lehnt
 ab (F-15).
 
-Aus dem Repository und den Messungen nicht belegt, durch einen
-Integrationstest zu klären: wie sich die Aggregat-Policies auf einer nie voll
-neu berechneten Installation gegenüber eingespielten Stunden- und Tageswerten
-verhalten (F-34 `acceptance-4`). Offen für den Betreiber, ohne ein Feature
-zu blockieren: ob die Grenze für `manifest.json` steigen soll (F-15).
+Aus dem Repository und den Messungen nicht belegt, durch Integrationstests
+zu klären (F-34 `acceptance-4`): ob das begrenzte Neuberechnen vor dem
+Schreiben wirkt wie das gemessene volle, was in einer leeren Zielinstallation
+gilt, und ob der Import alte Vormerkungen aus früheren Löschungen erkennen
+kann. Der letzte Punkt sollte vor dem ersten Import in die echte Installation
+geklärt sein: Ohne ihn kann das Neuberechnen dort Stunden- und Tageswerte
+anderer Gärten löschen (F-34, „Offene Punkte“). Offen für den Betreiber, ohne
+ein Feature zu blockieren: ob die Grenze für `manifest.json` steigen soll
+(F-15).
 
 ## Features
 

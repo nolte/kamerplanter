@@ -109,6 +109,12 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R9** is made precise (decision E): the sprint value and the roundtrip speak of the sensor history "within the retention periods".
 - New: a restore into an installation whose aggregates were never fully refreshed keeps the imported values (F-34); the policies' behaviour there is not measured.
 
+### Revisit 2026-11-28, fifth round (operator decision F, a further measurement)
+
+- **R19** — Every deletion of raw readings (sensor, tenant, rollback of an import, sweep of abandoned imports) SHALL have its period recomputed at once, hourly first, then daily, in one place of the data-access layer, so that no pending mark is left behind.
+  - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision F, 2026-11-28 (F-16)
+- **R4/R13** are made precise by a measurement against TimescaleDB 2.32.1-pg16: periods before an installation's first refresh count as never materialised, and a full refresh deletes directly written values there. The import therefore recomputes exactly the periods it is about to write before it writes them (F-34). Not measured: the bounded form of that recompute, an empty target installation, and whether pending marks left by deletions before R19 can be detected.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).
