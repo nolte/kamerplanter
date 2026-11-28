@@ -169,7 +169,10 @@ describe('tracker SDKs stay behind the consent gate (#2159)', () => {
     expect(guards[0]).toMatch(/\bif\s*\(\s*trackingPermitted\s*\(\s*\)\s*\)\s*return\s*$/);
     // …and the predicate is the consent read, minus Light mode.
     const predicate = /function\s+trackingPermitted\s*\(\s*\)[^{]*\{([^}]*)\}/.exec(source)?.[1];
-    expect(predicate).toMatch(/!\s*isLightMode\s*&&\s*hasConsent\(\s*['"]error_tracking['"]\s*\)/);
+    // #3025: the one decision function of UI-NFR-013 §5.4, over the current snapshot and clock.
+    expect(predicate).toMatch(
+      /!\s*isLightMode\s*&&\s*browserReportsPermitted\(\s*readConsentSnapshot\(\s*\)\s*,\s*Date\.now\(\s*\)\s*\)/,
+    );
   });
 
   it('the manifest carries no tracker dependency without a gate', () => {

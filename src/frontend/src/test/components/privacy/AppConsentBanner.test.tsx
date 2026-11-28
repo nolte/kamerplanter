@@ -1,7 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent, act, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '../../helpers';
-import { CONSENT_STORAGE_KEY, resetConsentStoreForTests } from '@/observability/consent';
+import { server } from '../../mocks/server';
+import {
+  CONSENT_STORAGE_KEY,
+  readConsent,
+  consentPrompt,
+  readConsentSnapshot,
+  resetConsentStoreForTests,
+  setAuthStatus,
+  setPendingRevoke,
+} from '@/observability/consent';
+import { resetConsentSyncForTests } from '@/observability/consentSync';
 
 /**
  * `isLightMode` is a module constant resolved at import time, so each case
@@ -22,6 +33,48 @@ vi.mock('@/config/mode', () => ({
 
 const DSN = 'https://key@tracker.example/1';
 
+interface ServerState {
+  granted: boolean;
+  revoked: boolean;
+}
+let serverState: ServerState;
+let failGet: boolean;
+let failDelete: boolean;
+
+function consentBody() {
+  return [
+    {
+      purpose: 'browser_error_reports',
+      label: 'Send error reports from the browser',
+      description: '…',
+      legal_basis: 'Art. 6(1)(a) GDPR',
+      required: false,
+      granted: serverState.granted,
+      granted_at: null,
+      revoked_at: serverState.revoked ? '2026-11-28T09:00:00Z' : null,
+      consent_version: serverState.granted || serverState.revoked ? '1.0' : null,
+      purpose_version: '1.0',
+    },
+  ];
+}
+
+function installServer(): void {
+  server.use(
+    http.get('/api/v1/privacy/consents', () =>
+      failGet ? new HttpResponse(null, { status: 503 }) : HttpResponse.json(consentBody()),
+    ),
+    http.post('/api/v1/privacy/consents', () => {
+      serverState = { granted: true, revoked: false };
+      return HttpResponse.json(consentBody()[0], { status: 201 });
+    }),
+    http.delete('/api/v1/privacy/consents/:purpose', () => {
+      if (failDelete) return new HttpResponse(null, { status: 503 });
+      serverState = { granted: false, revoked: true };
+      return HttpResponse.json(consentBody()[0]);
+    }),
+  );
+}
+
 async function renderBanner() {
   const { default: AppConsentBanner } = await import('@/components/privacy/AppConsentBanner');
   return renderWithProviders(<AppConsentBanner />);
@@ -33,23 +86,30 @@ async function renderSettings() {
   return renderWithProviders(<BrowserConsentSettings />);
 }
 
-/** #2159 — the app-shell mount: Light mode and DSN-less deployments ask nothing. */
+/** #2159/#3025 — the app-shell mount and the settings section of browser error reports. */
 describe('AppConsentBanner / BrowserConsentSettings', () => {
   beforeEach(() => {
     modeMock.isLightMode = false;
+    resetConsentSyncForTests();
     resetConsentStoreForTests();
-    window.localStorage.removeItem(CONSENT_STORAGE_KEY);
+    window.localStorage.clear();
     delete window.__RUNTIME_CONFIG__;
+    serverState = { granted: false, revoked: false };
+    failGet = false;
+    failDelete = false;
+    installServer();
   });
 
   afterEach(() => {
+    resetConsentSyncForTests();
     resetConsentStoreForTests();
-    window.localStorage.removeItem(CONSENT_STORAGE_KEY);
+    window.localStorage.clear();
     delete window.__RUNTIME_CONFIG__;
   });
 
   it('shows the banner on a first visit when error tracking is configured', async () => {
     window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+    setAuthStatus({ kind: 'signed_out' });
     await renderBanner();
     // #3023 — the banner is a lazy chunk, so it appears once that chunk has loaded.
     expect(await screen.findByTestId('consent-banner')).toBeInTheDocument();
@@ -58,35 +118,18 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
   it('shows no banner in Light mode (REQ-027 household exemption, CB-001)', async () => {
     modeMock.isLightMode = true;
     window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN, KAMERPLANTER_MODE: 'light' };
+    setAuthStatus({ kind: 'signed_out' });
     await renderBanner();
     expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
   });
 
   it('shows no banner when no DSN is configured (nothing to consent to)', async () => {
+    setAuthStatus({ kind: 'signed_out' });
     await renderBanner();
     expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
   });
 
-  it('offers the revoke switch in the privacy settings and writes the store', async () => {
-    window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
-    window.localStorage.setItem(
-      CONSENT_STORAGE_KEY,
-      JSON.stringify({ necessary: true, error_tracking: true, external_services: false }),
-    );
-    await renderSettings();
-
-    const toggle = screen.getByRole('switch');
-    expect(toggle).toBeChecked();
-    expect(toggle).toHaveAccessibleDescription(/diesen Browser|this browser/);
-    fireEvent.click(toggle);
-
-    expect(toggle).not.toBeChecked();
-    const stored = JSON.parse(window.localStorage.getItem(CONSENT_STORAGE_KEY)!);
-    expect(stored.error_tracking).toBe(false);
-    expect(stored.external_services).toBe(false);
-  });
-
-  it('hides the revoke switch in Light mode and without a DSN', async () => {
+  it('hides the settings section in Light mode and without a DSN', async () => {
     modeMock.isLightMode = true;
     window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
     const { unmount } = await renderSettings();
@@ -97,5 +140,152 @@ describe('AppConsentBanner / BrowserConsentSettings', () => {
     delete window.__RUNTIME_CONFIG__;
     await renderSettings();
     expect(screen.queryByTestId('browser-consent-settings')).not.toBeInTheDocument();
+  });
+
+  describe('settings (signed in)', () => {
+    beforeEach(() => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+    });
+
+    it('the switch is the account consent and shows only what the server confirmed', async () => {
+      await renderSettings();
+      const toggle = within(await screen.findByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
+      await vi.waitFor(() => expect(readConsentSnapshot().account.kind).toBe('undecided'));
+      expect(toggle).not.toBeChecked();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+
+      fireEvent.click(toggle);
+
+      await vi.waitFor(() => expect(toggle).toBeChecked());
+      expect(serverState.granted).toBe(true);
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute('data-sending', 'true');
+    });
+
+    it('a failed revoke switches off at once and shows the pending revoke with a retry (B-6)', async () => {
+      serverState = { granted: true, revoked: false };
+      failDelete = true;
+      await renderSettings();
+      const toggle = within(await screen.findByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
+      await vi.waitFor(() => expect(toggle).toBeChecked());
+
+      fireEvent.click(toggle);
+
+      expect(await screen.findByTestId('browser-consent-revoke-pending')).toHaveAttribute(
+        'role',
+        'alert',
+      );
+      expect(toggle).not.toBeChecked();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+
+      failDelete = false;
+      fireEvent.click(screen.getByRole('button', { name: /Erneut versuchen|Try again/ }));
+      await vi.waitFor(() =>
+        expect(screen.queryByTestId('browser-consent-revoke-pending')).not.toBeInTheDocument(),
+      );
+      expect(serverState.revoked).toBe(true);
+    });
+
+    it('shows a failed read with a retry, never as consent (CP-012)', async () => {
+      serverState = { granted: true, revoked: false };
+      failGet = true;
+      await renderSettings();
+
+      expect(await screen.findByTestId('browser-consent-sync-failed')).toBeInTheDocument();
+      expect(
+        within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+      ).not.toBeChecked();
+
+      failGet = false;
+      fireEvent.click(screen.getByRole('button', { name: /Erneut versuchen|Try again/ }));
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+        ).toBeChecked(),
+      );
+    });
+
+    it('shows a pending revoke left from an earlier page view', async () => {
+      act(() => setPendingRevoke('user-a', true));
+      failDelete = true;
+      await renderSettings();
+      expect(await screen.findByTestId('browser-consent-revoke-pending')).toBeInTheDocument();
+    });
+
+    it('a device decline is shown and only a reset on this device lifts it (CP-007)', async () => {
+      serverState = { granted: true, revoked: false };
+      window.localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({ necessary: true, browser_error_reports: false, version: '1.0' }),
+      );
+      await renderSettings();
+      await vi.waitFor(() =>
+        expect(
+          within(screen.getByTestId('browser-consent-account-switch')).getByRole('switch'),
+        ).toBeChecked(),
+      );
+      expect(screen.getByTestId('browser-consent-device')).toHaveTextContent(/abgelehnt|declined/);
+      // N-b: a declined device is not told the account consent applies here.
+      expect(screen.getByTestId('browser-consent-settings')).not.toHaveTextContent(
+        /gilt für diesen Browser|applies to this browser/,
+      );
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+
+      fireEvent.click(screen.getByTestId('browser-consent-device-reset'));
+
+      // v1.5: reset is "undecided" — the account alone does not send, this device is asked again.
+      expect(readConsent().browser_error_reports).toBeNull();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+      expect(screen.getByTestId('browser-consent-device')).toHaveTextContent(
+        /noch nicht entschieden|not decided/,
+      );
+      expect(consentPrompt(readConsentSnapshot())).toBe('confirm');
+      expect(serverState.granted).toBe(true);
+    });
+
+    // N-6 (v1.5): "not from this device, otherwise yes".
+    it('the device switch turns this browser off while the account stays granted', async () => {
+      serverState = { granted: true, revoked: false };
+      window.localStorage.setItem(
+        CONSENT_STORAGE_KEY,
+        JSON.stringify({ necessary: true, browser_error_reports: true, version: '1.0' }),
+      );
+      await renderSettings();
+      const account = within(screen.getByTestId('browser-consent-account-switch')).getByRole(
+        'switch',
+      );
+      const device = within(screen.getByTestId('browser-consent-device-switch')).getByRole(
+        'switch',
+      );
+      await vi.waitFor(() => expect(account).toBeChecked());
+      expect(device).toBeChecked();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute('data-sending', 'true');
+
+      fireEvent.click(device);
+
+      expect(readConsent().browser_error_reports).toBe(false);
+      expect(account).toBeChecked();
+      expect(screen.getByTestId('browser-consent-sending')).toHaveAttribute(
+        'data-sending',
+        'false',
+      );
+      expect(serverState.granted).toBe(true);
+    });
   });
 });

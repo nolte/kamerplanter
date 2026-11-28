@@ -32,7 +32,7 @@ Dieser Abschnitt richtet sich an technische Nutzer und Self-Hoster. Alle unten b
 | `DELETE /api/v1/privacy/restrict/{restriction_key}` | Einschränkung aufheben |
 | `POST /api/v1/privacy/object` | Widerspruch einlegen (Art. 21) |
 | `GET /api/v1/privacy/consents` | Einwilligungen auflisten (Art. 7) |
-| `POST /api/v1/privacy/consents` | Einwilligung erteilen |
+| `POST /api/v1/privacy/consents` | Einwilligung erteilen; `purpose_version` nennt die Fassung des Texts, die du gesehen hast (Pflicht bei `browser_error_reports`, sonst geprüft, wenn gesetzt). Ist der Text inzwischen ein anderer, antwortet der Server `409 CONSENT_TEXT_OUTDATED` und speichert nichts. |
 | `DELETE /api/v1/privacy/consents/{purpose}` | Einwilligung widerrufen |
 | `GET /api/v1/privacy/policy` | Datenschutzerklärung abrufen (kein Login nötig) |
 
@@ -166,7 +166,8 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 | Zweck | Typ | Widerrufbar |
 |-------|-----|:-----------:|
 | **Grundfunktionen** (Pflanzenverwaltung, Erinnerungen) | Pflicht | Nein |
-| **Fehlerberichte meinem Konto zuordnen** (Sentry) | Optional | Ja |
+| **Fehlerberichte meinem Konto zuordnen** (Sentry, Berichte des Servers, `error_tracking`) | Optional | Ja |
+| **Fehlerberichte aus dem Browser senden** (`browser_error_reports`) | Optional | Ja |
 | **Foto-Identifikation** (Pl@ntNet) | Optional | Ja |
 | **Cloud-basierte Schädlingserkennung** (Kindwise plant.health) | Optional | Ja |
 | **KI-Krankheitsdiagnose** (Bilderkennung für Krankheiten/Mängel) | Optional | Ja |
@@ -180,9 +181,27 @@ Für die Grundfunktionen des Systems ist keine optionale Einwilligung nötig. Ei
 !!! info "Was die Fehlerbericht-Zuordnung bewirkt"
     Hat der Betreiber Fehler-Tracking eingeschaltet und tritt bei einer deiner Anfragen ein Fehler auf, geht ein Fehlerbericht an den Tracker — ohne Anfrage-Inhalte, ohne IP-Adresse und ohne den aufgerufenen Pfad. Mit deiner Einwilligung trägt er zusätzlich ein Pseudonym deines Kontos und deines Gartens, nie Name oder E-Mail. So lässt sich ein Fehler, der dich betrifft, gezielt nachverfolgen. Widerrufst du, gilt das ab deiner nächsten Anfrage.
 
-**Fehlerberichte aus dem Browser** fragt Kamerplanter getrennt davon ab: Hat der Betreiber Fehler-Tracking eingeschaltet, erscheint beim ersten Besuch unten ein Hinweis mit **Alle akzeptieren**, **Nur Notwendige** und **Einstellungen**. Erst wenn du der Fehleranalyse zustimmst, meldet dein Browser Abstürze an den Tracker — ohne Formularinhalte, Cookies oder E-Mail-Adresse. Die Entscheidung gilt für diesen Browser. Ändern kannst du sie im Tab **Einwilligungen** mit dem Schalter **Fehleranalyse erlauben**; sie wirkt sofort, ohne Neuladen. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
-
 Eine Passwort-Prüfung gegen bekannte Datenlecks und eine Einwilligung für die externe Stammdatenanreicherung gibt es nicht mehr in der Liste: Die Passwort-Prüfung existiert nicht, und die Anreicherung von Arten-Stammdaten (GBIF, Perenual) überträgt nur Artnamen, keine Daten über dich. Hattest du eine der beiden erteilt, bleibt der Eintrag in deinem Datenexport sichtbar und wird mit deinem Konto gelöscht.
+
+### Fehlerberichte aus dem Browser
+
+Ob dein Browser bei einem Fehler einen Bericht an den Fehler-Tracker des Betreibers schickt, ist eine eigene Einwilligung — getrennt von der Zuordnung oben. Der Hinweis dazu erscheint nur, wenn der Betreiber Fehler-Tracking eingeschaltet hat, und unten am Bildschirmrand mit **Alle akzeptieren**, **Nur Notwendige** und **Einstellungen**.
+
+**Was ein Bericht enthält:** die Fehlermeldung mit Programmablauf, die aufgerufene Seite — Garten-Kurzname, Datensatzschlüssel, Suchbegriffe und andere Adressparameter durch Platzhalter ersetzt —, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente ohne deren Beschriftung, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). **Was er nicht enthält:** Formular- und Sucheingaben, Anfrage-Inhalte, Cookies, deine E-Mail-Adresse, Sprache und Zeitzone und ein Pseudonym deines Kontos. Nennt eine Fehler- oder Konsolenmeldung selbst einen Wert, etwa den Namen einer Pflanze, geht dieser mit. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses. Der Hinweis nennt die Adresse des Trackers.
+
+**Wo deine Entscheidung gilt:**
+
+- **Nicht angemeldet:** Deine Entscheidung gilt nur für diesen Browser.
+- **Angemeldet:** Gesendet wird nur, wenn du in deinem Konto zugestimmt hast **und** dieser Browser zugestimmt hat. Stimmst du im Hinweis zu, gilt das für dein Konto und für diesen Browser zugleich. Auf jedem weiteren Gerät fragt Kamerplanter einmal kurz: „Du hast Fehlerberichten in deinem Konto zugestimmt. Sollen sie auch von diesem Gerät gesendet werden?“ — so wird auf einem fremden oder geteilten Gerät nichts gesendet, ohne dass dort jemand zugestimmt hat. Eine Zustimmung, die du vorher ohne Anmeldung gegeben hast, übernimmt Kamerplanter **nicht** in dein Konto — es fragt dich nach der Anmeldung noch einmal. Eine Zustimmung, die du hier angemeldet gegeben hast, endet mit dem Abmelden — die nächste Person in diesem Browser wird neu gefragt, und nach deiner nächsten Anmeldung fragen wir dich einmal kurz.
+- **Ohne Anmeldung abgelehnt:** Hat jemand in diesem Browser ohne Anmeldung **Nur Notwendige** gewählt, sendet dieser Browser keine Berichte, auch wenn du in deinem Konto zugestimmt hast. Deine Konto-Einwilligung bleibt dabei unverändert. Aufheben kannst du die Ablehnung im Tab **Einwilligungen** mit **Entscheidung dieses Browsers zurücksetzen**.
+- **Ohne Anmeldung ändern:** Unten auf der Anmelde- und der Registrierungsseite steht **Entscheidung dieses Browsers zu Fehlerberichten ändern**, sobald dieser Browser entschieden hat. Ein Klick setzt die Entscheidung zurück, und der Hinweis fragt neu.
+
+Hast du vor dieser Änderung nur im Browser zugestimmt, fragt Kamerplanter dich einmal neu. Eine frühere Ablehnung bleibt bestehen.
+
+**Ändern** kannst du deine Entscheidung im Tab **Einwilligungen** im Abschnitt **Fehlerberichte aus dem Browser** mit dem Schalter **Für mein Konto erlauben** und, getrennt davon, mit **Von diesem Browser senden** — so kannst du zum Beispiel ein Familien-Tablet ausnehmen, ohne dein Konto zu ändern. **Entscheidung dieses Browsers zurücksetzen** führt wieder zur Nachfrage. Darunter steht, ob dieser Browser gerade Berichte sendet. Ein Widerruf wirkt sofort, auch in anderen offenen Tabs. Kann Kamerplanter deinen Stand nicht mit dem Server abgleichen, sendet der Browser keine Berichte, und der Abschnitt zeigt das mit **Erneut versuchen**. Erreicht ein Widerruf den Server nicht, gilt er in diesem Browser trotzdem sofort und wird beim nächsten Abgleich nachgeholt. Hat sich der Text der Einwilligung geändert, während deine Seite noch die alte Fassung zeigt, speichert Kamerplanter deine Zustimmung nicht und bittet dich, die Seite neu zu laden. Dein Browser sendet nur Fehlerberichte, keine Meldungen über Seitenaufrufe oder Sitzungen. Im Light-Modus erscheint der Hinweis nicht, und dein Browser meldet keine Fehler.
+
+!!! info "Erteilt für eine frühere Fassung"
+    Ändert sich der Text einer Einwilligung, steht bei einer älteren Zustimmung in der Liste **Für eine frühere Fassung erteilt**. Für Fehlerberichte aus dem Browser fragt Kamerplanter dich dann neu.
 
 ### Einwilligung widerrufen
 
@@ -192,9 +211,6 @@ Bei jeder erteilten optionalen Einwilligung steht die Schaltfläche **Widerrufen
 
 !!! info "Erteilen geschieht dort, wo du die Funktion nutzt"
     Im Tab selbst erteilst du keine Einwilligung. Das passiert an der Stelle, an der die Funktion sie braucht: beim ersten Foto der [Pflanzenerkennung](plant-identification.md), bei der ersten Frage auf der Seite [KI-Assistent](ai-assistant.md) oder mit dem Schalter **Als Referenzbild für die Erkennung nutzen** beim [Anlegen einer Pflanze](plant-identification.md#foto-der-neuen-pflanze-zuordnen). Für Einwilligungen ohne eine solche Stelle bleibt die API: `POST /api/v1/privacy/consents` erteilt, `DELETE /api/v1/privacy/consents/{purpose}` widerruft mit Zeitstempel. `GET /api/v1/privacy/consents` liefert dieselben Daten, die auch der Tab anzeigt (siehe [Für technische Nutzer / Self-Hoster](#fuer-technische-nutzer-self-hoster)).
-
-!!! warning "Auswirkungen eines Widerrufs"
-    Wenn du die Einwilligung für externe Stammdatenanreicherung widerrufst, werden keine neuen Daten mehr von GBIF oder Perenual abgerufen. Bestehende angereicherte Daten bleiben erhalten.
 
 ### Foto-Identifikation (plant_identification)
 

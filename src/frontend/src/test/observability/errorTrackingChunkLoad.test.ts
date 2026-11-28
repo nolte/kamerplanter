@@ -47,9 +47,11 @@ describe('error-tracking chunk load', () => {
   ] as const)('does not load the chunk while consent is %s', async (_label, decision) => {
     window.localStorage.setItem(
       'kamerplanter:consent:v1',
-      JSON.stringify({ necessary: true, error_tracking: decision, external_services: false }),
+      JSON.stringify({ necessary: true, browser_error_reports: decision, version: '1.0' }),
     );
-    const { tracking } = await loadModules();
+    const { tracking, consent } = await loadModules();
+    // Signed out, so the device decision is the one that counts (UI-NFR-013 §5.4).
+    consent.setAuthStatus({ kind: 'signed_out' });
 
     await expect(tracking.initErrorTracking()).resolves.toBe(false);
 
@@ -59,14 +61,11 @@ describe('error-tracking chunk load', () => {
 
   it('loads the chunk once consent is given (positive control for the counter)', async () => {
     const { tracking, consent } = await loadModules();
+    consent.setAuthStatus({ kind: 'signed_out' });
     await tracking.initErrorTracking();
     expect(imported).not.toHaveBeenCalled();
 
-    consent.writeConsent({
-      ...consent.INITIAL_CONSENT_STATE,
-      error_tracking: true,
-      external_services: false,
-    });
+    consent.decideOnDevice(true);
     await vi.waitFor(() => expect(tracking.isErrorTrackingActive()).toBe(true));
 
     expect(imported).toHaveBeenCalledTimes(1);

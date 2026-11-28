@@ -1,11 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import i18n from 'i18next';
 import PrivacySettingsPage from '@/pages/auth/PrivacySettingsPage';
 import { renderWithProviders, createTestStore, authState } from '../helpers';
 import { server } from '../mocks/server';
+import { resetConsentStoreForTests } from '@/observability/consent';
+import { resetConsentSyncForTests } from '@/observability/consentSync';
 
 /** The erasure dialog echoes the signed-in account's own e-mail (#1813). */
 const OWN_EMAIL = 'tester@example.org';
@@ -86,6 +88,62 @@ describe('PrivacySettingsPage', () => {
     renderWithProviders(<PrivacySettingsPage />);
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeTruthy();
+    });
+  });
+
+  describe('browser error reports and text versions (#3025, UI-NFR-013 §4.2)', () => {
+    const row = (purpose: string, extra: Record<string, unknown> = {}) => ({
+      purpose,
+      label: purpose,
+      description: '',
+      legal_basis: 'consent',
+      required: false,
+      granted: true,
+      granted_at: '2026-10-09T00:00:00Z',
+      revoked_at: null,
+      consent_version: '1.0',
+      purpose_version: '1.0',
+      ...extra,
+    });
+
+    afterEach(() => {
+      delete window.__RUNTIME_CONFIG__;
+      // The settings section starts the account sync; it must not outlive the case.
+      resetConsentSyncForTests();
+      resetConsentStoreForTests();
+    });
+
+    it('marks a grant given to an earlier text of the purpose', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () =>
+          HttpResponse.json([
+            row('plant_identification', { consent_version: '1.0', purpose_version: '2.0' }),
+            row('reference_contribution'),
+          ]),
+        ),
+      );
+      renderWithProviders(<PrivacySettingsPage />);
+
+      expect(await screen.findByTestId('consent-outdated-plant_identification')).toHaveTextContent(
+        'Für eine frühere Fassung erteilt',
+      );
+      expect(screen.queryByTestId('consent-outdated-reference_contribution')).toBeNull();
+    });
+
+    it('lists browser_error_reports once: as the switch where it is managed, in the list otherwise', async () => {
+      server.use(
+        http.get('/api/v1/privacy/consents', () => HttpResponse.json([row('browser_error_reports')])),
+      );
+      const first = renderWithProviders(<PrivacySettingsPage />);
+      expect(await screen.findByTestId('consent-revoke-browser_error_reports')).toBeInTheDocument();
+      expect(screen.queryByTestId('browser-consent-settings')).toBeNull();
+      first.unmount();
+
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: 'https://key@tracker.example/1' };
+      renderWithProviders(<PrivacySettingsPage />);
+      expect(await screen.findByTestId('browser-consent-settings')).toBeInTheDocument();
+      await screen.findByTestId('privacy-consents-list');
+      expect(screen.queryByTestId('consent-revoke-browser_error_reports')).toBeNull();
     });
   });
 

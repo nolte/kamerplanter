@@ -1111,6 +1111,32 @@ class ConsentRequiredError(KamerplanterError):
         )
 
 
+class ConsentTextOutdatedError(KamerplanterError):
+    """REQ-025 v1.42 — a grant refers to a different text version than the server's current one (409).
+
+    The person agreed to the wording their page showed; when that is not the
+    wording the server now holds (an outdated bundle, a cached page), recording
+    the grant would stamp a version they never saw. Nothing is written.
+    """
+
+    def __init__(self, purpose: str, *, shown: str | None, current: str) -> None:
+        super().__init__(
+            message=f"The text of '{purpose}' has changed; reload the page and decide again.",
+            error_code="CONSENT_TEXT_OUTDATED",
+            status_code=409,
+            details=[
+                {
+                    "field": "purpose_version",
+                    "reason": "The consent text shown is not the current one.",
+                    "code": "CONSENT_TEXT_OUTDATED",
+                    "purpose": purpose,
+                    "shown_version": shown or "",
+                    "current_version": current,
+                }
+            ],
+        )
+
+
 class FeatureNotConfiguredError(KamerplanterError):
     """REQ-029 §6.3 — an optional feature is not configured on this instance."""
 

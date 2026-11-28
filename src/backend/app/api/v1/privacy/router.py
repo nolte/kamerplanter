@@ -31,7 +31,12 @@ from app.api.v1.privacy.schemas import (
 )
 from app.common.auth import get_authenticated_with_api_key, require_account_principal
 from app.common.dependencies import get_mcp_audit_repo, get_privacy_service
-from app.common.openapi_responses import NOT_FOUND_RESPONSE, STEP_UP_RESPONSES, UNAUTHORIZED_RESPONSE
+from app.common.openapi_responses import (
+    NOT_FOUND_RESPONSE,
+    STEP_UP_RESPONSES,
+    UNAUTHORIZED_RESPONSE,
+    ErrorResponse,
+)
 from app.common.request_ip import resolve_client_ip
 from app.config.settings import settings
 from app.data_access.arango.mcp_repository import ArangoMcpAuditRepository
@@ -105,6 +110,7 @@ def _to_consent_response_from_record(
     description: str,
     legal_basis: str,
     required: bool,
+    purpose_version: str,
 ) -> ConsentResponse:
     return ConsentResponse(
         purpose=record.purpose,
@@ -115,6 +121,8 @@ def _to_consent_response_from_record(
         granted=record.granted,
         granted_at=record.granted_at,
         revoked_at=record.revoked_at,
+        consent_version=record.consent_version,
+        purpose_version=purpose_version,
     )
 
 
@@ -398,12 +406,27 @@ def list_consents(
             granted=c.granted,
             granted_at=c.granted_at,
             revoked_at=c.revoked_at,
+            consent_version=c.consent_version,
+            purpose_version=c.purpose_version,
         )
         for c in consents
     ]
 
 
-@router.post("/consents", response_model=ConsentResponse, status_code=201)
+@router.post(
+    "/consents",
+    response_model=ConsentResponse,
+    status_code=201,
+    responses={
+        409: {
+            "model": ErrorResponse,
+            "description": (
+                "`CONSENT_TEXT_OUTDATED`: `purpose_version` is not the purpose's current text version "
+                "(or missing where it is required); nothing was written — reload and decide again."
+            ),
+        }
+    },
+)
 def grant_consent(
     body: ConsentGrantRequest,
     request: Request,
@@ -418,13 +441,15 @@ def grant_consent(
         body.purpose,
         ip_address=ip_address,
         user_agent=user_agent,
+        shown_version=body.purpose_version,
     )
     purpose = service._consent_engine.find_purpose(body.purpose)  # noqa: SLF001
     label = purpose.label_en if purpose else body.purpose
     description = purpose.description_en if purpose else ""
     legal_basis = purpose.legal_basis if purpose else ""
     required = purpose.required if purpose else False
-    return _to_consent_response_from_record(record, label, description, legal_basis, required)
+    version = purpose.version if purpose else record.consent_version
+    return _to_consent_response_from_record(record, label, description, legal_basis, required, version)
 
 
 @router.delete("/consents/{purpose}", response_model=ConsentResponse)
@@ -440,7 +465,8 @@ def revoke_consent(
     description = purpose_def.description_en if purpose_def else ""
     legal_basis = purpose_def.legal_basis if purpose_def else ""
     required = purpose_def.required if purpose_def else False
-    return _to_consent_response_from_record(record, label, description, legal_basis, required)
+    version = purpose_def.version if purpose_def else record.consent_version
+    return _to_consent_response_from_record(record, label, description, legal_basis, required, version)
 
 
 # ── Privacy policy (public) ───────────────────────────────────────

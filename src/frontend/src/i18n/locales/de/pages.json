@@ -765,7 +765,8 @@
       "consentRevokeAria": "Einwilligung „{{label}}“ widerrufen",
       "consentRevokeFailed": "Die Einwilligung konnte nicht widerrufen werden. Bitte versuche es erneut.",
       "consentRevokedStatus": "Einwilligung widerrufen.",
-      "consentPurposeUnnamed": "Verarbeitungszweck ohne Bezeichnung"
+      "consentPurposeUnnamed": "Verarbeitungszweck ohne Bezeichnung",
+      "consentOutdatedVersion": "Für eine frühere Fassung erteilt"
     },
     "activities": {
       "title": "Tätigkeiten",
@@ -9377,6 +9378,56 @@
           "label": "Ablehnen"
         }
       }
+    }
+  },
+  "consent": {
+    "banner": {
+      "aria_label": "Einwilligung: Fehlerberichte aus dem Browser",
+      "title": "Fehlerberichte aus dem Browser?",
+      "intro": "Notwendige Speicherungen für Anmeldung, Sprache und Gartenauswahl sind immer aktiv. Optional darf dein Browser bei einem Fehler einen Bericht an den Fehler-Tracker des Betreibers senden.",
+      "scope_device": "Du bist nicht angemeldet: Deine Entscheidung gilt nur für diesen Browser. Eine Zustimmung gilt nicht für ein Konto – nach der Anmeldung fragen wir dich dort noch einmal. Eine Ablehnung gilt hier für jede Person, die sich in diesem Browser anmeldet.",
+      "scope_account": "Deine Zustimmung wird in deinem Konto gespeichert und gilt für diesen Browser, bis du dich abmeldest. Auf jedem weiteren Gerät und nach einer neuen Anmeldung fragen wir dich einmal, ob es auch von dort senden darf.",
+      "settings": "Einstellungen",
+      "necessary": "Nur Notwendige",
+      "accept_all": "Alle akzeptieren",
+      "save": "Auswahl speichern",
+      "retry": "Erneut versuchen",
+      "grant_failed": "Deine Zustimmung konnte nicht in deinem Konto gespeichert werden. Bis das gelingt, sendet dieser Browser keine Fehlerberichte.",
+      "revoke_pending": "Deine Ablehnung gilt in diesem Browser sofort, ist aber noch nicht in deinem Konto gespeichert. Wir versuchen es beim nächsten Abgleich erneut.",
+      "category": {
+        "browser_error_reports": {
+          "label": "Fehlerberichte aus dem Browser",
+          "description": "Tritt in deinem Browser ein Fehler auf, sendet er einen Bericht an den Fehler-Tracker, den der Betreiber dieser Installation eingerichtet hat ({{host}}). Der Bericht enthält die Fehlermeldung mit Programmablauf, die aufgerufene Seite – Garten-Kurzname, Datensatzschlüssel, Suchbegriffe und andere Adressparameter durch Platzhalter ersetzt –, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente ohne deren Beschriftung, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält keine Formular- und Sucheingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein Pseudonym deines Kontos. Nennt eine Fehler- oder Konsolenmeldung selbst einen Wert, etwa den Namen einer Pflanze, geht dieser mit. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses.",
+          "host_unknown": "Adresse aus der Betreiber-Konfiguration"
+        }
+      },
+      "summary": "Ein Bericht enthält die Fehlermeldung, die Seite mit Platzhaltern statt Kennungen, Browser und App-Version sowie die Schritte davor – keine Formular- und Sucheingaben und kein Pseudonym deines Kontos. Er geht an {{host}}; der Empfänger sieht dabei deine IP-Adresse.",
+      "change_hint_device": "Ändern kannst du sie jederzeit über „Entscheidung dieses Browsers zu Fehlerberichten ändern“ unten auf der Anmeldeseite.",
+      "change_hint_account": "Du kannst sie jederzeit unter Datenschutz → Einwilligungen ändern.",
+      "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
+      "reload": "Seite neu laden",
+      "confirm_title": "Fehlerberichte auch von diesem Gerät?",
+      "confirm_body": "Du hast Fehlerberichten in deinem Konto zugestimmt. Sollen sie auch von diesem Gerät gesendet werden?",
+      "confirm_yes": "Ja, von diesem Gerät",
+      "confirm_no": "Nein, nicht von diesem Gerät"
+    },
+    "settings": {
+      "heading": "Fehlerberichte aus dem Browser",
+      "account_switch": "Für mein Konto erlauben",
+      "status_sending": "Dieser Browser sendet zurzeit Fehlerberichte.",
+      "status_not_sending": "Dieser Browser sendet zurzeit keine Fehlerberichte.",
+      "loading": "Dein Stand wird mit dem Server abgeglichen …",
+      "device_granted": "Dieser Browser hat zugestimmt. Gesendet wird nur, wenn auch dein Konto zugestimmt hat. Eine hier angemeldet gegebene Zustimmung endet mit dem Abmelden.",
+      "device_denied": "Dieser Browser hat abgelehnt. Er sendet keine Berichte, auch nicht mit deiner Zustimmung im Konto.",
+      "device_reset": "Entscheidung dieses Browsers zurücksetzen",
+      "sync_failed": "Dein Stand konnte nicht mit dem Server abgeglichen werden. Bis das gelingt, sendet dieser Browser keine Fehlerberichte.",
+      "revoke_pending": "Dein Widerruf gilt in diesem Browser, ist aber noch nicht beim Server angekommen. Er wird beim nächsten Abgleich nachgeholt.",
+      "write_failed": "Die Änderung konnte nicht gespeichert werden. Bitte versuche es erneut.",
+      "retry": "Erneut versuchen",
+      "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
+      "reload": "Seite neu laden",
+      "device_switch": "Von diesem Browser senden",
+      "device_undecided": "Dieser Browser hat noch nicht entschieden. Mit deiner Zustimmung im Konto fragen wir hier einmal nach."
     }
   }
 }

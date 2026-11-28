@@ -4,18 +4,27 @@ import {
   captureHandledError,
   initErrorTracking,
   isErrorTrackingActive,
-  isSensitiveName,
-  redactRecord,
   resetErrorTrackingForTests,
+  stopErrorTracking,
+  withoutSenders,
+} from '@/observability/errorTracking';
+import {
+  isSensitiveName,
+  maskPath,
+  maskUrlsInText,
+  redactRecord,
   scrubBreadcrumb,
   scrubEvent,
   scrubUrl,
-  stopErrorTracking,
-} from '@/observability/errorTracking';
+} from '@/observability/errorTrackingScrub';
 import {
   CONSENT_STORAGE_KEY,
   INITIAL_CONSENT_STATE,
+  accountEpoch,
+  recordAccountDecision,
   resetConsentStoreForTests,
+  setAccountConsent,
+  setAuthStatus,
   writeConsent,
 } from '@/observability/consent';
 
@@ -63,7 +72,10 @@ vi.mock('@/config/mode', () => ({
  * the optionality contract (no DSN => the SDK chunk is never even fetched) and
  * the scrubbing rules (nothing personal leaves the browser).
  *
- * #2159 adds the third: the user's `error_tracking` consent gates the SDK.
+ * #2159 adds the third: the consent gates the SDK — since #3025 the purpose
+ * `browser_error_reports`, decided over device, sign-in state and account
+ * (UI-NFR-013 §5.4). Unless a test says otherwise the person is signed out, so
+ * the device decision is the one that counts.
  */
 const DSN = 'https://key@tracker.example/1';
 
@@ -73,8 +85,7 @@ function storeDecision(errorTracking: boolean | null): void {
     CONSENT_STORAGE_KEY,
     JSON.stringify({
       ...INITIAL_CONSENT_STATE,
-      error_tracking: errorTracking,
-      external_services: false,
+      browser_error_reports: errorTracking,
     }),
   );
 }
@@ -83,8 +94,7 @@ function storeDecision(errorTracking: boolean | null): void {
 function decideNow(errorTracking: boolean): void {
   writeConsent({
     ...INITIAL_CONSENT_STATE,
-    error_tracking: errorTracking,
-    external_services: false,
+    browser_error_reports: errorTracking,
     timestamp: new Date().toISOString(),
   });
 }
@@ -106,6 +116,7 @@ describe('errorTracking', () => {
   beforeEach(() => {
     resetErrorTrackingForTests();
     resetConsentStoreForTests();
+    setAuthStatus({ kind: 'signed_out' });
     window.localStorage.removeItem(CONSENT_STORAGE_KEY);
     delete window.__RUNTIME_CONFIG__;
   });
@@ -169,6 +180,61 @@ describe('errorTracking', () => {
 
       expect(sentryStub.init).not.toHaveBeenCalled();
       expect(isErrorTrackingActive()).toBe(false);
+    });
+
+    // #3025 B-2: before the auth bootstrap it is unknown who is signed in — nothing starts.
+    it('initialises nothing before the sign-in state is known, even with a device grant', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      resetConsentStoreForTests(); // back to "sign-in unknown"
+      storeDecision(true);
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+      expect(sentryStub.init).not.toHaveBeenCalled();
+
+      setAuthStatus({ kind: 'signed_out' });
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+    });
+
+    // #3025 B-1: signed in, a device grant is not the person's consent.
+    it('stops on sign-in with only a device grant and starts with the account grant', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      expect(isErrorTrackingActive()).toBe(true);
+
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      expect(isErrorTrackingActive()).toBe(false);
+      expect(sentryStub.clientOptions.enabled).toBe(false);
+
+      setAccountConsent('user-a', { kind: 'granted', confirmedAt: Date.now() }, accountEpoch());
+      await vi.waitFor(() => expect(isErrorTrackingActive()).toBe(true));
+    });
+
+    // #3025 operator decision 3: a device decline holds against the account grant.
+    it('never starts with an account grant when this device declined', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(false);
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      recordAccountDecision('user-a', { kind: 'granted', confirmedAt: Date.now() });
+
+      await expect(initErrorTracking()).resolves.toBe(false);
+      expect(sentryStub.init).not.toHaveBeenCalled();
+    });
+
+    // CP-006/CP-011: a grant not re-read for 30 minutes stops events at `beforeSend`.
+    it('drops events once the account grant is older than 30 minutes', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true); // v1.5: this device confirmed
+      setAuthStatus({ kind: 'signed_in', account: 'user-a' });
+      const confirmedAt = Date.now();
+      recordAccountDecision('user-a', { kind: 'granted', confirmedAt });
+      await initErrorTracking();
+      const beforeSend = sentryStub.init.mock.calls[0]![0].beforeSend as (e: object) => unknown;
+      expect(beforeSend({ message: 'x' })).not.toBeNull();
+
+      vi.spyOn(Date, 'now').mockReturnValue(confirmedAt + 30 * 60_000 + 1);
+
+      expect(beforeSend({ message: 'x' })).toBeNull();
     });
 
     it('initialises once consent is true and reports handled errors', async () => {
@@ -374,6 +440,80 @@ describe('errorTracking', () => {
       expect(options).not.toHaveProperty('sendDefaultPii');
     });
 
+    // UI-NFR-013 CI-005 (#3025 F-1): nothing may leave outside `beforeSend`.
+    it('sends no sessions and no client reports — only events through beforeSend', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        sendClientReports?: boolean;
+        tracesSampleRate?: number;
+        integrations: (defaults: { name: string }[]) => { name: string }[];
+      };
+      expect(options.sendClientReports).toBe(false);
+      expect(options.tracesSampleRate).toBe(0);
+      expect(options.integrations).toBe(withoutSenders);
+
+      // Against the defaults of the SDK actually installed, not a list from memory.
+      const browser = await vi.importActual<typeof import('@sentry/browser')>('@sentry/browser');
+      const defaults = browser.getDefaultIntegrations({});
+      const kept = options.integrations(defaults).map((i) => i.name);
+      expect(defaults.map((i) => i.name)).toContain('BrowserSession');
+      expect(kept).not.toContain('BrowserSession');
+      // Every other default is assessed in UI-NFR-013 §5.3; a new one fails here until it is.
+      expect(kept.sort()).toEqual(
+        [
+          'Breadcrumbs',
+          'BrowserApiErrors',
+          'Console',
+          'ConversationId',
+          'Dedupe',
+          'EventFilters',
+          'FunctionToString',
+          'GlobalHandlers',
+          'HttpContext',
+          'LinkedErrors',
+        ].sort(),
+      );
+    });
+
+    // CI-006 (#3025 F-6): the wiring of the masking, through the options handed to the SDK.
+    it('masks tenant slug and record keys in what beforeSend and beforeBreadcrumb pass on', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        beforeSend: (event: Record<string, unknown>) => Record<string, unknown>;
+        beforeBreadcrumb: (crumb: Record<string, unknown>) => Record<string, unknown> | null;
+      };
+
+      const sent = options.beforeSend({
+        request: { url: 'https://kp.example/pflanzen/plant-instances/48213' },
+        exception: {
+          values: [
+            {
+              value:
+                'Request failed with status code 500 (GET /api/v1/t/max-mustermann/sites/48213)',
+            },
+          ],
+        },
+      });
+      expect((sent.request as Record<string, unknown>).url).toBe(
+        'https://kp.example/pflanzen/plant-instances/:key',
+      );
+      expect(JSON.stringify(sent)).not.toContain('max-mustermann');
+      expect(JSON.stringify(sent)).not.toContain('48213');
+
+      const crumb = options.beforeBreadcrumb({
+        category: 'fetch',
+        data: { url: '/api/v1/t/max-mustermann/plant-instances/48213/photos', method: 'GET' },
+      })!;
+      expect((crumb.data as Record<string, unknown>).url).toBe(
+        '/api/v1/t/:tenant/plant-instances/:id/photos',
+      );
+    });
+
     it('wires the scrubbing hooks the PII policy relies on', async () => {
       window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
       storeDecision(true);
@@ -413,7 +553,7 @@ describe('errorTracking', () => {
       // history breadcrumb of stripping it records the old URL as `from`.
       const value = ['a1', 'b2', 'c3'].join('');
       expect(scrubUrl(`/auth/step-up/callback#step_up_token=${value}&action=account_erasure`)).toBe(
-        '/auth/step-up/callback#step_up_token=[redacted]&action=account_erasure',
+        '/auth/step-up/callback#step_up_token=[redacted]&action=[redacted]',
       );
       expect(scrubUrl(`/x?api_key=${value}#step_up_token=${value}`)).toBe(
         '/x?api_key=[redacted]#step_up_token=[redacted]',
@@ -422,6 +562,125 @@ describe('errorTracking', () => {
 
     it('leaves a plain tab fragment untouched', () => {
       expect(scrubUrl('/account#security')).toBe('/account#security');
+    });
+  });
+
+  // UI-NFR-013 v1.6 CI-006 b (S-1): every value but a positive list of paging/sorting parameters.
+  describe('query and fragment values (S-1)', () => {
+    it.each([
+      ['/pflanzen?q=max+mustermann', '/pflanzen?q=[redacted]'],
+      ['/standorte/sites/12/plan?bed=meinbeet', '/standorte/sites/:key/plan?bed=[redacted]'],
+      ['/x?name=Max&tenant=max-mustermann', '/x?name=[redacted]&tenant=[redacted]'],
+      ['/login?redirect=/standorte/sites/hochbeet', '/login?redirect=[redacted]'],
+      [
+        '/x?e-mail=a%40b.de&mail=a&user=max&code=123456',
+        '/x?e-mail=[redacted]&mail=[redacted]&user=[redacted]&code=[redacted]',
+      ],
+      [
+        '/pflanzen?page=2&pageSize=25&sort=name&dir=asc&tab=list',
+        '/pflanzen?page=2&pageSize=25&sort=name&dir=asc&tab=list',
+      ],
+      ['/kalender?year=2026&mode=month', '/kalender?year=2026&mode=month'],
+      ['/pflanzen?page=zwei&sort=name%20Max', '/pflanzen?page=[redacted]&sort=[redacted]'],
+      ['/x#q=geheim&tab=export', '/x#q=[redacted]&tab=export'],
+    ])('%s -> %s', (url, scrubbed) => {
+      expect(scrubUrl(url)).toBe(scrubbed);
+    });
+
+    it('applies to request.url, Referer, breadcrumbs and URLs in text', () => {
+      const event = scrubEvent({
+        request: {
+          url: 'https://kp.example/pflanzen?q=Tomate+Berta',
+          headers: { Referer: 'https://kp.example/ernte?q=Berta' },
+        },
+        exception: { values: [{ value: 'GET /api/v1/t/x/plants?q=Berta failed' }] },
+      });
+      expect(JSON.stringify(event)).not.toContain('Berta');
+      const crumb = scrubBreadcrumb({
+        category: 'navigation',
+        data: { from: '/a?q=Berta', to: '/b' },
+      })!;
+      expect(JSON.stringify(crumb)).not.toContain('Berta');
+    });
+  });
+
+  // N-e: origin credentials, nested values, frontend paths in free text.
+  describe('further address and value rules (N-e)', () => {
+    it('drops credentials from the origin', () => {
+      // Assembled at runtime: a URL-with-password literal trips the credential-shape guard.
+      const userInfo = ['max', 'geheim'].join(':');
+      expect(scrubUrl(`https://${userInfo}@kp.example/pflanzen`)).toBe(
+        'https://kp.example/pflanzen',
+      );
+    });
+
+    it('masks frontend paths inside free text (React Router message)', () => {
+      expect(
+        maskUrlsInText('No routes matched location "/standorte/sites/hochbeet-sued/plan"'),
+      ).toBe('No routes matched location "/standorte/sites/:key/plan"');
+    });
+
+    it('masks nested values and redacts sensitive names at any depth', () => {
+      const event = scrubEvent({
+        extra: { context: { url: '/api/v1/t/max-mustermann/x', inner: [{ token: 'abc' }] } },
+      });
+      expect(event.extra).toEqual({
+        context: { url: '/api/v1/t/:tenant/x', inner: [{ token: '[redacted]' }] },
+      });
+    });
+  });
+
+  describe('maskPath / maskUrlsInText (UI-NFR-013 CI-006)', () => {
+    it.each([
+      ['/api/v1/t/max-mustermann/plant-instances/48213', '/api/v1/t/:tenant/plant-instances/:id'],
+      ['/api/v1/t/gemeinschaftsgarten-lindenhof/sites/', '/api/v1/t/:tenant/sites/'],
+      ['/api/v1/tenants/max-mustermann/members', '/api/v1/tenants/:tenant/members'],
+      ['/api/v1/invitations/k7Qm2vXz9bLwR4tYp1sD8fGh/accept', '/api/v1/invitations/:token/accept'],
+      ['/api/v1/admin/platform/tenants/90412', '/api/v1/admin/platform/tenants/:tenant'],
+      ['/api/v1/species/0f8fad5b-d9cb-469f-a165-70867728950e', '/api/v1/species/:id'],
+      ['/api/v1/privacy/consents', '/api/v1/privacy/consents'],
+      ['/api/v1/t/max-mustermann/succession-plans', '/api/v1/t/:tenant/succession-plans'],
+      ['/standorte/sites/hochbeet/plan', '/standorte/sites/:key/plan'],
+      [
+        '/stammdaten/species/tomate/cultivars/san-marzano',
+        '/stammdaten/species/:speciesKey/cultivars/:cultivarKey',
+      ],
+      ['/password-reset/k7Qm2vXz9bLwR4tYp1sD8fGh', '/password-reset/:token'],
+      ['/dashboard', '/dashboard'],
+      ['/', '/'],
+    ])('%s -> %s', (path, masked) => {
+      expect(maskPath(path)).toBe(masked);
+    });
+
+    it('masks the path of an absolute URL and keeps origin and query rules', () => {
+      expect(scrubUrl('https://kp.example/api/v1/t/max-mustermann/tasks/77?token=x#tab')).toBe(
+        'https://kp.example/api/v1/t/:tenant/tasks/:id?token=[redacted]#tab',
+      );
+    });
+
+    it('masks URLs inside free text (Axios messages, console lines)', () => {
+      expect(
+        maskUrlsInText(
+          'GET https://kp.example/api/v1/t/max-mustermann/sites/12 failed; retry /api/v1/t/max-mustermann/x',
+        ),
+      ).toBe('GET https://kp.example/api/v1/t/:tenant/sites/:id failed; retry /api/v1/t/:tenant/x');
+      expect(maskUrlsInText('no url here')).toBe('no url here');
+    });
+
+    it('masks the Referer header, the transaction and console breadcrumbs', () => {
+      const event = scrubEvent({
+        request: {
+          headers: { Referer: 'https://kp.example/standorte/sites/77', 'User-Agent': 'UA' },
+        },
+        transaction: '/pflanzen/plant-instances/4711',
+      });
+      const headers = (event.request as Record<string, unknown>).headers as Record<string, unknown>;
+      expect(headers.Referer).toBe('https://kp.example/standorte/sites/:key');
+      expect(event.transaction).toBe('/pflanzen/plant-instances/:key');
+      expect(
+        scrubBreadcrumb({ category: 'console', message: 'xhr /api/v1/t/max-mustermann/a/9 404' })!
+          .message,
+      ).toBe('xhr /api/v1/t/:tenant/a/:id 404');
     });
   });
 

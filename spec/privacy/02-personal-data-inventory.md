@@ -4,6 +4,7 @@
 Paket: spec/privacy · Version 1.2 · 2026-11-22 · gemessen gegen develop 24d1c2988; Nachtrag #2839 (develop 343afbb97);
 Nachtrag #2976 (2026-11-16, develop 9809d3952): `rooting_protocols.author_user_key` (Marker-Regel, v0114)
 Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
+Nachtrag #3025 (2026-11-28): Zweck `browser_error_reports` für Browser-Fehlerberichte (UI-NFR-013 v1.3, REQ-025 v1.41)
 Anforderungs-IDs: PRIV-030 … PRIV-049 (Inventarregeln)
 Änderung v1.1: `erasure_mirror` statt Raw-Key-Ledger, `migration_reports`, Ableitungswege jenseits der statischen
 Prüfung (§5a); Rechtsgrundlagen-Spalten verweisen auf `06` §2 (PA-nn) und `13` (L-nn).
@@ -240,7 +241,7 @@ M = `management`, PA = Plattform-Admin. Evidenz: VERIFIED_CODE am SHA `007a4ea90
 | ⟂ | sessionStorage `kp.emailChange.address` (**E-Mail**), `kp.stepUp.{token,resume,error}` | DEV/IDN/AUTH | ja | Abläufe | erforderlich | ablaufgebunden | **nein [v]** → leeren | |
 | | localStorage `kp_active_tenant_slug` | DEV | Slug (kann aus einem Namen abgeleitet sein) | Routing | erforderlich | — | ja | — |
 | | localStorage `kp.gardenPlanner.planting.lastUsed.{tenantSlug}` | DEV | Mandanten-Slug im Schlüssel | UX | erforderlich | — | nein | beim Logout leeren (Hygiene) |
-| | localStorage `kamerplanter:consent:v1`, `plant_identification_consent` | CONS | nur Entscheidung | Einwilligung | erforderlich | — | nein (muss erhalten bleiben) | behalten |
+| | localStorage `kamerplanter:consent:v1`, `kamerplanter:consent:pending-revoke:<konto-hash>`, `kamerplanter:consent:account-signal`, `plant_identification_consent` | CONS | nur Entscheidung (bzw. ausstehender Widerruf je Konto, Signal ohne Personenbezug) | Einwilligung | erforderlich | — | nein (muss erhalten bleiben) | behalten |
 | | localStorage Theme/Sprache/Kiosk/Layout/Modulsichtbarkeit/Seitengrößen/ausgeblendete Tipps/Editor-Einstellungen | DEV | nein | UX | erforderlich | — | nein | behalten |
 | | sessionStorage `kamerplanter.pendingInvitation` | AUTH | Token | Onboarding | erforderlich | Ablauf | ja | — |
 | | Refresh-Cookie (HttpOnly [Spec; von der Analyse im Backend-Code nicht verifiziert]), CSRF-Cookie | AUTH | ja | Authentifizierung | erforderlich | **präzisiert (Audit 2026-11-22, LEG-37):** Sitzungs-Cookie; 30 d nur mit „Angemeldet bleiben“ (implementiert, `LoginPage.tsx:39, 85, 198–205`, `api/v1/auth/router.py:251–269`; Sachverhalt `07`) | widerrufen | — |
@@ -289,6 +290,7 @@ Telemetrie trägt keine Klarnamen, aber stabile Pseudonyme; sie ist damit eine p
 |------------|---------------|-------------------------|-----------|-------|----------------|
 | structlog-Logs (Route, Zeit, Request-ID, gekürzte IP) | pseudonymes Subjekt `sub_…`/`ten_…` (HMAC mit eigenem Log-Salt), nie roher Schlüssel oder E-Mail (157 Aufrufe `log_subject(`, Guard; AST-Scan der `logger.*`-Kwargs) | `common/log_privacy.py:1–34`; `erasure_engine.py:1258–1310` | Betreiber der Log-Pipeline | **nicht im Repo festgelegt** (Vorschlag ≤ 30 d, LEG-44) | keine Löschung je Person; Korrelation nur mit Log-Salt (Rotation erwägen, Q-OP-04) |
 | GlitchTip-Ereignisse | `send_default_pii=False`, Scrubbing; `user`-Block (`sub_…`/`ten_…`) nur mit Einwilligung `error_tracking` | `observability/error_tracking.py:675, 685`; `observability/event_user.py:36–46` | GlitchTip-Betreiber | nicht im Repo festgelegt | — (LIA-4 offen, LEG-16 → `06`) |
+| GlitchTip-Ereignisse aus dem Browser (#3025) | nur mit Einwilligung `browser_error_reports` nach UI-NFR-013 §5.4; `dataCollection` alles aus, `scrubEvent`/`scrubBreadcrumb`, kein `user`-Block; IP beim Empfang | `src/frontend/src/observability/errorTracking.ts`, `observability/consent.ts` | GlitchTip-Betreiber | nicht im Repo festgelegt | Einwilligung (beim Umsetzen festgelegt, #2517) |
 | Prometheus-Metriken | keine Personenlabels | `observability/*.py` | Betreiber | Betrieb | — |
 | Rate-Limit-Schlüssel je Konto | Kontoschlüssel im Valkey-Schlüssel (`user_rate_limit_key`) | `api/v1/care_events/tenant_router.py:55` | — (Valkey intern, ohne Authentifizierung, LEG-59 → `01`) | Fenster des Limiters | Ablauf |
 | Celery-Nachrichten | Konto-/Mandantenschlüssel als Task-Argumente [INFERRED, Strang E] | Celery-Broker Valkey | — (intern) | bis Abarbeitung | — |

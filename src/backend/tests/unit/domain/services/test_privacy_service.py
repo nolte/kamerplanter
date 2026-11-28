@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from app.common.exceptions import (
+    ConsentTextOutdatedError,
     DuplicateError,
     InvalidTokenError,
     NotFoundError,
@@ -403,6 +404,112 @@ class TestConsent:
             service.revoke_consent(USER_KEY, retired)
         consent_repo.update.assert_not_called()
         consent_repo.delete.assert_not_called()
+
+    def test_grant_stamps_the_current_text_version(self, service, consent_repo, monkeypatch):
+        """REQ-025 v1.41 — ``consent_version`` names the text the person agreed to, set by the server.
+
+        Measured before: ``grant_consent`` never set it, so every record carried the
+        model default ``"1.0"`` whatever text was shown. The version is raised here to
+        make the stamp observable (the default would hide a missing assignment).
+        """
+        engine = service._consent_engine  # noqa: SLF001
+        purpose = engine.find_purpose("browser_error_reports")
+        monkeypatch.setattr(purpose, "version", "2.3")
+
+        created = service.grant_consent(USER_KEY, "browser_error_reports", shown_version="2.3")
+        assert created.consent_version == "2.3"
+
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="consent-existing",
+            user_key=USER_KEY,
+            purpose="browser_error_reports",
+            granted=False,
+            consent_version="1.0",
+        )
+        regranted = service.grant_consent(USER_KEY, "browser_error_reports", shown_version="2.3")
+        assert regranted.consent_version == "2.3"
+
+    @pytest.mark.parametrize("shown", [None, "1.0"])
+    def test_a_browser_purpose_grant_to_another_text_writes_nothing(self, service, consent_repo, monkeypatch, shown):
+        """REQ-025 v1.42 (#3025 F-2): the server must not stamp ITS version on a grant to the text the page showed.
+
+        An old bundle (service-worker cache) shows 1.0, the server is at 1.1: recording the grant
+        as 1.1 would let it take effect after the next bundle update for a text never shown.
+        """
+        purpose = service._consent_engine.find_purpose("browser_error_reports")  # noqa: SLF001
+        monkeypatch.setattr(purpose, "version", "1.1")
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="c", user_key=USER_KEY, purpose="browser_error_reports", granted=False
+        )
+
+        with pytest.raises(ConsentTextOutdatedError) as caught:
+            service.grant_consent(USER_KEY, "browser_error_reports", ip_address="198.51.100.9", shown_version=shown)
+
+        assert caught.value.status_code == 409
+        assert caught.value.error_code == "CONSENT_TEXT_OUTDATED"
+        consent_repo.create.assert_not_called()
+        consent_repo.update.assert_not_called()
+
+    def test_other_purposes_check_a_version_only_when_one_is_sent(self, service, consent_repo):
+        assert service.grant_consent(USER_KEY, "plant_identification").granted is True
+        with pytest.raises(ConsentTextOutdatedError):
+            service.grant_consent(USER_KEY, "plant_identification", shown_version="0.9")
+        assert service.grant_consent(USER_KEY, "plant_identification", shown_version="1.0").granted is True
+
+    def test_revoke_stamps_the_current_text_version_also_on_a_stub(self, service, consent_repo, monkeypatch):
+        purpose = service._consent_engine.find_purpose("browser_error_reports")  # noqa: SLF001
+        monkeypatch.setattr(purpose, "version", "2.3")
+
+        stub = service.revoke_consent(USER_KEY, "browser_error_reports")
+        assert stub.granted is False
+        assert stub.consent_version == "2.3"
+
+        consent_repo.get_by_user_and_purpose.return_value = ConsentRecord(
+            _key="consent-existing",
+            user_key=USER_KEY,
+            purpose="browser_error_reports",
+            granted=True,
+            consent_version="1.0",
+        )
+        revoked = service.revoke_consent(USER_KEY, "browser_error_reports")
+        assert revoked.consent_version == "2.3"
+
+    def test_list_names_the_record_version_and_the_purpose_version(self, service, consent_repo, monkeypatch):
+        """A grant to an older text stays visible as such (B-7): granted, but under version 1.0 of a 2.0 text."""
+        purpose = service._consent_engine.find_purpose("browser_error_reports")  # noqa: SLF001
+        monkeypatch.setattr(purpose, "version", "2.0")
+        consent_repo.list_by_user.return_value = [
+            ConsentRecord(
+                _key="c-old",
+                user_key=USER_KEY,
+                purpose="browser_error_reports",
+                granted=True,
+                consent_version="1.0",
+            )
+        ]
+
+        listed = {r.purpose: r for r in service.list_consents(USER_KEY)}
+
+        assert listed["browser_error_reports"].granted is True
+        assert listed["browser_error_reports"].consent_version == "1.0"
+        assert listed["browser_error_reports"].purpose_version == "2.0"
+        assert listed["plant_identification"].consent_version is None
+        assert listed["plant_identification"].purpose_version == "1.0"
+
+    def test_error_tracking_keeps_its_meaning_and_is_not_the_browser_purpose(self, service):
+        """Operator decision 2026-11-27: two purposes; ``error_tracking`` keeps key, label and text."""
+        engine = service._consent_engine  # noqa: SLF001
+        server = engine.find_purpose("error_tracking")
+        browser = engine.find_purpose("browser_error_reports")
+
+        assert server is not None and browser is not None
+        assert server.label_en == "Attribute error reports to my account (Sentry)"
+        assert server.version == "1.0"
+        assert "browser" not in server.description_en.lower()
+        # A grant of one is no grant of the other.
+        record = ConsentRecord(user_key=USER_KEY, purpose="error_tracking", granted=True)
+        assert engine.is_processing_allowed("browser_error_reports", None) is False
+        assert engine.is_processing_allowed("error_tracking", record) is True
 
     def test_list_consents_includes_all_purposes(self, service):
         results = service.list_consents(USER_KEY)

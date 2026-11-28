@@ -19,6 +19,7 @@ from app.common.decoys import decoy_document_key, email_digest
 from app.common.enums import TenantRole
 from app.common.exceptions import (
     AccountBeingErasedError,
+    ConsentTextOutdatedError,
     DuplicateError,
     ErasureIncompleteError,
     FeatureNotConfiguredError,
@@ -1907,6 +1908,8 @@ class PrivacyService:
                     granted=granted,
                     granted_at=record.granted_at if record else None,
                     revoked_at=record.revoked_at if record else None,
+                    consent_version=record.consent_version if record else None,
+                    purpose_version=purpose.version,
                 )
             )
         return results
@@ -1917,9 +1920,17 @@ class PrivacyService:
         purpose: str,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        *,
+        shown_version: str | None = None,
     ) -> ConsentRecord:
-        if not self._consent_engine.is_known_purpose(purpose):
+        version = self._consent_engine.current_version(purpose)
+        if version is None:
             raise ValidationError(f"Unknown processing purpose: '{purpose}'.")
+        # REQ-025 v1.42: the grant refers to the text the page showed. Required where the
+        # browser decides by the version (BROWSER_READ_PURPOSES), checked wherever it is sent.
+        checked = self._consent_engine.requires_shown_version(purpose) or shown_version is not None
+        if checked and shown_version != version:
+            raise ConsentTextOutdatedError(purpose, shown=shown_version, current=version)
 
         now = datetime.now(UTC)
         existing = self._consent_repo.get_by_user_and_purpose(user_key, purpose)
@@ -1936,6 +1947,9 @@ class PrivacyService:
             # *previous* one — the new address would never be anonymised at all,
             # since ``anonymize_consent_ips`` only selects ``ip_anonymized_at == null``.
             existing.ip_anonymized_at = None
+            # REQ-025 v1.41: the grant refers to the text shown now, never to the
+            # one an earlier grant on this record was given to.
+            existing.consent_version = version
             updated = self._consent_repo.update(existing.key, existing)
             logger.info("privacy_consent_granted", subject=self.log_subject(user_key), purpose=purpose)
             return updated
@@ -1947,6 +1961,7 @@ class PrivacyService:
             granted_at=now,
             ip_address=ip_address,
             user_agent=user_agent,
+            consent_version=version,
         )
         created = self._consent_repo.create(record)
         logger.info("privacy_consent_granted", subject=self.log_subject(user_key), purpose=purpose)
@@ -1957,6 +1972,8 @@ class PrivacyService:
         if errors:
             raise ValidationError("; ".join(errors))
 
+        # Known after the validation above; the revoke refers to the text shown now.
+        version = self._consent_engine.current_version(purpose) or "1.0"
         existing = self._consent_repo.get_by_user_and_purpose(user_key, purpose)
         if existing is None or existing.key is None:
             # Idempotent: revoking an unknown record creates a revoked stub.
@@ -1965,6 +1982,7 @@ class PrivacyService:
                 purpose=purpose,
                 granted=False,
                 revoked_at=datetime.now(UTC),
+                consent_version=version,
             )
             created = self._consent_repo.create(record)
             logger.info("privacy_consent_revoked", subject=self.log_subject(user_key), purpose=purpose)
@@ -1972,6 +1990,7 @@ class PrivacyService:
 
         existing.granted = False
         existing.revoked_at = datetime.now(UTC)
+        existing.consent_version = version
         updated = self._consent_repo.update(existing.key, existing)
         logger.info("privacy_consent_revoked", subject=self.log_subject(user_key), purpose=purpose)
         return updated

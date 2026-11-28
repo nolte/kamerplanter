@@ -24,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from app.common.auth import get_current_user
 from app.common.dependencies import get_privacy_service
+from app.common.exceptions import ConsentTextOutdatedError
 from app.domain.engines.consent_engine import ConsentEngine
 from app.domain.models.privacy import (
     ConsentRecord,
@@ -120,6 +121,7 @@ class TestConsentEndpoints:
                 legal_basis="Art. 6(1)(b) GDPR",
                 required=True,
                 granted=True,
+                purpose_version="1.0",
             ),
             ConsentWithPurpose(
                 purpose="error_tracking",
@@ -128,6 +130,7 @@ class TestConsentEndpoints:
                 legal_basis="Art. 6(1)(a) GDPR",
                 required=False,
                 granted=False,
+                purpose_version="1.0",
             ),
         ]
 
@@ -136,6 +139,58 @@ class TestConsentEndpoints:
         assert response.status_code == 200
         purposes = {item["purpose"] for item in response.json()}
         assert {"core_functionality", "error_tracking"} <= purposes
+
+    def test_list_consents_carries_both_text_versions(self, client: TestClient, service: MagicMock) -> None:
+        """REQ-025 v1.41 — the browser accepts a grant only when the record's version equals the purpose's."""
+        service.list_consents.return_value = [
+            ConsentWithPurpose(
+                purpose="browser_error_reports",
+                label="Send error reports from the browser",
+                description="Optional",
+                legal_basis="Art. 6(1)(a) GDPR",
+                required=False,
+                granted=True,
+                consent_version="0.9",
+                purpose_version="1.0",
+            ),
+            ConsentWithPurpose(
+                purpose="plant_identification",
+                label="Plant identification",
+                description="Optional",
+                legal_basis="Art. 6(1)(a) GDPR",
+                required=False,
+                granted=False,
+                purpose_version="1.0",
+            ),
+        ]
+
+        response = client.get("/api/v1/privacy/consents")
+
+        by_purpose = {item["purpose"]: item for item in response.json()}
+        assert by_purpose["browser_error_reports"]["consent_version"] == "0.9"
+        assert by_purpose["browser_error_reports"]["purpose_version"] == "1.0"
+        # No record: no version of a grant, but the purpose's version is always there.
+        assert by_purpose["plant_identification"]["consent_version"] is None
+        assert by_purpose["plant_identification"]["purpose_version"] == "1.0"
+
+    def test_grant_of_the_browser_purpose_answers_with_the_current_text_version(
+        self, client: TestClient, service: MagicMock
+    ) -> None:
+        service.grant_consent.return_value = ConsentRecord(
+            _key="c2",
+            user_key=USER_KEY,
+            purpose="browser_error_reports",
+            granted=True,
+            granted_at=datetime.now(UTC),
+            consent_version="1.0",
+        )
+
+        response = client.post("/api/v1/privacy/consents", json={"purpose": "browser_error_reports"})
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["consent_version"] == body["purpose_version"] == "1.0"
+        assert body["label"] == "Send error reports from the browser"
 
     def test_grant_consent_creates_record(self, client: TestClient, service: MagicMock) -> None:
         service.grant_consent.return_value = ConsentRecord(
@@ -155,6 +210,23 @@ class TestConsentEndpoints:
         body = response.json()
         assert body["purpose"] == "error_tracking"
         assert body["granted"] is True
+
+    def test_grant_passes_the_shown_version_and_answers_409_on_another_text(
+        self, client: TestClient, service: MagicMock
+    ) -> None:
+        """REQ-025 v1.42 — the shown version reaches the service; its refusal is a 409 with its own code."""
+        service.grant_consent.side_effect = ConsentTextOutdatedError(
+            "browser_error_reports", shown="1.0", current="1.1"
+        )
+
+        response = client.post(
+            "/api/v1/privacy/consents", json={"purpose": "browser_error_reports", "purpose_version": "1.0"}
+        )
+
+        assert response.status_code == 409
+        body = response.json()
+        assert body["error_code"] == "CONSENT_TEXT_OUTDATED"
+        assert service.grant_consent.call_args.kwargs["shown_version"] == "1.0"
 
     def test_revoke_consent(self, client: TestClient, service: MagicMock) -> None:
         service.revoke_consent.return_value = ConsentRecord(

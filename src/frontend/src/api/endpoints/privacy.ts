@@ -23,9 +23,19 @@ export async function listConsents(): Promise<ConsentRecord[]> {
   return data;
 }
 
-/** POST /privacy/consents — grant consent for a processing purpose. */
-export async function grantConsent(purpose: string): Promise<ConsentRecord> {
-  const { data } = await client.post<ConsentRecord>(`${BASE}/consents`, { purpose });
+/**
+ * POST /privacy/consents — grant consent for a processing purpose.
+ *
+ * `purposeVersion` is the text version the page showed (REQ-025 v1.42). Required
+ * for `browser_error_reports`; a mismatch answers `409 CONSENT_TEXT_OUTDATED`.
+ */
+export async function grantConsent(
+  purpose: string,
+  purposeVersion?: string,
+): Promise<ConsentRecord> {
+  const body =
+    purposeVersion === undefined ? { purpose } : { purpose, purpose_version: purposeVersion };
+  const { data } = await client.post<ConsentRecord>(`${BASE}/consents`, body);
   return data;
 }
 
@@ -40,7 +50,9 @@ export async function revokeConsent(purpose: string): Promise<ConsentRecord> {
  * (#1841). 201: a verification link goes to the new address and the current
  * one is told; nothing changes until the link is followed.
  */
-export async function requestEmailChange(body: EmailChangeCreateRequest): Promise<EmailChangeResponse> {
+export async function requestEmailChange(
+  body: EmailChangeCreateRequest,
+): Promise<EmailChangeResponse> {
   const { data } = await client.post<EmailChangeResponse>(`${BASE}/email-change`, body);
   return data;
 }
@@ -51,7 +63,9 @@ export async function requestEmailChange(body: EmailChangeCreateRequest): Promis
  * On success every session of the account is signed out.
  */
 export async function confirmEmailChange(token: string): Promise<PrivacyMessageResponse> {
-  const { data } = await client.post<PrivacyMessageResponse>(`${BASE}/email-change/confirm`, { token });
+  const { data } = await client.post<PrivacyMessageResponse>(`${BASE}/email-change/confirm`, {
+    token,
+  });
   return data;
 }
 
@@ -63,7 +77,9 @@ export async function confirmEmailChange(token: string): Promise<PrivacyMessageR
  * account.
  */
 export async function revertEmailChange(token: string): Promise<PrivacyMessageResponse> {
-  const { data } = await client.post<PrivacyMessageResponse>(`${BASE}/email-change/revert`, { token });
+  const { data } = await client.post<PrivacyMessageResponse>(`${BASE}/email-change/revert`, {
+    token,
+  });
   return data;
 }
 

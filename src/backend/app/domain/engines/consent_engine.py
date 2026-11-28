@@ -18,17 +18,32 @@ REFERENCE_CONTRIBUTION = "reference_contribution"
 #: may, once a platform admin promotes it to global visibility, become an
 #: embedding in the shared pest-recognition index. Its own purpose, not a reuse of
 #: ``reference_contribution``: that text names only gallery photos of plants, and
-#: ``consent_version`` is read nowhere, so earlier grants would silently have
-#: covered the new processing. Read by ``app.tasks.pest_image_tasks``.
+#: no server-side reader compares ``consent_version``, so earlier grants would
+#: silently have covered the new processing. Read by ``app.tasks.pest_image_tasks``.
 PEST_REFERENCE_CONTRIBUTION = "pest_reference_contribution"
 #: REQ-031 §5.1 / #2175 — whether the user's freely formulated knowledge question
 #: (``POST /t/{slug}/ai/knowledge/ask``) may be sent to the knowledge base and its
 #: language model. Its own purpose, not a re-worded ``ai_tenant_data_access``:
-#: ``consent_version`` is read nowhere, so changing an existing purpose's text
-#: would have let earlier grants silently cover the new processing. Read by
+#: no server-side reader compares ``consent_version``, so changing an existing
+#: purpose's text would have let earlier grants silently cover the new processing. Read by
 #: ``AiAssistantService.ask_knowledge``; a question with plant context needs
 #: ``ai_tenant_data_access`` in addition.
 AI_KNOWLEDGE_QUESTION = "ai_knowledge_question"
+#: UI-NFR-013 v1.3 / REQ-025 v1.41 (#3025 N-40) — whether the browser may send
+#: error reports to the operator's error tracker while this person is signed in.
+#: Its own purpose, not a widened ``error_tracking`` (operator decision
+#: 2026-11-27): that purpose attributes *backend* events to the account, and a
+#: wider text would have let its existing grants silently cover the browser.
+#: Read by the browser only (``src/frontend/src/observability/consent.ts`` via
+#: ``GET /privacy/consents``), which accepts a grant only when its
+#: ``consent_version`` equals the purpose's current ``version``.
+BROWSER_ERROR_REPORTS = "browser_error_reports"
+
+#: Purposes no backend module reads because the processing they switch runs in
+#: the browser; the backend stores the decision. The guard
+#: ``tests/unit/guards/test_consent_purposes_are_read.py`` requires each of them
+#: to be named in a frontend source instead, with the same text version.
+BROWSER_READ_PURPOSES: frozenset[str] = frozenset({BROWSER_ERROR_REPORTS})
 
 # Retired in #2136 (MT-040, REQ-025 §3.6), because no code ever read them:
 # ``hibp_check`` — no HaveIBeenPwned check exists; ``external_enrichment`` — the
@@ -77,6 +92,45 @@ class ConsentEngine:
             ),
             legal_basis="Art. 6(1)(a) GDPR — consent",
             required=False,
+        ),
+        ConsentPurpose(
+            key=BROWSER_ERROR_REPORTS,
+            label_de="Fehlerberichte aus dem Browser senden",
+            label_en="Send error reports from the browser",
+            description_de=(
+                "Wenn der Betreiber Fehler-Tracking eingeschaltet hat und in deinem Browser ein Fehler auftritt, "
+                "sendet der Browser einen Fehlerbericht an den Fehler-Tracker, den der Betreiber dieser "
+                "Installation eingerichtet hat (zum Beispiel GlitchTip oder Sentry). Der Bericht enthält die "
+                "Fehlermeldung mit Programmablauf, die aufgerufene Seite — Garten-Kurzname, Datensatzschlüssel, "
+                "Suchbegriffe und andere Adressparameter durch Platzhalter ersetzt —, Browser, Betriebssystem und "
+                "App-Version sowie die Schritte davor (Klicks auf Bedienelemente ohne deren Beschriftung, "
+                "Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält keine"
+                " Formular- und Sucheingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein "
+                "Pseudonym deines Kontos. Nennt eine Fehler- oder Konsolenmeldung selbst einen Wert, etwa den Namen"
+                " einer Pflanze, geht dieser mit. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses."
+                " Gesendet wird aus einem Browser nur, solange du dort angemeldet bist und ihn bestätigt hast; auf "
+                "jedem weiteren Gerät und nach jeder neuen Anmeldung fragen wir dich einmal. Wurde das Senden in "
+                "einem Browser abgelehnt, sendet er nicht. Jederzeit widerrufbar; der Widerruf wirkt sofort."
+            ),
+            description_en=(
+                "When the operator has switched error tracking on and an error occurs in your browser, the browser "
+                "sends an error report to the error tracker the operator of this installation has set up (for "
+                "example GlitchTip or Sentry). The report contains the error message with its stack trace, the page"
+                " you were on — garden short name, record keys, search terms and other address parameters replaced "
+                "by placeholders —, browser, operating system and app version, and the steps before it (clicks on "
+                "controls without their labels, page changes, console messages, address and status of requests to "
+                "the server). It contains no form or search input, no request contents, no cookies, no e-mail "
+                "address and no pseudonym of your account. If an error or console message itself names a value, "
+                "such as the name of a plant, that value is included. On receipt the tracker sees the IP address of"
+                " your connection. A browser only sends while you are signed in there and have confirmed it; on "
+                "every further device and after every new sign-in we ask you once. A browser in which sending was "
+                "declined does not send. Revocable at any time; revocation takes effect immediately."
+            ),
+            # Chosen as the conservative variant while implementing (REQ-025 v1.41), to be
+            # confirmed legally (#2517): consent rather than legitimate interest.
+            legal_basis="Art. 6(1)(a) GDPR — consent; § 25(1) TDDDG",
+            required=False,
+            version="1.0",
         ),
         ConsentPurpose(
             key="plant_identification",
@@ -285,6 +339,19 @@ class ConsentEngine:
             if purpose.key == key:
                 return purpose
         return None
+
+    def current_version(self, key: str) -> str | None:
+        """The current text version of a purpose, ``None`` if the purpose is unknown."""
+        purpose = self.find_purpose(key)
+        return purpose.version if purpose else None
+
+    def requires_shown_version(self, key: str) -> bool:
+        """Whether a grant of ``key`` must name the text version the page showed (REQ-025 v1.42).
+
+        True for the purposes the browser decides by version (``BROWSER_READ_PURPOSES``):
+        only there does a server-stamped version decide whether a grant takes effect.
+        """
+        return key in BROWSER_READ_PURPOSES
 
     def is_known_purpose(self, key: str) -> bool:
         """Return True if the given purpose is registered."""

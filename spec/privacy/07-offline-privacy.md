@@ -2,6 +2,7 @@
 
 ```
 Paket: spec/privacy · Version 1.2 · 2026-11-22 · Gemessen gegen: develop 007a4ea90 (Audit 2026-11-22)
+Nachtrag #3025 (2026-11-28): Zweck `browser_error_reports` für Browser-Fehlerberichte (UI-NFR-013 v1.3, REQ-025 v1.41)
 (v1.1: develop 24d1c2988; Nachtrag #2839 develop 343afbb97)
 Anforderungs-IDs: PRIV-500 … PRIV-539
 Hängt ab von: UI-NFR-012 v2.4 (R-055 … R-060), REQ-025 §10 (TTDSG-Zeilen), NFR-011 R-41/R-42,
@@ -52,7 +53,7 @@ Komfortfunktion → ausdrückliche Handlung nötig (DEC-29, LEG-09); **U** = vom
 | S11 | localStorage `kp.gardenPlanner.planting.lastUsed.{slug}` | Art → Abstände | gering (Slug) | Slug im Schlüssel | nie gelöscht | — | U | `planting/plantingSubmit.ts:164–205` |
 | S12 | localStorage `kp_active_tenant_slug` | Slug | gering | — | bis Logout | Logout, erzwungenes Abmelden | E | `tenantSlice.ts:15–20`; `store/sessionListener.ts:44–49` |
 | S13 | localStorage UX: `kamerplanter-lang`, Theme, `kp-kiosk-preference`, `kp-dashboard-layout`, `kp-module-visibility`, `kp-plant-grid-format`, `kp_garden_plan_*`, `kp.ai.dailyTip.dismissed.*`, `kp-light-mode-warning-dismissed`, Tabellengrößen | Einstellungen | nein (gerätebezogen) | — | nie | — | U | `i18n/i18n.ts:48–50`; `lib/*Storage.ts`; `editor/use*.ts` |
-| S14 | localStorage `kamerplanter:consent:v1`; `plant_identification_consent` (Light-Mode) | Einwilligungsentscheidung | gering | gerätebezogen | nie | — | E (Merken der Entscheidung) | `observability/consent.ts:18, 70, 132`; `identification/PlantIdentificationDialog.tsx:51–63` |
+| S14 | localStorage `kamerplanter:consent:v1`, `kamerplanter:consent:pending-revoke:<konto-hash>` (ausstehender Widerruf je Konto, bis zur Übertragung), `kamerplanter:consent:account-signal` (Tab-Signal ohne Personenbezug); `plant_identification_consent` (Light-Mode) | Einwilligungsentscheidung | gering | gerätebezogen | nie | — | E (Merken der Entscheidung) | `observability/consent.ts:18, 70, 132`; `identification/PlantIdentificationDialog.tsx:51–63` |
 | S15 | sessionStorage `kp.emailChange.address` | ausstehende E-Mail-Adresse | **ja** | — | Tab-Lebensdauer | eigener Ablauf; **nicht** Logout | E | `pages/auth/EmailChangeCard.tsx:28–51` |
 | S16 | sessionStorage `kp.stepUp.token/resume/error` | Step-up-Token (5 min) | Auth-Artefakt | — | Tab / Verbrauch | eigener Ablauf; nicht Logout | E | `utils/stepUpReauth.ts:22–26, 147–166` |
 | S17 | sessionStorage `kamerplanter.pendingInvitation`, `kamerplanter.loginReturnTo` | Einladungs-Token, Rücksprungpfad | Auth-Artefakt / gering | — | Tab | expliziter Logout | E | `utils/pendingInvitation.ts:18, 41`; `utils/loginReturn.ts:18, 82`; `authSlice.ts:89–94` |
@@ -135,8 +136,8 @@ Speicherung ist **unbedingt erforderlich**, um einen vom Nutzer **ausdrücklich 
 | `kp-plan-cache`, `kp-write-queue`, `kp:*`, `kp-sw-state` | § 25 Abs. 2 Nr. 2 — erforderlich für die **Offline-Funktion, die der Nutzer wünscht**, indem er die PWA installiert/nutzt und offline handelt | die Funktion kann ohne lokalen Speicher nicht existieren; der Schreibpuffer enthält nur, was der Nutzer eingegeben hat; Minimierung **nur** im IndexedDB-Cache — der SW-API-Cache `kp:*` hält Namen und Notizen (S4, LEG-27), was das Gewicht von LEG-09 erhöht, weil „unbedingt erforderlich“ den Umfang einschließt | REQ-025 v1.40 §10 sagt dasselbe, „Vorschlag, Rechtsprüfung offen (#2517)“. **Ist (Audit 2026-11-22):** implizit, ohne Schalter — SW-Registrierung bedingungslos (`main.tsx:43`), Plan-Cache schreibt bei jedem Online-Lesen (`planCache.ts:160–167`), Puffer ebenso (`queue.ts:143–150`), SW-Cache füllt sich, sobald der Store Nutzer und Mandant kennt (`store/sessionListener.ts:89–96` → `sw.ts:314–319`); einzige Sperre ist der Betreiber-Kill-Switch. Bis DEC-29 umgesetzt ist: `processing_allowed = provisorisch` (Prüfdatum LEG-09) |
 | Precache, statische Assets, Runtime-Config | § 25 Abs. 2 Nr. 2 (App-Shell) | keine personenbezogenen Daten | unbestritten |
 | `kp_local_data_owner`, `kp-garden-field-mode`, Pflanz-`lastUsed`, Mandanten-Slug | § 25 Abs. 2 Nr. 2 (Sitzungskontinuität / vom Nutzer gesetzter UX-Zustand) | erforderlich für den gewählten Arbeitsablauf; aber **Hygiene**: Schlüssel, die einen `user_key` oder eine E-Mail enthalten, dürfen die Sitzung nicht überdauern (PRIV-512) | Vorschlag |
-| Einwilligungs-Flags (`kamerplanter:consent:v1`) | erforderlich (Merken einer Einwilligungsentscheidung) | — | unbestritten |
-| Sentry-SDK-Speicher | nicht erforderlich → Einwilligung (`error_tracking`) | REQ-025 TT-002 | in der Spec implementiert |
+| Einwilligungs-Flags (`kamerplanter:consent:v1`, `…:pending-revoke:<konto-hash>`, `…:account-signal`) | erforderlich (Merken einer Einwilligungsentscheidung) | — | unbestritten |
+| Sentry-SDK-Speicher | nicht erforderlich → Einwilligung (`browser_error_reports`, seit #3025; vorher `error_tracking`) | REQ-025 TT-002 | in der Spec implementiert |
 
 **PRIV-500** Die obige Einordnung MUSS die einzige Tabelle in REQ-025 §10 sein (Spec-Änderungs-
 vorschlag: die vorhandenen localStorage-/sessionStorage-Zeilen ergänzen, `redux_state`,
