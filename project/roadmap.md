@@ -189,13 +189,17 @@ Umsetzungsreihenfolge (Sprint 5, Betreiberentscheidung 2026-11-27):
 
 - [ ] F-15 — Archivgrößen bis ~500 MiB mit klarer Grenze (`tenant-archive-size-limits`)
 - [ ] F-32 — Dokumentprüfung beim Import gegen das Datenmodell (`tenant-import-document-validation`) — nach F-15
-- [ ] F-17 — Import-Vorprüfung mit E-Mail-Zuordnung und Importliste (`tenant-import-preflight`) — nach F-15, zeigt die Ergebnisse von F-32
-- [ ] F-16 — Sensor-Historie beim Import wiederherstellen (`tenant-readings-import`) — nach F-15 und F-17
+- [ ] F-17 — Import-Vorprüfung mit E-Mail-Zuordnung und Start (`tenant-import-preflight`) — nach F-15
+- [ ] F-33 — Importliste und Ablauf vorgeprüfter Archive (`tenant-import-list`) — nach F-17, zeigt die Ergebnisse von F-32
+- [ ] F-16 — Rohwerte der Sensor-Historie beim Import wiederherstellen (`tenant-readings-import`) — nach F-17 und F-33
+- [ ] F-34 — Stunden- und Tageswerte der Sensor-Historie beim Import wiederherstellen (`tenant-readings-aggregates-import`) — nach F-16
 
 <!-- Sprint-Planung 2026-11-28 (sprint-plan): target_sprint 5, Sprint-Datei
 project/sprints/0005-garten-aus-archiv-vollstaendig-wiederherstellen.md. F-32 neu nach
 Betreiberentscheidung vom 2026-11-27 (Dokumentvalidierung nach REQ-056 §12.4 als eigenes
-Feature). status bleibt proposed, bis das erste Feature in_progress geht (sprint-execute).
+Feature). F-33 und F-34 neu am 2026-11-28: Der Betreiber hat F-17 (Vorprüfung / Importliste)
+und F-16 (Rohwerte / Stunden- und Tageswerte) geteilt. status bleibt proposed, bis das erste
+Feature in_progress geht (sprint-execute).
 Issue #3140 führt den Rest von #2138. -->
 
 <!-- Herkunft: Issue #2138 (MT-042; issue-backlog-partition 2026-11-16 → requirements-elicit →

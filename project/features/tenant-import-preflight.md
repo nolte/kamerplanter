@@ -1,6 +1,6 @@
 ---
 id: F-17
-title: Import-Vorprüfung mit E-Mail-Zuordnung und Importliste
+title: Import-Vorprüfung mit E-Mail-Zuordnung und Start
 status: ready
 roadmap_item: R-19
 sprint: 5
@@ -39,6 +39,22 @@ consistency_check:
       target: src/backend/app/api/v1/tenant_exports/router.py:213
       resolution: proceed
       evidence: "Ratenlimit '@limiter.limit(settings.rate_limit_tenant_import …)' (:213) und STEP_UP_RESPONSES (:212) stehen nur am Upload; Light-Modus-Ausschluss AK-43 (REQ-056:704). In den Hooks zu acceptance-2 und -3 benannt."
+    - kind: drift
+      target: project/features/tenant-import-preflight.md
+      resolution: proceed
+      evidence: "Zweiter Lauf: acceptance-10 und -3 widersprachen sich (ein zweiter Admin musste bestätigen, bevor er zuordnen konnte, es gab aber nur die Start-Route mit Zuordnung). Betreiberentscheidung B (2026-11-28): eigene Route nur zum Bestätigen; acceptance-3."
+    - kind: drift
+      target: src/backend/app/domain/services/tenant_export_service.py:1095
+      resolution: proceed
+      evidence: "Zweiter Lauf: _fail_import auditiert mit 'actor_user_key=request.requested_by_user_key' (:1095); der Akteur eines gescheiterten Laufs ist der startende Admin (acceptance-4)."
+    - kind: drift
+      target: src/backend/app/domain/services/tenant_export_service.py:1040
+      resolution: proceed
+      evidence: "Zweiter Lauf: Der Zustand der Vorprüfung nach einem gescheiterten Lauf war ungeregelt; heute löscht der Lauf den Upload in jedem Fall (finally, :1040-1045). Das Mitgliederlimit hängt nur an Zuordnung und Plan und kann schon beim Start geprüft werden. acceptance-6."
+    - kind: overlap
+      target: F-33
+      resolution: split-out F-33
+      evidence: "Betreiberentscheidung A (2026-11-28): Importliste, Phasenanzeige, 24-Stunden-Ablauf, Leerung der Mitgliederliste und 30-Tage-Löschung gehen in das neue Feature F-33 (tenant-import-list.md)."
 ---
 
 ## Description
@@ -46,7 +62,7 @@ consistency_check:
 Wer heute einen Mandanten importiert, muss die internen Mitglieds-Schlüssel
 aus der Datei `members.jsonl` des Archivs abschreiben, bevor er die Mitglieder
 per E-Mail Zielkonten zuordnen kann; das Archiv selbst sieht er erst nach dem
-Import. Frühere Importe sind nirgends aufgelistet.
+Import.
 
 Nach dieser Änderung lädt der Plattform-Admin das Archiv hoch und bestätigt
 sich per Step-up. Der Hintergrundprozess prüft das Archiv, danach zeigt die
@@ -55,45 +71,42 @@ und die Mitglieder mit Anzeigename und bisheriger Rolle. Für jedes Mitglied
 trägt der Admin die E-Mail des Zielkontos ein; die Rolle ist vorbelegt und
 wird erst mit seiner Bestätigung vergeben, nicht zugeordnete Mitglieder sind
 vorab als „wird pseudonymisiert“ markiert. Der Import nutzt das bereits
-hochgeladene Archiv. Die Bestätigung gilt eine Stunde und nur für den Admin,
-der sie gegeben hat; wer den Import startet, ist der handelnde Admin. Ein nicht importiertes Archiv verschwindet nach
-24 Stunden.
+hochgeladene Archiv.
 
-Eine Liste zeigt frühere Vorprüfungen und Importe mit Quelle, Ziel, Status und
-Fehler sowie die Phase eines laufenden Imports. Scheitert die Prüfung an einem
-Fehler im Archiv, steht das mit Grund in dieser Liste.
+Die Bestätigung gilt eine Stunde und nur für den Admin, der sie gegeben hat.
+Jeder andere Plattform-Admin, und derselbe Admin nach Ablauf der Stunde,
+bestätigt sich erneut für dieses Archiv, bevor er die Mitgliedernamen sieht
+und den Import starten kann. Wer startet, ist der handelnde Admin. Lehnt der
+Start ab oder scheitert der Import, bleibt das hochgeladene Archiv bis zu
+seinem Ablauf erhalten und lässt sich erneut starten.
+
+Die Liste früherer Importe und der Ablauf nach 24 Stunden gehören zu F-33.
 
 ## Acceptance criteria
 
 - [ ] **acceptance-1** Nach Upload und Step-up zeigt die Import-Seite, sobald die Hintergrundprüfung abgeschlossen ist, eine Vorschau mit Herkunft (Name und Kurzname des archivierten Gartens), Signaturstatus und Mitgliederliste (Anzeigename, bisherige Rolle und Zusatzberechtigungen); solange der Admin den Import nicht startet, entsteht kein Garten.
 - [ ] **acceptance-2** Der Admin, der die Vorprüfung per Step-up bestätigt hat, startet den Import innerhalb einer Stunde nach dem Step-up aus der Vorschau, ohne das Archiv erneut hochzuladen und ohne erneuten Step-up.
-- [ ] **acceptance-3** Startet ein anderer Plattform-Admin den Import oder liegt der Step-up länger als eine Stunde zurück, verlangt der Start einen neuen Step-up für dieses Archiv, und ohne ihn wird nichts importiert; die Vorschau nennt das Step-up-Ziel des Archivs, sodass auch ein Konto ohne Passwort (Code oder frische Anmeldung) ohne die Datei bestätigen kann.
-- [ ] **acceptance-4** Der Admin, der den Import startet, ist der handelnde Admin: Er steht im Audit und wird Eigentümer des neuen Gartens, wenn kein zugeordnetes Mitglied Leitung mit Verwaltung erhält; wer das Archiv hochgeladen hat, bleibt am Eintrag als Hochladender sichtbar.
-- [ ] **acceptance-5** Die Zuordnungszeilen sind aus der Mitgliederliste der Vorschau vorbelegt; der Admin trägt je Mitglied die E-Mail des Zielkontos ein, und eine E-Mail ohne aktives Konto wird an dieser Zeile gemeldet.
-- [ ] **acceptance-6** Die bisherige Rolle ist vorausgewählt und wird nur mit Bestätigung des Admins vergeben; Mitglieder ohne Zuordnung sind vor dem Start als „wird pseudonymisiert“ gekennzeichnet.
-- [ ] **acceptance-7** Lehnt der Start ab (unbekannter Plan, eine Zuordnung ohne aktives Konto oder gültige Rolle), entsteht kein Garten, die Vorprüfung bleibt bis zu ihrem Ablauf startbar, und die Ablehnung steht mit ihrem Code im Audit.
-- [ ] **acceptance-8** Die Admin-Seite listet Vorprüfungen und Importe mit Datum, Quelle, Ziel-Garten, Admin, Status und Fehlertext und zeigt bei einem laufenden Import die Phase (Prüfen, Datensätze schreiben); eine an einem Archivfehler gescheiterte Vorprüfung steht dort als fehlgeschlagen mit Grund und betroffenen Einträgen, eine vor dem Speichern abgelehnte Anfrage (Rolle, Größe, Step-up) erscheint nicht in der Liste.
-- [ ] **acceptance-9** Ein vorgeprüftes, nicht importiertes Archiv bleibt 24 Stunden startbar — auch wenn es länger als sechs Stunden wartet — und ist danach gelöscht; der Eintrag steht dann als abgelaufen in der Liste, lässt sich nicht mehr starten und verschwindet wie jeder Listeneintrag 30 Tage nach seinem Ende.
-- [ ] **acceptance-10** Die Mitgliederliste der Vorschau sieht nur ein Admin mit gültiger Bestätigung für dieses Archiv (Step-up höchstens eine Stunde alt); jeder andere Plattform-Admin sieht den Eintrag ohne Namen. Die Mitgliederliste wird geleert, sobald der Import endet oder die Vorprüfung abläuft.
-- [ ] **acceptance-11** Beschriftungen und Doku (DE + EN) beschreiben den Ablauf; REQ-056 §8.2, §12.1 (Gültigkeit der Bestätigung), §12.3 (neue Kontofelder bei Kontolöschung), §13.5 (Zustände, Vorschau, 24-Stunden-Frist), §14, der Status von NFR-011 R-40 und das Dateninventar `spec/privacy/02-personal-data-inventory.md` sind nachgezogen.
+- [ ] **acceptance-3** Ohne eigene, höchstens eine Stunde alte Bestätigung für dieses Archiv sieht ein Plattform-Admin keine Mitgliedernamen und kann den Import nicht starten; über eine eigene Bestätigungs-Route (Step-up gegen das am Eintrag genannte Archiv-Ziel, ohne Datei und ohne Zuordnung, auch für Konten ohne Passwort) erhält er beides für eine Stunde.
+- [ ] **acceptance-4** Der Admin, der den Import startet, ist der handelnde Admin: Er steht im Audit des Imports, auch eines gescheiterten, und wird Eigentümer des neuen Gartens, wenn kein zugeordnetes Mitglied Leitung mit Verwaltung erhält; wer das Archiv hochgeladen hat, bleibt am Eintrag als Hochladender vermerkt.
+- [ ] **acceptance-5** Die Zuordnungszeilen sind aus der Mitgliederliste vorbelegt, die bisherige Rolle ist vorausgewählt; vergeben wird nur, was der Admin bestätigt, eine E-Mail ohne aktives Konto wird an ihrer Zeile gemeldet, und Mitglieder ohne Zuordnung sind vor dem Start als „wird pseudonymisiert“ gekennzeichnet.
+- [ ] **acceptance-6** Lehnt der Start ab (unbekannter Plan, eine Zuordnung ohne aktives Konto oder gültige Rolle, mehr Mitglieder als der Plan zulässt) oder scheitert der gestartete Import, entsteht kein Garten, die Ablehnung bzw. der Fehler steht mit Code im Audit, und derselbe Eintrag bleibt bis zum Ablauf der Vorprüfung startbar, ohne dass das Archiv neu hochgeladen wird.
+- [ ] **acceptance-7** Beschriftungen und Doku (DE + EN) beschreiben Vorprüfung, Bestätigung und Start; REQ-056 §8.2, §8.4 Schritt 4, §12.1 (Gültigkeit und Bindung der Bestätigung), §12.3 (neue Kontofelder bei Kontolöschung), §13.5 (Vorschau, handelnder Admin) und §14 sind nachgezogen.
 
 ## Test hooks
 
 - **acceptance-1** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py` + `src/backend/tests/api/test_tenant_export_routes.py`: the upload answers 202 with a pre-check record, the worker's check fills origin, `verified` and members, no tenant exists before the start; vitest `src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx` (preview appears by polling) — pending
-- **acceptance-2** — service test: start by the same admin 59 minutes after the step-up imports the stored archive (the upload's storage key is reused, no factors sent). Route registrations: `src/backend/tests/unit/test_route_consumers_check.py:368` counts 917 (list + start; the stale comment at `:232` is corrected); both new routes are absent in light mode (AK-43, `src/backend/tests/api/test_tenant_export_routes.py`); the start route carries the import rate limit (`router.py:213` has it on the upload only); the body-ceiling guards (`tests/unit/guards/test_tenant_import_body_ceiling_names_the_route.py`, `tests/unit/guards/test_proxy_body_limit.py`, `scripts/ci/assert_chart_contracts.sh` from `:555`) stay green unchanged because the upload path does not move — pending
-- **acceptance-3** — service tests: start by another platform admin, and start by the same admin 61 minutes after the step-up, both answer the step-up refusal and found no tenant; with fresh factors bound to `archive:<digest>` both succeed, including an account without a password using an e-mailed code bound to the target the preview returned (`TenantImportResponse`, `schemas.py:61-75`, gains the target); the start route declares `STEP_UP_RESPONSES` (`router.py:212`); `src/backend/tests/unit/guards/test_credential_changes_go_through_the_step_up.py` (`:161`) classifies the start route; vitest: the step-up dialog of the start uses the returned target, not a file — pending
-- **acceptance-4** — service test: upload by admin A, start by admin B with B's step-up → `tenant_imported` names B as actor, B is the owner when no mapped member is lead with management, the record still names A as uploader (today `actor_user_key=claimed.requested_by_user_key`, `tenant_export_service.py:1019`) — pending
-- **acceptance-5** — vitest `src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx` (rows pre-filled from the preview, per-row `IMPORT_MEMBER_NOT_FOUND`) + service test for the start route's row-exact refusal — pending
-- **acceptance-6** — service test: the role comes from the start request, never from `members.jsonl` (SEC-003); vitest for the pre-selected role and the pseudonymised hint — pending
-- **acceptance-7** — service test: a start refused for an unknown plan or an unmappable row leaves the record pre-checked and startable, founds nothing and audits `refused:<Code>` with the archive hash; the F-15 test that pins these two refusals on `request_import` is rewritten to the start route in the same change — pending
-- **acceptance-8** — repository list-method test + service test (a pre-check failed on a corrupt archive is listed with code and entries; a 403/413/step-up refusal creates no record; the record's phase follows validating → writing) + vitest of the list table and the phase display — pending
-- **acceptance-9** — unit tests of the hourly sweep (`TenantExportService.expire`): a waiting pre-check untouched for 7 h is not ended by the stale sweep and can still be started; after 24 h the upload is deleted, the record is expired and a start is refused; `delete_finished_before` removes expired and failed pre-checks 30 days after their end — pending
-- **acceptance-10** — service + API tests: `GET …/tenant-imports/{import_key}` and the list return the member preview to the confirming admin within the hour and to another admin only after that admin's own step-up for the archive, otherwise no names; the preview is empty on `completed`, `failed` and expired records; `scripts/check_privacy_inventory.py` (guard R6) lists the new account-key fields and the account erasure sets them to `_anonymized` — pending
-- **acceptance-11** — i18n completeness + `mkdocs build --strict` + spec diff review — pending
+- **acceptance-2** — service test: start by the same admin 59 minutes after the step-up imports the stored archive (the upload's storage key is reused, no factors sent). Route registrations of this feature: `src/backend/tests/unit/test_route_consumers_check.py:368` counts 917 (confirm + start; F-33 adds the list, 918; the stale comment at `:232` is corrected); both new routes are absent in light mode (AK-43, `src/backend/tests/api/test_tenant_export_routes.py`) and carry the import rate limit (`router.py:213` has it on the upload only); the body-ceiling guards (`tests/unit/guards/test_tenant_import_body_ceiling_names_the_route.py`, `tests/unit/guards/test_proxy_body_limit.py`, `scripts/ci/assert_chart_contracts.sh` from `:555`) stay green unchanged because the upload path does not move — pending
+- **acceptance-3** — service + API tests: without a confirmation of their own, `GET …/tenant-imports/{import_key}` returns no member names to another platform admin and to the confirming admin after 61 minutes, and a start is refused with the step-up refusal; `POST …/tenant-imports/{import_key}/confirm` with factors bound to `archive:<digest>` (target returned by the record, `TenantImportResponse` `schemas.py:61-75` gains it) grants names and start for one hour, also for an account without a password using an e-mailed code; the route declares `STEP_UP_RESPONSES` (`router.py:212`) and is classified in `src/backend/tests/unit/guards/test_credential_changes_go_through_the_step_up.py` (`:161`); vitest: the confirm dialog uses the returned target, not a file (`src/frontend/src/utils/tenantImport.ts:44-52` computes it from the file today) — pending
+- **acceptance-4** — service test: upload by admin A, confirmation and start by admin B → `tenant_imported` names B as actor, B is the owner when no mapped member is lead with management, the record still names A as uploader; a failed run audits `failed:<Code>` with B (today `actor_user_key=claimed.requested_by_user_key`, `tenant_export_service.py:1019`, and `_fail_import` `:1095`); `scripts/check_privacy_inventory.py` (guard R6) lists the new account-key fields and the account erasure sets them to `_anonymized` — pending
+- **acceptance-5** — vitest `src/frontend/src/test/pages/AdminTenantImportsPage.test.tsx` (rows pre-filled from the preview, pre-selected role, per-row `IMPORT_MEMBER_NOT_FOUND`, pseudonymised hint) + service test: the role comes from the start request, never from `members.jsonl` (SEC-003) — pending
+- **acceptance-6** — service tests: a start refused for an unknown plan, an unmappable row or the plan's member limit (`MEMBER_LIMIT_REACHED`, checked at the start from mapping and plan alone) founds nothing, audits `refused:<Code>` with the archive hash and leaves the record startable; a run that fails after the start (induced failure, and a storage or photo quota refusal) keeps the stored upload (today deleted in `finally`, `tenant_export_service.py:1040-1045`) and the record can be started again once no half tenant is left; the F-15 test that pins plan and mapping refusals on `request_import` is rewritten to the start route in the same change — pending
+- **acceptance-7** — i18n completeness + `mkdocs build --strict` + spec diff review — pending
 
 ## Consistency notes
 
 Manual pass performed by: Claude (Subagent der Planungssitzung vom 2026-11-28, im Auftrag des Betreibers nolte) — betrifft den Abschnitt „Re-run 2026-11-28“; die älteren Läufe stammen vom `feature-consistency-reviewer`.
+
+Geltend sind Beschreibung, Kriterien, Hooks und der jüngste Abschnitt dieser Notizen („Stand nach dem zweiten Agentenlauf“). Alle älteren Abschnitte sind Verlauf: Ihre Kriteriennummern, Feature-Zuschnitte und Aussagen geben den Stand ihres Laufs wieder.
 
 **E-mail member mapping prior art (proceed).** Established: the import
 already takes `member_mapping {email, role, admin_scopes}` with an
@@ -267,9 +280,9 @@ consistency_check:
 - **Routenform (prior-art, proceed).** Established: Die Body-Grenze hängt am exakten Pfad `TENANT_IMPORT_PATH` (`api/v1/tenant_exports/router.py:42`, `main.py:431-443`, `nginx.conf:98-99`, Chart-Contract ab `scripts/ci/assert_chart_contracts.sh:555`), der Routenzähler steht auf 915 (`test_route_consumers_check.py:368`). Festlegung der Planung: Der Upload bleibt `POST /admin/platform/tenant-imports` (mit Step-up; legt den Vorprüf-Datensatz an und stößt die Hintergrundprüfung an), `GET /admin/platform/tenant-imports/{import_key}` liefert zusätzlich die Vorschau, neu sind `GET /admin/platform/tenant-imports` (Liste) und `POST /admin/platform/tenant-imports/{import_key}/start` (Zuordnung, Plan, bei Bedarf Step-up-Faktoren). Weil der Upload-Pfad bleibt, bewegen sich die vier Schichten der Body-Grenze und ihre drei Guards nicht; der Zähler steigt auf 917, der Step-up-Guard bekommt die Start-Route. Weicht die Umsetzung davon ab, ist der Lauf zu wiederholen.
 - **Was beim Start synchron geprüft wird.** Die nach F-15 synchronen Prüfungen „Plan vorhanden“ und „E-Mail → Konto“ wandern mit der Zuordnung vom Upload zum Start; Rolle, Größe und Step-up bleiben am Upload. Established: Die Zuordnung prüft heute Konto, Rolle und Scopes aus dem Antrag (`tenant_export_service.py:965-982`).
 - **Gültigkeit der Bestätigung (D2).** Established: Die Step-up-Faktoren sind einmalig und kurzlebig (`step_up_service.py:249`, `:253`, `:694-700`). „Ohne erneuten Step-up“ heißt deshalb: Der Vorprüf-Datensatz hält Zeitpunkt und Konto der Bestätigung; der Start prüft „dasselbe Konto“ und „höchstens eine Stunde“. Die Bindung an das Archiv bleibt (`archive:<Hash>`, REQ-056 §12.1 `:453`), geprüft wird weiterhin vor jedem Parsen, weil der Step-up am Upload vor der Hintergrundprüfung liegt.
-- **Ablage der Vorschau (drift, proceed).** Established: `TenantImportRequest` hat weder Quelle noch Mitgliederliste noch Phase (`tenant_export.py:81-107`), das Repository keine Listenmethode (`interfaces/tenant_export_store.py:115-138`). Festlegung der Planung: Quelle (Name, Kurzname) und Mitgliederliste (Archiv-Schlüssel, Anzeigename, Rolle, Scopes) liegen am Import-Datensatz. Die Mitgliederliste wird geleert wie heute `member_grants` (`tenant_export_service.py:1064`, `:1110`), die Quelle bleibt bis zur Löschung nach 30 Tagen (`REQUEST_RETENTION`, `:171`, `:1410-1411`). Anzeigenamen sind personenbezogen; acceptance-10 trägt die Felder in das Dateninventar ein (`spec/privacy/02-personal-data-inventory.md:139` nennt heute nur `requested_by_user_key`).
-- **Überschneidung mit F-15 (overlap, proceed).** Begründung für `proceed`: F-15 speichert die Ablehnungsdetails am Datensatz und zeigt sie an der Statuskarte eines Imports; F-17 zeigt denselben Datensatz in der Liste. Eine Quelle, zwei Ansichten. Das gilt auch für die Einträge, die F-32 schreibt: Die Vorgabe „die Vorprüfung zeigt das Ergebnis der Dokumentprüfung“ ist mit acceptance-6 erfüllt, ohne eigenes Kriterium.
-- **Phase „Messwerte“ (overlap, split-out F-16).** Das Kriterium 5 vom 2026-11-17 nannte die Phasen prüfen, Dokumente, Messwerte, fertig. Messwerte schreibt erst F-16, das in der entschiedenen Reihenfolge nach F-17 kommt. Die Phase „Messwerte“ ist deshalb nach F-16 acceptance-9 verschoben; acceptance-7 hier ist ohne F-16 prüfbar. Damit hängt F-17 nicht mehr von F-16 ab.
+- **Ablage der Vorschau (drift, proceed).** Established: `TenantImportRequest` hat weder Quelle noch Mitgliederliste noch Phase (`tenant_export.py:81-107`), das Repository keine Listenmethode (`interfaces/tenant_export_store.py:115-138`). Festlegung der Planung: Quelle (Name, Kurzname) und Mitgliederliste (Archiv-Schlüssel, Anzeigename, Rolle, Scopes) liegen am Import-Datensatz. Die Mitgliederliste wird geleert wie heute `member_grants` (`tenant_export_service.py:1064`, `:1110`), die Quelle bleibt bis zur Löschung nach 30 Tagen (`REQUEST_RETENTION`, `:171`, `:1410-1411`). Anzeigenamen sind personenbezogen; acceptance-10 trägt die Felder in das Dateninventar ein (`spec/privacy/02-personal-data-inventory.md:139` nennt heute nur `requested_by_user_key`). [Seit der Teilung: Die Sicht auf die Mitgliederliste regelt acceptance-3, ihre Leerung F-33 acceptance-5.]
+- **Überschneidung mit F-15 (overlap, proceed).** Begründung für `proceed`: F-15 speichert die Ablehnungsdetails am Datensatz und zeigt sie an der Statuskarte eines Imports; F-17 zeigt denselben Datensatz in der Liste. Eine Quelle, zwei Ansichten. Das gilt auch für die Einträge, die F-32 schreibt: Die Vorgabe „die Vorprüfung zeigt das Ergebnis der Dokumentprüfung“ ist mit acceptance-6 erfüllt, ohne eigenes Kriterium. [Seit der Teilung: Die Liste liefert F-33 acceptance-1 und -2.]
+- **Phase „Messwerte“ (overlap, split-out F-16).** Das Kriterium 5 vom 2026-11-17 nannte die Phasen prüfen, Dokumente, Messwerte, fertig. Messwerte schreibt erst F-16, das in der entschiedenen Reihenfolge nach F-17 kommt. Die Phase „Messwerte“ ist deshalb nach F-16 acceptance-9 verschoben; acceptance-7 hier ist ohne F-16 prüfbar. Damit hängt F-17 nicht mehr von F-16 ab. [Seit der Teilung: Die Phasenanzeige ist F-33 acceptance-3, die Phase „Messwerte“ F-16 acceptance-6.]
 
 **Umgesetzte Edits aus dem Lauf vom 2026-11-27** (alle fünf): Routenform festgelegt und Registrierungen als Hooks benannt; neuer Zustand in Sweep und Purge (acceptance-8, -9); Ablage und Leerung der Vorschau (acceptance-9); Kriterium 5 geteilt (acceptance-6, -7, -9); Dokumentprüfung hat mit F-32 einen Besitzer. Zusätzlich: Kriterium 1 geteilt in Vorschau (acceptance-1), Start ohne zweiten Step-up (acceptance-2) und erneuter Step-up (acceptance-3).
 
@@ -344,20 +357,34 @@ consistency_check:
 
 **Ergebnis:** alle sieben Befunde eingearbeitet; F-17 ist `ready`, vorbehaltlich des erneuten Agentenlaufs. Mit elf Kriterien liegt das Feature über der Empfehlung der Feature-Spec (mehr als zehn legt eine Teilung nahe); eine Teilung in „Vorprüfung“ und „Importliste“ wäre möglich, ist aber eine Betreiberentscheidung.
 
+### Stand nach dem zweiten Agentenlauf (2026-11-28)
+
+Zweiter Lauf des `feature-consistency-reviewer` (`feature-consistency-reviewer@unknown`) am 2026-11-28 gegen `22ec65763`, von der Hauptsitzung gestartet; dazu ein Versuch der Hauptsitzung gegen TimescaleDB und drei Betreiberentscheidungen. Die Befunde beider Agentenläufe stehen im Frontmatter (angehängt, nicht ersetzt). Die Einarbeitung stammt vom Subagenten der Planungssitzung; die zitierten Stellen wurden nachgelesen, ein eigener Test lief nicht.
+
+**Teilung (Betreiberentscheidung A).** F-17 behält Vorprüfung, Bestätigung, Zuordnung und Start. Importliste, Phasenanzeige, 24-Stunden-Ablauf, Leerung der Mitgliederliste und 30-Tage-Löschung liegen in F-33 (`tenant-import-list.md`). Zuordnung der alten Kriterien (Stand `22ec65763`): 1 → 1, 2 → 2, 3 und der Sichtteil von 10 → 3, 4 → 4, 5 und 6 → 5, 7 → 6 (erweitert), 11 → 7 und F-33 acceptance-6; 8 → F-33 acceptance-1 bis -3, 9 → F-33 acceptance-4 und -5, Leerung aus 10 → F-33 acceptance-5.
+
+- **Eigene Bestätigungs-Route (drift, proceed; Betreiberentscheidung B).** Established: Das Step-up-Ziel bildet heute der Browser aus der Datei (`tenantImport.ts:44-52`), die Antwort trägt keinen Hash (`schemas.py:61-75`), `get_import` gibt den Datensatz jedem Plattform-Admin (`tenant_export_service.py:835-845`). Festgelegt: Jeder Admin sieht die Mitgliedernamen nur nach eigener, höchstens eine Stunde alter Bestätigung für dieses Archiv. Dafür gibt es `POST /admin/platform/tenant-imports/{import_key}/confirm` (Step-up gegen das Archiv-Ziel, ohne Zuordnung); der Eintrag nennt das Ziel. Die Bestätigung des Uploads zählt als die des hochladenden Admins. Damit kann ein zweiter Admin erst bestätigen, dann die Namen sehen, dann zuordnen und starten; der Widerspruch des zweiten Laufs ist aufgelöst. Die Lesart „nach einer Stunde braucht auch der bestätigende Admin eine neue Bestätigung für die Namen“ ist damit die entschiedene.
+- **Routen dieses Features.** Der Upload-Pfad bleibt; neu sind `…/{import_key}/confirm` und `…/{import_key}/start`. Routenzähler 915 → 917 (`test_route_consumers_check.py:368`); die Liste aus F-33 macht 918. Guard-Einträge, Ratenlimit, `STEP_UP_RESPONSES` und Light-Modus stehen in den Hooks zu acceptance-2 und -3.
+- **Akteur des gescheiterten Laufs (drift, proceed).** Established: `_fail_import` auditiert mit dem Hochladenden (`:1095`). acceptance-4 verlangt den startenden Admin.
+- **Zustand nach Ablehnung und nach gescheitertem Lauf (drift, proceed).** Established: Der Lauf löscht den Upload heute in jedem Fall (`finally`, `:1040-1045`) und leert `member_grants` (`:1110`). Festlegung der Planung: Die Vorprüfung bleibt nach einer Ablehnung am Start und nach einem gescheiterten Lauf bis zu ihrem Ablauf (24 Stunden ab Upload, F-33) startbar; das Archiv bleibt so lange gespeichert. Ausnahme: Solange ein halber Garten eines gescheiterten Laufs noch nicht entfernt ist (`cleanup_pending`, `:1072-1112`), ist kein neuer Start möglich. Das Mitgliederlimit des Plans wird schon beim Start geprüft, weil es nur von Zuordnung und Plan abhängt (heute Teil von `_require_plan_quotas`, ab `:1258`); Speicher- und Fotokontingent brauchen das Archiv und bleiben im Lauf.
+- **Überschneidung mit F-15 (overlap, proceed).** Unverändert: F-17 verschiebt „Plan vorhanden“ und „E-Mail → Konto“ vom Upload an die Start-Route und schreibt den F-15-Test um (Hook zu acceptance-6). Mit der Entscheidung C auditiert F-15 außerdem frühe Ablehnungen; F-17 übernimmt das für seine beiden neuen Routen im selben Muster (`refused:<Code>`).
+
+**Ergebnis:** alle Befunde des zweiten Laufs eingearbeitet; F-17 ist `ready`, vorbehaltlich des dritten Agentenlaufs. Sieben Kriterien.
+
 ## Risks
 
-- Ein gespeichertes, vorgeprüftes Archiv (bis ~500 MiB) belegt bis zu 24 Stunden Objektspeicher.
-- Die Bestätigung gilt eine Stunde ab dem Step-up. Dauert die Hintergrundprüfung eines großen Archivs lange oder ordnet der Admin viele Mitglieder zu, ist ein zweiter Step-up nötig.
+- Ein gespeichertes, vorgeprüftes Archiv (bis ~500 MiB) belegt bis zu 24 Stunden Objektspeicher, jetzt auch nach einem gescheiterten Lauf.
+- Die Bestätigung gilt eine Stunde ab dem Step-up. Dauert die Hintergrundprüfung eines großen Archivs lange oder ordnet der Admin viele Mitglieder zu, ist eine zweite Bestätigung nötig.
 - Zuordnung und Plan liegen innerhalb dieser Stunde hinter keinem Step-up: Wer in dieser Zeit die Sitzung des Admins übernimmt, bestimmt, wer im neuen Garten Leitung mit Verwaltung wird. Heute bindet der Step-up den ganzen Antrag einschließlich Zuordnung an eine frische Bestätigung.
-- Anzeigenamen der Archiv-Mitglieder liegen bis zum Ende des Imports bzw. bis zu 24 Stunden am Import-Datensatz, in einer Collection, die laut Spec bisher keine Inhalte trägt. Sicht und Leerung sind Kriterium (acceptance-10); die Datenschutz-Lane zum Archiv berührt dieselbe Zuordnungsfläche (TA-756, `spec/privacy/10-testing-and-acceptance.md:334`).
-- Der Ablauf über die API ändert sich: Zuordnung und Plan gehen nicht mehr mit dem Upload, sondern mit dem Start. Wer die Route direkt nutzt, muss umstellen; das Runbook nennt es (acceptance-11).
-- Elf Kriterien in einem Feature; der Umfang ist der größte des Sprints.
+- Anzeigenamen der Archiv-Mitglieder liegen bis zum Ende des Imports bzw. bis zu 24 Stunden am Import-Datensatz, in einer Collection, die laut Spec bisher keine Inhalte trägt. Die Sicht ist hier Kriterium (acceptance-3), die Leerung in F-33; die Datenschutz-Lane zum Archiv berührt dieselbe Zuordnungsfläche (TA-756, `spec/privacy/10-testing-and-acceptance.md:334`).
+- Der Ablauf über die API ändert sich: Zuordnung und Plan gehen nicht mehr mit dem Upload, sondern mit dem Start. Wer die Route direkt nutzt, muss umstellen; das Runbook nennt es (acceptance-7).
+- Ein erneuter Start nach einem gescheiterten Lauf setzt voraus, dass der Rollback vollständig war; sonst wartet der Eintrag auf den stündlichen Sweep.
 
 ## References
 
 - Issue #3140 (Rest von #2138, MT-042), roadmap item R-19
-- `project/requirements/tenant-export-import-remainder.md` (R5–R8, R15–R17; R15 und R16 am 2026-11-27 präzisiert)
-- Setzt F-15 voraus; zeigt die Ergebnisse von F-32; F-16 ergänzt die Phase „Messwerte“ (bis 2026-11-28 stand sie hier in Kriterium 5)
+- `project/requirements/tenant-export-import-remainder.md` (R5, R7, R15, R17; R15 am 2026-11-27 und 2026-11-28 präzisiert)
+- Setzt F-15 voraus (Hintergrundprüfung, Detailfeld) und nutzt die Ergebnisse von F-32; F-33 (Importliste und Ablauf) setzt dieses Feature voraus
 
 ## Betreiberentscheidungen 2026-11-27
 
@@ -377,6 +404,12 @@ Vorgaben der Hauptsitzung zur Einarbeitung des Agentenlaufs:
 - **Die Mitgliederliste sieht nur der Admin, der bestätigt hat**, innerhalb der Frist; andere sehen den Status ohne Namen (acceptance-10).
 - Aus der Runde vom 2026-11-28 gilt für den ganzen Sprint: Der Handlauf mit rund 500 MiB (F-15 acceptance-1) ist verpflichtend.
 
+Dritte Runde am selben Tag:
+
+- **A — F-17 wird geteilt** in „Vorprüfung und Start“ (dieses Feature) und „Importliste und Ablauf“ (F-33).
+- **B — Zweiter Admin.** Wer startet, handelt (Audit-Akteur, Ersatz-Eigentümer); der Hochladende bleibt am Datensatz. Die Mitgliedernamen sieht jeder Admin nur nach eigener, frischer Bestätigung (höchstens eine Stunde) für dieses Archiv. Dafür gibt es eine eigene Route nur zum Bestätigen (acceptance-3, -4).
+- **C — Früh abgelehnte Uploads werden auditiert** (F-15 acceptance-10); D1 stimmt damit.
+
 ## Offene Betreiberentscheidungen (Re-run 2026-11-27)
 
 F-17 war auf D1 und D2 blockiert. **Stand 2026-11-28: D1, D2 und die Dokumentvalidierung sind entschieden, die Blockade ist aufgehoben.**
@@ -384,7 +417,7 @@ F-17 war auf D1 und D2 blockiert. **Stand 2026-11-28: D1, D2 und die Dokumentval
 - **D1 — Erscheinen Archivfehler als fehlgeschlagene Vorprüfung in der Liste?** Heute wird ein Upload vor dem Speichern abgelehnt (`tenant_export_service.py:782-786`), der Datensatz entsteht erst danach (`:788`); die Entscheidung vom 2026-11-17 lautet „abgelehnte Uploads erscheinen nur im Audit“. Mit F-15 Kriterium 4 prüft nur noch der Worker, Upload und Datensatz existieren also, bevor ein Archivfehler bekannt ist.
   - **Ja — „nur im Audit“ gilt nur für Ablehnungen vor dem Speichern (Rolle, Größe, Step-up):** Archivfehler stehen als fehlgeschlagene Vorprüfung in der Importliste; der Admin sieht den Grund dort.
   - **Nein — auch Archivfehler nur im Audit:** Mit der Prüfung im Worker ist das laut Bericht nicht haltbar, weil Upload und Datensatz dann schon existieren; der Datensatz müsste nachträglich entfernt werden.
-  - **Entschieden 2026-11-27: Ja.** Archivfehler erscheinen als fehlgeschlagene Vorprüfung in der Importliste; „nur im Audit“ gilt nur noch für Ablehnungen vor dem Speichern (acceptance-6).
+  - **Entschieden 2026-11-27: Ja.** Archivfehler erscheinen als fehlgeschlagene Vorprüfung in der Importliste; „nur im Audit“ gilt nur noch für Ablehnungen vor dem Speichern (acceptance-6). [Seit der Teilung: F-33 acceptance-2. Seit der Entscheidung C vom 2026-11-28 werden Ablehnungen vor dem Speichern tatsächlich auditiert, F-15 acceptance-10.]
 - **D2 — Wie lange gilt die Step-up-Bestätigung der Vorprüfung, und ist sie an denselben Admin gebunden?** Heute sind die Faktoren einmalig und kurzlebig (`step_up_service.py:249` 300 s, `:253` 600 s, Verbrauch `:694-698`); REQ-056 §12.1 (`:453`) prüft vor jedem Parsen. „Wiederverwenden“ heißt deshalb: eine am Vorprüf-Datensatz gespeicherte Bestätigung.
   - **Bis zum 24-h-Ablauf der Vorprüfung:** Ein Step-up genügt für Vorprüfung und Import; die Bestätigung gilt bis zu 24 h statt wenige Minuten.
   - **Kürzer als 24 h:** Liegt zwischen Vorprüfung und Import mehr als die Frist, ist ein zweiter Step-up nötig.
@@ -400,8 +433,6 @@ F-17 war auf D1 und D2 blockiert. **Stand 2026-11-28: D1, D2 und die Dokumentval
 
 Keine offene Betreiberentscheidung blockiert F-17. Diese Festlegungen stammen aus der Planung und sind vor dem Start von F-17 widerrufbar:
 
-- **Routenform.** Upload-Pfad bleibt, neu sind Liste und Start (siehe Consistency notes, Re-run 2026-11-28). Eine andere Form verschiebt die Body-Grenze auf vier Schichten und drei Guards.
-- **Ablage der Mitgliedervorschau am Import-Datensatz**, geleert am Ende des Imports bzw. nach 24 Stunden. Die Alternative, die Vorschau bei jedem Aufruf aus dem gespeicherten Archiv zu lesen, hieße, dass das Backend das Archiv wieder selbst öffnet, was F-15 abschafft.
-- **Mitgliederliste für einen zweiten Admin.** Die Vorgabe lautet „nur der Admin, der bestätigt hat“. acceptance-10 liest das als „ein Admin mit gültiger Bestätigung für dieses Archiv“ und schließt damit einen anderen Admin nach eigenem Step-up ein, weil D2 ihm den Start erlaubt und er ohne die Liste nicht zuordnen kann. Soll der zweite Admin die Namen nie sehen, kann er faktisch nicht starten; dann wäre D2 auf denselben Admin zu verengen.
-- **Sicht nach Ablauf der Stunde.** Nach einer Stunde sieht auch der bestätigende Admin die Namen erst nach einem neuen Step-up wieder. Die Vorgabe nannte „Stunde/24 h“; gewählt ist die strengere Lesart.
-- **Audit für Rolle, Größe, Step-up:** siehe „Offene Punkte“ in `tenant-archive-size-limits.md`.
+- **Routenform.** Upload-Pfad bleibt; neu sind Bestätigen und Start (hier) und die Liste (F-33). Eine andere Form verschiebt die Body-Grenze auf vier Schichten und drei Guards.
+- **Ablage der Mitgliedervorschau am Import-Datensatz.** Die Alternative, die Vorschau bei jedem Aufruf aus dem gespeicherten Archiv zu lesen, hieße, dass das Backend das Archiv wieder selbst öffnet, was F-15 abschafft.
+- **Startbar nach gescheitertem Lauf.** Das Archiv bleibt bis zum Ablauf gespeichert, auch nach einem Fehlschlag. Heute wird es sofort gelöscht (REQ-056 §13.5); acceptance-7 zieht die Spec nach.

@@ -93,6 +93,15 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R9** is made precise: the manual run with a ~500 MiB archive is mandatory for closing sprint 5; its test hook may only end `passing`.
 - **R10** is extended: the export also refuses what the import's read limits would refuse (rows, document bytes, unpacked size, entries, JSON values, compression ratio), not only the byte limit.
 
+### Revisit 2026-11-28, third round (operator decisions and a measurement)
+
+- **Split:** R5, R7 and R15 are carried by F-17 (pre-check and start), R6, R8 and R16 by F-33 (import list and expiry), R3 and R14 by F-16 (raw readings), R4 and R13 by F-34 (hourly and daily values); R9's roundtrip is F-34's value-verifying criterion.
+- **R15** is made precise (decision B): whoever starts the import acts (audit actor, fallback owner), the uploader stays on the record; every admin sees the member names only after a fresh confirmation of their own (at most one hour) for this archive, through a route that only confirms.
+- **R16** is made precise (decision C): refusals before the upload is stored (role, size, confirmation) are written to the audit by F-15; a 413 from proxy or middleware and an unauthenticated request know no account and are not audited.
+- **R3/R14** are limited (measurement against TimescaleDB 2.32.1-pg16, 2026-11-28): raw readings older than the target installation's raw retention are not imported but counted and named in the report. Writing raw rows marks their time range; the next refresh over it rebuilds the buckets of all tenants from raw rows and deletes those that have none left.
+- **R18** is extended: fields of `tenant.json` that are missing or of the wrong type refuse the archive instead of being replaced by a default.
+- **R10** is made precise: the export refuses whatever the import's archive reader and object check would refuse, including a `manifest.json` above 1 MiB.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).
