@@ -85,6 +85,14 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R18** is new (see above). Sprint 5 contains only R-19; implementation order F-15 → F-32 → F-17 → F-16.
 - The bounded context's "restored or moved" is narrowed by the decision that there is only one installation: tenants are restored, not moved between installations.
 
+### Revisit 2026-11-28 (operator decisions)
+
+- **R13** is replaced: the import writes every archived `hourly` and `daily` bucket directly and recomputes nothing. A refresh runs over a time range, not per tenant; for an archive reaching back beyond the 90 days of raw retention it would rebuild, and so delete, other tenants' buckets. R3's "refresh the continuous aggregates for that window" falls with it.
+- **R14** is made precise: readings (raw, hourly, daily) of a sensor the archive does not hold are skipped and counted in the report.
+- **R1** is made precise: the worker's `/tmp` moves to disk like the backend's.
+- **R9** is made precise: the manual run with a ~500 MiB archive is mandatory for closing sprint 5; its test hook may only end `passing`.
+- **R10** is extended: the export also refuses what the import's read limits would refuse (rows, document bytes, unpacked size, entries, JSON values, compression ratio), not only the byte limit.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).

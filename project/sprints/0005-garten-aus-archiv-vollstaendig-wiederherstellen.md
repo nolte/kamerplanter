@@ -46,14 +46,24 @@ Der value-verifizierende Nachweis ist **F-16 `acceptance-7`**: Ein Garten mit
 Datensätzen, Fotos, Mitgliedern und Messwerten wird exportiert, das Archiv
 hochgeladen, vorgeprüft, die Mitglieder per E-Mail zugeordnet und aus der
 Vorprüfung importiert; der erneute Export des neuen Gartens enthält dieselben
-Daten einschließlich aller Messwerte. Das Kriterium liegt im letzten Feature
+Daten einschließlich aller Rohwerte, Stunden- und Tageswerte. Das Kriterium liegt im letzten Feature
 und läuft durch alle vier: Hintergrundprüfung (F-15), Dokumentprüfung eines
 unveränderten Archivs (F-32), Vorprüfung mit E-Mail-Zuordnung und Start aus
 dem gespeicherten Archiv (F-17), Messwerte (F-16). Ein Kriterium aus F-17
 wiese die Vollständigkeit nicht nach, weil die Messwerte dort noch fehlen.
-Nicht nachgewiesen wird damit die Größe von rund 500 MiB: Nach
-Betreiberentscheidung läuft dieser Test nur manuell (F-15 `acceptance-1`) und
-ist zusätzlich vor dem Sprint-Review einmal auszuführen.
+Nicht nachgewiesen wird damit die Größe von rund 500 MiB.
+
+**Verpflichtender Handlauf (Betreiberentscheidung 2026-11-28).** Der Wertsatz
+bleibt, wie er ist; die Größe weist der Handlauf zu F-15 `acceptance-1` nach.
+Der Sprint schließt nicht ohne bestandenen Handlauf: Der Hook zu F-15
+`acceptance-1` darf nur mit `passing` enden, nie mit `skipped`. Der Betreiber
+(oder die Hauptsitzung in seinem Auftrag) startet dazu den
+`workflow_dispatch`-Lauf gegen die Testinstallation, mit den mitgelieferten
+Helm-Werten: Export eines fotolastigen Gartens von rund 500 MiB, Import des
+Archivs, einmal über die Admin-Seite hochgeladen. Der Import braucht eine
+zweite ArangoDB-Datenbank oder einen Quell-Garten ohne eigene Arten, weil ein
+Import neben dem Original an eigenen Arten scheitert. Dieselbe Voraussetzung
+(zwei ArangoDB-Datenbanken) gilt für den Wertnachweis F-16 `acceptance-7`.
 
 Betreiberentscheidungen vom 2026-11-27:
 
@@ -79,16 +89,27 @@ Betreiberentscheidungen vom 2026-11-27:
   rund 2 GiB ist akzeptabel, die Datenschutz-Befunde zum Archiv laufen in
   einer eigenen Lane.
 
+Betreiberentscheidungen vom 2026-11-28:
+
+- **F-16:** Messwerte ohne zuordenbaren Sensor werden ausgelassen und gezählt,
+  auch die Stunden- und Tageswerte eines solchen Sensors.
+- **F-15:** `/tmp` des Workers liegt auch auf Disk.
+- **F-16:** Archivierte Stunden- und Tageswerte werden direkt geschrieben,
+  nichts wird neu berechnet; ein Neuberechnen über einen Zeitbereich träfe die
+  Werte anderer Mandanten.
+- **Sprintwert:** Der Satz bleibt, der Handlauf mit rund 500 MiB ist
+  verpflichtend (oben).
+
 Festlegungen der Planung vom 2026-11-28, nicht vom Betreiber entschieden und
 vor dem Start des jeweiligen Features widerrufbar (Einzelheiten unter „Offene
-Punkte“ der Feature-Dateien): Messwerte ohne zuordenbaren Sensor werden
-ausgelassen und gezählt (F-16); der Upload-Pfad bleibt, neu sind Liste und
-Start-Route (F-17); die Mitgliedervorschau liegt am Import-Datensatz und wird
-am Ende geleert (F-17); `/tmp` des Workers wählt die Umsetzung innerhalb des
-Limits von 2 GiB (F-15).
-
-Readiness-Prüfung vom 2026-11-28 (manuell, nach den Kriterien des
-`sprint-readiness-reviewer`): **go**, kein blockierender Befund.
+Punkte“ der Feature-Dateien): der Upload-Pfad bleibt, neu sind Liste und
+Start-Route (F-17); die Mitgliedervorschau liegt am Import-Datensatz, ist nur
+mit gültiger Bestätigung sichtbar und wird am Ende geleert (F-17); jedes an
+eine Collection gebundene Modell muss einen Datensatz annehmen (F-32); eine
+falsche Prüfsumme des Messwert-Teils scheitert schon in der Vorprüfung (F-16).
+Aus dem Repository nicht belegt und durch einen Integrationstest zu klären:
+das Verhalten der Aggregat-Policies gegenüber direkt geschriebenen Stunden-
+und Tageswerten (F-16 `acceptance-3`).
 
 ## Features
 
