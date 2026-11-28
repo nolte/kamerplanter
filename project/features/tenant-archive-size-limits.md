@@ -1,40 +1,52 @@
 ---
 id: F-15
 title: Archivgrößen bis ~500 MiB mit klarer Grenze
-status: draft
+status: ready
 roadmap_item: R-19
-sprint: null
+sprint: 5
 created: 2026-11-17
 ended: null
 verifies_sprint_value: null
 consistency_check:
-  performed_at: 2026-11-27
-  agent_version: feature-consistency-reviewer@unknown
+  performed_at: 2026-11-28
+  agent_version: manual-2026-11-28
   findings:
     - kind: prior-art
-      target: helm/kamerplanter/values.yaml:1662
-      resolution: revisit-after Kriterium 1/4 nennen die echten Deltas (tmp-Größen, Spool-Budget)
-      evidence: "celery-worker limits.memory: 2Gi (:1662), backend 2Gi (:1022); backend-tmp und celery-worker-tmp 'medium: Memory, sizeLimit: 64Mi' (:2468-2482)"
+      target: helm/kamerplanter/values.yaml:2468
+      resolution: proceed
+      evidence: "backend-tmp und celery-worker-tmp: 'type: emptyDir, medium: Memory, sizeLimit: 64Mi' (:2468-2486); limits.memory 2Gi für backend (:1022) und celery-worker (:1662); UPLOAD_SPOOL_BUDGET_MB 'max 52 …' (:926). Die Deltas stehen in acceptance-1, -2 und -7; backend-tmp auf Disk ist am 2026-11-27 entschieden."
     - kind: drift
       target: spec/req/REQ-056_Mandanten-Lebenszyklus-Kontingente.md:384
-      resolution: revisit-after Kriterium 4 legt fest, was synchron bleibt, und Kriterium 5 nennt §8.4, AK-34, AK-46
-      evidence: "§8.4 Schritt 6: 'Geprüft wird am Antrag (synchrone Ablehnung, nichts gespeichert)'; AK-46 :687 'speichert keinen Upload und auditiert refused:<Code>'; AK-34 :680 '422 … nichts geschrieben'; service request_import :773-786"
+      resolution: proceed
+      evidence: "§8.4 Schritt 6 'Geprüft wird am Antrag (synchrone Ablehnung, nichts gespeichert)', AK-34 (:680) '422 … nichts geschrieben', AK-46 (:687) 'speichert keinen Upload und auditiert refused:<Code>' gegen acceptance-5/-6; Option B am 2026-11-27 entschieden, acceptance-8 zieht die Stellen nach."
     - kind: prior-art
       target: src/backend/app/domain/models/tenant_export.py:40
       resolution: proceed
-      evidence: "TenantExportFailureReason = Literal['too_large', ...]; tenant_export_service.py:511-513 'except ArchiveTooLargeError … _fail_export(claimed, \"too_large\")'; AK-44 REQ-056:710 'umgesetzt'"
+      evidence: "TenantExportFailureReason enthält 'too_large'; tenant_export_service.py:511-513 beendet den Export damit; AK-44 (REQ-056:710) 'umgesetzt'. Delta nur: min(Kontingent + 10 %, Importgrenze), unbegrenztes Kontingent (_size_limit :486-490 gibt None) und ENOSPC (heute internal_error, :514-518)."
     - kind: drift
-      target: helm/kamerplanter/values.yaml:926
-      resolution: revisit-after Test-Hook zu Kriterium 3 pinnt, dass der Worker dieselbe Importgrenze kennt
-      evidence: "UPLOAD_SPOOL_BUDGET_MB (:926) und TENANT_IMPORT_MAX_UPLOAD_MB (:929) stehen nur unter controllers.backend; der Export läuft im Worker (tasks/tenant_export_tasks.py:31-40); _size_limit :486-490 gibt None bei unbegrenztem Kontingent"
-    - kind: drift
-      target: project/features/tenant-archive-size-limits.md:57
-      resolution: revisit-after Test-Hook 1 auf workflow_dispatch umgeschrieben und Chart-Contract als Dauerprüfung ergänzt
-      evidence: "Hook: '(CI lane) — pending' gegen :105 'läuft nur manuell (workflow_dispatch)'; Chart-Contract-Block existiert: scripts/ci/assert_chart_contracts.sh:555-591"
+      target: helm/kamerplanter/values.yaml:929
+      resolution: proceed
+      evidence: "TENANT_IMPORT_MAX_UPLOAD_MB steht nur unter controllers.backend (:929; einziger Treffer im Chart), der Export läuft im Worker (tasks/tenant_export_tasks.py:31-32); acceptance-3 und sein Hook verlangen dieselbe Grenze im Worker."
     - kind: prior-art
       target: src/backend/app/domain/engines/tenant_export_engine.py:1003
-      resolution: revisit-after Kriterium 1 definiert die Zusammensetzung des 500-MiB-Archivs
-      evidence: "MAX_UNCOMPRESSED_BYTES 1 GiB (:1003), MAX_DOCUMENT_BYTES 128 MiB (:1007), MAX_ROWS 1 000 000 (:1012); _with_stored_bodies hält Objekte doppelt (service :1286-1311); Browser-Hash 'subtle.digest(\"SHA-256\", await file.arrayBuffer())' (src/frontend/src/utils/tenantImport.ts:47)"
+      resolution: proceed
+      evidence: "MAX_UNCOMPRESSED_BYTES 1 GiB (:1003), MAX_DOCUMENT_BYTES 128 MiB (:1007), MAX_ROWS 1 000 000 (:1012); acceptance-1 nennt die Zusammensetzung des 500-MiB-Archivs."
+    - kind: prior-art
+      target: src/backend/app/domain/services/tenant_export_service.py:1013
+      resolution: proceed
+      evidence: "run_import ruft '_verified_archive(buffer)' (:1013) und speichert den Code über _fail_import (:1072-1112); acceptance-5 entfernt nur den Aufruf im Antrag (:774), acceptance-6 ergänzt die Details am Datensatz (heute nur fehlende Katalogeinträge, :1105)."
+    - kind: prior-art
+      target: scripts/ci/assert_chart_contracts.sh:555
+      resolution: proceed
+      evidence: "Block '#2138 — the tenant import's own body limit' (ab :555) rendert das Chart und prüft die Importgrenze; der Hook zu acceptance-7 erweitert ihn um /tmp und Spool-Budget."
+    - kind: overlap
+      target: F-17
+      resolution: proceed
+      evidence: "acceptance-6 (Ablehnungsdetails an Datensatz und Statuskarte) und F-17 acceptance-6 (fehlgeschlagene Vorprüfung in der Importliste) zeigen dieselben Details; Begründung in den Consistency notes (Re-run 2026-11-28)."
+    - kind: overlap
+      target: F-32
+      resolution: proceed
+      evidence: "F-32 schreibt seine abgelehnten Dokumente in dasselbe Detailfeld, das acceptance-6 einführt; Begründung in den Consistency notes (Re-run 2026-11-28)."
 ---
 
 ## Description
@@ -48,27 +60,41 @@ werden, als ein Import je annehmen würde.
 Nach dieser Änderung kommen Archive bis etwa 500 MiB mit den mitgelieferten
 Helm-Werten durch. Ein Export bricht spätestens an der Importgrenze ab, sodass
 jedes exportierte Archiv auch wieder importierbar ist. Was zu groß ist, wird
-mit einer Meldung abgelehnt, die die Grenze nennt. Das Prüfen des Archivs
-übernimmt ausschließlich der Worker; das Backend nimmt den Upload nur
-entgegen und legt ihn ab, damit sein Speicherbedarf nicht dauerhaft wächst.
+mit einer Meldung abgelehnt, die die Grenze nennt.
+
+Beim Hochladen prüft das Backend nur noch, was ohne Öffnen des Archivs
+feststeht: Berechtigung, Größe, Bestätigung (Step-up), ob der Plan existiert
+und ob die genannten E-Mail-Adressen zu aktiven Konten gehören. Das Archiv
+selbst prüft ausschließlich der Hintergrundprozess (Worker). Ist es
+fehlerhaft, endet der Import als fehlgeschlagen, und die Statusanzeige nennt
+den Grund und die betroffenen Einträge. Der Upload liegt dabei auf Disk, nicht
+im Arbeitsspeicher des Backends.
 
 ## Acceptance criteria
 
-- [ ] **acceptance-1** Mit den mitgelieferten Helm-Werten gelingen Export und Import eines Archivs von rund 500 MiB.
-- [ ] **acceptance-2** Ein Upload über der Grenze wird mit 413 abgelehnt; die Meldung nennt die Grenze.
-- [ ] **acceptance-3** Ein Export bricht spätestens an der Importgrenze (bzw. am Kontingent + 10 %, falls kleiner) mit dem Grund „zu groß“ ab; auch ein volllaufendes `/tmp` endet mit diesem Grund statt mit einem internen Fehler.
-- [ ] **acceptance-4** Das Backend prüft hochgeladene Archive nicht mehr selbst; die Prüfung läuft nur im Worker, und das Speicherlimit des Backends wächst nicht.
-- [ ] **acceptance-5** Runbook (DE + EN) und REQ-056 §8.3 nennen die neue Grenze, die Exportregel und die gemeinsam anzuhebenden Ressourcen.
+- [ ] **acceptance-1** Mit den mitgelieferten Helm-Werten gelingen Export und anschließender Import eines Archivs von rund 500 MiB, das überwiegend aus Fotos besteht (Datensätze unter 128 MiB, entpackt unter 1 GiB, höchstens 1 000 000 Zeilen); der importierte Garten ist danach aktiv, und weder Backend noch Worker werden dabei wegen Speichermangels beendet.
+- [ ] **acceptance-2** Mit den mitgelieferten Werten wird ein Archiv von 100 MiB angenommen und ein Upload über der Importgrenze (512 MiB) mit 413 abgelehnt; die Meldung nennt die Grenze.
+- [ ] **acceptance-3** Ein Export bricht spätestens an der Importgrenze ab (bzw. am Kontingent + 10 %, falls das kleiner ist) und endet mit dem Grund „zu groß“ — auch bei unbegrenztem Speicherkontingent; der Worker verwendet dabei dieselbe Importgrenze wie das Backend.
+- [ ] **acceptance-4** Läuft `/tmp` des Workers beim Zusammenstellen eines Exports voll, endet der Export mit dem Grund „zu groß“ statt mit einem internen Fehler.
+- [ ] **acceptance-5** Die Upload-Antwort lehnt nur noch ab, was ohne Öffnen des Archivs feststeht — fehlende Plattform-Admin-Rolle, Größe, Step-up, unbekannter Plan, eine Zuordnung, die kein aktives Konto oder keine gültige Rolle nennt (zeilengenau) —, speichert dann nichts und vermerkt die Ablehnung im Audit; jedes andere Archiv wird mit 202 angenommen, auch ein fehlerhaftes.
+- [ ] **acceptance-6** Scheitert die Hintergrundprüfung eines angenommenen Archivs, endet der Import als fehlgeschlagen, ohne dass ein Garten entsteht; Statusabfrage und Statuskarte nennen den Code und die betroffenen Einträge (höchstens 200, keine Inhalte), und das hochgeladene Archiv ist gelöscht.
+- [ ] **acceptance-7** Die mitgelieferten Helm-Werte legen `/tmp` des Backends auf Disk statt in den Arbeitsspeicher, mit Platz für einen Upload an der Importgrenze; das Speicherlimit des Backends bleibt bei 2 GiB.
+- [ ] **acceptance-8** Runbook (DE + EN, Abschnitte „Wenn der Import ablehnt“ und „Archivgröße und /tmp“), der Kommentar in `values.yaml` und REQ-056 (§8.3, §8.4 Schritt 6, §13.5, §13.6, AK-34, AK-44, AK-46, AK-49) beschreiben die neue Grenze, die Exportregel, die Aufteilung in synchrone und asynchrone Prüfung und die gemeinsam anzuhebenden Ressourcen.
 
 ## Test hooks
 
-- **acceptance-1** — integration test with a ~500 MiB synthetic archive against the rendered default values (CI lane) — pending
-- **acceptance-2** — existing body-limit test extended to the new ceiling (`exceptions.py:1016-1030`) — pending
-- **acceptance-3** — unit tests: export limit = min(quota+10 %, import limit); ENOSPC during assembly → `too_large` — pending
-- **acceptance-4** — unit test: import route stores the upload without calling the archive reader — pending
-- **acceptance-5** — `mkdocs build --strict` + spec diff review — pending
+- **acceptance-1** — manual only: a new `workflow_dispatch` workflow (never per pull request, never nightly; operator decision 2026-11-27) renders the chart with its default values, exports a synthetic photo-dominated tenant of ~500 MiB and imports the archive again, asserting `completed`, an `active` tenant and no restarted or OOM-killed pod; the source tenant has no own species or is deleted first (runbook `docs/de/deployment/tenant-export-import.md:136-137`); the run once uploads through the admin page to cover the browser-side hash (`src/frontend/src/utils/tenantImport.ts:47`) — pending
+- **acceptance-2** — `src/backend/tests/api/test_tenant_import_body_ceiling.py` extended (100 MiB passes the ceiling, a body above the limit answers 413 naming it, `exceptions.py:1016-1030`) plus the chart contract of acceptance-7 (the rendered default spool budget no longer lowers the ceiling) — pending
+- **acceptance-3** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py`: limit = min(quota + 10 %, import limit), unlimited quota → import limit; `scripts/ci/assert_chart_contracts.sh`: the worker's rendered `TENANT_IMPORT_MAX_UPLOAD_MB` equals the backend's — pending
+- **acceptance-4** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py`: `OSError(ENOSPC)` while the archive is assembled ends the request `failed`/`too_large` — pending
+- **acceptance-5** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py`: `request_import` never calls the archive reader (spy on `read_tenant_archive`); each synchronous refusal stores no upload and no record and audits `refused:<Code>`; a corrupt ZIP answers 202; `src/backend/tests/unit/guards/test_credential_changes_go_through_the_step_up.py` (entry at `:161`) stays green — pending
+- **acceptance-6** — `src/backend/tests/unit/domain/services/test_tenant_export_service.py`: `run_import` on a corrupt archive, on missing catalogue entries and on a mapped member key the archive does not hold ends `failed` with code and at most 200 entries, upload deleted, no tenant; `src/backend/tests/integration/test_tenant_export_roundtrip.py` (AK-34 case read from the record); vitest `src/frontend/src/test/components/TenantImportStatusCard.test.tsx` (code and entries shown) — pending
+- **acceptance-7** — `scripts/ci/assert_chart_contracts.sh` (block starting at `:555`): with default values the backend's `/tmp` volume is not `medium: Memory`, its size and `UPLOAD_SPOOL_BUDGET_MB` hold one upload at the import limit, `limits.memory` of the backend is `2Gi` — pending
+- **acceptance-8** — `mkdocs build --strict` + spec diff review (REQ-056 sections and AKs named in the criterion, runbook DE/EN, `helm/kamerplanter/values.yaml:109-130`) — pending
 
 ## Consistency notes
+
+Manual pass performed by: Claude (Subagent der Planungssitzung vom 2026-11-28, im Auftrag des Betreibers nolte) — betrifft den Abschnitt „Re-run 2026-11-28“; die älteren Läufe stammen vom `feature-consistency-reviewer`.
 
 **Upload ceiling prior art (proceed).** Established: the import ceiling of
 512 MiB (`settings.py:441`, `main.py:427-431`) is clamped at start to
@@ -96,6 +122,8 @@ held in memory while verified (`tenant_export_engine.py:1000-1003`, up to
 and again in the worker (`:1006`). Operator decision 2026-11-17: only the
 worker verifies (memory limit ~2 GiB); the backend streams the upload to
 storage (criterion 4).
+
+**Korrekturen 2026-11-28 zu den Notizen vom 2026-11-17.** Der Grund `too_large` existiert bereits (`tenant_export.py:40`, `tenant_export_service.py:511-513`); „gains `too_large`“ oben ist überholt, offen sind nur die Grenze min(Kontingent + 10 %, Importgrenze) und ENOSPC. Das Speicherlimit des Workers steht bereits auf 2 Gi (`helm/kamerplanter/values.yaml:1662`) und wächst nicht weiter. Verrutschte Anker der Notizen oben: `settings.py:441` und `:1311` sind `src/backend/app/config/settings.py:441` und `:1315`; `main.py:427-431` ist `:431-443`; `nginx.conf:84-85` ist `src/frontend/nginx.conf:98-99`; `values.yaml:2410-2428` ist `:2468-2486`.
 
 ### Re-run 2026-11-27
 
@@ -173,15 +201,81 @@ consistency_check:
 5. Name the composition of the 500 MiB archive.
 6. Correct the consistency note on `too_large` and on the worker limit of 2 Gi.
 
+### Re-run 2026-11-28
+
+Manueller, rein lesender Durchgang gegen develop `17e1034d2`, zusammen für F-15, F-32, F-17 und F-16. Auslöser: die Betreiberentscheidungen vom 2026-11-27 (Option B, `/tmp` auf Disk, D1, D2, Dokumentprüfung als eigenes Feature), die danach umgeschriebenen Kriterien und das neue Feature F-32 mit überschneidendem Umfang. Es lief kein Test; jede Aussage über heutiges Verhalten stammt aus dem Lesen der genannten Stelle. Abweichung vom Regelweg: Der Lauf ist ein manueller Durchgang, obwohl der Agent `feature-consistency-reviewer` verfügbar ist. Der Auftrag kam an einen Subagenten, der selbst keinen Agenten starten darf; nach `spec/project/feature/` §Consistency check ist das ein Workflow-Health-Befund, und der Lauf über den Agenten ist nachzuholen, sobald sich an den Kriterien etwas ändert.
+
+Seit dem Lauf vom 2026-11-27 (develop `cc8531492`) hat sich von den zitierten Dateien nur `src/backend/app/common/dependencies.py` (+2 Zeilen) und `src/backend/app/domain/models/site.py` (+13 Zeilen) geändert (`git diff --stat cc8531492 17e1034d2`); alle anderen Zeilenanker dieses Features wurden nachgelesen und stimmen.
+
+**Befunde vom 2026-11-27 — Verbleib.**
+
+1. `helm/kamerplanter/values.yaml:1662` (prior-art) — erledigt. Established: `limits.memory: 2Gi` für Backend (`:1022`) und Worker (`:1662`); beide `/tmp`-Volumes `medium: Memory`, `sizeLimit: 64Mi` (`:2468-2486`; der Lauf vom 27.11. nannte `:2468-2482`). acceptance-1, -2 und -7 nennen die Deltas.
+2. `spec/req/REQ-056_Mandanten-Lebenszyklus-Kontingente.md:384` (drift) — entschieden: Option B (2026-11-27). acceptance-5 legt fest, was synchron bleibt, acceptance-6 die asynchrone Ablehnung, acceptance-8 zieht §8.4 Schritt 6, AK-34 und AK-46 nach.
+3. `src/backend/app/domain/models/tenant_export.py:40` (prior-art, proceed) — unverändert richtig.
+4. `helm/kamerplanter/values.yaml:926` (drift) — erledigt durch acceptance-3 und seinen Hook. Korrigierter Anker: `TENANT_IMPORT_MAX_UPLOAD_MB` steht in `:929`, das Spool-Budget in `:926`.
+5. `project/features/tenant-archive-size-limits.md:57` (drift) — erledigt: Hook 1 ist `workflow_dispatch`, die Dauerprüfung liegt als Chart-Contract an acceptance-7.
+6. `src/backend/app/domain/engines/tenant_export_engine.py:1003` (prior-art) — erledigt: acceptance-1 nennt die Zusammensetzung; der Hash im Browser steht im Hook und in den Risiken.
+
+Der Block vom 2026-11-27, wie er bis zu diesem Lauf im Frontmatter stand:
+
+```yaml
+consistency_check:
+  performed_at: 2026-11-27
+  agent_version: feature-consistency-reviewer@unknown
+  findings:
+    - kind: prior-art
+      target: helm/kamerplanter/values.yaml:1662
+      resolution: revisit-after Kriterium 1/4 nennen die echten Deltas (tmp-Größen, Spool-Budget)
+      evidence: "celery-worker limits.memory: 2Gi (:1662), backend 2Gi (:1022); backend-tmp und celery-worker-tmp 'medium: Memory, sizeLimit: 64Mi' (:2468-2482)"
+    - kind: drift
+      target: spec/req/REQ-056_Mandanten-Lebenszyklus-Kontingente.md:384
+      resolution: revisit-after Kriterium 4 legt fest, was synchron bleibt, und Kriterium 5 nennt §8.4, AK-34, AK-46
+      evidence: "§8.4 Schritt 6: 'Geprüft wird am Antrag (synchrone Ablehnung, nichts gespeichert)'; AK-46 :687 'speichert keinen Upload und auditiert refused:<Code>'; AK-34 :680 '422 … nichts geschrieben'; service request_import :773-786"
+    - kind: prior-art
+      target: src/backend/app/domain/models/tenant_export.py:40
+      resolution: proceed
+      evidence: "TenantExportFailureReason = Literal['too_large', ...]; tenant_export_service.py:511-513 'except ArchiveTooLargeError … _fail_export(claimed, \"too_large\")'; AK-44 REQ-056:710 'umgesetzt'"
+    - kind: drift
+      target: helm/kamerplanter/values.yaml:926
+      resolution: revisit-after Test-Hook zu Kriterium 3 pinnt, dass der Worker dieselbe Importgrenze kennt
+      evidence: "UPLOAD_SPOOL_BUDGET_MB (:926) und TENANT_IMPORT_MAX_UPLOAD_MB (:929) stehen nur unter controllers.backend; der Export läuft im Worker (tasks/tenant_export_tasks.py:31-40); _size_limit :486-490 gibt None bei unbegrenztem Kontingent"
+    - kind: drift
+      target: project/features/tenant-archive-size-limits.md:57
+      resolution: revisit-after Test-Hook 1 auf workflow_dispatch umgeschrieben und Chart-Contract als Dauerprüfung ergänzt
+      evidence: "Hook: '(CI lane) — pending' gegen :105 'läuft nur manuell (workflow_dispatch)'; Chart-Contract-Block existiert: scripts/ci/assert_chart_contracts.sh:555-591"
+    - kind: prior-art
+      target: src/backend/app/domain/engines/tenant_export_engine.py:1003
+      resolution: revisit-after Kriterium 1 definiert die Zusammensetzung des 500-MiB-Archivs
+      evidence: "MAX_UNCOMPRESSED_BYTES 1 GiB (:1003), MAX_DOCUMENT_BYTES 128 MiB (:1007), MAX_ROWS 1 000 000 (:1012); _with_stored_bodies hält Objekte doppelt (service :1286-1311); Browser-Hash 'subtle.digest(\"SHA-256\", await file.arrayBuffer())' (src/frontend/src/utils/tenantImport.ts:47)"
+```
+
+**Neue Befunde.**
+
+- **Synchron bleibt, was das Archiv nicht braucht (drift, proceed).** Established: `request_import` prüft heute Rolle (`tenant_export_service.py:756-757`), Größe (`:758-759`) und Step-up (`:761-771`), bevor es das Archiv öffnet, danach `_verified_archive` (`:774`), die Zuordnung (`:775`), den Plan (`:776-778`), die Kontingente (`:779`) und den Objektspeicher (`:780-781`). Von der Zuordnung braucht nur die Frage „ist der Schlüssel ein Mitglied des Archivs“ das Archiv (`known`, `:962`, `:968`); Konto, Rolle und Scopes kommen aus dem Antrag (`:965-984`). Nach Option B bleiben Rolle, Größe, Step-up, „Plan vorhanden“ und E-Mail → Konto synchron; der Abgleich der Mitgliedsschlüssel, die Kontingente (§8.4 Schritt 6) und die Katalogprüfung laufen nur noch im Worker, der sie heute schon ausführt (`:1013`, erneute Kontingentprüfung vor der Gründung laut Moduldoku `:42-44`).
+- **Ablehnungsdetails am Datensatz (prior-art, proceed).** Established: `_fail_import` speichert den Code immer, die Einträge aber nur für `IMPORT_MISSING_CATALOG_ENTRIES`, gekappt auf 200 (`:1105`); die Statuskarte zeigt Code und fehlende Katalogeinträge (`TenantImportStatusCard.tsx:241-266`). acceptance-6 verallgemeinert das auf jeden Code. REQ-056 §13.5 nennt den Bericht „Anzahl je Collection; keine Inhalte“ (`:565`); die Details sind Bezeichner (Collection, Schlüssel, Feld, Pfad), keine Feldwerte, und §13.5 wird mit acceptance-8 ergänzt.
+- **Überschneidung mit F-17 (overlap, proceed).** Begründung für `proceed`: F-15 liefert die Speicherung der Details und ihre Anzeige an der Statuskarte eines einzelnen Imports, F-17 zeigt denselben Datensatz zusätzlich in der Importliste. Es gibt eine Quelle (den Import-Datensatz) und zwei Ansichten; kein Kriterium wird doppelt umgesetzt. Mit Option B ist die zeilengenaue Meldung `IMPORT_MEMBER_NOT_FOUND` für unbekannte E-Mail-Adressen auch zwischen F-15 und F-17 vorhanden, ein Zwischenstand ohne sie entsteht nicht; die Kopplung „F-15 und F-17 ohne Zwischenrelease“ aus dem Lauf vom 27.11. entfällt.
+- **Überschneidung mit F-32 (overlap, proceed).** Begründung für `proceed`: F-32 fügt der Hintergrundprüfung einen weiteren Ablehnungsgrund hinzu und nutzt für seine Einträge das Detailfeld aus acceptance-6. F-15 definiert das Feld, F-32 füllt es; deshalb steht F-32 in der Reihenfolge nach F-15.
+- **Worker-`/tmp` (prior-art, proceed mit offenem Umsetzungspunkt).** Established: Der Worker schreibt und liest das Archiv über `SpooledTemporaryFile(max_size=_SPOOL_BYTES)` (`:503`, `:1006`; 32 MiB, `:162`), hält es beim Prüfen im Speicher (`tenant_export_engine.py:1000-1003`) und ersetzt die Objekte durch eine zweite Kopie (`_with_stored_bodies`, `tenant_export_service.py:1286-1312`); `celery-worker-tmp` ist speicherbasiert mit 64 Mi. Entschieden ist nur `backend-tmp`. Unestablished: ob ein 500-MiB-Archiv mit speicherbasiertem Worker-`/tmp` unter 2 GiB bleibt; das klärt erst der manuelle Lauf zu acceptance-1 (nicht durchgeführt). Siehe „Offene Punkte“.
+
+**Umgesetzte Edits aus dem Lauf vom 2026-11-27** (alle sechs): Kriterium 4 entlang Option B (jetzt acceptance-5 und -6), Kriterium 5 erweitert (acceptance-8), Hook 1 auf `workflow_dispatch` mit Chart-Contract, Hook 3 um „der Worker kennt die Importgrenze“, Zusammensetzung des 500-MiB-Archivs (acceptance-1), Notizen zu `too_large` und zum Worker-Limit korrigiert (oben datiert vermerkt). Zusätzlich: altes Kriterium 3 in acceptance-3 und -4 geteilt, `/tmp` des Backends als acceptance-7.
+
+**Verhältnis der vier Features (R-19).** F-15 hängt von keinem der anderen ab. F-32, F-17 und F-16 setzen F-15 voraus (Hintergrundprüfung, Detailfeld, Größen). Die Reihenfolge F-15 → F-32 → F-17 → F-16 trägt; Einzelheiten in `project/sprints/0005-garten-aus-archiv-vollstaendig-wiederherstellen.md`.
+
+**Ergebnis:** kein ungelöster Befund; F-15 ist `ready`.
+
 ## Risks
 
-- The worker's permanent memory limit grows to ~2 GiB; on small self-hosted nodes this competes with other pods.
-- Moving verification out of the backend request changes when a malformed archive is reported (async instead of in the upload response) — F-17's preflight shows the result.
+- Das Speicherlimit des Workers bleibt bei rund 2 GiB (`helm/kamerplanter/values.yaml:1662`); beim Prüfen eines fotolastigen 500-MiB-Archivs liegen die Objekte zeitweise doppelt im Speicher. Reicht das nicht, zeigt es der manuelle Lauf zu acceptance-1.
+- Wird der Worker vom Kernel wegen Speichermangels beendet, endet der Lauf nicht mit „zu groß“, sondern erst nach sechs Stunden über den Stale-Sweep (`tenant_export_service.py:168`, `:1402-1408`); acceptance-4 deckt nur das volle `/tmp` ab.
+- Die Import-Seite berechnet den Hash des Archivs im Browser über die ganze Datei im Speicher (`src/frontend/src/utils/tenantImport.ts:47`); bei 500 MiB kann das auf schwachen Geräten scheitern. Der manuelle Lauf prüft es einmal über die Oberfläche.
+- Ein fehlerhaftes Archiv wird nicht mehr in der Upload-Antwort gemeldet, sondern in der Statusanzeige. Bis F-17 die Importliste liefert, sieht der Admin das nur an der Statuskarte des gerade gestarteten Imports.
+- `/tmp` des Backends auf Disk braucht Platz auf dem Knoten für mindestens einen Upload an der Importgrenze; auf kleinen Knoten konkurriert das mit anderen Pods.
 
 ## References
 
-- Issue #2138 (MT-042), roadmap item R-19
+- Issue #3140 (Rest von #2138, MT-042), roadmap item R-19
 - `project/requirements/tenant-export-import-remainder.md` (R1, R2, R10–R12)
+- F-32, F-17 und F-16 setzen dieses Feature voraus
 
 ## Betreiberentscheidungen 2026-11-27
 
@@ -189,6 +283,9 @@ consistency_check:
 - Der Test mit einem Archiv von etwa 500 MiB läuft **nur manuell** (`workflow_dispatch`), weder je Pull Request noch nachts.
 - Es gibt nur eine Installation; Mandanten werden nicht zwischen Installationen verschoben. Die Datenschutz-Befunde zum Archiv (Abgleich mit abgeschlossenen Löschungen, `anon_`-Pseudonyme, GPS-Genauigkeit) laufen in einer eigenen Lane und sind kein Teil von R-19.
 - #2138 ist geschlossen; der Rest läuft als #3140.
+- **Kriterium 4: Option B.** Synchron bleiben Rolle, Größe, Step-up, „Plan vorhanden“ und E-Mail → Konto; alles Übrige läuft asynchron; die Ablehnungsdetails werden am Import-Datensatz gespeichert; die Doku zieht REQ-056 §8.4, AK-34, AK-46 und die Runbook-Tabelle nach (acceptance-5, -6, -8).
+- **`/tmp` des Backends liegt auf Disk** (Volume im Helm-Chart) und wird nicht speicherbasiert vergrößert (acceptance-7).
+- Sprint 5 enthält nur R-19; Reihenfolge der Umsetzung F-15 → F-32 → F-17 → F-16.
 
 ## Offene Betreiberentscheidungen (Re-run 2026-11-27)
 
@@ -196,6 +293,14 @@ consistency_check:
   - **Option A — Kriterium 4 nach F-17 verschieben:** Kriterium 1 ist gefährdet, weil das Backend ein 500-MiB-Archiv im Request prüfen müsste.
   - **Option B (empfohlen) — Kriterium 4 bleibt und benennt die Grenze:** Synchron bleiben Rolle, Größe, Step-up, „Plan vorhanden“ und E-Mail → Konto; alles Übrige wird asynchron. Die Ablehnungsdetails werden am Import-Datensatz gespeichert; Kriterium 5 zieht §8.4, AK-34, AK-46 und die Runbook-Tabelle (`:117-131`) nach.
   - **Ohne Übergangslösung — F-15 und F-17 im selben Sprint ohne Zwischenrelease:** Die zeilengenaue Meldung `IMPORT_MEMBER_NOT_FOUND` fehlt der Oberfläche dann nie in einem ausgelieferten Stand; beide Features sind aneinander gebunden.
+  - **Entschieden 2026-11-27: Option B.** Umgesetzt in acceptance-5 und -6; acceptance-8 zieht die Spec nach.
 - **Kriterium 4 — `/tmp` des Backends.** Heute sind `backend-tmp` und `celery-worker-tmp` speicherbasiert mit 64 Mi (`helm/kamerplanter/values.yaml:2468-2482`) und zählen gegen das Limit von 2 Gi (`:1022`, `:1662`). Für 500 MiB muss `backend-tmp` auf über 513 Mi wachsen.
   - **Speicherbasiert lassen:** Der Halbsatz „das Speicherlimit des Backends wächst nicht“ gilt nur dem Wert nach; der Upload belegt bis zu einem Viertel des Limits.
   - **`/tmp` auf Disk legen:** Der Arbeitsspeicher bleibt frei; das Chart braucht ein Volume mit Platz auf dem Knoten.
+  - **Entschieden 2026-11-27: `/tmp` des Backends auf Disk legen** (acceptance-7). Für den Worker siehe „Offene Punkte“.
+
+## Offene Punkte (Stand 2026-11-28)
+
+Keine offene Betreiberentscheidung blockiert F-15.
+
+- **`/tmp` des Workers — speicherbasiert vergrößern oder ebenfalls auf Disk?** Entschieden ist nur `backend-tmp`. Heute ist `celery-worker-tmp` speicherbasiert mit 64 Mi (`helm/kamerplanter/values.yaml:2478-2486`) und zählt gegen das Limit von 2 Gi (`:1662`). Die Wahl bleibt der Umsetzung überlassen, solange acceptance-1 hält und das Limit von 2 GiB nicht steigt. Empfehlung der Planung: auf Disk wie beim Backend, weil der Worker das Archiv beim Prüfen zusätzlich im Speicher hält. Blockiert niemanden; wünscht der Betreiber eine feste Vorgabe, genügt ein Satz vor dem Start von F-15.

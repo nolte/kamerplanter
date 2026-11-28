@@ -74,6 +74,17 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 - **R17** — REQ-056 (§8.2, §8.3, §13.5, §14) and the stale NFR-011 R-40 status SHALL be updated in the implementing features.
   - _dimension_: `acceptance_criteria` · _status_: `confirmed` · _source_: revisit, operator approval of all eight recommendations
 
+- **R18** — The import SHALL validate every document of an archive against its domain model in the background check (worker) before a tenant is founded; an archive with a document outside the model (for example an enum value out of range) SHALL be refused with the affected documents named, and nothing SHALL be written. The pre-check SHALL show the result (REQ-056 §12.4).
+  - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision 2026-11-27 (own small feature in R-19, F-32)
+
+### Revisit 2026-11-27 (operator decisions, recorded 2026-11-28)
+
+- **R12** is made precise (option B): synchronous stay role, size, step-up, "plan exists" and e-mail → account; everything else runs asynchronously in the worker; the refusal details are stored on the import record. The backend's `/tmp` moves to disk instead of growing in memory.
+- **R15** is limited (D2): the step-up confirmation of the pre-check is valid for one hour for the subsequent import and bound to the same admin; after that, or for another admin, a new step-up is required.
+- **R16** is limited (D1): archive errors appear as a failed pre-check in the import list; "audit-only" applies only to refusals before the upload is stored (role, size, step-up). The phase "writing readings" is delivered with the readings import (F-16), not with the list (F-17).
+- **R18** is new (see above). Sprint 5 contains only R-19; implementation order F-15 → F-32 → F-17 → F-16.
+- The bounded context's "restored or moved" is narrowed by the decision that there is only one installation: tenants are restored, not moved between installations.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).
