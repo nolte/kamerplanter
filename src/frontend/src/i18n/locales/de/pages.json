@@ -9387,7 +9387,6 @@
       "intro": "Notwendige Speicherungen für Anmeldung, Sprache und Gartenauswahl sind immer aktiv. Optional darf dein Browser bei einem Fehler einen Bericht an den Fehler-Tracker des Betreibers senden.",
       "scope_device": "Du bist nicht angemeldet: Deine Entscheidung gilt nur für diesen Browser. Eine Zustimmung gilt nicht für ein Konto – nach der Anmeldung fragen wir dich dort noch einmal. Eine Ablehnung gilt hier für jede Person, die sich in diesem Browser anmeldet.",
       "scope_account": "Deine Entscheidung wird in deinem Konto gespeichert und gilt in jedem Browser, in dem du angemeldet bist – außer in einem Browser, in dem das Senden abgelehnt wurde.",
-      "change_hint": "Du kannst sie jederzeit unter Datenschutz → Einwilligungen ändern.",
       "settings": "Einstellungen",
       "necessary": "Nur Notwendige",
       "accept_all": "Alle akzeptieren",
@@ -9398,10 +9397,15 @@
       "category": {
         "browser_error_reports": {
           "label": "Fehlerberichte aus dem Browser",
-          "description": "Tritt in deinem Browser ein Fehler auf, sendet er einen Bericht an den Fehler-Tracker, den der Betreiber dieser Installation eingerichtet hat ({{host}}). Der Bericht enthält die Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne vertrauliche Adressparameter, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält keine Formulareingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein Pseudonym deines Kontos. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses.",
+          "description": "Tritt in deinem Browser ein Fehler auf, sendet er einen Bericht an den Fehler-Tracker, den der Betreiber dieser Installation eingerichtet hat ({{host}}). Der Bericht enthält die Fehlermeldung mit Programmablauf, die aufgerufene Seite ohne Kennungen (Garten, Datensätze) und ohne vertrauliche Adressparameter, Browser, Betriebssystem und App-Version sowie die Schritte davor (Klicks auf Bedienelemente, Seitenwechsel, Konsolenmeldungen, Adresse und Status von Anfragen an den Server). Er enthält keine Formulareingaben, keine Anfrage-Inhalte, keine Cookies, keine E-Mail-Adresse und kein Pseudonym deines Kontos. Beim Empfang sieht der Tracker die IP-Adresse deines Anschlusses.",
           "host_unknown": "Adresse aus der Betreiber-Konfiguration"
         }
-      }
+      },
+      "summary": "Ein Bericht enthält die Fehlermeldung, die Seite ohne Kennungen, Browser und App-Version sowie die Schritte davor – keine Eingaben und kein Pseudonym deines Kontos. Er geht an {{host}}; der Empfänger sieht dabei deine IP-Adresse.",
+      "change_hint_device": "Ändern kannst du sie jederzeit über „Entscheidung dieses Browsers zu Fehlerberichten ändern“ unten auf der Anmeldeseite.",
+      "change_hint_account": "Du kannst sie jederzeit unter Datenschutz → Einwilligungen ändern.",
+      "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
+      "reload": "Seite neu laden"
     },
     "settings": {
       "heading": "Fehlerberichte aus dem Browser",
@@ -9415,7 +9419,9 @@
       "sync_failed": "Dein Stand konnte nicht mit dem Server abgeglichen werden. Bis das gelingt, sendet dieser Browser keine Fehlerberichte.",
       "revoke_pending": "Dein Widerruf gilt in diesem Browser, ist aber noch nicht beim Server angekommen. Er wird beim nächsten Abgleich nachgeholt.",
       "write_failed": "Die Änderung konnte nicht gespeichert werden. Bitte versuche es erneut.",
-      "retry": "Erneut versuchen"
+      "retry": "Erneut versuchen",
+      "text_outdated": "Der Text dieser Einwilligung hat sich geändert. Bitte lade die Seite neu und entscheide dann.",
+      "reload": "Seite neu laden"
     }
   }
 }

@@ -7,6 +7,7 @@ import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
 import { useTranslation } from 'react-i18next';
 import { useConsent } from '@/hooks/useConsent';
+import { useConsentTexts } from '@/hooks/useConsentTexts';
 import { browserReportsPermittedNow, decideOnDevice } from '@/observability/consent';
 import {
   decideAccountConsent,
@@ -40,24 +41,28 @@ export default function BrowserConsentSettings() {
   const [busy, setBusy] = useState(false);
   const [writeFailed, setWriteFailed] = useState(false);
   const managed = isBrowserConsentManaged();
+  const textsReady = useConsentTexts();
 
   // The page works even if the shell's lazy load of the sync module failed.
   useEffect(() => {
     if (managed) startAccountSync();
   }, [managed]);
 
-  if (!managed) return null;
+  // CB-007: no switch to a text that is not on screen.
+  if (!managed || !textsReady) return null;
 
   const { account, pendingRevoke } = snapshot;
   const device = snapshot.device.browser_error_reports;
   const accountGranted = account.kind === 'granted' && !pendingRevoke;
+  // CP-013: the server holds another text than this page shows — reload before deciding.
+  const outdated = account.kind === 'outdated';
   // Re-evaluated on every snapshot change; the age limit of an account grant is part of it.
   const sending = browserReportsPermittedNow(snapshot);
   const host =
     errorTrackerHost() ?? t('consent.banner.category.browser_error_reports.host_unknown');
 
   const toggle = async (granted: boolean) => {
-    if (busy) return;
+    if (busy || outdated) return;
     setBusy(true);
     setWriteFailed(false);
     const result = await decideAccountConsent(granted);
@@ -94,7 +99,7 @@ export default function BrowserConsentSettings() {
               input: {
                 'aria-describedby': 'browser-consent-settings-desc',
                 'aria-busy': busy || undefined,
-                'aria-disabled': busy || undefined,
+                'aria-disabled': busy || outdated || undefined,
               },
             }}
           />
@@ -115,6 +120,26 @@ export default function BrowserConsentSettings() {
           : t(sending ? 'consent.settings.status_sending' : 'consent.settings.status_not_sending')}
       </Typography>
 
+      {outdated && (
+        <Alert
+          severity="warning"
+          role="alert"
+          sx={{ mb: 1 }}
+          data-testid="browser-consent-outdated"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => window.location.reload()}
+              sx={TOUCH_TARGET}
+            >
+              {t('consent.settings.reload')}
+            </Button>
+          }
+        >
+          {t('consent.settings.text_outdated')}
+        </Alert>
+      )}
       {writeFailed && (
         <Alert
           severity="error"

@@ -43,6 +43,13 @@ import {
 } from '@/observability/consent';
 
 type SentryModule = typeof import('@sentry/react');
+type ScrubModule = typeof import('@/observability/errorTrackingScrub');
+
+/** What a start loads: the SDK and the PII rules, both behind the consent (CI-002, CI-006). */
+interface Loaded {
+  sdk: SentryModule;
+  scrub: ScrubModule;
+}
 
 /**
  * The SDK's `dataCollection` contract, derived from `init`'s own parameter
@@ -79,38 +86,6 @@ type DecidedDataCollection = Required<
  */
 export const ENVIRONMENTS = ['development', 'e2e', 'staging', 'production'] as const;
 
-/**
- * Substrings that mark a value as a credential or personal datum wherever it
- * appears *by name*. Matched case-insensitively against the name only, so no
- * secret has to be recognised by its shape.
- *
- * Coordinates are personal data too: a site's `gps_coordinates` is the home
- * address of a personal garden, and the field map's own position (REQ-053
- * GP-UX-026) must never leave the device (SR-019). The app puts neither into an
- * event or breadcrumb; the names are here so a future `extra`/`contexts`/query
- * parameter carrying one is redacted rather than shipped.
- */
-const SENSITIVE_NAME_PARTS = [
-  'authorization',
-  'api_key',
-  'apikey',
-  'cookie',
-  'coords',
-  'credential',
-  'email',
-  'geolocation',
-  'gps',
-  'latitude',
-  'longitude',
-  'passwd',
-  'password',
-  'secret',
-  'session',
-  'token',
-];
-
-const REDACTED = '[redacted]';
-
 /** Module-scoped handle, set only after a successful init. */
 let sentry: SentryModule | null = null;
 
@@ -125,7 +100,7 @@ const CLOSE_TIMEOUT_MS = 2000;
  * The chunk load, shared by every start. One `import()` per page: a grant ->
  * revoke -> grant burst reuses it instead of racing two loads of the same chunk.
  */
-let sdkLoad: Promise<SentryModule> | null = null;
+let sdkLoad: Promise<Loaded> | null = null;
 
 /** The init in flight, so a burst of consent events loads the SDK once. */
 let starting: Promise<boolean> | null = null;
@@ -140,104 +115,12 @@ let generation = 0;
 /** The consent subscription, registered once per page by `initErrorTracking`. */
 let unsubscribeConsent: (() => void) | null = null;
 
-export function isSensitiveName(name: string): boolean {
-  const lowered = name.toLowerCase();
-  return SENSITIVE_NAME_PARTS.some((part) => lowered.includes(part));
-}
+/** Default integrations that send outside `beforeSend` (UI-NFR-013 §5.3 CI-005). */
+export const SENDING_INTEGRATIONS: readonly string[] = ['BrowserSession'];
 
-/** Redact values under sensitive keys in place, keeping the keys visible. */
-export function redactRecord(record: Record<string, unknown>): void {
-  for (const key of Object.keys(record)) {
-    if (isSensitiveName(key)) {
-      record[key] = REDACTED;
-    }
-  }
-}
-
-/** Redact the values of sensitive `name=value` pairs in a query string or fragment. */
-function scrubParams(params: string): string {
-  return params
-    .split('&')
-    .map((pair) => {
-      const eq = pair.indexOf('=');
-      if (eq < 0) return pair;
-      const name = pair.slice(0, eq);
-      return isSensitiveName(name) ? `${name}=${REDACTED}` : pair;
-    })
-    .join('&');
-}
-
-/**
- * Strip the query string's and the fragment's sensitive parameters while
- * keeping the path.
- *
- * The path is the single most valuable grouping signal an event carries, so it
- * survives; a `?token=…` on it does not, and neither does a `#step_up_token=…`
- * — the step-up callback carries its one-time token in the fragment, and the
- * history breadcrumb of removing it records the old URL (#1815). Anything
- * unparseable is returned untouched rather than guessed at.
- */
-export function scrubUrl(url: string): string {
-  const hashAt = url.indexOf('#');
-  const beforeHash = hashAt < 0 ? url : url.slice(0, hashAt);
-  const fragment = hashAt < 0 ? null : url.slice(hashAt + 1);
-  const [base, query] = beforeHash.split('?');
-  let scrubbed = query ? `${base}?${scrubParams(query)}` : beforeHash;
-  if (fragment !== null) scrubbed += `#${scrubParams(fragment)}`;
-  return scrubbed;
-}
-
-/** `beforeSend`: strip personal data before the event leaves the browser. */
-export function scrubEvent(event: Record<string, unknown>): Record<string, unknown> {
-  const request = event.request as Record<string, unknown> | undefined;
-  if (request) {
-    // A request body is the richest source of personal data this app has
-    // (plant notes, harvest records, invitations); no triage need justifies it.
-    delete request.data;
-    delete request.cookies;
-    if (typeof request.url === 'string') request.url = scrubUrl(request.url);
-    if (typeof request.query_string === 'string') {
-      request.query_string = scrubUrl(`?${request.query_string}`).slice(1);
-    }
-    const headers = request.headers as Record<string, unknown> | undefined;
-    if (headers) redactRecord(headers);
-  }
-
-  const user = event.user as Record<string, unknown> | undefined;
-  if (user) {
-    // The id is the join key that makes an issue actionable; the attributes
-    // that identify the human are not.
-    event.user = { id: user.id, tenant: user.tenant };
-  }
-
-  for (const section of ['extra', 'tags', 'contexts'] as const) {
-    const value = event[section] as Record<string, unknown> | undefined;
-    if (value) redactRecord(value);
-  }
-
-  return event;
-}
-
-/**
- * `beforeBreadcrumb`: the same rules for the trail leading up to the event.
- *
- * `ui.input` breadcrumbs are dropped wholesale. The SDK records only that an
- * input happened, not its value — but the trail of *which* fields a user
- * touched on a member-invitation or health-observation form is itself context
- * we have no reason to ship, and dropping the category is cheaper to reason
- * about than auditing what a future SDK version decides to attach.
- */
-export function scrubBreadcrumb(crumb: Record<string, unknown>): Record<string, unknown> | null {
-  if (crumb.category === 'ui.input') return null;
-
-  const data = crumb.data as Record<string, unknown> | undefined;
-  if (data) {
-    if (typeof data.url === 'string') data.url = scrubUrl(data.url);
-    if (typeof data.from === 'string') data.from = scrubUrl(data.from);
-    if (typeof data.to === 'string') data.to = scrubUrl(data.to);
-    redactRecord(data);
-  }
-  return crumb;
+/** The SDK's integrations minus those that send on their own. */
+export function withoutSenders<T extends { name: string }>(defaults: T[]): T[] {
+  return defaults.filter((integration) => !SENDING_INTEGRATIONS.includes(integration.name));
 }
 
 function resolveSampleRate(raw: string | undefined): number {
@@ -355,9 +238,13 @@ export function stopErrorTracking(): void {
   });
 }
 
-function loadSdk(): Promise<SentryModule> {
+function loadSdk(): Promise<Loaded> {
   if (!sdkLoad) {
-    sdkLoad = import('@sentry/react').catch((error: unknown) => {
+    sdkLoad = Promise.all([
+      import('@sentry/react'),
+      import('@/observability/errorTrackingScrub'),
+    ]).then(([sdk, scrub]) => ({ sdk, scrub }));
+    sdkLoad = sdkLoad.catch((error: unknown) => {
       // A failed chunk load may be transient; let the next grant retry it.
       sdkLoad = null;
       throw error;
@@ -395,7 +282,7 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
   }
 
   try {
-    const Sentry = await loadSdk();
+    const { sdk: Sentry, scrub } = await loadSdk();
     // The user revoked (or the module was reset) while the chunk was loading.
     if (startedIn !== generation || !trackingPermitted()) return false;
     Sentry.init({
@@ -431,6 +318,13 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
         stackFrameVariables: false,
       } satisfies DecidedDataCollection,
       sampleRate: resolveSampleRate(config.SENTRY_SAMPLE_RATE),
+      // UI-NFR-013 CI-005 (#3025): only error events, and only through `beforeSend`.
+      // `BrowserSession` starts and sends a session after every init (whenIdleOrHidden),
+      // and client reports go out on every tab hide — neither passes `beforeSend`, so
+      // neither the consent re-check nor the 30-minute age limit would reach them.
+      // Measured in @sentry/browser 11.16.0 (`sdk.js` getDefaultIntegrations, `client.js`).
+      integrations: withoutSenders,
+      sendClientReports: false,
       // Performance tracing stays advisory per the observability spec and is
       // off until someone decides to adopt it.
       tracesSampleRate: 0,
@@ -439,11 +333,11 @@ async function loadAndInit(startedIn: number): Promise<boolean> {
       // over. `null` drops the event / breadcrumb.
       beforeSend: (event) =>
         (trackingPermitted()
-          ? scrubEvent(event as unknown as Record<string, unknown>)
+          ? scrub.scrubEvent(event as unknown as Record<string, unknown>)
           : null) as never,
       beforeBreadcrumb: (crumb) =>
         (trackingPermitted()
-          ? scrubBreadcrumb(crumb as unknown as Record<string, unknown>)
+          ? scrub.scrubBreadcrumb(crumb as unknown as Record<string, unknown>)
           : null) as never,
     });
     sentry = Sentry;

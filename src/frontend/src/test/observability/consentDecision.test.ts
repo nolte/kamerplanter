@@ -18,7 +18,7 @@ import {
 const NOW = 1_800_000_000_000;
 
 type Device = 'granted' | 'denied' | 'undecided';
-type Account = 'granted' | 'denied' | 'none' | 'unread' | 'failed' | 'stale';
+type Account = 'granted' | 'denied' | 'none' | 'unread' | 'failed' | 'stale' | 'outdated';
 
 function snap(
   device: Device,
@@ -39,7 +39,9 @@ function snap(
             ? { kind: 'undecided' }
             : account === 'failed'
               ? { kind: 'failed' }
-              : { kind: 'unknown' };
+              : account === 'outdated'
+                ? { kind: 'outdated' }
+                : { kind: 'unknown' };
   return {
     device: {
       necessary: true,
@@ -87,6 +89,9 @@ const TABLE: [
   ['undecided', 'signed_in', 'unread', false, false, null],
   ['granted', 'signed_in', 'failed', false, false, null],
   ['undecided', 'signed_in', 'failed', false, false, null],
+  // The server holds another text version than this page shows (CP-013).
+  ['undecided', 'signed_in', 'outdated', false, false, null],
+  ['granted', 'signed_in', 'outdated', false, false, null],
   // A confirmation older than 30 minutes no longer counts (CP-006, CP-011).
   ['undecided', 'signed_in', 'stale', false, false, null],
   // A pending revoke wins over everything the server still says (CP-009).

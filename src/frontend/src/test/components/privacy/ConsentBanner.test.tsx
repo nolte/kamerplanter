@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, fireEvent, act } from '@testing-library/react';
+import i18n from 'i18next';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import ConsentBanner from '@/components/privacy/ConsentBanner';
@@ -113,6 +114,50 @@ describe('UI-NFR-013 ConsentBanner', () => {
       expect(screen.getByTestId('consent-banner')).toBeInTheDocument();
     });
 
+    // CB-008 (#3025 F-4): recipient, content and IP note before anything is expanded.
+    it('shows recipient host, content and the IP note without expanding (CB-008)', () => {
+      renderWithProviders(<ConsentBanner />);
+      expect(screen.getByTestId('consent-banner-categories')).not.toBeVisible();
+      const visible = screen.getByTestId('consent-banner-summary');
+      expect(visible).toBeVisible();
+      expect(visible).toHaveTextContent('glitchtip.example.org');
+      expect(visible).toHaveTextContent(/IP-Adresse|IP address/);
+      expect(visible).toHaveTextContent(/keine Eingaben|no input/);
+    });
+
+    it('names the public way to take the decision back (CW-006)', () => {
+      renderWithProviders(<ConsentBanner />);
+      expect(screen.getByTestId('consent-banner')).toHaveTextContent(
+        /Entscheidung dieses Browsers zu Fehlerberichten ändern|Change this browser's decision on error reports/,
+      );
+    });
+
+    // CB-007 (#3025 F-3): no decision to a text that is not on screen.
+    it('renders no decision controls while the consent texts are missing, and appears once they load', () => {
+      let missing = true;
+      const exists = i18n.exists.bind(i18n);
+      const spy = vi
+        .spyOn(i18n, 'exists')
+        .mockImplementation(((key: string, options?: Parameters<typeof i18n.exists>[1]) =>
+          missing && String(key).startsWith('consent.')
+            ? false
+            : exists(key, options)) as typeof i18n.exists);
+      try {
+        renderWithProviders(<ConsentBanner />);
+        expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+
+        missing = false;
+        // The way a late feature bundle arrives (`loadFeatureNamespaces` -> addResourceBundle).
+        act(() => {
+          i18n.addResourceBundle('de', 'translation', {}, true, true);
+        });
+        expect(screen.getByTestId('consent-banner-accept-all')).toBeInTheDocument();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
     it('names what a report contains and where it goes, with the tracker host (CK-004)', () => {
       renderWithProviders(<ConsentBanner />);
       fireEvent.click(screen.getByTestId('consent-banner-settings'));
@@ -206,7 +251,10 @@ describe('UI-NFR-013 ConsentBanner', () => {
       fireEvent.click(screen.getByTestId('consent-banner-accept-all'));
 
       await vi.waitFor(() => expect(readConsentSnapshot().account.kind).toBe('granted'));
-      expect(posted).toHaveBeenCalledWith({ purpose: 'browser_error_reports' });
+      expect(posted).toHaveBeenCalledWith({
+        purpose: 'browser_error_reports',
+        purpose_version: '1.0',
+      });
       // The device decision is untouched: the click was the account's.
       expect(readConsent().browser_error_reports).toBeNull();
       expect(screen.queryByTestId('consent-banner')).not.toBeInTheDocument();
@@ -236,6 +284,35 @@ describe('UI-NFR-013 ConsentBanner', () => {
       fail = false;
       fireEvent.click(screen.getByTestId('consent-banner-retry'));
       await vi.waitFor(() => expect(readConsentSnapshot().account.kind).toBe('granted'));
+    });
+
+    // CP-013 (#3025 F-2): a newer text on the server asks for a reload, never "could not be saved".
+    it('asks for a reload when the server holds a newer text, and records nothing', async () => {
+      server.use(
+        http.post('/api/v1/privacy/consents', () =>
+          HttpResponse.json(
+            {
+              error_id: 'e',
+              error_code: 'CONSENT_TEXT_OUTDATED',
+              message: 'changed',
+              details: [],
+              path: '/api/v1/privacy/consents',
+              method: 'POST',
+            },
+            { status: 409 },
+          ),
+        ),
+      );
+      signedInUndecided();
+      renderWithProviders(<ConsentBanner />);
+
+      fireEvent.click(screen.getByTestId('consent-banner-accept-all'));
+
+      const alert = await screen.findByTestId('consent-banner-outdated');
+      expect(alert).toHaveTextContent(/lade die Seite neu|reload the page/);
+      expect(screen.queryByTestId('consent-banner-error')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('consent-banner-accept-all')).not.toBeInTheDocument();
+      expect(readConsentSnapshot().account.kind).toBe('outdated');
     });
 
     it('a decline stops at once even if the request fails, and says it is not stored yet', async () => {

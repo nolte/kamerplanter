@@ -4,14 +4,19 @@ import {
   captureHandledError,
   initErrorTracking,
   isErrorTrackingActive,
-  isSensitiveName,
-  redactRecord,
   resetErrorTrackingForTests,
+  stopErrorTracking,
+  withoutSenders,
+} from '@/observability/errorTracking';
+import {
+  isSensitiveName,
+  maskPath,
+  maskUrlsInText,
+  redactRecord,
   scrubBreadcrumb,
   scrubEvent,
   scrubUrl,
-  stopErrorTracking,
-} from '@/observability/errorTracking';
+} from '@/observability/errorTrackingScrub';
 import {
   CONSENT_STORAGE_KEY,
   INITIAL_CONSENT_STATE,
@@ -434,6 +439,81 @@ describe('errorTracking', () => {
       expect(options).not.toHaveProperty('sendDefaultPii');
     });
 
+    // UI-NFR-013 CI-005 (#3025 F-1): nothing may leave outside `beforeSend`.
+    it('sends no sessions and no client reports — only events through beforeSend', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        sendClientReports?: boolean;
+        tracesSampleRate?: number;
+        integrations: (defaults: { name: string }[]) => { name: string }[];
+      };
+      expect(options.sendClientReports).toBe(false);
+      expect(options.tracesSampleRate).toBe(0);
+      expect(options.integrations).toBe(withoutSenders);
+
+      // Against the defaults of the SDK actually installed, not a list from memory.
+      const browser = await vi.importActual<typeof import('@sentry/browser')>('@sentry/browser');
+      const defaults = browser.getDefaultIntegrations({});
+      const kept = options.integrations(defaults).map((i) => i.name);
+      expect(defaults.map((i) => i.name)).toContain('BrowserSession');
+      expect(kept).not.toContain('BrowserSession');
+      // Every other default is assessed in UI-NFR-013 §5.3; a new one fails here until it is.
+      expect(kept.sort()).toEqual(
+        [
+          'Breadcrumbs',
+          'BrowserApiErrors',
+          'Console',
+          'ConversationId',
+          'CultureContext',
+          'Dedupe',
+          'EventFilters',
+          'FunctionToString',
+          'GlobalHandlers',
+          'HttpContext',
+          'LinkedErrors',
+        ].sort(),
+      );
+    });
+
+    // CI-006 (#3025 F-6): the wiring of the masking, through the options handed to the SDK.
+    it('masks tenant slug and record keys in what beforeSend and beforeBreadcrumb pass on', async () => {
+      window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
+      storeDecision(true);
+      await initErrorTracking();
+      const options = sentryStub.init.mock.calls[0]![0] as {
+        beforeSend: (event: Record<string, unknown>) => Record<string, unknown>;
+        beforeBreadcrumb: (crumb: Record<string, unknown>) => Record<string, unknown> | null;
+      };
+
+      const sent = options.beforeSend({
+        request: { url: 'https://kp.example/pflanzen/plant-instances/48213' },
+        exception: {
+          values: [
+            {
+              value:
+                'Request failed with status code 500 (GET /api/v1/t/max-mustermann/sites/48213)',
+            },
+          ],
+        },
+      });
+      expect((sent.request as Record<string, unknown>).url).toBe(
+        'https://kp.example/pflanzen/plant-instances/:key',
+      );
+      expect(JSON.stringify(sent)).not.toContain('max-mustermann');
+      expect(JSON.stringify(sent)).not.toContain('48213');
+
+      const crumb = options.beforeBreadcrumb({
+        category: 'fetch',
+        data: { url: '/api/v1/t/max-mustermann/plant-instances/48213/photos', method: 'GET' },
+      })!;
+      expect((crumb.data as Record<string, unknown>).url).toBe(
+        '/api/v1/t/:tenant/plant-instances/:id/photos',
+      );
+    });
+
     it('wires the scrubbing hooks the PII policy relies on', async () => {
       window.__RUNTIME_CONFIG__ = { SENTRY_DSN: DSN };
       storeDecision(true);
@@ -482,6 +562,60 @@ describe('errorTracking', () => {
 
     it('leaves a plain tab fragment untouched', () => {
       expect(scrubUrl('/account#security')).toBe('/account#security');
+    });
+  });
+
+  describe('maskPath / maskUrlsInText (UI-NFR-013 CI-006)', () => {
+    it.each([
+      ['/api/v1/t/max-mustermann/plant-instances/48213', '/api/v1/t/:tenant/plant-instances/:id'],
+      ['/api/v1/t/gemeinschaftsgarten-lindenhof/sites/', '/api/v1/t/:tenant/sites/'],
+      ['/api/v1/tenants/max-mustermann/members', '/api/v1/tenants/:tenant/members'],
+      ['/api/v1/invitations/k7Qm2vXz9bLwR4tYp1sD8fGh/accept', '/api/v1/invitations/:token/accept'],
+      ['/api/v1/admin/platform/tenants/90412', '/api/v1/admin/platform/tenants/:tenant'],
+      ['/api/v1/species/0f8fad5b-d9cb-469f-a165-70867728950e', '/api/v1/species/:id'],
+      ['/api/v1/privacy/consents', '/api/v1/privacy/consents'],
+      ['/api/v1/t/max-mustermann/succession-plans', '/api/v1/t/:tenant/succession-plans'],
+      ['/standorte/sites/hochbeet/plan', '/standorte/sites/:key/plan'],
+      [
+        '/stammdaten/species/tomate/cultivars/san-marzano',
+        '/stammdaten/species/:speciesKey/cultivars/:cultivarKey',
+      ],
+      ['/password-reset/k7Qm2vXz9bLwR4tYp1sD8fGh', '/password-reset/:token'],
+      ['/dashboard', '/dashboard'],
+      ['/', '/'],
+    ])('%s -> %s', (path, masked) => {
+      expect(maskPath(path)).toBe(masked);
+    });
+
+    it('masks the path of an absolute URL and keeps origin and query rules', () => {
+      expect(scrubUrl('https://kp.example/api/v1/t/max-mustermann/tasks/77?token=x#tab')).toBe(
+        'https://kp.example/api/v1/t/:tenant/tasks/:id?token=[redacted]#tab',
+      );
+    });
+
+    it('masks URLs inside free text (Axios messages, console lines)', () => {
+      expect(
+        maskUrlsInText(
+          'GET https://kp.example/api/v1/t/max-mustermann/sites/12 failed; retry /api/v1/t/max-mustermann/x',
+        ),
+      ).toBe('GET https://kp.example/api/v1/t/:tenant/sites/:id failed; retry /api/v1/t/:tenant/x');
+      expect(maskUrlsInText('no url here')).toBe('no url here');
+    });
+
+    it('masks the Referer header, the transaction and console breadcrumbs', () => {
+      const event = scrubEvent({
+        request: {
+          headers: { Referer: 'https://kp.example/standorte/sites/77', 'User-Agent': 'UA' },
+        },
+        transaction: '/pflanzen/plant-instances/4711',
+      });
+      const headers = (event.request as Record<string, unknown>).headers as Record<string, unknown>;
+      expect(headers.Referer).toBe('https://kp.example/standorte/sites/:key');
+      expect(event.transaction).toBe('/pflanzen/plant-instances/:key');
+      expect(
+        scrubBreadcrumb({ category: 'console', message: 'xhr /api/v1/t/max-mustermann/a/9 404' })!
+          .message,
+      ).toBe('xhr /api/v1/t/:tenant/a/:id 404');
     });
   });
 

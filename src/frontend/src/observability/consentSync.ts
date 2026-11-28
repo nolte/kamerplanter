@@ -10,6 +10,7 @@
  */
 
 import { grantConsent, listConsents, revokeConsent } from '@/api/endpoints/privacy';
+import { isApiError } from '@/api/errors';
 import type { ConsentRecord } from '@/api/types';
 import {
   BROWSER_ERROR_REPORTS,
@@ -32,8 +33,11 @@ export const RECHECK_INTERVAL_MS = 10 * 60_000;
 /** A tab becoming visible again re-reads at most this often (CP-011). */
 export const VISIBLE_RECHECK_MIN_MS = 60_000;
 
-/** Result of a decision of the signed-in person. */
-export type AccountWriteResult = 'confirmed' | 'failed';
+/** Result of a decision of the signed-in person; `outdated` = the text changed, reload (CP-013). */
+export type AccountWriteResult = 'confirmed' | 'failed' | 'outdated';
+
+/** The backend's code for a grant to a text version that is not the current one (REQ-025 v1.42). */
+export const CONSENT_TEXT_OUTDATED = 'CONSENT_TEXT_OUTDATED';
 
 /**
  * The account consent from a `GET /privacy/consents` answer.
@@ -46,8 +50,9 @@ export type AccountWriteResult = 'confirmed' | 'failed';
  */
 export function accountConsentFrom(records: readonly ConsentRecord[], now: number): AccountConsent {
   const record = records.find((r) => r.purpose === BROWSER_ERROR_REPORTS);
-  if (!record || record.purpose_version !== BROWSER_ERROR_REPORTS_VERSION)
-    return { kind: 'failed' };
+  if (!record) return { kind: 'failed' };
+  // CP-013: the server holds another text than this page shows (e.g. a cached bundle) — reload.
+  if (record.purpose_version !== BROWSER_ERROR_REPORTS_VERSION) return { kind: 'outdated' };
   if (record.granted) {
     return record.consent_version === record.purpose_version
       ? { kind: 'granted', confirmedAt: now }
@@ -152,8 +157,13 @@ export async function decideAccountConsent(granted: boolean): Promise<AccountWri
 
   let record: ConsentRecord;
   try {
-    record = await grantConsent(BROWSER_ERROR_REPORTS);
-  } catch {
+    // CP-013: the grant names the text version this page showed; the server refuses another.
+    record = await grantConsent(BROWSER_ERROR_REPORTS, BROWSER_ERROR_REPORTS_VERSION);
+  } catch (error) {
+    if (isApiError(error) && error.errorCode === CONSENT_TEXT_OUTDATED) {
+      recordAccountDecision(account, { kind: 'outdated' });
+      return 'outdated';
+    }
     return 'failed';
   }
   const next = accountConsentFrom([record], Date.now());

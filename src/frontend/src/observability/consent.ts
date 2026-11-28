@@ -69,6 +69,8 @@ export type AuthStatus =
 export type AccountConsent =
   | { readonly kind: 'unknown' }
   | { readonly kind: 'failed' }
+  /** The server holds a different text version than this page shows (CP-013): reload. */
+  | { readonly kind: 'outdated' }
   | { readonly kind: 'undecided' }
   | { readonly kind: 'denied' }
   | { readonly kind: 'granted'; readonly confirmedAt: number };

@@ -45,6 +45,7 @@ let failGet: boolean;
 let failDelete: boolean;
 let failPost: boolean;
 let holdGet: Promise<void> | null;
+let postedVersions: (string | undefined)[];
 
 function record(user: string): ServerRecord {
   return records[user] ?? { granted: false, consent_version: null, revoked_at: null };
@@ -76,9 +77,25 @@ function installServer(): void {
       if (holdGet) await holdGet;
       return HttpResponse.json([body(user, asOfRequest)]);
     }),
-    http.post('/api/v1/privacy/consents', () => {
+    http.post('/api/v1/privacy/consents', async ({ request }) => {
       calls.push(`POST ${signedIn}`);
       if (failPost) return new HttpResponse(null, { status: 503 });
+      const sent = (await request.json()) as { purpose_version?: string };
+      postedVersions.push(sent.purpose_version);
+      // REQ-025 v1.42: like the real server, refuse a grant to another text and write nothing.
+      if (sent.purpose_version !== purposeVersion) {
+        return HttpResponse.json(
+          {
+            error_id: 'e1',
+            error_code: 'CONSENT_TEXT_OUTDATED',
+            message: 'The text changed.',
+            details: [],
+            path: '/api/v1/privacy/consents',
+            method: 'POST',
+          },
+          { status: 409 },
+        );
+      }
       records[signedIn!] = { granted: true, consent_version: purposeVersion, revoked_at: null };
       return HttpResponse.json(body(signedIn!), { status: 201 });
     }),
@@ -154,6 +171,7 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     failDelete = false;
     failPost = false;
     holdGet = null;
+    postedVersions = [];
     installServer();
   });
 
@@ -252,13 +270,13 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
     expect(consentPrompt(readConsentSnapshot())).toBe('account');
   });
 
-  it('a server whose purpose text differs from this browser’s counts as not reconciled', async () => {
+  it('a server whose purpose text differs from this browser’s is "outdated": no report, no question (CP-013)', async () => {
     purposeVersion = '2.0';
     records['user-a'] = { granted: true, consent_version: '2.0', revoked_at: null };
     const store = boot();
 
     signIn(store, 'user-a');
-    await accountSettles('failed');
+    await accountSettles('outdated');
 
     expect(sends()).toBe(false);
     expect(consentPrompt(readConsentSnapshot())).toBeNull();
@@ -289,6 +307,22 @@ describe('account consent reconciliation (UI-NFR-013 v1.3 §5.4)', () => {
 
     expect(records['user-a']).toEqual({ granted: true, consent_version: '1.0', revoked_at: null });
     expect(sends()).toBe(true);
+  });
+
+  it('a grant sends the version shown; a newer text on the server writes nothing (F-2, CP-013)', async () => {
+    const store = boot();
+    signIn(store, 'user-a');
+    await accountSettles('undecided');
+    // The backend moved on to text 1.1 while this page still shows 1.0 (e.g. a cached bundle).
+    purposeVersion = '1.1';
+
+    await expect(decideAccountConsent(true)).resolves.toBe('outdated');
+
+    expect(postedVersions).toEqual(['1.0']);
+    expect(records['user-a']).toBeUndefined();
+    expect(readConsentSnapshot().account.kind).toBe('outdated');
+    expect(sends()).toBe(false);
+    expect(consentPrompt(readConsentSnapshot())).toBeNull();
   });
 
   it('a failed grant changes nothing (CP-012)', async () => {

@@ -540,5 +540,8 @@
   "sensorChart": {
     "noData": "Keine Messdaten vorhanden",
     "loadError": "Messdaten konnten nicht geladen werden"
+  },
+  "consentPublic": {
+    "reset": "Entscheidung dieses Browsers zu Fehlerberichten ändern"
   }
 }

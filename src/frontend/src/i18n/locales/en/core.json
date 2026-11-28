@@ -540,5 +540,8 @@
   "sensorChart": {
     "noData": "No sensor data available",
     "loadError": "Failed to load sensor data"
+  },
+  "consentPublic": {
+    "reset": "Change this browser's decision on error reports"
   }
 }

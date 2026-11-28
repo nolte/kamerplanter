@@ -2,6 +2,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAppSelector } from '@/store/hooks';
 import LoadingSkeleton from '@/components/common/LoadingSkeleton';
 import { postLoginPath } from '@/utils/pendingInvitation';
+import DeviceConsentReset from '@/components/privacy/DeviceConsentReset';
 
 export default function PublicOnlyRoute() {
   const { isAuthenticated, initialized } = useAppSelector((s) => s.auth);
@@ -21,5 +22,11 @@ export default function PublicOnlyRoute() {
     return <Navigate to={postLoginPath(search)} replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      <Outlet />
+      {/* UI-NFR-013 CW-006 (#3025): take back this browser's error-report decision without signing in. */}
+      <DeviceConsentReset />
+    </>
+  );
 }

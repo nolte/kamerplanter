@@ -7,9 +7,11 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
+import type { SxProps, Theme } from '@mui/material/styles';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
 import { useConsent } from '@/hooks/useConsent';
+import { useConsentTexts } from '@/hooks/useConsentTexts';
 import { consentPrompt, decideOnDevice } from '@/observability/consent';
 import { decideAccountConsent } from '@/observability/consentSync';
 import { errorTrackerHost } from '@/observability/errorTracking';
@@ -26,6 +28,23 @@ export interface ConsentBannerProps {
 const TOUCH_TARGET = { minHeight: 48 } as const;
 
 const CATEGORY_TEST_ID = 'consent-banner-browser-error-reports';
+
+const BANNER_SX: SxProps<Theme> = {
+  position: 'fixed',
+  left: 16,
+  right: 16,
+  // Clear of the iOS home indicator / Android gesture bar — and of the phone's bottom navigation, whose
+  // offset already contains that inset (#3018).
+  bottom: `calc(16px + var(${BOTTOM_NAV_OFFSET}, env(safe-area-inset-bottom)))`,
+  // Above page content and the app bar, below modals, drawers and
+  // snackbars — a dialog or an error toast must never hide under it.
+  zIndex: (theme) => theme.zIndex.modal - 1,
+  p: 2,
+  borderRadius: 2,
+  // `dvh` tracks the visible viewport when mobile browser chrome shows.
+  maxHeight: 'calc(100dvh - 32px)',
+  overflowY: 'auto',
+};
 
 /**
  * UI-NFR-013 §3.1/§4 consent banner for browser error reports (#2159, #3025).
@@ -51,11 +70,14 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
   const [draft, setDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [outdated, setOutdated] = useState(false);
+  const textsReady = useConsentTexts();
   const categoriesId = useId();
   const errorId = useId();
 
   const prompt = consentPrompt(snapshot);
-  if (prompt === null) return null;
+  // CB-007: never a decision to a text that is not on screen (the texts are a lazy bundle).
+  if ((prompt === null && !outdated) || !textsReady) return null;
 
   const decide = async (choice: ConsentChoice) => {
     if (busy) return;
@@ -70,6 +92,10 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
     const result = await decideAccountConsent(granted);
     setBusy(false);
     if (result === 'confirmed') return;
+    if (result === 'outdated') {
+      setOutdated(true);
+      return;
+    }
     if (granted) setFailed(true);
     // A decline already applies here and the banner is gone: say that it is not stored yet.
     else enqueueSnackbar(t('consent.banner.revoke_pending'), { variant: 'warning' });
@@ -79,6 +105,37 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
     errorTrackerHost() ?? t('consent.banner.category.browser_error_reports.host_unknown');
   const busyProps = { 'aria-disabled': busy || undefined, 'aria-busy': busy || undefined };
 
+  if (outdated) {
+    // CP-013: the server holds a newer text than this page — no decision until it is reloaded.
+    return (
+      <Paper
+        elevation={6}
+        role="region"
+        aria-label={t('consent.banner.aria_label')}
+        data-testid="consent-banner"
+        sx={BANNER_SX}
+      >
+        <Alert
+          severity="warning"
+          role="alert"
+          data-testid="consent-banner-outdated"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => window.location.reload()}
+              sx={TOUCH_TARGET}
+            >
+              {t('consent.banner.reload')}
+            </Button>
+          }
+        >
+          {t('consent.banner.text_outdated')}
+        </Alert>
+      </Paper>
+    );
+  }
+
   return (
     <Paper
       elevation={6}
@@ -86,31 +143,22 @@ export default function ConsentBanner({ onChoice }: ConsentBannerProps) {
       aria-label={t('consent.banner.aria_label')}
       data-testid="consent-banner"
       data-consent-form={prompt}
-      sx={{
-        position: 'fixed',
-        left: 16,
-        right: 16,
-        // Clear of the iOS home indicator / Android gesture bar — and of the phone's bottom navigation, whose
-        // offset already contains that inset (#3018).
-        bottom: `calc(16px + var(${BOTTOM_NAV_OFFSET}, env(safe-area-inset-bottom)))`,
-        // Above page content and the app bar, below modals, drawers and
-        // snackbars — a dialog or an error toast must never hide under it.
-        zIndex: (theme) => theme.zIndex.modal - 1,
-        p: 2,
-        borderRadius: 2,
-        // `dvh` tracks the visible viewport when mobile browser chrome shows.
-        maxHeight: 'calc(100dvh - 32px)',
-        overflowY: 'auto',
-      }}
+      sx={BANNER_SX}
     >
       <Stack spacing={1.5}>
         <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600 }}>
           {t('consent.banner.title')}
         </Typography>
+        <Typography variant="body2" color="text.secondary" data-testid="consent-banner-summary">
+          {t('consent.banner.intro')} {t('consent.banner.summary', { host })}
+        </Typography>
         <Typography variant="body2" color="text.secondary">
-          {t('consent.banner.intro')}{' '}
           {t(prompt === 'account' ? 'consent.banner.scope_account' : 'consent.banner.scope_device')}{' '}
-          {t('consent.banner.change_hint')}
+          {t(
+            prompt === 'account'
+              ? 'consent.banner.change_hint_account'
+              : 'consent.banner.change_hint_device',
+          )}
         </Typography>
         {failed && (
           <Alert
