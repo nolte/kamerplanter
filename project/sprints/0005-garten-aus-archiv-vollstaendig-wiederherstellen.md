@@ -130,12 +130,12 @@ Betreiberentscheidungen vom 2026-11-28:
 Vorgaben der Hauptsitzung vom 2026-11-28, nach ihren Messungen gegen
 TimescaleDB 2.32.1-pg16: Was älter ist als die Aufbewahrungsfrist seiner
 Ebene (Rohwerte, Stundenwerte, Tageswerte), wird nicht eingespielt, sondern
-gezählt, mit Schnitt an einer Tagesgrenze (F-16, F-34); nach dem Import
-ändert ein volles Neuberechnen keinen Wert irgendeines Mandanten (F-16,
-F-34); der Import berechnet vor dem Schreiben der Stunden- und Tageswerte
-genau die Zeiträume neu, die er beschreibt, damit die Werte auch in einer
-Installation erhalten bleiben, die bisher nur Policy-Läufe gesehen hat
-(F-34 `acceptance-4`); ungültige Angaben in `tenant.json` werden abgelehnt
+gezählt, mit Schnitt an einer Tagesgrenze (F-16, F-34); Stundenwerte
+werden nur innerhalb der Rohwert-Frist neu berechnet, Tageswerte nur
+innerhalb der Stundenwert-Frist, vom Import wie von den Löschwegen (F-16,
+F-34): Die Aufbewahrung der Rohwerte hinterlässt selbst Vormerkungen, und
+ein Neuberechnen der Stundenwerte jenseits der Rohwert-Frist löscht die
+Stundenwerte aller Mandanten (gemessen); ungültige Angaben in `tenant.json` werden abgelehnt
 statt ersetzt (F-32).
 
 Festlegungen der Planung vom 2026-11-28, nicht vom Betreiber entschieden und
@@ -151,16 +151,16 @@ Hauptsitzung, damit zwischen F-16 und F-34 keine Vormerkung offen bleibt
 (F-16); die Grenze von 1 MiB für `manifest.json` bleibt, der Export lehnt
 ab (F-15).
 
-Aus dem Repository und den Messungen nicht belegt, durch Integrationstests
-zu klären (F-34 `acceptance-4`): ob das begrenzte Neuberechnen vor dem
-Schreiben wirkt wie das gemessene volle und was in einer leeren
-Zielinstallation gilt. Alte Vormerkungen aus früheren Löschungen: gemessen,
-Semantik einzelner Einträge offen. Sie sind im Katalog der
-Zeitreihendatenbank lesbar; der Import bricht ab, bevor er schreibt, wenn in
-seinen Zielzeiträumen eine liegt, die sich aus Rohwerten nicht mehr heilen
-lässt (F-34 `acceptance-8`). Offen ist, wie sich eine solche Vormerkung vom
-Normalzustand eines nie voll neu berechneten Aggregats unterscheiden lässt
-und was der Betreiber nach einem Abbruch tut (F-34, „Offene Punkte“). Offen für den Betreiber, ohne
+Der sichere Weg für die älteren Stunden- und Tageswerte ist gemessen:
+direkt schreiben, die Stundenwerte dort nie neu berechnen, die Tageswerte
+nur über den eingespielten Stundenwert-Zeitraum. Die eingespielten Werte
+sind damit so dauerhaft wie die eigene Historie der Installation. Dass ein
+Neuberechnen jenseits der Rohwert-Frist die ältere Historie aller Gärten
+löscht, ist ein bestehendes Risiko außerhalb dieses Sprints (Issue #3172:
+Runbook-Warnung und Guard); F-16 und F-34 bauen ihre Aufrufe so, dass der
+Guard sie zuließe. Noch nicht gemessen, durch Integrationstests zu klären
+(F-34 `acceptance-3`, `-4`): das Neuberechnen der Tageswerte über einen
+langen Zeitraum und eine leere Zielinstallation. Offen für den Betreiber, ohne
 ein Feature zu blockieren: ob die Grenze für `manifest.json` steigen soll
 (F-15).
 

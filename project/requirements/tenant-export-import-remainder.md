@@ -115,6 +115,12 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
   - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision F, 2026-11-28 (F-16)
 - **R4/R13** are made precise by a measurement against TimescaleDB 2.32.1-pg16: periods before an installation's first refresh count as never materialised, and a full refresh deletes directly written values there. The import therefore recomputes exactly the periods it is about to write before it writes them (F-34). Not measured: the bounded form of that recompute and an empty target installation. Measured later the same day: pending marks left by deletions before R19 are readable in TimescaleDB's catalogue; the import refuses before it writes when its target periods hold one that raw rows can no longer heal (F-34 acceptance-8). The meaning of single catalogue entries is still open.
 
+### Revisit 2026-11-28, sixth round (a fifth measurement)
+
+- Measured against TimescaleDB 2.32.1-pg16: the raw retention itself leaves pending marks, and a refresh of `sensor_hourly` beyond the raw retention deletes the hourly values of all tenants; refreshing only `sensor_daily` over a day on which every tenant's hourly values stand is harmless.
+- **R13/R19** are bounded accordingly: `sensor_hourly` is recomputed only inside the raw retention, `sensor_daily` only inside the hourly retention, by the import and by the deletion paths alike. The pre-write recompute and the refusal on an old pending mark, both recorded in the fifth round, are dropped.
+- The standing risk for every tenant (a refresh beyond the retention) is issue #3172 and outside this requirement set.
+
 ## Surviving assumptions / open risks
 
 - **Revisit 2026-11-17:** the consistency check showed that the e-mail member mapping (`member_mapping {email, role, admin_scopes}`, `tenant_export_service.py:954-982`) and the 413 response already exist — R7 reduces to pre-filling the rows from the preflight; the import history retention is NFR-011 R-40 (30 days, `REQUEST_RETENTION`).
