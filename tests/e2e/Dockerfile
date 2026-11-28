@@ -4,7 +4,7 @@
 # a vendored axe.min.js would not give. The E2E image builds from ./tests/e2e and
 # therefore cannot reach src/frontend/node_modules, which is why the dependency
 # is declared here rather than borrowed from the frontend tree.
-FROM node:26-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc AS axe
+FROM node:26-slim@sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5 AS axe
 WORKDIR /axe
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts

@@ -47,7 +47,7 @@ RUN npm run build
 # Upstream publishes this image as `nginx/nginx-unprivileged`. The former
 # `nginxinc/nginx-unprivileged` repository still resolves but stopped receiving
 # tags at 1.31.7, so a pin on it never gets a security release.
-FROM nginx/nginx-unprivileged:1.31-alpine@sha256:60214a103e6f38e953ff957f34b1f2e97a9db801ab2df3821da955d0fe6cadd6 AS prod
+FROM nginx/nginx-unprivileged:1.31-alpine@sha256:86628f2c9eaa5e84e3b98d25e26563c4a4f9b0ead9cf5656da4731d86e0621de AS prod
 
 LABEL org.opencontainers.image.title="kamerplanter-frontend" \
       org.opencontainers.image.description="Kamerplanter web UI (React single-page app served by nginx) for managing plants, locations, tasks and dashboards" \
