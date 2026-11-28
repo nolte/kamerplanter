@@ -113,7 +113,7 @@ Self-consistency (k=2) diverged on the target size (config-only vs. presigned/ch
 
 - **R19** — Every deletion of raw readings (sensor, tenant, rollback of an import, sweep of abandoned imports) SHALL have its period recomputed at once, hourly first, then daily, in one place of the data-access layer, so that no pending mark is left behind.
   - _dimension_: `functional`, `constraints` · _status_: `confirmed` · _source_: operator decision F, 2026-11-28 (F-16)
-- **R4/R13** are made precise by a measurement against TimescaleDB 2.32.1-pg16: periods before an installation's first refresh count as never materialised, and a full refresh deletes directly written values there. The import therefore recomputes exactly the periods it is about to write before it writes them (F-34). Not measured: the bounded form of that recompute, an empty target installation, and whether pending marks left by deletions before R19 can be detected.
+- **R4/R13** are made precise by a measurement against TimescaleDB 2.32.1-pg16: periods before an installation's first refresh count as never materialised, and a full refresh deletes directly written values there. The import therefore recomputes exactly the periods it is about to write before it writes them (F-34). Not measured: the bounded form of that recompute and an empty target installation. Measured later the same day: pending marks left by deletions before R19 are readable in TimescaleDB's catalogue; the import refuses before it writes when its target periods hold one that raw rows can no longer heal (F-34 acceptance-8). The meaning of single catalogue entries is still open.
 
 ## Surviving assumptions / open risks
 

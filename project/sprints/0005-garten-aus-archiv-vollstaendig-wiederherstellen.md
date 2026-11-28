@@ -153,11 +153,14 @@ ab (F-15).
 
 Aus dem Repository und den Messungen nicht belegt, durch Integrationstests
 zu klären (F-34 `acceptance-4`): ob das begrenzte Neuberechnen vor dem
-Schreiben wirkt wie das gemessene volle, was in einer leeren Zielinstallation
-gilt, und ob der Import alte Vormerkungen aus früheren Löschungen erkennen
-kann. Der letzte Punkt sollte vor dem ersten Import in die echte Installation
-geklärt sein: Ohne ihn kann das Neuberechnen dort Stunden- und Tageswerte
-anderer Gärten löschen (F-34, „Offene Punkte“). Offen für den Betreiber, ohne
+Schreiben wirkt wie das gemessene volle und was in einer leeren
+Zielinstallation gilt. Alte Vormerkungen aus früheren Löschungen: gemessen,
+Semantik einzelner Einträge offen. Sie sind im Katalog der
+Zeitreihendatenbank lesbar; der Import bricht ab, bevor er schreibt, wenn in
+seinen Zielzeiträumen eine liegt, die sich aus Rohwerten nicht mehr heilen
+lässt (F-34 `acceptance-8`). Offen ist, wie sich eine solche Vormerkung vom
+Normalzustand eines nie voll neu berechneten Aggregats unterscheiden lässt
+und was der Betreiber nach einem Abbruch tut (F-34, „Offene Punkte“). Offen für den Betreiber, ohne
 ein Feature zu blockieren: ob die Grenze für `manifest.json` steigen soll
 (F-15).
 
